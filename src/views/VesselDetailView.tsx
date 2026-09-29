@@ -4339,9 +4339,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 <div className="d-flex align-items-center gap-2">
                   <div className="p-2 bg-primary-subtle text-primary rounded-3">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                      <circle cx="8.5" cy="8.5" r="1.5"/>
-                      <polyline points="21 15 16 10 5 21"/>
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <polyline points="21 15 16 10 5 21" />
                     </svg>
                   </div>
                   <div>
