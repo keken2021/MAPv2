@@ -267,31 +267,6 @@ label .req-star {
   z-index: 2;
 }
 
-.map-marketplace-fav-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  color: #64748b;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-  transition: all 0.15s ease;
-  z-index: 2;
-}
-
-.map-marketplace-fav-btn:hover {
-  background: #ffffff;
-  color: #ef4444;
-  transform: scale(1.1);
-}
-
 .map-marketplace-org-box {
   background-color: #f8fafc;
   border-radius: 12px;
