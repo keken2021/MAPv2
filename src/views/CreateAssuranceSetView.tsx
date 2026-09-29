@@ -99,7 +99,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     what: triggers the autofill shimmer animation on a given list of field ids.
     how: adds all ids to the animating set, then removes them after 750ms so the
          css animation plays exactly once without permanently altering the element style.
-    with what file: CreateAssuranceSetView.tsx ù called from applyTemplateData.
+    with what file: CreateAssuranceSetView.tsx  called from applyTemplateData.
   */
   const triggerAutofillAnimation = useCallback((fieldIds: string[]) => {
     setAnimatingFields(new Set(fieldIds));
@@ -166,11 +166,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const vesselDisplayName = targetSet.vesselName || targetVesselObj?.name || 'Vessel';
 
     const baseSubject = targetSet.title
-      .replace(new RegExp(`^${templateCharterer}\\s*[-ù:]*\\s*`, 'i'), '')
-      .replace(/^Chevron Australia( Pty Ltd)?\s*[-ù:]*\s*/i, '')
-      .replace(/^Northwind Marine( Pty Ltd)?\s*[-ù:]*\s*/i, '')
-      .replace(/^Woodside Energy( Ltd)?\s*[-ù:]*\s*/i, '')
-      .replace(/^Inpex( Operations Australia)?\s*[-ù:]*\s*/i, '')
+      .replace(new RegExp(`^${templateCharterer}\\s*[-ÔøΩ:]*\\s*`, 'i'), '')
+      .replace(/^Chevron Australia( Pty Ltd)?\s*[-ÔøΩ:]*\s*/i, '')
+      .replace(/^Northwind Marine( Pty Ltd)?\s*[-ÔøΩ:]*\s*/i, '')
+      .replace(/^Woodside Energy( Ltd)?\s*[-ÔøΩ:]*\s*/i, '')
+      .replace(/^Inpex( Operations Australia)?\s*[-ÔøΩ:]*\s*/i, '')
       .replace(/\s*\(C Admin Charter Vetting\)/i, '')
       .trim();
 
@@ -480,10 +480,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           {/* left column: section 1, section 2, and section 5 */}
           <div className="col-12 col-lg-6 d-flex flex-column gap-4">
 
-            {/* 1 ù campaign & vessel information */}
+            {/* 1  campaign & vessel information */}
             <div className="card border shadow-sm rounded-3 bg-white">
               <div className="card-header bg-light border-bottom px-4 py-3">
-                <h5 className="fw-bold text-slate-900 m-0 fs-6">1 ù Campaign & Vessel Information</h5>
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">1  Campaign & Vessel Information</h5>
               </div>
               <div className="card-body p-4">
                 <div className="row g-3">
@@ -501,7 +501,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <option value="">-- Select an existing Assurance Set to auto-fill --</option>
                       {assuranceSets.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.id}: {s.title} ({s.vesselName} ù {s.initiatorRole})
+                          {s.id}: {s.title} ({s.vesselName}  {s.initiatorRole})
                         </option>
                       ))}
                     </select>
@@ -616,7 +616,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       ) : (
                         availableVessels.map((v) => (
                           <option key={v.id} value={v.id}>
-                            {v.name} (IMO: {v.imoNumber} ù Flag: {v.flagState})
+                            {v.name} (IMO: {v.imoNumber}  Flag: {v.flagState})
                           </option>
                         ))
                       )}
@@ -655,10 +655,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
             </div>
 
-            {/* 2 ù charter window timeline */}
+            {/* 2  charter window timeline */}
             <div className="card border shadow-sm rounded-3 bg-white">
               <div className="card-header bg-light border-bottom px-4 py-3">
-                <h5 className="fw-bold text-slate-900 m-0 fs-6">2 ù Charter Window Timeline</h5>
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">2  Charter Window Timeline</h5>
               </div>
               <div className="card-body p-4">
                 <div className="row g-3">
@@ -693,12 +693,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
             </div>
 
-            {/* 5 ù stakeholder role assignments (only shown to Administrator, hidden for Client / non-admin personas) */}
+            {/* 5  stakeholder role assignments (only shown to Administrator, hidden for Client / non-admin personas) */}
             {(activePersona === 'Administrator' || activePersona == 'C Admin') && (
               <div className="card border shadow-sm rounded-3 bg-white">
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
                   <div>
-                    <h5 className="fw-bold text-slate-900 m-0 fs-6">5 ù Stakeholder Role Assignments</h5>
+                    <h5 className="fw-bold text-slate-900 m-0 fs-6">5  Stakeholder Role Assignments</h5>
                     <p className="text-muted small m-0 mt-1">
                       Assign system users & organizations for active workflow roles.
                     </p>
@@ -738,7 +738,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       >
                         {submitterUsers.map((u: UserProfile) => (
                           <option key={u.id} value={u.id}>
-                            {u.name} ({u.organization}) ù {u.departmentOrScope}
+                            {u.name} ({u.organization})  {u.departmentOrScope}
                           </option>
                         ))}
                       </select>
@@ -770,7 +770,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         >
                           {verifierUsers.map((u: UserProfile) => (
                             <option key={u.id} value={u.id}>
-                              {u.name} ({u.organization}) ù {u.departmentOrScope}
+                              {u.name} ({u.organization})  {u.departmentOrScope}
                             </option>
                           ))}
                         </select>
@@ -803,7 +803,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         >
                           {inspectorUsers.map((u: UserProfile) => (
                             <option key={u.id} value={u.id}>
-                              {u.name} ({u.organization}) ù {u.departmentOrScope}
+                              {u.name} ({u.organization})  {u.departmentOrScope}
                             </option>
                           ))}
                         </select>
@@ -836,7 +836,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         >
                           {approverUsers.map((u: UserProfile) => (
                             <option key={u.id} value={u.id}>
-                              {u.name} ({u.organization}) ù {u.departmentOrScope}
+                              {u.name} ({u.organization})  {u.departmentOrScope}
                             </option>
                           ))}
                         </select>
@@ -858,10 +858,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           {/* right column: section 3 and section 4 */}
           <div className="col-12 col-lg-6 d-flex flex-column gap-4">
 
-            {/* 3 ù required documents & information */}
+            {/* 3  required documents & information */}
             <div className="card border shadow-sm rounded-3 bg-white">
               <div className="card-header bg-light border-bottom px-4 py-3">
-                <h5 className="fw-bold text-slate-900 m-0 fs-6">3 ù Required documents & information</h5>
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">3  Required documents & information</h5>
                 <p className="text-muted small m-0 mt-1">
                   A document added here is marked <strong>Required</strong> with its toggle on. Switching a toggle off removes it from the set and hides it on the upload screen.
                 </p>
@@ -895,7 +895,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               {doc.title}
                             </label>
                             <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                              {doc.type} ù {isEnabled ? `Required in ${tempSetId}` : 'Excluded from set'}
+                              {doc.type}  {isEnabled ? `Required in ${tempSetId}` : 'Excluded from set'}
                             </span>
                           </div>
                         </div>
@@ -924,10 +924,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
             </div>
 
-            {/* 4 ù workflow requirements */}
+            {/* 4  workflow requirements */}
             <div className="card border shadow-sm rounded-3 bg-white">
               <div className="card-header bg-light border-bottom px-4 py-3">
-                <h5 className="fw-bold text-slate-900 m-0 fs-6">4 ù Workflow requirements</h5>
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">4  Workflow requirements</h5>
               </div>
               <div className="card-body p-4">
                 <div className="d-flex flex-column gap-3">
