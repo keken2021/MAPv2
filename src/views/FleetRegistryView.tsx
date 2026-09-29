@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselTable } from '../components/tables/VesselTable';
 import { VesselModal } from '../components/drawers/VesselModal';
+import { AssetHierarchyView } from '../components/assets/AssetHierarchyView';
 import {
   filterCAdminActiveCharters,
   filterCAdminAvailableToCharter,
@@ -25,6 +26,7 @@ export const FleetRegistryView: React.FC = () => {
   const { setCurrentHashView, setActiveVesselId, vessels, assuranceSets, activePersona, users } =
     useMapStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'tree'>('list');
   const [activeTab, setActiveTab] = useState<'available' | 'own-fleet' | 'chartered' | 'all' | 'owned'>(() => {
     if (activePersona === 'Administrator' || activePersona === 'Submitter') {
       return 'owned';
@@ -69,7 +71,26 @@ export const FleetRegistryView: React.FC = () => {
   return (
     <div className="d-flex flex-column gap-3">
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-        {activePersona === 'C Admin' && (
+        {/* <div className="nav nav-pills bg-light p-1 rounded-3 border">
+          <button
+            type="button"
+            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${viewMode === 'list' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
+            style={{ fontSize: '0.8rem' }}
+            onClick={() => setViewMode('list')}
+          >
+            List
+          </button>
+          <button
+            type="button"
+            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${viewMode === 'tree' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
+            style={{ fontSize: '0.8rem' }}
+            onClick={() => setViewMode('tree')}
+          >
+            Asset Tree
+          </button>
+        </div> */}
+
+        {viewMode === 'list' && activePersona === 'C Admin' && (
           <div className="nav nav-pills bg-light p-1 rounded-3 border">
             <button
               type="button"
@@ -98,7 +119,7 @@ export const FleetRegistryView: React.FC = () => {
           </div>
         )}
 
-        {(activePersona === 'Administrator' || activePersona === 'Submitter') && (
+        {viewMode === 'list' && (activePersona === 'Administrator' || activePersona === 'Submitter') && (
           <div className="nav nav-pills bg-light p-1 rounded-3 border">
             <button
               type="button"
@@ -120,13 +141,21 @@ export const FleetRegistryView: React.FC = () => {
         )}
       </div>
 
-      <VesselTable
-        filterMode={activeTab}
-        onSelectVessel={(vessel) => {
-          setCurrentHashView('vessels', vessel.id);
-        }}
-        onRegisterVessel={() => setIsModalOpen(true)}
-      />
+      {viewMode === 'tree' ? (
+        <AssetHierarchyView
+          defaultAssetTypeFilter="vessel"
+          onSelectVessel={(id) => setCurrentHashView('vessels', id)}
+          onSelectEquipment={(id) => setCurrentHashView('equipment', id)}
+        />
+      ) : (
+        <VesselTable
+          filterMode={activeTab}
+          onSelectVessel={(vessel) => {
+            setCurrentHashView('vessels', vessel.id);
+          }}
+          onRegisterVessel={() => setIsModalOpen(true)}
+        />
+      )}
 
       <VesselModal
         isOpen={isModalOpen}

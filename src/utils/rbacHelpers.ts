@@ -8,6 +8,7 @@ import { AssuranceSet } from "../types/assurance";
 import { AuditTrailEvent, UserRolePersona } from "../types/audit";
 import { MasterDocument } from "../types/document";
 import { VesselInformation } from "../types/vessel";
+import { EquipmentAsset } from "../types/equipment";
 import { userMatchesAnyRole } from "./userRoleHelpers";
 import { VIEW_TO_SCOPE, canPerform, isUserOverride, getEffectiveUserScopeFlags, getRoleScopeFlags } from "./permissionHelpers";
 import { RolePermissionMatrix, UserPermissionOverrides } from "../types/permissions";
@@ -278,6 +279,20 @@ export function isChartererMatchingVesselOwner(
   how: for administrator, restricts to vessels owned/managed by northwind marine pty ltd; for submitter / vessel admin, matches vessels owned/managed by their company; for c admin, allows full access to all vessels under the platform; for other non-admin personas, matches assigned assurance sets.
   with what file: src/utils/rbacHelpers.ts used by FleetRegistryView.tsx, VesselTable.tsx, DashboardView.tsx, and InspectorWorkspaceView.tsx.
 */
+export function filterEquipmentForPersona(
+  equipment: EquipmentAsset[],
+  vessels: VesselInformation[],
+  assuranceSets: AssuranceSet[],
+  persona: UserRolePersona,
+): EquipmentAsset[] {
+  const visibleVesselIds = new Set(
+    filterVesselsForPersona(vessels, assuranceSets, persona).map((v) => v.id),
+  );
+  return equipment.filter(
+    (item) => !item.parentVesselId || visibleVesselIds.has(item.parentVesselId),
+  );
+}
+
 export function filterVesselsForPersona(
   vessels: VesselInformation[],
   assuranceSets: AssuranceSet[],
@@ -440,7 +455,7 @@ export function filterAuditTrailForPersona(
   with what file: src/utils/rbacHelpers.ts consumed by HeaderBanner, VesselDetailView, DocumentDetailView, InspectionChecklistView, and CreateAssuranceSetView.
 */
 export function getBackButtonInfo(
-  parentView: "assurance-sets" | "vessels" | "documents" | "inspector" | "crew" | "capa" | "approver" | "roles-permissions" | "users",
+  parentView: "assurance-sets" | "vessels" | "equipment" | "documents" | "inspector" | "crew" | "capa" | "approver" | "roles-permissions" | "users",
   parentLabel: string,
   previousHashView: string | undefined,
   activePersona: UserRolePersona,
@@ -448,7 +463,7 @@ export function getBackButtonInfo(
 ): { label: string; targetView: string; targetEntityId?: string } {
   let isParentAllowedInSidepanel = true;
 
-  if (parentView === "vessels") {
+  if (parentView === "vessels" || parentView === "equipment") {
     isParentAllowedInSidepanel = [
       "Administrator",
       "C Admin",
@@ -508,6 +523,16 @@ export function getBackButtonInfo(
         ? "← Back to Vessel Detail"
         : "← Back to Fleet Registry",
       targetView: "vessels",
+      targetEntityId: previousEntityId,
+    };
+  }
+
+  if (previousHashView === "equipment") {
+    return {
+      label: previousEntityId
+        ? "← Back to Equipment Detail"
+        : "← Back to Equipment Registry",
+      targetView: "equipment",
       targetEntityId: previousEntityId,
     };
   }
@@ -636,6 +661,7 @@ export function isViewAccessibleToPersona(
       if (
         [
           "vessels",
+          "equipment",
           "assurance-sets",
           "create-assurance-set",
           "inspector",

@@ -1,0 +1,88 @@
+/*
+  file summary: mock equipment assets linked to fleet vessels.
+  responsibilities: seeds initial equipment records for the asset hierarchy prototype.
+  role in system: loaded by useMapStore on initialization.
+*/
+
+import { EquipmentAsset } from '../types/equipment';
+
+const NOW = '2026-09-15T08:00:00.000Z';
+
+export const MOCK_EQUIPMENT: EquipmentAsset[] = [
+  {
+    id: 'EQ-001',
+    name: 'Fixed CO2 Fire Suppression System',
+    equipmentIdentifier: 'FFE-PE-001',
+    category: 'Fire-Fighting Equipment (FFE)',
+    manufacturer: 'Novec / Minimax',
+    model: 'MX-240 CO2 Bank',
+    parentVesselId: 'VESSEL-001',
+    owningOrganization: 'Northwind Marine Pty Ltd',
+    complianceReadinessScore: 85,
+    availabilityStatus: 'Available',
+    availabilityUpdatedAt: NOW,
+    registrationStatus: 'Registered',
+    registrationUpdatedAt: NOW,
+    classStatus: 'Surveyed',
+    classStatusUpdatedAt: NOW,
+    complianceStatus: 'Partially Compliant',
+    complianceUpdatedAt: NOW,
+  },
+  {
+    id: 'EQ-002',
+    name: 'ECDIS Navigation Suite',
+    equipmentIdentifier: 'NAV-PE-002',
+    category: 'Navigation & Bridge Equipment',
+    manufacturer: 'Kongsberg',
+    model: 'K-Bridge ECDIS',
+    parentVesselId: 'VESSEL-001',
+    owningOrganization: 'Northwind Marine Pty Ltd',
+    complianceReadinessScore: 100,
+    availabilityStatus: 'Available',
+    availabilityUpdatedAt: NOW,
+    registrationStatus: 'Registered',
+    registrationUpdatedAt: NOW,
+    classStatus: 'In Class',
+    classStatusUpdatedAt: NOW,
+    complianceStatus: 'Compliant',
+    complianceUpdatedAt: NOW,
+  },
+  {
+    id: 'EQ-003',
+    name: 'Free-Fall Lifeboat #1',
+    equipmentIdentifier: 'LSA-AO-001',
+    category: 'Life-Saving Appliances',
+    manufacturer: 'Schatt-Harding',
+    model: 'FF 6.5',
+    parentVesselId: 'VESSEL-002',
+    owningOrganization: 'Pacific Ocean Logistics Pty Ltd',
+    complianceReadinessScore: 70,
+    availabilityStatus: 'On Charter',
+    availabilityUpdatedAt: NOW,
+    registrationStatus: 'Registered',
+    registrationUpdatedAt: NOW,
+    classStatus: 'Survey Due',
+    classStatusUpdatedAt: NOW,
+    complianceStatus: 'Partially Compliant',
+    complianceUpdatedAt: NOW,
+  },
+  {
+    id: 'EQ-004',
+    name: 'Main Engine Port Side',
+    equipmentIdentifier: 'MCH-AO-001',
+    category: 'Machinery & Propulsion',
+    manufacturer: 'Wärtsilä',
+    model: '6L26',
+    parentVesselId: 'VESSEL-002',
+    owningOrganization: 'Pacific Ocean Logistics Pty Ltd',
+    complianceReadinessScore: 90,
+    availabilityStatus: 'Available',
+    availabilityUpdatedAt: NOW,
+    registrationStatus: 'Registered',
+    registrationUpdatedAt: NOW,
+    classStatus: 'In Class',
+    classStatusUpdatedAt: NOW,
+    complianceStatus: 'Compliant',
+    complianceUpdatedAt: NOW,
+  },
+];

@@ -4,6 +4,8 @@
   role in system: foundational type declarations consumed across store, tables, details views, and registration forms.
 */
 
+import { AvailabilityStatus } from './asset';
+
 export type VesselRegistrationStatus =
   | 'In Operations'
   | 'In Transit'
@@ -59,6 +61,16 @@ export interface VesselInformation {
   complianceReadinessScore: number; // 0 - 100%
   imageUrl?: string; // Custom uploaded or selected profile image URL
   photos?: string[]; // Gallery or additional vessel photography
+
+  /** FE-5: separate asset status dimensions (optional — derived when absent) */
+  availabilityStatus?: AvailabilityStatus;
+  availabilityUpdatedAt?: string;
+  registrationStatus?: string;
+  registrationUpdatedAt?: string;
+  classStatus?: string;
+  classStatusUpdatedAt?: string;
+  complianceStatus?: string;
+  complianceUpdatedAt?: string;
 
   // Category 2 - Classification & Notation
   vesselType: string; // e.g. Offshore Support Vessel (OSV)
@@ -120,5 +132,7 @@ export interface VesselInformation {
   clientHistory: VesselClientHistoryRecord[];
 }
 
-// Alias export so any component importing 'Vessel', 'VesselInformation', or 'VesselInformation' works seamlessly
+// Alias exports so components using legacy or current names work seamlessly
 export type Vessel = VesselInformation;
+/** @deprecated Use VesselInformation — kept for backward compatibility after rename */
+export type VesselParticulars = VesselInformation;

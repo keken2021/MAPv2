@@ -6,6 +6,7 @@
 
 import { VesselInformation } from '../types/vessel';
 import { AssuranceSet } from '../types/assurance';
+import { EquipmentAsset } from '../types/equipment';
 
 /**
   what: validates if a string is a valid 7-digit maritime imo number.
@@ -76,6 +77,47 @@ export function isDuplicateCampaignTitle(
   }
 
   return { isDuplicate: false };
+}
+
+/**
+  what: checks if an equipment identifier already exists within the fleet registry.
+  how: compares normalized equipment identifier against existing equipment records.
+  with what file: src/utils/validation.ts used by EquipmentModal.tsx and useMapStore.ts.
+*/
+export function isDuplicateEquipment(
+  equipmentIdentifier: string,
+  existingEquipment: EquipmentAsset[],
+): { isDuplicate: boolean; reason?: string } {
+  const cleanId = equipmentIdentifier.trim().toUpperCase();
+  const match = existingEquipment.find((e) => e.equipmentIdentifier.toUpperCase() === cleanId);
+  if (match) {
+    return {
+      isDuplicate: true,
+      reason: `Equipment identifier ${cleanId} is already registered (${match.name}).`,
+    };
+  }
+  return { isDuplicate: false };
+}
+
+/**
+  what: generates a unique equipment record id.
+  how: finds the maximum EQ-XXX sequence and increments.
+  with what file: src/utils/validation.ts used by EquipmentModal.tsx.
+*/
+export function generateUniqueEquipmentId(existingEquipment: EquipmentAsset[]): string {
+  const existingIds = new Set(existingEquipment.map((e) => e.id));
+  let maxIndex = 0;
+  existingEquipment.forEach((item) => {
+    const numPart = parseInt(item.id.replace(/^EQ-/, ''), 10);
+    if (!isNaN(numPart) && numPart > maxIndex) maxIndex = numPart;
+  });
+  let nextIndex = maxIndex + 1;
+  let candidateId = `EQ-${String(nextIndex).padStart(3, '0')}`;
+  while (existingIds.has(candidateId)) {
+    nextIndex++;
+    candidateId = `EQ-${String(nextIndex).padStart(3, '0')}`;
+  }
+  return candidateId;
 }
 
 /**

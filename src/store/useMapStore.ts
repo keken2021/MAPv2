@@ -7,11 +7,19 @@
 import { create } from 'zustand';
 import { UserRolePersona, AuditTrailEvent } from '../types/audit';
 import { VesselInformation } from '../types/vessel';
+import { EquipmentAsset } from '../types/equipment';
+import { AvailabilityStatus } from '../types/asset';
 import { AssuranceSet, AssuranceStage, AssuranceRequirement } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { MOCK_VESSELS, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS, MOCK_AUDIT_TRAIL, MOCK_USERS } from './mockData';
+import { MOCK_EQUIPMENT } from './equipmentMockData';
 import { MOCK_CREW } from './crewMockData';
-import { isDuplicateVessel, isDuplicateCampaignTitle, generateUniqueAssuranceSetId } from '../utils/validation';
+import {
+  isDuplicateVessel,
+  isDuplicateEquipment,
+  isDuplicateCampaignTitle,
+  generateUniqueAssuranceSetId,
+} from '../utils/validation';
 import { isViewAccessibleToPersona } from '../utils/rbacHelpers';
 import { UserProfile } from '../types/user';
 import { CrewMember, STCWDocumentItem } from '../types/crew';
@@ -58,11 +66,22 @@ export interface MapStoreState {
   activeVesselId: string;
   setActiveVesselId: (id: string) => void;
 
+  /** When set, Create Assurance Set pre-selects this vessel and returns there after save/cancel */
+  createAssuranceForVesselId?: string;
+  setCreateAssuranceForVesselId: (vesselId?: string) => void;
+
   // Vessel Fleet State
   vessels: VesselInformation[];
   addVessel: (vessel: VesselInformation) => { success: boolean; message?: string; vesselId?: string };
   updateVessel: (vessel: VesselInformation) => void;
   updateVesselStatus: (vesselId: string, status: VesselInformation['status']) => void;
+  updateVesselAvailability: (vesselId: string, availabilityStatus: AvailabilityStatus) => void;
+
+  // Equipment Assets State
+  equipment: EquipmentAsset[];
+  addEquipment: (item: EquipmentAsset) => { success: boolean; message?: string; equipmentId?: string };
+  updateEquipment: (item: EquipmentAsset) => void;
+  updateEquipmentAvailability: (equipmentId: string, availabilityStatus: AvailabilityStatus) => void;
 
   // Assurance Sets State
   assuranceSets: AssuranceSet[];
@@ -257,6 +276,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   activeVesselId: 'VESSEL-001',
   setActiveVesselId: (id) => set({ activeVesselId: id }),
 
+  createAssuranceForVesselId: undefined,
+  setCreateAssuranceForVesselId: (vesselId) => set({ createAssuranceForVesselId: vesselId }),
+
   // Fleet Vessels
   vessels: MOCK_VESSELS,
   addVessel: (newVessel) => {
@@ -320,6 +342,48 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   updateVesselStatus: (vesselId, status) => {
     set((state) => ({
       vessels: state.vessels.map((v) => (v.id === vesselId ? { ...v, status } : v)),
+    }));
+  },
+
+  updateVesselAvailability: (vesselId, availabilityStatus) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      vessels: state.vessels.map((v) =>
+        v.id === vesselId ? { ...v, availabilityStatus, availabilityUpdatedAt: now } : v,
+      ),
+    }));
+  },
+
+  equipment: MOCK_EQUIPMENT,
+  addEquipment: (newEquipment) => {
+    const dupCheck = isDuplicateEquipment(newEquipment.equipmentIdentifier, get().equipment);
+    if (dupCheck.isDuplicate) {
+      return { success: false, message: dupCheck.reason };
+    }
+    set((state) => ({ equipment: [...state.equipment, newEquipment] }));
+    get().logAuditEvent({
+      userId: 'USR-CURRENT',
+      userRole: get().activePersona,
+      organization: newEquipment.owningOrganization,
+      action: 'Registered Equipment Asset',
+      targetAsset: `${newEquipment.name} (${newEquipment.equipmentIdentifier})`,
+      justificationNotes: `Registered equipment under category ${newEquipment.category}.`,
+    });
+    return { success: true, equipmentId: newEquipment.id };
+  },
+
+  updateEquipment: (updatedEquipment) => {
+    set((state) => ({
+      equipment: state.equipment.map((e) => (e.id === updatedEquipment.id ? updatedEquipment : e)),
+    }));
+  },
+
+  updateEquipmentAvailability: (equipmentId, availabilityStatus) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      equipment: state.equipment.map((e) =>
+        e.id === equipmentId ? { ...e, availabilityStatus, availabilityUpdatedAt: now } : e,
+      ),
     }));
   },
 

@@ -12,6 +12,8 @@ import { AuditTrailDrawer } from './components/drawers/AuditTrailDrawer';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { FleetRegistryView } from './views/FleetRegistryView';
+import { EquipmentView } from './views/EquipmentView';
+import { EquipmentDetailView } from './views/EquipmentDetailView';
 import { VesselDetailView } from './views/VesselDetailView';
 import { AssuranceSetsView } from './views/AssuranceSetsView';
 import { CreateAssuranceSetView } from './views/CreateAssuranceSetView';
@@ -121,6 +123,8 @@ export const App: React.FC = () => {
     switch (currentHashView) {
       case 'vessels':
         return currentEntityId ? <VesselDetailView vesselId={currentEntityId} /> : <FleetRegistryView />;
+      case 'equipment':
+        return currentEntityId ? <EquipmentDetailView equipmentId={currentEntityId} /> : <EquipmentView />;
       case 'assurance-sets':
         return currentEntityId ? <AssuranceDetailView setId={currentEntityId} /> : <AssuranceSetsView />;
       case 'create-assurance-set':

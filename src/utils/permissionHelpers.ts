@@ -167,6 +167,7 @@ export function isUserOverride(
 export const VIEW_TO_SCOPE: Record<string, PermissionScopeKey> = {
   dashboard: 'dashboard',
   vessels: 'vessels',
+  equipment: 'equipment',
   'assurance-sets': 'assurance_sets',
   'create-assurance-set': 'assurance_sets',
   documents: 'documents',

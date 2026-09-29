@@ -28,6 +28,13 @@ export const PERMISSION_SCOPE_CATALOG: PermissionScopeDefinition[] = [
     lockDelete: true,
   },
   {
+    key: 'equipment',
+    label: 'Equipment Registry (Sidepanel Page)',
+    description: 'Controls showing/hiding the Equipment sidepanel button and fleet equipment page access.',
+    category: 'Setup & configuration',
+    lockDelete: true,
+  },
+  {
     key: 'vessel_status',
     label: 'Vessel operating status',
     description: 'View and change operating status (in operations, dry dock, under charter, etc.).',
@@ -251,6 +258,7 @@ const SCOPE_KEYS = PERMISSION_SCOPE_CATALOG.map((s) => s.key);
 function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
   switch (key) {
     case 'vessels':
+    case 'equipment':
       if (role === 'Administrator') return createReadUpdate();
       if (role === 'C Admin' || role === 'Submitter' || role === 'Inspector') return readOnly();
       return emptyCrud();

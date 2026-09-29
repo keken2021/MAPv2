@@ -4,18 +4,27 @@
   role in system: sidebar navigation component embedded in app layout shell.
 */
 
-import React, { useState } from 'react';
-import { useMapStore } from '../../store/useMapStore';
-import { UserRolePersona } from '../../types/audit';
-import { ENABLE_ROLES_AND_PERMISSIONS } from '../../config/featureFlags';
-import { VIEW_TO_SCOPE, getEffectiveUserScopeFlags, getRoleScopeFlags, isUserOverride } from '../../utils/permissionHelpers';
+import React, { useEffect, useState } from "react";
+import { useMapStore } from "../../store/useMapStore";
+import { UserRolePersona } from "../../types/audit";
+import { ENABLE_ROLES_AND_PERMISSIONS } from "../../config/featureFlags";
+import {
+  VIEW_TO_SCOPE,
+  getEffectiveUserScopeFlags,
+  getRoleScopeFlags,
+  isUserOverride,
+} from "../../utils/permissionHelpers";
 
 interface NavItem {
   key: string;
   label: string;
   allowedRoles: UserRolePersona[];
   badgeText?: string;
+  children?: NavItem[];
+  isGroup?: boolean;
 }
+
+const ASSETS_CHILD_KEYS = ["vessels", "equipment","project"];
 
 /**
   what: renders fixed dark navy sidepanel matching mockup design with organisation card and dot navigation.
@@ -34,109 +43,163 @@ export const AppSidebar: React.FC = () => {
     customScopes,
   } = useMapStore();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(["assets"]),
+  );
 
   /* lookup mock user details based on active persona */
-  const getUserInfo = (role: UserRolePersona): { name: string; initials: string } => {
+  const getUserInfo = (
+    role: UserRolePersona,
+  ): { name: string; initials: string } => {
     switch (role) {
-      case 'C Admin':
-        return { name: 'S. Basin', initials: 'SB' };
-      case 'Submitter':
-        return { name: 'M. Chen', initials: 'MC' };
-      case 'Verifier':
-        return { name: 'A. Fontaine', initials: 'AF' };
-      case 'Inspector':
-        return { name: 'N. Technical', initials: 'NT' };
-      case 'Approver':
-        return { name: 'P. Nardelli', initials: 'PN' };
-      case 'Administrator':
+      case "C Admin":
+        return { name: "S. Basin", initials: "SB" };
+      case "Submitter":
+        return { name: "M. Chen", initials: "MC" };
+      case "Verifier":
+        return { name: "A. Fontaine", initials: "AF" };
+      case "Inspector":
+        return { name: "N. Technical", initials: "NT" };
+      case "Approver":
+        return { name: "P. Nardelli", initials: "PN" };
+      case "Administrator":
       default:
-        return { name: 'K. Osei', initials: 'KO' };
+        return { name: "K. Osei", initials: "KO" };
     }
   };
 
   const userInfo = getUserInfo(activePersona);
+  const matchingUser =
+    users.find((u) => u.roles.includes(activePersona)) ?? null;
 
   const navItems: NavItem[] = [
     {
-      key: 'dashboard',
-      label: 'Dashboard',
-      allowedRoles: ['Administrator', 'C Admin', 'Submitter', 'Verifier', 'Inspector', 'Approver'],
+      key: "dashboard",
+      label: "Dashboard",
+      allowedRoles: [
+        "Administrator",
+        "C Admin",
+        "Submitter",
+        "Verifier",
+        "Inspector",
+        "Approver",
+      ],
     },
     {
-      key: 'vessels',
-      label: 'Vessels',
-      allowedRoles: ['Administrator', 'C Admin', 'Submitter'],
+      key: "assets",
+      label: "Assets",
+      isGroup: true,
+      allowedRoles: ["Administrator", "C Admin", "Submitter"],
+      children: [
+        {
+          key: "vessels",
+          label: "Vessels",
+          allowedRoles: ["Administrator", "C Admin", "Submitter"],
+        },
+        {
+          key: "equipment",
+          label: "Equipment",
+          allowedRoles: ["Administrator", "C Admin"],
+        },
+        {
+          key: "project",
+          label: "Project",
+          allowedRoles: ["Administrator", "C Admin"],
+        },
+      ],
     },
     {
-      key: 'assurance-sets',
-      label: 'Assurance Sets',
-      allowedRoles: ['Administrator', 'Submitter'],
+      key: "assurance-sets",
+      label: "Assurance Sets",
+      allowedRoles: ["Administrator", "Submitter"],
     },
     {
-      key: 'documents',
-      label: 'Document Library',
-      allowedRoles: ['Administrator', 'Submitter', 'Verifier'],
+      key: "documents",
+      label: "Document Library",
+      allowedRoles: ["Administrator", "Submitter", "Verifier"],
     },
     {
-      key: 'crew',
-      label: 'Crew Directory',
-      allowedRoles: ['Administrator'],
+      key: "crew",
+      label: "Crew Directory",
+      allowedRoles: ["Administrator"],
     },
     {
-      key: 'verifier',
-      label: 'Verification Queue',
-      allowedRoles: ['Administrator', 'Submitter', 'Verifier'],
-      badgeText: '2',
+      key: "verifier",
+      label: "Verification Queue",
+      allowedRoles: ["Administrator", "Submitter", "Verifier"],
+      badgeText: "2",
     },
     {
-      key: 'inspector',
-      label: 'Physical Inspections',
-      allowedRoles: ['Administrator'],
+      key: "inspector",
+      label: "Physical Inspections",
+      allowedRoles: ["Administrator"],
     },
     {
-      key: 'approver',
-      label: 'Approval Gate',
-      allowedRoles: ['Approver', 'Verifier'],
+      key: "approver",
+      label: "Approval Gate",
+      allowedRoles: ["Approver", "Verifier"],
     },
     {
-      key: 'capa',
-      label: 'CAPA Tracker',
-      allowedRoles: ['C Admin', 'Inspector'],
+      key: "capa",
+      label: "CAPA Tracker",
+      allowedRoles: ["C Admin", "Inspector"],
     },
     {
-      key: 'audit',
-      label: 'Audit Trail',
-      allowedRoles: ['Administrator', 'C Admin', 'Submitter', 'Verifier', 'Inspector', 'Approver'],
+      key: "audit",
+      label: "Audit Trail",
+      allowedRoles: [
+        "Administrator",
+        "C Admin",
+        "Submitter",
+        "Verifier",
+        "Inspector",
+        "Approver",
+      ],
     },
     {
-      key: 'users',
-      label: 'User Management',
-      allowedRoles: ['Administrator', 'C Admin'],
+      key: "users",
+      label: "User Management",
+      allowedRoles: ["Administrator", "C Admin"],
     },
     ...(ENABLE_ROLES_AND_PERMISSIONS
       ? [
-        {
-          key: 'roles-permissions',
-          label: 'Roles & Permissions',
-          allowedRoles: ['Administrator'] as UserRolePersona[],
-        },
-      ]
+          {
+            key: "roles-permissions",
+            label: "Roles & Permissions",
+            allowedRoles: ["Administrator"] as UserRolePersona[],
+          },
+        ]
       : []),
   ];
 
-  /* filter navigation items using initial baseline allowedRoles overridden by matrix/user flags */
-  const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
-  const visibleItems = navItems.filter((item) => {
-    /* hide dedicated sidepanel button if the page is rendered directly as that role's dashboard or excluded from sidebar */
-    if ((activePersona === 'Verifier' || activePersona === 'Submitter') && item.key === 'verifier') return false;
-    if (activePersona === 'Inspector' && item.key === 'inspector') return false;
-    if (activePersona === 'Approver' && item.key === 'approver') return false;
-    if ((activePersona === 'C Admin' || activePersona === 'Submitter') && item.key === 'assurance-sets') return false;
-    if ((activePersona === 'Administrator' || activePersona === 'Submitter') && item.key === 'capa') return false;
+  /* auto-expand Assets when a child route is active */
+  useEffect(() => {
+    if (ASSETS_CHILD_KEYS.includes(currentHashView)) {
+      setExpandedGroups((prev) => new Set(prev).add("assets"));
+    }
+  }, [currentHashView]);
 
-    /* Roles & Permissions is an Administrator settings page (BRD role_rights row stays blank) */
-    if (item.key === 'roles-permissions') {
-      return activePersona === 'Administrator';
+  const isLeafItemVisible = (item: NavItem): boolean => {
+    if (
+      (activePersona === "Verifier" || activePersona === "Submitter") &&
+      item.key === "verifier"
+    )
+      return false;
+    if (activePersona === "Inspector" && item.key === "inspector") return false;
+    if (activePersona === "Approver" && item.key === "approver") return false;
+    if (
+      (activePersona === "C Admin" || activePersona === "Submitter") &&
+      item.key === "assurance-sets"
+    )
+      return false;
+    if (
+      (activePersona === "Administrator" || activePersona === "Submitter") &&
+      item.key === "capa"
+    )
+      return false;
+
+    if (item.key === "roles-permissions") {
+      return activePersona === "Administrator";
     }
 
     const initialAllowed = item.allowedRoles.includes(activePersona);
@@ -146,7 +209,10 @@ export const AppSidebar: React.FC = () => {
     const scopeKey = VIEW_TO_SCOPE[item.key];
     if (!scopeKey) return initialAllowed;
 
-    if (matchingUser && isUserOverride(userPermissionOverrides, matchingUser.id, scopeKey, 'read')) {
+    if (
+      matchingUser &&
+      isUserOverride(userPermissionOverrides, matchingUser.id, scopeKey, "read")
+    ) {
       return getEffectiveUserScopeFlags(
         rolePermissionDefaults,
         userPermissionOverrides,
@@ -162,30 +228,179 @@ export const AppSidebar: React.FC = () => {
       scopeKey,
       customScopes,
     ).read;
-  });
+  };
+
+  const filterNavItems = (items: NavItem[]): NavItem[] =>
+    items
+      .map((item) => {
+        if (item.children) {
+          const visibleChildren = filterNavItems(item.children);
+          if (visibleChildren.length === 0) return null;
+          return { ...item, children: visibleChildren };
+        }
+        return isLeafItemVisible(item) ? item : null;
+      })
+      .filter((item): item is NavItem => item !== null);
+
+  const visibleItems = filterNavItems(navItems);
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const isItemActive = (item: NavItem): boolean =>
+    currentHashView === item.key ||
+    (item.key === "assurance-sets" &&
+      currentHashView === "create-assurance-set");
+
+  const isGroupChildActive = (item: NavItem): boolean =>
+    item.children?.some((child) => isItemActive(child)) ?? false;
+
+  const renderNavButton = (
+    item: NavItem,
+    options: {
+      isActive: boolean;
+      onClick: () => void;
+      depth: number;
+      showChevron?: boolean;
+      isExpanded?: boolean;
+    },
+  ) => {
+    const { isActive, onClick, depth, showChevron, isExpanded } = options;
+    const paddingLeft = `${12 + depth * 16}px`;
+
+    return (
+      <button
+        type="button"
+        className={`nav-link text-start d-flex align-items-center justify-between mb-1 py-2 px-3 ${isActive ? "fw-semibold" : ""}`}
+        style={{
+          borderRadius: "6px",
+          fontSize: depth > 0 ? "0.82rem" : "0.85rem",
+          backgroundColor: isActive ? "#0e324c" : "transparent",
+          color: isActive ? "#ffffff" : depth > 0 ? "#94a3b8" : "#cbd5e1",
+          border: "none",
+          cursor: "pointer",
+          transition: "all 0.15s ease-in-out",
+          paddingLeft,
+        }}
+        onClick={onClick}
+      >
+        <div className="d-flex align-items-center">
+          <span
+            style={{
+              display: "inline-block",
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              backgroundColor: isActive ? "#38bdf8" : "#475569",
+              marginRight: "10px",
+            }}
+          />
+          <span>{item.label}</span>
+        </div>
+
+        {showChevron ? (
+          <span
+            className="small"
+            style={{ color: "#64748b", fontSize: "0.65rem" }}
+          >
+            {isExpanded ? "▲" : "▼"}
+          </span>
+        ) : (
+          item.badgeText && (
+            <span
+              className={`badge rounded-pill ms-auto ${isActive ? "bg-primary text-white" : "bg-warning text-dark"}`}
+              style={{
+                fontSize: "0.65rem",
+                padding: "0.25em 0.6em",
+              }}
+            >
+              {item.badgeText}
+            </span>
+          )
+        )}
+      </button>
+    );
+  };
+
+  const renderNavItem = (item: NavItem, depth = 0): React.ReactNode => {
+    if (item.isGroup && item.children) {
+      const isExpanded = expandedGroups.has(item.key);
+      const childActive = isGroupChildActive(item);
+
+      return (
+        <React.Fragment key={item.key}>
+          {renderNavButton(item, {
+            isActive: childActive,
+            onClick: () => toggleGroup(item.key),
+            depth,
+            showChevron: true,
+            isExpanded,
+          })}
+          {isExpanded &&
+            item.children.map((child) => renderNavItem(child, depth + 1))}
+        </React.Fragment>
+      );
+    }
+
+    return (
+      <React.Fragment key={item.key}>
+        {renderNavButton(item, {
+          isActive: isItemActive(item),
+          onClick: () => setCurrentHashView(item.key),
+          depth,
+        })}
+      </React.Fragment>
+    );
+  };
 
   return (
-    <aside className="map-sidebar-nav" style={{ backgroundColor: 'rgb(11, 27, 43)' }}>
+    <aside
+      className="map-sidebar-nav"
+      style={{ backgroundColor: "rgb(11, 27, 43)" }}
+    >
       {/* map brand header with teal M logo badge */}
-      <div className="d-flex align-items-center gap-3 px-3 py-3 border-bottom" style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
+      <div
+        className="d-flex align-items-center gap-3 px-3 py-3 border-bottom"
+        style={{ borderColor: "rgba(255, 255, 255, 0.08)" }}
+      >
         <div
           className="d-flex align-items-center justify-content-center fw-bold text-white shadow-sm"
           style={{
-            width: '34px',
-            height: '34px',
-            backgroundColor: '#0d9488',
-            borderRadius: '6px',
-            fontSize: '1rem',
-            letterSpacing: '0.02em',
+            width: "34px",
+            height: "34px",
+            backgroundColor: "#0d9488",
+            borderRadius: "6px",
+            fontSize: "1rem",
+            letterSpacing: "0.02em",
           }}
         >
           M
         </div>
         <div className="d-flex flex-column">
-          <span className="fw-bold text-white" style={{ fontSize: '1.05rem', letterSpacing: '0.05em', lineHeight: '1.1' }}>
+          <span
+            className="fw-bold text-white"
+            style={{
+              fontSize: "1.05rem",
+              letterSpacing: "0.05em",
+              lineHeight: "1.1",
+            }}
+          >
             MAP
           </span>
-          <span className="small text-uppercase" style={{ fontSize: '0.625rem', color: '#64748b', letterSpacing: '0.08em' }}>
+          <span
+            className="small text-uppercase"
+            style={{
+              fontSize: "0.625rem",
+              color: "#64748b",
+              letterSpacing: "0.08em",
+            }}
+          >
             Marine Assurance
           </span>
         </div>
@@ -195,128 +410,113 @@ export const AppSidebar: React.FC = () => {
       <div
         className="mx-3 my-3 p-3 rounded"
         style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.04)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          backgroundColor: "rgba(255, 255, 255, 0.04)",
+          border: "1px solid rgba(255, 255, 255, 0.08)",
         }}
       >
-        <div className="text-uppercase fw-bold mb-1" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#64748b' }}>
+        <div
+          className="text-uppercase fw-bold mb-1"
+          style={{
+            fontSize: "0.625rem",
+            letterSpacing: "0.08em",
+            color: "#64748b",
+          }}
+        >
           Organisation
         </div>
-        <div className="fw-bold text-white text-truncate" style={{ fontSize: '0.85rem' }}>
-          {activePersona === 'C Admin' ? 'Southern Basin Energy' : 'Northwind Marine Pty Ltd'}
+        <div
+          className="fw-bold text-white text-truncate"
+          style={{ fontSize: "0.85rem" }}
+        >
+          {activePersona === "C Admin"
+            ? "Southern Basin Energy"
+            : "Northwind Marine Pty Ltd"}
         </div>
-        <div className="text-truncate" style={{ fontSize: '0.725rem', color: '#94a3b8' }}>
-          {activePersona === 'C Admin' ? 'Client / Charterer' : 'Vessel Provider / Owner'}
+        <div
+          className="text-truncate"
+          style={{ fontSize: "0.725rem", color: "#94a3b8" }}
+        >
+          {activePersona === "C Admin"
+            ? "Client / Charterer"
+            : "Vessel Provider / Owner"}
         </div>
       </div>
 
       {/* main navigation list with dot highlights */}
       <div className="nav flex-column nav-pills px-2">
-        {visibleItems.map((item) => {
-          const isActive =
-            currentHashView === item.key ||
-            (item.key === 'assurance-sets' && currentHashView === 'create-assurance-set');
-
-          return (
-            <React.Fragment key={item.key}>
-              {item.key === 'users' && (
-                <div
-                  className="text-uppercase fw-bold px-3 mt-4 mb-2"
-                  style={{
-                    fontSize: '0.625rem',
-                    letterSpacing: '0.08em',
-                    color: '#64748b',
-                  }}
-                >
-                  Settings
-                </div>
-              )}
-
-              <button
-                type="button"
-                className={`nav-link text-start d-flex align-items-center justify-between mb-1 py-2 px-3 ${isActive ? 'fw-semibold' : ''
-                  }`}
+        {visibleItems.map((item) => (
+          <React.Fragment key={item.key}>
+            {item.key === "users" && (
+              <div
+                className="text-uppercase fw-bold px-3 mt-4 mb-2"
                 style={{
-                  borderRadius: '6px',
-                  fontSize: '0.85rem',
-                  backgroundColor: isActive ? '#0e324c' : 'transparent',
-                  color: isActive ? '#ffffff' : '#cbd5e1',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease-in-out',
+                  fontSize: "0.625rem",
+                  letterSpacing: "0.08em",
+                  color: "#64748b",
                 }}
-                onClick={() => setCurrentHashView(item.key)}
               >
-                <div className="d-flex align-items-center">
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      backgroundColor: isActive ? '#38bdf8' : '#475569',
-                      marginRight: '10px',
-                    }}
-                  />
-
-                  <span>{item.label}</span>
-                </div>
-
-                {item.badgeText && (
-                  <span
-                    className={`badge rounded-pill ms-auto ${isActive ? 'bg-primary text-white' : 'bg-warning text-dark'
-                      }`}
-                    style={{
-                      fontSize: '0.65rem',
-                      padding: '0.25em 0.6em',
-                    }}
-                  >
-                    {item.badgeText}
-                  </span>
-                )}
-              </button>
-            </React.Fragment>
-          );
-        })}
+                Settings
+              </div>
+            )}
+            {renderNavItem(item)}
+          </React.Fragment>
+        ))}
       </div>
 
       {/* signed in as bottom card section with interactive user menu */}
       <div
         className="mt-auto p-3 border-top position-relative"
         style={{
-          borderColor: 'rgba(255, 255, 255, 0.08)',
-          backgroundColor: 'rgba(0, 0, 0, 0.2)',
+          borderColor: "rgba(255, 255, 255, 0.08)",
+          backgroundColor: "rgba(0, 0, 0, 0.2)",
         }}
       >
-        <div className="text-uppercase fw-bold mb-1" style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#64748b' }}>
+        <div
+          className="text-uppercase fw-bold mb-1"
+          style={{
+            fontSize: "0.625rem",
+            letterSpacing: "0.08em",
+            color: "#64748b",
+          }}
+        >
           Signed in as
         </div>
         <div
           className="d-flex align-items-center justify-between p-2 rounded cursor-pointer"
           style={{
-            backgroundColor: isUserMenuOpen ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-            transition: 'background-color 0.15s ease',
-            cursor: 'pointer',
+            backgroundColor: isUserMenuOpen
+              ? "rgba(255, 255, 255, 0.08)"
+              : "transparent",
+            transition: "background-color 0.15s ease",
+            cursor: "pointer",
           }}
           onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
         >
           <div className="d-flex align-items-center gap-2 overflow-hidden">
             <div
               className="rounded-circle bg-primary text-white fw-bold d-flex align-items-center justify-content-center flex-shrink-0"
-              style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}
+              style={{ width: "28px", height: "28px", fontSize: "0.75rem" }}
             >
               {userInfo.initials}
             </div>
             <div className="d-flex flex-column text-truncate">
-              <span className="fw-bold text-white text-truncate" style={{ fontSize: '0.85rem' }}>
+              <span
+                className="fw-bold text-white text-truncate"
+                style={{ fontSize: "0.85rem" }}
+              >
                 {userInfo.name}
               </span>
-              <span className="text-truncate" style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+              <span
+                className="text-truncate"
+                style={{ fontSize: "0.7rem", color: "#94a3b8" }}
+              >
                 {activePersona}
               </span>
             </div>
           </div>
-          <span className="text-secondary small ms-1">{isUserMenuOpen ? '▲' : '▼'}</span>
+          <span className="text-secondary small ms-1">
+            {isUserMenuOpen ? "▲" : "▼"}
+          </span>
         </div>
 
         {/* logout popover menu */}
@@ -324,20 +524,28 @@ export const AppSidebar: React.FC = () => {
           <div
             className="position-absolute bottom-100 start-0 mb-2 ms-2 p-2 rounded shadow-lg border"
             style={{
-              width: 'calc(100% - 16px)',
-              backgroundColor: '#0b1b2b',
-              borderColor: '#1e3a5f',
+              width: "calc(100% - 16px)",
+              backgroundColor: "#0b1b2b",
+              borderColor: "#1e3a5f",
               zIndex: 1100,
             }}
           >
-            <div className="p-2 border-bottom mb-1" style={{ borderColor: 'rgba(255, 255, 255, 0.08)' }}>
+            <div
+              className="p-2 border-bottom mb-1"
+              style={{ borderColor: "rgba(255, 255, 255, 0.08)" }}
+            >
               <div className="fw-bold text-white small">{userInfo.name}</div>
-              <div className="text-white small" style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{activePersona}</div>
+              <div
+                className="text-white small"
+                style={{ fontSize: "0.68rem", color: "#94a3b8" }}
+              >
+                {activePersona}
+              </div>
             </div>
             <button
               type="button"
               className="btn btn-sm text-start text-danger w-100 d-flex align-items-center gap-2 py-1 px-2 border-0 bg-transparent hover-bg-dark"
-              style={{ fontSize: '0.78rem' }}
+              style={{ fontSize: "0.78rem" }}
               onClick={() => {
                 setIsUserMenuOpen(false);
                 logout();
@@ -351,5 +559,3 @@ export const AppSidebar: React.FC = () => {
     </aside>
   );
 };
-
-

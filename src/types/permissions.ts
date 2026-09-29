@@ -17,6 +17,7 @@ export interface CrudFlags {
 
 export type PermissionScopeKey =
   | 'vessels'
+  | 'equipment'
   | 'vessel_status'
   | 'assurance_sets'
   | 'assurance_requirements'

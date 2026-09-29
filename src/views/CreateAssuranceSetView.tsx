@@ -51,7 +51,17 @@ interface CreateAssuranceSetViewProps {
 }
 
 export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ templateSetId }) => {
-  const { vessels, assuranceSets, addAssuranceSet, activePersona, setCurrentHashView, previousHashView, previousEntityId, users } = useMapStore();
+  const {
+    vessels,
+    assuranceSets,
+    addAssuranceSet,
+    activePersona,
+    setCurrentHashView,
+    previousHashView,
+    createAssuranceForVesselId,
+    setCreateAssuranceForVesselId,
+    users,
+  } = useMapStore();
   const isClientAdmin = activePersona === 'C Admin';
   const clientOrg = getClientAdminOrganization(users);
 
@@ -66,12 +76,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       : filterVesselsForPersona(vessels, assuranceSets, activePersona);
 
   const defaultCharterer = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
+  const prefilledVessel = createAssuranceForVesselId
+    ? vessels.find((v) => v.id === createAssuranceForVesselId)
+    : undefined;
+  const initialVesselId = prefilledVessel?.id || availableVessels[0]?.id || vessels[0]?.id || '';
+  const initialVesselName = prefilledVessel?.name || availableVessels[0]?.name || vessels[0]?.name || 'Vessel';
+
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(templateSetId || '');
-  const [vesselId, setVesselId] = useState(availableVessels[0]?.id || vessels[0]?.id || '');
+  const [vesselId, setVesselId] = useState(initialVesselId);
   const [charterer, setCharterer] = useState(defaultCharterer);
   const [title, setTitle] = useState(
-    () => `${defaultCharterer} - ${availableVessels[0]?.name || vessels[0]?.name || 'Vessel'} Charter Vetting`
+    () => `${defaultCharterer} - ${initialVesselName} Charter Vetting`,
   );
+  const isVesselLocked = Boolean(createAssuranceForVesselId);
   const [startDate, setStartDate] = useState('2026-11-01');
   const [endDate, setEndDate] = useState('2027-11-01');
 
@@ -82,7 +99,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     what: triggers the autofill shimmer animation on a given list of field ids.
     how: adds all ids to the animating set, then removes them after 750ms so the
          css animation plays exactly once without permanently altering the element style.
-    with what file: CreateAssuranceSetView.tsx ‚Äî called from applyTemplateData.
+    with what file: CreateAssuranceSetView.tsx ù called from applyTemplateData.
   */
   const triggerAutofillAnimation = useCallback((fieldIds: string[]) => {
     setAnimatingFields(new Set(fieldIds));
@@ -127,7 +144,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* apply template auto-fill data */
   const applyTemplateData = (targetSet: AssuranceSet) => {
-    setVesselId(targetSet.vesselId);
+    if (!createAssuranceForVesselId) {
+      setVesselId(targetSet.vesselId);
+    }
     if (targetSet.charterWindowStart) setStartDate(targetSet.charterWindowStart);
     if (targetSet.charterWindowEnd) setEndDate(targetSet.charterWindowEnd);
     setVerificationRequired(targetSet.verificationRequired !== undefined ? targetSet.verificationRequired : Boolean(targetSet.assignedVerifier));
@@ -141,15 +160,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setCharterer(templateCharterer);
 
     /* automatic naming: always Charterer org + whatever */
-    const targetVesselObj = vessels.find((v) => v.id === targetSet.vesselId) || selectedVessel;
+    const targetVesselObj = createAssuranceForVesselId
+      ? vessels.find((v) => v.id === createAssuranceForVesselId)
+      : vessels.find((v) => v.id === targetSet.vesselId) || selectedVessel;
     const vesselDisplayName = targetSet.vesselName || targetVesselObj?.name || 'Vessel';
 
     const baseSubject = targetSet.title
-      .replace(new RegExp(`^${templateCharterer}\\s*[-‚Äì:]*\\s*`, 'i'), '')
-      .replace(/^Chevron Australia( Pty Ltd)?\s*[-‚Äì:]*\s*/i, '')
-      .replace(/^Northwind Marine( Pty Ltd)?\s*[-‚Äì:]*\s*/i, '')
-      .replace(/^Woodside Energy( Ltd)?\s*[-‚Äì:]*\s*/i, '')
-      .replace(/^Inpex( Operations Australia)?\s*[-‚Äì:]*\s*/i, '')
+      .replace(new RegExp(`^${templateCharterer}\\s*[-ù:]*\\s*`, 'i'), '')
+      .replace(/^Chevron Australia( Pty Ltd)?\s*[-ù:]*\s*/i, '')
+      .replace(/^Northwind Marine( Pty Ltd)?\s*[-ù:]*\s*/i, '')
+      .replace(/^Woodside Energy( Ltd)?\s*[-ù:]*\s*/i, '')
+      .replace(/^Inpex( Operations Australia)?\s*[-ù:]*\s*/i, '')
       .replace(/\s*\(C Admin Charter Vetting\)/i, '')
       .trim();
 
@@ -236,6 +257,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       handleSelectTemplate(templateSetId);
     }
   }, [templateSetId]);
+
+  /* when launched from vessel detail, lock target vessel and refresh title */
+  useEffect(() => {
+    if (!createAssuranceForVesselId) return;
+    const lockedVessel = vessels.find((v) => v.id === createAssuranceForVesselId);
+    if (!lockedVessel) return;
+    setVesselId(lockedVessel.id);
+    if (!templateSetId) {
+      setTitle(`${defaultCharterer} - ${lockedVessel.name} Charter Vetting`);
+    }
+  }, [createAssuranceForVesselId, vessels, defaultCharterer, templateSetId]);
 
   /* pre-populate stakeholder selections whenever target vessel changes (if not using template) */
   useEffect(() => {
@@ -370,7 +402,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       vesselName: selectedVessel.name,
       imoNumber: selectedVessel.imoNumber,
       initiatorOrg,
-      initiatorRole: isClientAdmin ? 'C Admin ¬∑ Client Created' : 'Vessel Provider Admin',
+      initiatorRole: isClientAdmin ? 'C Admin \u00B7 Client Created' : 'Vessel Provider Admin',
       charterer: effectiveCharterer,
       internalDeployment: internalDeployment || undefined,
       charterWindowStart: startDate,
@@ -406,7 +438,25 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     };
 
     addAssuranceSet(newSet);
+
+    if (createAssuranceForVesselId) {
+      const returnVesselId = createAssuranceForVesselId;
+      setCreateAssuranceForVesselId(undefined);
+      setCurrentHashView('vessels', returnVesselId);
+      return;
+    }
+
     setCurrentHashView('assurance-sets', newSet.id);
+  };
+
+  const handleCancel = () => {
+    if (createAssuranceForVesselId) {
+      const returnVesselId = createAssuranceForVesselId;
+      setCreateAssuranceForVesselId(undefined);
+      setCurrentHashView('vessels', returnVesselId);
+      return;
+    }
+    setCurrentHashView(isClientAdmin || previousHashView === 'dashboard' ? 'dashboard' : 'assurance-sets');
   };
 
   return (
@@ -430,10 +480,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           {/* left column: section 1, section 2, and section 5 */}
           <div className="col-12 col-lg-6 d-flex flex-column gap-4">
 
-            {/* 1 ¬∑ campaign & vessel information */}
+            {/* 1 ù campaign & vessel information */}
             <div className="card border shadow-sm rounded-3 bg-white">
               <div className="card-header bg-light border-bottom px-4 py-3">
-                <h5 className="fw-bold text-slate-900 m-0 fs-6">1 ¬∑ Campaign & Vessel Information</h5>
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">1 ù Campaign & Vessel Information</h5>
               </div>
               <div className="card-body p-4">
                 <div className="row g-3">
@@ -451,7 +501,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <option value="">-- Select an existing Assurance Set to auto-fill --</option>
                       {assuranceSets.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.id}: {s.title} ({s.vesselName} ¬∑ {s.initiatorRole})
+                          {s.id}: {s.title} ({s.vesselName} ù {s.initiatorRole})
                         </option>
                       ))}
                     </select>
@@ -559,18 +609,23 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       className={`form-select bg-white text-dark border-secondary-subtle${animatingFields.has('grid-target-vessel') ? ' map-autofill-animate' : ''}`}
                       value={vesselId}
                       onChange={(e) => setVesselId(e.target.value)}
-                      disabled={availableVessels.length === 0}
+                      disabled={availableVessels.length === 0 || isVesselLocked}
                     >
                       {availableVessels.length === 0 ? (
                         <option value="">No vessels available for this selection mode</option>
                       ) : (
                         availableVessels.map((v) => (
                           <option key={v.id} value={v.id}>
-                            {v.name} (IMO: {v.imoNumber} ¬∑ Flag: {v.flagState})
+                            {v.name} (IMO: {v.imoNumber} ù Flag: {v.flagState})
                           </option>
                         ))
                       )}
                     </select>
+                    {isVesselLocked && prefilledVessel && (
+                      <div className="form-text text-muted small mt-1">
+                        Creating assurance set for {prefilledVessel.name} (from vessel profile).
+                      </div>
+                    )}
                   </div>
 
                   <div className="col-12 col-md-6">
@@ -600,10 +655,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
             </div>
 
-            {/* 2 ¬∑ charter window timeline */}
+            {/* 2 ù charter window timeline */}
             <div className="card border shadow-sm rounded-3 bg-white">
               <div className="card-header bg-light border-bottom px-4 py-3">
-                <h5 className="fw-bold text-slate-900 m-0 fs-6">2 ¬∑ Charter Window Timeline</h5>
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">2 ù Charter Window Timeline</h5>
               </div>
               <div className="card-body p-4">
                 <div className="row g-3">
@@ -638,12 +693,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
             </div>
 
-            {/* 5 ¬∑ stakeholder role assignments (only shown to Administrator, hidden for Client / non-admin personas) */}
+            {/* 5 ù stakeholder role assignments (only shown to Administrator, hidden for Client / non-admin personas) */}
             {(activePersona === 'Administrator' || activePersona == 'C Admin') && (
               <div className="card border shadow-sm rounded-3 bg-white">
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
                   <div>
-                    <h5 className="fw-bold text-slate-900 m-0 fs-6">5 ¬∑ Stakeholder Role Assignments</h5>
+                    <h5 className="fw-bold text-slate-900 m-0 fs-6">5 ù Stakeholder Role Assignments</h5>
                     <p className="text-muted small m-0 mt-1">
                       Assign system users & organizations for active workflow roles.
                     </p>
@@ -683,7 +738,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       >
                         {submitterUsers.map((u: UserProfile) => (
                           <option key={u.id} value={u.id}>
-                            {u.name} ({u.organization}) ‚Äî {u.departmentOrScope}
+                            {u.name} ({u.organization}) ù {u.departmentOrScope}
                           </option>
                         ))}
                       </select>
@@ -715,7 +770,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         >
                           {verifierUsers.map((u: UserProfile) => (
                             <option key={u.id} value={u.id}>
-                              {u.name} ({u.organization}) ‚Äî {u.departmentOrScope}
+                              {u.name} ({u.organization}) ù {u.departmentOrScope}
                             </option>
                           ))}
                         </select>
@@ -748,7 +803,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         >
                           {inspectorUsers.map((u: UserProfile) => (
                             <option key={u.id} value={u.id}>
-                              {u.name} ({u.organization}) ‚Äî {u.departmentOrScope}
+                              {u.name} ({u.organization}) ù {u.departmentOrScope}
                             </option>
                           ))}
                         </select>
@@ -781,7 +836,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         >
                           {approverUsers.map((u: UserProfile) => (
                             <option key={u.id} value={u.id}>
-                              {u.name} ({u.organization}) ‚Äî {u.departmentOrScope}
+                              {u.name} ({u.organization}) ù {u.departmentOrScope}
                             </option>
                           ))}
                         </select>
@@ -803,10 +858,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           {/* right column: section 3 and section 4 */}
           <div className="col-12 col-lg-6 d-flex flex-column gap-4">
 
-            {/* 3 ¬∑ required documents & information */}
+            {/* 3 ù required documents & information */}
             <div className="card border shadow-sm rounded-3 bg-white">
               <div className="card-header bg-light border-bottom px-4 py-3">
-                <h5 className="fw-bold text-slate-900 m-0 fs-6">3 ¬∑ Required documents & information</h5>
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">3 ù Required documents & information</h5>
                 <p className="text-muted small m-0 mt-1">
                   A document added here is marked <strong>Required</strong> with its toggle on. Switching a toggle off removes it from the set and hides it on the upload screen.
                 </p>
@@ -840,7 +895,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               {doc.title}
                             </label>
                             <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                              {doc.type} ¬∑ {isEnabled ? `Required in ${tempSetId}` : 'Excluded from set'}
+                              {doc.type} ù {isEnabled ? `Required in ${tempSetId}` : 'Excluded from set'}
                             </span>
                           </div>
                         </div>
@@ -869,10 +924,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
             </div>
 
-            {/* 4 ¬∑ workflow requirements */}
+            {/* 4 ù workflow requirements */}
             <div className="card border shadow-sm rounded-3 bg-white">
               <div className="card-header bg-light border-bottom px-4 py-3">
-                <h5 className="fw-bold text-slate-900 m-0 fs-6">4 ¬∑ Workflow requirements</h5>
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">4 ù Workflow requirements</h5>
               </div>
               <div className="card-body p-4">
                 <div className="d-flex flex-column gap-3">
@@ -949,7 +1004,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <button
                 type="button"
                 className="btn btn-outline-secondary px-4 py-2"
-                onClick={() => setCurrentHashView(isClientAdmin || previousHashView === 'dashboard' ? 'dashboard' : 'assurance-sets')}
+                onClick={handleCancel}
               >
                 Cancel
               </button>
