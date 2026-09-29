@@ -689,3 +689,157 @@ export function isViewAccessibleToPersona(
 
   return initialAllowed;
 }
+
+/**
+  what: checks if a vessel matches a search query across vessel attributes, linked assurance sets, and associated documents.
+  how: checks vessel properties, linked assurance sets (ID, title, charterer, requirements, stage), linked master documents (IDs, titles, cert numbers, issuers, crew info), and statutory certs.
+  with what file: src/utils/rbacHelpers.ts consumed by VesselTable.tsx.
+*/
+export function matchesVesselSearch(
+  vessel: VesselInformation,
+  searchTerm: string,
+  assuranceSets: AssuranceSet[] = [],
+  documents: MasterDocument[] = []
+): boolean {
+  const term = searchTerm.trim().toLowerCase();
+  if (!term) return true;
+
+  // 1. Vessel Core Attributes
+  if (
+    vessel.name?.toLowerCase().includes(term) ||
+    vessel.imoNumber?.includes(term) ||
+    vessel.mmsiNumber?.includes(term) ||
+    vessel.officialRegNumber?.toLowerCase().includes(term) ||
+    vessel.callSign?.toLowerCase().includes(term) ||
+    vessel.registeredOwner?.toLowerCase().includes(term) ||
+    vessel.ismCompany?.toLowerCase().includes(term) ||
+    vessel.technicalManager?.toLowerCase().includes(term) ||
+    vessel.docNumber?.toLowerCase().includes(term) ||
+    vessel.vesselType?.toLowerCase().includes(term) ||
+    vessel.vesselSubtype?.toLowerCase().includes(term) ||
+    vessel.classificationSociety?.toLowerCase().includes(term) ||
+    vessel.classNotation?.toLowerCase().includes(term) ||
+    vessel.flagState?.toLowerCase().includes(term) ||
+    vessel.portOfRegistry?.toLowerCase().includes(term) ||
+    vessel.intendedUse?.toLowerCase().includes(term) ||
+    vessel.shipyardBuilder?.toLowerCase().includes(term) ||
+    vessel.status?.toLowerCase().includes(term)
+  ) {
+    return true;
+  }
+
+  // 2. Direct Statutory Certificates on Vessel Record
+  if (
+    vessel.statutoryCertificates?.some(
+      (c) =>
+        c.id?.toLowerCase().includes(term) ||
+        c.name?.toLowerCase().includes(term) ||
+        c.certificateNumber?.toLowerCase().includes(term) ||
+        c.issuingBody?.toLowerCase().includes(term) ||
+        c.status?.toLowerCase().includes(term)
+    )
+  ) {
+    return true;
+  }
+
+  // 3. Linked Assurance Sets & Requirements
+  const linkedSets = assuranceSets.filter(
+    (s) =>
+      s.vesselId === vessel.id ||
+      (vessel.name && s.vesselName?.toLowerCase() === vessel.name.toLowerCase()) ||
+      (vessel.imoNumber && s.imoNumber === vessel.imoNumber)
+  );
+
+  const matchesAssuranceSets = linkedSets.some((s) => {
+    if (
+      s.id?.toLowerCase().includes(term) ||
+      s.title?.toLowerCase().includes(term) ||
+      s.charterer?.toLowerCase().includes(term) ||
+      s.stage?.toLowerCase().includes(term) ||
+      s.initiatorOrg?.toLowerCase().includes(term) ||
+      s.initiatorRole?.toLowerCase().includes(term) ||
+      s.assignedSubmitter?.toLowerCase().includes(term) ||
+      s.assignedVerifier?.toLowerCase().includes(term) ||
+      s.assignedInspector?.toLowerCase().includes(term) ||
+      s.assignedApprover?.toLowerCase().includes(term) ||
+      s.approverNotes?.toLowerCase().includes(term)
+    ) {
+      return true;
+    }
+
+    if (
+      s.requirements?.some(
+        (r) =>
+          r.title?.toLowerCase().includes(term) ||
+          r.category?.toLowerCase().includes(term) ||
+          r.documentId?.toLowerCase().includes(term) ||
+          r.linkedDocumentId?.toLowerCase().includes(term) ||
+          r.verifierStatus?.toLowerCase().includes(term) ||
+          r.notes?.toLowerCase().includes(term)
+      )
+    ) {
+      return true;
+    }
+
+    return false;
+  });
+
+  if (matchesAssuranceSets) return true;
+
+  // 4. Linked Master Documents (Vessel / Crew / Statutory / Uploaded)
+  const linkedDocs = documents.filter(
+    (d) =>
+      d.vesselId === vessel.id ||
+      (vessel.imoNumber && d.vesselAttributes?.imoNumber === vessel.imoNumber) ||
+      (vessel.name && d.vesselAttributes?.vesselName?.toLowerCase() === vessel.name.toLowerCase()) ||
+      (vessel.name && d.crewAttributes?.assignedVessel?.toLowerCase() === vessel.name.toLowerCase()) ||
+      linkedSets.some((s) =>
+        s.requirements?.some((r) => r.documentId === d.id || r.linkedDocumentId === d.id)
+      )
+  );
+
+  const matchesDocuments = linkedDocs.some((d) => {
+    if (
+      d.id?.toLowerCase().includes(term) ||
+      d.title?.toLowerCase().includes(term) ||
+      d.certificateNo?.toLowerCase().includes(term) ||
+      d.issuingAuthority?.toLowerCase().includes(term) ||
+      d.entityType?.toLowerCase().includes(term) ||
+      d.complianceState?.toLowerCase().includes(term) ||
+      d.verificationStatus?.toLowerCase().includes(term) ||
+      d.verificationNotes?.toLowerCase().includes(term)
+    ) {
+      return true;
+    }
+
+    if (
+      d.vesselAttributes &&
+      (d.vesselAttributes.certificateNumber?.toLowerCase().includes(term) ||
+        d.vesselAttributes.issuingBody?.toLowerCase().includes(term) ||
+        d.vesselAttributes.certType?.toLowerCase().includes(term) ||
+        d.vesselAttributes.flagState?.toLowerCase().includes(term) ||
+        d.vesselAttributes.title?.toLowerCase().includes(term))
+    ) {
+      return true;
+    }
+
+    if (
+      d.crewAttributes &&
+      (d.crewAttributes.crewName?.toLowerCase().includes(term) ||
+        d.crewAttributes.rank?.toLowerCase().includes(term) ||
+        d.crewAttributes.passportId?.toLowerCase().includes(term) ||
+        d.crewAttributes.certType?.toLowerCase().includes(term) ||
+        d.crewAttributes.issuingCenter?.toLowerCase().includes(term) ||
+        d.crewAttributes.nationality?.toLowerCase().includes(term))
+    ) {
+      return true;
+    }
+
+    return false;
+  });
+
+  if (matchesDocuments) return true;
+
+  return false;
+}
+

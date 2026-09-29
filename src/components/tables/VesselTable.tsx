@@ -25,6 +25,7 @@ import {
   getClientAdminOrganization,
   isAssuranceSetAssignedToPersona,
   isVesselOwnedByAdmin,
+  matchesVesselSearch,
 } from '../../utils/rbacHelpers';
 import type { FleetRegistryTab } from '../../utils/rbacHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
@@ -121,14 +122,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
       return false;
     }
 
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      v.name.toLowerCase().includes(term) ||
-      v.imoNumber.includes(term) ||
-      v.mmsiNumber.includes(term) ||
-      v.registeredOwner.toLowerCase().includes(term) ||
-      (v.vesselType && v.vesselType.toLowerCase().includes(term)) ||
-      (v.vesselSubtype && v.vesselSubtype.toLowerCase().includes(term));
+    const matchesSearch = matchesVesselSearch(v, searchTerm, assuranceSets, documents);
 
     const matchesFlag = flagFilter === 'ALL' || v.flagState === flagFilter;
     const matchesClass = classFilter === 'ALL' || v.classificationSociety === classFilter;
@@ -234,10 +228,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
           <input
             type="text"
             className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search by Name, Type, Owner..."
+            placeholder="Search by Name, Type, Assurance Set, Docs..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '250px' }}
+            style={{ width: '280px' }}
           />
 
           <select
