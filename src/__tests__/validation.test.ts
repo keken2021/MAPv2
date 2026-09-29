@@ -13,7 +13,7 @@ import {
   generateUniqueAssuranceSetId,
   generateUniqueRequirementId,
 } from '../utils/validation';
-import { VesselParticulars } from '../types/vessel';
+import { VesselInformation } from '../types/vessel';
 import { AssuranceSet } from '../types/assurance';
 
 describe('Maritime Validation Utilities', () => {
@@ -29,21 +29,21 @@ describe('Maritime Validation Utilities', () => {
   });
 
   it('should detect duplicate vessel registration by IMO number', () => {
-    const mockVessels: Partial<VesselParticulars>[] = [
+    const mockVessels: Partial<VesselInformation>[] = [
       { name: 'MV Pacific Endeavour', imoNumber: '9123456', officialRegNumber: 'OSV-44-2019' },
     ];
 
-    const result = isDuplicateVessel('9123456', 'NEW-REG-100', mockVessels as VesselParticulars[]);
+    const result = isDuplicateVessel('9123456', 'NEW-REG-100', mockVessels as VesselInformation[]);
     expect(result.isDuplicate).toBe(true);
     expect(result.reason).toContain('IMO number 9123456');
   });
 
   it('should detect duplicate vessel registration by Official Registration Number', () => {
-    const mockVessels: Partial<VesselParticulars>[] = [
+    const mockVessels: Partial<VesselInformation>[] = [
       { name: 'MV Pacific Endeavour', imoNumber: '9123456', officialRegNumber: 'OSV-44-2019' },
     ];
 
-    const result = isDuplicateVessel('9999999', 'osv-44-2019', mockVessels as VesselParticulars[]);
+    const result = isDuplicateVessel('9999999', 'osv-44-2019', mockVessels as VesselInformation[]);
     expect(result.isDuplicate).toBe(true);
     expect(result.reason).toContain('Official Registration Number OSV-44-2019');
   });

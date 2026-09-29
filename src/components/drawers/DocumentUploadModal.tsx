@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
+import { formatDocumentId } from '../../utils/formatters';
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface DocumentUploadModalProps {
   requirementId?: string;
   requirementTitle?: string;
   defaultVesselId?: string;
+  modalTitle?: string;
 }
 
 /**
@@ -34,6 +36,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   requirementId,
   requirementTitle,
   defaultVesselId,
+  modalTitle,
 }) => {
   const { vessels, documents, addDocument, uploadDocumentForRequirement, addDocumentVersion, verifyDocument, activePersona } =
     useMapStore();
@@ -336,8 +339,10 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         verifyDocument(existingDocument.id, 'Pending', 'New replacement revision submitted.');
       } else {
         const targetVesselObj = vesselId ? vessels.find((v) => v.id === vesselId) : undefined;
+        const entityPrefix = entityType === 'Crew Certificate' ? 'CRW' : vesselId ? 'VES' : 'DOC';
+        const categoryCode = entityType === 'Crew Certificate' ? 'STCW' : vesselId ? 'STAT' : 'UNAS';
         const newDoc: MasterDocument = {
-          id: `DOC-2026-${Math.floor(100 + Math.random() * 900)}`,
+          id: formatDocumentId(entityPrefix, 2026, categoryCode),
           title,
           entityType,
           vesselId: vesselId || defaultVesselId || '',
@@ -428,13 +433,15 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
           <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3 position-relative">
             <h5 className="modal-title fw-bold text-slate-900 m-0">
-              {existingDocument
-                ? `Upload Replacement Revision — ${existingDocument.title}`
-                : requirementTitle
-                  ? `Upload Document — ${requirementTitle}`
-                  : assuranceSetId
-                    ? 'Upload Document'
-                    : 'Upload New Master Document'}
+              {modalTitle
+                ? modalTitle
+                : existingDocument
+                  ? `Upload Replacement Revision — ${existingDocument.title}`
+                  : requirementTitle
+                    ? `Upload Document — ${requirementTitle}`
+                    : assuranceSetId
+                      ? 'Upload Document'
+                      : 'Upload Preassurance Document'}
             </h5>
             <button
               type="button"

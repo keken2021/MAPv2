@@ -1,6 +1,6 @@
 /* 
   file summary: stcw crew member profile and layered compliance document interfaces.
-  responsibilities: defines structured types for crew particulars, historical vessel sea service assignments, and stcw layer 1 & 2 certificates.
+  responsibilities: defines structured types for crew Information, historical vessel sea service assignments, and stcw layer 1 & 2 certificates.
   role in system: consumed by CrewTable, CrewDetailView, CrewModal, CrewDocumentUploadModal, and useMapStore.
 */
 

@@ -14,7 +14,7 @@ import {
 } from '../utils/readinessHelpers';
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 import { MasterDocument } from '../types/document';
-import { VesselParticulars } from '../types/vessel';
+import { VesselInformation } from '../types/vessel';
 import { useMapStore } from '../store/useMapStore';
 
 describe('dynamic readiness index calculation suite', () => {
@@ -204,7 +204,7 @@ describe('dynamic readiness index calculation suite', () => {
     with what file: src/__tests__/readinessCalculations.test.ts testing src/utils/readinessHelpers.ts.
   */
   it('calculates dynamic fleet readiness for a vessel across linked campaigns', () => {
-    const vessel: VesselParticulars = {
+    const vessel: VesselInformation = {
       ...useMapStore.getState().vessels[0],
       id: 'VESSEL-TEST-1',
       name: 'Southern Explorer',

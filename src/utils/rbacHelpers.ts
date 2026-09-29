@@ -7,7 +7,7 @@
 import { AssuranceSet } from "../types/assurance";
 import { AuditTrailEvent, UserRolePersona } from "../types/audit";
 import { MasterDocument } from "../types/document";
-import { VesselParticulars } from "../types/vessel";
+import { VesselInformation } from "../types/vessel";
 import { userMatchesAnyRole } from "./userRoleHelpers";
 import { VIEW_TO_SCOPE, canPerform, isUserOverride, getEffectiveUserScopeFlags, getRoleScopeFlags } from "./permissionHelpers";
 import { RolePermissionMatrix, UserPermissionOverrides } from "../types/permissions";
@@ -129,7 +129,7 @@ export function filterDocumentsForVerifierQueue(
   how: inspects registeredOwner, technicalManager, and ismCompany for organization keywords.
   with what file: src/utils/rbacHelpers.ts used by VesselDetailView.tsx, FleetRegistryView.tsx, and VesselTable.tsx.
 */
-export function isVesselOwnedByAdmin(v?: VesselParticulars): boolean {
+export function isVesselOwnedByAdmin(v?: VesselInformation): boolean {
   if (!v) return false;
   const ownerLower = (v.registeredOwner || '').toLowerCase();
   const techManagerLower = (v.technicalManager || '').toLowerCase();
@@ -193,7 +193,7 @@ export function getClientAdminOrganization(
   what: true when the vessel is owned or managed by the client admin organization.
 */
 export function isVesselOwnedByClientOrg(
-  vessel: VesselParticulars | undefined,
+  vessel: VesselInformation | undefined,
   clientOrg: string,
 ): boolean {
   if (!vessel || !clientOrg.trim()) return false;
@@ -207,7 +207,7 @@ export function isVesselOwnedByClientOrg(
   what: true when a vessel is linked to an active C Admin assurance campaign or under charter.
 */
 export function isVesselCharteredByCAdmin(
-  vessel: VesselParticulars,
+  vessel: VesselInformation,
   assuranceSets: AssuranceSet[],
 ): boolean {
   return (
@@ -224,10 +224,10 @@ export function isVesselCharteredByCAdmin(
   what: third-party vessels available for external charter vetting (excludes own fleet and active charters).
 */
 export function filterCAdminAvailableToCharter(
-  vessels: VesselParticulars[],
+  vessels: VesselInformation[],
   assuranceSets: AssuranceSet[],
   clientOrg: string,
-): VesselParticulars[] {
+): VesselInformation[] {
   return vessels.filter(
     (vessel) =>
       vessel.status !== 'Under Charter' &&
@@ -240,9 +240,9 @@ export function filterCAdminAvailableToCharter(
   what: vessels owned or managed by the client admin organization.
 */
 export function filterCAdminOwnFleet(
-  vessels: VesselParticulars[],
+  vessels: VesselInformation[],
   clientOrg: string,
-): VesselParticulars[] {
+): VesselInformation[] {
   return vessels.filter(
     (vessel) =>
       vessel.status !== 'Under Charter' && isVesselOwnedByClientOrg(vessel, clientOrg),
@@ -253,9 +253,9 @@ export function filterCAdminOwnFleet(
   what: vessels already linked to C Admin assurance campaigns.
 */
 export function filterCAdminActiveCharters(
-  vessels: VesselParticulars[],
+  vessels: VesselInformation[],
   assuranceSets: AssuranceSet[],
-): VesselParticulars[] {
+): VesselInformation[] {
   return vessels.filter(
     (vessel) =>
       isVesselCharteredByCAdmin(vessel, assuranceSets) && vessel.status !== 'Under Charter',
@@ -267,7 +267,7 @@ export function filterCAdminActiveCharters(
 */
 export function isChartererMatchingVesselOwner(
   charterer: string,
-  vessel: VesselParticulars | undefined,
+  vessel: VesselInformation | undefined,
 ): boolean {
   if (!charterer.trim() || !vessel) return false;
   return isVesselOwnedByClientOrg(vessel, charterer);
@@ -279,10 +279,10 @@ export function isChartererMatchingVesselOwner(
   with what file: src/utils/rbacHelpers.ts used by FleetRegistryView.tsx, VesselTable.tsx, DashboardView.tsx, and InspectorWorkspaceView.tsx.
 */
 export function filterVesselsForPersona(
-  vessels: VesselParticulars[],
+  vessels: VesselInformation[],
   assuranceSets: AssuranceSet[],
   persona: UserRolePersona,
-): VesselParticulars[] {
+): VesselInformation[] {
   if (persona === "C Admin") return vessels;
 
   if (persona === "Administrator") {
@@ -375,7 +375,7 @@ export function filterAuditTrailForPersona(
   events: AuditTrailEvent[],
   persona: UserRolePersona,
   assuranceSets: AssuranceSet[],
-  vessels: VesselParticulars[],
+  vessels: VesselInformation[],
 ): AuditTrailEvent[] {
   if (persona === "Administrator") {
     return events;

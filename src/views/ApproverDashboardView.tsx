@@ -238,10 +238,10 @@ export const ApproverDashboardView: React.FC = () => {
           {/* first column (left): information of the assurance set */}
           <div className="col-lg-6">
             <div className="d-flex flex-column gap-4">
-              {/* campaign particulars & stakeholder role assignments card */}
+              {/* campaign Information & stakeholder role assignments card */}
               <div className="card map-card-custom p-4">
                 <div className="text-uppercase font-mono-code fw-bold text-secondary mb-3 small">
-                  Campaign Particulars & Stakeholders — {selectedSet.id}
+                  Campaign Information & Stakeholders — {selectedSet.id}
                 </div>
                 <div className="row g-3 font-mono-code small mb-3">
                   <div className="col-md-6 border-end pr-3">

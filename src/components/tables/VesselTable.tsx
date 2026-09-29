@@ -6,10 +6,16 @@
 
 import React, { useState, useMemo } from 'react';
 import { useMapStore } from '../../store/useMapStore';
-import { VesselParticulars } from '../../types/vessel';
+import { VesselInformation } from '../../types/vessel';
 import { ReadinessGauge } from '../common/ReadinessGauge';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { getVesselStatusBadgeClass } from '../../utils/formatters';
+import {
+  getVesselStockPhoto,
+  getVesselListingContact,
+  getVesselCharterBadge,
+  getOrganizationLogo,
+} from '../../utils/vesselImageHelpers';
 
 import {
   filterCAdminActiveCharters,
@@ -33,7 +39,7 @@ type VesselSortField =
   | 'complianceReadinessScore';
 
 interface VesselTableProps {
-  onSelectVessel: (vessel: VesselParticulars) => void;
+  onSelectVessel: (vessel: VesselInformation) => void;
   onRegisterVessel?: () => void;
   filterMode?: FleetRegistryTab;
 }
@@ -63,6 +69,8 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
   const [sortField, setSortField] = useState<VesselSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
 
   const availableAssuranceSets = useMemo(() => {
     if (activePersona === 'C Admin') {
@@ -118,7 +126,9 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
       v.name.toLowerCase().includes(term) ||
       v.imoNumber.includes(term) ||
       v.mmsiNumber.includes(term) ||
-      v.registeredOwner.toLowerCase().includes(term);
+      v.registeredOwner.toLowerCase().includes(term) ||
+      (v.vesselType && v.vesselType.toLowerCase().includes(term)) ||
+      (v.vesselSubtype && v.vesselSubtype.toLowerCase().includes(term));
 
     const matchesFlag = flagFilter === 'ALL' || v.flagState === flagFilter;
     const matchesClass = classFilter === 'ALL' || v.classificationSociety === classFilter;
@@ -170,7 +180,9 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
 
     if (typeof valA === 'string') {
       valA = valA.toLowerCase();
-      valB = (valB as string).toLowerCase();
+    }
+    if (typeof valB === 'string') {
+      valB = valB.toLowerCase();
     }
 
     if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
@@ -181,6 +193,9 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
   const handleExportCsv = () => {
     const exportData = sortedVessels.map((v) => ({
       VesselName: v.name,
+      VesselType: v.vesselType,
+      VesselSubtype: v.vesselSubtype,
+      Organization: v.registeredOwner,
       ImoNumber: v.imoNumber,
       OfficialRegNumber: v.officialRegNumber,
       MmsiNumber: v.mmsiNumber,
@@ -195,11 +210,12 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
   };
 
   const handleExportPdf = () => {
-    const headers = ['Vessel Name', 'IMO Number', 'Reg Number', 'Flag State', 'Class', 'Status', 'Readiness'];
+    const headers = ['Vessel Name', 'Type', 'Organization', 'IMO', 'Flag State', 'Class', 'Status', 'Readiness'];
     const rows = sortedVessels.map((v) => [
       v.name,
+      v.vesselSubtype || v.vesselType,
+      v.registeredOwner,
       v.imoNumber,
-      v.officialRegNumber,
       v.flagState,
       v.classificationSociety,
       v.status,
@@ -212,13 +228,13 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
   return (
     <div className="card map-card-custom">
       {/* Table Controls Header */}
-      <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
+      <div className="card-header d-flex flex-wrap align-items-center justify-content-between gap-3 p-3">
         {/* Left: Search & Filter */}
         <div className="d-flex flex-wrap align-items-center gap-2">
           <input
             type="text"
             className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search by Name, IMO, Owner..."
+            placeholder="Search by Name, Type, Owner..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '250px' }}
@@ -252,14 +268,19 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
               className="form-select form-select-sm bg-white text-dark border-secondary"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ width: '150px' }}
+              style={{ width: '160px' }}
             >
               <option value="ALL">All Statuses</option>
-              <option value="Awaiting Orders">Awaiting Orders</option>
-              <option value="In-Transit">In-Transit</option>
+              <option value="In Operations">In Operations</option>
+              <option value="In Transit">In Transit</option>
               <option value="Port Stay">Port Stay</option>
               <option value="Under Charter">Under Charter</option>
-              <option value="Dry-Docking">Dry-Docking</option>
+              <option value="Active">Active</option>
+              <option value="Standby">Standby</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Dry Docking">Dry Docking</option>
+              <option value="Lay-up">Lay-up</option>
+              <option value="Decommissioned">Decommissioned</option>
             </select>
           )}
 
@@ -281,8 +302,84 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
           )}
         </div>
 
-        {/* Right: Export & Register Buttons on corner right of the row */}
+        {/* Right: View Mode Dropdown (Icons only), Export & Register */}
         <div className="d-flex align-items-center gap-2 ms-auto">
+          {/* View Mode Icon Dropdown */}
+          <div className="dropdown position-relative">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary text-dark d-flex align-items-center gap-1.5 px-2.5 py-1"
+              onClick={() => setIsViewDropdownOpen(!isViewDropdownOpen)}
+              title={viewMode === 'grid' ? 'Grid View' : 'Table View'}
+              aria-label="Toggle View Mode"
+            >
+              {viewMode === 'grid' ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="3" y1="12" x2="21" y2="12"></line>
+                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+              )}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            {isViewDropdownOpen && (
+              <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border py-1" style={{ minWidth: '120px' }}>
+                <li>
+                  <button
+                    type="button"
+                    className={`dropdown-item d-flex align-items-center justify-content-between px-3 py-1.5 small ${viewMode === 'grid' ? 'active bg-primary text-white' : ''}`}
+                    onClick={() => {
+                      setViewMode('grid');
+                      setIsViewDropdownOpen(false);
+                    }}
+                    title="Grid View"
+                  >
+                    <div className="d-flex align-items-center gap-2">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                      </svg>
+                      <span>Grid</span>
+                    </div>
+                    {viewMode === 'grid' && <span>✓</span>}
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className={`dropdown-item d-flex align-items-center justify-content-between px-3 py-1.5 small ${viewMode === 'table' ? 'active bg-primary text-white' : ''}`}
+                    onClick={() => {
+                      setViewMode('table');
+                      setIsViewDropdownOpen(false);
+                    }}
+                    title="Table View"
+                  >
+                    <div className="d-flex align-items-center gap-2">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                      </svg>
+                      <span>Table</span>
+                    </div>
+                    {viewMode === 'table' && <span>✓</span>}
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
+
           <div className="dropdown position-relative">
             <button
               type="button"
@@ -319,92 +416,263 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
         </div>
       </div>
 
-      {/* Vessels Data Table */}
-      <div className="table-responsive">
-        <table className="table map-table-custom align-middle mb-0">
-          <thead>
-            <tr>
-              <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Vessel Name {renderSortIndicator('name')}
-              </th>
-              <th onClick={() => handleSort('classNotation')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Class Notation / Type {renderSortIndicator('classNotation')}
-              </th>
-              <th onClick={() => handleSort('flagState')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Flag State {renderSortIndicator('flagState')}
-              </th>
-              <th onClick={() => handleSort('registeredOwner')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Registered Owner {renderSortIndicator('registeredOwner')}
-              </th>
-              <th onClick={() => handleSort('status')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Status {renderSortIndicator('status')}
-              </th>
-              <th onClick={() => handleSort('complianceReadinessScore')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Assurance Readiness {renderSortIndicator('complianceReadinessScore')}
-              </th>
-              <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedVessels.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center py-5">
-                  <div className="map-vessel-empty-state">
-                    <div className="map-vessel-empty-title">No vessels match your search</div>
-                    <div className="map-vessel-empty-hint text-muted small">
-                      Try adjusting filters or register a new OSV vessel.
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              sortedVessels.map((v) => (
-                <tr
-                  key={v.id}
-                  onClick={() => {
-                    setActiveVesselId(v.id);
-                    onSelectVessel(v);
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td>
-                    <div className="fw-semibold text-primary">{v.name}</div>
-                  </td>
-                  <td className="small">
-                    <div>{v.classNotation}</div>
-                    <span className="badge bg-light text-dark border mt-1">{v.classificationSociety}</span>
-                  </td>
-                  <td>
-                    <div>{v.flagState}</div>
-                    <div className="small text-muted">{v.portOfRegistry}</div>
-                  </td>
-                  <td className="small">
-                    <div className="fw-semibold text-dark">{v.registeredOwner}</div>
-                  </td>
-                  <td>
-                    <span className={`badge ${getVesselStatusBadgeClass(v.status)} text-uppercase`}>{v.status}</span>
-                  </td>
-                  <td>
-                    <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
-                  </td>
-                  <td className="text-end" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-primary"
+      {/* Main Content: Tile Grid vs Data Table */}
+      {viewMode === 'grid' ? (
+        <div className="p-3 bg-light border-top">
+          {sortedVessels.length === 0 ? (
+            <div className="text-center py-5 bg-white rounded-3 border">
+              <div className="map-vessel-empty-title fw-semibold text-dark mb-1">No vessels match your search</div>
+              <div className="map-vessel-empty-hint text-muted small">
+                Try adjusting filters or search terms.
+              </div>
+            </div>
+          ) : (
+            <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+              {sortedVessels.map((v) => {
+                const readinessScore = calculateVesselReadiness(v, assuranceSets, documents);
+                const charterBadge = getVesselCharterBadge(v.status, v.intendedUse);
+                const orgInfo = getOrganizationLogo(v.registeredOwner);
+
+                return (
+                  <div key={v.id} className="col">
+                    <div
+                      className="map-marketplace-card h-100"
                       onClick={() => {
                         setActiveVesselId(v.id);
                         onSelectVessel(v);
                       }}
                     >
-                      View Details
-                    </button>
+                      {/* Image Header with Floating Charter Pill & Heart Icon */}
+                      <div className="map-marketplace-img-wrapper">
+                        <img
+                          src={getVesselStockPhoto(v.id, v.name, v.vesselType, v.vesselSubtype, v.imageUrl)}
+                          alt={v.name}
+                          className="map-marketplace-img"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              'https://plus.unsplash.com/premium_photo-1661880889658-6c3ac991146f?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
+                          }}
+                        />
+                        {/* Top Left Floating Pill */}
+                        <div className="map-marketplace-badge-pill">
+                          <span
+                            style={{
+                              width: '7px',
+                              height: '7px',
+                              borderRadius: '50%',
+                              backgroundColor: charterBadge.dotColor,
+                              display: 'inline-block',
+                            }}
+                          />
+                          <span>{charterBadge.label}</span>
+                        </div>
+
+                        {/* Top Right Bookmark / Favorite Action (SVG Icon) */}
+                        <button
+                          type="button"
+                          className="map-marketplace-fav-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          title="Save Vessel"
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* Card Content Section */}
+                      <div className="p-3 d-flex flex-column flex-grow-1">
+                        {/* Title & Options Row */}
+                        <div className="d-flex align-items-start justify-content-between gap-2 mb-1">
+                          <h6 className="mb-0 fw-bold text-dark text-truncate" style={{ fontSize: '1.05rem' }} title={v.name}>
+                            {v.name}
+                          </h6>
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 text-muted text-decoration-none border-0 flex-shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveVesselId(v.id);
+                              onSelectVessel(v);
+                            }}
+                            title="View Options"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="1.5"></circle>
+                              <circle cx="19" cy="12" r="1.5"></circle>
+                              <circle cx="5" cy="12" r="1.5"></circle>
+                            </svg>
+                          </button>
+                        </div>
+
+                        {/* Subtitle / Vessel Type */}
+                        <div className="text-secondary small mb-3 text-truncate" style={{ fontSize: '0.85rem' }}>
+                          {v.vesselSubtype || v.vesselType || 'Offshore Support Vessel (OSV)'} {v.dynamicPositioningClass ? `· ${v.dynamicPositioningClass.split(' ')[0]}` : ''}
+                        </div>
+
+                        {/* 2-Column Key Metrics Row (Uncluttered, high-contrast stats) */}
+                        <div className="d-flex align-items-center justify-content-between mb-3 py-1">
+                          {/* Left Metric: Capacity / DWT */}
+                          <div className="d-flex flex-column">
+                            <span className="text-muted" style={{ fontSize: '0.72rem' }}>
+                              Capacity (DWT)
+                            </span>
+                            <span className="fw-bold text-dark font-mono-code" style={{ fontSize: '0.95rem' }}>
+                              {v.deadweightTonnageDWT ? `${v.deadweightTonnageDWT.toLocaleString()} MT` : `${v.grossTonnageGT?.toLocaleString() || '3,250'} GT`}
+                            </span>
+                          </div>
+
+                          {/* Right Metric: Class / Readiness */}
+                          <div className="d-flex flex-column text-end">
+                            <span className="text-muted" style={{ fontSize: '0.72rem' }}>
+                              Assurance / Class
+                            </span>
+                            <span className="fw-bold text-dark" style={{ fontSize: '0.95rem' }}>
+                              {v.classificationSociety ? `${v.classificationSociety} · ${readinessScore}%` : `${readinessScore}% Ready`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Bottom Listing / Organization Box */}
+                        <div className="map-marketplace-org-box mt-auto">
+                          <div
+                            className="text-uppercase fw-bold mb-1.5"
+                            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#94a3b8' }}
+                          >
+                            LISTING ORGANIZATION
+                          </div>
+                          <div className="d-flex align-items-center gap-1">
+                            {orgInfo.logoUrl ? (
+                              <img
+                                src={orgInfo.logoUrl}
+                                alt={orgInfo.name}
+                                className="rounded-2 flex-shrink-0 border"
+                                style={{ width: '36px', height: '36px', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <div
+                                className="rounded-2 flex-shrink-0 d-flex align-items-center justify-content-center fw-bold shadow-sm"
+                                style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  background: orgInfo.badgeBg,
+                                  color: orgInfo.badgeColor,
+                                  fontSize: '0.78rem',
+                                  letterSpacing: '0.04em',
+                                }}
+                              >
+                                {orgInfo.initials}
+                              </div>
+                            )}
+                            <div className="d-flex flex-column min-w-0 ps-0.5">
+                              <span className="fw-bold text-dark text-truncate" style={{ fontSize: '0.88rem' }} title={orgInfo.name}>
+                                {orgInfo.name}
+                              </span>
+                              <span className="text-muted text-truncate" style={{ fontSize: '0.72rem' }}>
+                                Verified Maritime Provider
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Vessels Data Table */
+        <div className="table-responsive">
+          <table className="table map-table-custom align-middle mb-0">
+            <thead>
+              <tr>
+                <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Vessel Name {renderSortIndicator('name')}
+                </th>
+                <th onClick={() => handleSort('classNotation')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Class Notation / Type {renderSortIndicator('classNotation')}
+                </th>
+                <th onClick={() => handleSort('flagState')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Flag State {renderSortIndicator('flagState')}
+                </th>
+                <th onClick={() => handleSort('registeredOwner')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Registered Owner {renderSortIndicator('registeredOwner')}
+                </th>
+                <th onClick={() => handleSort('status')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Status {renderSortIndicator('status')}
+                </th>
+                <th onClick={() => handleSort('complianceReadinessScore')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Assurance Readiness {renderSortIndicator('complianceReadinessScore')}
+                </th>
+                <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedVessels.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-5">
+                    <div className="map-vessel-empty-state">
+                      <div className="map-vessel-empty-title">No vessels match your search</div>
+                      <div className="map-vessel-empty-hint text-muted small">
+                        Try adjusting filters or register a new OSV vessel.
+                      </div>
+                    </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                sortedVessels.map((v) => (
+                  <tr
+                    key={v.id}
+                    onClick={() => {
+                      setActiveVesselId(v.id);
+                      onSelectVessel(v);
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td>
+                      <div className="fw-semibold text-primary">{v.name}</div>
+                    </td>
+                    <td className="small">
+                      <div>{v.vesselSubtype || v.classNotation}</div>
+                      <span className="badge bg-light text-dark border mt-1">{v.classificationSociety}</span>
+                    </td>
+                    <td>
+                      <div>{v.flagState}</div>
+                      <div className="small text-muted">{v.portOfRegistry}</div>
+                    </td>
+                    <td className="small">
+                      <div className="fw-semibold text-dark">{v.registeredOwner}</div>
+                    </td>
+                    <td>
+                      <span className={`badge ${getVesselStatusBadgeClass(v.status)} text-uppercase`}>{v.status}</span>
+                    </td>
+                    <td>
+                      <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
+                    </td>
+                    <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => {
+                          setActiveVesselId(v.id);
+                          onSelectVessel(v);
+                        }}
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };
+

@@ -4,7 +4,7 @@
   role in system: used by vessel registration modal, document verification pipeline, and store actions to enforce data integrity.
 */
 
-import { VesselParticulars } from '../types/vessel';
+import { VesselInformation } from '../types/vessel';
 import { AssuranceSet } from '../types/assurance';
 
 /**
@@ -25,7 +25,7 @@ export function validateImoNumber(imo: string): boolean {
 export function isDuplicateVessel(
   imoNumber: string,
   officialRegNumber: string,
-  existingVessels: VesselParticulars[]
+  existingVessels: VesselInformation[]
 ): { isDuplicate: boolean; reason?: string } {
   const cleanImo = imoNumber.trim();
   const cleanReg = officialRegNumber.trim().toUpperCase();

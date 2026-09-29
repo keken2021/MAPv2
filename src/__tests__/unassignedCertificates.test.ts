@@ -73,12 +73,12 @@ describe('unassigned certificates in document library for vessel registration', 
       return !isDocumentAttachedToVessel(d);
     });
 
-    /* assigned documents like DOC-2026-001 (VESSEL-001) must be excluded */
-    const doc001 = unassignedDocuments.find((d) => d.id === 'DOC-2026-001');
+    /* assigned documents like MAP-VES-2026-STAT-00001 (VESSEL-001) must be excluded */
+    const doc001 = unassignedDocuments.find((d) => d.id === 'MAP-VES-2026-STAT-00001');
     expect(doc001).toBeUndefined();
 
-    /* unassigned documents like DOC-UNASSIGNED-01 must be included */
-    const unassigned01 = unassignedDocuments.find((d) => d.id === 'DOC-UNASSIGNED-01');
+    /* unassigned documents like MAP-DOC-2026-UNAS-00001 must be included */
+    const unassigned01 = unassignedDocuments.find((d) => d.id === 'MAP-DOC-2026-UNAS-00001');
     expect(unassigned01).toBeDefined();
   });
 
@@ -88,7 +88,7 @@ describe('unassigned certificates in document library for vessel registration', 
     );
 
     const selectedDocIds: Record<number, string> = {
-      1: 'DOC-UNASSIGNED-01',
+      1: 'MAP-DOC-2026-UNAS-00001',
     };
 
     const getAvailableDocsForStep = (stepNumber: number) => {
@@ -102,10 +102,10 @@ describe('unassigned certificates in document library for vessel registration', 
 
     /* step 1 can re-select its own selected doc */
     const step1Docs = getAvailableDocsForStep(1);
-    expect(step1Docs.some((d) => d.id === 'DOC-UNASSIGNED-01')).toBe(true);
+    expect(step1Docs.some((d) => d.id === 'MAP-DOC-2026-UNAS-00001')).toBe(true);
 
-    /* step 2 must NOT see DOC-UNASSIGNED-01 because it is already selected in step 1 */
+    /* step 2 must NOT see MAP-DOC-2026-UNAS-00001 because it is already selected in step 1 */
     const step2Docs = getAvailableDocsForStep(2);
-    expect(step2Docs.some((d) => d.id === 'DOC-UNASSIGNED-01')).toBe(false);
+    expect(step2Docs.some((d) => d.id === 'MAP-DOC-2026-UNAS-00001')).toBe(false);
   });
 });

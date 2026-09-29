@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { STCWDocumentItem, STCWLayer } from '../../types/crew';
+import { formatDocumentId } from '../../utils/formatters';
 
 interface CrewDocumentUploadModalProps {
   isOpen: boolean;
@@ -337,7 +338,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
 
     setTimeout(() => {
       const docToSave: STCWDocumentItem = {
-        id: existingDocument ? existingDocument.id : (selectedLibraryDocId || `DOC-CRW-${Math.floor(600 + Math.random() * 400)}`),
+        id: existingDocument ? existingDocument.id : (selectedLibraryDocId || formatDocumentId('CRW', 2026, 'STCW')),
         title: title.trim(),
         layer,
         stcwRegulation: stcwRegulation.trim() || 'STCW Convention Standard',

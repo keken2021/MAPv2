@@ -56,7 +56,7 @@ export interface ValidationRuleStatus {
 }
 
 export interface MasterDocument {
-  id: string; // e.g. DOC-2026-001
+  id: string; // e.g. MAP-VES-2026-STAT-00412
   title: string;
   entityType: DocumentEntityType;
   vesselId: string;

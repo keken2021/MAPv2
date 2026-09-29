@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { UserRolePersona } from '../types/audit';
 import { isViewAccessibleToPersona, filterDocumentsForVerifierQueue } from '../utils/rbacHelpers';
+import { formatDocumentId, isValidDocumentId } from '../utils/formatters';
 
 describe('Map Store State Management', () => {
   beforeEach(() => {
@@ -100,23 +101,23 @@ describe('Map Store State Management', () => {
       const targetReq = customSet.requirements[0];
       const mockDoc = {
         ...store.documents[0],
-        id: 'DOC-REQ-LINK-TEST',
+        id: 'MAP-DOC-2026-STAT-00999',
         title: targetReq.title,
         verificationStatus: 'Pending' as const,
       };
       store.uploadDocumentForRequirement(customSet.id, targetReq.id, mockDoc);
       const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === customSet.id);
       const updatedReq = updatedSet?.requirements.find((r) => r.id === targetReq.id);
-      expect(updatedReq?.documentId).toBe('DOC-REQ-LINK-TEST');
+      expect(updatedReq?.documentId).toBe('MAP-DOC-2026-STAT-00999');
       expect(updatedReq?.verifierStatus).toBe('Pending');
-      expect(useMapStore.getState().documents.some((d) => d.id === 'DOC-REQ-LINK-TEST')).toBe(true);
+      expect(useMapStore.getState().documents.some((d) => d.id === 'MAP-DOC-2026-STAT-00999')).toBe(true);
       return;
     }
 
     const targetReq = targetSet.requirements.find((r) => !r.documentId)!;
     const mockDoc = {
       ...store.documents[0],
-      id: 'DOC-REQ-LINK-TEST',
+      id: 'MAP-DOC-2026-STAT-00999',
       title: targetReq.title,
       vesselId: targetSet.vesselId,
       verificationStatus: 'Pending' as const,
@@ -126,7 +127,7 @@ describe('Map Store State Management', () => {
 
     const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
     const updatedReq = updatedSet?.requirements.find((r) => r.id === targetReq.id);
-    expect(updatedReq?.documentId).toBe('DOC-REQ-LINK-TEST');
+    expect(updatedReq?.documentId).toBe('MAP-DOC-2026-STAT-00999');
     expect(updatedReq?.verifierStatus).toBe('Pending');
 
     const scoped = filterDocumentsForVerifierQueue(
@@ -134,7 +135,7 @@ describe('Map Store State Management', () => {
       useMapStore.getState().assuranceSets,
       'Verifier',
     );
-    expect(scoped.some((d) => d.id === 'DOC-REQ-LINK-TEST')).toBe(true);
+    expect(scoped.some((d) => d.id === 'MAP-DOC-2026-STAT-00999')).toBe(true);
   });
 
   it('should scope verifier queue documents to assigned assurance set requirements', () => {
@@ -193,7 +194,7 @@ describe('Map Store State Management', () => {
     const targetCrew = store.crew[0];
 
     const layer1Doc = {
-      id: 'DOC-CRW-L1-TEST',
+      id: 'MAP-CRW-2026-STCW-00901',
       title: 'ENG1 Medical Certificate',
       layer: 'Layer 1 - Universal Core' as const,
       stcwRegulation: 'STCW Reg I/9',
@@ -207,10 +208,10 @@ describe('Map Store State Management', () => {
     store.addCrewDocument(targetCrew.id, layer1Doc);
 
     let updatedCrew = useMapStore.getState().crew.find((c) => c.id === targetCrew.id);
-    expect(updatedCrew?.layer1CoreDocuments.some((d) => d.id === 'DOC-CRW-L1-TEST')).toBe(true);
+    expect(updatedCrew?.layer1CoreDocuments.some((d) => d.id === 'MAP-CRW-2026-STCW-00901')).toBe(true);
 
     const layer2Doc = {
-      id: 'DOC-CRW-L2-TEST',
+      id: 'MAP-CRW-2026-STCW-00902',
       title: 'Advanced Oil Tanker Endorsement',
       layer: 'Layer 2 - Vessel Specific & Endorsements' as const,
       stcwRegulation: 'STCW Reg V/1-1',
@@ -224,7 +225,7 @@ describe('Map Store State Management', () => {
     store.addCrewDocument(targetCrew.id, layer2Doc);
 
     updatedCrew = useMapStore.getState().crew.find((c) => c.id === targetCrew.id);
-    expect(updatedCrew?.layer2Endorsements.some((d) => d.id === 'DOC-CRW-L2-TEST')).toBe(true);
+    expect(updatedCrew?.layer2Endorsements.some((d) => d.id === 'MAP-CRW-2026-STCW-00902')).toBe(true);
 
     const latestAudit = useMapStore.getState().auditEvents[0];
     expect(latestAudit.action).toContain('Uploaded Crew STCW Document');
@@ -317,7 +318,7 @@ describe('Map Store State Management', () => {
     const initialReqCount = targetSet.requirements.length;
 
     const adHocDoc = {
-      id: 'DOC-ADHOC-TEST-001',
+      id: 'MAP-VES-2026-STAT-00888',
       title: 'Supplemental Bunkering Audit Certificate',
       entityType: 'Vessel Certificate' as const,
       vesselId: targetSet.vesselId,
@@ -390,7 +391,119 @@ describe('Map Store State Management', () => {
     expect(latestAudit.action).toBe('Assigned Vessel Approver');
     expect(latestAudit.targetAsset).toContain(targetSet.id);
   });
+
+  it('should support uploading an image during vessel registration and updating/deleting it in vessel details', () => {
+    const store = useMapStore.getState();
+    const customImg = 'https://images.unsplash.com/photo-custom-test-12345';
+
+    // 1. Register new vessel with uploaded image
+    const newVessel = {
+      ...store.vessels[0],
+      id: 'VESSEL-PHOTO-TEST',
+      name: 'MV Photo Test Carrier',
+      imoNumber: '9988776',
+      officialRegNumber: 'PHOTO-REG-01',
+      imageUrl: customImg,
+    };
+
+    const regResult = store.addVessel(newVessel);
+    expect(regResult.success).toBe(true);
+
+    const created = useMapStore.getState().vessels.find((v) => v.id === 'VESSEL-PHOTO-TEST');
+    expect(created?.imageUrl).toBe(customImg);
+
+    // 2. Update image in vessel details
+    const updatedImg = 'https://images.unsplash.com/photo-custom-updated-99999';
+    store.updateVessel({
+      ...created!,
+      imageUrl: updatedImg,
+    });
+
+    const afterUpdate = useMapStore.getState().vessels.find((v) => v.id === 'VESSEL-PHOTO-TEST');
+    expect(afterUpdate?.imageUrl).toBe(updatedImg);
+
+    // 3. Delete / Reset image
+    store.updateVessel({
+      ...afterUpdate!,
+      imageUrl: undefined,
+    });
+
+    const afterDelete = useMapStore.getState().vessels.find((v) => v.id === 'VESSEL-PHOTO-TEST');
+    expect(afterDelete?.imageUrl).toBeUndefined();
+  });
+
+  it('should support uploading and managing multiple vessel photos (gallery array)', () => {
+    const store = useMapStore.getState();
+    const photo1 = 'https://images.unsplash.com/photo-1';
+    const photo2 = 'https://images.unsplash.com/photo-2';
+    const photo3 = 'https://images.unsplash.com/photo-3';
+
+    // 1. Register vessel with multiple photos
+    const newVessel = {
+      ...store.vessels[0],
+      id: 'VESSEL-MULTI-PHOTO-TEST',
+      name: 'MV Multi Photo Explorer',
+      imoNumber: '9988775',
+      officialRegNumber: 'MULTI-PHOTO-REG-01',
+      imageUrl: photo1,
+      photos: [photo1, photo2, photo3],
+    };
+
+    const regResult = store.addVessel(newVessel);
+    expect(regResult.success).toBe(true);
+
+    const created = useMapStore.getState().vessels.find((v) => v.id === 'VESSEL-MULTI-PHOTO-TEST');
+    expect(created?.imageUrl).toBe(photo1);
+    expect(created?.photos?.length).toBe(3);
+    expect(created?.photos).toEqual([photo1, photo2, photo3]);
+
+    // 2. Change primary cover photo to photo2
+    store.updateVessel({
+      ...created!,
+      imageUrl: photo2,
+    });
+    const afterCoverChange = useMapStore.getState().vessels.find((v) => v.id === 'VESSEL-MULTI-PHOTO-TEST');
+    expect(afterCoverChange?.imageUrl).toBe(photo2);
+    expect(afterCoverChange?.photos?.length).toBe(3);
+
+    // 3. Remove photo1 from gallery
+    store.updateVessel({
+      ...afterCoverChange!,
+      photos: [photo2, photo3],
+    });
+    const afterDeletePhoto = useMapStore.getState().vessels.find((v) => v.id === 'VESSEL-MULTI-PHOTO-TEST');
+    expect(afterDeletePhoto?.photos).toEqual([photo2, photo3]);
+  });
+
+  it('should strictly format and validate Document IDs to MAP-[ENTITY]-[YYYY]-[CATEGORY]-[SEQ]', () => {
+    // 1. Check generated document IDs
+    const id1 = formatDocumentId('VES', 2026, 'STAT', '00412');
+    expect(id1).toBe('MAP-VES-2026-STAT-00412');
+    expect(isValidDocumentId(id1)).toBe(true);
+
+    const id2 = formatDocumentId('CRW', 2026, 'STCW', 101);
+    expect(id2).toBe('MAP-CRW-2026-STCW-00101');
+    expect(isValidDocumentId(id2)).toBe(true);
+
+    const id3 = formatDocumentId('DOC', 2026, 'UNAS', 1);
+    expect(id3).toBe('MAP-DOC-2026-UNAS-00001');
+    expect(isValidDocumentId(id3)).toBe(true);
+
+    // 2. Validate format checker
+    expect(isValidDocumentId('MAP-VES-2026-STAT-00412')).toBe(true);
+    expect(isValidDocumentId('MAP-CRW-2026-STCW-00101')).toBe(true);
+    expect(isValidDocumentId('MAP-DOC-2026-UNAS-00001')).toBe(true);
+    expect(isValidDocumentId('DOC-2026-001')).toBe(false);
+    expect(isValidDocumentId('DOC-UNASSIGNED-01')).toBe(false);
+
+    // 3. Ensure ALL documents in mockData strictly conform to MAP-[ENTITY]-[YYYY]-[CATEGORY]-[SEQ]
+    const storeDocs = useMapStore.getState().documents;
+    storeDocs.forEach((doc) => {
+      expect(isValidDocumentId(doc.id)).toBe(true);
+    });
+  });
 });
+
 
 
 

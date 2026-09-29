@@ -6,7 +6,7 @@
 
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 import { MasterDocument } from '../types/document';
-import { VesselParticulars } from '../types/vessel';
+import { VesselInformation } from '../types/vessel';
 
 /**
   dynamic stage percentage weights as specified in compliance calculation rules:
@@ -125,7 +125,7 @@ export function calculateAssuranceSetReadiness(set: AssuranceSet): number {
 
   const allReqsReady = set.requirements.every(
     (r) => (Boolean(r.documentId || r.linkedDocumentId) || r.isFulfilled) &&
-           (r.isFulfilled || r.verifierStatus === 'Verified' || set.verificationRequired === false)
+      (r.isFulfilled || r.verifierStatus === 'Verified' || set.verificationRequired === false)
   );
 
   /* if formal approval is disabled and all requirements and mandatory inspections are fulfilled with uploaded docs, return 100% */
@@ -154,7 +154,7 @@ export function calculateAssuranceSetReadiness(set: AssuranceSet): number {
   with what file: src/utils/readinessHelpers.ts consumed by FleetRegistryView, VesselTable, and DashboardView.
 */
 export function calculateVesselReadiness(
-  vessel: VesselParticulars,
+  vessel: VesselInformation,
   assuranceSets: AssuranceSet[] = [],
   documents: MasterDocument[] = [],
 ): number {
@@ -203,7 +203,7 @@ export function calculateVesselReadiness(
   with what file: src/utils/readinessHelpers.ts consumed by VesselDetailView, VesselModal, and VesselTable.
 */
 export function isVesselAssuranceApproved(
-  vessel: VesselParticulars,
+  vessel: VesselInformation,
   assuranceSets: AssuranceSet[] = [],
   documents: MasterDocument[] = [],
 ): boolean {
@@ -233,7 +233,7 @@ export function isVesselAssuranceApproved(
 */
 export function isVesselStatusPermitted(
   status: import('../types/vessel').VesselRegistrationStatus,
-  vessel: VesselParticulars,
+  vessel: VesselInformation,
   assuranceSets: AssuranceSet[] = [],
   documents: MasterDocument[] = [],
 ): { isPermitted: boolean; reason?: string } {

@@ -189,9 +189,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   return (
     <div className="d-flex flex-column gap-4">
 
-      {/* Top Row: Campaign Summary Particulars Card + Compact Stage Pipeline */}
+      {/* Top Row: Campaign Summary Information Card + Compact Stage Pipeline */}
       <div className="row g-4 align-items-stretch">
-        {/* Left: Campaign Particulars & Stakeholder Role Assignments Card */}
+        {/* Left: Campaign Information & Stakeholder Role Assignments Card */}
         <div className="col-lg-8 col-md-7">
           <div className="card map-card-custom p-4 h-100">
             <div className="d-flex flex-wrap align-items-center justify-between gap-3 mb-3">
@@ -235,11 +235,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
             <div className="p-3.5 bg-light border rounded-3 font-mono-code small">
               <div className="row g-4">
-                {/* Campaign Particulars */}
+                {/* Campaign Information */}
                 <div className="col-md-6 d-flex flex-column gap-2.5">
                   <div className="d-flex align-items-center justify-content-between mb-1">
                     <span className="text-uppercase fw-bold text-secondary" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                      Campaign Particulars
+                      Campaign Information
                     </span>
                   </div>
                   <div className="border-bottom pb-1.5">
@@ -391,7 +391,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   <div className="border-bottom pb-1.5">
                     <div className="d-flex align-items-center justify-content-between">
                       <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Inspector:</div>
-                      {(isCAdmin  || activePersona === 'Administrator') && (
+                      {(isCAdmin || activePersona === 'Administrator') && (
                         <button
                           type="button"
                           className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
@@ -446,7 +446,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   <div>
                     <div className="d-flex align-items-center justify-content-between">
                       <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Approver:</div>
-                      {(isCAdmin  || activePersona === 'Administrator') && (
+                      {(isCAdmin || activePersona === 'Administrator') && (
                         <button
                           type="button"
                           className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"

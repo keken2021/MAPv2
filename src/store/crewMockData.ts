@@ -59,7 +59,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer1CoreDocuments: [
       {
-        id: 'DOC-CRW-101',
+        id: 'MAP-CRW-2026-IDNT-00101',
         title: 'Valid International Passport',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'SOLAS / National Regs',
@@ -72,7 +72,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1420000,
       },
       {
-        id: 'DOC-CRW-102',
+        id: 'MAP-CRW-2026-IDNT-00102',
         title: "National Seaman's Book (Continuous Discharge Certificate)",
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg I/9 / ILO 108',
@@ -85,7 +85,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 2150000,
       },
       {
-        id: 'DOC-CRW-103',
+        id: 'MAP-CRW-2026-STCW-00103',
         title: 'STCW Basic Safety Training (BST Refresher)',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg VI/1 (PSSR, PST, FPFF, EFA)',
@@ -98,7 +98,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 980000,
       },
       {
-        id: 'DOC-CRW-104',
+        id: 'MAP-CRW-2026-MEDC-00104',
         title: 'ENG1 / ILO Maritime Medical Fitness Certificate',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg I/9 / MLC 2006',
@@ -111,7 +111,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 840000,
       },
       {
-        id: 'DOC-CRW-105',
+        id: 'MAP-CRW-2026-STCW-00105',
         title: 'Security Awareness & Designated Security Duties',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg VI/6 (ISPS Code)',
@@ -126,7 +126,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer2Endorsements: [
       {
-        id: 'DOC-CRW-106',
+        id: 'MAP-CRW-2026-STCW-00106',
         title: 'Master Unlimited Certificate of Competency (CoC)',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg II/2 (Master > 3000 GT)',
@@ -140,7 +140,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 3100000,
       },
       {
-        id: 'DOC-CRW-107',
+        id: 'MAP-CRW-2026-STCW-00107',
         title: 'Flag State Endorsement (FSE / CRA)',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg I/10',
@@ -154,7 +154,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1100000,
       },
       {
-        id: 'DOC-CRW-108',
+        id: 'MAP-CRW-2026-STCW-00108',
         title: 'Advanced Oil & Chemical Tanker Cargo Endorsement',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg V/1-1-2 (Advanced Oil & Chemical)',
@@ -167,7 +167,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1850000,
       },
       {
-        id: 'DOC-CRW-109',
+        id: 'MAP-CRW-2026-STCW-00109',
         title: 'Kongsberg DP Operator Certificate (Unlimited)',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg V/1 / IMCA DP Standards',
@@ -180,7 +180,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 2400000,
       },
       {
-        id: 'DOC-CRW-110',
+        id: 'MAP-CRW-2026-STCW-00110',
         title: 'Alternative Fuel IGF Code Training Certificate',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg V/3 (Low Flashpoint Fuels / LNG/IGF)',
@@ -233,7 +233,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer1CoreDocuments: [
       {
-        id: 'DOC-CRW-201',
+        id: 'MAP-CRW-2026-IDNT-00201',
         title: 'Valid International Passport',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'SOLAS / National Regs',
@@ -246,7 +246,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1350000,
       },
       {
-        id: 'DOC-CRW-202',
+        id: 'MAP-CRW-2026-IDNT-00202',
         title: "National Seaman's Book (Continuous Discharge Certificate)",
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg I/9',
@@ -259,7 +259,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1980000,
       },
       {
-        id: 'DOC-CRW-203',
+        id: 'MAP-CRW-2026-STCW-00203',
         title: 'STCW Basic Safety Training',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg VI/1',
@@ -272,7 +272,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 950000,
       },
       {
-        id: 'DOC-CRW-204',
+        id: 'MAP-CRW-2026-MEDC-00204',
         title: 'ENG1 Medical Fitness Certificate',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg I/9',
@@ -285,7 +285,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 890000,
       },
       {
-        id: 'DOC-CRW-205',
+        id: 'MAP-CRW-2026-STCW-00205',
         title: 'Security Awareness Training',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg VI/6',
@@ -300,7 +300,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer2Endorsements: [
       {
-        id: 'DOC-CRW-206',
+        id: 'MAP-CRW-2026-STCW-00206',
         title: 'Chief Engineer Unlimited CoC',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg III/2 (Chief Engineer > 3000 kW)',
@@ -314,7 +314,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 2900000,
       },
       {
-        id: 'DOC-CRW-207',
+        id: 'MAP-CRW-2026-STCW-00207',
         title: 'High Voltage Safety & Power Management',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg III/2 High Voltage',
@@ -327,7 +327,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1450000,
       },
       {
-        id: 'DOC-CRW-208',
+        id: 'MAP-CRW-2026-STCW-00208',
         title: 'Alternative Fuel IGF Code Training (LNG Systems)',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg V/3 (Low Flashpoint Fuels)',
@@ -369,7 +369,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer1CoreDocuments: [
       {
-        id: 'DOC-CRW-301',
+        id: 'MAP-CRW-2026-IDNT-00301',
         title: 'Valid International Passport',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'SOLAS / National Regs',
@@ -382,7 +382,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1280000,
       },
       {
-        id: 'DOC-CRW-302',
+        id: 'MAP-CRW-2026-IDNT-00302',
         title: "National Seaman's Book (Continuous Discharge Certificate)",
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg I/9',
@@ -395,7 +395,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 2100000,
       },
       {
-        id: 'DOC-CRW-303',
+        id: 'MAP-CRW-2026-STCW-00303',
         title: 'ENG1 Medical Fitness Certificate',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg I/9',
@@ -408,7 +408,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 820000,
       },
       {
-        id: 'DOC-CRW-304',
+        id: 'MAP-CRW-2026-MEDC-00304',
         title: 'STCW Basic Safety Training',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg VI/1',
@@ -423,7 +423,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer2Endorsements: [
       {
-        id: 'DOC-CRW-305',
+        id: 'MAP-CRW-2026-STCW-00305',
         title: 'Chief Officer CoC (STCW II/2)',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg II/2 (Chief Officer)',
@@ -437,7 +437,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 2800000,
       },
       {
-        id: 'DOC-CRW-306',
+        id: 'MAP-CRW-2026-STCW-00306',
         title: 'Advanced Oil & Chemical Tanker Endorsement',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg V/1-1-2',
@@ -479,7 +479,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer1CoreDocuments: [
       {
-        id: 'DOC-CRW-401',
+        id: 'MAP-CRW-2026-IDNT-00401',
         title: 'Valid International Passport',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'SOLAS / National Regs',
@@ -492,7 +492,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1100000,
       },
       {
-        id: 'DOC-CRW-402',
+        id: 'MAP-CRW-2026-IDNT-00402',
         title: "National Seaman's Book",
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg I/9',
@@ -505,7 +505,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1800000,
       },
       {
-        id: 'DOC-CRW-403',
+        id: 'MAP-CRW-2026-STCW-00403',
         title: 'STCW Basic Safety Training',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg VI/1',
@@ -518,7 +518,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 890000,
       },
       {
-        id: 'DOC-CRW-404',
+        id: 'MAP-CRW-2026-MEDC-00404',
         title: 'ENG1 Medical Fitness Certificate',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg I/9',
@@ -533,7 +533,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer2Endorsements: [
       {
-        id: 'DOC-CRW-405',
+        id: 'MAP-CRW-2026-STCW-00405',
         title: 'Able Seafarer Deck Certificate (STCW II/5)',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg II/5 (Able Seafarer Deck)',
@@ -575,7 +575,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer1CoreDocuments: [
       {
-        id: 'DOC-CRW-501',
+        id: 'MAP-CRW-2026-IDNT-00501',
         title: 'Valid International Passport',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'SOLAS / National Regs',
@@ -588,7 +588,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 1200000,
       },
       {
-        id: 'DOC-CRW-502',
+        id: 'MAP-CRW-2026-IDNT-00502',
         title: 'STCW Basic Safety Training (BST)',
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg VI/1',
@@ -601,7 +601,7 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 890000,
       },
       {
-        id: 'DOC-CRW-504',
+        id: 'MAP-CRW-2026-STCW-00504',
         title: "National Seaman's Book (Continuous Discharge Certificate)",
         layer: 'Layer 1 - Universal Core',
         stcwRegulation: 'STCW Reg I/9',
@@ -616,7 +616,7 @@ export const MOCK_CREW: CrewMember[] = [
     ],
     layer2Endorsements: [
       {
-        id: 'DOC-CRW-503',
+        id: 'MAP-CRW-2026-MEDC-00503',
         title: 'Second Engineer CoC (STCW III/2)',
         layer: 'Layer 2 - Vessel Specific & Endorsements',
         stcwRegulation: 'STCW Reg III/2 (Second Engineer)',

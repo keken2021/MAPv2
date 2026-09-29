@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
-import { VesselParticulars } from '../types/vessel';
+import { VesselInformation } from '../types/vessel';
 import { filterVesselsForPersona } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 
@@ -257,7 +257,7 @@ export const InspectorWorkspaceView: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedAssignedVessels.map((v: VesselParticulars) => {
+              {sortedAssignedVessels.map((v: VesselInformation) => {
                 const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
                 const totalCapaCountForVessel = capaItems.filter(
                   (c) => c.vesselName.toLowerCase() === v.name.toLowerCase() || c.vesselId === v.id

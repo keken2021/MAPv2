@@ -1,6 +1,6 @@
 /* 
   file summary: realistic maritime-accurate mock datasets for vessels, assurance sets, Document Library, and audit trail events.
-  responsibilities: populates initial state with 3 OSV vessels across all 11 particulars categories, 3 assurance sets, 8 statutory/crew documents, and immutable audit logs.
+  responsibilities: populates initial state with 3 OSV vessels across all 11 Information categories, 3 assurance sets, 8 statutory/crew documents, and immutable audit logs.
   role in system: loaded by Zustand store (useMapStore.ts) on initialization.
 */
 
@@ -47,7 +47,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 9234 5678 (24/7 Ops Center)',
     statutoryCertificates: [
       {
-        id: 'SC-01',
+        id: 'MAP-VES-2026-STAT-00001',
         name: 'Certificate of Class',
         certificateNumber: 'DNV-STAT-2026-99',
         issuingBody: 'DNV',
@@ -56,7 +56,7 @@ export const MOCK_VESSELS: Vessel[] = [
         status: 'Valid',
       },
       {
-        id: 'SC-02',
+        id: 'MAP-VES-2026-STAT-00002',
         name: 'Cargo Ship Safety Equipment',
         certificateNumber: 'DNV-SE-9042',
         issuingBody: 'DNV',
@@ -65,7 +65,7 @@ export const MOCK_VESSELS: Vessel[] = [
         status: 'Expiring Soon',
       },
       {
-        id: 'SC-03',
+        id: 'MAP-VES-2026-STAT-00003',
         name: 'International Oil Pollution Prevention (IOPP)',
         certificateNumber: 'AMSA-IOPP-4481',
         issuingBody: 'AMSA',
@@ -129,7 +129,7 @@ export const MOCK_VESSELS: Vessel[] = [
     callSign: 'VJQ9912',
     flagState: 'Australia',
     portOfRegistry: 'Dampier, WA',
-    status: 'Awaiting Orders',
+    status: 'Standby',
     complianceReadinessScore: 40,
     vesselType: 'Offshore Support Vessel (OSV)',
     vesselSubtype: 'AHTS',
@@ -157,7 +157,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 9144 1122',
     statutoryCertificates: [
       {
-        id: 'SC-04',
+        id: 'MAP-VES-2026-STAT-00004',
         name: 'Certificate of Class',
         certificateNumber: 'LR-CLASS-88301',
         issuingBody: "Lloyd's Register",
@@ -210,7 +210,7 @@ export const MOCK_VESSELS: Vessel[] = [
     callSign: 'VJQ1044',
     flagState: 'Australia',
     portOfRegistry: 'Darwin, NT',
-    status: 'In-Transit',
+    status: 'In Transit',
     complianceReadinessScore: 40,
     vesselType: 'Offshore Support Vessel (OSV)',
     vesselSubtype: 'PSV',
@@ -238,7 +238,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 8941 0022',
     statutoryCertificates: [
       {
-        id: 'SC-05',
+        id: 'MAP-VES-2026-STAT-00005',
         name: 'Certificate of Class',
         certificateNumber: 'ABS-STAT-7721',
         issuingBody: 'ABS',
@@ -247,7 +247,7 @@ export const MOCK_VESSELS: Vessel[] = [
         status: 'Valid',
       },
       {
-        id: 'SC-06',
+        id: 'MAP-VES-2026-STAT-00006',
         name: 'Cargo Ship Safety Equipment',
         certificateNumber: 'ABS-SE-3310',
         issuingBody: 'ABS',
@@ -328,7 +328,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 9482 9900',
     statutoryCertificates: [
       {
-        id: 'SC-07',
+        id: 'MAP-VES-2026-STAT-00007',
         name: 'Certificate of Class',
         certificateNumber: 'DNV-STAT-2026-401',
         issuingBody: 'DNV',
@@ -337,7 +337,7 @@ export const MOCK_VESSELS: Vessel[] = [
         status: 'Valid',
       },
       {
-        id: 'SC-08',
+        id: 'MAP-VES-2026-STAT-00008',
         name: 'Cargo Ship Safety Construction',
         certificateNumber: 'DNV-SC-8812',
         issuingBody: 'DNV',
@@ -381,7 +381,7 @@ export const MOCK_VESSELS: Vessel[] = [
     callSign: 'VJQ5544',
     flagState: 'Australia',
     portOfRegistry: 'Karratha, WA',
-    status: 'Dry-Docking',
+    status: 'Dry Docking',
     complianceReadinessScore: 70,
     vesselType: 'Offshore Support Vessel (OSV)',
     vesselSubtype: 'AHTS / Towing',
@@ -409,7 +409,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 9185 2200',
     statutoryCertificates: [
       {
-        id: 'SC-09',
+        id: 'MAP-VES-2026-STAT-00009',
         name: 'Certificate of Class',
         certificateNumber: 'ABS-CLASS-99201',
         issuingBody: 'ABS',
@@ -481,7 +481,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 9192 4400',
     statutoryCertificates: [
       {
-        id: 'SC-10',
+        id: 'MAP-VES-2026-STAT-00010',
         name: 'Certificate of Class',
         certificateNumber: 'BV-CLASS-44912',
         issuingBody: 'Bureau Veritas',
@@ -525,7 +525,7 @@ export const MOCK_VESSELS: Vessel[] = [
     callSign: 'VJQ3388',
     flagState: 'Australia',
     portOfRegistry: 'Exmouth, WA',
-    status: 'Awaiting Orders',
+    status: 'Standby',
     complianceReadinessScore: 40,
     vesselType: 'Offshore Support Vessel (OSV)',
     vesselSubtype: 'PSV / Deck Supply',
@@ -553,7 +553,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 9949 1100',
     statutoryCertificates: [
       {
-        id: 'SC-11',
+        id: 'MAP-VES-2026-STAT-00011',
         name: 'Certificate of Class',
         certificateNumber: 'LR-CLASS-99104',
         issuingBody: "Lloyd's Register",
@@ -625,7 +625,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 8981 4455 (24/7 Operations)',
     statutoryCertificates: [
       {
-        id: 'SC-12',
+        id: 'MAP-VES-2026-STAT-00012',
         name: 'Certificate of Class',
         certificateNumber: 'DNV-STAT-2026-884',
         issuingBody: 'DNV',
@@ -634,7 +634,7 @@ export const MOCK_VESSELS: Vessel[] = [
         status: 'Valid',
       },
       {
-        id: 'SC-13',
+        id: 'MAP-VES-2026-STAT-00013',
         name: 'Cargo Ship Safety Construction',
         certificateNumber: 'DNV-SC-99104',
         issuingBody: 'DNV',
@@ -677,7 +677,7 @@ export const MOCK_VESSELS: Vessel[] = [
     callSign: 'VJQ4129',
     flagState: 'Australia',
     portOfRegistry: 'Fremantle, WA',
-    status: 'In-Transit',
+    status: 'In Transit',
     complianceReadinessScore: 90,
     vesselType: 'Platform Supply Vessel (PSV)',
     vesselSubtype: 'PSV / Deck & Liquid Cargo',
@@ -705,7 +705,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 9335 8820',
     statutoryCertificates: [
       {
-        id: 'SC-14',
+        id: 'MAP-VES-2026-STAT-00014',
         name: 'Certificate of Class',
         certificateNumber: 'LR-CLASS-99231',
         issuingBody: "Lloyd's Register",
@@ -714,7 +714,7 @@ export const MOCK_VESSELS: Vessel[] = [
         status: 'Valid',
       },
       {
-        id: 'SC-15',
+        id: 'MAP-VES-2026-STAT-00015',
         name: 'International Oil Pollution Prevention (IOPP)',
         certificateNumber: 'AMSA-IOPP-9921',
         issuingBody: 'AMSA',
@@ -757,7 +757,7 @@ export const MOCK_VESSELS: Vessel[] = [
     callSign: 'VJQ3199',
     flagState: 'Australia',
     portOfRegistry: 'Dampier, WA',
-    status: 'Awaiting Orders',
+    status: 'Standby',
     complianceReadinessScore: 75,
     vesselType: 'Offshore Support Vessel (OSV)',
     vesselSubtype: 'AHTS / Towing',
@@ -785,7 +785,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 9183 9900',
     statutoryCertificates: [
       {
-        id: 'SC-16',
+        id: 'MAP-VES-2026-STAT-00016',
         name: 'Certificate of Class',
         certificateNumber: 'ABS-STAT-8819',
         issuingBody: 'ABS',
@@ -794,7 +794,7 @@ export const MOCK_VESSELS: Vessel[] = [
         status: 'Valid',
       },
       {
-        id: 'SC-17',
+        id: 'MAP-VES-2026-STAT-00017',
         name: 'Cargo Ship Safety Equipment',
         certificateNumber: 'ABS-SE-8821',
         issuingBody: 'ABS',
@@ -865,7 +865,7 @@ export const MOCK_VESSELS: Vessel[] = [
     contact247: '+61 8 9221 4400',
     statutoryCertificates: [
       {
-        id: 'SC-18',
+        id: 'MAP-VES-2026-STAT-00018',
         name: 'Certificate of Class',
         certificateNumber: 'DNV-STAT-7712',
         issuingBody: 'DNV',
@@ -919,7 +919,7 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 98,
-        documentId: 'DOC-2026-001',
+        documentId: 'MAP-VES-2026-STAT-00001',
         verifierStatus: 'Verified',
         notes: 'DNV Certificate verified against class registry database.',
         linkedDocumentId: ''
@@ -931,7 +931,7 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 96,
-        documentId: 'DOC-2026-002',
+        documentId: 'MAP-VES-2026-STAT-00002',
         verifierStatus: 'Verified',
         notes: 'Safety equipment annual survey completed.',
         linkedDocumentId: ''
@@ -943,7 +943,7 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 99,
-        documentId: 'DOC-CRW-106',
+        documentId: 'MAP-CRW-2026-STCW-00106',
         verifierStatus: 'Verified',
         notes: 'AMSA Master Unlimited endorsement verified for Capt. Alexander Wright.',
         linkedDocumentId: ''
@@ -955,7 +955,7 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 92,
-        documentId: 'DOC-2026-003',
+        documentId: 'MAP-VES-2026-STAT-00003',
         verifierStatus: 'Verified',
         notes: 'OWS 15ppm calibration seal photo verified.',
         linkedDocumentId: ''
@@ -991,7 +991,7 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 97,
-        documentId: 'DOC-2026-005',
+        documentId: 'MAP-VES-2026-STAT-00005',
         verifierStatus: 'Pending',
         linkedDocumentId: ''
       },
@@ -1027,7 +1027,7 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 95,
-        documentId: 'DOC-2026-006',
+        documentId: 'MAP-VES-2026-STAT-00006',
         verifierStatus: 'Pending',
         linkedDocumentId: ''
       },
@@ -1201,7 +1201,7 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
 export const MOCK_DOCUMENTS: MasterDocument[] = [
   /* stage 1 unassigned mock certificate: official certificate of registry */
   {
-    id: 'DOC-UNASSIGNED-01',
+    id: 'MAP-DOC-2026-UNAS-00001',
     title: 'Certificate of Registry — MV Oceania Leader',
     entityType: 'Vessel Certificate',
     vesselId: '',
@@ -1246,7 +1246,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   /* stage 1 unassigned mock certificate: certificate of class hull & machinery */
   {
-    id: 'DOC-UNASSIGNED-02',
+    id: 'MAP-DOC-2026-UNAS-00002',
     title: 'Certificate of Class (Hull & Machinery) — MV Coral Navigator',
     entityType: 'Vessel Certificate',
     vesselId: '',
@@ -1291,7 +1291,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   /* stage 2 unassigned mock certificate: international tonnage certificate */
   {
-    id: 'DOC-UNASSIGNED-03',
+    id: 'MAP-DOC-2026-UNAS-00003',
     title: 'International Tonnage Certificate (ITC 69) — MV Southern Navigator',
     entityType: 'Vessel Certificate',
     vesselId: '',
@@ -1336,7 +1336,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   /* stage 2 unassigned mock certificate: shipbuilders construction certificate */
   {
-    id: 'DOC-UNASSIGNED-04',
+    id: 'MAP-DOC-2026-UNAS-00004',
     title: "Shipbuilder's Certificate & Construction Dossier — MV Western Pioneer",
     entityType: 'Vessel Certificate',
     vesselId: '',
@@ -1381,7 +1381,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   /* stage 3 unassigned mock certificate: document of compliance (doc) ism code */
   {
-    id: 'DOC-UNASSIGNED-05',
+    id: 'MAP-DOC-2026-UNAS-00005',
     title: 'Document of Compliance (DOC) — ISM Safety Management',
     entityType: 'Vessel Certificate',
     vesselId: '',
@@ -1426,7 +1426,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   /* stage 3 unassigned mock certificate: continuous synopsis record (csr) */
   {
-    id: 'DOC-UNASSIGNED-06',
+    id: 'MAP-DOC-2026-UNAS-00006',
     title: 'Continuous Synopsis Record (CSR Document No. 1)',
     entityType: 'Vessel Certificate',
     vesselId: '',
@@ -1471,7 +1471,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   /* stage 4 unassigned mock certificate: minimum safe manning document */
   {
-    id: 'DOC-UNASSIGNED-07',
+    id: 'MAP-DOC-2026-UNAS-00007',
     title: 'Minimum Safe Manning Document (MSMD) — AMSA',
     entityType: 'Vessel Certificate',
     vesselId: '',
@@ -1516,7 +1516,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   /* stage 4 unassigned mock certificate: p&i club certificate of entry blue card */
   {
-    id: 'DOC-UNASSIGNED-08',
+    id: 'MAP-DOC-2026-UNAS-00008',
     title: 'Certificate of P&I Insurance Entry (Blue Card)',
     entityType: 'Vessel Certificate',
     vesselId: '',
@@ -1561,7 +1561,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   /* stage 4 unassigned mock certificate: international iopp & bwm certificate */
   {
-    id: 'DOC-UNASSIGNED-09',
+    id: 'MAP-DOC-2026-UNAS-00009',
     title: 'International IOPP & Ballast Water Management (BWM) Certificate',
     entityType: 'Vessel Certificate',
     vesselId: '',
@@ -1605,7 +1605,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-2026-001',
+    id: 'MAP-VES-2026-STAT-00001',
     title: 'Certificate of Class',
     entityType: 'Vessel Certificate',
     vesselId: 'VESSEL-001',
@@ -1658,7 +1658,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationNotes: 'Class society confirmed active in IACS register.',
   },
   {
-    id: 'DOC-2026-002',
+    id: 'MAP-VES-2026-STAT-00002',
     title: 'Cargo Ship Safety Equipment Certificate',
     entityType: 'Vessel Certificate',
     vesselId: 'VESSEL-001',
@@ -1704,7 +1704,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationNotes: 'Verified with note: renewal survey required prior to charter extension.',
   },
   {
-    id: 'DOC-2026-003',
+    id: 'MAP-VES-2026-STAT-00003',
     title: 'International Oil Pollution Prevention (IOPP)',
     entityType: 'Vessel Certificate',
     vesselId: 'VESSEL-001',
@@ -1755,7 +1755,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
 
   /* --- CREW MEMBER 1: CAPT. ALEXANDER WRIGHT (CREW-101 / VESSEL-001) --- */
   {
-    id: 'DOC-CRW-101',
+    id: 'MAP-CRW-2026-IDNT-00101',
     title: 'Valid International Passport — Capt. Alexander Wright',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -1797,7 +1797,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-102',
+    id: 'MAP-CRW-2026-IDNT-00102',
     title: "National Seaman's Book (CDC) — Capt. Alexander Wright",
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -1839,7 +1839,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-103',
+    id: 'MAP-CRW-2026-STCW-00103',
     title: 'STCW Basic Safety Training — Capt. Alexander Wright',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -1881,7 +1881,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-104',
+    id: 'MAP-CRW-2026-MEDC-00104',
     title: 'ENG1 / ILO Medical Fitness Certificate — Capt. Alexander Wright',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -1923,7 +1923,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-105',
+    id: 'MAP-CRW-2026-STCW-00105',
     title: 'Security Awareness & Designated Duties — Capt. Alexander Wright',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -1965,7 +1965,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-106',
+    id: 'MAP-CRW-2026-STCW-00106',
     title: 'Master Unlimited Certificate of Competency (CoC) — Capt. Alexander Wright',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2008,7 +2008,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationNotes: 'AMSA public portal verification match confirmed for Capt. Alexander Wright.',
   },
   {
-    id: 'DOC-CRW-107',
+    id: 'MAP-CRW-2026-STCW-00107',
     title: 'Flag State Endorsement (FSE / CRA) — Capt. Alexander Wright',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2050,7 +2050,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-108',
+    id: 'MAP-CRW-2026-STCW-00108',
     title: 'Advanced Oil & Chemical Tanker Cargo Endorsement — Capt. Alexander Wright',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2092,7 +2092,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-109',
+    id: 'MAP-CRW-2026-STCW-00109',
     title: 'Kongsberg DP Operator Certificate (Unlimited) — Capt. Alexander Wright',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2134,7 +2134,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-110',
+    id: 'MAP-CRW-2026-STCW-00110',
     title: 'Alternative Fuel IGF Code Training Certificate — Capt. Alexander Wright',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2178,7 +2178,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
 
   /* --- CREW MEMBER 2: CHIEF ENG. MARCUS STERLING (CREW-102 / VESSEL-002) --- */
   {
-    id: 'DOC-CRW-201',
+    id: 'MAP-CRW-2026-IDNT-00201',
     title: 'Valid International Passport — Chief Eng. Marcus Sterling',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -2220,7 +2220,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-202',
+    id: 'MAP-CRW-2026-IDNT-00202',
     title: "National Seaman's Book (CDC) — Chief Eng. Marcus Sterling",
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -2262,7 +2262,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-203',
+    id: 'MAP-CRW-2026-STCW-00203',
     title: 'STCW Basic Safety Training — Chief Eng. Marcus Sterling',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -2304,7 +2304,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-204',
+    id: 'MAP-CRW-2026-MEDC-00204',
     title: 'ENG1 Medical Fitness Certificate — Chief Eng. Marcus Sterling',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -2346,7 +2346,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-205',
+    id: 'MAP-CRW-2026-STCW-00205',
     title: 'Security Awareness Training — Chief Eng. Marcus Sterling',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -2388,7 +2388,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-206',
+    id: 'MAP-CRW-2026-STCW-00206',
     title: 'Chief Engineer Unlimited CoC — Chief Eng. Marcus Sterling',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -2430,7 +2430,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-207',
+    id: 'MAP-CRW-2026-STCW-00207',
     title: 'High Voltage Safety & Power Management — Chief Eng. Marcus Sterling',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -2472,7 +2472,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-208',
+    id: 'MAP-CRW-2026-STCW-00208',
     title: 'Alternative Fuel IGF Code (LNG Systems) — Chief Eng. Marcus Sterling',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -2516,7 +2516,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
 
   /* --- CREW MEMBER 3: CHIEF OFF. SARAH JENKINS (CREW-103 / VESSEL-003) --- */
   {
-    id: 'DOC-CRW-301',
+    id: 'MAP-CRW-2026-IDNT-00301',
     title: 'Valid International Passport — Chief Off. Sarah Jenkins',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-003',
@@ -2558,7 +2558,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-302',
+    id: 'MAP-CRW-2026-IDNT-00302',
     title: "National Seaman's Book (CDC) — Chief Off. Sarah Jenkins",
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-003',
@@ -2600,7 +2600,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-303',
+    id: 'MAP-CRW-2026-STCW-00303',
     title: 'ENG1 Medical Fitness Certificate — Chief Off. Sarah Jenkins',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-003',
@@ -2644,7 +2644,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationNotes: 'Medical certificate expiring shortly. Please schedule renewal exam.',
   },
   {
-    id: 'DOC-CRW-304',
+    id: 'MAP-CRW-2026-MEDC-00304',
     title: 'STCW Basic Safety Training — Chief Off. Sarah Jenkins',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-003',
@@ -2686,7 +2686,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-305',
+    id: 'MAP-CRW-2026-STCW-00305',
     title: 'Chief Officer CoC (STCW II/2) — Chief Off. Sarah Jenkins',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-003',
@@ -2728,7 +2728,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-306',
+    id: 'MAP-CRW-2026-STCW-00306',
     title: 'Advanced Oil & Chemical Tanker Endorsement — Chief Off. Sarah Jenkins',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-003',
@@ -2772,7 +2772,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
 
   /* --- CREW MEMBER 4: BOSUN DAVID KOWALSKI (CREW-104 / VESSEL-001) --- */
   {
-    id: 'DOC-CRW-401',
+    id: 'MAP-CRW-2026-IDNT-00401',
     title: 'Valid International Passport — Bosun David Kowalski',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2814,7 +2814,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-402',
+    id: 'MAP-CRW-2026-IDNT-00402',
     title: "National Seaman's Book (CDC) — Bosun David Kowalski",
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2856,7 +2856,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-403',
+    id: 'MAP-CRW-2026-STCW-00403',
     title: 'STCW Basic Safety Training — Bosun David Kowalski',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2898,7 +2898,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-404',
+    id: 'MAP-CRW-2026-MEDC-00404',
     title: 'ENG1 Medical Fitness Certificate — Bosun David Kowalski',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2940,7 +2940,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-405',
+    id: 'MAP-CRW-2026-STCW-00405',
     title: 'Able Seafarer Deck Certificate (STCW II/5) — Bosun David Kowalski',
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-001',
@@ -2984,7 +2984,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
 
   /* --- CREW MEMBER 5: SECOND ENG. LIAM O'CONNOR (CREW-105 / VESSEL-002) --- */
   {
-    id: 'DOC-CRW-501',
+    id: 'MAP-CRW-2026-IDNT-00501',
     title: "Valid International Passport — Second Eng. Liam O'Connor",
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -3026,7 +3026,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-502',
+    id: 'MAP-CRW-2026-IDNT-00502',
     title: "STCW Basic Safety Training (BST) — Second Eng. Liam O'Connor",
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -3070,7 +3070,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationNotes: 'Expired STCW BST. Must provide renewed refresher certificate.',
   },
   {
-    id: 'DOC-CRW-503',
+    id: 'MAP-CRW-2026-MEDC-00503',
     title: "Second Engineer CoC (STCW III/2) — Second Eng. Liam O'Connor",
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -3112,7 +3112,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-504',
+    id: 'MAP-CRW-2026-STCW-00504',
     title: "National Seaman's Book (CDC) — Second Eng. Liam O'Connor",
     entityType: 'Crew Certificate',
     vesselId: 'VESSEL-002',
@@ -3155,7 +3155,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   },
   /* unassigned crew certificates available in document library */
   {
-    id: 'DOC-CRW-UNASSIGNED-01',
+    id: 'MAP-CRW-2026-STCW-00001',
     title: 'Master Unlimited Certificate of Competency (CoC)',
     entityType: 'Crew Certificate',
     vesselId: 'UNASSIGNED',
@@ -3197,7 +3197,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-UNASSIGNED-02',
+    id: 'MAP-CRW-2026-STCW-00002',
     title: 'Chief Engineer Unlimited CoC Certificate',
     entityType: 'Crew Certificate',
     vesselId: 'UNASSIGNED',
@@ -3239,7 +3239,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-UNASSIGNED-03',
+    id: 'MAP-CRW-2026-STCW-00003',
     title: 'Basic Safety Training (BST) Universal Refresher',
     entityType: 'Crew Certificate',
     vesselId: 'UNASSIGNED',
@@ -3281,7 +3281,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-UNASSIGNED-04',
+    id: 'MAP-CRW-2026-STCW-00004',
     title: 'ENG1 Seafarer Medical Fitness Certificate',
     entityType: 'Crew Certificate',
     vesselId: 'UNASSIGNED',
@@ -3323,7 +3323,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-UNASSIGNED-05',
+    id: 'MAP-CRW-2026-STCW-00005',
     title: 'Dynamic Positioning Unlimited (DP) Certificate',
     entityType: 'Crew Certificate',
     vesselId: 'UNASSIGNED',
@@ -3365,7 +3365,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-CRW-UNASSIGNED-06',
+    id: 'MAP-CRW-2026-STCW-00006',
     title: 'Advanced Oil & Chemical Tanker Endorsement',
     entityType: 'Crew Certificate',
     vesselId: 'UNASSIGNED',
@@ -3407,7 +3407,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Verified',
   },
   {
-    id: 'DOC-2026-005',
+    id: 'MAP-VES-2026-STAT-00005',
     title: 'Certificate of Class',
     entityType: 'Vessel Certificate',
     vesselId: 'VESSEL-002',
@@ -3451,7 +3451,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     verificationStatus: 'Pending',
   },
   {
-    id: 'DOC-2026-006',
+    id: 'MAP-VES-2026-STAT-00006',
     title: 'Certificate of Registry',
     entityType: 'Vessel Certificate',
     vesselId: 'VESSEL-003',
@@ -3505,7 +3505,7 @@ export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = [
     organization: 'Northwind Marine Pty Ltd',
     action: 'Registered Unique Vessel Record',
     targetAsset: 'MV Pacific Endeavour (IMO 9123456)',
-    justificationNotes: 'Initial vessel registration across all 11 particulars categories.',
+    justificationNotes: 'Initial vessel registration across all 11 Information categories.',
   },
   {
     id: 'AUD-90482',
@@ -3524,14 +3524,14 @@ export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = [
     userRole: 'Submitter',
     organization: 'Northwind Marine Pty Ltd',
     action: 'Uploaded Document Revision v1.1',
-    targetAsset: 'DOC-2026-001 (Certificate of Class)',
+    targetAsset: 'MAP-VES-2026-STAT-00001 (Certificate of Class)',
     fieldDelta: {
       fieldName: 'Version',
       oldValue: 'v1.0',
       newValue: 'v1.1',
     },
     documentStatusDelta: {
-      documentId: 'DOC-2026-001',
+      documentId: 'MAP-VES-2026-STAT-00001',
       oldStatus: 'Correction Requested',
       newStatus: 'Pending Verification',
     },
@@ -3544,9 +3544,9 @@ export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = [
     userRole: 'Verifier',
     organization: 'DNV Compliance Services',
     action: 'Verified Statutory Certificate',
-    targetAsset: 'DOC-2026-001 (Certificate of Class)',
+    targetAsset: 'MAP-VES-2026-STAT-00001 (Certificate of Class)',
     documentStatusDelta: {
-      documentId: 'DOC-2026-001',
+      documentId: 'MAP-VES-2026-STAT-00001',
       oldStatus: 'Pending Verification',
       newStatus: 'Verified',
     },

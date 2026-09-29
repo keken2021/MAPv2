@@ -19,7 +19,7 @@ import {
 } from '../utils/rbacHelpers';
 import { MOCK_USERS } from '../store/mockData';
 import { MOCK_VESSELS, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS } from '../store/mockData';
-import { VesselParticulars } from '../types/vessel';
+import { VesselInformation } from '../types/vessel';
 import { useMapStore } from '../store/useMapStore';
 
 describe('vessel provider fleet ownership isolation and c admin visibility', () => {
@@ -48,7 +48,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     });
 
     /* verify competitor vessels from external owners are strictly excluded */
-    const competitorVessel: VesselParticulars = {
+    const competitorVessel: VesselInformation = {
       ...MOCK_VESSELS[0],
       id: 'VESSEL-COMPETITOR-01',
       name: 'MV Competitor Wave',
@@ -79,7 +79,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     });
 
     /* verify competitor vessels are not visible to administrator */
-    const competitorVessel: VesselParticulars = {
+    const competitorVessel: VesselInformation = {
       ...MOCK_VESSELS[0],
       id: 'VESSEL-COMPETITOR-02',
       name: 'MV Rival Vessel',
@@ -214,7 +214,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
   });
 
   it('supports Vessel Admin All Fleet Vessels (unchartered from other organizations) and Owned Vessels tabs with assurance set filtering', () => {
-    const isVesselOwned = (v: VesselParticulars) => {
+    const isVesselOwned = (v: VesselInformation) => {
       const ownerLower = (v.registeredOwner || '').toLowerCase();
       const techManagerLower = (v.technicalManager || '').toLowerCase();
       const ismLower = (v.ismCompany || '').toLowerCase();
@@ -228,7 +228,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
       );
     };
 
-    const competitorUnchartered: VesselParticulars = {
+    const competitorUnchartered: VesselInformation = {
       ...MOCK_VESSELS[0],
       id: 'VESSEL-EXT-01',
       name: 'MV Global Transporter',
@@ -238,7 +238,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
       status: 'Port Stay',
     };
 
-    const competitorUnderCharter: VesselParticulars = {
+    const competitorUnderCharter: VesselInformation = {
       ...MOCK_VESSELS[0],
       id: 'VESSEL-EXT-02',
       name: 'MV Oceanic Voyager',
@@ -285,7 +285,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
   });
 
   it('correctly includes newly registered vessels owned by submitter company', () => {
-    const newSubmitterVessel: VesselParticulars = {
+    const newSubmitterVessel: VesselInformation = {
       id: 'VESSEL-999',
       name: 'MV Pacific Pioneer',
       imoNumber: '9991234',
@@ -350,7 +350,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     expect(filtered.length).toBe(8);
   });
 
-  it('validates mock data accuracy and completeness across all vessel particulars', () => {
+  it('validates mock data accuracy and completeness across all vessel Information', () => {
     expect(MOCK_VESSELS.length).toBe(11);
 
     MOCK_VESSELS.forEach((vessel) => {
@@ -393,7 +393,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
   it('defaults organization to northwind marine when administrator registers a vessel in store', () => {
     useMapStore.getState().setActivePersona('Administrator');
 
-    const adminRegisteredVessel: VesselParticulars = {
+    const adminRegisteredVessel: VesselInformation = {
       ...MOCK_VESSELS[0],
       id: 'VESSEL-ADMIN-NORTHWIND',
       name: 'MV Northwind Sentinel',
@@ -441,10 +441,10 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const isOwnedForExternal = isVesselOwnedByAdmin(externalVessel);
     expect(isOwnedForExternal).toBe(false);
 
-    const getVisibleTabs = (v: VesselParticulars, persona: string) => {
+    const getVisibleTabs = (v: VesselInformation, persona: string) => {
       const isAdmin = persona === 'Administrator';
       const isOwned = isVesselOwnedByAdmin(v);
-      const tabs = ['particulars', 'vault', 'assurance', 'inspections'];
+      const tabs = ['Information', 'vault', 'assurance', 'inspections'];
       if (isAdmin && isOwned) {
         tabs.push('clients', 'crew', 'audit');
       }
@@ -494,4 +494,84 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
       expect(adminAllFleet.map((v) => v.id)).not.toContain(underCharterVessel.id);
     }
   });
+
+  it('guarantees that owner or organization owning the vessel is able to edit vessel information', () => {
+    const ownedVessel = MOCK_VESSELS.find((v) => v.id === 'VESSEL-001')!;
+    const externalVessel = MOCK_VESSELS.find((v) => v.id === 'VESSEL-008')!;
+    const clientOwnedVessel = MOCK_VESSELS.find((v) => v.id === 'VESSEL-011')!;
+
+    const canOwnerEditVessel = (v: VesselInformation, persona: string) => {
+      const isAdmin = persona === 'Administrator';
+      const isSubmitter = persona === 'Submitter';
+      const isCAdmin = persona === 'C Admin';
+      const isOwned =
+        (isAdmin || isSubmitter)
+          ? isVesselOwnedByAdmin(v)
+          : isCAdmin
+            ? isVesselOwnedByClientOrg(v, 'Southern Basin Energy')
+            : false;
+      const isReadOnly = (isCAdmin && !isOwned) || persona === 'Inspector' || persona === 'Verifier' || persona === 'Approver';
+      const canEditFull = !isReadOnly && isOwned;
+      return { isOwned, isReadOnly, canEditFull };
+    };
+
+    // Submitter owning the vessel -> canEditFull is true
+    const submitterOwned = canOwnerEditVessel(ownedVessel, 'Submitter');
+    expect(submitterOwned.isOwned).toBe(true);
+    expect(submitterOwned.canEditFull).toBe(true);
+
+    // Administrator owning the vessel -> canEditFull is true
+    const adminOwned = canOwnerEditVessel(ownedVessel, 'Administrator');
+    expect(adminOwned.isOwned).toBe(true);
+    expect(adminOwned.canEditFull).toBe(true);
+
+    // C Admin viewing own fleet vessel -> canEditFull is true
+    const cAdminOwn = canOwnerEditVessel(clientOwnedVessel, 'C Admin');
+    expect(cAdminOwn.isOwned).toBe(true);
+    expect(cAdminOwn.canEditFull).toBe(true);
+
+    // Inspector viewing vessel -> read-only, canEditFull is false
+    const inspectorCheck = canOwnerEditVessel(ownedVessel, 'Inspector');
+    expect(inspectorCheck.isReadOnly).toBe(true);
+    expect(inspectorCheck.canEditFull).toBe(false);
+
+    // C Admin viewing third-party external vessel -> read-only, canEditFull is false
+    const cAdminExternal = canOwnerEditVessel(externalVessel, 'C Admin');
+    expect(cAdminExternal.isOwned).toBe(false);
+    expect(cAdminExternal.isReadOnly).toBe(true);
+    expect(cAdminExternal.canEditFull).toBe(false);
+  });
+
+  it('restricts photo upload/management permissions to vessel owner and vessel admin only', () => {
+    const ownedVessel = MOCK_VESSELS.find((v) => v.id === 'VESSEL-001')!;
+    const externalVessel = MOCK_VESSELS.find((v) => v.id === 'VESSEL-008')!;
+
+    const getPhotoManagementPermission = (v: VesselInformation, persona: string) => {
+      const isAdmin = persona === 'Administrator';
+      const isSubmitter = persona === 'Submitter';
+      const isCAdmin = persona === 'C Admin';
+      const isOwned =
+        (isAdmin || isSubmitter)
+          ? isVesselOwnedByAdmin(v)
+          : isCAdmin
+            ? isVesselOwnedByClientOrg(v, 'Southern Basin Energy')
+            : false;
+      const isReadOnly = (isCAdmin && !isOwned) || persona === 'Inspector' || persona === 'Verifier' || persona === 'Approver';
+      const canManagePhotos = !isReadOnly && isOwned;
+      return canManagePhotos;
+    };
+
+    // 1. Vessel Owner (Submitter / Admin) on owned vessel -> ALLOWED
+    expect(getPhotoManagementPermission(ownedVessel, 'Submitter')).toBe(true);
+    expect(getPhotoManagementPermission(ownedVessel, 'Administrator')).toBe(true);
+
+    // 2. Client Admin viewing non-owned third-party vessel -> HIDDEN / DISALLOWED
+    expect(getPhotoManagementPermission(externalVessel, 'C Admin')).toBe(false);
+
+    // 3. Verifier / Inspector / Approver viewing vessel -> HIDDEN / DISALLOWED
+    expect(getPhotoManagementPermission(ownedVessel, 'Verifier')).toBe(false);
+    expect(getPhotoManagementPermission(ownedVessel, 'Inspector')).toBe(false);
+    expect(getPhotoManagementPermission(ownedVessel, 'Approver')).toBe(false);
+  });
 });
+

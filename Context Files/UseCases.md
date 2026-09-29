@@ -11,7 +11,7 @@
 | Use Case ID | Name | Primary Actor | Screens Involved | Data Affected | Matrix Scope |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **UC-01** | User Login & Authentication | All Personas | `LoginView` | `UserProfile`, `AuditTrailEvent` | `dashboard` |
-| **UC-02** | Register Vessel | Administrator | `VesselDetailView` / Register Modal | `VesselParticulars`, `MasterDocument` | `vessels`, `vessel_status` |
+| **UC-02** | Register Vessel | Administrator | `VesselDetailView` / Register Modal | `VesselInformation`, `MasterDocument` | `vessels`, `vessel_status` |
 | **UC-03** | Create Assurance Set (Provider) | Administrator | `CreateAssuranceSetView` | `AssuranceSet`, `AssuranceRequirement` | `assurance_sets`, `assurance_requirements` |
 | **UC-04** | Assign Workflow Roles | Administrator | `UserManagementView`, `AssuranceDetailView` | `AssuranceSet.stakeholders`, `UserProfile` | `workflow_assignment`, `third_party_delegation` |
 | **UC-05** | Upload Vessel & Crew Documents | Submitter | `DocumentLibraryView`, `CrewView` | `MasterDocument`, `DocumentVersion`, `CrewMember` | `documents`, `document_vault`, `crew_certificates` |
@@ -46,11 +46,11 @@
 - **Preconditions**: Admin is authenticated; asset data is available.
 - **Workflow Steps**:
   1. Admin opens Vessel Registration Modal from Fleet Registry (`#/vessels`).
-  2. Admin enters data across 11 particulars categories (identification, classification, construction, tonnage, ownership, statutory certificates, insurance, crew, environmental).
+  2. Admin enters data across 11 Information categories (identification, classification, construction, tonnage, ownership, statutory certificates, insurance, crew, environmental).
   3. System validates IMO Number (7 digits) and Official Registration Number against existing vessels in `state.vessels`.
   4. Admin selects unassigned statutory certificates from the Master Document Library or uploads new unique files.
   5. Admin submits registration form.
-  6. System creates `VesselParticulars` object in `state.vessels` and logs `AuditTrailEvent`.
+  6. System creates `VesselInformation` object in `state.vessels` and logs `AuditTrailEvent`.
 - **Expected Output**: Unique master vessel record created; visible across Fleet Registry and Vessel Details.
 - **Exceptions**: Duplicate IMO or Official Registration Number halts creation with error notification.
 

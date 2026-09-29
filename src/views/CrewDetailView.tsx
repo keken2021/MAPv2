@@ -20,7 +20,7 @@ interface CrewDetailViewProps {
 
 /**
   what: renders STCW crew member drill-down detail view in light theme.
-  how: displays crew particulars, sea service vessel history, layer 1 core STCW documents, layer 2 endorsements, document viewer modal, and handles document uploads/reuploads/updates.
+  how: displays crew Information, sea service vessel history, layer 1 core STCW documents, layer 2 endorsements, document viewer modal, and handles document uploads/reuploads/updates.
   with what file: src/views/CrewDetailView.tsx loaded by App.tsx router.
 */
 export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
@@ -201,7 +201,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
 
   return (
     <div className="d-flex flex-column gap-4">
-      {/* Main Profile Particulars & STCW Compliance Header Card */}
+      {/* Main Profile Information & STCW Compliance Header Card */}
       <div className="card map-card-custom p-4">
         <div className="d-flex flex-wrap align-items-center justify-between gap-3 mb-3">
           <div>
@@ -258,7 +258,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
           </div>
         </div>
 
-        {/* Particulars Summary Box */}
+        {/* Information Summary Box */}
         <div className="p-3 bg-light border rounded-3 font-mono-code small">
           <div className="row g-3">
             <div className="col-md-3 col-6">

@@ -50,6 +50,8 @@ export function getDaysUntilExpiry(expiryDateStr: string): number {
 */
 export function getVesselStatusBadgeClass(status: string): string {
   switch (status) {
+    case 'In Operations':
+    case 'Active':
     case 'Awaiting Orders':
       return 'bg-success text-white';
     case 'In Transit':
@@ -59,13 +61,41 @@ export function getVesselStatusBadgeClass(status: string): string {
       return 'bg-primary text-white';
     case 'Under Charter':
       return 'bg-danger text-white';
+    case 'Standby':
+      return 'bg-info text-dark';
+    case 'Maintenance':
+      return 'bg-warning text-dark';
     case 'Dry Docking':
     case 'Dry-Docking':
     case 'Lay-up':
       return 'bg-secondary text-white';
-    case 'In Operations':
-      return 'bg-success text-white';
+    case 'Decommissioned':
+      return 'bg-dark text-white';
     default:
       return 'bg-secondary text-white';
   }
 }
+
+/**
+  what: generates a standard-compliant Document ID following the format: MAP-[ENTITY]-[YYYY]-[CATEGORY]-[SEQ]
+  example: MAP-VES-2026-STAT-00412 or MAP-CRW-2026-STCW-00101
+*/
+export function formatDocumentId(
+  entity: 'VES' | 'CRW' | 'DOC' | 'INS' = 'VES',
+  year: number | string = 2026,
+  category: 'STAT' | 'CLAS' | 'SAFE' | 'IOPP' | 'LLIN' | 'TONN' | 'SECR' | 'STCW' | 'IDNT' | 'MEDC' | 'UNAS' | 'INSP' = 'STAT',
+  seq?: number | string
+): string {
+  const seqStr = seq !== undefined
+    ? String(seq).replace(/[^0-9]/g, '').padStart(5, '0')
+    : String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0');
+  return `MAP-${entity}-${year}-${category}-${seqStr}`;
+}
+
+/**
+  what: validates whether a string matches the MAP standard document ID format: MAP-[ENTITY]-[YYYY]-[CATEGORY]-[SEQ]
+*/
+export function isValidDocumentId(id: string): boolean {
+  return /^MAP-[A-Z0-9]{3,4}-\d{4}-[A-Z0-9]{3,5}-\d{4,5}$/.test(id);
+}
+

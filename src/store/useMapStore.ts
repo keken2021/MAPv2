@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { UserRolePersona, AuditTrailEvent } from '../types/audit';
-import { VesselParticulars } from '../types/vessel';
+import { VesselInformation } from '../types/vessel';
 import { AssuranceSet, AssuranceStage, AssuranceRequirement } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { MOCK_VESSELS, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS, MOCK_AUDIT_TRAIL, MOCK_USERS } from './mockData';
@@ -59,10 +59,10 @@ export interface MapStoreState {
   setActiveVesselId: (id: string) => void;
 
   // Vessel Fleet State
-  vessels: VesselParticulars[];
-  addVessel: (vessel: VesselParticulars) => { success: boolean; message?: string; vesselId?: string };
-  updateVessel: (vessel: VesselParticulars) => void;
-  updateVesselStatus: (vesselId: string, status: VesselParticulars['status']) => void;
+  vessels: VesselInformation[];
+  addVessel: (vessel: VesselInformation) => { success: boolean; message?: string; vesselId?: string };
+  updateVessel: (vessel: VesselInformation) => void;
+  updateVesselStatus: (vesselId: string, status: VesselInformation['status']) => void;
 
   // Assurance Sets State
   assuranceSets: AssuranceSet[];
@@ -313,7 +313,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       organization: get().activePersona === 'C Admin' ? 'Chevron Australia' : 'Northwind Marine Pty Ltd',
       action: 'Updated Vessel Specifications',
       targetAsset: `${updatedVessel.name} (IMO ${updatedVessel.imoNumber})`,
-      justificationNotes: `Updated vessel particulars for ${updatedVessel.name}`,
+      justificationNotes: `Updated vessel Information for ${updatedVessel.name}`,
     });
   },
 
@@ -576,15 +576,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
         const updatedReqs: AssuranceRequirement[] = isDenial
           ? s.requirements.map((r) => {
-              if (r.documentId) affectedDocIds.add(r.documentId);
-              if (r.linkedDocumentId) affectedDocIds.add(r.linkedDocumentId);
-              return {
-                ...r,
-                verifierStatus: mappedStatus,
-                isFulfilled: false,
-                notes: notes || `Campaign returned to verification stage by Executive Approver.`,
-              };
-            })
+            if (r.documentId) affectedDocIds.add(r.documentId);
+            if (r.linkedDocumentId) affectedDocIds.add(r.linkedDocumentId);
+            return {
+              ...r,
+              verifierStatus: mappedStatus,
+              isFulfilled: false,
+              notes: notes || `Campaign returned to verification stage by Executive Approver.`,
+            };
+          })
           : s.requirements;
 
         const candidateSet: AssuranceSet = {
@@ -603,16 +603,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       /* when entire campaign is denied, cascade returned/rejected status to all linked documents */
       const updatedDocs = isDenial
         ? state.documents.map((d) => {
-            const isSetLinked = affectedDocIds.has(d.id) || (targetSet && d.vesselId === targetSet.vesselId);
-            if (isSetLinked) {
-              return {
-                ...d,
-                verificationStatus: mappedStatus,
-                verificationNotes: notes || `Approver ${decision}: Revision required for campaign ${setId}.`,
-              };
-            }
-            return d;
-          })
+          const isSetLinked = affectedDocIds.has(d.id) || (targetSet && d.vesselId === targetSet.vesselId);
+          if (isSetLinked) {
+            return {
+              ...d,
+              verificationStatus: mappedStatus,
+              verificationNotes: notes || `Approver ${decision}: Revision required for campaign ${setId}.`,
+            };
+          }
+          return d;
+        })
         : state.documents;
 
       return {
@@ -1282,9 +1282,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             vesselId: vesselId || '',
             crewAttributes: d.crewAttributes
               ? {
-                  ...d.crewAttributes,
-                  assignedVessel: vessel ? `${vessel.name} (IMO ${vessel.imoNumber})` : '',
-                }
+                ...d.crewAttributes,
+                assignedVessel: vessel ? `${vessel.name} (IMO ${vessel.imoNumber})` : '',
+              }
               : undefined,
           };
         }
@@ -1333,18 +1333,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ],
       crewAttributes: targetCrew
         ? {
-            crewName: targetCrew.fullName,
-            passportId: targetCrew.passportNo,
-            rank: targetCrew.rank,
-            certType: doc.stcwRegulation || doc.title,
-            issuingCenter: doc.issuingAuthority,
-            issueDate: doc.issueDate,
-            expiryDate: doc.expiryDate,
-            assignedVessel: targetCrew.currentVesselName || '',
-            nationality: targetCrew.nationality,
-            trainingDate: doc.issueDate,
-            ocrConfidence: 98.5,
-          }
+          crewName: targetCrew.fullName,
+          passportId: targetCrew.passportNo,
+          rank: targetCrew.rank,
+          certType: doc.stcwRegulation || doc.title,
+          issuingCenter: doc.issuingAuthority,
+          issueDate: doc.issueDate,
+          expiryDate: doc.expiryDate,
+          assignedVessel: targetCrew.currentVesselName || '',
+          nationality: targetCrew.nationality,
+          trainingDate: doc.issueDate,
+          ocrConfidence: 98.5,
+        }
         : undefined,
       validationRules: {
         charterBufferPassed: !isExpired,
@@ -1406,75 +1406,75 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       const existingDoc = state.documents.find((d) => d.id === doc.id);
       const updatedDocuments = existingDoc
         ? state.documents.map((d) => {
-            if (d.id !== doc.id) return d;
-            return {
-              ...d,
-              title: targetCrew ? `${doc.title} — ${targetCrew.fullName}` : doc.title,
-              certificateNo: doc.certificateNo,
-              issuingAuthority: doc.issuingAuthority,
-              expiryDate: doc.expiryDate,
-              complianceState: isExpired ? ('Expired' as const) : doc.verificationStatus === 'Expiring' ? ('Expiring < 6 Mos' as const) : ('Valid' as const),
-              verificationStatus: isExpired ? ('Correction Requested' as const) : ('Verified' as const),
-              versions: [
-                {
-                  versionLabel: `v${d.versions.length + 1}.0`,
-                  uploadedAt: new Date().toISOString(),
-                  uploadedBy: activePersona || 'Crewing Administrator',
-                  fileSizeBytes: doc.fileSizeBytes || 1500000,
-                  fileName: doc.fileName || d.versions[0]?.fileName || 'updated_cert.pdf',
-                  changeSummary: `Reuploaded / updated ${doc.layer} certificate.`,
-                },
-                ...d.versions,
-              ],
-            };
-          })
-        : [
-            {
-              id: doc.id,
-              title: targetCrew ? `${doc.title} — ${targetCrew.fullName}` : doc.title,
-              entityType: 'Crew Certificate' as const,
-              vesselId: targetCrew?.currentVesselId || '',
-              certificateNo: doc.certificateNo,
-              issuingAuthority: doc.issuingAuthority,
-              expiryDate: doc.expiryDate,
-              ocrConfidence: 98.5,
-              complianceState: isExpired ? ('Expired' as const) : ('Valid' as const),
-              currentVersion: 'v1.0',
-              versions: [
-                {
-                  versionLabel: 'v1.0',
-                  uploadedAt: new Date().toISOString(),
-                  uploadedBy: activePersona || 'Crewing Administrator',
-                  fileSizeBytes: doc.fileSizeBytes || 1500000,
-                  fileName: doc.fileName || 'cert.pdf',
-                  changeSummary: `Uploaded ${doc.layer} certificate.`,
-                },
-              ],
-              crewAttributes: targetCrew
-                ? {
-                    crewName: targetCrew.fullName,
-                    passportId: targetCrew.passportNo,
-                    rank: targetCrew.rank,
-                    certType: doc.stcwRegulation || doc.title,
-                    issuingCenter: doc.issuingAuthority,
-                    issueDate: doc.issueDate,
-                    expiryDate: doc.expiryDate,
-                    assignedVessel: targetCrew.currentVesselName || '',
-                    nationality: targetCrew.nationality,
-                    trainingDate: doc.issueDate,
-                    ocrConfidence: 98.5,
-                  }
-                : undefined,
-              validationRules: {
-                charterBufferPassed: !isExpired,
-                assetMatch100Percent: true,
-                iacsAuthorityValid: true,
-                overallValid: !isExpired,
+          if (d.id !== doc.id) return d;
+          return {
+            ...d,
+            title: targetCrew ? `${doc.title} — ${targetCrew.fullName}` : doc.title,
+            certificateNo: doc.certificateNo,
+            issuingAuthority: doc.issuingAuthority,
+            expiryDate: doc.expiryDate,
+            complianceState: isExpired ? ('Expired' as const) : doc.verificationStatus === 'Expiring' ? ('Expiring < 6 Mos' as const) : ('Valid' as const),
+            verificationStatus: isExpired ? ('Correction Requested' as const) : ('Verified' as const),
+            versions: [
+              {
+                versionLabel: `v${d.versions.length + 1}.0`,
+                uploadedAt: new Date().toISOString(),
+                uploadedBy: activePersona || 'Crewing Administrator',
+                fileSizeBytes: doc.fileSizeBytes || 1500000,
+                fileName: doc.fileName || d.versions[0]?.fileName || 'updated_cert.pdf',
+                changeSummary: `Reuploaded / updated ${doc.layer} certificate.`,
               },
-              verificationStatus: isExpired ? ('Correction Requested' as const) : ('Verified' as const),
+              ...d.versions,
+            ],
+          };
+        })
+        : [
+          {
+            id: doc.id,
+            title: targetCrew ? `${doc.title} — ${targetCrew.fullName}` : doc.title,
+            entityType: 'Crew Certificate' as const,
+            vesselId: targetCrew?.currentVesselId || '',
+            certificateNo: doc.certificateNo,
+            issuingAuthority: doc.issuingAuthority,
+            expiryDate: doc.expiryDate,
+            ocrConfidence: 98.5,
+            complianceState: isExpired ? ('Expired' as const) : ('Valid' as const),
+            currentVersion: 'v1.0',
+            versions: [
+              {
+                versionLabel: 'v1.0',
+                uploadedAt: new Date().toISOString(),
+                uploadedBy: activePersona || 'Crewing Administrator',
+                fileSizeBytes: doc.fileSizeBytes || 1500000,
+                fileName: doc.fileName || 'cert.pdf',
+                changeSummary: `Uploaded ${doc.layer} certificate.`,
+              },
+            ],
+            crewAttributes: targetCrew
+              ? {
+                crewName: targetCrew.fullName,
+                passportId: targetCrew.passportNo,
+                rank: targetCrew.rank,
+                certType: doc.stcwRegulation || doc.title,
+                issuingCenter: doc.issuingAuthority,
+                issueDate: doc.issueDate,
+                expiryDate: doc.expiryDate,
+                assignedVessel: targetCrew.currentVesselName || '',
+                nationality: targetCrew.nationality,
+                trainingDate: doc.issueDate,
+                ocrConfidence: 98.5,
+              }
+              : undefined,
+            validationRules: {
+              charterBufferPassed: !isExpired,
+              assetMatch100Percent: true,
+              iacsAuthorityValid: true,
+              overallValid: !isExpired,
             },
-            ...state.documents,
-          ];
+            verificationStatus: isExpired ? ('Correction Requested' as const) : ('Verified' as const),
+          },
+          ...state.documents,
+        ];
 
       return {
         crew: updatedCrew,

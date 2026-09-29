@@ -37,13 +37,13 @@ erDiagram
 
 ## 2. Complete Data Schemas and Types
 
-### 2.1. Vessel Schema (`VesselParticulars` / `Vessel`)
+### 2.1. Vessel Schema (`VesselInformation` / `Vessel`)
 - **Definition File**: [src/types/vessel.ts](file:///c:/mapFiles/MAP/src/types/vessel.ts)
 - **Primary Key**: `id` (e.g., `'VESSEL-001'`)
 - **Unique Identifiers**: `imoNumber` (7 digits), `officialRegNumber`, `mmsiNumber` (9 digits), `callSign`
 
 ```typescript
-export interface VesselParticulars {
+export interface VesselInformation {
   /* category 1 - vessel identification */
   id: string;
   name: string;
@@ -98,7 +98,7 @@ export interface VesselParticulars {
   policyNumber: string;
   policyExpiryDate: string;
 
-  /* category 8 - crew & safety particulars */
+  /* category 8 - crew & safety Information */
   safeManningComplement: number;
   certifiedOfficersRatings: string;
   masterName: string;
@@ -311,7 +311,7 @@ export interface AuditTrailEvent {
 
 | Source Entity            | Field / Foreign Key               | Target Entity       | Relationship Type | System Purpose & Data Integrity                                                                |
 | :----------------------- | :-------------------------------- | :------------------ | :---------------: | :--------------------------------------------------------------------------------------------- |
-| **AssuranceSet**         | `vesselId`                        | `Vessel.id`         |       N : 1       | Links campaign to vessel asset; pulls vessel particulars and synchronizes overall readiness.   |
+| **AssuranceSet**         | `vesselId`                        | `Vessel.id`         |       N : 1       | Links campaign to vessel asset; pulls vessel Information and synchronizes overall readiness.   |
 | **AssuranceRequirement** | `documentId` / `linkedDocumentId` | `MasterDocument.id` |       N : 1       | Binds statutory requirement to specific uploaded file in vault; evaluates verification status. |
 | **MasterDocument**       | `vesselId`                        | `Vessel.id`         |       N : 1       | Associates certificate with vessel; scopes document visibility in vessel details.              |
 | **CrewMember**           | `currentVesselId`                 | `Vessel.id`         |       N : 1       | Links crew member to active vessel; matches master name (`masterName`) and safe manning.       |
@@ -371,11 +371,11 @@ flowchart LR
    - **Role Impact**: C Admin sees client-filtered vessels and campaigns; Admin sees fleet-wide operations.
 
 2. **Fleet Registry (`FleetRegistryView.tsx`) & Vessel Detail (`VesselDetailView.tsx`)**:
-   - **Data Consumed**: `VesselParticulars`, linked `AssuranceSet`, linked `MasterDocument`, assigned `CrewMember`, `CapaItem`.
+   - **Data Consumed**: `VesselInformation`, linked `AssuranceSet`, linked `MasterDocument`, assigned `CrewMember`, `CapaItem`.
    - **Integrity Enforcement**: Vessel status (`In Operations`, `In Transit`, `Under Charter`) is gated against `complianceReadinessScore`. Unapproved vessels ($<100\%$) cannot enter `In Transit` or `Under Charter`.
 
 3. **Assurance Sets (`AssuranceSetsView.tsx`, `AssuranceDetailView.tsx`, `CreateAssuranceSetView.tsx`)**:
-   - **Data Consumed**: `AssuranceSet`, `AssuranceRequirement`, `MasterDocument` (unassigned certificates vault), `VesselParticulars`.
+   - **Data Consumed**: `AssuranceSet`, `AssuranceRequirement`, `MasterDocument` (unassigned certificates vault), `VesselInformation`.
    - **Workflow Progression**: Stepper updates from `Initiated` $\rightarrow$ `Validation` $\rightarrow$ `Verification` $\rightarrow$ `Inspection` $\rightarrow$ `Approval` $\rightarrow$ `Approved`. When readiness reaches 100% or Approved, all stepper stages render checked.
 
 4. **Document Library & Vault (`DocumentLibraryView.tsx`, `DocumentDetailView.tsx`)**:
@@ -384,18 +384,18 @@ flowchart LR
 
 5. **Crew Directory (`CrewView.tsx`, `CrewDetailView.tsx`)**:
    - **Data Consumed**: `CrewMember`, `STCWDocumentItem`, `CrewVesselAssignment`.
-   - **Cross-Links**: Captain (`masterName`) and Chief Engineer are cross-checked against `VesselParticulars` and statutory safe manning requirements.
+   - **Cross-Links**: Captain (`masterName`) and Chief Engineer are cross-checked against `VesselInformation` and statutory safe manning requirements.
 
 6. **Verifier Workspace (`VerifierWorkspaceView.tsx`)**:
    - **Data Consumed**: `MasterDocument` queue where `verificationStatus === 'Pending'`.
    - **UI Output**: Side-by-side split screen showing PDF preview, OCR extracted attributes (13 vessel / 11 crew), validation rules, and decision controls.
 
 7. **Inspector Workspace & Checklist (`InspectorWorkspaceView.tsx`, `InspectionChecklistView.tsx`)**:
-   - **Data Consumed**: Assigned `AssuranceSet`, `VesselParticulars`, inspection checklist items, `CapaItem`.
+   - **Data Consumed**: Assigned `AssuranceSet`, `VesselInformation`, inspection checklist items, `CapaItem`.
    - **Actions**: Records item findings (Satisfactory / Observation / Deficiency), creates `CapaItem`, attaches photo evidence.
 
 8. **CAPA Management (`CapaManagementView.tsx`)**:
-   - **Data Consumed**: `CapaItem`, `CapaEvidenceItem`, `VesselParticulars`.
+   - **Data Consumed**: `CapaItem`, `CapaEvidenceItem`, `VesselInformation`.
    - **Actions**: Rectification submission, re-inspection closeout, and C Admin re-inspection flagging (`cadminFlagReason`).
 
 9. **Approver Dashboard (`ApproverDashboardView.tsx`)**:

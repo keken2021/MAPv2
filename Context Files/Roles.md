@@ -83,7 +83,7 @@ flowchart TD
 ### 3.1. Administrator (Vessel Provider Admin)
 - **Primary Stakeholder**: Vessel Provider / Fleet Management Executive.
 - **Permitted Actions**:
-  - Register new vessels across all 11 particulars categories with duplicate IMO/Official Number validation checks.
+  - Register new vessels across all 11 Information categories with duplicate IMO/Official Number validation checks.
   - Create and configure Assurance Sets and link participating organizations.
   - Manage user accounts, invite external stakeholders, and assign operational roles.
   - Configure global Permission Matrix defaults and per-user overrides.
@@ -107,10 +107,10 @@ flowchart TD
   - Monitor live validation scores, verification stages, and inspection progress.
   - Review CAPA items and flag resolved findings for physical re-inspection.
   - Manage, invite, edit, and deactivate third-party auditors and client approvers in the User Management Directory (`/users`).
-  - Access read-only views of vessel particulars, crew lists, and approved dossiers.
+  - Access read-only views of vessel Information, crew lists, and approved dossiers.
 - **Prohibited Actions**:
   - **Strict Prohibition**: Cannot upload, edit, replace, or delete provider-owned certificates or documents.
-  - Cannot register vessels or modify master vessel particulars.
+  - Cannot register vessels or modify master vessel Information.
   - Cannot perform user administration or role allocation for the vessel provider's internal staff.
   - Cannot directly approve assurance sets unless granted delegated approver authority.
 
@@ -209,7 +209,7 @@ Effective Permission = (BRD Hard Deny Override)
 ### 5.1. Permission Categories and Scopes (28 Scopes)
 
 1. **Setup & Configuration**:
-   - `vessels`: Vessel registration and core asset particulars.
+   - `vessels`: Vessel registration and core asset Information.
    - `vessel_status`: Operational status toggles (In Operations, In Transit, Dry Docking, Lay-up, Port Stay, Under Charter).
    - `assurance_sets`: Creation and configuration of assurance projects.
    - `assurance_requirements`: Scope requirement matrix toggles.

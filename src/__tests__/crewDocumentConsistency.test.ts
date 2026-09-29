@@ -74,9 +74,9 @@ describe('crew directory and document library mock data consistency', () => {
     const as001 = MOCK_ASSURANCE_SETS.find((a) => a.id === 'AS-2026-001');
     const req103 = as001?.requirements.find((r) => r.id === 'REQ-103');
     expect(req103).toBeDefined();
-    expect(req103?.documentId).toBe('DOC-CRW-106');
+    expect(req103?.documentId).toBe('MAP-CRW-2026-STCW-00106');
 
-    const doc106 = MOCK_DOCUMENTS.find((d) => d.id === 'DOC-CRW-106');
+    const doc106 = MOCK_DOCUMENTS.find((d) => d.id === 'MAP-CRW-2026-STCW-00106');
     expect(doc106).toBeDefined();
     expect(doc106?.crewAttributes?.crewName).toBe(alexanderWright?.fullName);
     expect(doc106?.certificateNo).toBe('CoC-II-2-0041');
@@ -102,7 +102,7 @@ describe('crew directory and document library mock data consistency', () => {
       assignments: [],
       layer1CoreDocuments: [
         {
-          id: 'DOC-CRW-NEW-L1-01',
+          id: 'MAP-CRW-2026-IDNT-00777',
           title: 'Valid International Passport',
           layer: 'Layer 1 - Universal Core' as const,
           stcwRegulation: 'SOLAS / National Regs',
@@ -121,7 +121,7 @@ describe('crew directory and document library mock data consistency', () => {
     useMapStore.getState().addCrewMember(newCrewMember);
 
     const storeDocs = useMapStore.getState().documents;
-    const addedPassportDoc = storeDocs.find((d: any) => d.id === 'DOC-CRW-NEW-L1-01');
+    const addedPassportDoc = storeDocs.find((d: any) => d.id === 'MAP-CRW-2026-IDNT-00777');
     expect(addedPassportDoc).toBeDefined();
     expect(addedPassportDoc?.certificateNo).toBe('PA-AU-999222');
     expect(addedPassportDoc?.crewAttributes?.crewName).toBe('Chief Off. Elena Rostova');
@@ -129,7 +129,7 @@ describe('crew directory and document library mock data consistency', () => {
 
     /* test dynamic crew certificate upload */
     const newDynamicCert = {
-      id: 'DOC-CRW-DYNAMIC-01',
+      id: 'MAP-CRW-2026-STCW-00778',
       title: 'Dynamic Positioning Advanced Certificate',
       layer: 'Layer 2 - Vessel Specific & Endorsements' as const,
       stcwRegulation: 'IMCA DP Advanced',
@@ -145,7 +145,7 @@ describe('crew directory and document library mock data consistency', () => {
     useMapStore.getState().addCrewDocument('CREW-NEW-999', newDynamicCert);
 
     const updatedStoreDocs = useMapStore.getState().documents;
-    const addedDynamicDoc = updatedStoreDocs.find((d: any) => d.id === 'DOC-CRW-DYNAMIC-01');
+    const addedDynamicDoc = updatedStoreDocs.find((d: any) => d.id === 'MAP-CRW-2026-STCW-00778');
     expect(addedDynamicDoc).toBeDefined();
     expect(addedDynamicDoc?.certificateNo).toBe('DP-ADV-99881');
     expect(addedDynamicDoc?.crewAttributes?.crewName).toBe('Chief Off. Elena Rostova');
@@ -158,13 +158,13 @@ describe('crew directory and document library mock data consistency', () => {
     useMapStore.getState().updateCrewDocument('CREW-NEW-999', updatedDynamicCert);
 
     const reupdatedDocs = useMapStore.getState().documents;
-    const updatedDoc = reupdatedDocs.find((d: any) => d.id === 'DOC-CRW-DYNAMIC-01');
+    const updatedDoc = reupdatedDocs.find((d: any) => d.id === 'MAP-CRW-2026-STCW-00778');
     expect(updatedDoc?.certificateNo).toBe('DP-ADV-99881-REV1');
 
     /* test dynamic crew certificate deletion */
-    useMapStore.getState().deleteCrewDocument('CREW-NEW-999', 'DOC-CRW-DYNAMIC-01');
+    useMapStore.getState().deleteCrewDocument('CREW-NEW-999', 'MAP-CRW-2026-STCW-00778');
     const finalDocs = useMapStore.getState().documents;
-    expect(finalDocs.find((d: any) => d.id === 'DOC-CRW-DYNAMIC-01')).toBeUndefined();
+    expect(finalDocs.find((d: any) => d.id === 'MAP-CRW-2026-STCW-00778')).toBeUndefined();
   });
 });
 

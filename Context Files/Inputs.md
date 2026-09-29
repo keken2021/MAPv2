@@ -17,7 +17,7 @@
   - `callSign`: Unique radio call sign.
 - **Unassigned Certificate Linking**: When registering a vessel or uploading statutory certificates, certificates must be drawn from unassigned unique certificates in the Document Library or uploaded as a new unique document (`DOC-XXX`). No certificate may be assigned to multiple vessels simultaneously.
 
-### 11 Particulars Categories & Detailed Input Schema:
+### 11 Information Categories & Detailed Input Schema:
 
 1. **Category 1 — Vessel Identification**:
    - `name`: String (e.g. `MV Torrens Supporter`) — *Required*
@@ -72,7 +72,7 @@
    - `policyNumber`: String (e.g. `PI-2026-88492`) — *Required*
    - `policyExpiryDate`: ISO Date string — *Required*
 
-8. **Category 8 — Crew & Safety Particulars**:
+8. **Category 8 — Crew & Safety Information**:
    - `safeManningComplement`: Integer (e.g. `14`) — *Required*
    - `certifiedOfficersRatings`: String (e.g. `6 Officers / 8 Ratings`) — *Required*
    - `masterName`: String (e.g. `Capt. Alexander Wright`) — *Must match registered Master in Crew Directory*

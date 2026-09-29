@@ -1,19 +1,23 @@
 /* 
-  file summary: vessel data models and statutory interfaces matching the 11 particulars categories for the marine assurance platform (map).
+  file summary: vessel data models and statutory interfaces matching the 11 Information categories for the marine assurance platform (map).
   responsibilities: defines complete domain types for vessel identification, classification, construction, tonnage, ownership, management, statutory certificates, insurance, crew, environmental specs, and document attachments.
   role in system: foundational type declarations consumed across store, tables, details views, and registration forms.
 */
 
 export type VesselRegistrationStatus =
-  | 'Awaiting Orders'
-  | 'In-Transit'
+  | 'In Operations'
   | 'In Transit'
+  | 'Dry Docking'
+  | 'Lay-up'
   | 'Port Stay'
   | 'Under Charter'
-  | 'Dry-Docking'
-  | 'Dry Docking'
-  | 'In Operations'
-  | 'Lay-up';
+  | 'Active'
+  | 'Standby'
+  | 'Maintenance'
+  | 'Decommissioned'
+  | 'Awaiting Orders'
+  | 'In-Transit'
+  | 'Dry-Docking';
 
 export type ClassificationSociety = 'DNV' | 'ABS' | "Lloyd's Register" | 'Bureau Veritas' | 'RINA';
 
@@ -40,7 +44,7 @@ export interface StatutoryCertificateSummary {
   status: 'Valid' | 'Expiring Soon' | 'Expired';
 }
 
-export interface VesselParticulars {
+export interface VesselInformation {
   // Category 1 - Vessel Identification
   id: string;
   name: string; // e.g. MV Pacific Endeavour
@@ -53,6 +57,8 @@ export interface VesselParticulars {
   portOfRegistry: string; // e.g. Fremantle, WA
   status: VesselRegistrationStatus;
   complianceReadinessScore: number; // 0 - 100%
+  imageUrl?: string; // Custom uploaded or selected profile image URL
+  photos?: string[]; // Gallery or additional vessel photography
 
   // Category 2 - Classification & Notation
   vesselType: string; // e.g. Offshore Support Vessel (OSV)
@@ -95,7 +101,7 @@ export interface VesselParticulars {
   policyNumber: string; // e.g. PI-2026-88492
   policyExpiryDate: string; // e.g. 2027-02-20
 
-  // Category 8 - Crew & Safety Particulars
+  // Category 8 - Crew & Safety Information
   safeManningComplement: number; // e.g. 14
   certifiedOfficersRatings: string; // e.g. 6 Officers / 8 Ratings
   masterName: string; // e.g. Capt. James Stirling
@@ -114,5 +120,5 @@ export interface VesselParticulars {
   clientHistory: VesselClientHistoryRecord[];
 }
 
-// Alias export so any component importing 'Vessel' or 'VesselParticulars' works seamlessly
-export type Vessel = VesselParticulars;
+// Alias export so any component importing 'Vessel', 'VesselInformation', or 'VesselInformation' works seamlessly
+export type Vessel = VesselInformation;

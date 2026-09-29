@@ -6,9 +6,11 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
-import { VesselParticulars, ClassificationSociety } from '../../types/vessel';
+import { VesselInformation, ClassificationSociety } from '../../types/vessel';
 import { MasterDocument } from '../../types/document';
 import { isDuplicateVessel, validateImoNumber } from '../../utils/validation';
+import { CURATED_VESSEL_PHOTOS } from '../../utils/vesselImageHelpers';
+import { formatDocumentId } from '../../utils/formatters';
 
 interface VesselModalProps {
   isOpen: boolean;
@@ -22,6 +24,9 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   const [errorMessage, setErrorMessage] = useState('');
 
   const aiFileInputRef = useRef<HTMLInputElement>(null);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const [imageUrl, setImageUrl] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
 
   /* AI extraction and Document Library lookup states (tracked per step/stage) */
   const [isExtractingAi, setIsExtractingAi] = useState(false);
@@ -69,7 +74,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   const [callSign, setCallSign] = useState('');
   const [flagState, setFlagState] = useState('Australia');
   const [portOfRegistry, setPortOfRegistry] = useState('Fremantle, WA');
-  const [vesselRegStatus, setVesselRegStatus] = useState<VesselParticulars['status']>('Port Stay');
+  const [vesselRegStatus, setVesselRegStatus] = useState<VesselInformation['status']>('Port Stay');
   const [hullIdSmallCraft, setHullIdSmallCraft] = useState('');
 
   // 2. Vessel Classification
@@ -117,7 +122,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   const [policyNumber, setPolicyNumber] = useState('PI-2026-9041');
   const [policyExpiryDate, setPolicyExpiryDate] = useState('2027-02-20');
 
-  // 9. Crew & Safety Particulars
+  // 9. Crew & Safety Information
   const [safeManningComplement, setSafeManningComplement] = useState<number>(14);
   const [maxCrewCapacity, setMaxCrewCapacity] = useState<number>(28);
   const [masterName, setMasterName] = useState('');
@@ -143,6 +148,8 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
     setActiveVerifiedDocs({});
     setPendingVerificationState(null);
     setVesselRegStatus('Port Stay');
+    setImageUrl('');
+    setPhotos([]);
     setRevealedVesselFields({ name: false, imoNumber: false, officialRegNumber: false, flagState: false, classificationSociety: false, yearBuilt: false, gt: false, dwt: false, registeredOwner: false });
 
     if (activePersona === 'Administrator') {
@@ -227,7 +234,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
 
     if (!validateCurrentStep()) return;
 
-    const newVessel: VesselParticulars = {
+    const newVessel: VesselInformation = {
       id: `VESSEL-${Math.floor(100 + Math.random() * 900)}`,
       name,
       previousNames: previousNames || undefined,
@@ -239,6 +246,8 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
       portOfRegistry,
       status: vesselRegStatus,
       complianceReadinessScore: registrationDocName || classCertDocName ? 92 : 85,
+      imageUrl: imageUrl.trim() ? imageUrl.trim() : (photos.length > 0 ? photos[0] : undefined),
+      photos: photos.length > 0 ? photos : (imageUrl.trim() ? [imageUrl.trim()] : undefined),
       vesselType,
       vesselSubtype,
       intendedUse,
@@ -265,7 +274,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
       contact247: contact247 || '+61 8 9222 3344',
       statutoryCertificates: [
         {
-          id: `SC-${Math.floor(100 + Math.random() * 900)}`,
+          id: formatDocumentId('VES', yearBuilt, 'STAT'),
           name: 'Certificate of Class',
           certificateNumber: `${classificationSociety}-STAT-${yearBuilt}-01`,
           issuingBody: classificationSociety,
@@ -448,7 +457,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
 
       if (existingDoc) {
         autoFillFromDocument(existingDoc, stepNumber);
-        setAiNotice(`Found matching document in Document Library ("${existingDoc.title}", Cert: ${existingDoc.certificateNo}). Automatically filled vessel particulars for Stage ${stepNumber}!`);
+        setAiNotice(`Found matching document in Document Library ("${existingDoc.title}", Cert: ${existingDoc.certificateNo}). Automatically filled vessel Information for Stage ${stepNumber}!`);
       } else {
         /* stagger each field reveal by 150ms */
         setTimeout(() => {
@@ -493,7 +502,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
           triggerAutofillAnimation(['registered-owner']);
         }, 1050);
 
-        const newDocId = `DOC-2026-${Math.floor(100 + Math.random() * 900)}`;
+        const newDocId = formatDocumentId('VES', 2026, 'CLAS');
         const newMasterDoc: MasterDocument = {
           id: newDocId,
           title: `Certificate of Class — ${extractedVesselName}`,
@@ -932,7 +941,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       <select
                         className="form-select form-select-sm"
                         value={vesselRegStatus}
-                        onChange={(e) => setVesselRegStatus(e.target.value as VesselParticulars['status'])}
+                        onChange={(e) => setVesselRegStatus(e.target.value as VesselInformation['status'])}
                       >
                         <option value="In Operations" disabled>In Operations (Requires 100% Approved Assurance)</option>
                         <option value="Under Charter" disabled>Under Charter (Requires 100% Approved Assurance)</option>
@@ -944,8 +953,210 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     </div>
                   </div>
 
-                  <div className="text-uppercase text-primary small fw-bold mt-3">
-                    Section 2: Vessel Classification & Notations
+                  {/* Vessel Profile Photography & Multi-Image Upload Section */}
+                  <div className="p-3 bg-light border rounded shadow-2xs mb-1">
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <span className="fw-bold text-dark small d-flex align-items-center gap-2">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                          <circle cx="8.5" cy="8.5" r="1.5"/>
+                          <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <span>Vessel Photography &amp; Gallery ({photos.length || (imageUrl ? 1 : 0)} photo{photos.length === 1 || (!photos.length && imageUrl) ? '' : 's'})</span>
+                      </span>
+                      {(imageUrl || photos.length > 0) && (
+                        <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.7rem' }}>
+                          {photos.length > 1 ? `${photos.length} Photos Attached` : 'Cover Photo Attached'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="row g-3">
+                      {/* Left: Main Cover Photo Preview */}
+                      <div className="col-md-4 text-center">
+                        <div
+                          className="position-relative border rounded overflow-hidden bg-dark d-flex align-items-center justify-content-center cursor-pointer shadow-2xs"
+                          style={{ height: '140px' }}
+                          onClick={() => imageFileInputRef.current?.click()}
+                          title="Click to upload vessel images"
+                        >
+                          {imageUrl ? (
+                            <>
+                              <img src={imageUrl} alt="Vessel preview" className="w-100 h-100" style={{ objectFit: 'cover' }} />
+                              <div
+                                className="position-absolute bottom-0 start-0 w-100 px-2 py-0.5 text-white fw-bold text-start"
+                                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', fontSize: '0.68rem' }}
+                              >
+                                Primary Cover Photo
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-muted small d-flex flex-column align-items-center gap-1.5 p-2">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-secondary">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                              </svg>
+                              <span className="text-secondary fw-semibold" style={{ fontSize: '0.75rem' }}>No Photo Uploaded</span>
+                              <span className="text-primary text-decoration-underline" style={{ fontSize: '0.7rem' }}>Upload multiple photos</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Upload controls and Multi-Photo Gallery */}
+                      <div className="col-md-8 d-flex flex-column gap-2">
+                        <input
+                          type="file"
+                          ref={imageFileInputRef}
+                          multiple
+                          className="d-none"
+                          accept="image/png,image/jpeg,image/webp,image/jpg"
+                          onChange={(e) => {
+                            const files = e.target.files;
+                            if (files && files.length > 0) {
+                              const newPhotosList: string[] = [];
+                              let loadedCount = 0;
+                              Array.from(files).forEach((file) => {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  if (typeof reader.result === 'string') {
+                                    newPhotosList.push(reader.result);
+                                  }
+                                  loadedCount++;
+                                  if (loadedCount === files.length) {
+                                    setPhotos((prev) => {
+                                      const combined = [...prev, ...newPhotosList];
+                                      if (!imageUrl && combined.length > 0) {
+                                        setImageUrl(combined[0]);
+                                      }
+                                      return combined;
+                                    });
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              });
+                            }
+                          }}
+                        />
+
+                        <div className="d-flex flex-wrap align-items-center gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5"
+                            style={{ fontSize: '0.75rem' }}
+                            onClick={() => imageFileInputRef.current?.click()}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="17 8 12 3 7 8" />
+                              <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            <span>Upload Photos (Multiple)</span>
+                          </button>
+                          {(photos.length > 0 || imageUrl) && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger"
+                              style={{ fontSize: '0.75rem' }}
+                              onClick={() => {
+                                setImageUrl('');
+                                setPhotos([]);
+                              }}
+                            >
+                              Clear All Photos
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Uploaded Photos Gallery Thumbnails */}
+                        {photos.length > 0 && (
+                          <div className="d-flex align-items-center gap-2 overflow-x-auto p-1.5 bg-white border rounded">
+                            {photos.map((photo, pIdx) => {
+                              const isCover = photo === imageUrl;
+                              return (
+                                <div
+                                  key={pIdx}
+                                  className={`position-relative border rounded overflow-hidden flex-shrink-0 cursor-pointer transition-all ${isCover ? 'border-primary border-2 shadow-sm' : 'border-secondary-subtle'}`}
+                                  style={{ width: '60px', height: '48px' }}
+                                  onClick={() => setImageUrl(photo)}
+                                  title={isCover ? 'Primary Cover Photo' : 'Click to set as primary cover'}
+                                >
+                                  <img src={photo} alt={`Photo ${pIdx + 1}`} className="w-100 h-100" style={{ objectFit: 'cover' }} />
+                                  {isCover && (
+                                    <div className="position-absolute top-0 end-0 bg-primary text-white px-1 font-mono-code" style={{ fontSize: '0.55rem', borderBottomLeftRadius: '3px' }}>
+                                      Cover
+                                    </div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    className="position-absolute bottom-0 end-0 btn btn-xs btn-danger p-0 d-flex align-items-center justify-content-center"
+                                    style={{ width: '16px', height: '16px', fontSize: '0.65rem' }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const updated = photos.filter((_, i) => i !== pIdx);
+                                      setPhotos(updated);
+                                      if (isCover) {
+                                        setImageUrl(updated.length > 0 ? updated[0] : '');
+                                      }
+                                    }}
+                                    title="Remove this photo"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Curated Presets */}
+                        <div className="d-flex flex-wrap align-items-center gap-1.5">
+                          <span className="small text-secondary fw-semibold" style={{ fontSize: '0.72rem' }}>Add stock photo:</span>
+                          {CURATED_VESSEL_PHOTOS.slice(0, 4).map((p, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              className="btn btn-xs btn-outline-secondary py-0.5 px-1.5 rounded-pill"
+                              style={{ fontSize: '0.68rem' }}
+                              onClick={() => {
+                                if (!photos.includes(p.url)) {
+                                  setPhotos((prev) => [...prev, p.url]);
+                                }
+                                if (!imageUrl) {
+                                  setImageUrl(p.url);
+                                }
+                              }}
+                            >
+                              + {p.title.split('/')[0].trim()}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Image URL fallback */}
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="small text-secondary" style={{ fontSize: '0.75rem' }}>Or URL:</span>
+                          <input
+                            type="url"
+                            className="form-control form-control-sm flex-grow-1 font-mono-code"
+                            style={{ fontSize: '0.75rem' }}
+                            placeholder="https://images.unsplash.com/..."
+                            value={imageUrl}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setImageUrl(val);
+                              if (val && !photos.includes(val)) {
+                                setPhotos((prev) => [val, ...prev]);
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-uppercase text-primary small fw-bold mt-2">
+                    Section 2: Vessel Classification &amp; Notations
                   </div>
                   <div className="row g-2">
                     <div className="col-md-4">
@@ -1236,7 +1447,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   </div>
 
                   <div className="text-uppercase text-primary small fw-bold mt-3">
-                    Section 9: Crew & Safety Particulars
+                    Section 9: Crew & Safety Information
                   </div>
                   <div className="row g-2">
                     <div className="col-md-3">

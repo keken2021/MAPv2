@@ -48,7 +48,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
           isMandatory: true,
           isFulfilled: true,
           ocrConfidence: 98,
-          documentId: 'DOC-2026-001',
+          documentId: 'MAP-VES-2026-STAT-00001',
           verifierStatus: 'Verified',
         },
       ],
@@ -77,7 +77,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     expect(updatedReq.notes).toContain('Missing official IACS stamp');
 
     /* verify master document in document library is updated */
-    const linkedDoc = useMapStore.getState().documents.find((d) => d.id === 'DOC-2026-001')!;
+    const linkedDoc = useMapStore.getState().documents.find((d) => d.id === 'MAP-VES-2026-STAT-00001')!;
     expect(linkedDoc.verificationStatus).toBe('Correction Requested');
 
     /* verify audit trail contains submitter ping */
@@ -120,7 +120,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
           isMandatory: true,
           isFulfilled: true,
           ocrConfidence: 96,
-          documentId: 'DOC-2026-003',
+          documentId: 'MAP-VES-2026-STAT-00003',
           verifierStatus: 'Verified',
         },
       ],
@@ -146,7 +146,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     expect(updatedReq.verifierStatus).toBe('Rejected');
     expect(updatedReq.isFulfilled).toBe(false);
 
-    const linkedDoc = useMapStore.getState().documents.find((d) => d.id === 'DOC-2026-003')!;
+    const linkedDoc = useMapStore.getState().documents.find((d) => d.id === 'MAP-VES-2026-STAT-00003')!;
     expect(linkedDoc.verificationStatus).toBe('Rejected');
 
     const latestAudit = useMapStore.getState().auditEvents[0];
