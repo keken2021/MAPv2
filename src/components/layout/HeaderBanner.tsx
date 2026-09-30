@@ -28,6 +28,7 @@ export const HeaderBanner: React.FC = () => {
     documents,
     crew,
     equipment,
+    projects,
   } = useMapStore();
 
   /* compute dynamic back button info based on active detail view */
@@ -37,6 +38,8 @@ export const HeaderBanner: React.FC = () => {
         return getBackButtonInfo('vessels', 'Fleet Registry', previousHashView, activePersona, previousEntityId);
       case 'equipment':
         return getBackButtonInfo('equipment', 'Equipment Registry', previousHashView, activePersona, previousEntityId);
+      case 'project':
+        return getBackButtonInfo('project', 'Projects', previousHashView, activePersona, previousEntityId);
       case 'documents':
         return getBackButtonInfo('documents', 'Document Library', previousHashView, activePersona, previousEntityId);
       case 'crew':
@@ -58,7 +61,10 @@ export const HeaderBanner: React.FC = () => {
     }
   };
 
-  const isDetailPage = Boolean(currentEntityId) || currentHashView === 'create-assurance-set';
+  const isDetailPage =
+    Boolean(currentEntityId) ||
+    currentHashView === 'create-assurance-set' ||
+    (currentHashView === 'project' && currentEntityId === 'new');
   const headerBackInfo = getHeaderBackInfo();
 
   const rolesList: { role: UserRolePersona; label: string }[] = [
@@ -92,6 +98,19 @@ export const HeaderBanner: React.FC = () => {
           };
         }
         return { breadcrumb: 'FLEET MASTER · EQUIPMENT REGISTRY', title: 'Equipment' };
+      }
+      case 'project': {
+        if (currentEntityId === 'new') {
+          return { breadcrumb: 'CHARTER COMPOSITION · NEW PROJECT', title: 'Create Project' };
+        }
+        if (currentEntityId) {
+          const p = projects.find((item) => item.id === currentEntityId);
+          return {
+            breadcrumb: `${p?.id || 'PROJECT'} · CHARTER COMPOSITION`,
+            title: p ? p.name : 'Project Detail',
+          };
+        }
+        return { breadcrumb: 'CHARTER COMPOSITION · PROJECT REGISTRY', title: 'Projects' };
       }
       case 'assurance-sets': {
         if (currentEntityId) {

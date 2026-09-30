@@ -6,7 +6,7 @@
 
 import { create } from 'zustand';
 import { UserRolePersona, AuditTrailEvent } from '../types/audit';
-import { VesselInformation } from '../types/vessel';
+import { VesselInformation, VesselStatusDimension, VesselStatusHistoryEntry } from '../types/vessel';
 import { EquipmentAsset } from '../types/equipment';
 import { AvailabilityStatus } from '../types/asset';
 import { AssuranceSet, AssuranceStage, AssuranceRequirement } from '../types/assurance';
@@ -43,6 +43,21 @@ import {
 } from '../utils/permissionDefaults';
 import { applyPermissionGuards } from '../utils/permissionHelpers';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import { Project, ProjectAssetLink, ProjectRiskProfile } from '../types/project';
+import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from './projectMockData';
+import {
+  buildMasterAssuranceRequirements,
+  calculateProjectReadiness,
+  generateMasterAssuranceSetId,
+  generateUniqueProjectId,
+} from '../utils/projectHelpers';
+import { MOCK_VESSEL_STATUS_HISTORY } from './vesselStatusHistoryMockData';
+import {
+  buildInitialVesselStatusHistoryEntries,
+  diffVesselStatusChanges,
+  generateVesselStatusHistoryId,
+  getTrackedVesselStatusValues,
+} from '../utils/vesselStatusHistoryHelpers';
 
 export interface MapStoreState {
 
@@ -70,12 +85,54 @@ export interface MapStoreState {
   createAssuranceForVesselId?: string;
   setCreateAssuranceForVesselId: (vesselId?: string) => void;
 
+  /** When set, returning navigation targets this project after add-to-project flows */
+  returnToProjectId?: string;
+  setReturnToProjectId: (projectId?: string) => void;
+
+  // Project Charter State
+  projects: Project[];
+  addProject: (input: {
+    name: string;
+    clientOperator: string;
+    charterer: string;
+    location: string;
+    description?: string;
+    routeDescription: string;
+    riskProfile: ProjectRiskProfile;
+    charterWindowStart: string;
+    charterWindowEnd: string;
+    operatorOrganization: string;
+    assetLinks?: Omit<ProjectAssetLink, 'id' | 'projectId' | 'addedAt' | 'addedByPersona'>[];
+  }) => { success: boolean; projectId?: string; message?: string };
+  updateProject: (project: Project) => void;
+  addAssetToProject: (
+    projectId: string,
+    link: Omit<ProjectAssetLink, 'id' | 'projectId' | 'addedAt' | 'addedByPersona'>,
+  ) => { success: boolean; message?: string };
+  removeAssetFromProject: (projectId: string, linkId: string) => void;
+  linkAssuranceSetToProjectAsset: (projectId: string, linkId: string, assuranceSetId: string) => void;
+  syncProjectMasterAssurance: (projectId: string) => void;
+
   // Vessel Fleet State
   vessels: VesselInformation[];
   addVessel: (vessel: VesselInformation) => { success: boolean; message?: string; vesselId?: string };
   updateVessel: (vessel: VesselInformation) => void;
   updateVesselStatus: (vesselId: string, status: VesselInformation['status']) => void;
   updateVesselAvailability: (vesselId: string, availabilityStatus: AvailabilityStatus) => void;
+
+  // Vessel Status History
+  vesselStatusHistory: VesselStatusHistoryEntry[];
+  recordVesselStatusChange: (params: {
+    vesselId: string;
+    dimension: VesselStatusDimension;
+    previousValue: string | null;
+    newValue: string;
+    changedBy?: string;
+    changedByRole?: UserRolePersona;
+    notes?: string;
+    source?: VesselStatusHistoryEntry['source'];
+    effectiveFrom?: string;
+  }) => void;
 
   // Equipment Assets State
   equipment: EquipmentAsset[];
@@ -280,15 +337,285 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   createAssuranceForVesselId: undefined,
   setCreateAssuranceForVesselId: (vesselId) => set({ createAssuranceForVesselId: vesselId }),
 
+  returnToProjectId: undefined,
+  setReturnToProjectId: (projectId) => set({ returnToProjectId: projectId }),
+
+  projects: MOCK_PROJECTS,
+  addProject: (input) => {
+    const existing = get().projects;
+    const projectId = generateUniqueProjectId(existing);
+    const masterId = generateMasterAssuranceSetId(projectId, get().assuranceSets);
+    const persona = get().activePersona;
+
+    const assetLinks: ProjectAssetLink[] = (input.assetLinks ?? []).map((link, idx) => ({
+      ...link,
+      id: `PAL-${Date.now()}-${idx}`,
+      projectId,
+      addedAt: new Date().toISOString(),
+      addedByPersona: persona,
+    }));
+
+    const childSets = assetLinks
+      .map((l) => get().assuranceSets.find((s) => s.id === l.assuranceSetId))
+      .filter((s): s is AssuranceSet => Boolean(s));
+
+    const masterRequirements = buildMasterAssuranceRequirements(childSets, input.name);
+    const masterSet: AssuranceSet = {
+      id: masterId,
+      title: `${input.name} — Project Master Assurance`,
+      assuranceType: 'Project',
+      subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+      projectId,
+      projectName: input.name,
+      vesselId: childSets[0]?.vesselId || get().vessels[0]?.id || '',
+      vesselName: childSets[0]?.vesselName || get().vessels[0]?.name || 'Project Asset',
+      imoNumber: childSets[0]?.imoNumber || get().vessels[0]?.imoNumber || '0000000',
+      initiatorOrg: input.operatorOrganization,
+      initiatorRole: persona === 'C Admin' ? 'C Admin · Client Created' : 'Vessel Provider Admin',
+      charterer: input.charterer,
+      charterWindowStart: input.charterWindowStart,
+      charterWindowEnd: input.charterWindowEnd,
+      stage: 'Initiated',
+      readinessScore: 0,
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
+      isProjectMaster: true,
+      parentProjectId: projectId,
+      aggregatedFromSetIds: assetLinks.map((l) => l.assuranceSetId),
+      requirements: masterRequirements,
+      createdByPersona: persona,
+    };
+
+    const readinessScore = calculateProjectReadiness(
+      {
+        id: projectId,
+        name: input.name,
+        clientOperator: input.clientOperator,
+        location: input.location,
+        description: input.description || '',
+        charterer: input.charterer,
+        routeDescription: input.routeDescription,
+        riskProfile: input.riskProfile,
+        charterWindowStart: input.charterWindowStart,
+        charterWindowEnd: input.charterWindowEnd,
+        status: assetLinks.length > 0 ? 'Assurance In Progress' : 'Composing',
+        operatorOrganization: input.operatorOrganization,
+        masterAssuranceSetId: masterId,
+        assetLinks,
+      },
+      [...get().assuranceSets, masterSet],
+    );
+
+    const project: Project = {
+      id: projectId,
+      name: input.name,
+      clientOperator: input.clientOperator,
+      location: input.location,
+      description: input.description || '',
+      charterer: input.charterer,
+      routeDescription: input.routeDescription,
+      riskProfile: input.riskProfile,
+      charterWindowStart: input.charterWindowStart,
+      charterWindowEnd: input.charterWindowEnd,
+      status: assetLinks.length > 0 ? 'Assurance In Progress' : 'Composing',
+      operatorOrganization: input.operatorOrganization,
+      masterAssuranceSetId: masterId,
+      assetLinks,
+      readinessScore,
+    };
+
+    masterSet.readinessScore = calculateAssuranceSetReadiness(masterSet);
+
+    set((state) => ({
+      projects: [...state.projects, project],
+      assuranceSets: [...state.assuranceSets, masterSet],
+    }));
+
+    get().logAuditEvent({
+      userId: 'USR-CURRENT',
+      userRole: persona,
+      organization: input.operatorOrganization,
+      action: 'Created Project Charter',
+      targetAsset: `${projectId} (${input.name})`,
+      justificationNotes: `Master assurance set ${masterId} auto-created.`,
+    });
+
+    return { success: true, projectId };
+  },
+
+  updateProject: (updatedProject) => {
+    set((state) => ({
+      projects: state.projects.map((p) => (p.id === updatedProject.id ? updatedProject : p)),
+    }));
+  },
+
+  addAssetToProject: (projectId, linkInput) => {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (!project) return { success: false, message: 'Project not found.' };
+
+    const duplicate = project.assetLinks.some(
+      (l) => l.assetType === linkInput.assetType && l.assetId === linkInput.assetId,
+    );
+    if (duplicate) {
+      return { success: false, message: 'This asset is already linked to the project.' };
+    }
+
+    const link: ProjectAssetLink = {
+      ...linkInput,
+      id: `PAL-${Date.now()}`,
+      projectId,
+      addedAt: new Date().toISOString(),
+      addedByPersona: get().activePersona,
+    };
+
+    const updatedProject: Project = {
+      ...project,
+      assetLinks: [...project.assetLinks, link],
+      status: 'Assurance In Progress',
+    };
+
+    set((state) => ({
+      projects: state.projects.map((p) => (p.id === projectId ? updatedProject : p)),
+    }));
+
+    get().syncProjectMasterAssurance(projectId);
+
+    get().logAuditEvent({
+      userId: 'USR-CURRENT',
+      userRole: get().activePersona,
+      organization: project.operatorOrganization,
+      action: 'Linked Asset to Project',
+      targetAsset: `${projectId} ← ${link.assetName}`,
+      justificationNotes: `Attached ${link.assuranceSetId} for ${link.assetType} asset.`,
+    });
+
+    return { success: true };
+  },
+
+  removeAssetFromProject: (projectId, linkId) => {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? {
+            ...p,
+            assetLinks: p.assetLinks.filter((l) => l.id !== linkId),
+            status: p.assetLinks.length <= 1 ? 'Composing' : p.status,
+          }
+          : p,
+      ),
+    }));
+
+    get().syncProjectMasterAssurance(projectId);
+  },
+
+  linkAssuranceSetToProjectAsset: (projectId, linkId, assuranceSetId) => {
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId
+          ? {
+            ...p,
+            assetLinks: p.assetLinks.map((l) =>
+              l.id === linkId ? { ...l, assuranceSetId } : l,
+            ),
+          }
+          : p,
+      ),
+    }));
+    get().syncProjectMasterAssurance(projectId);
+  },
+
+  syncProjectMasterAssurance: (projectId) => {
+    const project = get().projects.find((p) => p.id === projectId);
+    if (!project) return;
+
+    const childSets = project.assetLinks
+      .map((l) => get().assuranceSets.find((s) => s.id === l.assuranceSetId))
+      .filter((s): s is AssuranceSet => Boolean(s));
+
+    const masterRequirements = buildMasterAssuranceRequirements(childSets, project.name);
+    const aggregatedFromSetIds = project.assetLinks.map((l) => l.assuranceSetId);
+    const readinessScore = calculateProjectReadiness(project, get().assuranceSets);
+
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === projectId ? { ...p, readinessScore } : p,
+      ),
+      assuranceSets: state.assuranceSets.map((s) => {
+        if (s.id !== project.masterAssuranceSetId) return s;
+        const updated: AssuranceSet = {
+          ...s,
+          projectId: project.id,
+          projectName: project.name,
+          aggregatedFromSetIds,
+          requirements: masterRequirements,
+          charterWindowStart: project.charterWindowStart,
+          charterWindowEnd: project.charterWindowEnd,
+          charterer: project.charterer,
+        };
+        return {
+          ...updated,
+          readinessScore: calculateAssuranceSetReadiness(updated),
+        };
+      }),
+    }));
+  },
+
   // Fleet Vessels
   vessels: MOCK_VESSELS,
+
+  vesselStatusHistory: MOCK_VESSEL_STATUS_HISTORY,
+  recordVesselStatusChange: (params) => {
+    const now = params.effectiveFrom ?? new Date().toISOString();
+    const activePersona = get().activePersona;
+    const newEntry: VesselStatusHistoryEntry = {
+      id: generateVesselStatusHistoryId(),
+      vesselId: params.vesselId,
+      dimension: params.dimension,
+      previousValue: params.previousValue,
+      newValue: params.newValue,
+      effectiveFrom: now,
+      changedAt: now,
+      changedBy: params.changedBy ?? 'USR-CURRENT',
+      changedByRole: params.changedByRole ?? activePersona,
+      notes: params.notes,
+      source: params.source ?? 'manual',
+    };
+
+    set((state) => ({
+      vesselStatusHistory: [
+        ...state.vesselStatusHistory.map((entry) =>
+          entry.vesselId === params.vesselId &&
+          entry.dimension === params.dimension &&
+          !entry.effectiveTo
+            ? { ...entry, effectiveTo: now }
+            : entry,
+        ),
+        newEntry,
+      ],
+    }));
+  },
+
   addVessel: (newVessel) => {
     const dupCheck = isDuplicateVessel(newVessel.imoNumber, newVessel.officialRegNumber, get().vessels);
     if (dupCheck.isDuplicate) {
       return { success: false, message: dupCheck.reason };
     }
 
-    set((state) => ({ vessels: [...state.vessels, newVessel] }));
+    const registeredAt = new Date().toISOString();
+    const initialHistory = buildInitialVesselStatusHistoryEntries(
+      newVessel,
+      'USR-CURRENT',
+      get().activePersona,
+      registeredAt,
+    );
+
+    set((state) => ({
+      vessels: [...state.vessels, newVessel],
+      vesselStatusHistory: [...state.vesselStatusHistory, ...initialHistory],
+    }));
 
     get().logAuditEvent({
       userId: 'USR-CURRENT',
@@ -303,6 +630,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   updateVessel: (updatedVessel) => {
+    const previousVessel = get().vessels.find((v) => v.id === updatedVessel.id);
+    const statusChanges = previousVessel ? diffVesselStatusChanges(previousVessel, updatedVessel) : [];
+
     set((state) => ({
       vessels: state.vessels.map((v) => (v.id === updatedVessel.id ? updatedVessel : v)),
       /* synchronize vessel name and imo across all linked assurance sets */
@@ -330,6 +660,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ),
     }));
 
+    statusChanges.forEach((change) => {
+      get().recordVesselStatusChange({
+        vesselId: updatedVessel.id,
+        dimension: change.dimension,
+        previousValue: change.previousValue,
+        newValue: change.newValue,
+        source: 'manual',
+      });
+    });
+
     get().logAuditEvent({
       userId: 'USR-CURRENT',
       userRole: get().activePersona,
@@ -341,18 +681,52 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   updateVesselStatus: (vesselId, status) => {
+    const previousVessel = get().vessels.find((v) => v.id === vesselId);
+    if (!previousVessel) return;
+
+    const nextVessel = { ...previousVessel, status };
+    const statusChanges = diffVesselStatusChanges(previousVessel, nextVessel);
+
     set((state) => ({
-      vessels: state.vessels.map((v) => (v.id === vesselId ? { ...v, status } : v)),
+      vessels: state.vessels.map((v) => (v.id === vesselId ? nextVessel : v)),
     }));
+
+    statusChanges.forEach((change) => {
+      get().recordVesselStatusChange({
+        vesselId,
+        dimension: change.dimension,
+        previousValue: change.previousValue,
+        newValue: change.newValue,
+        source: 'manual',
+      });
+    });
   },
 
   updateVesselAvailability: (vesselId, availabilityStatus) => {
+    const previousVessel = get().vessels.find((v) => v.id === vesselId);
+    if (!previousVessel) return;
+
+    const previousAvailability =
+      previousVessel.availabilityStatus ??
+      getTrackedVesselStatusValues(previousVessel).availability;
+
+    if (previousAvailability === availabilityStatus) return;
+
     const now = new Date().toISOString();
     set((state) => ({
       vessels: state.vessels.map((v) =>
         v.id === vesselId ? { ...v, availabilityStatus, availabilityUpdatedAt: now } : v,
       ),
     }));
+
+    get().recordVesselStatusChange({
+      vesselId,
+      dimension: 'availability',
+      previousValue: previousAvailability,
+      newValue: availabilityStatus,
+      source: 'manual',
+      effectiveFrom: now,
+    });
   },
 
   equipment: MOCK_EQUIPMENT,
@@ -389,7 +763,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   // Assurance Sets
-  assuranceSets: MOCK_ASSURANCE_SETS,
+  assuranceSets: [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS],
   addAssuranceSet: (newSet) => {
     const existingSets = get().assuranceSets;
     const titleCheck = isDuplicateCampaignTitle(newSet.title, existingSets, newSet.id);

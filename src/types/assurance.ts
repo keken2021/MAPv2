@@ -145,4 +145,8 @@ export interface AssuranceSet {
   approverNotes?: string;
   /** true when C Admin runs assurance on their own fleet (internal deployment, not third-party charter) */
   internalDeployment?: boolean;
+  /** true for project-level master rollup sets (e.g. AS-02-P001) */
+  isProjectMaster?: boolean;
+  parentProjectId?: string;
+  aggregatedFromSetIds?: string[];
 }

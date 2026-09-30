@@ -6,7 +6,14 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useMapStore } from '../store/useMapStore';
-import { VesselInformation, VesselClientHistoryRecord, ClassificationSociety, VesselRegistrationStatus } from '../types/vessel';
+import {
+  VesselInformation,
+  VesselClientHistoryRecord,
+  ClassificationSociety,
+  VesselRegistrationStatus,
+  VesselStatusDimension,
+  VESSEL_STATUS_DIMENSION_LABELS,
+} from '../types/vessel';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { formatMaritimeDate, getDaysUntilExpiry, getVesselStatusBadgeClass } from '../utils/formatters';
 import { filterAuditTrailForPersona, filterVesselsForPersona, getBackButtonInfo, isVesselOwnedByAdmin, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
@@ -21,6 +28,13 @@ import { VesselImageCropModal } from '../components/drawers/VesselImageCropModal
 import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { getVesselAssetStatus } from '../types/asset';
+import {
+  dimensionLabel,
+  formatStatusDuration,
+  getCurrentStatusByDimension,
+  statusHistoryBadgeClass,
+} from '../utils/vesselStatusHistoryHelpers';
+import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
 
 interface VesselDetailViewProps {
   vesselId: string;
@@ -42,7 +56,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     activePersona,
     assuranceSets,
     documents,
-    auditEvents
+    auditEvents,
+    vesselStatusHistory,
   } = useMapStore();
 
   const isAccessible =
@@ -51,7 +66,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
   const vessel = isAccessible ? vessels.find((v) => v.id === vesselId) : undefined;
 
-  const [activeTab, setActiveTab] = useState<'Information' | 'vault' | 'assurance' | 'clients' | 'crew' | 'audit' | 'inspections'>('Information');
+  const [activeTab, setActiveTab] = useState<
+    'Information' | 'vault' | 'assurance' | 'clients' | 'crew' | 'audit' | 'inspections' | 'statusHistory'
+  >('Information');
 
   const linkedCapas = vessel
     ? capaItems.filter((c) => c.vesselId === vessel.id || c.vesselName.toLowerCase() === vessel.name.toLowerCase())
@@ -65,6 +82,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<VesselInformation | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showAddToProjectModal, setShowAddToProjectModal] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedCapaForDrawer, setSelectedCapaForDrawer] = useState<CapaItem | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -141,6 +159,15 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [clientOutcomeFilter, setClientOutcomeFilter] = useState('ALL');
   const [clientSortField, setClientSortField] = useState<'clientOrganization' | 'charterTitle' | 'charterStart' | 'assuranceSetId' | 'outcome' | 'notes'>('charterStart');
   const [clientSortDirection, setClientSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  /* status history search, filter, and sorting states */
+  const [statusHistorySearch, setStatusHistorySearch] = useState('');
+  const [statusHistoryDimensionFilter, setStatusHistoryDimensionFilter] = useState<'ALL' | VesselStatusDimension>('ALL');
+  const [statusHistoryCurrentOnly, setStatusHistoryCurrentOnly] = useState(false);
+  const [statusHistorySortField, setStatusHistorySortField] = useState<
+    'effectiveFrom' | 'dimension' | 'previousValue' | 'newValue' | 'changedBy'
+  >('effectiveFrom');
+  const [statusHistorySortDirection, setStatusHistorySortDirection] = useState<'asc' | 'desc'>('desc');
 
   /* audit trail search, filter, and sorting states */
   const [auditSearch, setAuditSearch] = useState('');
@@ -359,6 +386,58 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       (a) => a.targetAsset.includes(vessel.imoNumber) || a.targetAsset.includes(vessel.name)
     )
     : [];
+
+  const linkedStatusHistory = useMemo(
+    () => (vessel ? vesselStatusHistory.filter((entry) => entry.vesselId === vessel.id) : []),
+    [vessel, vesselStatusHistory],
+  );
+
+  const currentStatusByDimension = useMemo(
+    () => (vessel ? getCurrentStatusByDimension(vesselStatusHistory, vessel.id) : {}),
+    [vessel, vesselStatusHistory],
+  );
+
+  const vesselAssetStatus = vessel ? getVesselAssetStatus(vessel) : null;
+
+  const filteredStatusHistory = useMemo(() => {
+    return linkedStatusHistory
+      .filter((entry) => {
+        const matchesDimension =
+          statusHistoryDimensionFilter === 'ALL' || entry.dimension === statusHistoryDimensionFilter;
+        const matchesCurrent = !statusHistoryCurrentOnly || !entry.effectiveTo;
+        const search = statusHistorySearch.toLowerCase();
+        const matchesSearch =
+          !search ||
+          entry.newValue.toLowerCase().includes(search) ||
+          (entry.previousValue && entry.previousValue.toLowerCase().includes(search)) ||
+          (entry.notes && entry.notes.toLowerCase().includes(search)) ||
+          entry.changedBy.toLowerCase().includes(search) ||
+          dimensionLabel(entry.dimension).toLowerCase().includes(search);
+        return matchesDimension && matchesCurrent && matchesSearch;
+      })
+      .sort((a, b) => {
+        let comp = 0;
+        if (statusHistorySortField === 'effectiveFrom') {
+          comp = new Date(a.effectiveFrom).getTime() - new Date(b.effectiveFrom).getTime();
+        } else if (statusHistorySortField === 'dimension') {
+          comp = dimensionLabel(a.dimension).localeCompare(dimensionLabel(b.dimension));
+        } else if (statusHistorySortField === 'previousValue') {
+          comp = (a.previousValue || '').localeCompare(b.previousValue || '');
+        } else if (statusHistorySortField === 'newValue') {
+          comp = a.newValue.localeCompare(b.newValue);
+        } else if (statusHistorySortField === 'changedBy') {
+          comp = a.changedBy.localeCompare(b.changedBy);
+        }
+        return statusHistorySortDirection === 'asc' ? comp : -comp;
+      });
+  }, [
+    linkedStatusHistory,
+    statusHistoryDimensionFilter,
+    statusHistoryCurrentOnly,
+    statusHistorySearch,
+    statusHistorySortField,
+    statusHistorySortDirection,
+  ]);
 
   const allVaultCerts = useMemo(() => {
     if (!vessel) return [];
@@ -1132,6 +1211,15 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             Physical Inspections ({linkedSets.length})
           </button>
         </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link ${activeTab === 'statusHistory' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => setActiveTab('statusHistory')}
+          >
+            Status History ({linkedStatusHistory.length})
+          </button>
+        </li>
         {isAdmin && isOwned && (
           <li className="nav-item">
             <button
@@ -1161,7 +1249,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               className={`nav-link ${activeTab === 'audit' ? 'active fw-bold text-primary' : 'text-secondary'}`}
               onClick={() => setActiveTab('audit')}
             >
-              Audit Trail ({linkedAudits.length})
+              Asset Trail ({linkedAudits.length})
             </button>
           </li>
         )}
@@ -2663,13 +2751,22 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             </div>
 
             {canCreateAssurance && (
-              <button
-                type="button"
-                className="btn btn-sm btn-primary fw-semibold"
-                onClick={() => handleCreateAssuranceForVessel()}
-              >
-                + Create Assurance Set
-              </button>
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary fw-semibold"
+                  onClick={() => setShowAddToProjectModal(true)}
+                >
+                  Add to Project
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary fw-semibold"
+                  onClick={() => handleCreateAssuranceForVessel()}
+                >
+                  + Create Assurance Set
+                </button>
+              </div>
             )}
           </div>
 
@@ -2780,6 +2877,230 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab: Status History — availability, registration, class, compliance timelines */}
+      {activeTab === 'statusHistory' && (
+        <div className="card map-card-custom">
+          <div className="card-header bg-white border-bottom py-3 px-3">
+            <div className="fw-bold text-dark mb-2">Current Status</div>
+            <div className="d-flex flex-wrap gap-2">
+              {(Object.keys(VESSEL_STATUS_DIMENSION_LABELS) as VesselStatusDimension[]).map((dimension) => {
+                const currentEntry = currentStatusByDimension[dimension];
+                const fallbackValue =
+                  dimension === 'availability'
+                    ? vesselAssetStatus?.availabilityStatus
+                    : dimension === 'registration'
+                      ? vesselAssetStatus?.registrationStatus
+                      : dimension === 'class'
+                        ? vesselAssetStatus?.classStatus
+                        : vesselAssetStatus?.complianceStatus;
+                const value = currentEntry?.newValue ?? fallbackValue ?? 'Unknown';
+                return (
+                  <div
+                    key={dimension}
+                    className="d-flex align-items-center gap-2 px-2 py-1 border rounded bg-light"
+                    style={{ fontSize: '0.8rem' }}
+                  >
+                    <span className="text-secondary text-uppercase fw-bold" style={{ fontSize: '0.65rem' }}>
+                      {dimensionLabel(dimension)}
+                    </span>
+                    <span className={`badge ${statusHistoryBadgeClass(value)}`}>{value}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3 border-top-0">
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              <input
+                type="text"
+                className="form-control form-control-sm bg-white text-dark border-secondary"
+                placeholder="Search status, notes, user..."
+                value={statusHistorySearch}
+                onChange={(e) => setStatusHistorySearch(e.target.value)}
+                style={{ width: '220px' }}
+              />
+
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={statusHistoryDimensionFilter}
+                onChange={(e) => setStatusHistoryDimensionFilter(e.target.value as 'ALL' | VesselStatusDimension)}
+                style={{ width: '160px' }}
+              >
+                <option value="ALL">All Dimensions</option>
+                {(Object.keys(VESSEL_STATUS_DIMENSION_LABELS) as VesselStatusDimension[]).map((dim) => (
+                  <option key={dim} value={dim}>
+                    {dimensionLabel(dim)}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={statusHistorySortField}
+                onChange={(e) =>
+                  setStatusHistorySortField(
+                    e.target.value as 'effectiveFrom' | 'dimension' | 'previousValue' | 'newValue' | 'changedBy',
+                  )
+                }
+                style={{ width: '160px' }}
+              >
+                <option value="effectiveFrom">Sort: Effective From</option>
+                <option value="dimension">Sort: Dimension</option>
+                <option value="previousValue">Sort: Previous</option>
+                <option value="newValue">Sort: New Status</option>
+                <option value="changedBy">Sort: Changed By</option>
+              </select>
+
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary text-dark"
+                onClick={() => setStatusHistorySortDirection((p) => (p === 'asc' ? 'desc' : 'asc'))}
+                title={`Sort direction: ${statusHistorySortDirection === 'asc' ? 'Ascending' : 'Descending'}`}
+              >
+                {statusHistorySortDirection === 'asc' ? '↑ Asc' : '↓ Desc'}
+              </button>
+
+              <div className="form-check form-switch ms-1 mb-0">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="statusHistoryCurrentOnly"
+                  checked={statusHistoryCurrentOnly}
+                  onChange={(e) => setStatusHistoryCurrentOnly(e.target.checked)}
+                />
+                <label className="form-check-label small text-secondary" htmlFor="statusHistoryCurrentOnly">
+                  Current only
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="table-responsive">
+            <table className="table map-table-custom align-middle mb-0">
+              <thead>
+                <tr>
+                  <th
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      if (statusHistorySortField === 'dimension') {
+                        setStatusHistorySortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setStatusHistorySortField('dimension');
+                        setStatusHistorySortDirection('asc');
+                      }
+                    }}
+                  >
+                    Dimension {renderSortIndicator(statusHistorySortField, 'dimension', statusHistorySortDirection)}
+                  </th>
+                  <th
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      if (statusHistorySortField === 'previousValue') {
+                        setStatusHistorySortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setStatusHistorySortField('previousValue');
+                        setStatusHistorySortDirection('asc');
+                      }
+                    }}
+                  >
+                    Previous {renderSortIndicator(statusHistorySortField, 'previousValue', statusHistorySortDirection)}
+                  </th>
+                  <th
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      if (statusHistorySortField === 'newValue') {
+                        setStatusHistorySortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setStatusHistorySortField('newValue');
+                        setStatusHistorySortDirection('asc');
+                      }
+                    }}
+                  >
+                    New Status {renderSortIndicator(statusHistorySortField, 'newValue', statusHistorySortDirection)}
+                  </th>
+                  <th
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      if (statusHistorySortField === 'effectiveFrom') {
+                        setStatusHistorySortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setStatusHistorySortField('effectiveFrom');
+                        setStatusHistorySortDirection('desc');
+                      }
+                    }}
+                  >
+                    From {renderSortIndicator(statusHistorySortField, 'effectiveFrom', statusHistorySortDirection)}
+                  </th>
+                  <th style={{ whiteSpace: 'nowrap' }}>To</th>
+                  <th style={{ whiteSpace: 'nowrap' }}>Duration</th>
+                  <th
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      if (statusHistorySortField === 'changedBy') {
+                        setStatusHistorySortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
+                      } else {
+                        setStatusHistorySortField('changedBy');
+                        setStatusHistorySortDirection('asc');
+                      }
+                    }}
+                  >
+                    Changed By {renderSortIndicator(statusHistorySortField, 'changedBy', statusHistorySortDirection)}
+                  </th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStatusHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center text-muted py-4">
+                      No status history records match the search and filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStatusHistory.map((entry) => (
+                    <tr key={entry.id}>
+                      <td>
+                        <span className="badge bg-light text-dark border">{dimensionLabel(entry.dimension)}</span>
+                      </td>
+                      <td>
+                        {entry.previousValue ? (
+                          <span className={`badge ${statusHistoryBadgeClass(entry.previousValue)}`}>
+                            {entry.previousValue}
+                          </span>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${statusHistoryBadgeClass(entry.newValue)}`}>{entry.newValue}</span>
+                        {!entry.effectiveTo && (
+                          <span className="badge bg-primary text-white ms-1" style={{ fontSize: '0.6rem' }}>
+                            Current
+                          </span>
+                        )}
+                      </td>
+                      <td className="font-mono-code small">{formatMaritimeDate(entry.effectiveFrom)}</td>
+                      <td className="font-mono-code small">
+                        {entry.effectiveTo ? formatMaritimeDate(entry.effectiveTo) : 'present'}
+                      </td>
+                      <td className="small text-secondary">
+                        {formatStatusDuration(entry.effectiveFrom, entry.effectiveTo)}
+                      </td>
+                      <td className="small">
+                        <div className="fw-semibold">{entry.changedBy}</div>
+                        <div className="text-muted">{entry.changedByRole}</div>
+                      </td>
+                      <td className="small text-secondary">{entry.notes || '—'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -4864,6 +5185,17 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             setTimeout(() => setToastMessage(null), 3500);
           }}
           onClose={() => setIsCropModalOpen(false)}
+        />
+      )}
+
+      {vessel && (
+        <AddToProjectModal
+          isOpen={showAddToProjectModal}
+          onClose={() => setShowAddToProjectModal(false)}
+          assetType="Vessel"
+          assetId={vessel.id}
+          assetName={vessel.name}
+          providerOrganization={vessel.registeredOwner}
         />
       )}
     </div>

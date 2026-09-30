@@ -30,6 +30,9 @@ import { CrewView } from './views/CrewView';
 import { CrewDetailView } from './views/CrewDetailView';
 import { CapaManagementView } from './views/CapaManagementView';
 import { ApproverDashboardView } from './views/ApproverDashboardView';
+import { ProjectView } from './views/ProjectView';
+import { ProjectDetailView } from './views/ProjectDetailView';
+import { CreateProjectView } from './views/CreateProjectView';
 import './App.css';
 
 import { isViewAccessibleToPersona } from './utils/rbacHelpers';
@@ -125,6 +128,9 @@ export const App: React.FC = () => {
         return currentEntityId ? <VesselDetailView vesselId={currentEntityId} /> : <FleetRegistryView />;
       case 'equipment':
         return currentEntityId ? <EquipmentDetailView equipmentId={currentEntityId} /> : <EquipmentView />;
+      case 'project':
+        if (currentEntityId === 'new') return <CreateProjectView />;
+        return currentEntityId ? <ProjectDetailView projectId={currentEntityId} /> : <ProjectView />;
       case 'assurance-sets':
         return currentEntityId ? <AssuranceDetailView setId={currentEntityId} /> : <AssuranceSetsView />;
       case 'create-assurance-set':

@@ -458,7 +458,7 @@ export function filterAuditTrailForPersona(
   with what file: src/utils/rbacHelpers.ts consumed by HeaderBanner, VesselDetailView, DocumentDetailView, InspectionChecklistView, and CreateAssuranceSetView.
 */
 export function getBackButtonInfo(
-  parentView: "assurance-sets" | "vessels" | "equipment" | "documents" | "inspector" | "crew" | "capa" | "approver" | "roles-permissions" | "users",
+  parentView: "assurance-sets" | "vessels" | "equipment" | "project" | "documents" | "inspector" | "crew" | "capa" | "approver" | "roles-permissions" | "users",
   parentLabel: string,
   previousHashView: string | undefined,
   activePersona: UserRolePersona,
@@ -466,7 +466,7 @@ export function getBackButtonInfo(
 ): { label: string; targetView: string; targetEntityId?: string } {
   let isParentAllowedInSidepanel = true;
 
-  if (parentView === "vessels" || parentView === "equipment") {
+  if (parentView === "vessels" || parentView === "equipment" || parentView === "project") {
     isParentAllowedInSidepanel = [
       "Administrator",
       "C Admin",
@@ -536,6 +536,16 @@ export function getBackButtonInfo(
         ? "← Back to Equipment Detail"
         : "← Back to Equipment Registry",
       targetView: "equipment",
+      targetEntityId: previousEntityId,
+    };
+  }
+
+  if (previousHashView === "project") {
+    return {
+      label: previousEntityId && previousEntityId !== "new"
+        ? "← Back to Project Detail"
+        : "← Back to Projects",
+      targetView: "project",
       targetEntityId: previousEntityId,
     };
   }

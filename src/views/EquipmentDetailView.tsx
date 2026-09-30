@@ -4,8 +4,9 @@
   role in system: rendered when equipment row is selected from hierarchy or equipment list.
 */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
+import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
 import { getEquipmentAssetStatus } from '../types/equipment';
 import { getBackButtonInfo } from '../utils/rbacHelpers';
 import { useMapStore } from '../store/useMapStore';
@@ -34,8 +35,11 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
   const linkedSets = assuranceSets.filter((s) => s.vesselId === item?.parentVesselId);
 
   const isAdmin = activePersona === 'Administrator';
+  const isCAdmin = activePersona === 'C Admin';
   const isSubmitter = activePersona === 'Submitter';
   const canEditAvailability = isAdmin || isSubmitter;
+  const canAddToProject = isAdmin || isCAdmin;
+  const [showAddToProjectModal, setShowAddToProjectModal] = useState(false);
 
   if (!item) {
     return (
@@ -65,6 +69,15 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         >
           {backInfo.label}
         </button>
+        {canAddToProject && (
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-primary fw-semibold"
+            onClick={() => setShowAddToProjectModal(true)}
+          >
+            Add to Project
+          </button>
+        )}
       </div>
 
       <div className="card map-card-custom p-3">
@@ -141,6 +154,15 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
           </div>
         </div>
       )}
+
+      <AddToProjectModal
+        isOpen={showAddToProjectModal}
+        onClose={() => setShowAddToProjectModal(false)}
+        assetType="Equipment"
+        assetId={item.id}
+        assetName={item.name}
+        providerOrganization={item.owningOrganization}
+      />
     </div>
   );
 };

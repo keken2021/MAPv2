@@ -13,6 +13,7 @@ import { getBackButtonInfo } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CrewDocumentUploadModal } from '../components/drawers/CrewDocumentUploadModal';
 import { CrewDocumentViewerModal } from '../components/drawers/CrewDocumentViewerModal';
+import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
 
 interface CrewDetailViewProps {
   crewId: string;
@@ -34,6 +35,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const [viewingDoc, setViewingDoc] = useState<STCWDocumentItem | null>(null);
 
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [showAddToProjectModal, setShowAddToProjectModal] = useState(false);
 
   /* triggers one-shot shimmer on all crew attribute value cells on mount or crewId change */
   const [isJustLoaded, setIsJustLoaded] = useState(true);
@@ -45,6 +47,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
 
   const backInfo = getBackButtonInfo('crew', 'Crew Directory', previousHashView, activePersona, previousEntityId);
   const canManageDocuments = activePersona === 'Administrator' || activePersona === 'Submitter';
+  const canAddToProject = activePersona === 'Administrator' || activePersona === 'C Admin';
 
   const crewMember = crew.find((c) => c.id === crewId) || crew[0];
 
@@ -225,6 +228,15 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
 
           {/* Opposite Corner Controls: STCW Score Gauge + Export Data Button */}
           <div className="d-flex align-items-center gap-4 ms-auto">
+            {canAddToProject && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary fw-semibold"
+                onClick={() => setShowAddToProjectModal(true)}
+              >
+                Add to Project
+              </button>
+            )}
             <div className="d-flex flex-column align-items-center">
               <div className="text-secondary small fw-bold text-uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>
                 STCW Readiness Score
@@ -726,6 +738,15 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
           setEditingDoc(null);
           setUploadLayer(undefined);
         }}
+      />
+
+      <AddToProjectModal
+        isOpen={showAddToProjectModal}
+        onClose={() => setShowAddToProjectModal(false)}
+        assetType="Crew"
+        assetId={crewMember.id}
+        assetName={crewMember.fullName}
+        providerOrganization={crewMember.organization || 'Northwind Marine Pty Ltd'}
       />
     </div>
   );

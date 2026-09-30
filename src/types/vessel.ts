@@ -5,6 +5,33 @@
 */
 
 import { AvailabilityStatus } from './asset';
+import { UserRolePersona } from './audit';
+
+export type VesselStatusDimension = 'availability' | 'registration' | 'class' | 'compliance';
+
+export type VesselStatusHistorySource = 'manual' | 'system' | 'registration';
+
+export interface VesselStatusHistoryEntry {
+  id: string;
+  vesselId: string;
+  dimension: VesselStatusDimension;
+  previousValue: string | null;
+  newValue: string;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  changedAt: string;
+  changedBy: string;
+  changedByRole: UserRolePersona;
+  notes?: string;
+  source?: VesselStatusHistorySource;
+}
+
+export const VESSEL_STATUS_DIMENSION_LABELS: Record<VesselStatusDimension, string> = {
+  availability: 'Availability',
+  registration: 'Registration',
+  class: 'Class',
+  compliance: 'Compliance',
+};
 
 export type VesselRegistrationStatus =
   | 'In Operations'
