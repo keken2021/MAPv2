@@ -48,7 +48,7 @@ const mockAssuranceSets: AssuranceSet[] = [
     readinessScore: 95,
     mandatoryInspectionRequired: true,
     inspectionCompleted: true,
-    assignedStakeholders: [],
+    assignedStakeholders: undefined,
     stakeholders: {},
     createdByPersona: 'C Admin',
     requirements: [

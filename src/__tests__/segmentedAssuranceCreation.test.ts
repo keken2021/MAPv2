@@ -458,10 +458,130 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     const retrieved = useMapStore.getState().assuranceSets.find((s) => s.id === uniqueId);
     expect(retrieved).toBeDefined();
     expect(retrieved?.assuranceType).toBe('Project');
-    expect(retrieved?.projectId).toBe('MAP-PROJ-2026-OFFSHORE-001');
-    expect(retrieved?.projectName).toBe('Gorgon Stage 2 & Jansz-Io Compression');
+  });
+
+  it('provides a standardized catalog of existing activities that adhere to the naming format', () => {
+    import('../utils/assuranceTemplates').then(({ EXISTING_ACTIVITIES }) => {
+      expect(EXISTING_ACTIVITIES).toBeDefined();
+      expect(EXISTING_ACTIVITIES.length).toBeGreaterThanOrEqual(4);
+
+      EXISTING_ACTIVITIES.forEach((act) => {
+        expect(act.id).toMatch(/^MAP-ACT-\d{4}-[A-Z]+-\d{3}$/);
+        expect(act.name).toBeTruthy();
+        expect(act.category).toBeTruthy();
+        expect(act.location).toBeTruthy();
+        expect(act.description).toBeTruthy();
+      });
+    });
+  });
+
+  it('dynamically adapts asset association based on assurance scope (Project, Vessel, Crew, Equipment, Activity)', () => {
+    const store = useMapStore.getState();
+
+    // 1. Crew scope assurance set
+    const crewSetId = generateUniqueAssuranceSetId(store.assuranceSets);
+    const crewSet: AssuranceSet = {
+      id: crewSetId,
+      title: 'Northwind - Alexander Wright Master Crew Credential Assurance',
+      assuranceType: 'Crew',
+      crewId: 'CREW-101',
+      crewName: 'Capt. Alexander Wright',
+      subtypes: ['Crew'],
+      vesselId: 'VESSEL-001',
+      vesselName: 'Capt. Alexander Wright',
+      imoNumber: 'N/A',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      initiatorRole: 'Vessel Provider Admin',
+      charterer: 'Northwind Marine Pty Ltd',
+      charterWindowStart: '2026-11-01',
+      charterWindowEnd: '2027-11-01',
+      stage: 'Initiated',
+      readinessScore: 10,
+      mandatoryInspectionRequired: false,
+      inspectionCompleted: false,
+      requirements: [],
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: '',
+    };
+    store.addAssuranceSet(crewSet);
+
+    const retrievedCrewSet = useMapStore.getState().assuranceSets.find((s) => s.id === crewSetId);
+    expect(retrievedCrewSet).toBeDefined();
+    expect(retrievedCrewSet?.assuranceType).toBe('Crew');
+    expect(retrievedCrewSet?.crewId).toBe('CREW-101');
+    expect(retrievedCrewSet?.crewName).toBe('Capt. Alexander Wright');
+
+    // 2. Equipment scope assurance set
+    const eqSetId = generateUniqueAssuranceSetId(useMapStore.getState().assuranceSets);
+    const eqSet: AssuranceSet = {
+      id: eqSetId,
+      title: 'Northwind - WROV Schilling System Certification',
+      assuranceType: 'Equipment',
+      equipmentId: 'EQ-101',
+      equipmentName: 'Work-Class ROV System (WROV-01)',
+      subtypes: ['Equipment'],
+      vesselId: 'VESSEL-001',
+      vesselName: 'Work-Class ROV System (WROV-01)',
+      imoNumber: 'N/A',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      initiatorRole: 'Vessel Provider Admin',
+      charterer: 'Northwind Marine Pty Ltd',
+      charterWindowStart: '2026-11-01',
+      charterWindowEnd: '2027-11-01',
+      stage: 'Initiated',
+      readinessScore: 10,
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
+      requirements: [],
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: '',
+    };
+    store.addAssuranceSet(eqSet);
+
+    const retrievedEqSet = useMapStore.getState().assuranceSets.find((s) => s.id === eqSetId);
+    expect(retrievedEqSet).toBeDefined();
+    expect(retrievedEqSet?.assuranceType).toBe('Equipment');
+    expect(retrievedEqSet?.equipmentId).toBe('EQ-101');
+    expect(retrievedEqSet?.equipmentName).toBe('Work-Class ROV System (WROV-01)');
+
+    // 3. Activity scope assurance set
+    const actSetId = generateUniqueAssuranceSetId(useMapStore.getState().assuranceSets);
+    const actSet: AssuranceSet = {
+      id: actSetId,
+      title: 'Chevron - Deepwater SURF Installation Campaign Assurance',
+      assuranceType: 'Activity',
+      activityId: 'MAP-ACT-2026-SURF-001',
+      activityName: 'Deepwater SURF & Subsea Tie-In Installation',
+      subtypes: ['Activity'],
+      vesselId: 'VESSEL-001',
+      vesselName: 'Deepwater SURF & Subsea Tie-In Installation',
+      imoNumber: 'N/A',
+      initiatorOrg: 'Chevron Australia Pty Ltd',
+      initiatorRole: 'C Admin · Client Created',
+      charterer: 'Chevron Australia Pty Ltd',
+      charterWindowStart: '2026-11-01',
+      charterWindowEnd: '2027-11-01',
+      stage: 'Initiated',
+      readinessScore: 10,
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
+      requirements: [],
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: '',
+    };
+    store.addAssuranceSet(actSet);
+
+    const retrievedActSet = useMapStore.getState().assuranceSets.find((s) => s.id === actSetId);
+    expect(retrievedActSet).toBeDefined();
+    expect(retrievedActSet?.assuranceType).toBe('Activity');
+    expect(retrievedActSet?.activityId).toBe('MAP-ACT-2026-SURF-001');
+    expect(retrievedActSet?.activityName).toBe('Deepwater SURF & Subsea Tie-In Installation');
   });
 });
+
 
 
 

@@ -24,6 +24,7 @@ import {
   SUBTYPE_TEMPLATES,
   SUBTYPE_CATEGORIES,
   EXISTING_PROJECTS,
+  EXISTING_ACTIVITIES,
 } from '../../utils/assuranceTemplates';
 
 interface AssuranceModalProps {
@@ -43,7 +44,7 @@ interface SpecializedDoc {
 }
 
 export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose, draftId }) => {
-  const { vessels, assuranceSets, addAssuranceSet, updateAssuranceSet, activePersona, users } = useMapStore();
+  const { vessels, equipment, crew, assuranceSets, addAssuranceSet, updateAssuranceSet, activePersona, users } = useMapStore();
 
   const isClientAdmin = activePersona === 'C Admin';
   const clientOrg = getClientAdminOrganization(users);
@@ -67,10 +68,13 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
   );
   const [assuranceType, setAssuranceType] = useState<AssuranceScopeType>('Project');
   const [selectedProjectId, setSelectedProjectId] = useState<string>(() => EXISTING_PROJECTS[0]?.id || '');
+  const [vesselId, setVesselId] = useState(initialVessel?.id || '');
+  const [selectedCrewId, setSelectedCrewId] = useState<string>(() => crew[0]?.id || '');
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(() => equipment[0]?.id || '');
+  const [selectedActivityId, setSelectedActivityId] = useState<string>(() => EXISTING_ACTIVITIES[0]?.id || '');
   const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
   const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
   const [isGeneralInfoExpanded, setIsGeneralInfoExpanded] = useState<boolean>(true);
-  const [vesselId, setVesselId] = useState(initialVessel?.id || '');
   const [charterer, setCharterer] = useState(defaultOrg);
   const [startDate, setStartDate] = useState('2026-11-01');
   const [endDate, setEndDate] = useState('2027-11-01');
@@ -127,6 +131,9 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
         setTitle(target.title);
         if (target.assuranceType) setAssuranceType(target.assuranceType);
         if (target.projectId) setSelectedProjectId(target.projectId);
+        if (target.crewId) setSelectedCrewId(target.crewId);
+        if (target.equipmentId) setSelectedEquipmentId(target.equipmentId);
+        if (target.activityId) setSelectedActivityId(target.activityId);
         if (target.vesselId) setVesselId(target.vesselId);
         if (target.charterer) setCharterer(target.charterer);
         if (target.charterWindowStart) setStartDate(target.charterWindowStart);
@@ -245,7 +252,23 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
         return false;
       }
       if (assuranceType === 'Project' && !selectedProjectId) {
-        setErrorMessage('Please select an existing project to attach this assurance set.');
+        setErrorMessage('Please select an existing project from the asset list.');
+        return false;
+      }
+      if (assuranceType === 'Vessel' && !vesselId) {
+        setErrorMessage('Please select a target vessel from the asset list.');
+        return false;
+      }
+      if (assuranceType === 'Crew' && !selectedCrewId) {
+        setErrorMessage('Please select a target crew member from the asset list.');
+        return false;
+      }
+      if (assuranceType === 'Equipment' && !selectedEquipmentId) {
+        setErrorMessage('Please select a target equipment item from the asset list.');
+        return false;
+      }
+      if (assuranceType === 'Activity' && !selectedActivityId) {
+        setErrorMessage('Please select a target operational activity from the asset list.');
         return false;
       }
       if (!startDate || !endDate) {
@@ -267,7 +290,11 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
+  const selectedProject = EXISTING_PROJECTS.find((p) => p.id === selectedProjectId) || EXISTING_PROJECTS[0];
   const selectedVessel = vessels.find((v) => v.id === vesselId) || availableVessels[0] || vessels[0];
+  const selectedCrew = crew.find((c) => c.id === selectedCrewId) || crew[0];
+  const selectedEquipment = equipment.find((e) => e.id === selectedEquipmentId) || equipment[0];
+  const selectedActivity = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId) || EXISTING_ACTIVITIES[0];
 
   const handleSubmit = (e?: React.SyntheticEvent) => {
     e?.preventDefault();
@@ -323,19 +350,35 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
     const initiatorOrg = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
     const effectiveCharterer = charterer.trim() || initiatorOrg;
 
+    const effectiveAssetName =
+      assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
+      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
+      assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
+      assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
+      (selectedActivity?.name || 'Activity Asset');
+
+    const effectiveImo =
+      assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
+
     const newSet: AssuranceSet = {
       id: uniqueSetId,
       title: title.trim(),
       assuranceType,
       projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
-      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
+      projectName: assuranceType === 'Project' ? (selectedProject?.name || selectedProjectId) : undefined,
+      crewId: assuranceType === 'Crew' ? selectedCrewId : undefined,
+      crewName: assuranceType === 'Crew' ? (selectedCrew?.fullName || selectedCrewId) : undefined,
+      equipmentId: assuranceType === 'Equipment' ? selectedEquipmentId : undefined,
+      equipmentName: assuranceType === 'Equipment' ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
+      activityId: assuranceType === 'Activity' ? selectedActivityId : undefined,
+      activityName: assuranceType === 'Activity' ? (selectedActivity?.name || selectedActivityId) : undefined,
       subtypes: activeSubtypes,
       visibility: templatePrivacy,
       templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
       vesselId: selectedVessel?.id || 'VESSEL-001',
-      vesselName: selectedVessel?.name || 'Vessel Asset',
-      imoNumber: selectedVessel?.imoNumber || '9123456',
+      vesselName: effectiveAssetName,
+      imoNumber: effectiveImo,
       initiatorOrg,
       initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
       charterer: effectiveCharterer,
@@ -409,19 +452,35 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
     const initiatorOrg = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
     const effectiveCharterer = charterer.trim() || initiatorOrg;
 
+    const effectiveAssetName =
+      assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
+      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
+      assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
+      assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
+      (selectedActivity?.name || 'Activity Asset');
+
+    const effectiveImo =
+      assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
+
     const draftSet: AssuranceSet = {
       id: uniqueSetId,
       title: title.trim() || `${defaultOrg} - Draft Campaign`,
       assuranceType,
       projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
-      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
+      projectName: assuranceType === 'Project' ? (selectedProject?.name || selectedProjectId) : undefined,
+      crewId: assuranceType === 'Crew' ? selectedCrewId : undefined,
+      crewName: assuranceType === 'Crew' ? (selectedCrew?.fullName || selectedCrewId) : undefined,
+      equipmentId: assuranceType === 'Equipment' ? selectedEquipmentId : undefined,
+      equipmentName: assuranceType === 'Equipment' ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
+      activityId: assuranceType === 'Activity' ? selectedActivityId : undefined,
+      activityName: assuranceType === 'Activity' ? (selectedActivity?.name || selectedActivityId) : undefined,
       subtypes: activeSubtypes,
       visibility: 'draft',
       templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
       vesselId: selectedVessel?.id || 'VESSEL-001',
-      vesselName: selectedVessel?.name || 'Vessel Asset',
-      imoNumber: selectedVessel?.imoNumber || '9123456',
+      vesselName: effectiveAssetName,
+      imoNumber: effectiveImo,
       initiatorOrg,
       initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
       charterer: effectiveCharterer,
@@ -744,57 +803,212 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                     </select>
                   </div>
 
-                  {/* Existing Project Association Dropdown (Mandatory when scope is Project) */}
-                  {assuranceType === 'Project' && (
-                    <div className="col-12">
-                      <div className="p-3 bg-light border rounded-3">
-                        <label className="form-label text-secondary small fw-semibold d-flex align-items-center justify-content-between" htmlFor="modal-project-association">
-                          <span>Associated Existing Project <span className="text-danger">*</span></span>
-                          <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
-                            Required for Project Scope
-                          </span>
-                        </label>
-                        <select
-                          id="modal-project-association"
-                          className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
-                          value={selectedProjectId}
-                          onChange={(e) => setSelectedProjectId(e.target.value)}
-                          required
-                        >
-                          <option value="">-- Select an Existing Project to Attach Assurance Set --</option>
-                          {EXISTING_PROJECTS.map((proj: { id: string; name: string; clientOperator: string }) => (
-                            <option key={proj.id} value={proj.id}>
-                              {proj.id} &mdash; {proj.name} ({proj.clientOperator})
-                            </option>
-                          ))}
-                        </select>
-
-                        {/* Selected Project Details Info Card */}
-                        {EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId) && (() => {
-                          const proj = EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId)!;
-                          return (
-                            <div className="mt-2 p-2 bg-white border rounded small text-secondary">
-                              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
-                                <span className="fw-bold text-dark">{proj.name}</span>
-                                <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                  {proj.id}
-                                </span>
-                              </div>
-                              <div className="row g-1 text-muted" style={{ fontSize: '0.75rem' }}>
-                                <div className="col-12 col-md-6">
-                                  <strong className="text-secondary">Operator:</strong> {proj.clientOperator}
-                                </div>
-                                <div className="col-12 col-md-6">
-                                  <strong className="text-secondary">Basin:</strong> {proj.location}
-                                </div>
-                                <div className="col-12">
-                                  <strong className="text-secondary">Summary:</strong> {proj.description}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })()}
+                  <div className="col-12">
+                    <div className="p-2.5 bg-primary-subtle border border-primary-subtle rounded small text-primary d-flex align-items-center justify-content-between flex-wrap gap-2">
+                      <div>
+                        <strong>Selected Scope: {assuranceType} Assurance</strong>
+                        <div className="text-secondary small mt-0.5">
+                          {assuranceType === 'Project'
+                            ? 'Project scope requires document verification for all 4 operational subtypes (Vessel, Crew, Activity, Equipment).'
+                            : `Standalone assurance set focused strictly on the ${assuranceType} subtype.`}
+                        </div>
                       </div>
+                      <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
+                        {assuranceType === 'Project' ? '4 Subtypes' : '1 Subtype'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dynamic Primary Asset Selection Box */}
+                <div className="border rounded-3 p-3 bg-light-subtle">
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <strong className="text-dark small">Primary Asset Selection ({assuranceType} Scope)</strong>
+                    <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
+                      Scope: {assuranceType}
+                    </span>
+                  </div>
+
+                  {assuranceType === 'Project' && (
+                    <div>
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="modal-project-association">
+                        Target Project Asset <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        id="modal-project-association"
+                        className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
+                        value={selectedProjectId}
+                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                        required
+                      >
+                        {EXISTING_PROJECTS.map((proj) => (
+                          <option key={proj.id} value={proj.id}>
+                            {proj.id} &mdash; {proj.name} ({proj.clientOperator})
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedProject && (
+                        <div className="mt-2 p-2 bg-white border rounded small text-secondary">
+                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                            <span className="fw-bold text-dark">{selectedProject.name}</span>
+                            <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
+                              {selectedProject.id}
+                            </span>
+                          </div>
+                          <div className="row g-1 text-muted" style={{ fontSize: '0.75rem' }}>
+                            <div className="col-12 col-md-6">
+                              <strong className="text-secondary">Operator:</strong> {selectedProject.clientOperator}
+                            </div>
+                            <div className="col-12 col-md-6">
+                              <strong className="text-secondary">Basin:</strong> {selectedProject.location}
+                            </div>
+                            <div className="col-12">
+                              <strong className="text-secondary">Summary:</strong> {selectedProject.description}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {assuranceType === 'Vessel' && (
+                    <div>
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="modal-vessel-select">
+                        Target Vessel Asset <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        id="modal-vessel-select"
+                        className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
+                        value={vesselId}
+                        onChange={(e) => setVesselId(e.target.value)}
+                      >
+                        {availableVessels.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.name} (IMO: {v.imoNumber} &mdash; Flag: {v.flagState})
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedVessel && (
+                        <div className="mt-2 p-2 bg-white border rounded small text-secondary">
+                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                            <span className="fw-bold text-dark">{selectedVessel.name}</span>
+                            <span className="badge bg-secondary text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
+                              IMO {selectedVessel.imoNumber}
+                            </span>
+                          </div>
+                          <div className="row g-1 text-muted" style={{ fontSize: '0.75rem' }}>
+                            <div className="col-6"><strong>Type:</strong> {selectedVessel.vesselType}</div>
+                            <div className="col-6"><strong>Flag:</strong> {selectedVessel.flagState}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {assuranceType === 'Crew' && (
+                    <div>
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="modal-crew-select">
+                        Target Crew / Seafarer Asset <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        id="modal-crew-select"
+                        className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
+                        value={selectedCrewId}
+                        onChange={(e) => setSelectedCrewId(e.target.value)}
+                      >
+                        {crew.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.fullName} &mdash; {c.rank} (Seaman's Book: {c.seamansBookNo})
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedCrew && (
+                        <div className="mt-2 p-2 bg-white border rounded small text-secondary">
+                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                            <span className="fw-bold text-dark">{selectedCrew.fullName}</span>
+                            <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
+                              {selectedCrew.rank}
+                            </span>
+                          </div>
+                          <div className="row g-1 text-muted" style={{ fontSize: '0.75rem' }}>
+                            <div className="col-6"><strong>Org:</strong> {selectedCrew.organization}</div>
+                            <div className="col-6"><strong>Assigned Vessel:</strong> {selectedCrew.currentVesselName || 'Unassigned'}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {assuranceType === 'Equipment' && (
+                    <div>
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="modal-equipment-select">
+                        Target Equipment Asset <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        id="modal-equipment-select"
+                        className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
+                        value={selectedEquipmentId}
+                        onChange={(e) => setSelectedEquipmentId(e.target.value)}
+                      >
+                        {equipment.map((e) => (
+                          <option key={e.id} value={e.id}>
+                            {e.name} (Tag: {e.equipmentIdentifier} &mdash; Category: {e.category})
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedEquipment && (
+                        <div className="mt-2 p-2 bg-white border rounded small text-secondary">
+                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                            <span className="fw-bold text-dark">{selectedEquipment.name}</span>
+                            <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
+                              {selectedEquipment.equipmentIdentifier}
+                            </span>
+                          </div>
+                          <div className="row g-1 text-muted" style={{ fontSize: '0.75rem' }}>
+                            <div className="col-6"><strong>Category:</strong> {selectedEquipment.category}</div>
+                            <div className="col-6"><strong>Status:</strong> {selectedEquipment.availabilityStatus || 'Active'}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {assuranceType === 'Activity' && (
+                    <div>
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="modal-activity-select">
+                        Target Marine Operation / Activity Asset <span className="text-danger">*</span>
+                      </label>
+                      <select
+                        id="modal-activity-select"
+                        className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
+                        value={selectedActivityId}
+                        onChange={(e) => setSelectedActivityId(e.target.value)}
+                      >
+                        {EXISTING_ACTIVITIES.map((act) => (
+                          <option key={act.id} value={act.id}>
+                            {act.id} &mdash; {act.name} ({act.category})
+                          </option>
+                        ))}
+                      </select>
+
+                      {selectedActivity && (
+                        <div className="mt-2 p-2 bg-white border rounded small text-secondary">
+                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                            <span className="fw-bold text-dark">{selectedActivity.name}</span>
+                            <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.65rem' }}>
+                              {selectedActivity.category}
+                            </span>
+                          </div>
+                          <div className="row g-1 text-muted" style={{ fontSize: '0.75rem' }}>
+                            <div className="col-6"><strong>Location:</strong> {selectedActivity.location}</div>
+                            <div className="col-6"><strong>Summary:</strong> {selectedActivity.description}</div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -876,19 +1090,6 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
 
                   {isGeneralInfoExpanded && (
                     <div className="row g-3 mt-1">
-                      <div className="col-md-6">
-                        <label className="form-label text-secondary small fw-semibold">Target Vessel / Asset</label>
-                        <select
-                          className="form-select form-select-sm bg-white text-dark"
-                          value={vesselId}
-                          onChange={(e) => setVesselId(e.target.value)}
-                        >
-                          {availableVessels.map((v) => (
-                            <option key={v.id} value={v.id}>{v.name} (IMO: {v.imoNumber})</option>
-                          ))}
-                        </select>
-                      </div>
-
                       <div className="col-md-6">
                         <label className="form-label text-secondary small fw-semibold">Charterer Organization</label>
                         <input
@@ -977,19 +1178,14 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                   <strong className="text-dark small d-block mb-1">Campaign Overview</strong>
                   <div className="fw-bold text-primary fs-6">{title}</div>
                   <div className="text-secondary small mt-1">
-                    Scope: <strong>{assuranceType}</strong> &nbsp;|&nbsp; Target: <strong>{selectedVessel?.name}</strong> &nbsp;|&nbsp; Dates: {startDate} to {endDate}
+                    Scope: <strong>{assuranceType}</strong> &nbsp;|&nbsp; Target:{' '}
+                    {assuranceType === 'Project' && <strong className="text-dark">{selectedProject?.name} ({selectedProject?.id})</strong>}
+                    {assuranceType === 'Vessel' && <strong className="text-dark">{selectedVessel?.name} (IMO: {selectedVessel?.imoNumber})</strong>}
+                    {assuranceType === 'Crew' && <strong className="text-dark">{selectedCrew?.fullName} ({selectedCrew?.rank})</strong>}
+                    {assuranceType === 'Equipment' && <strong className="text-dark">{selectedEquipment?.name} (Tag: {selectedEquipment?.equipmentIdentifier})</strong>}
+                    {assuranceType === 'Activity' && <strong className="text-dark">{selectedActivity?.name} ({selectedActivity?.category})</strong>}
+                    &nbsp;|&nbsp; Dates: {startDate} to {endDate}
                   </div>
-                  {assuranceType === 'Project' && selectedProjectId && (
-                    <div className="text-secondary small mt-1">
-                      <span>Attached Project:</span>{' '}
-                      <strong className="text-dark">
-                        {EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId)?.name || selectedProjectId}
-                      </strong>{' '}
-                      <span className="badge bg-light text-dark border font-mono-code ms-1" style={{ fontSize: '0.65rem' }}>
-                        {selectedProjectId}
-                      </span>
-                    </div>
-                  )}
                   <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
                     <span>Privacy:</span>
                     <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>
@@ -1077,7 +1273,14 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                 </p>
                 <div className="p-2 bg-light rounded border small">
                   <div className="fw-semibold text-dark">{title || 'Draft Campaign'}</div>
-                  <div className="text-muted mt-0.5">{assuranceType} &middot; {selectedVessel?.name || 'Vessel'}</div>
+                  <div className="text-muted mt-0.5">
+                    {assuranceType} &middot;{' '}
+                    {assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
+                     assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
+                     assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
+                     assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
+                     (selectedActivity?.name || 'Activity Asset')}
+                  </div>
                 </div>
               </div>
               <div className="modal-footer border-top bg-light px-3 py-2 d-flex align-items-center justify-content-between">

@@ -404,3 +404,49 @@ export const EXISTING_PROJECTS: import('../types/assurance').AssuranceProject[] 
   },
 ];
 
+export const EXISTING_ACTIVITIES: import('../types/assurance').AssuranceActivity[] = [
+  {
+    id: 'MAP-ACT-2026-SURF-001',
+    name: 'Deepwater SURF & Subsea Tie-In Installation',
+    category: 'Subsea Installation',
+    location: 'Greater Gorgon Field, WA',
+    description: 'Subsea umbilical, riser, and flowline (SURF) installation and acoustic metrology tie-ins.',
+  },
+  {
+    id: 'MAP-ACT-2026-DRILL-002',
+    name: 'Offshore Exploration Well Spud & Drilling Operations',
+    category: 'Drilling & Intervention',
+    location: 'Scarborough Basin, Offshore WA',
+    description: 'Deepwater exploratory drilling, BOP deployment, and casing cementing operations.',
+  },
+  {
+    id: 'MAP-ACT-2026-LIFT-003',
+    name: 'Topside Module Heavy Lift & Float-over Integration',
+    category: 'Heavy Lift & Transport',
+    location: 'Timor Sea / Darwin Sector',
+    description: 'Dynamic positioning dual-vessel tandem lift and module floatover installation.',
+  },
+  {
+    id: 'MAP-ACT-2026-TOW-004',
+    name: 'Semi-Submersible Rig Ocean Towage & Pre-Mooring',
+    category: 'Towage & Positioning',
+    location: 'Browse Basin, WA',
+    description: 'Multi-tug ocean transit, 12-point anchor pre-lay, and catenary tension proofing.',
+  },
+  {
+    id: 'MAP-ACT-2026-PIPE-005',
+    name: 'Subsea Gas Export Pipeline S-Lay & Trenching Campaign',
+    category: 'Pipelay Operations',
+    location: 'Bonaparte Basin, NT',
+    description: 'Continuous 36-inch trunkline S-lay installation with post-lay plough trenching.',
+  },
+  {
+    id: 'MAP-ACT-2026-DECOM-006',
+    name: 'Offshore Well P&A and Subsea Infrastructure Decommissioning',
+    category: 'Decommissioning',
+    location: 'Bass Strait / Gippsland Basin, VIC',
+    description: 'Plug and abandonment operations, subsea manifold recovery, and seabed clearance.',
+  },
+];
+
+

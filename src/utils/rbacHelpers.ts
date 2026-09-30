@@ -33,7 +33,10 @@ export function isAssuranceSetAssignedToPersona(
       Boolean(set.initiatorOrg?.toLowerCase().includes("northwind")) ||
       Boolean(set.assignedSubmitter?.toLowerCase().includes("northwind")) ||
       Boolean(set.stakeholders?.submitterOrg?.toLowerCase().includes("northwind")) ||
-      Boolean(set.assignedStakeholders?.some((s: { company: string; }) => s.company?.toLowerCase().includes("northwind")));
+      Boolean(set.assignedStakeholders?.submitterOrg?.toLowerCase().includes("northwind")) ||
+      Boolean(set.assignedStakeholders?.verifierOrg?.toLowerCase().includes("northwind")) ||
+      Boolean(set.assignedStakeholders?.inspectorOrg?.toLowerCase().includes("northwind")) ||
+      Boolean(set.assignedStakeholders?.approverOrg?.toLowerCase().includes("northwind"));
 
     const isMadeByAdmin =
       Boolean(set.createdByPersona === "Administrator") ||

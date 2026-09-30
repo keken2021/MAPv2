@@ -80,6 +80,14 @@ export interface AssuranceProject {
   description: string;
 }
 
+export interface AssuranceActivity {
+  id: string; // e.g. MAP-ACT-2026-SURF-001
+  name: string; // e.g. Deepwater SURF & Subsea Tie-In Installation
+  category: string; // e.g. Subsea Installation
+  location: string; // e.g. Greater Gorgon Field, WA
+  description: string;
+}
+
 export interface AssuranceStakeholderMapping {
   submitterId?: string;
   submitterName?: string;
@@ -104,6 +112,12 @@ export interface AssuranceSet {
   assuranceType?: AssuranceScopeType;
   projectId?: string;
   projectName?: string;
+  crewId?: string;
+  crewName?: string;
+  equipmentId?: string;
+  equipmentName?: string;
+  activityId?: string;
+  activityName?: string;
   subtypes?: AssuranceSubtype[];
   visibility?: 'public' | 'organization' | 'draft';
   templateSource?: 'public' | 'organization' | 'custom' | 'none';
