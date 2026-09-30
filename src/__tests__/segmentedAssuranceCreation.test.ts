@@ -193,4 +193,149 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       expect(SUBTYPE_CATEGORIES.Equipment).not.toContain('Certificate of Competency (CoC)');
     });
   });
+
+  it('correctly categorizes assurance sets into Public, Organization, and Draft tabs', () => {
+    const sets = useMapStore.getState().assuranceSets;
+    expect(sets.length).toBeGreaterThan(0);
+
+    const isPublicSet = (s: AssuranceSet) =>
+      s.visibility === 'public' || s.templateSource === 'public' || s.stage === 'Approved' || s.stage === 'Certified';
+
+    const isDraftSet = (s: AssuranceSet) =>
+      s.visibility === 'draft' || s.stage === 'Initiated';
+
+    const isOrgSet = (s: AssuranceSet) =>
+      s.visibility === 'organization' || (!isDraftSet(s) && !isPublicSet(s)) || (s.stage !== 'Initiated' && s.visibility !== 'public');
+
+    const publicSets = sets.filter(isPublicSet);
+    const orgSets = sets.filter(isOrgSet);
+    const draftSets = sets.filter(isDraftSet);
+
+    expect(publicSets.length).toBeGreaterThanOrEqual(1);
+    expect(orgSets.length).toBeGreaterThanOrEqual(1);
+    expect(draftSets.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('supports configuring template privacy (public vs organization) and saving as draft', () => {
+    const store = useMapStore.getState();
+    const draftId = generateUniqueAssuranceSetId(store.assuranceSets);
+
+    const draftSet: AssuranceSet = {
+      id: draftId,
+      title: 'Northwind - Draft Equipment Certification Baseline',
+      assuranceType: 'Equipment',
+      subtypes: ['Equipment'],
+      visibility: 'draft',
+      templateSource: 'organization',
+      vesselId: 'VESSEL-001',
+      vesselName: 'MV Pacific Endeavour',
+      imoNumber: '9123456',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      initiatorRole: 'Vessel Provider Admin',
+      charterer: 'Northwind Marine Pty Ltd',
+      charterWindowStart: '2026-11-01',
+      charterWindowEnd: '2027-11-01',
+      stage: 'Initiated',
+      readinessScore: 0,
+      mandatoryInspectionRequired: false,
+      inspectionCompleted: false,
+      requirements: [],
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: '',
+    };
+
+    store.addAssuranceSet(draftSet);
+
+    const retrievedDraft = useMapStore.getState().assuranceSets.find((s) => s.id === draftId);
+    expect(retrievedDraft).toBeDefined();
+    expect(retrievedDraft?.visibility).toBe('draft');
+    expect(retrievedDraft?.stage).toBe('Initiated');
+    expect(retrievedDraft?.templateSource).toBe('organization');
+
+    // Create a public template campaign
+    const publicId = generateUniqueAssuranceSetId(useMapStore.getState().assuranceSets);
+    const publicSet: AssuranceSet = {
+      ...draftSet,
+      id: publicId,
+      title: 'Global IMCA DP Proving Trial Standard 2026',
+      visibility: 'public',
+      templateSource: 'public',
+    };
+
+    store.addAssuranceSet(publicSet);
+
+    const retrievedPublic = useMapStore.getState().assuranceSets.find((s) => s.id === publicId);
+    expect(retrievedPublic).toBeDefined();
+    expect(retrievedPublic?.visibility).toBe('public');
+    expect(retrievedPublic?.templateSource).toBe('public');
+  });
+
+  it('ensures draft assurance sets resume in wizard setup and graduate to registered sets without duplication', () => {
+    const store = useMapStore.getState();
+    const draftId = generateUniqueAssuranceSetId(store.assuranceSets);
+
+    // 1. Initial draft creation
+    const draftSet: AssuranceSet = {
+      id: draftId,
+      title: 'Woodside - Unfinished Scarborough Vetting Draft',
+      assuranceType: 'Project',
+      subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+      visibility: 'draft',
+      templateSource: 'organization',
+      vesselId: 'VESSEL-001',
+      vesselName: 'MV Pacific Endeavour',
+      imoNumber: '9123456',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      initiatorRole: 'Vessel Provider Admin',
+      charterer: 'Woodside Energy Ltd',
+      charterWindowStart: '2026-11-01',
+      charterWindowEnd: '2027-11-01',
+      stage: 'Initiated',
+      readinessScore: 0,
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
+      requirements: [],
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: '',
+    };
+
+    store.addAssuranceSet(draftSet);
+
+    const initialDraft = useMapStore.getState().assuranceSets.find((s) => s.id === draftId);
+    expect(initialDraft).toBeDefined();
+    expect(initialDraft?.visibility).toBe('draft');
+
+    // 2. Resume in wizard and complete initiation (graduates from draft to registered set)
+    const graduatedSet: AssuranceSet = {
+      ...initialDraft!,
+      visibility: 'organization',
+      stage: 'Initiated',
+      requirements: [
+        {
+          id: `${draftId}-REQ-001`,
+          category: 'Statutory Certificate',
+          title: 'International Load Line Certificate',
+          isMandatory: true,
+          isFulfilled: false,
+          ocrConfidence: 0,
+          verifierStatus: 'Pending',
+        },
+      ],
+    };
+
+    store.updateAssuranceSet(graduatedSet);
+
+    const activeSet = useMapStore.getState().assuranceSets.find((s) => s.id === draftId);
+    expect(activeSet).toBeDefined();
+    expect(activeSet?.visibility).toBe('organization');
+    expect(activeSet?.requirements.length).toBe(1);
+
+    // Verify no duplicate set was created with the same ID
+    const matchingSets = useMapStore.getState().assuranceSets.filter((s) => s.id === draftId);
+    expect(matchingSets.length).toBe(1);
+  });
 });
+
+

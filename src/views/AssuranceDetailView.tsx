@@ -94,6 +94,38 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   if (!assuranceSet) return <div>Assurance Set not found.</div>;
 
+  if (assuranceSet.visibility === 'draft') {
+    return (
+      <div className="card map-card-custom p-4 text-center my-4">
+        <div className="py-4">
+          <div className="badge bg-warning-subtle text-dark border border-warning-subtle px-3 py-1.5 mb-3 font-mono-code">
+            Unregistered Campaign Draft
+          </div>
+          <h4 className="fw-bold text-dark">{assuranceSet.title}</h4>
+          <p className="text-secondary mx-auto mb-4" style={{ maxWidth: '550px' }}>
+            This assurance set is currently saved as an uninitiated draft. Complete the segmented wizard setup to configure required documents, templates, and stakeholder assignments before registering it as an active campaign.
+          </p>
+          <div className="d-flex align-items-center justify-content-center gap-3">
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => setCurrentHashView('assurance-sets')}
+            >
+              Back to Assurance Sets
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary px-4 fw-semibold"
+              onClick={() => setCurrentHashView('create-assurance-set', assuranceSet.id)}
+            >
+              Continue Wizard Setup &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const isCAdmin = activePersona === 'C Admin';
   const canUpload = activePersona === 'Submitter' || activePersona === 'Administrator';
 

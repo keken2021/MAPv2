@@ -80,6 +80,7 @@ export interface AssuranceSet {
   title: string; // e.g. Chevron Gorgon Charter Vetting
   assuranceType?: AssuranceScopeType;
   subtypes?: AssuranceSubtype[];
+  visibility?: 'public' | 'organization' | 'draft';
   templateSource?: 'public' | 'organization' | 'custom' | 'none';
   appliedTemplates?: Record<string, string>;
   vesselId: string;

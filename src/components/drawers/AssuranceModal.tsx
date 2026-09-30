@@ -6,10 +6,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { useMapStore } from '../../store/useMapStore';
-import { AssuranceSet, AssuranceRequirement, AssuranceScopeType, AssuranceSubtype, AssuranceRequirementCategory } from '../../types/assurance';
+import {
+  AssuranceSet,
+  AssuranceRequirement,
+  AssuranceScopeType,
+  AssuranceSubtype,
+  AssuranceRequirementCategory,
+} from '../../types/assurance';
 import { filterVesselsForPersona, getClientAdminOrganization } from '../../utils/rbacHelpers';
-import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../../utils/validation';
-import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES, SUBTYPE_CATEGORIES, SubtypeTemplate } from '../../utils/assuranceTemplates';
+import {
+  isDuplicateCampaignTitle,
+  generateUniqueAssuranceSetId,
+  generateUniqueRequirementId,
+} from '../../utils/validation';
+import {
+  SUBTYPE_STANDARD_DOCS,
+  SUBTYPE_TEMPLATES,
+  SUBTYPE_CATEGORIES,
+} from '../../utils/assuranceTemplates';
 
 interface AssuranceModalProps {
   isOpen: boolean;
@@ -49,6 +63,8 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
     () => `${defaultOrg} - ${initialVessel?.name || 'Vessel'} Charter Vetting`
   );
   const [assuranceType, setAssuranceType] = useState<AssuranceScopeType>('Project');
+  const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
+  const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
   const [isGeneralInfoExpanded, setIsGeneralInfoExpanded] = useState<boolean>(true);
   const [vesselId, setVesselId] = useState(initialVessel?.id || '');
   const [charterer, setCharterer] = useState(defaultOrg);
@@ -99,6 +115,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
     if (!isOpen) return;
     setCurrentStep(1);
     setErrorMessage('');
+    setShowCancelPrompt(false);
   }, [isOpen]);
 
   /* Calculate active wizard steps */
@@ -287,7 +304,8 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
       title: title.trim(),
       assuranceType,
       subtypes: activeSubtypes,
-      templateSource: Object.values(selectedSubtypeTemplates).some(Boolean) ? 'public' : 'none',
+      visibility: templatePrivacy,
+      templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
       vesselId: selectedVessel?.id || 'VESSEL-001',
       vesselName: selectedVessel?.name || 'Vessel Asset',
@@ -313,10 +331,104 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
     onClose();
   };
 
+  const handleSaveDraft = () => {
+    const uniqueSetId = generateUniqueAssuranceSetId(assuranceSets);
+    const activeSubtypes: AssuranceSubtype[] =
+      assuranceType === 'Project'
+        ? ['Vessel', 'Crew', 'Activity', 'Equipment']
+        : [assuranceType as AssuranceSubtype];
+
+    const finalRequirements: AssuranceRequirement[] = [];
+    let reqIndex = 0;
+
+    activeSubtypes.forEach((subtype) => {
+      const standardList = SUBTYPE_STANDARD_DOCS[subtype];
+      standardList.forEach((doc) => {
+        if (docToggles[doc.id]) {
+          finalRequirements.push({
+            id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+            category: doc.category,
+            title: doc.title,
+            description: doc.description,
+            subtype: doc.subtype,
+            isMandatory: doc.isMandatory,
+            isFulfilled: false,
+            ocrConfidence: 0,
+            verifierStatus: 'Pending',
+          });
+        }
+      });
+
+      const customList = specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled);
+      customList.forEach((spec) => {
+        finalRequirements.push({
+          id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+          category: spec.category,
+          title: spec.title,
+          description: spec.description,
+          subtype: spec.subtype,
+          isMandatory: spec.isMandatory,
+          isSpecialized: true,
+          isFulfilled: false,
+          ocrConfidence: 0,
+          verifierStatus: 'Pending',
+        });
+      });
+    });
+
+    const initiatorOrg = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
+    const effectiveCharterer = charterer.trim() || initiatorOrg;
+
+    const draftSet: AssuranceSet = {
+      id: uniqueSetId,
+      title: title.trim() || `${defaultOrg} - Draft Campaign`,
+      assuranceType,
+      subtypes: activeSubtypes,
+      visibility: 'draft',
+      templateSource: templatePrivacy,
+      appliedTemplates: selectedSubtypeTemplates,
+      vesselId: selectedVessel?.id || 'VESSEL-001',
+      vesselName: selectedVessel?.name || 'Vessel Asset',
+      imoNumber: selectedVessel?.imoNumber || '9123456',
+      initiatorOrg,
+      initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
+      charterer: effectiveCharterer,
+      charterWindowStart: startDate || '2026-11-01',
+      charterWindowEnd: endDate || '2027-11-01',
+      stage: 'Initiated',
+      readinessScore: 0,
+      verificationRequired,
+      mandatoryInspectionRequired: inspectionRequired,
+      formalApprovalRequired: approvalRequired,
+      inspectionCompleted: false,
+      requirements: finalRequirements,
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: '',
+    };
+
+    addAssuranceSet(draftSet);
+    setShowCancelPrompt(false);
+    onClose();
+  };
+
+  const handleCancelClick = () => {
+    setShowCancelPrompt(true);
+  };
+
+  const handleConfirmExitWithoutSaving = () => {
+    setShowCancelPrompt(false);
+    onClose();
+  };
+
   const renderSubtypeSection = (subtype: AssuranceSubtype) => {
     const standardDocs = SUBTYPE_STANDARD_DOCS[subtype] || [];
-    const publicTemplates = SUBTYPE_TEMPLATES.filter((t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'public');
-    const orgTemplates = SUBTYPE_TEMPLATES.filter((t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'organization');
+    const publicTemplates = SUBTYPE_TEMPLATES.filter(
+      (t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'public'
+    );
+    const orgTemplates = SUBTYPE_TEMPLATES.filter(
+      (t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'organization'
+    );
     const activeTemplateId = selectedSubtypeTemplates[subtype] || '';
     const specializedList = specializedDocs.filter((d) => d.subtype === subtype);
     const specInput = specializedInputs[subtype];
@@ -395,7 +507,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
           })}
         </div>
 
-        {/* Specialized Doc Input */}
+        {/* Specialized Doc Input (Optional) */}
         <div className="p-3 border rounded-3 bg-light-subtle">
           <div className="d-flex align-items-center justify-content-between mb-1.5">
             <strong className="text-dark small">Add Specialized {subtype} Document <span className="text-muted fw-normal">(Optional)</span></strong>
@@ -452,15 +564,24 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
               {specializedList.map((spec) => (
                 <div key={spec.id} className="p-2 bg-white border rounded d-flex align-items-center justify-content-between">
                   <div className="small">
-                    <strong>{spec.title}</strong> — <span className="text-muted">{spec.description}</span>
+                    <strong>{spec.title}</strong> &mdash; <span className="text-muted">{spec.description}</span>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-xs btn-outline-danger py-0 px-1 text-danger"
-                    onClick={() => handleRemoveSpecializedDoc(spec.id)}
-                  >
-                    Remove
-                  </button>
+                  <div className="d-flex align-items-center gap-2">
+                    <button
+                      type="button"
+                      className={`btn btn-xs py-0 px-1.5 ${spec.isEnabled ? 'btn-outline-success' : 'btn-outline-secondary'}`}
+                      onClick={() => handleToggleSpecializedDoc(spec.id)}
+                    >
+                      {spec.isEnabled ? 'Active' : 'Disabled'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline-danger py-0 px-1.5 text-danger"
+                      onClick={() => handleRemoveSpecializedDoc(spec.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -507,9 +628,8 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
                   <button
                     key={step.id}
                     type="button"
-                    className={`btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 text-nowrap transition-all ${
-                      isCurrent ? 'text-primary fw-bold' : isPast ? 'text-dark fw-semibold' : 'text-muted'
-                    }`}
+                    className={`btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 text-nowrap transition-all ${isCurrent ? 'text-primary fw-bold' : isPast ? 'text-dark fw-semibold' : 'text-muted'
+                      }`}
                     style={{ fontSize: '0.8125rem' }}
                     onClick={() => {
                       if (isPast || validateCurrentStep()) {
@@ -518,13 +638,12 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
                     }}
                   >
                     <span
-                      className={`d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0 ${
-                        isCurrent
+                      className={`d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0 ${isCurrent
                           ? 'bg-primary text-white shadow-2xs'
                           : isPast
-                          ? 'bg-success text-white'
-                          : 'bg-white text-secondary border'
-                      }`}
+                            ? 'bg-success text-white'
+                            : 'bg-white text-secondary border'
+                        }`}
                       style={{ width: '22px', height: '22px', fontSize: '0.725rem', fontWeight: 700 }}
                     >
                       {stepNum}
@@ -554,7 +673,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
               <div className="alert alert-danger py-2 small mb-3">{errorMessage}</div>
             )}
 
-            {/* STEP 1 */}
+            {/* STEP 1: Scope & General Information */}
             {currentStep === 1 && (
               <div className="d-flex flex-column gap-3">
                 <div className="row g-3">
@@ -581,12 +700,73 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
                       value={assuranceType}
                       onChange={(e) => setAssuranceType(e.target.value as AssuranceScopeType)}
                     >
-                      <option value="Project">Project </option>
-                      <option value="Vessel">Vessel</option>
+                      <option value="Project">Project (Vessel, Crew, Activity, Equipment)</option>
+                      <option value="Vessel">Vessel Only</option>
                       <option value="Crew">Crew Only</option>
                       <option value="Activity">Activity Only</option>
                       <option value="Equipment">Equipment Only</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Template Privacy & Distribution Scope */}
+                <div className="border rounded-3 p-3 bg-light-subtle">
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <strong className="text-dark small">Template Privacy &amp; Distribution Scope</strong>
+                    <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.675rem' }}>
+                      {templatePrivacy === 'public' ? 'Public Template' : 'Organization Only'}
+                    </span>
+                  </div>
+                  <div className="row g-2">
+                    <div className="col-12 col-md-6">
+                      <label
+                        className={`d-block p-2.5 border rounded cursor-pointer h-100 ${templatePrivacy === 'organization' ? 'border-primary bg-primary-subtle' : 'bg-white'
+                          }`}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="d-flex align-items-start gap-2">
+                          <input
+                            type="radio"
+                            name="modal-template-privacy"
+                            value="organization"
+                            checked={templatePrivacy === 'organization'}
+                            onChange={() => setTemplatePrivacy('organization')}
+                            className="form-check-input mt-0.5 cursor-pointer"
+                          />
+                          <div>
+                            <strong className="text-dark small d-block">Organization Only (Private)</strong>
+                            <span className="text-secondary small" style={{ fontSize: '0.75rem' }}>
+                              Available only for members of your organization to use as a template.
+                            </span>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+
+                    <div className="col-12 col-md-6">
+                      <label
+                        className={`d-block p-2.5 border rounded cursor-pointer h-100 ${templatePrivacy === 'public' ? 'border-primary bg-primary-subtle' : 'bg-white'
+                          }`}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="d-flex align-items-start gap-2">
+                          <input
+                            type="radio"
+                            name="modal-template-privacy"
+                            value="public"
+                            checked={templatePrivacy === 'public'}
+                            onChange={() => setTemplatePrivacy('public')}
+                            className="form-check-input mt-0.5 cursor-pointer"
+                          />
+                          <div>
+                            <strong className="text-dark small d-block">Public Standard (Shared)</strong>
+                            <span className="text-secondary small" style={{ fontSize: '0.75rem' }}>
+                              Published for any platform organization to use as an industry baseline.
+                            </span>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
                   </div>
                 </div>
 
@@ -709,6 +889,12 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
                   <div className="text-secondary small mt-1">
                     Scope: <strong>{assuranceType}</strong> &nbsp;|&nbsp; Target: <strong>{selectedVessel?.name}</strong> &nbsp;|&nbsp; Dates: {startDate} to {endDate}
                   </div>
+                  <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
+                    <span>Privacy:</span>
+                    <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>
+                      {templatePrivacy === 'public' ? 'Public Standard (Shared)' : 'Organization Only (Private)'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="p-3 bg-white border rounded-3">
@@ -733,10 +919,15 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
           </div>
 
           {/* Footer Navigation */}
-          <div className="modal-footer border-top bg-light px-4 py-2.5 d-flex align-items-center justify-content-between">
-            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onClose}>
-              Cancel
-            </button>
+          <div className="modal-footer border-top bg-light px-4 py-2.5 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div className="d-flex align-items-center gap-2">
+              <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleCancelClick}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-outline-secondary btn-sm fw-semibold" onClick={handleSaveDraft}>
+                Save as Draft
+              </button>
+            </div>
             <div className="d-flex align-items-center gap-2">
               {currentStep > 1 && (
                 <button type="button" className="btn btn-outline-primary btn-sm fw-semibold" onClick={handlePrevious}>
@@ -756,6 +947,63 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
           </div>
         </div>
       </div>
+
+      {/* Cancel Draft Confirmation Dialog for Modal */}
+      {showCancelPrompt && (
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1060 }}
+        >
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '420px' }}>
+            <div className="modal-content shadow-lg border-0 rounded-3">
+              <div className="modal-header border-bottom px-3 py-2.5 bg-light">
+                <h6 className="modal-title fw-bold text-dark m-0">Exit Campaign Wizard</h6>
+                <button
+                  type="button"
+                  className="btn-close btn-sm"
+                  onClick={() => setShowCancelPrompt(false)}
+                  aria-label="Close"
+                />
+              </div>
+              <div className="modal-body px-3 py-3">
+                <p className="text-secondary small mb-2" style={{ fontSize: '0.85rem' }}>
+                  Save your progress as a draft to resume later or discard changes?
+                </p>
+                <div className="p-2 bg-light rounded border small">
+                  <div className="fw-semibold text-dark">{title || 'Draft Campaign'}</div>
+                  <div className="text-muted mt-0.5">{assuranceType} &middot; {selectedVessel?.name || 'Vessel'}</div>
+                </div>
+              </div>
+              <div className="modal-footer border-top bg-light px-3 py-2 d-flex align-items-center justify-content-between">
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm"
+                  onClick={handleConfirmExitWithoutSaving}
+                >
+                  Discard
+                </button>
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-light border btn-sm"
+                    onClick={() => setShowCancelPrompt(false)}
+                  >
+                    Keep Editing
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm text-white fw-semibold"
+                    onClick={handleSaveDraft}
+                  >
+                    Save as Draft
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -86,6 +86,7 @@ export interface MapStoreState {
   // Assurance Sets State
   assuranceSets: AssuranceSet[];
   addAssuranceSet: (set: AssuranceSet) => void;
+  updateAssuranceSet: (set: AssuranceSet) => void;
   updateAssuranceStage: (setId: string, stage: AssuranceStage) => void;
   updateAssuranceStakeholder: (
     setId: string,
@@ -426,6 +427,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetAsset: `${computedSet.id} (${computedSet.title})`,
       justificationNotes: `Created assurance set for vessel ${computedSet.vesselName}`,
     });
+  },
+  updateAssuranceSet: (updatedSet) => {
+    const sanitizedRequirements = updatedSet.requirements?.map((r) => ({
+      ...r,
+      ocrConfidence: (r.documentId || r.linkedDocumentId) ? (r.ocrConfidence || 0) : 0,
+    })) || [];
+
+    const computedSet: AssuranceSet = {
+      ...updatedSet,
+      requirements: sanitizedRequirements,
+      readinessScore: calculateAssuranceSetReadiness({
+        ...updatedSet,
+        requirements: sanitizedRequirements,
+      }),
+    };
+
+    set((state) => ({
+      assuranceSets: state.assuranceSets.map((s) => (s.id === updatedSet.id ? computedSet : s)),
+    }));
   },
   updateAssuranceStage: (setId, stage) => {
     set((state) => ({

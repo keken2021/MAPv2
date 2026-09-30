@@ -40,6 +40,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     vessels,
     assuranceSets,
     addAssuranceSet,
+    updateAssuranceSet,
     activePersona,
     setCurrentHashView,
     previousHashView,
@@ -71,12 +72,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   /* Wizard Step State */
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [errorMessage, setErrorMessage] = useState('');
+  const [editingDraftId, setEditingDraftId] = useState<string | undefined>(undefined);
 
   /* Step 1: Scope & General Information */
   const [title, setTitle] = useState(
     () => `${defaultCharterer} - ${initialVesselName} Charter Vetting`
   );
   const [assuranceType, setAssuranceType] = useState<AssuranceScopeType>('Project');
+  const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
+  const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
   const [isGeneralInfoExpanded, setIsGeneralInfoExpanded] = useState<boolean>(true);
   const [vesselId, setVesselId] = useState(initialVesselId);
   const [charterer, setCharterer] = useState(defaultCharterer);
@@ -235,7 +239,55 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (templateSetId) {
       setSelectedGlobalTemplateId(templateSetId);
       const target = assuranceSets.find((s) => s.id === templateSetId);
-      if (target) applyGlobalTemplateData(target);
+      if (target) {
+        if (target.visibility === 'draft') {
+          // Resume draft editing in-place
+          setEditingDraftId(target.id);
+          setTitle(target.title);
+          if (target.assuranceType) setAssuranceType(target.assuranceType);
+          if (target.templateSource === 'public' || target.visibility === 'draft') {
+            setTemplatePrivacy('public');
+          } else {
+            setTemplatePrivacy('organization');
+          }
+          if (target.vesselId) setVesselId(target.vesselId);
+          if (target.charterer) setCharterer(target.charterer);
+          if (target.charterWindowStart) setStartDate(target.charterWindowStart);
+          if (target.charterWindowEnd) setEndDate(target.charterWindowEnd);
+          setVerificationRequired(target.verificationRequired ?? true);
+          setInspectionRequired(target.mandatoryInspectionRequired);
+          setApprovalRequired(target.formalApprovalRequired ?? true);
+          if (target.appliedTemplates) setSelectedSubtypeTemplates(target.appliedTemplates);
+
+          // Restore doc toggles precisely
+          const updatedToggles: Record<string, boolean> = {};
+          Object.values(SUBTYPE_STANDARD_DOCS).forEach((list) => {
+            list.forEach((doc) => {
+              const matched = target.requirements.some(
+                (r) => !r.isSpecialized && (r.title.toLowerCase().includes(doc.title.toLowerCase()) || doc.title.toLowerCase().includes(r.title.toLowerCase()))
+              );
+              updatedToggles[doc.id] = matched;
+            });
+          });
+          setDocToggles(updatedToggles);
+
+          // Restore specialized custom requirements
+          const customReqs: SpecializedDoc[] = target.requirements
+            .filter((r) => r.isSpecialized)
+            .map((r, idx) => ({
+              id: `restored-spec-${idx}-${Date.now()}`,
+              subtype: (r.subtype as AssuranceSubtype) || 'Vessel',
+              title: r.title,
+              category: r.category,
+              description: r.description || '',
+              isMandatory: r.isMandatory,
+              isEnabled: true,
+            }));
+          setSpecializedDocs(customReqs);
+        } else {
+          applyGlobalTemplateData(target);
+        }
+      }
     }
   }, [templateSetId]);
 
@@ -437,12 +489,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const effectiveCharterer = charterer.trim() || initiatorOrg;
     const internalDeployment = isClientAdmin && (vesselSource === 'own-fleet' || isOwnFleetSelection);
 
+    const targetSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
+
     const newSet: AssuranceSet = {
-      id: uniqueSetId,
+      id: targetSetId,
       title: title.trim(),
       assuranceType,
       subtypes: activeSubtypes,
-      templateSource: Object.values(selectedSubtypeTemplates).some(Boolean) ? 'public' : 'none',
+      visibility: templatePrivacy,
+      templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
       vesselId: selectedVessel?.id || 'VESSEL-001',
       vesselName: selectedVessel?.name || 'Vessel Asset',
@@ -483,7 +538,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       createdByPersona: '',
     };
 
-    addAssuranceSet(newSet);
+    if (editingDraftId) {
+      updateAssuranceSet(newSet);
+    } else {
+      addAssuranceSet(newSet);
+    }
 
     if (createAssuranceForVesselId) {
       const returnVesselId = createAssuranceForVesselId;
@@ -495,7 +554,127 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setCurrentHashView('assurance-sets', newSet.id);
   };
 
-  const handleCancel = () => {
+  /* Save current configuration as Draft */
+  const handleSaveDraft = () => {
+    const targetSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
+    const activeSubtypes: AssuranceSubtype[] =
+      assuranceType === 'Project'
+        ? ['Vessel', 'Crew', 'Activity', 'Equipment']
+        : [assuranceType as AssuranceSubtype];
+
+    const finalRequirements: AssuranceRequirement[] = [];
+    let reqIndex = 0;
+
+    activeSubtypes.forEach((subtype) => {
+      const standardList = SUBTYPE_STANDARD_DOCS[subtype];
+      standardList.forEach((doc) => {
+        if (docToggles[doc.id]) {
+          finalRequirements.push({
+            id: generateUniqueRequirementId(targetSetId, reqIndex++),
+            category: doc.category,
+            title: doc.title,
+            description: doc.description,
+            subtype: doc.subtype,
+            isMandatory: doc.isMandatory,
+            isFulfilled: false,
+            ocrConfidence: 0,
+            verifierStatus: 'Pending',
+          });
+        }
+      });
+
+      const customList = specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled);
+      customList.forEach((spec) => {
+        finalRequirements.push({
+          id: generateUniqueRequirementId(targetSetId, reqIndex++),
+          category: spec.category,
+          title: spec.title,
+          description: spec.description,
+          subtype: spec.subtype,
+          isMandatory: spec.isMandatory,
+          isSpecialized: true,
+          isFulfilled: false,
+          ocrConfidence: 0,
+          verifierStatus: 'Pending',
+        });
+      });
+    });
+
+    const isOwnFleetSelection = isClientAdmin && isVesselOwnedByClientOrg(selectedVessel, clientOrg);
+    const initiatorOrg = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
+    const effectiveCharterer = charterer.trim() || initiatorOrg;
+    const internalDeployment = isClientAdmin && (vesselSource === 'own-fleet' || isOwnFleetSelection);
+
+    const draftSet: AssuranceSet = {
+      id: targetSetId,
+      title: title.trim() || `${defaultCharterer} - Draft Campaign`,
+      assuranceType,
+      subtypes: activeSubtypes,
+      visibility: 'draft',
+      templateSource: templatePrivacy,
+      appliedTemplates: selectedSubtypeTemplates,
+      vesselId: selectedVessel?.id || 'VESSEL-001',
+      vesselName: selectedVessel?.name || 'Vessel Asset',
+      imoNumber: selectedVessel?.imoNumber || '9123456',
+      initiatorOrg,
+      initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
+      charterer: effectiveCharterer,
+      internalDeployment: internalDeployment || undefined,
+      charterWindowStart: startDate || '2026-11-01',
+      charterWindowEnd: endDate || '2027-11-01',
+      stage: 'Initiated',
+      readinessScore: 0,
+      verificationRequired,
+      mandatoryInspectionRequired: inspectionRequired,
+      formalApprovalRequired: approvalRequired,
+      inspectionCompleted: false,
+      assignedSubmitter: selectedSubmitter
+        ? `${selectedSubmitter.name} (${selectedSubmitter.organization})`
+        : 'Pending Admin Assignment',
+      assignedVerifier: verificationRequired
+        ? selectedVerifier
+          ? `${selectedVerifier.name} (${selectedVerifier.organization})`
+          : 'Pending Admin Assignment'
+        : undefined,
+      assignedInspector: !inspectionRequired
+        ? undefined
+        : selectedInspector
+          ? `${selectedInspector.name} (${selectedInspector.organization})`
+          : 'Pending Admin Assignment',
+      assignedApprover: approvalRequired
+        ? selectedApprover
+          ? `${selectedApprover.name} (${selectedApprover.organization})`
+          : 'Pending Admin Assignment'
+        : undefined,
+      requirements: finalRequirements,
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: '',
+    };
+
+    if (editingDraftId) {
+      updateAssuranceSet(draftSet);
+    } else {
+      addAssuranceSet(draftSet);
+    }
+    setShowCancelPrompt(false);
+
+    if (createAssuranceForVesselId) {
+      const returnVesselId = createAssuranceForVesselId;
+      setCreateAssuranceForVesselId(undefined);
+      setCurrentHashView('vessels', returnVesselId);
+      return;
+    }
+
+    setCurrentHashView('assurance-sets', draftSet.id);
+  };
+
+  const handleCancelClick = () => {
+    setShowCancelPrompt(true);
+  };
+
+  const handleConfirmExitWithoutSaving = () => {
+    setShowCancelPrompt(false);
     if (createAssuranceForVesselId) {
       const returnVesselId = createAssuranceForVesselId;
       setCreateAssuranceForVesselId(undefined);
@@ -862,9 +1041,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <button
                   key={step.id}
                   type="button"
-                  className={`btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 text-nowrap transition-all ${
-                    isCurrent ? 'text-primary fw-bold' : isPast ? 'text-dark fw-semibold' : 'text-muted'
-                  }`}
+                  className={`btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 text-nowrap transition-all ${isCurrent ? 'text-primary fw-bold' : isPast ? 'text-dark fw-semibold' : 'text-muted'
+                    }`}
                   style={{ fontSize: '0.8125rem' }}
                   onClick={() => {
                     if (isPast || validateCurrentStep()) {
@@ -873,13 +1051,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   }}
                 >
                   <span
-                    className={`d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0 ${
-                      isCurrent
-                        ? 'bg-primary text-white shadow-2xs'
-                        : isPast
+                    className={`d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0 ${isCurrent
+                      ? 'bg-primary text-white shadow-2xs'
+                      : isPast
                         ? 'bg-success text-white'
                         : 'bg-white text-secondary border'
-                    }`}
+                      }`}
                     style={{ width: '22px', height: '22px', fontSize: '0.725rem', fontWeight: 700 }}
                   >
                     {stepNum}
@@ -978,6 +1155,92 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           {assuranceType === 'Project' ? '4 Subtypes Required' : '1 Subtype Required'}
                         </span>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Template Privacy & Access Scope Card */}
+              <div className="card border shadow-2xs rounded-3 bg-white">
+                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div>
+                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                      Template Privacy &amp; Distribution Scope
+                    </h5>
+                    <div className="text-muted small">
+                      Select whether this assurance set and its document specifications can be used as a template by the public or within your organization only.
+                    </div>
+                  </div>
+                  <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.7rem' }}>
+                    {templatePrivacy === 'public' ? 'Public Template' : 'Organization Only'}
+                  </span>
+                </div>
+                <div className="card-body p-4">
+                  <div className="row g-3">
+                    {/* Organization Only Option */}
+                    <div className="col-12 col-md-6">
+                      <label
+                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'organization'
+                          ? 'border-primary bg-primary-subtle shadow-2xs'
+                          : 'bg-white hover-bg-light'
+                          }`}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="d-flex align-items-start gap-3">
+                          <input
+                            type="radio"
+                            name="create-view-template-privacy"
+                            value="organization"
+                            checked={templatePrivacy === 'organization'}
+                            onChange={() => setTemplatePrivacy('organization')}
+                            className="form-check-input mt-1 cursor-pointer"
+                          />
+                          <div>
+                            <div className="d-flex align-items-center gap-2">
+                              <strong className="text-dark small">Organization Only (Private)</strong>
+                              <span className="badge bg-secondary-subtle text-dark border font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                Internal
+                              </span>
+                            </div>
+                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
+                              Restricted strictly to your organization. Only verified members of your company can discover, view, or clone this assurance template.
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Public Template Option */}
+                    <div className="col-12 col-md-6">
+                      <label
+                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'public'
+                          ? 'border-primary bg-primary-subtle shadow-2xs'
+                          : 'bg-white hover-bg-light'
+                          }`}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="d-flex align-items-start gap-3">
+                          <input
+                            type="radio"
+                            name="create-view-template-privacy"
+                            value="public"
+                            checked={templatePrivacy === 'public'}
+                            onChange={() => setTemplatePrivacy('public')}
+                            className="form-check-input mt-1 cursor-pointer"
+                          />
+                          <div>
+                            <div className="d-flex align-items-center gap-2">
+                              <strong className="text-dark small">Public Industry Standard (Shared)</strong>
+                              <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                Platform Wide
+                              </span>
+                            </div>
+                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
+                              Published to the public template library. Other charterers, operators, and surveyors across the platform can adopt this as a standard baseline.
+                            </p>
+                          </div>
+                        </div>
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -1244,91 +1507,108 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   </div>
                 )}
               </div>
-            </div>
+            </div >
           )}
 
           {/* DYNAMIC SUBTYPE STEPS */}
           {currentStepData.subtype && renderSubtypeSection(currentStepData.subtype)}
 
           {/* FINAL STEP: Review & Initiate */}
-          {currentStepData.id === 'step-review' && (
-            <div className="d-flex flex-column gap-4">
-              <div className="card border shadow-2xs rounded-3 bg-white">
-                <div className="card-header bg-light border-bottom px-4 py-3">
-                  <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    Review Assurance Campaign Specifications
-                  </h5>
-                </div>
-                <div className="card-body p-4">
-                  <div className="row g-4">
-                    <div className="col-12 col-md-6">
-                      <div className="p-3 bg-light rounded-3 border">
-                        <strong className="text-dark small d-block mb-1">Campaign Title</strong>
-                        <div className="fw-bold text-primary fs-6">{title}</div>
-                        <div className="text-secondary small mt-2">
-                          <strong>Scope:</strong> {assuranceType} Assurance &nbsp;|&nbsp; <strong>Asset:</strong> {selectedVessel?.name} ({selectedVessel?.imoNumber})
-                        </div>
-                        <div className="text-secondary small">
-                          <strong>Charterer:</strong> {charterer} &nbsp;|&nbsp; <strong>Window:</strong> {startDate} to {endDate}
+          {
+            currentStepData.id === 'step-review' && (
+              <div className="d-flex flex-column gap-4">
+                <div className="card border shadow-2xs rounded-3 bg-white">
+                  <div className="card-header bg-light border-bottom px-4 py-3">
+                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                      Review Assurance Campaign Specifications
+                    </h5>
+                  </div>
+                  <div className="card-body p-4">
+                    <div className="row g-4">
+                      <div className="col-12 col-md-6">
+                        <div className="p-3 bg-light rounded-3 border">
+                          <strong className="text-dark small d-block mb-1">Campaign Title &amp; Governance</strong>
+                          <div className="fw-bold text-primary fs-6">{title}</div>
+                          <div className="text-secondary small mt-2">
+                            <strong>Scope:</strong> {assuranceType} Assurance &nbsp;|&nbsp; <strong>Asset:</strong> {selectedVessel?.name} ({selectedVessel?.imoNumber})
+                          </div>
+                          <div className="text-secondary small">
+                            <strong>Charterer:</strong> {charterer} &nbsp;|&nbsp; <strong>Window:</strong> {startDate} to {endDate}
+                          </div>
+                          <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
+                            <strong>Template Privacy:</strong>
+                            <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>
+                              {templatePrivacy === 'public' ? 'Public Standard (Shared)' : 'Organization Only (Private)'}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="col-12 col-md-6">
-                      <div className="p-3 bg-light rounded-3 border">
-                        <strong className="text-dark small d-block mb-1">Assigned Stakeholders</strong>
-                        <div className="text-secondary small"><strong>Submitter:</strong> {selectedSubmitter ? `${selectedSubmitter.name} (${selectedSubmitter.organization})` : 'Pending'}</div>
-                        <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (selectedVerifier ? `${selectedVerifier.name} (${selectedVerifier.organization})` : 'Pending') : 'N/A'}</div>
-                        <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (selectedInspector ? `${selectedInspector.name} (${selectedInspector.organization})` : 'Pending') : 'N/A'}</div>
-                        <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (selectedApprover ? `${selectedApprover.name} (${selectedApprover.organization})` : 'Pending') : 'N/A'}</div>
+                      <div className="col-12 col-md-6">
+                        <div className="p-3 bg-light rounded-3 border">
+                          <strong className="text-dark small d-block mb-1">Assigned Stakeholders</strong>
+                          <div className="text-secondary small"><strong>Submitter:</strong> {selectedSubmitter ? `${selectedSubmitter.name} (${selectedSubmitter.organization})` : 'Pending'}</div>
+                          <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (selectedVerifier ? `${selectedVerifier.name} (${selectedVerifier.organization})` : 'Pending') : 'N/A'}</div>
+                          <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (selectedInspector ? `${selectedInspector.name} (${selectedInspector.organization})` : 'Pending') : 'N/A'}</div>
+                          <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (selectedApprover ? `${selectedApprover.name} (${selectedApprover.organization})` : 'Pending') : 'N/A'}</div>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Subtypes Requirements Summary Breakdown */}
-                    <div className="col-12">
-                      <strong className="text-dark small d-block mb-2">Subtype Requirements Breakdown</strong>
-                      <div className="row g-3">
-                        {(assuranceType === 'Project' ? (['Vessel', 'Crew', 'Activity', 'Equipment'] as AssuranceSubtype[]) : [assuranceType as AssuranceSubtype]).map((sub) => {
-                          const stdCount = SUBTYPE_STANDARD_DOCS[sub].filter((d) => docToggles[d.id]).length;
-                          const specCount = specializedDocs.filter((d) => d.subtype === sub && d.isEnabled).length;
-                          const tmplName = SUBTYPE_TEMPLATES.find((t) => t.id === selectedSubtypeTemplates[sub])?.name;
+                      {/* Subtypes Requirements Summary Breakdown */}
+                      <div className="col-12">
+                        <strong className="text-dark small d-block mb-2">Subtype Requirements Breakdown</strong>
+                        <div className="row g-3">
+                          {(assuranceType === 'Project' ? (['Vessel', 'Crew', 'Activity', 'Equipment'] as AssuranceSubtype[]) : [assuranceType as AssuranceSubtype]).map((sub) => {
+                            const stdCount = SUBTYPE_STANDARD_DOCS[sub].filter((d) => docToggles[d.id]).length;
+                            const specCount = specializedDocs.filter((d) => d.subtype === sub && d.isEnabled).length;
+                            const tmplName = SUBTYPE_TEMPLATES.find((t) => t.id === selectedSubtypeTemplates[sub])?.name;
 
-                          return (
-                            <div key={sub} className="col-12 col-md-6 col-lg-3">
-                              <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
-                                <div className="d-flex align-items-center justify-content-between mb-1">
-                                  <strong className="text-dark small">{sub} Subtype</strong>
-                                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                    {stdCount + specCount} Docs
-                                  </span>
-                                </div>
-                                <div className="text-secondary small" style={{ fontSize: '0.78rem' }}>
-                                  <div>Standard: {stdCount} required</div>
-                                  <div>Specialized: {specCount} custom</div>
-                                  {tmplName && <div className="text-primary mt-1 text-truncate" title={tmplName}>Template: {tmplName}</div>}
+                            return (
+                              <div key={sub} className="col-12 col-md-6 col-lg-3">
+                                <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
+                                  <div className="d-flex align-items-center justify-content-between mb-1">
+                                    <strong className="text-dark small">{sub} Subtype</strong>
+                                    <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                      {stdCount + specCount} Docs
+                                    </span>
+                                  </div>
+                                  <div className="text-secondary small" style={{ fontSize: '0.78rem' }}>
+                                    <div>Standard: {stdCount} required</div>
+                                    <div>Specialized: {specCount} custom</div>
+                                    {tmplName && <div className="text-primary mt-1 text-truncate" title={tmplName}>Template: {tmplName}</div>}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
 
         {/* Wizard Footer Navigation Bar */}
-        <div className="card-footer bg-light border-top px-4 py-3 d-flex align-items-center justify-content-between">
-          <button
-            type="button"
-            className="btn btn-outline-secondary px-3.5 py-1.5"
-            onClick={handleCancel}
-          >
-            Cancel
-          </button>
+        <div className="card-footer bg-light border-top px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-outline-secondary px-3.5 py-1.5"
+              onClick={handleCancelClick}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary px-3.5 py-1.5 fw-semibold"
+              onClick={handleSaveDraft}
+              title="Save current progress as a draft and resume later"
+            >
+              Save as Draft
+            </button>
+          </div>
 
           <div className="d-flex align-items-center gap-2">
             {currentStep > 1 && (
@@ -1362,6 +1642,65 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Cancel / Exit Confirmation Modal with Save Draft Option */}
+      {showCancelPrompt && (
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1055 }}
+        >
+          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '480px' }}>
+            <div className="modal-content shadow-lg border-0 rounded-3">
+              <div className="modal-header border-bottom px-4 py-3 bg-light">
+                <h5 className="modal-title fw-bold text-dark fs-6">Exit Assurance Set Wizard</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowCancelPrompt(false)}
+                  aria-label="Close"
+                />
+              </div>
+              <div className="modal-body px-4 py-4">
+                <p className="text-secondary small mb-3" style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>
+                  You have unsaved changes in this assurance set creation wizard. Would you like to save your configuration as a draft to resume later, or discard your progress?
+                </p>
+                <div className="p-3 bg-light rounded-3 border small">
+                  <div className="fw-semibold text-dark">{title || 'Untitled Campaign'}</div>
+                  <div className="text-muted mt-0.5">
+                    Scope: {assuranceType} &nbsp;|&nbsp; Target: {selectedVessel?.name || 'Vessel'}
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer border-top bg-light px-4 py-3 d-flex align-items-center justify-content-between">
+                <button
+                  type="button"
+                  className="btn btn-outline-danger btn-sm px-3"
+                  onClick={handleConfirmExitWithoutSaving}
+                >
+                  Discard &amp; Exit
+                </button>
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-light border btn-sm px-3"
+                    onClick={() => setShowCancelPrompt(false)}
+                  >
+                    Keep Editing
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm px-3.5 text-white fw-semibold"
+                    onClick={handleSaveDraft}
+                  >
+                    Save as Draft
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div >
   );
 };
