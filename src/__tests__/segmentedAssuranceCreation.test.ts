@@ -337,6 +337,80 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     expect(matchingSets.length).toBe(1);
   });
 
+  it('updates the existing draft in-place without creating another draft when the wizard is exited or saved without initiating', () => {
+    const store = useMapStore.getState();
+    const initialSetsCount = store.assuranceSets.length;
+    const draftId = generateUniqueAssuranceSetId(store.assuranceSets);
+
+    const initialDraft: AssuranceSet = {
+      id: draftId,
+      title: 'Northwind - Initial Partial Draft Campaign',
+      assuranceType: 'Project',
+      projectId: 'MAP-PROJ-2026-OFFSHORE-001',
+      projectName: 'Gorgon Stage 2 & Jansz-Io Compression',
+      subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+      visibility: 'draft',
+      templateSource: 'organization',
+      vesselId: 'VESSEL-001',
+      vesselName: 'MV Pacific Endeavour',
+      imoNumber: '9123456',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      initiatorRole: 'Vessel Provider Admin',
+      charterer: 'Northwind Marine Pty Ltd',
+      charterWindowStart: '2026-11-01',
+      charterWindowEnd: '2027-11-01',
+      stage: 'Initiated',
+      readinessScore: 0,
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
+      requirements: [],
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: '',
+    };
+
+    // Save draft initial creation
+    store.addAssuranceSet(initialDraft);
+    expect(useMapStore.getState().assuranceSets.length).toBe(initialSetsCount + 1);
+
+    // User resumes setup of the existing draft, changes scope to 'Activity' with specialized requirements, and saves draft upon exit
+    const updatedDraftState: AssuranceSet = {
+      ...initialDraft,
+      title: 'Northwind - Modified In-Progress Activity Draft Campaign',
+      assuranceType: 'Activity',
+      subtypes: ['Activity'],
+      requirements: [
+        {
+          id: `${draftId}-REQ-ACT-001`,
+          category: 'Operational Plan',
+          title: 'Specialized Subsea Trenching Method Statement',
+          isMandatory: true,
+          isSpecialized: true,
+          isFulfilled: false,
+          ocrConfidence: 0,
+          verifierStatus: 'Pending',
+        },
+      ],
+    };
+
+    // When exiting/saving draft, store.updateAssuranceSet is invoked instead of addAssuranceSet
+    store.updateAssuranceSet(updatedDraftState);
+
+    const afterSaveSets = useMapStore.getState().assuranceSets;
+    // Total count must not increase (no duplicate drafts created)
+    expect(afterSaveSets.length).toBe(initialSetsCount + 1);
+
+    // The draft must be updated with the new state
+    const persistedDraft = afterSaveSets.find((s) => s.id === draftId);
+    expect(persistedDraft).toBeDefined();
+    expect(persistedDraft?.title).toBe('Northwind - Modified In-Progress Activity Draft Campaign');
+    expect(persistedDraft?.assuranceType).toBe('Activity');
+    expect(persistedDraft?.subtypes).toEqual(['Activity']);
+    expect(persistedDraft?.requirements.length).toBe(1);
+    expect(persistedDraft?.requirements[0].title).toBe('Specialized Subsea Trenching Method Statement');
+    expect(persistedDraft?.visibility).toBe('draft');
+  });
+
   it('provides a standardized catalog of existing projects that adhere to the naming format', () => {
     expect(EXISTING_PROJECTS).toBeDefined();
     expect(EXISTING_PROJECTS.length).toBeGreaterThanOrEqual(4);

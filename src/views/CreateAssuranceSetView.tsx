@@ -371,7 +371,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         setErrorMessage('Assurance set campaign title is mandatory.');
         return false;
       }
-      const duplicateCheck = isDuplicateCampaignTitle(title, assuranceSets);
+      const duplicateCheck = isDuplicateCampaignTitle(title, assuranceSets, editingDraftId);
       if (duplicateCheck.isDuplicate) {
         setErrorMessage(duplicateCheck.reason || 'Campaign title already exists. Please choose a unique name.');
         return false;
@@ -1125,9 +1125,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         onChange={(e) => setTitle(e.target.value)}
                         required
                       />
-                      {isDuplicateCampaignTitle(title, assuranceSets).isDuplicate && (
+                      {isDuplicateCampaignTitle(title, assuranceSets, editingDraftId).isDuplicate && (
                         <div className="invalid-feedback d-block small mt-1">
-                          {isDuplicateCampaignTitle(title, assuranceSets).reason}
+                          {isDuplicateCampaignTitle(title, assuranceSets, editingDraftId).reason}
                         </div>
                       )}
                     </div>
@@ -1679,9 +1679,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               type="button"
               className="btn btn-outline-secondary px-3.5 py-1.5 fw-semibold"
               onClick={handleSaveDraft}
-              title="Save current progress as a draft and resume later"
+              title={editingDraftId ? "Save updated state to current draft" : "Save current progress as a draft and resume later"}
             >
-              Save as Draft
+              {editingDraftId ? 'Save Draft' : 'Save as Draft'}
             </button>
           </div>
 
@@ -1728,7 +1728,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '480px' }}>
             <div className="modal-content shadow-lg border-0 rounded-3">
               <div className="modal-header border-bottom px-4 py-3 bg-light">
-                <h5 className="modal-title fw-bold text-dark fs-6">Exit Assurance Set Wizard</h5>
+                <h5 className="modal-title fw-bold text-dark fs-6">
+                  {editingDraftId ? 'Exit Draft Setup' : 'Exit Assurance Set Wizard'}
+                </h5>
                 <button
                   type="button"
                   className="btn-close"
@@ -1738,7 +1740,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
               <div className="modal-body px-4 py-4">
                 <p className="text-secondary small mb-3" style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>
-                  You have unsaved changes in this assurance set creation wizard. Would you like to save your configuration as a draft to resume later, or discard your progress?
+                  {editingDraftId
+                    ? 'You are currently continuing setup of an existing draft assurance set. Would you like to save your updated state to this draft, or discard your current session changes?'
+                    : 'You have unsaved changes in this assurance set creation wizard. Would you like to save your configuration as a draft to resume later, or discard your progress?'}
                 </p>
                 <div className="p-3 bg-light rounded-3 border small">
                   <div className="fw-semibold text-dark">{title || 'Untitled Campaign'}</div>
@@ -1768,7 +1772,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     className="btn btn-primary btn-sm px-3.5 text-white fw-semibold"
                     onClick={handleSaveDraft}
                   >
-                    Save as Draft
+                    {editingDraftId ? 'Save Draft' : 'Save as Draft'}
                   </button>
                 </div>
               </div>

@@ -29,6 +29,7 @@ import {
 interface AssuranceModalProps {
   isOpen: boolean;
   onClose: () => void;
+  draftId?: string;
 }
 
 interface SpecializedDoc {
@@ -41,8 +42,8 @@ interface SpecializedDoc {
   isEnabled: boolean;
 }
 
-export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose }) => {
-  const { vessels, assuranceSets, addAssuranceSet, activePersona, users } = useMapStore();
+export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose, draftId }) => {
+  const { vessels, assuranceSets, addAssuranceSet, updateAssuranceSet, activePersona, users } = useMapStore();
 
   const isClientAdmin = activePersona === 'C Admin';
   const clientOrg = getClientAdminOrganization(users);
@@ -58,6 +59,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
   /* Wizard state */
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [errorMessage, setErrorMessage] = useState('');
+  const [editingDraftId, setEditingDraftId] = useState<string | undefined>(draftId);
 
   /* Step 1: Scope & General Info */
   const [title, setTitle] = useState(
@@ -118,7 +120,23 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
     setCurrentStep(1);
     setErrorMessage('');
     setShowCancelPrompt(false);
-  }, [isOpen]);
+    if (draftId) {
+      setEditingDraftId(draftId);
+      const target = assuranceSets.find((s) => s.id === draftId);
+      if (target) {
+        setTitle(target.title);
+        if (target.assuranceType) setAssuranceType(target.assuranceType);
+        if (target.projectId) setSelectedProjectId(target.projectId);
+        if (target.vesselId) setVesselId(target.vesselId);
+        if (target.charterer) setCharterer(target.charterer);
+        if (target.charterWindowStart) setStartDate(target.charterWindowStart);
+        if (target.charterWindowEnd) setEndDate(target.charterWindowEnd);
+        if (target.appliedTemplates) setSelectedSubtypeTemplates(target.appliedTemplates);
+      }
+    } else {
+      setEditingDraftId(undefined);
+    }
+  }, [isOpen, draftId, assuranceSets]);
 
   /* Calculate active wizard steps */
   const getWizardSteps = (): Array<{ id: string; label: string; subtype?: AssuranceSubtype }> => {
@@ -221,7 +239,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
         setErrorMessage('Assurance set name is mandatory.');
         return false;
       }
-      const duplicateCheck = isDuplicateCampaignTitle(title, assuranceSets);
+      const duplicateCheck = isDuplicateCampaignTitle(title, assuranceSets, editingDraftId);
       if (duplicateCheck.isDuplicate) {
         setErrorMessage(duplicateCheck.reason || 'Campaign title already exists.');
         return false;
@@ -258,7 +276,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
       return;
     }
 
-    const uniqueSetId = generateUniqueAssuranceSetId(assuranceSets);
+    const uniqueSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
     const activeSubtypes: AssuranceSubtype[] =
       assuranceType === 'Project'
         ? ['Vessel', 'Crew', 'Activity', 'Equipment']
@@ -310,7 +328,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
       title: title.trim(),
       assuranceType,
       projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
-      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
+      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
       subtypes: activeSubtypes,
       visibility: templatePrivacy,
       templateSource: templatePrivacy,
@@ -335,12 +353,16 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
       createdByPersona: '',
     };
 
-    addAssuranceSet(newSet);
+    if (editingDraftId) {
+      updateAssuranceSet(newSet);
+    } else {
+      addAssuranceSet(newSet);
+    }
     onClose();
   };
 
   const handleSaveDraft = () => {
-    const uniqueSetId = generateUniqueAssuranceSetId(assuranceSets);
+    const uniqueSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
     const activeSubtypes: AssuranceSubtype[] =
       assuranceType === 'Project'
         ? ['Vessel', 'Crew', 'Activity', 'Equipment']
@@ -392,7 +414,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
       title: title.trim() || `${defaultOrg} - Draft Campaign`,
       assuranceType,
       projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
-      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
+      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
       subtypes: activeSubtypes,
       visibility: 'draft',
       templateSource: templatePrivacy,
@@ -417,7 +439,11 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
       createdByPersona: '',
     };
 
-    addAssuranceSet(draftSet);
+    if (editingDraftId) {
+      updateAssuranceSet(draftSet);
+    } else {
+      addAssuranceSet(draftSet);
+    }
     setShowCancelPrompt(false);
     onClose();
   };
@@ -1000,7 +1026,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
                 Cancel
               </button>
               <button type="button" className="btn btn-outline-secondary btn-sm fw-semibold" onClick={handleSaveDraft}>
-                Save as Draft
+                {editingDraftId ? 'Save Draft' : 'Save as Draft'}
               </button>
             </div>
             <div className="d-flex align-items-center gap-2">
@@ -1033,7 +1059,9 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
           <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '420px' }}>
             <div className="modal-content shadow-lg border-0 rounded-3">
               <div className="modal-header border-bottom px-3 py-2.5 bg-light">
-                <h6 className="modal-title fw-bold text-dark m-0">Exit Campaign Wizard</h6>
+                <h6 className="modal-title fw-bold text-dark m-0">
+                  {editingDraftId ? 'Exit Draft Setup' : 'Exit Campaign Wizard'}
+                </h6>
                 <button
                   type="button"
                   className="btn-close btn-sm"
@@ -1043,7 +1071,9 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
               </div>
               <div className="modal-body px-3 py-3">
                 <p className="text-secondary small mb-2" style={{ fontSize: '0.85rem' }}>
-                  Save your progress as a draft to resume later or discard changes?
+                  {editingDraftId
+                    ? 'Save your updated state to this draft or discard changes?'
+                    : 'Save your progress as a draft to resume later or discard changes?'}
                 </p>
                 <div className="p-2 bg-light rounded border small">
                   <div className="fw-semibold text-dark">{title || 'Draft Campaign'}</div>
@@ -1071,7 +1101,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
                     className="btn btn-primary btn-sm text-white fw-semibold"
                     onClick={handleSaveDraft}
                   >
-                    Save as Draft
+                    {editingDraftId ? 'Save Draft' : 'Save as Draft'}
                   </button>
                 </div>
               </div>
