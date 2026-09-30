@@ -106,6 +106,11 @@ export const AppSidebar: React.FC = () => {
           label: "Project",
           allowedRoles: ["Administrator", "C Admin"],
         },
+         {
+          key: "crew",
+          label: "Crew Directory",
+          allowedRoles: ["Administrator", "C Admin"],
+        },
       ],
     },
     {
@@ -118,11 +123,11 @@ export const AppSidebar: React.FC = () => {
       label: "Document Library",
       allowedRoles: ["Administrator", "Submitter", "Verifier"],
     },
-    {
-      key: "crew",
-      label: "Crew Directory",
-      allowedRoles: ["Administrator"],
-    },
+    // {
+    //   key: "crew",
+    //   label: "Crew Directory",
+    //   allowedRoles: ["Administrator"],
+    // },
     {
       key: "verifier",
       label: "Verification Queue",
