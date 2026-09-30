@@ -358,3 +358,49 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
     ],
   },
 ];
+
+export const EXISTING_PROJECTS: import('../types/assurance').AssuranceProject[] = [
+  {
+    id: 'MAP-PROJ-2026-OFFSHORE-001',
+    name: 'Gorgon Stage 2 & Jansz-Io Compression',
+    clientOperator: 'Chevron Australia Pty Ltd',
+    location: 'Barrow Island / Greater Gorgon Area, WA',
+    description: 'Offshore subsea compression and pipeline tie-in campaign supporting Gorgon LNG operations.',
+  },
+  {
+    id: 'MAP-PROJ-2026-DRILL-002',
+    name: 'Scarborough Gas Field Development',
+    clientOperator: 'Woodside Energy Ltd',
+    location: 'Carnarvon Basin, Offshore WA',
+    description: 'Deepwater drilling support and floating production unit (FPU) installation campaign.',
+  },
+  {
+    id: 'MAP-PROJ-2026-LOGISTICS-003',
+    name: 'Ichthys LNG Offshore Supply Support',
+    clientOperator: 'INPEX Operations Australia',
+    location: 'Browse Basin, Timor Sea, WA',
+    description: 'Long-term PSV / AHTS supply and subsea maintenance logistics for Ichthys Explorer and Venturer.',
+  },
+  {
+    id: 'MAP-PROJ-2026-SUBSEA-004',
+    name: 'Barossa Subsea Installation Campaign',
+    clientOperator: 'Santos Ltd',
+    location: 'Bonaparte Basin, Northern Territory',
+    description: 'Gas pipeline fabrication, subsea SURF infrastructure installation, and umbilical lay operations.',
+  },
+  {
+    id: 'MAP-PROJ-2026-OFFSHORE-005',
+    name: 'Wheatstone Platform Maintenance & Operations',
+    clientOperator: 'Chevron Australia Pty Ltd',
+    location: 'Ashburton North / Offshore Onslow, WA',
+    description: 'Offshore platform maintenance, diving support, and supply shuttle vessel operations.',
+  },
+  {
+    id: 'MAP-PROJ-2026-MARINE-006',
+    name: 'Prelude FLNG Facility Marine Services',
+    clientOperator: 'Shell Australia Pty Ltd',
+    location: 'Browse Basin, Western Australia',
+    description: 'Offshore LNG carrier escort, bunker assistance, emergency standby, and marine supply.',
+  },
+];
+

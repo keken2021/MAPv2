@@ -23,6 +23,7 @@ import {
   SUBTYPE_STANDARD_DOCS,
   SUBTYPE_TEMPLATES,
   SUBTYPE_CATEGORIES,
+  EXISTING_PROJECTS,
 } from '../../utils/assuranceTemplates';
 
 interface AssuranceModalProps {
@@ -63,6 +64,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
     () => `${defaultOrg} - ${initialVessel?.name || 'Vessel'} Charter Vetting`
   );
   const [assuranceType, setAssuranceType] = useState<AssuranceScopeType>('Project');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => EXISTING_PROJECTS[0]?.id || '');
   const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
   const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
   const [isGeneralInfoExpanded, setIsGeneralInfoExpanded] = useState<boolean>(true);
@@ -224,6 +226,10 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
         setErrorMessage(duplicateCheck.reason || 'Campaign title already exists.');
         return false;
       }
+      if (assuranceType === 'Project' && !selectedProjectId) {
+        setErrorMessage('Please select an existing project to attach this assurance set.');
+        return false;
+      }
       if (!startDate || !endDate) {
         setErrorMessage('Charter window dates are required.');
         return false;
@@ -303,6 +309,8 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
       id: uniqueSetId,
       title: title.trim(),
       assuranceType,
+      projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
+      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
       subtypes: activeSubtypes,
       visibility: templatePrivacy,
       templateSource: templatePrivacy,
@@ -383,6 +391,8 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
       id: uniqueSetId,
       title: title.trim() || `${defaultOrg} - Draft Campaign`,
       assuranceType,
+      projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
+      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
       subtypes: activeSubtypes,
       visibility: 'draft',
       templateSource: templatePrivacy,
@@ -639,10 +649,10 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
                   >
                     <span
                       className={`d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0 ${isCurrent
-                          ? 'bg-primary text-white shadow-2xs'
-                          : isPast
-                            ? 'bg-success text-white'
-                            : 'bg-white text-secondary border'
+                        ? 'bg-primary text-white shadow-2xs'
+                        : isPast
+                          ? 'bg-success text-white'
+                          : 'bg-white text-secondary border'
                         }`}
                       style={{ width: '22px', height: '22px', fontSize: '0.725rem', fontWeight: 700 }}
                     >
@@ -707,6 +717,60 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
                       <option value="Equipment">Equipment Only</option>
                     </select>
                   </div>
+
+                  {/* Existing Project Association Dropdown (Mandatory when scope is Project) */}
+                  {assuranceType === 'Project' && (
+                    <div className="col-12">
+                      <div className="p-3 bg-light border rounded-3">
+                        <label className="form-label text-secondary small fw-semibold d-flex align-items-center justify-content-between" htmlFor="modal-project-association">
+                          <span>Associated Existing Project <span className="text-danger">*</span></span>
+                          <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                            Required for Project Scope
+                          </span>
+                        </label>
+                        <select
+                          id="modal-project-association"
+                          className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
+                          value={selectedProjectId}
+                          onChange={(e) => setSelectedProjectId(e.target.value)}
+                          required
+                        >
+                          <option value="">-- Select an Existing Project to Attach Assurance Set --</option>
+                          {EXISTING_PROJECTS.map((proj: { id: string; name: string; clientOperator: string }) => (
+                            <option key={proj.id} value={proj.id}>
+                              {proj.id} &mdash; {proj.name} ({proj.clientOperator})
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Selected Project Details Info Card */}
+                        {EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId) && (() => {
+                          const proj = EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId)!;
+                          return (
+                            <div className="mt-2 p-2 bg-white border rounded small text-secondary">
+                              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                                <span className="fw-bold text-dark">{proj.name}</span>
+                                <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                  {proj.id}
+                                </span>
+                              </div>
+                              <div className="row g-1 text-muted" style={{ fontSize: '0.75rem' }}>
+                                <div className="col-12 col-md-6">
+                                  <strong className="text-secondary">Operator:</strong> {proj.clientOperator}
+                                </div>
+                                <div className="col-12 col-md-6">
+                                  <strong className="text-secondary">Basin:</strong> {proj.location}
+                                </div>
+                                <div className="col-12">
+                                  <strong className="text-secondary">Summary:</strong> {proj.description}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Template Privacy & Distribution Scope */}
@@ -889,6 +953,17 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose 
                   <div className="text-secondary small mt-1">
                     Scope: <strong>{assuranceType}</strong> &nbsp;|&nbsp; Target: <strong>{selectedVessel?.name}</strong> &nbsp;|&nbsp; Dates: {startDate} to {endDate}
                   </div>
+                  {assuranceType === 'Project' && selectedProjectId && (
+                    <div className="text-secondary small mt-1">
+                      <span>Attached Project:</span>{' '}
+                      <strong className="text-dark">
+                        {EXISTING_PROJECTS.find((p: { id: string; }) => p.id === selectedProjectId)?.name || selectedProjectId}
+                      </strong>{' '}
+                      <span className="badge bg-light text-dark border font-mono-code ms-1" style={{ fontSize: '0.65rem' }}>
+                        {selectedProjectId}
+                      </span>
+                    </div>
+                  )}
                   <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
                     <span>Privacy:</span>
                     <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>

@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet, AssuranceRequirement, AssuranceSubtype } from '../types/assurance';
-import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES } from '../utils/assuranceTemplates';
+import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES, EXISTING_PROJECTS } from '../utils/assuranceTemplates';
 import { generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../utils/validation';
 
 describe('Segmented Assurance Set Creation Workflow', () => {
@@ -336,6 +336,58 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     const matchingSets = useMapStore.getState().assuranceSets.filter((s) => s.id === draftId);
     expect(matchingSets.length).toBe(1);
   });
+
+  it('provides a standardized catalog of existing projects that adhere to the naming format', () => {
+    expect(EXISTING_PROJECTS).toBeDefined();
+    expect(EXISTING_PROJECTS.length).toBeGreaterThanOrEqual(4);
+
+    EXISTING_PROJECTS.forEach((proj: { id: string; name: string; clientOperator: string; location: string; description: string; }) => {
+      expect(proj.id).toMatch(/^MAP-PROJ-\d{4}-[A-Z]+-\d{3}$/);
+      expect(proj.name).toBeTruthy();
+      expect(proj.clientOperator).toBeTruthy();
+      expect(proj.location).toBeTruthy();
+      expect(proj.description).toBeTruthy();
+    });
+  });
+
+  it('attaches and persists the selected project for Project-scoped assurance sets and drafts', () => {
+    const store = useMapStore.getState();
+    const uniqueId = generateUniqueAssuranceSetId(store.assuranceSets);
+
+    const projectSetWithAttachment: AssuranceSet = {
+      id: uniqueId,
+      title: 'Chevron - Gorgon Stage 2 Compression Vetting',
+      assuranceType: 'Project',
+      projectId: 'MAP-PROJ-2026-OFFSHORE-001',
+      projectName: 'Gorgon Stage 2 & Jansz-Io Compression',
+      subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+      vesselId: 'VESSEL-001',
+      vesselName: 'MV Pacific Endeavour',
+      imoNumber: '9123456',
+      initiatorOrg: 'Chevron Australia Pty Ltd',
+      initiatorRole: 'C Admin · Client Created',
+      charterer: 'Chevron Australia Pty Ltd',
+      charterWindowStart: '2026-11-01',
+      charterWindowEnd: '2027-11-01',
+      stage: 'Initiated',
+      readinessScore: 10,
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
+      requirements: [],
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: '',
+    };
+
+    store.addAssuranceSet(projectSetWithAttachment);
+
+    const retrieved = useMapStore.getState().assuranceSets.find((s) => s.id === uniqueId);
+    expect(retrieved).toBeDefined();
+    expect(retrieved?.assuranceType).toBe('Project');
+    expect(retrieved?.projectId).toBe('MAP-PROJ-2026-OFFSHORE-001');
+    expect(retrieved?.projectName).toBe('Gorgon Stage 2 & Jansz-Io Compression');
+  });
 });
+
 
 

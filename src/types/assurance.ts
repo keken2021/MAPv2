@@ -72,13 +72,38 @@ export interface AssuranceRequirement {
   isSpecialized?: boolean;
 }
 
+export interface AssuranceProject {
+  id: string; // e.g. MAP-PROJ-2026-OFFSHORE-001
+  name: string; // e.g. Gorgon Stage 2 & Jansz-Io Compression
+  clientOperator: string; // e.g. Chevron Australia Pty Ltd
+  location: string; // e.g. Barrow Island / Greater Gorgon Area, WA
+  description: string;
+}
+
+export interface AssuranceStakeholderMapping {
+  submitterId?: string;
+  submitterName?: string;
+  submitterOrg?: string;
+  verifierId?: string;
+  verifierName?: string;
+  verifierOrg?: string;
+  inspectorId?: string;
+  inspectorName?: string;
+  inspectorOrg?: string;
+  approverId?: string;
+  approverName?: string;
+  approverOrg?: string;
+}
+
 export interface AssuranceSet {
-  stakeholders: any;
-  assignedStakeholders: any;
-  createdByPersona: string;
+  stakeholders?: AssuranceStakeholderMapping | null;
+  assignedStakeholders?: AssuranceStakeholderMapping | null;
+  createdByPersona?: string;
   id: string; // e.g. AS-2026-001
   title: string; // e.g. Chevron Gorgon Charter Vetting
   assuranceType?: AssuranceScopeType;
+  projectId?: string;
+  projectName?: string;
   subtypes?: AssuranceSubtype[];
   visibility?: 'public' | 'organization' | 'draft';
   templateSource?: 'public' | 'organization' | 'custom' | 'none';

@@ -18,7 +18,7 @@ import {
 } from '../utils/rbacHelpers';
 import { usersWithRole, getEligibleVerifiers, getAssuranceAssignmentWarnings, hasBlockingAssuranceAssignmentConflict } from '../utils/userRoleHelpers';
 import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../utils/validation';
-import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES, SUBTYPE_CATEGORIES, StandardSubtypeDocument, SubtypeTemplate } from '../utils/assuranceTemplates';
+import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES, SUBTYPE_CATEGORIES, StandardSubtypeDocument, SubtypeTemplate, EXISTING_PROJECTS } from '../utils/assuranceTemplates';
 import { AssuranceRequirementCategory } from '../types/assurance';
 
 interface SpecializedDoc {
@@ -79,6 +79,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     () => `${defaultCharterer} - ${initialVesselName} Charter Vetting`
   );
   const [assuranceType, setAssuranceType] = useState<AssuranceScopeType>('Project');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => EXISTING_PROJECTS[0]?.id || '');
   const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
   const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
   const [isGeneralInfoExpanded, setIsGeneralInfoExpanded] = useState<boolean>(true);
@@ -245,6 +246,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           setEditingDraftId(target.id);
           setTitle(target.title);
           if (target.assuranceType) setAssuranceType(target.assuranceType);
+          if (target.projectId) setSelectedProjectId(target.projectId);
           if (target.templateSource === 'public' || target.visibility === 'draft') {
             setTemplatePrivacy('public');
           } else {
@@ -374,6 +376,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         setErrorMessage(duplicateCheck.reason || 'Campaign title already exists. Please choose a unique name.');
         return false;
       }
+      if (assuranceType === 'Project' && !selectedProjectId) {
+        setErrorMessage('Please select an existing project to attach this assurance set.');
+        return false;
+      }
       if (!startDate || !endDate) {
         setErrorMessage('Charter window start and end dates are required.');
         return false;
@@ -495,6 +501,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       id: targetSetId,
       title: title.trim(),
       assuranceType,
+      projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
+      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
       subtypes: activeSubtypes,
       visibility: templatePrivacy,
       templateSource: templatePrivacy,
@@ -609,6 +617,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       id: targetSetId,
       title: title.trim() || `${defaultCharterer} - Draft Campaign`,
       assuranceType,
+      projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
+      projectName: assuranceType === 'Project' ? (EXISTING_PROJECTS.find((p) => p.id === selectedProjectId)?.name || selectedProjectId) : undefined,
       subtypes: activeSubtypes,
       visibility: 'draft',
       templateSource: templatePrivacy,
@@ -1133,13 +1143,67 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         value={assuranceType}
                         onChange={(e) => setAssuranceType(e.target.value as AssuranceScopeType)}
                       >
-                        <option value="Project">Project </option>
-                        <option value="Vessel">Vessel</option>
-                        <option value="Crew">Crew</option>
-                        <option value="Activity">Activity </option>
-                        <option value="Equipment">Equipment </option>
+                        <option value="Project">Project (Vessel, Crew, Activity, Equipment)</option>
+                        <option value="Vessel">Vessel Only</option>
+                        <option value="Crew">Crew Only</option>
+                        <option value="Activity">Activity Only</option>
+                        <option value="Equipment">Equipment Only</option>
                       </select>
                     </div>
+
+                    {/* Existing Project Association Dropdown (Mandatory when scope is Project) */}
+                    {assuranceType === 'Project' && (
+                      <div className="col-12">
+                        <div className="p-3 bg-light border rounded-3">
+                          <label className="form-label text-secondary small fw-semibold d-flex align-items-center justify-content-between" htmlFor="grid-project-association">
+                            <span>Associated Existing Project <span className="text-danger">*</span></span>
+                            <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                              Required for Project Scope
+                            </span>
+                          </label>
+                          <select
+                            id="grid-project-association"
+                            className="form-select bg-white text-dark border-secondary-subtle fw-semibold"
+                            value={selectedProjectId}
+                            onChange={(e) => setSelectedProjectId(e.target.value)}
+                            required
+                          >
+                            <option value="">-- Select an Existing Project to Attach Assurance Set --</option>
+                            {EXISTING_PROJECTS.map((proj) => (
+                              <option key={proj.id} value={proj.id}>
+                                {proj.id} &mdash; {proj.name} ({proj.clientOperator})
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Selected Project Details Info Card */}
+                          {EXISTING_PROJECTS.find((p) => p.id === selectedProjectId) && (() => {
+                            const proj = EXISTING_PROJECTS.find((p) => p.id === selectedProjectId)!;
+                            return (
+                              <div className="mt-2.5 p-2.5 bg-white border rounded-2 small text-secondary">
+                                <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                                  <span className="fw-bold text-dark">{proj.name}</span>
+                                  <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                    {proj.id}
+                                  </span>
+                                </div>
+                                <div className="row g-2 text-muted" style={{ fontSize: '0.78rem' }}>
+                                  <div className="col-12 col-md-6">
+                                    <strong className="text-secondary">Operator / Client:</strong> {proj.clientOperator}
+                                  </div>
+                                  <div className="col-12 col-md-6">
+                                    <strong className="text-secondary">Basin / Location:</strong> {proj.location}
+                                  </div>
+                                  <div className="col-12">
+                                    <strong className="text-secondary">Scope Summary:</strong> {proj.description}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="col-12">
                       <div className="p-3 bg-primary-subtle border border-primary-subtle rounded-2 small text-primary d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -1147,7 +1211,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <strong>Selected Scope: {assuranceType} Assurance</strong>
                           <div className="text-secondary mt-0.5">
                             {assuranceType === 'Project'
-                              ? 'Project scope mandates individual sections and requirement verification for all 4 operational subtypes (Vessel, Crew, Activity, and Equipment).'
+                              ? 'Project scope mandates individual sections and requirement verification for all 4 operational subtypes (Vessel, Crew, Activity, and Equipment) attached to the selected offshore project.'
                               : `Standalone assurance set focused strictly on the ${assuranceType} subtype statutory requirements and operational documents.`}
                           </div>
                         </div>
@@ -1535,6 +1599,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <div className="text-secondary small">
                             <strong>Charterer:</strong> {charterer} &nbsp;|&nbsp; <strong>Window:</strong> {startDate} to {endDate}
                           </div>
+                          {assuranceType === 'Project' && selectedProjectId && (
+                            <div className="text-secondary small mt-1">
+                              <strong>Attached Project:</strong>{' '}
+                              <span className="text-dark fw-semibold">
+                                {EXISTING_PROJECTS.find((p) => p.id === selectedProjectId)?.name || selectedProjectId}
+                              </span>{' '}
+                              <span className="badge bg-light text-dark border font-mono-code ms-1" style={{ fontSize: '0.675rem' }}>
+                                {selectedProjectId}
+                              </span>
+                            </div>
+                          )}
                           <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
                             <strong>Template Privacy:</strong>
                             <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>
