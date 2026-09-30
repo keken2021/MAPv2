@@ -615,16 +615,35 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 return (
                   <tr key={req.id}>
                     <td>
-                      <span className="badge bg-light text-dark border" style={{ fontSize: '0.75rem' }}>
-                        {req.category}
-                      </span>
-                    </td>
-                    <td className="fw-semibold text-dark">
-                      {req.title}
-                      {(linkedDoc?.currentVersion || req.documentVersion) && (
-                        <span className="badge bg-light text-secondary border font-mono-code ms-2" style={{ fontSize: '0.7rem' }}>
-                          {linkedDoc?.currentVersion || req.documentVersion}
+                      <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                        {req.subtype && (
+                          <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.7rem' }}>
+                            {req.subtype}
+                          </span>
+                        )}
+                        <span className="badge bg-light text-dark border" style={{ fontSize: '0.75rem' }}>
+                          {req.category}
                         </span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="fw-semibold text-dark">
+                        {req.title}
+                        {(linkedDoc?.currentVersion || req.documentVersion) && (
+                          <span className="badge bg-light text-secondary border font-mono-code ms-2" style={{ fontSize: '0.7rem' }}>
+                            {linkedDoc?.currentVersion || req.documentVersion}
+                          </span>
+                        )}
+                        {req.isSpecialized && (
+                          <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
+                            Specialized
+                          </span>
+                        )}
+                      </div>
+                      {req.description && (
+                        <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
+                          {req.description}
+                        </div>
                       )}
                     </td>
                     <td>

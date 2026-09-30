@@ -895,6 +895,12 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
   {
     id: 'AS-2026-001',
     title: 'Chevron Gorgon Charter Vetting',
+    assuranceType: 'Project',
+    subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+    templateSource: 'organization',
+    appliedTemplates: {
+      Vessel: 'tmpl-org-chevron-gorgon',
+    },
     vesselId: 'VESSEL-001',
     vesselName: 'MV Pacific Endeavour',
     imoNumber: '9123456',
@@ -914,8 +920,10 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     requirements: [
       {
         id: 'REQ-101',
+        subtype: 'Vessel',
         category: 'Statutory Certificate',
         title: 'Certificate of Class',
+        description: 'Classification society certificate issued by IACS authority confirming structural and hull integrity, machinery, and class notations.',
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 98,
@@ -926,8 +934,10 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
       },
       {
         id: 'REQ-102',
+        subtype: 'Vessel',
         category: 'Statutory Certificate',
         title: 'Cargo Ship Safety Equipment',
+        description: 'Mandatory SOLAS safety construction and safety equipment certificate verifying vessel seaworthiness and lifesaving appliances.',
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 96,
@@ -938,8 +948,10 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
       },
       {
         id: 'REQ-103',
+        subtype: 'Crew',
         category: 'Crew Credential',
         title: 'STCW Master CoC Endorsement',
+        description: 'Flag state authenticated STCW II/2 certificate verifying Master qualifications and watchkeeping authority.',
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 99,
@@ -950,8 +962,10 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
       },
       {
         id: 'REQ-104',
+        subtype: 'Vessel',
         category: 'Environmental',
         title: 'IOPP Certificate Annex I',
+        description: 'MARPOL Annex I certification confirming compliance with oily water separation and bilge discharge monitoring.',
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 92,

@@ -958,9 +958,9 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     <div className="d-flex align-items-center justify-content-between mb-2">
                       <span className="fw-bold text-dark small d-flex align-items-center gap-2">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                          <circle cx="8.5" cy="8.5" r="1.5"/>
-                          <polyline points="21 15 16 10 5 21"/>
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                          <circle cx="8.5" cy="8.5" r="1.5" />
+                          <polyline points="21 15 16 10 5 21" />
                         </svg>
                         <span>Vessel Photography &amp; Gallery ({photos.length || (imageUrl ? 1 : 0)} photo{photos.length === 1 || (!photos.length && imageUrl) ? '' : 's'})</span>
                       </span>
@@ -1171,7 +1171,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       <div className="form-text">MVP scope: OSV only</div>
                     </div>
                     <div className="col-md-4">
-                      <label className="form-label text-secondary small fw-semibold">Vessel Subtype</label>
+                      <label className="form-label text-secondary small fw-semibold">Vessel</label>
                       <input
                         type="text"
                         className="form-control form-control-sm"

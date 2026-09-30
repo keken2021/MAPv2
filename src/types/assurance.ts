@@ -11,7 +11,6 @@ export type AssuranceStage =
   | 'Inspection'
   | 'Approval'
   | 'Certified'
-  | 'Approved'
   | 'Approved';
 
 export type InitiatingRoleType =
@@ -20,10 +19,46 @@ export type InitiatingRoleType =
   | 'C Admin · Client Created'
   | 'Vessel Provider Admin';
 
+export type AssuranceScopeType = 'Project' | 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
+export type AssuranceSubtype = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
+
+export type AssuranceRequirementCategory =
+  | 'Statutory Certificate'
+  | 'Class Notation Certificate'
+  | 'Flag Administration Registry'
+  | 'Environmental'
+  | 'Environmental Certificate'
+  | 'Safety & Lifesaving Equipment'
+  | 'Vessel Custom Requirement'
+  | 'Crew Credential'
+  | 'Certificate of Competency (CoC)'
+  | 'Medical Fitness Certificate'
+  | 'Offshore Safety Induction (BOSIET)'
+  | 'Specialized Training Endorsement'
+  | 'Crew Custom Requirement'
+  | 'Inspection Report'
+  | 'Operational Plan'
+  | 'Method Statement (MOP)'
+  | 'Risk Assessment (HAZID/HAZOP)'
+  | 'Mooring & Towage Analysis'
+  | 'Emergency Contingency Protocol'
+  | 'SIMOPS Agreement'
+  | 'Activity Custom Requirement'
+  | 'Equipment Register'
+  | 'Lifting Appliance Register (ILO 152)'
+  | 'DP FMEA Proving Trial'
+  | 'Pull & Load Test Certificate'
+  | 'Helideck Safety Certificate'
+  | 'Equipment Custom Requirement'
+  | 'Custom Requirement'
+  | (string & {});
+
 export interface AssuranceRequirement {
   id: string;
-  category: 'Statutory Certificate' | 'Crew Credential' | 'Inspection Report' | 'Environmental';
+  category: AssuranceRequirementCategory;
   title: string; // e.g. Cargo Ship Safety Equipment
+  description?: string; // rich descriptive explanation of why the document is required
+  subtype?: AssuranceSubtype;
   isMandatory: boolean;
   isFulfilled: boolean;
   ocrConfidence: number; // 0 - 100%
@@ -34,6 +69,7 @@ export interface AssuranceRequirement {
   verificationRoute?: 'Inspector' | 'Approver';
   notes?: string;
   isOtherDocument?: boolean;
+  isSpecialized?: boolean;
 }
 
 export interface AssuranceSet {
@@ -42,6 +78,10 @@ export interface AssuranceSet {
   createdByPersona: string;
   id: string; // e.g. AS-2026-001
   title: string; // e.g. Chevron Gorgon Charter Vetting
+  assuranceType?: AssuranceScopeType;
+  subtypes?: AssuranceSubtype[];
+  templateSource?: 'public' | 'organization' | 'custom' | 'none';
+  appliedTemplates?: Record<string, string>;
   vesselId: string;
   vesselName: string;
   imoNumber: string;

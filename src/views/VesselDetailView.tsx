@@ -222,7 +222,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       { Category: 'Vessel Identification', Field: 'Flag State', Value: vessel.flagState },
       { Category: 'Vessel Identification', Field: 'Port of Registry', Value: vessel.portOfRegistry },
       { Category: 'Classification', Field: 'Vessel Type', Value: vessel.vesselType },
-      { Category: 'Classification', Field: 'Vessel Subtype', Value: vessel.vesselSubtype },
+      { Category: 'Classification', Field: 'Vessel', Value: vessel.vesselSubtype },
       { Category: 'Classification', Field: 'Class Society', Value: vessel.classificationSociety },
       { Category: 'Classification', Field: 'Class Notation', Value: vessel.classNotation },
       { Category: 'Classification', Field: 'Hull Type', Value: vessel.hullType },
