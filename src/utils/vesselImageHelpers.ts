@@ -4,6 +4,8 @@
   role in system: consumed by VesselTable marketplace grid view and vessel detail headers.
 */
 
+export * from './imageCropHelpers';
+
 export interface VesselListingContact {
   name: string;
   role: string;

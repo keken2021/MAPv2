@@ -10,6 +10,7 @@ import { VesselInformation, ClassificationSociety } from '../../types/vessel';
 import { MasterDocument } from '../../types/document';
 import { isDuplicateVessel, validateImoNumber } from '../../utils/validation';
 import { CURATED_VESSEL_PHOTOS } from '../../utils/vesselImageHelpers';
+import { VesselImageCropModal } from './VesselImageCropModal';
 import { formatDocumentId } from '../../utils/formatters';
 
 interface VesselModalProps {
@@ -27,6 +28,9 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   const imageFileInputRef = useRef<HTMLInputElement>(null);
   const [imageUrl, setImageUrl] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [cropModalImageSrc, setCropModalImageSrc] = useState('');
+  const [cropTargetIndex, setCropTargetIndex] = useState<number | null>(null);
 
   /* AI extraction and Document Library lookup states (tracked per step/stage) */
   const [isExtractingAi, setIsExtractingAi] = useState(false);
@@ -975,23 +979,43 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       {/* Left: Main Cover Photo Preview */}
                       <div className="col-md-4 text-center">
                         <div
-                          className="position-relative border rounded overflow-hidden bg-dark d-flex align-items-center justify-content-center cursor-pointer shadow-2xs"
+                          className="position-relative border rounded overflow-hidden bg-dark d-flex align-items-center justify-content-center shadow-2xs group"
                           style={{ height: '140px' }}
-                          onClick={() => imageFileInputRef.current?.click()}
-                          title="Click to upload vessel images"
+                          title={imageUrl ? 'Cover Photo Preview' : 'Click to upload vessel images'}
                         >
                           {imageUrl ? (
                             <>
                               <img src={imageUrl} alt="Vessel preview" className="w-100 h-100" style={{ objectFit: 'cover' }} />
                               <div
-                                className="position-absolute bottom-0 start-0 w-100 px-2 py-0.5 text-white fw-bold text-start"
+                                className="position-absolute bottom-0 start-0 w-100 px-2 py-0.5 text-white fw-bold text-start d-flex align-items-center justify-content-between"
                                 style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', fontSize: '0.68rem' }}
                               >
-                                Primary Cover Photo
+                                <span>Primary Cover (16:9)</span>
+                                <button
+                                  type="button"
+                                  className="btn btn-xs btn-light py-0 px-1.5 fw-semibold text-dark rounded-pill d-inline-flex align-items-center gap-1"
+                                  style={{ fontSize: '0.62rem' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCropModalImageSrc(imageUrl);
+                                    setCropTargetIndex(photos.indexOf(imageUrl) >= 0 ? photos.indexOf(imageUrl) : null);
+                                    setIsCropModalOpen(true);
+                                  }}
+                                  title="Universal Sizing & Crop Tool"
+                                >
+                                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
+                                    <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
+                                  </svg>
+                                  <span>Crop</span>
+                                </button>
                               </div>
                             </>
                           ) : (
-                            <div className="text-muted small d-flex flex-column align-items-center gap-1.5 p-2">
+                            <div
+                              className="text-muted small d-flex flex-column align-items-center gap-1.5 p-2 cursor-pointer w-100 h-100 justify-content-center"
+                              onClick={() => imageFileInputRef.current?.click()}
+                            >
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-secondary">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                                 <polyline points="17 8 12 3 7 8" />
@@ -1078,32 +1102,51 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                 <div
                                   key={pIdx}
                                   className={`position-relative border rounded overflow-hidden flex-shrink-0 cursor-pointer transition-all ${isCover ? 'border-primary border-2 shadow-sm' : 'border-secondary-subtle'}`}
-                                  style={{ width: '60px', height: '48px' }}
+                                  style={{ width: '64px', height: '50px' }}
                                   onClick={() => setImageUrl(photo)}
                                   title={isCover ? 'Primary Cover Photo' : 'Click to set as primary cover'}
                                 >
                                   <img src={photo} alt={`Photo ${pIdx + 1}`} className="w-100 h-100" style={{ objectFit: 'cover' }} />
                                   {isCover && (
-                                    <div className="position-absolute top-0 end-0 bg-primary text-white px-1 font-mono-code" style={{ fontSize: '0.55rem', borderBottomLeftRadius: '3px' }}>
+                                    <div className="position-absolute top-0 start-0 bg-primary text-white px-1 font-mono-code" style={{ fontSize: '0.55rem', borderBottomRightRadius: '3px' }}>
                                       Cover
                                     </div>
                                   )}
-                                  <button
-                                    type="button"
-                                    className="position-absolute bottom-0 end-0 btn btn-xs btn-danger p-0 d-flex align-items-center justify-content-center"
-                                    style={{ width: '16px', height: '16px', fontSize: '0.65rem' }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const updated = photos.filter((_, i) => i !== pIdx);
-                                      setPhotos(updated);
-                                      if (isCover) {
-                                        setImageUrl(updated.length > 0 ? updated[0] : '');
-                                      }
-                                    }}
-                                    title="Remove this photo"
-                                  >
-                                    ×
-                                  </button>
+                                  <div className="position-absolute top-0 end-0 d-flex align-items-center gap-0.5 m-0.5">
+                                    <button
+                                      type="button"
+                                      className="btn btn-xs btn-dark p-0 d-flex align-items-center justify-content-center rounded-circle"
+                                      style={{ width: '16px', height: '16px', fontSize: '0.6rem' }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCropTargetIndex(pIdx);
+                                        setCropModalImageSrc(photo);
+                                        setIsCropModalOpen(true);
+                                      }}
+                                      title="Crop / Reframe this photo"
+                                    >
+                                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
+                                        <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-xs btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle"
+                                      style={{ width: '16px', height: '16px', fontSize: '0.65rem' }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const updated = photos.filter((_, i) => i !== pIdx);
+                                        setPhotos(updated);
+                                        if (isCover) {
+                                          setImageUrl(updated.length > 0 ? updated[0] : '');
+                                        }
+                                      }}
+                                      title="Remove this photo"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
                                 </div>
                               );
                             })}
@@ -1670,6 +1713,37 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
             </div>
           </div>
         </div>
+      )}
+
+      {/* Interactive Universal Vessel Image Crop & Sizing Modal */}
+      {isCropModalOpen && cropModalImageSrc && (
+        <VesselImageCropModal
+          isOpen={isCropModalOpen}
+          imageSrc={cropModalImageSrc}
+          vesselName="New Vessel Registration"
+          initialPreset="16:9"
+          onSave={(croppedUrl) => {
+            if (cropTargetIndex !== null && cropTargetIndex >= 0 && cropTargetIndex < photos.length) {
+              const updated = [...photos];
+              const oldUrl = updated[cropTargetIndex];
+              updated[cropTargetIndex] = croppedUrl;
+              setPhotos(updated);
+              if (imageUrl === oldUrl || !imageUrl) {
+                setImageUrl(croppedUrl);
+              }
+            } else {
+              setImageUrl(croppedUrl);
+              setPhotos((prev) => {
+                if (!prev.includes(croppedUrl)) {
+                  return [croppedUrl, ...prev];
+                }
+                return prev;
+              });
+            }
+            setIsCropModalOpen(false);
+          }}
+          onClose={() => setIsCropModalOpen(false)}
+        />
       )}
     </div>
   );
