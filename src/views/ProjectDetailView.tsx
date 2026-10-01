@@ -9,9 +9,15 @@ import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { useMapStore } from '../store/useMapStore';
 import { ProjectAssetLink, ProjectAssetType } from '../types/project';
 import {
-  getEligibleAssuranceSetsForAsset,
+  filterCrewForProjectComposition,
+  filterEquipmentForProjectComposition,
   filterProjectsForPersona,
+  filterVesselsForProjectComposition,
+  getEligibleAssuranceSetsForAsset,
+  isOrganizationMatch,
+  requiresAssuranceSetForAssetLink,
 } from '../utils/projectHelpers';
+import { EXISTING_ACTIVITIES } from '../utils/assuranceTemplates';
 
 interface ProjectDetailViewProps {
   projectId: string;
@@ -38,6 +44,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
   const [activeTab, setActiveTab] = useState<'roster' | 'master' | 'assurance'>('roster');
   const [assetFilter, setAssetFilter] = useState<'All' | ProjectAssetType>('All');
   const [showAddPanel, setShowAddPanel] = useState(false);
+  const [includeExternalProviders, setIncludeExternalProviders] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const visibleProjects = useMemo(
@@ -60,38 +67,84 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
     if (!project) return [];
     const linked = new Set(project.assetLinks.map((l) => `${l.assetType}:${l.assetId}`));
     const items: Omit<ProjectAssetLink, 'id' | 'projectId' | 'addedAt' | 'addedByPersona'>[] = [];
-    vessels.forEach((v) => {
+    const asOptions = (
+      assetType: ProjectAssetLink['assetType'],
+      assetId: string,
+      providerOrganization: string,
+    ) =>
+      getEligibleAssuranceSetsForAsset(assetType, assetId, assuranceSets, {
+        requestingOrganization: project.requestingOrganization,
+        providerOrganization,
+      });
+
+    filterVesselsForProjectComposition(
+      vessels,
+      activePersona,
+      project.requestingOrganization,
+      assuranceSets,
+      includeExternalProviders,
+    ).forEach((v) => {
       if (linked.has(`Vessel:${v.id}`)) return;
+      const providerOrganization = v.registeredOwner;
       items.push({
         assetType: 'Vessel',
         assetId: v.id,
         assetName: v.name,
-        providerOrganization: v.registeredOwner,
-        assuranceSetId: getEligibleAssuranceSetsForAsset('Vessel', v.id, assuranceSets)[0]?.id || '',
+        providerOrganization,
+        assuranceSetId: asOptions('Vessel', v.id, providerOrganization)[0]?.id || '',
       });
     });
-    crew.forEach((c) => {
+
+    filterCrewForProjectComposition(crew, project.requestingOrganization, includeExternalProviders).forEach((c) => {
       if (linked.has(`Crew:${c.id}`)) return;
+      const providerOrganization = c.organization || project.requestingOrganization;
       items.push({
         assetType: 'Crew',
         assetId: c.id,
         assetName: c.fullName,
-        providerOrganization: c.organization || project.operatorOrganization,
-        assuranceSetId: getEligibleAssuranceSetsForAsset('Crew', c.id, assuranceSets)[0]?.id || '',
+        providerOrganization,
+        assuranceSetId: asOptions('Crew', c.id, providerOrganization)[0]?.id || '',
       });
     });
-    equipment.forEach((e) => {
-      if (linked.has(`Equipment:${e.id}`)) return;
-      items.push({
-        assetType: 'Equipment',
-        assetId: e.id,
-        assetName: e.name,
-        providerOrganization: e.owningOrganization,
-        assuranceSetId: getEligibleAssuranceSetsForAsset('Equipment', e.id, assuranceSets)[0]?.id || '',
+
+    filterEquipmentForProjectComposition(equipment, project.requestingOrganization, includeExternalProviders).forEach(
+      (e) => {
+        if (linked.has(`Equipment:${e.id}`)) return;
+        items.push({
+          assetType: 'Equipment',
+          assetId: e.id,
+          assetName: e.name,
+          providerOrganization: e.owningOrganization,
+          assuranceSetId: asOptions('Equipment', e.id, e.owningOrganization)[0]?.id || '',
+        });
+      },
+    );
+
+    if (includeExternalProviders) {
+      EXISTING_ACTIVITIES.forEach((a) => {
+        if (linked.has(`Activity:${a.id}`)) return;
+        items.push({
+          assetType: 'Activity',
+          assetId: a.id,
+          assetName: a.name,
+          providerOrganization: project.requestingOrganization,
+          assuranceSetId: asOptions('Activity', a.id, project.requestingOrganization)[0]?.id || '',
+          roleInProject: 'Service / activity',
+        });
       });
-    });
+    }
+
     return items.filter((a) => assetFilter === 'All' || a.assetType === assetFilter);
-  }, [project, vessels, crew, equipment, assuranceSets, assetFilter]);
+  }, [
+    project,
+    vessels,
+    crew,
+    equipment,
+    assuranceSets,
+    assetFilter,
+    activePersona,
+    includeExternalProviders,
+  ]);
 
   if (!project) {
     return (
@@ -111,8 +164,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
   };
 
   const handleAddAsset = (item: typeof availableToAdd[0]) => {
-    if (!item.assuranceSetId) {
-      setToast('No assurance set available for this asset.');
+    const needsAssurance = requiresAssuranceSetForAssetLink(
+      project.requestingOrganization,
+      item.providerOrganization,
+    );
+    if (needsAssurance && !item.assuranceSetId) {
+      setToast('Cross-organization assets require an assurance set.');
       return;
     }
     const result = addAssetToProject(project.id, item);
@@ -151,18 +208,44 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
           <div>
             <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
               <span className="badge bg-primary font-mono-code">{project.id}</span>
-              <span className={`badge ${project.riskProfile.includes('High') || project.riskProfile.includes('Armed') ? 'bg-danger' : 'bg-warning text-dark'}`}>
-                {project.riskProfile}
-              </span>
+              <span className="badge bg-info text-dark">{project.projectType}</span>
+              {project.riskProfile && (
+                <span
+                  className={`badge ${
+                    project.riskProfile.includes('High') || project.riskProfile.includes('Armed')
+                      ? 'bg-danger'
+                      : 'bg-warning text-dark'
+                  }`}
+                >
+                  {project.riskProfile}
+                </span>
+              )}
               <span className="badge bg-secondary">{project.status}</span>
             </div>
             <h2 className="h4 fw-bold text-dark mb-1">{project.name}</h2>
             <div className="text-muted small">
-              {project.operatorOrganization} · Charterer: {project.charterer}
+              Requesting: {project.requestingOrganization}
+              {project.charterer && project.charterer !== project.requestingOrganization && (
+                <> · Charterer: {project.charterer}</>
+              )}
             </div>
-            <div className="text-muted small mt-1">{project.routeDescription}</div>
-            <div className="font-mono-code small mt-1">
-              {project.charterWindowStart} → {project.charterWindowEnd}
+            {project.serviceProvider && (
+              <div className="text-muted small mt-1">Service Provider: {project.serviceProvider}</div>
+            )}
+            {project.description && (
+              <div className="text-muted small mt-1">{project.description}</div>
+            )}
+            {project.routeDescription && (
+              <div className="text-muted small mt-1">{project.routeDescription}</div>
+            )}
+            <div className="d-flex flex-wrap gap-3 font-mono-code small mt-1">
+              <span>{project.charterWindowStart} → {project.charterWindowEnd}</span>
+              {project.workLocationType && (
+                <span className="text-secondary">· {project.workLocationType}</span>
+              )}
+              {project.workOrderRef && (
+                <span className="text-secondary">· WO: {project.workOrderRef}</span>
+              )}
             </div>
           </div>
           <div className="text-end">
@@ -205,9 +288,23 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
 
       {showAddPanel && canManage && (
         <div className="card map-card-custom p-3">
-          <h6 className="fw-bold mb-2">Add Asset to Project</h6>
+          <div className="d-flex flex-wrap align-items-center justify-between gap-2 mb-2">
+            <h6 className="fw-bold mb-0">Add Asset to Project</h6>
+            <div className="form-check form-switch mb-0">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="projectDetailIncludeExternal"
+                checked={includeExternalProviders}
+                onChange={(e) => setIncludeExternalProviders(e.target.checked)}
+              />
+              <label className="form-check-label small" htmlFor="projectDetailIncludeExternal">
+                Include external providers
+              </label>
+            </div>
+          </div>
           <div className="d-flex gap-2 mb-2">
-            {(['All', 'Vessel', 'Crew', 'Equipment'] as const).map((t) => (
+            {(['All', 'Vessel', 'Crew', 'Equipment', ...(includeExternalProviders ? (['Activity'] as const) : [])] as const).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -222,17 +319,25 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
             {availableToAdd.length === 0 ? (
               <div className="p-3 text-muted small text-center">No additional assets available.</div>
             ) : (
-              availableToAdd.map((a) => (
+              availableToAdd.map((a) => {
+                const isOwnOrg = project
+                  ? isOrganizationMatch(project.requestingOrganization, a.providerOrganization)
+                  : false;
+                return (
                 <div key={`${a.assetType}-${a.assetId}`} className="d-flex justify-between align-items-center p-2 border-bottom small">
                   <div>
                     <strong>{a.assetName}</strong>
+                    <span className={`badge ms-1 ${isOwnOrg ? 'bg-success' : 'bg-warning text-dark'}`} style={{ fontSize: '0.6rem' }}>
+                      {isOwnOrg ? 'Your org' : 'External'}
+                    </span>
                     <div className="text-muted">{a.assetType} · {a.providerOrganization}</div>
                   </div>
                   <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => handleAddAsset(a)}>
                     Add
                   </button>
                 </div>
-              ))
+              );
+              })
             )}
           </div>
         </div>
@@ -241,7 +346,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
       {activeTab === 'roster' && (
         <div className="card map-card-custom">
           <div className="card-header d-flex gap-2 p-3">
-            {(['All', 'Vessel', 'Crew', 'Equipment'] as const).map((t) => (
+            {(['All', 'Vessel', 'Crew', 'Equipment', 'Activity'] as const).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -258,6 +363,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
                 <tr>
                   <th>Asset</th>
                   <th>Type</th>
+                  <th>Role</th>
                   <th>Organization</th>
                   <th>Assurance Set</th>
                   <th>Certificates</th>
@@ -267,18 +373,27 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
               <tbody>
                 {filteredLinks.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-4 text-muted">
-                      No assets linked yet. Use + Add Asset to compose this charter.
+                    <td colSpan={7} className="text-center py-4 text-muted">
+                      No assets linked yet. Use + Add Asset to compose this project.
                     </td>
                   </tr>
                 ) : (
                   filteredLinks.map((link) => {
-                    const sets = getEligibleAssuranceSetsForAsset(link.assetType, link.assetId, assuranceSets);
+                    const sets = getEligibleAssuranceSetsForAsset(
+                      link.assetType,
+                      link.assetId,
+                      assuranceSets,
+                      {
+                        requestingOrganization: project.requestingOrganization,
+                        providerOrganization: link.providerOrganization,
+                      },
+                    );
                     const activeSet = assuranceSets.find((s) => s.id === link.assuranceSetId);
                     return (
                       <tr key={link.id}>
                         <td className="fw-semibold">{link.assetName}</td>
                         <td>{link.assetType}</td>
+                        <td className="small text-secondary">{link.roleInProject || '—'}</td>
                         <td className="small">{link.providerOrganization}</td>
                         <td>
                           {canManage ? (

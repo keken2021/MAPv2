@@ -7,8 +7,12 @@
 import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { ProjectAssetType } from '../../types/project';
-import { filterProjectsForPersona, getEligibleAssuranceSetsForAsset } from '../../utils/projectHelpers';
-import { getClientAdminOrganization } from '../../utils/rbacHelpers';
+import {
+  filterProjectsForPersona,
+  getEligibleAssuranceSetsForAsset,
+  getProjectOrganizationForPersona,
+  requiresAssuranceSetForAssetLink,
+} from '../../utils/projectHelpers';
 
 interface AddToProjectModalProps {
   isOpen: boolean;
@@ -46,10 +50,21 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
 
+  const selectedProject = visibleProjects.find((p) => p.id === selectedProjectId);
+  const effectiveProviderOrg = providerOrganization || getProjectOrganizationForPersona(activePersona, users);
+
   const eligibleSets = useMemo(
-    () => getEligibleAssuranceSetsForAsset(assetType, assetId, assuranceSets),
-    [assetType, assetId, assuranceSets],
+    () =>
+      getEligibleAssuranceSetsForAsset(assetType, assetId, assuranceSets, {
+        requestingOrganization: selectedProject?.requestingOrganization,
+        providerOrganization: effectiveProviderOrg,
+      }),
+    [assetType, assetId, assuranceSets, selectedProject?.requestingOrganization, effectiveProviderOrg],
   );
+
+  const needsAssuranceSet = selectedProject
+    ? requiresAssuranceSetForAssetLink(selectedProject.requestingOrganization, effectiveProviderOrg)
+    : true;
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -71,8 +86,8 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
       setError('Select a project.');
       return;
     }
-    if (!selectedAssuranceSetId) {
-      setError('Select an assurance set for this asset.');
+    if (needsAssuranceSet && !selectedAssuranceSetId) {
+      setError('Cross-organization assets require an assurance set.');
       return;
     }
 
@@ -80,7 +95,7 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
       assetType,
       assetId,
       assetName,
-      providerOrganization,
+      providerOrganization: effectiveProviderOrg,
       assuranceSetId: selectedAssuranceSetId,
       notes: notes.trim() || undefined,
     });
@@ -94,10 +109,7 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
     setCurrentHashView('project', selectedProjectId);
   };
 
-  const defaultOrg =
-    activePersona === 'C Admin'
-      ? getClientAdminOrganization(users)
-      : 'Northwind Marine Pty Ltd';
+  const defaultOrg = getProjectOrganizationForPersona(activePersona, users);
 
   return (
     <div
@@ -142,7 +154,9 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
             </div>
 
             <div className="mb-3">
-              <label className="form-label small fw-semibold">Assurance Set</label>
+              <label className="form-label small fw-semibold">
+                Assurance Set{needsAssuranceSet ? ' *' : ' (optional for same-org)'}
+              </label>
               <select
                 className="form-select form-select-sm"
                 value={selectedAssuranceSetId}
@@ -150,7 +164,11 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
                 disabled={eligibleSets.length === 0}
               >
                 {eligibleSets.length === 0 ? (
-                  <option value="">No assurance sets linked to this asset</option>
+                  <option value="">
+                    {needsAssuranceSet
+                      ? 'No assurance sets linked to this asset'
+                      : 'No assurance sets — optional for same-org asset'}
+                  </option>
                 ) : (
                   eligibleSets.map((s) => (
                     <option key={s.id} value={s.id}>

@@ -43,13 +43,21 @@ import {
 } from '../utils/permissionDefaults';
 import { applyPermissionGuards } from '../utils/permissionHelpers';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
-import { Project, ProjectAssetLink, ProjectRiskProfile } from '../types/project';
+import {
+  Project,
+  ProjectAssetLink,
+  ProjectRiskProfile,
+  ProjectType,
+  WorkLocationType,
+} from '../types/project';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from './projectMockData';
 import {
   buildMasterAssuranceRequirements,
   calculateProjectReadiness,
   generateMasterAssuranceSetId,
   generateUniqueProjectId,
+  getProjectEffectiveCharterer,
+  requiresAssuranceSetForAssetLink,
 } from '../utils/projectHelpers';
 import { MOCK_VESSEL_STATUS_HISTORY } from './vesselStatusHistoryMockData';
 import {
@@ -93,15 +101,21 @@ export interface MapStoreState {
   projects: Project[];
   addProject: (input: {
     name: string;
+    projectType: ProjectType;
     clientOperator: string;
-    charterer: string;
+    requestingOrganization: string;
     location: string;
     description?: string;
-    routeDescription: string;
-    riskProfile: ProjectRiskProfile;
     charterWindowStart: string;
     charterWindowEnd: string;
     operatorOrganization: string;
+    charterer?: string;
+    routeDescription?: string;
+    riskProfile?: ProjectRiskProfile | null;
+    serviceProvider?: string;
+    workOrderRef?: string;
+    workLocationType?: WorkLocationType;
+    primaryVesselId?: string;
     assetLinks?: Omit<ProjectAssetLink, 'id' | 'projectId' | 'addedAt' | 'addedByPersona'>[];
   }) => { success: boolean; projectId?: string; message?: string };
   updateProject: (project: Project) => void;
@@ -346,6 +360,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const projectId = generateUniqueProjectId(existing);
     const masterId = generateMasterAssuranceSetId(projectId, get().assuranceSets);
     const persona = get().activePersona;
+    const effectiveCharterer = input.charterer?.trim() || input.requestingOrganization;
+
+    const crossOrgMissingAssurance = (input.assetLinks ?? []).filter(
+      (link) =>
+        requiresAssuranceSetForAssetLink(input.requestingOrganization, link.providerOrganization) &&
+        !link.assuranceSetId,
+    );
+    if (crossOrgMissingAssurance.length > 0) {
+      return {
+        success: false,
+        message: 'Cross-organization assets require an assurance set to be selected.',
+      };
+    }
 
     const assetLinks: ProjectAssetLink[] = (input.assetLinks ?? []).map((link, idx) => ({
       ...link,
@@ -372,7 +399,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       imoNumber: childSets[0]?.imoNumber || get().vessels[0]?.imoNumber || '0000000',
       initiatorOrg: input.operatorOrganization,
       initiatorRole: persona === 'C Admin' ? 'C Admin · Client Created' : 'Vessel Provider Admin',
-      charterer: input.charterer,
+      charterer: effectiveCharterer,
       charterWindowStart: input.charterWindowStart,
       charterWindowEnd: input.charterWindowEnd,
       stage: 'Initiated',
@@ -386,41 +413,36 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       createdByPersona: persona,
     };
 
-    const readinessScore = calculateProjectReadiness(
-      {
-        id: projectId,
-        name: input.name,
-        clientOperator: input.clientOperator,
-        location: input.location,
-        description: input.description || '',
-        charterer: input.charterer,
-        routeDescription: input.routeDescription,
-        riskProfile: input.riskProfile,
-        charterWindowStart: input.charterWindowStart,
-        charterWindowEnd: input.charterWindowEnd,
-        status: assetLinks.length > 0 ? 'Assurance In Progress' : 'Composing',
-        operatorOrganization: input.operatorOrganization,
-        masterAssuranceSetId: masterId,
-        assetLinks,
-      },
-      [...get().assuranceSets, masterSet],
-    );
-
-    const project: Project = {
+    const projectDraft: Project = {
       id: projectId,
       name: input.name,
+      projectType: input.projectType,
+      requestingOrganization: input.requestingOrganization,
       clientOperator: input.clientOperator,
       location: input.location,
       description: input.description || '',
       charterer: input.charterer,
       routeDescription: input.routeDescription,
-      riskProfile: input.riskProfile,
+      riskProfile: input.riskProfile ?? null,
       charterWindowStart: input.charterWindowStart,
       charterWindowEnd: input.charterWindowEnd,
       status: assetLinks.length > 0 ? 'Assurance In Progress' : 'Composing',
       operatorOrganization: input.operatorOrganization,
       masterAssuranceSetId: masterId,
       assetLinks,
+      serviceProvider: input.serviceProvider,
+      workOrderRef: input.workOrderRef,
+      workLocationType: input.workLocationType,
+      primaryVesselId: input.primaryVesselId,
+    };
+
+    const readinessScore = calculateProjectReadiness(
+      projectDraft,
+      [...get().assuranceSets, masterSet],
+    );
+
+    const project: Project = {
+      ...projectDraft,
       readinessScore,
     };
 
@@ -553,7 +575,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           requirements: masterRequirements,
           charterWindowStart: project.charterWindowStart,
           charterWindowEnd: project.charterWindowEnd,
-          charterer: project.charterer,
+          charterer: getProjectEffectiveCharterer(project),
         };
         return {
           ...updated,

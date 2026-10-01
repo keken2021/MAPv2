@@ -447,6 +447,13 @@ export const EXISTING_ACTIVITIES: import('../types/assurance').AssuranceActivity
     location: 'Bass Strait / Gippsland Basin, VIC',
     description: 'Plug and abandonment operations, subsea manifold recovery, and seabed clearance.',
   },
+  {
+    id: 'MAP-ACT-2026-HULL-007',
+    name: 'Hull Fouling Removal & Antifouling Surface Prep',
+    category: 'Vessel Maintenance Service',
+    location: 'Port / Alongside Vessel',
+    description: 'Underwater hull cleaning, rust removal, and barnacle clearing for dry-dock or alongside prep.',
+  },
 ];
 
 

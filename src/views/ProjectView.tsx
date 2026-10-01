@@ -26,7 +26,10 @@ export const ProjectView: React.FC = () => {
         !q ||
         p.name.toLowerCase().includes(q) ||
         p.id.toLowerCase().includes(q) ||
-        p.charterer.toLowerCase().includes(q) ||
+        p.projectType.toLowerCase().includes(q) ||
+        p.requestingOrganization.toLowerCase().includes(q) ||
+        (p.charterer && p.charterer.toLowerCase().includes(q)) ||
+        (p.serviceProvider && p.serviceProvider.toLowerCase().includes(q)) ||
         p.masterAssuranceSetId.toLowerCase().includes(q);
       const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
       return matchesSearch && matchesStatus;
@@ -42,7 +45,7 @@ export const ProjectView: React.FC = () => {
           <input
             type="text"
             className="form-control form-control-sm"
-            placeholder="Search project name, ID, charterer..."
+            placeholder="Search project name, ID, type, org..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: '280px' }}
@@ -79,8 +82,9 @@ export const ProjectView: React.FC = () => {
               <tr>
                 <th>Project ID</th>
                 <th>Project Name</th>
-                <th>Operator / Charterer</th>
-                <th>Charter Window</th>
+                <th>Type</th>
+                <th>Requesting Org</th>
+                <th>Project Window</th>
                 <th>Assets</th>
                 <th>Master AS</th>
                 <th>Readiness</th>
@@ -91,7 +95,7 @@ export const ProjectView: React.FC = () => {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="text-center py-4 text-muted">
+                  <td colSpan={10} className="text-center py-4 text-muted">
                     No projects match your search criteria.
                   </td>
                 </tr>
@@ -103,8 +107,13 @@ export const ProjectView: React.FC = () => {
                       <td className="font-mono-code text-primary fw-semibold">{p.id}</td>
                       <td>{p.name}</td>
                       <td className="small">
-                        <div>{p.operatorOrganization}</div>
-                        <div className="text-muted">{p.charterer}</div>
+                        <span className="badge bg-light text-dark border">{p.projectType}</span>
+                      </td>
+                      <td className="small">
+                        <div>{p.requestingOrganization}</div>
+                        {p.serviceProvider && (
+                          <div className="text-muted">via {p.serviceProvider}</div>
+                        )}
                       </td>
                       <td className="font-mono-code small">
                         {p.charterWindowStart} → {p.charterWindowEnd}
