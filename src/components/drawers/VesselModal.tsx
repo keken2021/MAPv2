@@ -1003,10 +1003,6 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                   }}
                                   title="Universal Sizing & Crop Tool"
                                 >
-                                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                    <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
-                                    <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
-                                  </svg>
                                   <span>Crop</span>
                                 </button>
                               </div>
@@ -1039,27 +1035,17 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                           onChange={(e) => {
                             const files = e.target.files;
                             if (files && files.length > 0) {
-                              const newPhotosList: string[] = [];
-                              let loadedCount = 0;
-                              Array.from(files).forEach((file) => {
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                  if (typeof reader.result === 'string') {
-                                    newPhotosList.push(reader.result);
-                                  }
-                                  loadedCount++;
-                                  if (loadedCount === files.length) {
-                                    setPhotos((prev) => {
-                                      const combined = [...prev, ...newPhotosList];
-                                      if (!imageUrl && combined.length > 0) {
-                                        setImageUrl(combined[0]);
-                                      }
-                                      return combined;
-                                    });
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              });
+                              const file = files[0];
+                              const reader = new FileReader();
+                              reader.onload = () => {
+                                if (typeof reader.result === 'string') {
+                                  setCropTargetIndex(null);
+                                  setCropModalImageSrc(reader.result);
+                                  setIsCropModalOpen(true);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                              e.target.value = '';
                             }
                           }}
                         />
@@ -1076,7 +1062,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                               <polyline points="17 8 12 3 7 8" />
                               <line x1="12" y1="3" x2="12" y2="15" />
                             </svg>
-                            <span>Upload Photos (Multiple)</span>
+                            <span>Upload &amp; Crop Photo</span>
                           </button>
                           {(photos.length > 0 || imageUrl) && (
                             <button
@@ -1093,7 +1079,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                           )}
                         </div>
 
-                        {/* Uploaded Photos Gallery Thumbnails */}
+                        {/* Uploaded Photos Gallery Thumbnails with Reordering & Re-crop */}
                         {photos.length > 0 && (
                           <div className="d-flex align-items-center gap-2 overflow-x-auto p-1.5 bg-white border rounded">
                             {photos.map((photo, pIdx) => {
@@ -1101,14 +1087,14 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                               return (
                                 <div
                                   key={pIdx}
-                                  className={`position-relative border rounded overflow-hidden flex-shrink-0 cursor-pointer transition-all ${isCover ? 'border-primary border-2 shadow-sm' : 'border-secondary-subtle'}`}
-                                  style={{ width: '64px', height: '50px' }}
+                                  className={`position-relative border rounded overflow-hidden flex-shrink-0 cursor-pointer transition-all ${isCover ? 'border-primary border-2 shadow-sm ring-2 ring-primary' : 'border-secondary-subtle'}`}
+                                  style={{ width: '80px', height: '56px' }}
                                   onClick={() => setImageUrl(photo)}
                                   title={isCover ? 'Primary Cover Photo' : 'Click to set as primary cover'}
                                 >
                                   <img src={photo} alt={`Photo ${pIdx + 1}`} className="w-100 h-100" style={{ objectFit: 'cover' }} />
                                   {isCover && (
-                                    <div className="position-absolute top-0 start-0 bg-primary text-white px-1 font-mono-code" style={{ fontSize: '0.55rem', borderBottomRightRadius: '3px' }}>
+                                    <div className="position-absolute top-0 start-0 bg-primary text-white px-1 font-mono-code fw-bold" style={{ fontSize: '0.55rem', borderBottomRightRadius: '3px' }}>
                                       Cover
                                     </div>
                                   )}
@@ -1147,15 +1133,59 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                       ×
                                     </button>
                                   </div>
+
+                                  {/* Bottom Rearrange Bar (Move Left / Right) */}
+                                  <div
+                                    className="position-absolute bottom-0 start-0 w-100 d-flex align-items-center justify-content-between px-1 py-0.5"
+                                    style={{ background: 'rgba(0, 0, 0, 0.65)' }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {pIdx > 0 ? (
+                                      <button
+                                        type="button"
+                                        className="btn btn-xs btn-outline-light p-0 border-0 text-white"
+                                        style={{ fontSize: '0.65rem', lineHeight: 1 }}
+                                        onClick={() => {
+                                          const updated = [...photos];
+                                          const [moved] = updated.splice(pIdx, 1);
+                                          updated.splice(pIdx - 1, 0, moved);
+                                          setPhotos(updated);
+                                          if (pIdx - 1 === 0) setImageUrl(moved);
+                                        }}
+                                        title="Move Left (Rearrange)"
+                                      >
+                                        ←
+                                      </button>
+                                    ) : <span style={{ width: '8px' }} />}
+
+                                    <span className="font-mono-code text-white" style={{ fontSize: '0.55rem' }}>#{pIdx + 1}</span>
+
+                                    {pIdx < photos.length - 1 ? (
+                                      <button
+                                        type="button"
+                                        className="btn btn-xs btn-outline-light p-0 border-0 text-white"
+                                        style={{ fontSize: '0.65rem', lineHeight: 1 }}
+                                        onClick={() => {
+                                          const updated = [...photos];
+                                          const [moved] = updated.splice(pIdx, 1);
+                                          updated.splice(pIdx + 1, 0, moved);
+                                          setPhotos(updated);
+                                        }}
+                                        title="Move Right (Rearrange)"
+                                      >
+                                        →
+                                      </button>
+                                    ) : <span style={{ width: '8px' }} />}
+                                  </div>
                                 </div>
                               );
                             })}
                           </div>
                         )}
 
-                        {/* Curated Presets */}
+                        {/* Curated Presets with Instant Crop */}
                         <div className="d-flex flex-wrap align-items-center gap-1.5">
-                          <span className="small text-secondary fw-semibold" style={{ fontSize: '0.72rem' }}>Add stock photo:</span>
+                          <span className="small text-secondary fw-semibold" style={{ fontSize: '0.72rem' }}>Add &amp; Crop Stock Photo:</span>
                           {CURATED_VESSEL_PHOTOS.slice(0, 4).map((p, idx) => (
                             <button
                               key={idx}
@@ -1163,20 +1193,18 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                               className="btn btn-xs btn-outline-secondary py-0.5 px-1.5 rounded-pill"
                               style={{ fontSize: '0.68rem' }}
                               onClick={() => {
-                                if (!photos.includes(p.url)) {
-                                  setPhotos((prev) => [...prev, p.url]);
-                                }
-                                if (!imageUrl) {
-                                  setImageUrl(p.url);
-                                }
+                                setCropTargetIndex(null);
+                                setCropModalImageSrc(p.url);
+                                setIsCropModalOpen(true);
                               }}
+                              title={`Crop and add ${p.title}`}
                             >
                               + {p.title.split('/')[0].trim()}
                             </button>
                           ))}
                         </div>
 
-                        {/* Image URL fallback */}
+                        {/* Image URL fallback with Instant Crop */}
                         <div className="d-flex align-items-center gap-2">
                           <span className="small text-secondary" style={{ fontSize: '0.75rem' }}>Or URL:</span>
                           <input
@@ -1185,14 +1213,21 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                             style={{ fontSize: '0.75rem' }}
                             placeholder="https://images.unsplash.com/..."
                             value={imageUrl}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setImageUrl(val);
-                              if (val && !photos.includes(val)) {
-                                setPhotos((prev) => [val, ...prev]);
-                              }
-                            }}
+                            onChange={(e) => setImageUrl(e.target.value)}
                           />
+                          {imageUrl.trim() && (
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline-primary"
+                              onClick={() => {
+                                setCropTargetIndex(null);
+                                setCropModalImageSrc(imageUrl.trim());
+                                setIsCropModalOpen(true);
+                              }}
+                            >
+                              Crop &amp; Add
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -4862,16 +4862,16 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         <span className="small fw-bold text-dark">
                           Vessel Photo Gallery ({modalPhotos.length} image{modalPhotos.length > 1 ? 's' : ''})
                         </span>
-                        <span className="text-secondary" style={{ fontSize: '0.7rem' }}>Click a photo to preview / set as primary cover</span>
+                        <span className="text-secondary" style={{ fontSize: '0.7rem' }}>Rearrange photos or click to preview / set as primary cover</span>
                       </div>
                       <div className="row g-2">
                         {modalPhotos.map((pUrl, pIdx) => {
                           const isCover = photoModalUrl === pUrl;
                           return (
-                            <div key={pIdx} className="col-4 col-md-3 col-lg-2">
+                            <div key={pIdx} className="col-6 col-sm-4 col-md-3 col-lg-2">
                               <div
                                 className={`position-relative border rounded overflow-hidden cursor-pointer transition-all ${isCover ? 'border-primary border-2 shadow-sm ring-2 ring-primary' : 'border-secondary-subtle opacity-90 hover-opacity-100'}`}
-                                style={{ height: '70px' }}
+                                style={{ height: '84px' }}
                                 onClick={() => setPhotoModalUrl(pUrl)}
                                 title={isCover ? 'Active Primary Cover' : 'Click to set as primary cover'}
                               >
@@ -4919,6 +4919,56 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                     ×
                                   </button>
                                 </div>
+
+                                {/* Bottom Rearrange Bar (Move Left / Right) */}
+                                <div
+                                  className="position-absolute bottom-0 start-0 w-100 d-flex align-items-center justify-content-between px-1.5 py-0.5 text-white"
+                                  style={{ background: 'rgba(0, 0, 0, 0.7)' }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {pIdx > 0 ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-xs btn-outline-light p-0 border-0 text-white"
+                                      style={{ fontSize: '0.65rem', lineHeight: 1 }}
+                                      onClick={() => {
+                                        const updated = [...modalPhotos];
+                                        const [moved] = updated.splice(pIdx, 1);
+                                        updated.splice(pIdx - 1, 0, moved);
+                                        setModalPhotos(updated);
+                                        if (pIdx - 1 === 0) setPhotoModalUrl(moved);
+                                      }}
+                                      title="Move Left (Rearrange)"
+                                    >
+                                      ←
+                                    </button>
+                                  ) : (
+                                    <span style={{ width: '10px' }} />
+                                  )}
+
+                                  <span className="font-mono-code text-white" style={{ fontSize: '0.55rem' }}>
+                                    #{pIdx + 1}
+                                  </span>
+
+                                  {pIdx < modalPhotos.length - 1 ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-xs btn-outline-light p-0 border-0 text-white"
+                                      style={{ fontSize: '0.65rem', lineHeight: 1 }}
+                                      onClick={() => {
+                                        const updated = [...modalPhotos];
+                                        const [moved] = updated.splice(pIdx, 1);
+                                        updated.splice(pIdx + 1, 0, moved);
+                                        setModalPhotos(updated);
+                                      }}
+                                      title="Move Right (Rearrange)"
+                                    >
+                                      →
+                                    </button>
+                                  ) : (
+                                    <span style={{ width: '10px' }} />
+                                  )}
+                                </div>
                               </div>
                             </div>
                           );
@@ -4931,40 +4981,29 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 {/* 2. Upload Action & Drag/Drop Area for Multiple Files */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
                   <div className="d-flex align-items-center justify-content-between mb-2">
-                    <span className="fw-bold text-dark small">Option A: Upload New Vessel Images (Single or Multiple)</span>
+                    <span className="fw-bold text-dark small">Option A: Upload &amp; Crop New Vessel Image</span>
                     <span className="text-secondary" style={{ fontSize: '0.75rem' }}>JPEG, PNG, WEBP</span>
                   </div>
 
                   <input
                     type="file"
                     ref={photoFileInputRef}
-                    multiple
                     className="d-none"
                     accept="image/png,image/jpeg,image/webp,image/jpg"
                     onChange={(e) => {
                       const files = e.target.files;
                       if (files && files.length > 0) {
-                        const newPhotosList: string[] = [];
-                        let loadedCount = 0;
-                        Array.from(files).forEach((file) => {
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            if (typeof reader.result === 'string') {
-                              newPhotosList.push(reader.result);
-                            }
-                            loadedCount++;
-                            if (loadedCount === files.length) {
-                              setModalPhotos((prev) => {
-                                const combined = [...prev, ...newPhotosList];
-                                if (!photoModalUrl && combined.length > 0) {
-                                  setPhotoModalUrl(combined[0]);
-                                }
-                                return combined;
-                              });
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        });
+                        const file = files[0];
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          if (typeof reader.result === 'string') {
+                            setCropTargetIdx(null);
+                            setCropModalImageSrc(reader.result);
+                            setIsCropModalOpen(true);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = '';
                       }
                     }}
                   />
@@ -4978,27 +5017,16 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       e.preventDefault();
                       const files = e.dataTransfer.files;
                       if (files && files.length > 0) {
-                        const newPhotosList: string[] = [];
-                        let loadedCount = 0;
-                        Array.from(files).forEach((file) => {
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            if (typeof reader.result === 'string') {
-                              newPhotosList.push(reader.result);
-                            }
-                            loadedCount++;
-                            if (loadedCount === files.length) {
-                              setModalPhotos((prev) => {
-                                const combined = [...prev, ...newPhotosList];
-                                if (!photoModalUrl && combined.length > 0) {
-                                  setPhotoModalUrl(combined[0]);
-                                }
-                                return combined;
-                              });
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        });
+                        const file = files[0];
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          if (typeof reader.result === 'string') {
+                            setCropTargetIdx(null);
+                            setCropModalImageSrc(reader.result);
+                            setIsCropModalOpen(true);
+                          }
+                        };
+                        reader.readAsDataURL(file);
                       }
                     }}
                   >
@@ -5008,17 +5036,17 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       <line x1="12" y1="3" x2="12" y2="15" />
                     </svg>
                     <span className="small text-dark fw-semibold">
-                      Drag &amp; drop multiple vessel images here or <span className="text-primary text-decoration-underline">browse files</span>
+                      Drag &amp; drop vessel image here or <span className="text-primary text-decoration-underline">browse files</span>
                     </span>
                     <span className="text-secondary" style={{ fontSize: '0.72rem' }}>
-                      Select one or multiple photos (PNG, JPG, WEBP). Recommended: 16:9 landscape format.
+                      Picks image and opens universal 16:9 sizing &amp; crop tool before adding.
                     </span>
                   </div>
                 </div>
 
                 {/* 3. Option B: Select from Curated Maritime Fleet Stock Presets */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
-                  <div className="fw-bold text-dark small mb-2">Option B: Select from Maritime Fleet Stock Photos</div>
+                  <div className="fw-bold text-dark small mb-2">Option B: Select &amp; Crop from Maritime Fleet Stock Photos</div>
                   <div className="row g-2">
                     {CURATED_VESSEL_PHOTOS.map((p, idx) => (
                       <div key={idx} className="col-6 col-md-3">
@@ -5026,12 +5054,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           className={`position-relative border rounded overflow-hidden cursor-pointer transition-all ${photoModalUrl === p.url ? 'border-primary border-2 shadow-sm ring-2 ring-primary' : 'border-secondary-subtle opacity-90 hover-opacity-100'}`}
                           style={{ height: '70px' }}
                           onClick={() => {
-                            setPhotoModalUrl(p.url);
-                            if (!modalPhotos.includes(p.url)) {
-                              setModalPhotos((prev) => [...prev, p.url]);
-                            }
+                            setCropTargetIdx(null);
+                            setCropModalImageSrc(p.url);
+                            setIsCropModalOpen(true);
                           }}
-                          title={`Add & select ${p.title}`}
+                          title={`Crop and add ${p.title}`}
                         >
                           <img src={p.url} alt={p.title} className="w-100 h-100" style={{ objectFit: 'cover' }} />
                           <div
@@ -5071,15 +5098,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       onClick={() => {
                         const url = customPhotoUrl.trim();
                         if (url) {
-                          setPhotoModalUrl(url);
-                          if (!modalPhotos.includes(url)) {
-                            setModalPhotos((prev) => [...prev, url]);
-                          }
+                          setCropTargetIdx(null);
+                          setCropModalImageSrc(url);
+                          setIsCropModalOpen(true);
                           setCustomPhotoUrl('');
                         }
                       }}
                     >
-                      + Add to Gallery
+                      Crop &amp; Add
                     </button>
                   </div>
                 </div>

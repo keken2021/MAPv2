@@ -22,6 +22,8 @@ export interface CropTransform {
   panY: number; // in pixels
   rotate: number; // 0, 90, 180, 270 degrees
   flipH: boolean;
+  boxWidth?: number;
+  boxHeight?: number;
 }
 
 export interface ImageCropValidationResult {
@@ -162,6 +164,74 @@ export const loadImageElement = (src: string): Promise<HTMLImageElement> => {
 };
 
 /**
+ * Calculates the unscaled base display size of an image covering the crop box
+ */
+export const getBaseImageDisplaySize = (
+  naturalWidth: number,
+  naturalHeight: number,
+  boxWidth: number = 520,
+  boxHeight: number = 292.5,
+): { width: number; height: number } => {
+  if (naturalWidth <= 0 || naturalHeight <= 0) {
+    return { width: boxWidth, height: boxHeight };
+  }
+  const imgAspect = naturalWidth / naturalHeight;
+  const boxAspect = boxWidth / boxHeight;
+
+  if (imgAspect >= boxAspect) {
+    // Wider than box: height fills box, width expands
+    return {
+      width: boxHeight * imgAspect,
+      height: boxHeight,
+    };
+  } else {
+    // Taller than box: width fills box, height expands
+    return {
+      width: boxWidth,
+      height: boxWidth / imgAspect,
+    };
+  }
+};
+
+/**
+ * Clamps pan offsets to ensure the crop viewport stays strictly within the image boundaries (preventing empty/outside crop areas).
+ */
+export const clampCropPan = (
+  pan: { x: number; y: number },
+  zoom: number,
+  naturalWidth: number,
+  naturalHeight: number,
+  boxWidth: number = 520,
+  boxHeight: number = 292.5,
+  rotate: number = 0,
+): { x: number; y: number } => {
+  if (naturalWidth <= 0 || naturalHeight <= 0) return { x: 0, y: 0 };
+
+  const baseSize = getBaseImageDisplaySize(naturalWidth, naturalHeight, boxWidth, boxHeight);
+  const isRotated90or270 = Math.abs(rotate) % 180 !== 0;
+
+  let currentW = baseSize.width * zoom;
+  let currentH = baseSize.height * zoom;
+
+  if (isRotated90or270) {
+    const rotScale = Math.max(boxWidth / baseSize.height, boxHeight / baseSize.width);
+    currentW = baseSize.height * zoom * rotScale;
+    currentH = baseSize.width * zoom * rotScale;
+  }
+
+  const maxPanX = Math.max(0, (currentW - boxWidth) / 2);
+  const maxPanY = Math.max(0, (currentH - boxHeight) / 2);
+
+  const clampedX = Math.max(-maxPanX, Math.min(maxPanX, pan.x));
+  const clampedY = Math.max(-maxPanY, Math.min(maxPanY, pan.y));
+
+  return {
+    x: Math.abs(clampedX) < 1e-6 ? 0 : clampedX,
+    y: Math.abs(clampedY) < 1e-6 ? 0 : clampedY,
+  };
+};
+
+/**
  * Renders a transformed and cropped image onto an HTML5 canvas and exports a high quality Data URL.
  */
 export const renderCroppedImageToDataUrl = (
@@ -190,8 +260,8 @@ export const renderCroppedImageToDataUrl = (
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Fill default neutral background (dark slate marine background)
-  ctx.fillStyle = '#0f172a';
+  // Fill neutral black background
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, targetWidth, targetHeight);
 
   // Save context state for transformations
@@ -224,14 +294,28 @@ export const renderCroppedImageToDataUrl = (
   const drawWidth = img.width * finalScale;
   const drawHeight = img.height * finalScale;
 
-  // Scale pan offsets according to target canvas resolution
-  const panOffsetX = transform.panX * (targetWidth / 400); // 400 is standard preview baseline width
-  const panOffsetY = transform.panY * (targetHeight / 225);
+  // Scale pan offsets according to target canvas resolution accurately
+  const previewBoxWidth = transform.boxWidth || 520;
+  const previewBoxHeight = transform.boxHeight || (previewBoxWidth * (9 / 16));
+  const panScaleFactorX = targetWidth / previewBoxWidth;
+  const panScaleFactorY = targetHeight / previewBoxHeight;
+
+  const rawPanOffsetX = transform.panX * panScaleFactorX;
+  const rawPanOffsetY = transform.panY * panScaleFactorY;
+
+  // Strict boundary clamping so the cropped output never extends outside the image boundaries
+  const boundX = isRotated90or270 ? targetHeight : targetWidth;
+  const boundY = isRotated90or270 ? targetWidth : targetHeight;
+  const maxPanOffsetX = Math.max(0, (drawWidth - boundX) / 2);
+  const maxPanOffsetY = Math.max(0, (drawHeight - boundY) / 2);
+
+  const clampedPanOffsetX = Math.max(-maxPanOffsetX, Math.min(maxPanOffsetX, rawPanOffsetX));
+  const clampedPanOffsetY = Math.max(-maxPanOffsetY, Math.min(maxPanOffsetY, rawPanOffsetY));
 
   ctx.drawImage(
     img,
-    -drawWidth / 2 + panOffsetX,
-    -drawHeight / 2 + panOffsetY,
+    -drawWidth / 2 + clampedPanOffsetX,
+    -drawHeight / 2 + clampedPanOffsetY,
     drawWidth,
     drawHeight,
   );

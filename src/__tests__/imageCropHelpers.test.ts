@@ -6,6 +6,7 @@ import {
   validateImageFile,
   formatFileSize,
   renderCroppedImageToDataUrl,
+  clampCropPan,
   CropTransform,
 } from '../utils/imageCropHelpers';
 
@@ -137,6 +138,50 @@ describe('Universal Vessel Image Crop & Sizing Helpers', () => {
       expect(transform.zoom).toBe(1.2);
       expect(transform.rotate).toBe(90);
       expect(transform.flipH).toBe(true);
+    });
+  });
+
+  describe('clampCropPan - Boundary Enforcement', () => {
+    it('restricts pan to 0 when zoom is 1.0 and image matches aspect ratio', () => {
+      // 16:9 image (1600x900) in 16:9 box (520x292.5) at zoom=1.0
+      const clamped = clampCropPan({ x: 100, y: -50 }, 1.0, 1600, 900, 520, 292.5, 0);
+      expect(clamped.x).toBe(0);
+      expect(clamped.y).toBe(0);
+    });
+
+    it('allows horizontal panning for wide images but strictly stops at image edges', () => {
+      // 3200x900 (ultra wide) in 520x292.5 box
+      const clampedWithin = clampCropPan({ x: 50, y: 0 }, 1.0, 3200, 900, 520, 292.5, 0);
+      expect(clampedWithin.x).toBe(50);
+      expect(clampedWithin.y).toBe(0);
+
+      // Attempt to pan far beyond image edge
+      const clampedOverflow = clampCropPan({ x: 9999, y: 9999 }, 1.0, 3200, 900, 520, 292.5, 0);
+      expect(clampedOverflow.x).toBeLessThan(9999);
+      expect(clampedOverflow.y).toBe(0); // Cannot pan vertically because image height fits box exactly
+    });
+
+    it('allows panning when zoomed in but clamps to boundaries', () => {
+      // 1600x900 at zoom=2.0 allows panning up to half width/height
+      const clamped = clampCropPan({ x: 500, y: -500 }, 2.0, 1600, 900, 520, 292.5, 0);
+      expect(clamped.x).toBeLessThan(500);
+      expect(clamped.y).toBeGreaterThan(-500);
+    });
+
+    it('strictly prevents vertical over-panning on wide aspect images (e.g. 1228x600 COSCO shipping freighter)', () => {
+      // At zoom 1.0, vertical pan must be strictly 0
+      const atZoom1 = clampCropPan({ x: 0, y: -200 }, 1.0, 1228, 600, 520, 292.5, 0);
+      expect(atZoom1.y).toBe(0);
+
+      // At zoom 1.3, vertical pan is strictly clamped to available overflow ((292.5 * 1.3 - 292.5) / 2 = 43.875)
+      const atZoom13 = clampCropPan({ x: 0, y: -200 }, 1.3, 1228, 600, 520, 292.5, 0);
+      expect(atZoom13.y).toBe(-43.875);
+    });
+
+    it('correctly clamps pan boundaries when image is rotated 90 degrees', () => {
+      const clamped = clampCropPan({ x: 500, y: 500 }, 1.0, 1600, 900, 520, 292.5, 90);
+      expect(Math.abs(clamped.x)).toBeLessThanOrEqual(500);
+      expect(Math.abs(clamped.y)).toBeLessThanOrEqual(500);
     });
   });
 });

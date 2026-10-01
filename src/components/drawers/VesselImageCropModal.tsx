@@ -12,7 +12,11 @@ import {
   CropTransform,
   renderCroppedImageToDataUrl,
   loadImageElement,
+  clampCropPan,
+  getBaseImageDisplaySize,
 } from '../../utils/imageCropHelpers';
+import { Grid3x3, RotateCw, FlipHorizontal, RefreshCw, X, Minus, Plus } from 'lucide-react';
+import './VesselImageCropModal.css';
 
 export interface VesselImageCropModalProps {
   isOpen: boolean;
@@ -40,11 +44,44 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [livePreviewUrl, setLivePreviewUrl] = useState<string>('');
   const [imgNaturalSize, setImgNaturalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [isInteracting, setIsInteracting] = useState<boolean>(false);
+
+  const [containerBoxSize, setContainerBoxSize] = useState<{ width: number; height: number }>({ width: 640, height: 360 });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef<boolean>(false);
   const dragStartRef = useRef<{ x: number; y: number; panX: number; panY: number }>({ x: 0, y: 0, panX: 0, panY: 0 });
   const loadedImageRef = useRef<HTMLImageElement | null>(null);
+  const interactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper to trigger interaction state that auto-hides the left icon bar during movement
+  const notifyMovement = useCallback(() => {
+    setIsInteracting(true);
+    if (interactionTimeoutRef.current) {
+      clearTimeout(interactionTimeoutRef.current);
+    }
+    interactionTimeoutRef.current = setTimeout(() => {
+      setIsInteracting(false);
+    }, 450);
+  }, []);
+
+  // Measure and track container width/height dynamically
+  useEffect(() => {
+    if (!isOpen) return;
+    const updateSize = () => {
+      if (containerRef.current) {
+        const w = containerRef.current.clientWidth || 640;
+        const h = containerRef.current.clientHeight || (w * 9) / 16;
+        setContainerBoxSize({ width: w, height: h });
+      }
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    if (containerRef.current) {
+      ro.observe(containerRef.current);
+    }
+    return () => ro.disconnect();
+  }, [isOpen]);
 
   // Reset or initialize state when opening or when image changes
   useEffect(() => {
@@ -60,13 +97,21 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
         .then((img) => {
           loadedImageRef.current = img;
           setImgNaturalSize({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
-          updateLivePreview(img, initialPreset, { zoom: 1.0, panX: 0, panY: 0, rotate: 0, flipH: false });
+          updateLivePreview(img, initialPreset, {
+            zoom: 1.0,
+            panX: 0,
+            panY: 0,
+            rotate: 0,
+            flipH: false,
+            boxWidth: containerBoxSize.width,
+            boxHeight: containerBoxSize.height,
+          });
         })
         .catch(() => {
           // ignore load error in unmounted state
         });
     }
-  }, [isOpen, imageSrc, initialPreset]);
+  }, [isOpen, imageSrc, initialPreset, containerBoxSize.width, containerBoxSize.height]);
 
   // Update live preview whenever transform or preset changes
   const updateLivePreview = useCallback(
@@ -93,17 +138,39 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
             panY: pan.y,
             rotate,
             flipH,
+            boxWidth: containerBoxSize.width,
+            boxHeight: containerBoxSize.height,
           });
         }
       }, 80);
       return () => clearTimeout(handler);
     }
-  }, [selectedPreset, zoom, pan, rotate, flipH, updateLivePreview]);
+  }, [selectedPreset, zoom, pan, rotate, flipH, containerBoxSize.width, containerBoxSize.height, updateLivePreview]);
 
-  // Mouse drag handlers for panning
+  // Zoom handler with boundary re-clamping based on 100% container dimensions
+  const handleZoomChange = (newZoom: number) => {
+    notifyMovement();
+    const clampedZoom = Math.min(3.5, Math.max(1.0, parseFloat(newZoom.toFixed(2))));
+    setZoom(clampedZoom);
+    setPan((prevPan) =>
+      clampCropPan(
+        prevPan,
+        clampedZoom,
+        imgNaturalSize.width,
+        imgNaturalSize.height,
+        containerBoxSize.width,
+        containerBoxSize.height,
+        rotate,
+      ),
+    );
+  };
+
+  // Mouse drag handlers for panning with strict image boundary clamping and movement auto-hide
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     isDraggingRef.current = true;
+    setIsInteracting(true);
+    if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
     dragStartRef.current = {
       x: e.clientX,
       y: e.clientY,
@@ -114,21 +181,39 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return;
+    setIsInteracting(true);
+    if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
     const deltaX = e.clientX - dragStartRef.current.x;
     const deltaY = e.clientY - dragStartRef.current.y;
-    setPan({
+    const rawPan = {
       x: dragStartRef.current.panX + deltaX,
       y: dragStartRef.current.panY + deltaY,
-    });
+    };
+    const clamped = clampCropPan(
+      rawPan,
+      zoom,
+      imgNaturalSize.width,
+      imgNaturalSize.height,
+      containerBoxSize.width,
+      containerBoxSize.height,
+      rotate,
+    );
+    setPan(clamped);
   };
 
   const handleMouseUp = () => {
     isDraggingRef.current = false;
+    if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
+    interactionTimeoutRef.current = setTimeout(() => {
+      setIsInteracting(false);
+    }, 250);
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (e.touches.length === 1) {
       isDraggingRef.current = true;
+      setIsInteracting(true);
+      if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
       dragStartRef.current = {
         x: e.touches[0].clientX,
         y: e.touches[0].clientY,
@@ -140,23 +225,39 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current || e.touches.length !== 1) return;
+    setIsInteracting(true);
+    if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
     const deltaX = e.touches[0].clientX - dragStartRef.current.x;
     const deltaY = e.touches[0].clientY - dragStartRef.current.y;
-    setPan({
+    const rawPan = {
       x: dragStartRef.current.panX + deltaX,
       y: dragStartRef.current.panY + deltaY,
-    });
+    };
+    const clamped = clampCropPan(
+      rawPan,
+      zoom,
+      imgNaturalSize.width,
+      imgNaturalSize.height,
+      containerBoxSize.width,
+      containerBoxSize.height,
+      rotate,
+    );
+    setPan(clamped);
   };
 
   const handleTouchEnd = () => {
     isDraggingRef.current = false;
+    if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
+    interactionTimeoutRef.current = setTimeout(() => {
+      setIsInteracting(false);
+    }, 250);
   };
 
   // Wheel zoom
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     const delta = e.deltaY < 0 ? 0.08 : -0.08;
-    setZoom((prev) => Math.min(Math.max(1.0, parseFloat((prev + delta).toFixed(2))), 3.5));
+    handleZoomChange(zoom + delta);
   };
 
   // Quick reset to center fit
@@ -176,9 +277,21 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     setFlipH(false);
   };
 
-  // Rotate 90 deg clockwise
+  // Rotate 90 deg clockwise with boundary re-clamping
   const handleRotate = () => {
-    setRotate((prev) => (prev + 90) % 360);
+    const nextRotate = (rotate + 90) % 360;
+    setRotate(nextRotate);
+    setPan((prevPan) =>
+      clampCropPan(
+        prevPan,
+        zoom,
+        imgNaturalSize.width,
+        imgNaturalSize.height,
+        containerBoxSize.width,
+        containerBoxSize.height,
+        nextRotate,
+      ),
+    );
   };
 
   // Flip horizontal
@@ -200,6 +313,8 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
           panY: pan.y,
           rotate,
           flipH,
+          boxWidth: containerBoxSize.width,
+          boxHeight: containerBoxSize.height,
         },
         0.92,
         'image/jpeg',
@@ -220,122 +335,57 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
 
   return (
     <div
-      className="modal fade show d-block"
+      className="modal fade show d-block crop-modal-backdrop"
       tabIndex={-1}
       role="dialog"
       aria-modal="true"
-      style={{ backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 1100, backdropFilter: 'blur(4px)' }}
     >
       <div className="modal-dialog modal-xl modal-dialog-centered" role="document">
-        <div className="modal-content border-0 shadow-lg rounded-3 overflow-hidden bg-white">
+        <div className="modal-content border-0 shadow-lg rounded-3 overflow-hidden crop-modal-content">
           {/* Header */}
-          <div className="modal-header bg-slate-900 text-white px-4 py-3 border-0 d-flex align-items-center justify-content-between">
+          <div className="modal-header crop-modal-header px-4 py-3 border-0 d-flex align-items-center justify-content-between">
             <div className="d-flex align-items-center gap-2.5">
-
               <div>
-                <h5 className="modal-title fs-6 fw-bold mb-0 text-primary d-flex align-items-center gap-2">
+                <h5 className="modal-title fs-6 fw-bold mb-0 crop-modal-title d-flex align-items-center gap-2">
                   Vessel Image Framing &amp; Sizing
                 </h5>
-                <span className="text-secondary small font-mono-code" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                <span className="crop-modal-subtitle font-mono-code">
                   Target: {vesselName} · Original: {imgNaturalSize.width} × {imgNaturalSize.height} px
                 </span>
               </div>
             </div>
 
-            <div className="d-flex align-items-center gap-2">
+            <div className="d-flex align-items-center">
               <button
                 type="button"
-                className="btn btn-xs btn-outline-light d-inline-flex align-items-center gap-1 py-1 px-2"
-                onClick={handleSnapUniversal}
-                title="Reset framing to Universal 16:9 standard"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                  <path d="M21 3v5h-5" />
-                  <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                  <path d="M3 21v-5h5" />
-                </svg>
-                <span>Universal 16:9 Fit</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm text-primary d-flex align-items-center justify-content-center rounded-circle border-0 p-1 hover-bg-secondary"
-                style={{ width: '30px', height: '30px', backgroundColor: 'rgba(255, 255, 255, 0.15)' }}
+                className="crop-modal-close-btn rounded-circle"
                 aria-label="Close"
                 onClick={onClose}
                 title="Close"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <X size={16} strokeWidth={2} />
               </button>
             </div>
           </div>
 
           {/* Body */}
-          <div className="modal-body p-4 bg-light">
+          <div className="modal-body p-4 crop-modal-body">
             {/* Main Interactive Work Area */}
             <div className="row g-3">
               {/* Left Column: Interactive Viewport with Pan & Zoom */}
               <div className="col-lg-8">
                 <div className="card border shadow-2xs rounded-3 overflow-hidden bg-white">
-                  <div className="card-header bg-slate-900 text-primary py-2 px-3 d-flex align-items-center justify-content-between">
-                    <span className="small fw-semibold d-flex align-items-center gap-1.5">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="22" y1="12" x2="18" y2="12" />
-                        <line x1="6" y1="12" x2="2" y2="12" />
-                        <line x1="12" y1="6" x2="12" y2="2" />
-                        <line x1="12" y1="22" x2="12" y2="18" />
-                      </svg>
-                      <span>Framing Viewport (Drag to pan · Scroll to zoom)</span>
+                  <div className="card-header crop-viewport-card-header py-2 px-3 d-flex align-items-center justify-content-between">
+                    <span className="small fw-semibold d-flex align-items-center gap-1.5 crop-viewport-title">
+                      <span>Framing Viewport</span>
                     </span>
-
-                    <div className="d-flex align-items-center gap-1">
-                      <button
-                        type="button"
-                        className={`btn btn-xs ${showGrid ? 'btn-light' : 'btn-outline-light'} py-0.5 px-2`}
-                        onClick={() => setShowGrid(!showGrid)}
-                        title="Toggle Rule-of-Thirds Grid"
-                      >
-                        Grid
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-outline-light text-primary py-0.5 px-2"
-                        onClick={handleRotate}
-                        title="Rotate 90° Clockwise"
-                      >
-                        Rotate 90°
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-xs ${flipH ? 'btn-dark' : 'btn-outline-light'} text-primary py-0.5 px-2`}
-                        onClick={handleFlipHorizontal}
-                        title="Flip Horizontally"
-                      >
-                        Flip
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-xs btn-outline-light text-primary py-0.5 px-2"
-                        onClick={handleReset}
-                        title="Reset Pan and Zoom"
-                      >
-                        Reset
-                      </button>
-                    </div>
                   </div>
 
                   <div
                     ref={containerRef}
-                    className="position-relative overflow-hidden d-flex align-items-center justify-content-center select-none"
+                    className="crop-viewport position-relative overflow-hidden w-100"
                     style={{
-                      height: '380px',
-                      backgroundColor: '#020617',
                       cursor: isDraggingRef.current ? 'grabbing' : 'grab',
-                      userSelect: 'none',
                     }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
@@ -345,82 +395,120 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
                     onWheel={handleWheel}
+                    onDragStart={(e) => e.preventDefault()}
                   >
-                    {/* Darkened background layer */}
+                    {/* Floating Action Icon Bar on Left (Auto-hides on drag/movement) */}
                     <div
-                      className="position-absolute w-100 h-100 opacity-25"
-                      style={{
-                        backgroundImage: `url(${imageSrc})`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        filter: 'blur(8px)',
-                      }}
-                    />
-
-                    {/* Framing Box Area constrained by 16:9 aspect ratio */}
-                    <div
-                      className="position-relative border border-2 border-primary shadow-lg overflow-hidden d-flex align-items-center justify-content-center"
-                      style={{
-                        width: '90%',
-                        maxWidth: '520px',
-                        aspectRatio: '16/9',
-                        boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.72)',
-                        backgroundColor: '#0f172a',
-                      }}
+                      className={`crop-floating-toolbar position-absolute top-50 start-0 ms-2.5 d-flex flex-column gap-1.5 p-1 rounded-3 z-3 shadow-lg ${
+                        isInteracting ? 'is-hidden' : ''
+                      }`}
+                      onClick={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
                     >
-                      {/* Transformed Image */}
-                      {imageSrc && (
+                      {/* 1. Grid Toggle Button */}
+                      <button
+                        type="button"
+                        className={`crop-tool-btn ${showGrid ? 'active' : ''}`}
+                        onClick={() => setShowGrid(!showGrid)}
+                        title={showGrid ? 'Hide Rule-of-Thirds Grid' : 'Show Rule-of-Thirds Grid'}
+                      >
+                        <Grid3x3 size={15} strokeWidth={2} />
+                      </button>
+
+                      {/* 2. Rotate 90 deg Clockwise Button */}
+                      <button
+                        type="button"
+                        className="crop-tool-btn"
+                        onClick={handleRotate}
+                        title="Rotate 90° Clockwise"
+                      >
+                        <RotateCw size={15} strokeWidth={2} />
+                      </button>
+
+                      {/* 3. Flip Horizontal Button */}
+                      <button
+                        type="button"
+                        className={`crop-tool-btn ${flipH ? 'active' : ''}`}
+                        onClick={handleFlipHorizontal}
+                        title="Flip Horizontally"
+                      >
+                        <FlipHorizontal size={15} strokeWidth={2} />
+                      </button>
+
+                      {/* 4. Reset Button */}
+                      <button
+                        type="button"
+                        className="crop-tool-btn"
+                        onClick={handleReset}
+                        title="Reset Pan and Zoom"
+                      >
+                        <RefreshCw size={15} strokeWidth={2} />
+                      </button>
+                    </div>
+
+                    {/* Transformed Image taking 100% of the viewport container */}
+                    {imageSrc && (() => {
+                      const boxW = containerBoxSize.width || 640;
+                      const boxH = containerBoxSize.height || (boxW * 9) / 16;
+                      const baseSize = getBaseImageDisplaySize(
+                        imgNaturalSize.width,
+                        imgNaturalSize.height,
+                        boxW,
+                        boxH,
+                      );
+                      const isRotated90or270 = Math.abs(rotate) % 180 !== 0;
+                      const rotScale = isRotated90or270
+                        ? Math.max(boxW / baseSize.height, boxH / baseSize.width)
+                        : 1.0;
+                      const finalScale = zoom * rotScale;
+
+                      return (
                         <img
                           src={imageSrc}
                           alt="Crop Target"
                           draggable={false}
-                          className="position-absolute"
+                          className="crop-target-img"
                           style={{
-                            maxWidth: 'none',
-                            maxHeight: 'none',
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px) rotate(${rotate}deg) ${flipH ? 'scaleX(-1)' : ''}`,
-                            transformOrigin: 'center center',
+                            width: `${baseSize.width}px`,
+                            height: `${baseSize.height}px`,
+                            transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${finalScale}) rotate(${rotate}deg) ${flipH ? 'scaleX(-1)' : ''}`,
                             transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
-                            pointerEvents: 'none',
                           }}
                         />
-                      )}
+                      );
+                    })()}
 
-                      {/* Rule of Thirds Grid Overlay */}
-                      {showGrid && (
-                        <div className="position-absolute w-100 h-100 pointer-events-none" style={{ pointerEvents: 'none' }}>
-                          <div className="w-100 h-100 position-relative">
-                            <div className="position-absolute top-0 start-33 h-100 border-start border-white opacity-40" style={{ left: '33.33%' }} />
-                            <div className="position-absolute top-0 start-66 h-100 border-start border-white opacity-40" style={{ left: '66.66%' }} />
-                            <div className="position-absolute start-0 top-33 w-100 border-top border-white opacity-40" style={{ top: '33.33%' }} />
-                            <div className="position-absolute start-0 top-66 w-100 border-top border-white opacity-40" style={{ top: '66.66%' }} />
-                          </div>
+                    {/* Rule of Thirds Grid Overlay covering 100% of the viewport */}
+                    {showGrid && (
+                      <div className="crop-grid-overlay">
+                        <div className="w-100 h-100 position-relative">
+                          <div className="crop-grid-line-v1" />
+                          <div className="crop-grid-line-v2" />
+                          <div className="crop-grid-line-h1" />
+                          <div className="crop-grid-line-h2" />
                         </div>
-                      )}
-
-                      {/* Viewport Badge */}
-                      <div
-                        className="position-absolute bottom-0 end-0 m-2 px-2 py-0.5 rounded text-white font-mono-code fw-semibold pointer-events-none"
-                        style={{ background: 'rgba(15, 23, 42, 0.85)', fontSize: '0.65rem' }}
-                      >
-                        16:9 · {zoom.toFixed(1)}x
                       </div>
+                    )}
+
+                    {/* Viewport Badge */}
+                    <div className="crop-viewport-badge position-absolute bottom-0 end-0 m-2 px-2 py-0.5 rounded font-mono-code fw-semibold">
+                      16:9 · {zoom.toFixed(1)}x
                     </div>
                   </div>
 
                   {/* Bottom Zoom & Offset Controls */}
                   <div className="card-footer bg-white p-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-3">
-                    <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '400px' }}>
-                      <span className="small text-secondary fw-semibold" style={{ fontSize: '0.75rem' }}>Zoom:</span>
+                    <div className="d-flex align-items-center gap-2 flex-grow-1 crop-zoom-container">
+                      <span className="crop-zoom-label fw-semibold">Zoom:</span>
                       <button
                         type="button"
-                        className="btn btn-xs btn-outline-secondary px-2"
-                        onClick={() => setZoom((prev) => Math.max(1.0, parseFloat((prev - 0.1).toFixed(2))))}
+                        className="btn btn-xs btn-outline-secondary px-2 d-flex align-items-center justify-content-center"
+                        style={{ width: '26px', height: '26px' }}
+                        onClick={() => handleZoomChange(zoom - 0.1)}
+                        title="Zoom out"
                       >
-                        -
+                        <Minus size={12} strokeWidth={2.5} />
                       </button>
                       <input
                         type="range"
@@ -429,16 +517,18 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                         max="3.5"
                         step="0.05"
                         value={zoom}
-                        onChange={(e) => setZoom(parseFloat(e.target.value))}
+                        onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
                       />
                       <button
                         type="button"
-                        className="btn btn-xs btn-outline-secondary px-2"
-                        onClick={() => setZoom((prev) => Math.min(3.5, parseFloat((prev + 0.1).toFixed(2))))}
+                        className="btn btn-xs btn-outline-secondary px-2 d-flex align-items-center justify-content-center"
+                        style={{ width: '26px', height: '26px' }}
+                        onClick={() => handleZoomChange(zoom + 0.1)}
+                        title="Zoom in"
                       >
-                        +
+                        <Plus size={12} strokeWidth={2.5} />
                       </button>
-                      <span className="font-mono-code small text-dark fw-bold" style={{ minWidth: '42px' }}>
+                      <span className="crop-zoom-value font-mono-code small fw-bold">
                         {zoom.toFixed(2)}x
                       </span>
                     </div>
@@ -455,10 +545,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
 
                   {/* Live Hero Banner Preview */}
                   <div>
-                    <div
-                      className="position-relative rounded-2 overflow-hidden bg-dark border shadow-2xs"
-                      style={{ height: '140px' }}
-                    >
+                    <div className="crop-preview-frame shadow-2xs w-100 position-relative">
                       {livePreviewUrl ? (
                         <img src={livePreviewUrl} alt="Cover preview" className="w-100 h-100" style={{ objectFit: 'cover' }} />
                       ) : (
@@ -466,12 +553,9 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                           Rendering...
                         </div>
                       )}
-                      <div
-                        className="position-absolute bottom-0 start-0 w-100 px-2 py-0.5 text-white d-flex align-items-center justify-content-between"
-                        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85), transparent)', fontSize: '0.65rem' }}
-                      >
+                      <div className="crop-preview-overlay d-flex align-items-center justify-content-between">
                         <span className="fw-bold text-truncate">{vesselName}</span>
-                        <span className="badge bg-primary text-white p-0.5 px-1 font-mono-code" style={{ fontSize: '0.55rem' }}>
+                        <span className="badge crop-cover-badge p-0.5 px-1 font-mono-code">
                           COVER
                         </span>
                       </div>
@@ -483,7 +567,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="modal-footer bg-light border-top d-flex align-items-center justify-content-between px-4 py-3">
+          <div className="modal-footer crop-modal-footer d-flex align-items-center justify-content-between px-4 py-3">
             <button
               type="button"
               className="btn btn-sm btn-outline-secondary px-3"
