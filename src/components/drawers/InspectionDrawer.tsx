@@ -6,6 +6,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
+import { Camera, FileText } from 'lucide-react';
 
 interface EvidenceItem {
   id: string;
@@ -684,17 +685,9 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                                   }}
                                 >
                                   {ev.type === 'Photo' ? (
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                      <circle cx="12" cy="13" r="4" />
-                                    </svg>
+                                    <Camera className="w-5 h-5 text-sky-600" />
                                   ) : (
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                      <polyline points="14 2 14 8 20 8" />
-                                      <line x1="16" y1="13" x2="8" y2="13" />
-                                      <line x1="16" y1="17" x2="8" y2="17" />
-                                    </svg>
+                                    <FileText className="w-5 h-5 text-slate-600" />
                                   )}
                                 </div>
                               )}
@@ -744,10 +737,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                           className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1.5"
                           onClick={() => openLiveCameraModal(item.id)}
                         >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                            <circle cx="12" cy="13" r="4" />
-                          </svg>
+                          <Camera className="w-3.5 h-3.5" />
                           Take Photo
                         </button>
                         <button
@@ -759,7 +749,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                             setCommentText(item.findingNotes || '');
                           }}
                         >
-                          {item.findingNotes ? 'Edit Note' : '+ Add Note'}
+                          {item.findingNotes ? 'Edit Note' : 'Add Note'}
                         </button>
                         <button
                           type="button"
@@ -770,7 +760,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                             setItemCapaTitle(`Corrective action for ${item.title}`);
                           }}
                         >
-                          + Raise CAPA
+                          Raise CAPA
                         </button>
                         <button
                           type="button"
@@ -778,7 +768,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                           style={{ fontSize: '0.725rem' }}
                           onClick={() => triggerDirectUpload(item.id)}
                         >
-                          + Attach File
+                          Attach File
                         </button>
                       </div>
                     </div>
@@ -885,7 +875,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                       style={{ fontSize: '0.75rem', borderRadius: '6px', borderColor: '#0284c7', color: '#0284c7' }}
                       onClick={() => setShowAddCapa(!showAddCapa)}
                     >
-                      {showAddCapa ? 'Cancel' : '+ Add CAPA Item'}
+                      {showAddCapa ? 'Cancel' : 'Add CAPA Item'}
                     </button>
                   )}
                 </div>

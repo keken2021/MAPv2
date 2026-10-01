@@ -41,7 +41,7 @@
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.crop-modal-close-btn svg {
+.crop-modal-close-btn .lucide {
   color: #ffffff !important;
   stroke: #ffffff !important;
   width: 16px;
@@ -106,7 +106,7 @@
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.crop-tool-btn svg {
+.crop-tool-btn .lucide {
   color: #ffffff !important;
   stroke: #ffffff !important;
   width: 16px;
@@ -119,19 +119,24 @@
   color: #ffffff !important;
 }
 
-.crop-tool-btn:hover svg {
+.crop-tool-btn:hover .lucide {
   color: #ffffff !important;
   stroke: #ffffff !important;
 }
 
+.crop-tool-btn:focus-visible {
+  outline: 2px solid var(--map-focus-ring, rgb(56, 189, 248));
+  outline-offset: 1px;
+}
+
 .crop-tool-btn.active {
-  background-color: #1e3a5f;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background-color: var(--map-primary-hover, rgb(30, 58, 95));
+  border: 1px solid rgba(255, 255, 255, 0.35);
   color: #ffffff !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-.crop-tool-btn.active svg {
+.crop-tool-btn.active .lucide {
   color: #ffffff !important;
   stroke: #ffffff !important;
 }

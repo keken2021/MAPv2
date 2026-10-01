@@ -274,7 +274,7 @@ export const RolesAndPermissionsView: React.FC = () => {
                 setShowAddRole(true);
               }}
             >
-              + New role
+              New role
             </button>
           )}
           {canEdit && activeTab === 'role-defaults' && (

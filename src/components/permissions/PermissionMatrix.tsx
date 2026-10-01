@@ -5,6 +5,7 @@
 */
 
 import React from 'react';
+import { Check } from 'lucide-react';
 import {
   CrudAction,
   CrudFlags,
@@ -132,16 +133,7 @@ export const PermissionMatrix: React.FC<PermissionMatrixProps> = ({
                               }}
                             >
                               {flags[action] && (
-                                <svg
-                                  className="map-perm-circle-check"
-                                  viewBox="0 0 16 16"
-                                  aria-hidden="true"
-                                >
-                                  <path
-                                    fill="currentColor"
-                                    d="M6.2 11.4 2.8 8l1.1-1.1 2.3 2.3 5-5L12.3 5.3z"
-                                  />
-                                </svg>
+                                <Check className="w-3 h-3 text-white" strokeWidth={3} aria-hidden="true" />
                               )}
                             </button>
                           </td>

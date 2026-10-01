@@ -358,7 +358,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
-                          + Invite New Submitter in User Management
+                          Invite New Submitter in User Management
                         </button>
                       </div>
                     ) : (
@@ -407,7 +407,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
-                          + Invite New Verifier in User Management
+                          Invite New Verifier in User Management
                         </button>
                       </div>
                     ) : (
@@ -462,7 +462,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
-                          + Invite New Inspector in User Management
+                          Invite New Inspector in User Management
                         </button>
                       </div>
                     ) : (
@@ -517,7 +517,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
-                          + Invite New Approver in User Management
+                          Invite New Approver in User Management
                         </button>
                       </div>
                     ) : (

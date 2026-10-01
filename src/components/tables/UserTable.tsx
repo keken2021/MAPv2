@@ -5,6 +5,7 @@
 */
 
 import React, { useState } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { UserProfile, UserRolePersona } from '../../types/user';
 import { RoleName } from '../../types/permissions';
@@ -114,8 +115,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
   };
 
   const renderSortIndicator = (field: UserSortField) => {
-    if (sortField !== field) return <span className="text-muted ms-1 small opacity-50">↕</span>;
-    return <span className="text-primary ms-1 small fw-bold">{sortDirection === 'asc' ? '▲' : '▼'}</span>;
+    if (sortField !== field) return <ArrowUpDown size={13} className="text-muted ms-1 opacity-50 d-inline-block" />;
+    return sortDirection === 'asc' ? <ArrowUp size={13} className="text-primary ms-1 d-inline-block" /> : <ArrowDown size={13} className="text-primary ms-1 d-inline-block" />;
   };
 
   const sortedUsers = [...filteredUsers].sort((a, b) => {
@@ -282,7 +283,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
               className="btn btn-sm btn-primary"
               onClick={onAddUser}
             >
-              + Add / Invite User
+              Add / Invite User
             </button>
           )}
         </div>

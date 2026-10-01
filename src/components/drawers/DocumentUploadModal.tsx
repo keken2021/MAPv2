@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
 import { formatDocumentId } from '../../utils/formatters';
+import { Upload, Check, AlertCircle } from 'lucide-react';
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -566,24 +567,26 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
                                 <div className="d-flex flex-column gap-2 mt-2 p-2 bg-light rounded border">
                                   <div className={`${isNewExtractionAnimate ? 'map-criteria-item-1' : ''} d-flex align-items-center gap-2 small`} style={{ fontSize: '0.725rem', color: '#475569' }}>
-                                    <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px', fontSize: '0.65rem' }}>✓</span>
+                                    <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
+                                      <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                                    </span>
                                     <span className="ps-0.5 text-dark fw-medium">Resolution 240 DPI</span>
                                   </div>
                                   <div className={`${isNewExtractionAnimate ? 'map-criteria-item-2' : ''} d-flex align-items-center gap-2 small`} style={{ fontSize: '0.725rem', color: '#475569' }}>
                                     <span
                                       className="d-flex align-items-center justify-content-center rounded text-white fw-bold flex-shrink-0"
-                                      style={{ width: '18px', height: '18px', backgroundColor: isFullPageCaptured ? '#059669' : '#c2410c', fontSize: '0.65rem' }}
+                                      style={{ width: '18px', height: '18px', backgroundColor: isFullPageCaptured ? '#059669' : '#c2410c' }}
                                     >
-                                      {isFullPageCaptured ? '✓' : '!'}
+                                      {isFullPageCaptured ? <Check className="w-3 h-3 text-white" strokeWidth={3} /> : <AlertCircle className="w-3 h-3 text-white" />}
                                     </span>
                                     <span className="ps-0.5 text-dark fw-medium">Full page captured</span>
                                   </div>
                                   <div className={`${isNewExtractionAnimate ? 'map-criteria-item-3' : ''} d-flex align-items-center gap-2 small`} style={{ fontSize: '0.725rem', color: '#475569' }}>
                                     <span
                                       className="d-flex align-items-center justify-content-center rounded text-white fw-bold flex-shrink-0"
-                                      style={{ width: '18px', height: '18px', backgroundColor: isSignaturePresent ? '#059669' : '#c2410c', fontSize: '0.65rem' }}
+                                      style={{ width: '18px', height: '18px', backgroundColor: isSignaturePresent ? '#059669' : '#c2410c' }}
                                     >
-                                      {isSignaturePresent ? '✓' : '!'}
+                                      {isSignaturePresent ? <Check className="w-3 h-3 text-white" strokeWidth={3} /> : <AlertCircle className="w-3 h-3 text-white" />}
                                     </span>
                                     <span className="ps-0.5 text-dark fw-medium">Signature / stamp present</span>
                                   </div>
@@ -633,8 +636,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                         Below 90% threshold — human review required
                                       </div>
                                     ) : (
-                                      <div className="small mt-0.5 text-success fw-bold" style={{ fontSize: '0.675rem' }}>
-                                        ✓ Field verified / corrected
+                                      <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
+                                        <Check className="w-3 h-3 text-success" /> Field verified / corrected
                                       </div>
                                     )}
                                   </div>
@@ -669,8 +672,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                         Below 90% threshold — human review required
                                       </div>
                                     ) : (
-                                      <div className="small mt-0.5 text-success fw-bold" style={{ fontSize: '0.675rem' }}>
-                                        ✓ Field verified / corrected
+                                      <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
+                                        <Check className="w-3 h-3 text-success" /> Field verified / corrected
                                       </div>
                                     )}
                                   </div>
@@ -705,8 +708,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                         Below 90% threshold — human review required
                                       </div>
                                     ) : (
-                                      <div className="small mt-0.5 text-success fw-bold" style={{ fontSize: '0.675rem' }}>
-                                        ✓ Field verified / corrected
+                                      <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
+                                        <Check className="w-3 h-3 text-success" /> Field verified / corrected
                                       </div>
                                     )}
                                   </div>
@@ -864,11 +867,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
                     >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary flex-shrink-0">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="17 8 12 3 7 8" />
-                        <line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
+                      <Upload className="w-4 h-4 text-primary shrink-0" />
                       <span className="small text-dark fw-semibold text-truncate" style={{ fontSize: '0.8125rem' }}>
                         {fileName && uploadOption === 'new_file' ? (
                           <span className="text-success font-mono-code">{fileName}</span>

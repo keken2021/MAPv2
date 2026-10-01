@@ -513,30 +513,26 @@ export const CreateProjectView: React.FC = () => {
                     filteredAvailable.map((a) => {
                       const isOwnOrg = isOrganizationMatch(requestingOrganization, a.providerOrganization);
                       return (
-                      <div
-                        key={`${a.assetType}-${a.assetId}`}
-                        className="d-flex align-items-center justify-between p-2 border-bottom small"
-                      >
-                        <div>
-                          <div className="fw-semibold d-flex align-items-center gap-1 flex-wrap">
-                            {a.assetName}
-                            <span className={`badge ${isOwnOrg ? 'bg-success' : 'bg-warning text-dark'}`} style={{ fontSize: '0.6rem' }}>
-                              {isOwnOrg ? 'Your org' : 'External'}
-                            </span>
-                          </div>
-                          <div className="text-muted">
-                            {a.assetType} · {a.providerOrganization}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn btn-xs btn-outline-primary btn-sm"
-                          onClick={() => handleAddAsset(a)}
+                        <div
+                          key={`${a.assetType}-${a.assetId}`}
+                          className="d-flex align-items-center justify-between p-2 border-bottom small"
                         >
-                          + Add
-                        </button>
-                      </div>
-                    );
+                          <div>
+                            <div className="fw-semibold d-flex align-items-center gap-1 flex-wrap">
+                              {a.assetName}
+                              <span className={`badge ${isOwnOrg ? 'bg-success' : 'bg-warning text-dark'}`} style={{ fontSize: '0.6rem' }}>
+                                {isOwnOrg ? 'Your org' : 'External'}
+                              </span>
+                            </div>
+                            <div className="text-muted">
+                              {a.assetType} · {a.providerOrganization}
+                            </div>
+                          </div>
+                          <button type="button" className="btn btn-xs btn-outline-primary btn-sm" onClick={() => handleAddAsset(a)}>
+                            Add
+                          </button>
+                        </div>
+                      );
                     })
                   )}
                 </div>
@@ -646,7 +642,7 @@ export const CreateProjectView: React.FC = () => {
 
             <div className="d-flex justify-content-between">
               <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setStep(1)}>
-                ← Back
+                Back
               </button>
               <button type="button" className="btn btn-sm btn-primary fw-semibold" onClick={handleSave}>
                 Create Project

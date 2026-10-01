@@ -20,6 +20,7 @@ import { usersWithRole, getEligibleVerifiers, getAssuranceAssignmentWarnings, ha
 import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../utils/validation';
 import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES, SUBTYPE_CATEGORIES, StandardSubtypeDocument, SubtypeTemplate, EXISTING_PROJECTS, EXISTING_ACTIVITIES } from '../utils/assuranceTemplates';
 import { AssuranceRequirementCategory } from '../types/assurance';
+import { Plus, ChevronDown } from 'lucide-react';
 
 interface SpecializedDoc {
   id: string;
@@ -1021,10 +1022,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   className="btn btn-sm btn-primary text-white fw-semibold d-inline-flex align-items-center gap-1.5"
                   onClick={() => handleAddSpecializedDoc(subtype)}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
                   Add Specialized Document
                 </button>
               </div>
@@ -1560,17 +1557,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     onClick={() => setIsGeneralInfoExpanded(!isGeneralInfoExpanded)}
                   >
                     <span>{isGeneralInfoExpanded ? 'Collapse' : 'Expand'}</span>
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      style={{ transform: isGeneralInfoExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
-                    >
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                    <ChevronDown
+                      className={`w-3 h-3 transition-transform duration-200 ${isGeneralInfoExpanded ? 'rotate-180' : ''}`}
+                    />
                   </button>
                 </div>
 
@@ -1906,7 +1895,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 className="btn btn-outline-primary px-3.5 py-1.5 fw-semibold"
                 onClick={handlePrevious}
               >
-                &larr; Previous Step
+                Previous Step
               </button>
             )}
 

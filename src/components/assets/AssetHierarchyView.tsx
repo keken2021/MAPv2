@@ -9,7 +9,7 @@ import { useMapStore } from '../../store/useMapStore';
 import { filterEquipmentForPersona, filterVesselsForPersona } from '../../utils/rbacHelpers';
 import { deriveComplianceStatus, getVesselAssetStatus } from '../../types/asset';
 import { EquipmentAsset } from '../../types/equipment';
-import { VesselParticulars } from '../../types/vessel';
+import { Wrench, Ship, ChevronDown, ChevronRight } from 'lucide-react';
 
 type AssetTypeFilter = 'all' | 'vessel' | 'equipment';
 
@@ -105,7 +105,7 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
         onClick={() => onSelectEquipment(item.id)}
       >
         <div className="d-flex align-items-center gap-2">
-          <span className="text-muted small">🔧</span>
+          <Wrench className="w-4 h-4 text-slate-500 shrink-0" />
           <div>
             <div className="fw-semibold text-dark small">{item.name}</div>
             <div className="text-muted" style={{ fontSize: '0.72rem' }}>
@@ -205,9 +205,13 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
                       toggleVessel(vessel.id);
                     }}
                   >
-                    {childEquipment.length > 0 ? (isExpanded ? '▼' : '▶') : '·'}
+                    {childEquipment.length > 0 ? (
+                      isExpanded ? <ChevronDown className="w-3.5 h-3.5 inline" /> : <ChevronRight className="w-3.5 h-3.5 inline" />
+                    ) : (
+                      <span className="text-slate-400">•</span>
+                    )}
                   </button>
-                  <span>🚢</span>
+                  <Ship className="w-4 h-4 text-sky-600 shrink-0" />
                   <div>
                     <div className="fw-bold text-dark">{vessel.name}</div>
                     <div className="text-muted small">

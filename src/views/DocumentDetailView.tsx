@@ -301,7 +301,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
               className="btn btn-sm btn-primary text-white font-mono-code ms-auto"
               onClick={() => setIsUploadModalOpen(true)}
             >
-              + Upload New Version
+              Upload New Version
             </button>
           )}
         </div>

@@ -183,7 +183,7 @@ export const HeaderBanner: React.FC = () => {
   return (
     <header
       className="map-top-banner d-flex align-items-center justify-content-between px-4 py-3 bg-white border-bottom"
-      style={{ minHeight: '64px', borderColor: '#e2e8f0' }}
+      style={{ minHeight: '64px', borderColor: 'var(--map-border-color)' }}
     >
       {/* left side: back button for any detail page or breadcrumb & page title */}
       <div>
@@ -197,21 +197,21 @@ export const HeaderBanner: React.FC = () => {
           </button>
         ) : (
           <>
-            <div className="text-uppercase fw-medium font-mono-code mb-1" style={{ fontSize: '0.675rem', color: '#94a3b8', letterSpacing: '0.06em' }}>
+            <div className="text-uppercase fw-medium font-mono-code mb-1" style={{ fontSize: '0.675rem', color: 'var(--map-text-muted)', letterSpacing: '0.06em' }}>
               {breadcrumb}
             </div>
-            <h1 className="h4 mb-0 fw-bold text-dark" style={{ fontSize: '1.25rem', color: '#0f172a', letterSpacing: '-0.01em' }}>
+            <h1 className="map-page-title mb-0" style={{ fontSize: '1.25rem', letterSpacing: '-0.01em' }}>
               {title}
             </h1>
           </>
         )}
       </div>
 
-      {/* right side: scenario selector & viewing as persona pills */}
+      {/* right side: viewing as persona pills */}
       <div className="d-flex align-items-center gap-4">
         {/* viewing as persona selector pills */}
         <div className="d-flex align-items-center gap-2">
-          <span className="text-uppercase fw-bold me-1" style={{ fontSize: '0.625rem', color: '#94a3b8', letterSpacing: '0.08em' }}>
+          <span className="text-uppercase fw-bold me-1" style={{ fontSize: '0.625rem', color: 'var(--map-text-muted)', letterSpacing: '0.08em' }}>
             VIEWING AS
           </span>
           <div className="d-flex align-items-center gap-1">
@@ -221,9 +221,9 @@ export const HeaderBanner: React.FC = () => {
                 <button
                   key={r.role}
                   type="button"
-                  className={`btn btn-sm rounded-pill px-3 py-1 ${isActive
-                    ? 'bg-dark text-white fw-bold shadow-sm'
-                    : 'text-secondary bg-transparent border-0 hover-bg-light'
+                  className={`btn btn-xs rounded-pill px-3 py-1 ${isActive
+                    ? 'bg-primary text-white fw-semibold shadow-sm'
+                    : 'text-secondary bg-transparent border-0'
                     }`}
                   style={{ fontSize: '0.75rem', transition: 'all 0.15s ease-in-out' }}
                   onClick={() => setActivePersona(r.role)}

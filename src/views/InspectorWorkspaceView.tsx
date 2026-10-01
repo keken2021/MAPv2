@@ -129,47 +129,47 @@ export const InspectorWorkspaceView: React.FC = () => {
       {/* Inspector Role KPI Summary Cards */}
       <div className="row g-3">
         <div className="col-md-3 d-flex">
-          <div className="card map-card-custom p-3 w-100">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs w-100">
+            <div className="map-kpi-label">
               Assigned Fleet Surveys
             </div>
-            <div className="display-6 fw-bold text-primary font-mono-code mt-1">{assignedCount}</div>
-            <div className="text-muted small mt-1">Vessels Assigned for Audit</div>
+            <div className="map-kpi-value text-primary mt-1">{assignedCount}</div>
+            <div className="map-kpi-subtitle mt-1">Vessels Assigned for Audit</div>
           </div>
         </div>
 
         <div className="col-md-3 d-flex">
-          <div className="card map-card-custom p-3 w-100">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs w-100">
+            <div className="map-kpi-label">
               Pending Visual Audits
             </div>
-            <div className="display-6 fw-bold text-warning font-mono-code mt-1">{pendingCount}</div>
-            <div className="text-muted small mt-1">Awaiting On-Site Physical Survey</div>
+            <div className="map-kpi-value text-warning mt-1">{pendingCount}</div>
+            <div className="map-kpi-subtitle mt-1">Awaiting On-Site Physical Survey</div>
           </div>
         </div>
 
         <div className="col-md-3 d-flex">
           <div
-            className="card map-card-custom p-3 w-100"
+            className="card map-kpi-card shadow-2xs w-100"
             onClick={() => setCurrentHashView('capa')}
             style={{ cursor: 'pointer' }}
             title="Click to open CAPA Tracker"
           >
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+            <div className="map-kpi-label">
               Open Corrective Actions
             </div>
-            <div className="display-6 fw-bold text-danger font-mono-code mt-1">{openCapaCount}</div>
-            <div className="text-muted small mt-1">Active CAPA Items Tracked (Click to View)</div>
+            <div className="map-kpi-value text-danger mt-1">{openCapaCount}</div>
+            <div className="map-kpi-subtitle mt-1">Active CAPA Items Tracked (Click to View)</div>
           </div>
         </div>
 
         <div className="col-md-3 d-flex">
-          <div className="card map-card-custom p-3 w-100">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs w-100">
+            <div className="map-kpi-label">
               Completed Physical Audits
             </div>
-            <div className="display-6 fw-bold text-success font-mono-code mt-1">{completedCount}</div>
-            <div className="text-muted small mt-1">Surveys Audited & Signed Off</div>
+            <div className="map-kpi-value text-success mt-1">{completedCount}</div>
+            <div className="map-kpi-subtitle mt-1">Surveys Audited & Signed Off</div>
           </div>
         </div>
       </div>

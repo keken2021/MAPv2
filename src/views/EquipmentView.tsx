@@ -59,7 +59,7 @@ export const EquipmentView: React.FC = () => {
             className="btn btn-sm btn-primary fw-semibold"
             onClick={() => setIsModalOpen(true)}
           >
-            + Register Equipment
+            Register Equipment
           </button>
         )}
       </div>

@@ -183,42 +183,42 @@ export const DashboardView: React.FC = () => {
       return (
         <div className="row g-3">
           <div className="col-md-3">
-            <div className="card map-card-custom p-3">
-              <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+            <div className="card map-kpi-card shadow-2xs">
+              <div className="map-kpi-label">
                 Assigned Submissions
               </div>
-              <div className="display-6 fw-bold text-primary font-mono-code mt-1">{assignedSets.length}</div>
-              <div className="text-muted small mt-1">Active Vetting Campaigns</div>
+              <div className="map-kpi-value text-primary mt-1">{assignedSets.length}</div>
+              <div className="map-kpi-subtitle mt-1">Active Vetting Campaigns</div>
             </div>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-card-custom p-3">
-              <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+            <div className="card map-kpi-card shadow-2xs">
+              <div className="map-kpi-label">
                 Pending Document Uploads
               </div>
-              <div className="display-6 fw-bold text-warning font-mono-code mt-1">{pendingUploads}</div>
-              <div className="text-muted small mt-1">Statutory Evidence Required</div>
+              <div className="map-kpi-value text-warning mt-1">{pendingUploads}</div>
+              <div className="map-kpi-subtitle mt-1">Statutory Evidence Required</div>
             </div>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-card-custom p-3">
-              <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+            <div className="card map-kpi-card shadow-2xs">
+              <div className="map-kpi-label">
                 Revisions Requested
               </div>
-              <div className="display-6 fw-bold text-danger font-mono-code mt-1">{revisionsRequested}</div>
-              <div className="text-muted small mt-1">Returned for Resubmission</div>
+              <div className="map-kpi-value text-danger mt-1">{revisionsRequested}</div>
+              <div className="map-kpi-subtitle mt-1">Returned for Resubmission</div>
             </div>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-card-custom p-3">
-              <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+            <div className="card map-kpi-card shadow-2xs">
+              <div className="map-kpi-label">
                 Verified Certificates
               </div>
-              <div className="display-6 fw-bold text-success font-mono-code mt-1">{verifiedCerts}</div>
-              <div className="text-muted small mt-1">Approved Statutory Evidence</div>
+              <div className="map-kpi-value text-success mt-1">{verifiedCerts}</div>
+              <div className="map-kpi-subtitle mt-1">Approved Statutory Evidence</div>
             </div>
           </div>
         </div>
@@ -236,42 +236,42 @@ export const DashboardView: React.FC = () => {
       return (
         <div className="row g-3">
           <div className="col-md-3">
-            <div className="card map-card-custom p-3">
-              <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+            <div className="card map-kpi-card shadow-2xs">
+              <div className="map-kpi-label">
                 Created Assurance Sets
               </div>
-              <div className="display-6 fw-bold text-primary font-mono-code mt-1">{totalCreated}</div>
-              <div className="text-muted small mt-1">Client Initiated Campaigns</div>
+              <div className="map-kpi-value text-primary mt-1">{totalCreated}</div>
+              <div className="map-kpi-subtitle mt-1">Client Initiated Campaigns</div>
             </div>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-card-custom p-3">
-              <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+            <div className="card map-kpi-card shadow-2xs">
+              <div className="map-kpi-label">
                 Average Campaign Readiness
               </div>
-              <div className="display-6 fw-bold text-success font-mono-code mt-1">{avgCampaignReadiness}%</div>
-              <div className="text-muted small mt-1">Vetting Compliance Index</div>
+              <div className="map-kpi-value text-success mt-1">{avgCampaignReadiness}%</div>
+              <div className="map-kpi-subtitle mt-1">Vetting Compliance Index</div>
             </div>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-card-custom p-3">
-              <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+            <div className="card map-kpi-card shadow-2xs">
+              <div className="map-kpi-label">
                 Active Vetting Campaigns
               </div>
-              <div className="display-6 fw-bold text-warning font-mono-code mt-1">{activeCampaigns}</div>
-              <div className="text-muted small mt-1">In Verification / Review</div>
+              <div className="map-kpi-value text-warning mt-1">{activeCampaigns}</div>
+              <div className="map-kpi-subtitle mt-1">In Verification / Review</div>
             </div>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-card-custom p-3">
-              <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+            <div className="card map-kpi-card shadow-2xs">
+              <div className="map-kpi-label">
                 Approved
               </div>
-              <div className="display-6 fw-bold text-primary font-mono-code mt-1">{certifiedCampaigns}</div>
-              <div className="text-muted small mt-1">Completed Client Sign-offs</div>
+              <div className="map-kpi-value text-primary mt-1">{certifiedCampaigns}</div>
+              <div className="map-kpi-subtitle mt-1">Completed Client Sign-offs</div>
             </div>
           </div>
         </div>
@@ -281,42 +281,42 @@ export const DashboardView: React.FC = () => {
     return (
       <div className="row g-3">
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Active Fleet Vessels
             </div>
-            <div className="display-6 fw-bold text-primary font-mono-code mt-1">{totalVessels}</div>
-            <div className="text-muted small mt-1">OSVs Registered in MAP</div>
+            <div className="map-kpi-value text-primary mt-1">{totalVessels}</div>
+            <div className="map-kpi-subtitle mt-1">OSVs Registered in MAP</div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Average Fleet Readiness
             </div>
-            <div className="display-6 fw-bold text-success font-mono-code mt-1">{avgReadiness}%</div>
-            <div className="text-muted small mt-1">IMO / Statutory Compliant</div>
+            <div className="map-kpi-value text-success mt-1">{avgReadiness}%</div>
+            <div className="map-kpi-subtitle mt-1">IMO / Statutory Compliant</div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Active Assurance Sets
             </div>
-            <div className="display-6 fw-bold text-warning font-mono-code mt-1">{activeAssurances}</div>
-            <div className="text-muted small mt-1">Ongoing Vetting Campaigns</div>
+            <div className="map-kpi-value text-warning mt-1">{activeAssurances}</div>
+            <div className="map-kpi-subtitle mt-1">Ongoing Vetting Campaigns</div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Expiring ≤ 90 Days
             </div>
-            <div className="display-6 fw-bold text-danger font-mono-code mt-1">4</div>
-            <div className="text-muted small mt-1">Certificates Requiring Renewal</div>
+            <div className="map-kpi-value text-danger mt-1">4</div>
+            <div className="map-kpi-subtitle mt-1">Certificates Requiring Renewal</div>
           </div>
         </div>
       </div>
@@ -357,7 +357,7 @@ export const DashboardView: React.FC = () => {
                     className="btn btn-sm btn-primary d-flex align-items-center gap-1"
                     onClick={() => setCurrentHashView('create-assurance-set')}
                   >
-                    + Create Assurance Set
+                    Create Assurance Set
                   </button>
                 </div>
               </div>

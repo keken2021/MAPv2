@@ -242,7 +242,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
               className="btn btn-sm btn-primary"
               onClick={onRegisterCrew}
             >
-              + Register Crew Member
+              Register Crew Member
             </button>
           )}
         </div>
@@ -324,7 +324,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                           }}
                           title="Upload Layer 1 or Layer 2 STCW Document"
                         >
-                          + Add Document
+                          Add Document
                         </button>
                       )}
                       <button

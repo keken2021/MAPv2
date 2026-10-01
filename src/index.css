@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* 
   file summary: global design tokens, typography, responsive breakpoints, and css rules for the marine assurance platform (map).
   responsibilities: defines minimalist light maritime theme variables, typography font families, responsive layout bounds, and global utility styles.
@@ -12,16 +14,46 @@
   --map-text-secondary: #475569;
   --map-text-muted: #64748b;
 
+  /* 1. Primary Brand Base */
   --map-primary-blue: rgb(11, 27, 43);
-  --map-primary-hover: rgb(22, 45, 69);
+  /* #0B1B2B */
+  --map-primary-hover: rgb(30, 58, 95);
+  /* #1E3A5F */
+  --map-primary-active: rgb(8, 19, 31);
+  /* #08131F */
   --map-primary-light: rgba(11, 27, 43, 0.08);
 
+  /* 2. Focus / Keyboard Ring */
+  --map-focus-ring: rgb(56, 189, 248);
+  /* #38BDF8 / Sky 400 */
+  --map-focus-ring-offset: 2px;
+
+  /* 3. Accent & Dark Surface Variants */
+  --map-accent-blue: rgb(2, 132, 199);
+  /* #0284C7 / Ocean Blue */
+  --map-accent-hover: rgb(3, 105, 161);
+  /* #0369A1 */
+  --map-accent-light: rgba(56, 189, 248, 0.15);
+
+  /* 4. Universal Icon Colors */
+  --map-icon-default: rgb(100, 116, 139);
+  /* #64748B / Slate 500 */
+  --map-icon-active: rgb(11, 27, 43);
+  /* #0B1B2B */
+  --map-icon-active-accent: rgb(2, 132, 199);
+  /* #0284C7 */
+  --map-icon-muted: rgb(148, 163, 184);
+  /* #94A3B8 / Slate 400 */
+  --map-icon-light: rgb(255, 255, 255);
+  /* #FFFFFF */
+
+  /* Semantic Feedback Indicators */
   --map-success-bg: #dcfce7;
-  --map-success-text: #15803d;
+  --map-success-text: #16a34a;
   --map-warning-bg: #fef3c7;
-  --map-warning-text: #b45309;
+  --map-warning-text: #d97706;
   --map-danger-bg: #fee2e2;
-  --map-danger-text: #b91c1c;
+  --map-danger-text: #dc2626;
 
   --map-sidebar-bg: rgb(11, 27, 43);
   --map-sidebar-text: #e2e8f0;
@@ -30,8 +62,8 @@
   --map-sidebar-active-bg: #162e4a;
   --map-sidebar-border: #1e3a5f;
 
-  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --font-doc: 'Arial', sans-serif;
 
   --cui-primary: rgb(11, 27, 43);
@@ -39,45 +71,86 @@
   --bs-primary-rgb: 11, 27, 43;
 }
 
-/* system-wide primary utility overrides using rgb(11, 27, 43) */
+/* system-wide primary solid button and interactive states */
 .btn-primary {
-  background-color: rgb(11, 27, 43) !important;
-  border-color: rgb(11, 27, 43) !important;
+  background-color: var(--map-primary-blue) !important;
+  border-color: var(--map-primary-blue) !important;
+  color: #ffffff !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--map-primary-hover) !important;
+  border-color: var(--map-primary-hover) !important;
   color: #ffffff !important;
 }
 
-.btn-primary:hover,
-.btn-primary:focus,
-.btn-primary:active {
-  background-color: rgb(22, 45, 69) !important;
-  border-color: rgb(22, 45, 69) !important;
+.btn-primary:active,
+.btn-primary.active {
+  background-color: var(--map-primary-active) !important;
+  border-color: var(--map-primary-active) !important;
+  color: #ffffff !important;
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--map-focus-ring) !important;
+  outline-offset: var(--map-focus-ring-offset) !important;
+  box-shadow: 0 0 0 2px var(--map-focus-ring) !important;
+}
+
+/* Dark Surface Ghost/Outline Primary Variant */
+.btn-ghost-dark-primary {
+  background-color: transparent !important;
+  border: 1px solid var(--map-focus-ring) !important;
+  color: var(--map-focus-ring) !important;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-ghost-dark-primary:hover,
+.btn-ghost-dark-primary:focus {
+  background-color: var(--map-accent-light) !important;
+  color: var(--map-focus-ring) !important;
+}
+
+/* Solid Accent Alternative for Dark Surfaces */
+.btn-accent-solid {
+  background-color: var(--map-accent-blue) !important;
+  border-color: var(--map-accent-blue) !important;
+  color: #ffffff !important;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-accent-solid:hover,
+.btn-accent-solid:focus {
+  background-color: var(--map-accent-hover) !important;
+  border-color: var(--map-accent-hover) !important;
   color: #ffffff !important;
 }
 
 .btn-outline-primary {
-  color: rgb(11, 27, 43) !important;
-  border-color: rgb(11, 27, 43) !important;
+  color: var(--map-primary-blue) !important;
+  border-color: var(--map-primary-blue) !important;
 }
 
 .btn-outline-primary:hover,
 .btn-outline-primary:focus,
 .btn-outline-primary:active {
-  background-color: rgb(11, 27, 43) !important;
-  border-color: rgb(11, 27, 43) !important;
+  background-color: var(--map-primary-blue) !important;
+  border-color: var(--map-primary-blue) !important;
   color: #ffffff !important;
 }
 
 .bg-primary {
-  background-color: rgb(11, 27, 43) !important;
+  background-color: var(--map-primary-blue) !important;
   color: #ffffff !important;
 }
 
 .text-primary {
-  color: rgb(11, 27, 43) !important;
+  color: var(--map-primary-blue) !important;
 }
 
 .border-primary {
-  border-color: rgb(11, 27, 43) !important;
+  border-color: var(--map-primary-blue) !important;
 }
 
 * {
@@ -96,10 +169,140 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* monospace utility for maritime identifiers like imo and mmsi */
-.font-mono-code {
+/* Typography Scale Classes (IBM Plex Sans / IBM Plex Mono) */
+.map-page-title,
+h1.map-title {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  color: rgb(11, 27, 43);
+}
+
+.map-section-header,
+h2.map-header {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: rgb(51, 65, 85);
+}
+
+.map-card-header,
+h3.map-card-title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: rgb(51, 65, 85);
+}
+
+.map-body-text {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  color: rgb(51, 65, 85);
+}
+
+.map-form-label,
+.map-table-header {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: rgb(100, 116, 139);
+}
+
+.map-btn-text {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.map-badge-text {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+/* Document IDs, IMO Numbers & Numeric Tabular Data */
+.font-mono-code,
+.map-id-cell,
+.map-numeric-cell {
   font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* KPI & Metric Summary Card Numbers (3x prominent sizing) */
+.map-kpi-value,
+.map-metric-number {
+  font-family: var(--font-mono);
+  font-size: 38px;
+  line-height: 44px;
+  font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.map-kpi-card {
+  padding: 16px 20px;
+  background-color: var(--map-bg-card, #ffffff);
+  border: 1px solid var(--map-border-color, #e2e8f0);
+  border-radius: 8px;
+}
+
+.map-kpi-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--map-text-muted, #64748b);
+}
+
+.map-kpi-subtitle {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--map-text-secondary, #475569);
+}
+
+/* Audit Logs, JSON Payloads & System Code */
+.map-code-block {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+/* Standardized Button Footprint */
+.btn {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.btn-md {
+  font-size: 14px;
+  padding: 8px 14px;
+}
+
+.btn-sm,
+.btn-dense {
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
+.btn-xs {
+  font-size: 12px;
+  padding: 4px 8px;
 }
 
 /* Custom scrollbars */

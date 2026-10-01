@@ -36,42 +36,42 @@ export const UserManagementView: React.FC = () => {
       {/* Top Summary KPI Metric Cards */}
       <div className="row g-3">
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Visible Personnel
             </div>
-            <div className="display-6 fw-bold text-primary font-mono-code mt-1">{visibleUsers.length}</div>
-            <div className="text-muted small mt-1">Authorized Organization & Auditor Accounts</div>
+            <div className="map-kpi-value text-primary mt-1">{visibleUsers.length}</div>
+            <div className="map-kpi-subtitle mt-1">Authorized Organization & Auditor Accounts</div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Organization Members
             </div>
-            <div className="display-6 fw-bold text-dark font-mono-code mt-1">{orgUsersCount}</div>
-            <div className="text-muted small mt-1">Internal Team Accounts</div>
+            <div className="map-kpi-value text-primary mt-1">{orgUsersCount}</div>
+            <div className="map-kpi-subtitle mt-1">Internal Team Accounts</div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Inspectors & Verifiers
             </div>
-            <div className="display-6 fw-bold text-info font-mono-code mt-1">{inspectorsCount + verifiersCount}</div>
-            <div className="text-muted small mt-1">Assigned Auditors & Compliance Verification</div>
+            <div className="map-kpi-value text-primary mt-1">{inspectorsCount + verifiersCount}</div>
+            <div className="map-kpi-subtitle mt-1">Assigned Auditors & Compliance Verification</div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Third-Party Stakeholders
             </div>
-            <div className="display-6 fw-bold text-warning font-mono-code mt-1">{thirdPartyUsersCount}</div>
-            <div className="text-muted small mt-1">External Audit & Survey Entities</div>
+            <div className="map-kpi-value text-warning mt-1">{thirdPartyUsersCount}</div>
+            <div className="map-kpi-subtitle mt-1">External Audit & Survey Entities</div>
           </div>
         </div>
       </div>

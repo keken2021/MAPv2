@@ -70,7 +70,7 @@ export const ProjectView: React.FC = () => {
             className="btn btn-sm btn-primary fw-semibold"
             onClick={() => setCurrentHashView('project', 'new')}
           >
-            + Create Project
+            Create Project
           </button>
         )}
       </div>

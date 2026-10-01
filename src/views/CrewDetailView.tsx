@@ -460,7 +460,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               className="btn btn-sm btn-primary ms-auto"
               onClick={() => handleOpenUploadNew('Layer 1 - Universal Core')}
             >
-              + Upload Core Certificate
+              Upload Core Certificate
             </button>
           )}
         </div>
@@ -593,7 +593,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               className="btn btn-sm btn-primary ms-auto"
               onClick={() => handleOpenUploadNew('Layer 2 - Vessel Specific & Endorsements')}
             >
-              + Add Layer 2 Endorsement
+              Add Layer 2 Endorsement
             </button>
           )}
         </div>

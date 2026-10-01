@@ -35,6 +35,38 @@ import {
   statusHistoryBadgeClass,
 } from '../utils/vesselStatusHistoryHelpers';
 import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
+import {
+  MapPin,
+  Download,
+  Edit2,
+  X,
+  Camera,
+  Info,
+  Navigation,
+  Shield,
+  History,
+  Activity,
+  Flag,
+  FileText,
+  Maximize2,
+  Settings,
+  Package,
+  Building,
+  Building2,
+  Mail,
+  Globe,
+  Phone,
+  Anchor,
+  Plus,
+  Image,
+  Crop,
+  Upload,
+  Trash2,
+  Save,
+  ChevronDown,
+  Check,
+} from 'lucide-react';
+
 
 interface VesselDetailViewProps {
   vesselId: string;
@@ -904,7 +936,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             className="btn btn-primary btn-sm mx-auto"
             onClick={() => setCurrentHashView('vessels')}
           >
-            &larr; Back to Fleet Registry
+            Back to Fleet Registry
           </button>
         </div>
       </div>
@@ -982,7 +1014,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       {/* Top Header Navigation & Action Bar matching mockup */}
       <div className="map-vessel-topbar d-flex flex-wrap align-items-center justify-content-between gap-3 shadow-sm mb-1">
         <div className="d-flex align-items-center gap-3 min-w-0">
-          {/* Flag SVG Badge */}
+          {/* Flag Status Badge */}
           <div
             className="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 text-white fw-bold shadow-sm"
             style={{
@@ -1038,9 +1070,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             <div className="d-flex align-items-center gap-2 text-secondary small mt-0.5 flex-wrap" style={{ fontSize: '0.84rem' }}>
               <span className="fw-semibold text-dark font-mono-code">{vessel.imoNumber}</span>
               <span className="d-inline-flex align-items-center text-danger">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                </svg>
+                <MapPin className="w-2.5 h-2.5 fill-current" />
               </span>
               <span className="text-secondary">{vessel.vesselSubtype || vessel.vesselType || 'Commercial Maritime Vessel'}</span>
               <span className="text-muted">•</span>
@@ -1058,11 +1088,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5"
                 onClick={() => setIsExportOpen(!isExportOpen)}
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
+                <Download className="w-3.5 h-3.5" />
                 <span>Export</span>
               </button>
               {isExportOpen && (
@@ -1116,10 +1142,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1.5"
                   onClick={() => setIsEditing(true)}
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
+                  <Edit2 className="w-3.5 h-3.5" />
                   <span>{canEditFull ? 'Edit Information' : 'Update Status'}</span>
                 </button>
               )}
@@ -1134,10 +1157,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             onClick={() => setCurrentHashView(previousHashView || 'vessels', previousEntityId)}
             title="Close and Return to Fleet Registry"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -1310,10 +1330,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     onClick={() => setShowPhotoUploadModal(true)}
                     title="Add, Update or Delete photos"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                      <circle cx="12" cy="13" r="4"></circle>
-                    </svg>
+                    <Camera className="w-3 h-3" />
                     <span>{vessel.photos && vessel.photos.length > 1 ? 'Manage Gallery' : vessel.imageUrl ? 'Update Photo' : 'Add Photo'}</span>
                   </button>
                 )}
@@ -1373,11 +1390,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 }}
                 title="Expand all technical specification accordions"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="16" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
+                <Info className="w-3.5 h-3.5" />
                 <span style={{ fontSize: '0.68rem' }}>Details</span>
               </button>
               <button
@@ -1390,9 +1403,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 }}
                 title="View voyage tracking and historical transit logs"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-                </svg>
+                <Navigation className="w-3.5 h-3.5" />
                 <span style={{ fontSize: '0.68rem' }}>Voyage</span>
               </button>
               {canManagePhotos && (
@@ -1402,10 +1413,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   onClick={() => setShowPhotoUploadModal(true)}
                   title="Update vessel image or choose from fleet photos"
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-                    <circle cx="12" cy="13" r="4"></circle>
-                  </svg>
+                  <Camera className="w-3.5 h-3.5" />
                   <span style={{ fontSize: '0.68rem' }}>{vessel.photos && vessel.photos.length > 1 ? 'Photos' : 'Add Photo'}</span>
                 </button>
               )}
@@ -1418,9 +1426,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 }}
                 title="Verify vessel registration in master fleet"
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                </svg>
+                <Shield className="w-3.5 h-3.5" />
                 <span style={{ fontSize: '0.68rem' }}>Fleet Status</span>
               </button>
             </div>
@@ -1483,11 +1489,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             >
               <div className="d-flex align-items-center justify-content-between fw-bold text-dark mb-2" style={{ fontSize: '0.85rem' }}>
                 <div className="d-flex align-items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-                    <circle cx="6" cy="19" r="3"></circle>
-                    <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
-                    <circle cx="18" cy="5" r="3"></circle>
-                  </svg>
+                  <History className="w-3.5 h-3.5 text-primary" />
                   <span>Historical Voyage Data</span>
                 </div>
                 <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.7rem' }}>
@@ -1508,11 +1510,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   setShowVoyageHistoryModal(true);
                 }}
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary flex-shrink-0">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="16" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
+                <Info className="w-3 h-3 text-primary shrink-0" />
                 <span>Click to view other historical data!</span>
               </button>
             </div>
@@ -1524,9 +1522,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onClick={() => setShowVoyageProgress(!showVoyageProgress)}
               >
                 <div className="map-datasheet-card-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                  </svg>
+                  <Activity className="w-3.5 h-3.5" />
                   <span>Voyage Progress</span>
                 </div>
                 <span className="text-muted small">{showVoyageProgress ? '▲' : '▼'}</span>
@@ -1556,10 +1552,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onClick={() => setShowArrivalDetails(!showArrivalDetails)}
               >
                 <div className="map-datasheet-card-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-                    <line x1="4" y1="22" x2="4" y2="15"></line>
-                  </svg>
+                  <Flag className="w-3.5 h-3.5" />
                   <span>Arrival Details</span>
                 </div>
                 <span className="text-muted small">{showArrivalDetails ? '▲' : '▼'}</span>
@@ -1589,13 +1582,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           <div className={showManagementSection ? 'col-12 col-lg-5 col-xl-5' : 'col-12 col-lg-7 col-xl-7'}>
             {/* Section Header Divider */}
             <div className="map-section-divider">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
+              <FileText className="w-4 h-4" />
               <span>Vessel Datasheet</span>
             </div>
 
@@ -1606,10 +1593,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onClick={() => setShowGeneralInfo(!showGeneralInfo)}
               >
                 <div className="map-datasheet-card-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                    <polyline points="14 2 14 8 20 8"></polyline>
-                  </svg>
+                  <FileText className="w-3.5 h-3.5" />
                   <span>General Information</span>
                 </div>
                 <span className="text-muted small">{showGeneralInfo ? '▲' : '▼'}</span>
@@ -1867,13 +1851,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onClick={() => setShowDimensionsInfo(!showDimensionsInfo)}
               >
                 <div className="map-datasheet-card-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="7" width="20" height="10" rx="2"></rect>
-                    <line x1="6" y1="7" x2="6" y2="17"></line>
-                    <line x1="10" y1="7" x2="10" y2="17"></line>
-                    <line x1="14" y1="7" x2="14" y2="17"></line>
-                    <line x1="18" y1="7" x2="18" y2="17"></line>
-                  </svg>
+                  <Maximize2 className="w-3.5 h-3.5" />
                   <span>Dimensions Information</span>
                 </div>
                 <span className="text-muted small">{showDimensionsInfo ? '▲' : '▼'}</span>
@@ -2016,9 +1994,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onClick={() => setShowClassificationInfo(!showClassificationInfo)}
               >
                 <div className="map-datasheet-card-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                  </svg>
+                  <Shield className="w-3.5 h-3.5" />
                   <span>Classification &amp; Analogous Information</span>
                 </div>
                 <span className="text-muted small">{showClassificationInfo ? '▲' : '▼'}</span>
@@ -2119,10 +2095,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onClick={() => setShowEngineRoomInfo(!showEngineRoomInfo)}
               >
                 <div className="map-datasheet-card-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                  </svg>
+                  <Settings className="w-3.5 h-3.5" />
                   <span>Engine Room Information</span>
                 </div>
                 <span className="text-muted small">{showEngineRoomInfo ? '▲' : '▼'}</span>
@@ -2182,9 +2155,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onClick={() => setShowShipCapacityInfo(!showShipCapacityInfo)}
               >
                 <div className="map-datasheet-card-title">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                  </svg>
+                  <Package className="w-3.5 h-3.5" />
                   <span>Ship Capacity &amp; Equipment Information</span>
                 </div>
                 <span className="text-muted small">{showShipCapacityInfo ? '▲' : '▼'}</span>
@@ -2227,19 +2198,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             <div className="col-12 col-lg-3 col-xl-3">
               {/* Section Header Divider */}
               <div className="map-section-divider">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="4" y="2" width="16" height="20" rx="2"></rect>
-                  <line x1="9" y1="22" x2="9" y2="22.01"></line>
-                  <line x1="15" y1="22" x2="15" y2="22.01"></line>
-                  <line x1="9" y1="6" x2="9" y2="6.01"></line>
-                  <line x1="15" y1="6" x2="15" y2="6.01"></line>
-                  <line x1="9" y1="10" x2="9" y2="10.01"></line>
-                  <line x1="15" y1="10" x2="15" y2="10.01"></line>
-                  <line x1="9" y1="14" x2="9" y2="14.01"></line>
-                  <line x1="15" y1="14" x2="15" y2="14.01"></line>
-                  <line x1="9" y1="18" x2="9" y2="18.01"></line>
-                  <line x1="15" y1="18" x2="15" y2="18.01"></line>
-                </svg>
+                <Building className="w-4 h-4" />
                 <span>Management Information</span>
               </div>
 
@@ -2250,15 +2209,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   onClick={() => setShowRegOwnerInfo(!showRegOwnerInfo)}
                 >
                   <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small text-truncate" style={{ fontSize: '0.8rem' }}>
-                    <span>➔</span>
                     <span className="text-truncate">Registered Owner</span>
                     <div className="d-flex align-items-center gap-1 text-muted ms-1 opacity-75">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line></svg>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                      <Mail className="w-2.5 h-2.5" />
+                      <Globe className="w-2.5 h-2.5" />
+                      <Phone className="w-2.5 h-2.5" />
                     </div>
                   </div>
-                  <span className="text-muted small">{showRegOwnerInfo ? '▲' : '▼'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${showRegOwnerInfo ? "rotate-180" : ""}`} />
                 </div>
                 {showRegOwnerInfo && (
                   <div className="p-3 bg-white border-top small">
@@ -2307,15 +2265,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   onClick={() => setShowIsmManagerInfo(!showIsmManagerInfo)}
                 >
                   <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small text-truncate" style={{ fontSize: '0.8rem' }}>
-                    <span>➔</span>
                     <span className="text-truncate">ISM Manager</span>
                     <div className="d-flex align-items-center gap-1 text-muted ms-1 opacity-75">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line></svg>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                      <Mail className="w-2.5 h-2.5" />
+                      <Globe className="w-2.5 h-2.5" />
+                      <Phone className="w-2.5 h-2.5" />
                     </div>
                   </div>
-                  <span className="text-muted small">{showIsmManagerInfo ? '▲' : '▼'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${showIsmManagerInfo ? "rotate-180" : ""}`} />
                 </div>
                 {showIsmManagerInfo && (
                   <div className="p-3 bg-white border-top small">
@@ -2355,15 +2312,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   onClick={() => setShowShipManagerInfo(!showShipManagerInfo)}
                 >
                   <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small text-truncate" style={{ fontSize: '0.8rem' }}>
-                    <span>➔</span>
                     <span className="text-truncate">Ship Manager</span>
                     <div className="d-flex align-items-center gap-1 text-muted ms-1 opacity-75">
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line></svg>
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                      <Mail className="w-2.5 h-2.5" />
+                      <Globe className="w-2.5 h-2.5" />
+                      <Phone className="w-2.5 h-2.5" />
                     </div>
                   </div>
-                  <span className="text-muted small">{showShipManagerInfo ? '▲' : '▼'}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${showShipManagerInfo ? "rotate-180" : ""}`} />
                 </div>
                 {showShipManagerInfo && (
                   <div className="p-3 bg-white border-top small">
@@ -2428,12 +2384,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
               {/* Section Header Divider: Companies Other Vessels */}
               <div className="map-section-divider mt-3">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2 21h20"></path>
-                  <path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.5.94 4.8 2.62 6"></path>
-                  <path d="M12 10V4"></path>
-                  <path d="m8 7 4-3 4 3"></path>
-                </svg>
+                <Anchor className="w-4 h-4" />
                 <span>Companies Other Vessels</span>
               </div>
 
@@ -2445,11 +2396,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 title={`View fleet for ${vessel.registeredOwner}`}
               >
                 <div className="d-flex align-items-center gap-1.5 fw-bold text-dark mb-1.5" style={{ fontSize: '0.78rem' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-secondary"><rect x="4" y="2" width="16" height="20" rx="2"></rect></svg>
+                  <Building2 className="w-3 h-3 text-secondary" />
                   <span className="text-truncate">{vessel.registeredOwner.toUpperCase()}</span>
                 </div>
                 <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary flex-shrink-0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <Info className="w-2.5 h-2.5 text-primary shrink-0" />
                   <span className="text-truncate">Click to view the company's entire fleet!</span>
                 </div>
               </div>
@@ -2462,11 +2413,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 title="View fleet for technical manager"
               >
                 <div className="d-flex align-items-center gap-1.5 fw-bold text-dark mb-1.5" style={{ fontSize: '0.78rem' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-secondary"><rect x="4" y="2" width="16" height="20" rx="2"></rect></svg>
+                  <Building2 className="w-3 h-3 text-secondary" />
                   <span className="text-truncate">{vessel.technicalManager ? vessel.technicalManager.toUpperCase() : 'ANGLO-EASTERN SHIPMANAGEMENT S'}</span>
                 </div>
                 <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary flex-shrink-0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <Info className="w-2.5 h-2.5 text-primary shrink-0" />
                   <span className="text-truncate">Click to view the company's entire fleet!</span>
                 </div>
               </div>
@@ -2479,11 +2430,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 title="View fleet for ISM company"
               >
                 <div className="d-flex align-items-center gap-1.5 fw-bold text-dark mb-1.5" style={{ fontSize: '0.78rem' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-secondary"><rect x="4" y="2" width="16" height="20" rx="2"></rect></svg>
+                  <Building2 className="w-3 h-3 text-secondary" />
                   <span className="text-truncate">{vessel.ismCompany ? vessel.ismCompany.toUpperCase() : 'AL SEER MARINE SUPPLIES'}</span>
                 </div>
                 <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary flex-shrink-0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <Info className="w-2.5 h-2.5 text-primary shrink-0" />
                   <span className="text-truncate">Click to view the company's entire fleet!</span>
                 </div>
               </div>
@@ -2528,7 +2479,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 className="btn btn-sm btn-primary ms-auto"
                 onClick={() => setIsUploadModalOpen(true)}
               >
-                + Upload Certificate
+                Upload Certificate
               </button>
             )}
           </div>
@@ -2764,7 +2715,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   className="btn btn-sm btn-primary fw-semibold"
                   onClick={() => handleCreateAssuranceForVessel()}
                 >
-                  + Create Assurance Set
+                  Create Assurance Set
                 </button>
               </div>
             )}
@@ -2782,7 +2733,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         className="btn btn-sm btn-primary fw-semibold"
                         onClick={() => handleCreateAssuranceForVessel()}
                       >
-                        + Create Assurance Set for this Vessel
+                        Create Assurance Set for this Vessel
                       </button>
                     )}
                   </>
@@ -3328,14 +3279,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 className="btn btn-sm btn-outline-primary fw-semibold"
                 onClick={() => setIsAssignExistingOpen(!isAssignExistingOpen)}
               >
-                + Assign Existing Seafarer
+                Assign Existing Seafarer
               </button>
               <button
                 type="button"
                 className="btn btn-sm btn-primary fw-semibold"
                 onClick={() => setIsAddCrewModalOpen(true)}
               >
-                + Register New Seafarer
+                Register New Seafarer
               </button>
             </div>
           </div>
@@ -3731,10 +3682,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       className="btn btn-sm btn-primary fw-semibold d-flex align-items-center gap-1.5"
                       onClick={() => setShowInspectionDrawer(true)}
                     >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
+                      <Plus className="w-4 h-4" />
                       New Live Inspection Checklist
                     </button>
                   </div>
@@ -4427,11 +4375,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </table>
                 </div>
                 <div className="p-2.5 bg-light border rounded text-secondary small d-flex align-items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary flex-shrink-0">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                  </svg>
+                  <Info className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span>AIS telemetry streams are validated against satellite transponder archives with sub-meter positioning accuracy.</span>
                 </div>
               </div>
@@ -4629,12 +4573,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 <div className="mb-4">
                   <div className="d-flex align-items-center justify-content-between mb-2">
                     <h6 className="fw-bold text-dark m-0 d-flex align-items-center gap-2">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                        <line x1="16" y1="13" x2="8" y2="13"></line>
-                        <line x1="16" y1="17" x2="8" y2="17"></line>
-                      </svg>
+                      <FileText className="w-4 h-4 text-primary" />
                       Extracted Document Data &amp; Vessel Specifications
                     </h6>
                     <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code">
@@ -4777,11 +4716,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
                 <div className="d-flex align-items-center gap-2">
                   <div className="p-2 bg-primary-subtle text-primary rounded-3">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                      <circle cx="8.5" cy="8.5" r="1.5" />
-                      <polyline points="21 15 16 10 5 21" />
-                    </svg>
+                    <Image className="w-4.5 h-4.5" />
                   </div>
                   <div>
                     <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
@@ -4823,10 +4758,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         }}
                         title="Crop or reframe this photo using the Universal Sizing Tool"
                       >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
-                          <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
-                        </svg>
+                        <Crop className="w-3.5 h-3.5" />
                         <span>Crop</span>
                       </button>
                     </div>
@@ -4897,10 +4829,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                     }}
                                     title="Crop / Reframe this photo"
                                   >
-                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                      <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
-                                      <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
-                                    </svg>
+                                    <Crop className="w-2.5 h-2.5" />
                                   </button>
                                   <button
                                     type="button"
@@ -5030,11 +4959,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       }
                     }}
                   >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
+                    <Upload className="w-6 h-6 text-primary" />
                     <span className="small text-dark fw-semibold">
                       Drag &amp; drop vessel image here or <span className="text-primary text-decoration-underline">browse files</span>
                     </span>
@@ -5069,7 +4994,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           </div>
                           {photoModalUrl === p.url && (
                             <div className="position-absolute top-0 end-0 m-1">
-                              <span className="badge bg-primary text-white p-1 rounded-circle">✓</span>
+                              <span className="badge bg-primary text-white p-1 rounded-circle d-flex align-items-center justify-content-center" style={{ width: "18px", height: "18px" }}><Check className="w-2.5 h-2.5 text-white" strokeWidth={3} /></span>
                             </div>
                           )}
                         </div>
@@ -5133,10 +5058,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         setTimeout(() => setToastMessage(null), 3500);
                       }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                      </svg>
+                      <Trash2 className="w-3.5 h-3.5" />
                       <span>Delete All Custom Photos</span>
                     </button>
                   )}
@@ -5167,11 +5089,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       setTimeout(() => setToastMessage(null), 3500);
                     }}
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                      <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                      <polyline points="7 3 7 8 15 8"></polyline>
-                    </svg>
+                    <Save className="w-3.5 h-3.5" />
                     <span>Save Photos ({modalPhotos.length})</span>
                   </button>
                 </div>

@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument } from '../../types/document';
 import { DocumentUploadModal } from './DocumentUploadModal';
+import { Check, AlertCircle } from 'lucide-react';
 
 interface DocumentReviewDrawerProps {
   document: MasterDocument | null;
@@ -223,9 +224,9 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                 <div className={`${isJustLoaded ? 'map-criteria-item-1' : ''} d-flex align-items-center gap-2 small`} style={{ fontSize: '0.75rem', color: '#475569' }}>
                   <span
                     className="d-flex align-items-center justify-content-center rounded text-white fw-bold me-1.5 flex-shrink-0"
-                    style={{ width: '18px', height: '18px', backgroundColor: '#059669', fontSize: '0.65rem' }}
+                    style={{ width: '18px', height: '18px', backgroundColor: '#059669' }}
                   >
-                    ✓
+                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
                   </span>
                   <span className="ps-0.5 text-dark fw-medium">Resolution 240 DPI</span>
                 </div>
@@ -236,10 +237,9 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                       width: '18px',
                       height: '18px',
                       backgroundColor: isFullPagePassed ? '#059669' : '#c2410c',
-                      fontSize: '0.65rem',
                     }}
                   >
-                    {isFullPagePassed ? '✓' : '!'}
+                    {isFullPagePassed ? <Check className="w-3 h-3 text-white" strokeWidth={3} /> : <AlertCircle className="w-3 h-3 text-white" />}
                   </span>
                   <span className="ps-0.5 text-dark fw-medium">Full page captured</span>
                 </div>
@@ -250,10 +250,9 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                       width: '18px',
                       height: '18px',
                       backgroundColor: isSignaturePassed ? '#059669' : '#c2410c',
-                      fontSize: '0.65rem',
                     }}
                   >
-                    {isSignaturePassed ? '✓' : '!'}
+                    {isSignaturePassed ? <Check className="w-3 h-3 text-white" strokeWidth={3} /> : <AlertCircle className="w-3 h-3 text-white" />}
                   </span>
                   <span className="ps-0.5 text-dark fw-medium">Signature / stamp present</span>
                 </div>
@@ -311,8 +310,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                         </div>
                       )}
                       {isFieldCorrected ? (
-                        <div className="small mt-0.5 fw-bold text-success" style={{ fontSize: '0.7rem' }}>
-                          ✓ Manually Corrected (100% Verified)
+                        <div className="small mt-0.5 fw-bold text-success d-inline-flex align-items-center gap-1" style={{ fontSize: '0.7rem' }}>
+                          <Check className="w-3 h-3 text-success" /> Manually Corrected (100% Verified)
                         </div>
                       ) : isBelowThreshold ? (
                         <div className="small mt-0.5" style={{ fontSize: '0.7rem', color: '#b45309' }}>

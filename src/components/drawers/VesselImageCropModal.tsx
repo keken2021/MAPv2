@@ -502,14 +502,13 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                     <div className="d-flex align-items-center gap-2 flex-grow-1 crop-zoom-container">
                       <span className="crop-zoom-label fw-semibold">Zoom:</span>
                       <button
-                        type="button"
-                        className="btn btn-xs btn-outline-secondary px-2 d-flex align-items-center justify-content-center"
-                        style={{ width: '26px', height: '26px' }}
-                        onClick={() => handleZoomChange(zoom - 0.1)}
-                        title="Zoom out"
-                      >
-                        <Minus size={12} strokeWidth={2.5} />
-                      </button>
+    type="button"
+    className="w-7 h-7 rounded border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-colors shadow-2xs cursor-pointer shrink-0"
+    onClick={() => handleZoomChange(zoom - 0.1)}
+    title="Zoom out"
+  >
+    <Minus className="w-3.5 h-3.5 text-slate-700" />
+  </button>
                       <input
                         type="range"
                         className="form-range flex-grow-1"
@@ -520,14 +519,13 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                         onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
                       />
                       <button
-                        type="button"
-                        className="btn btn-xs btn-outline-secondary px-2 d-flex align-items-center justify-content-center"
-                        style={{ width: '26px', height: '26px' }}
-                        onClick={() => handleZoomChange(zoom + 0.1)}
-                        title="Zoom in"
-                      >
-                        <Plus size={12} strokeWidth={2.5} />
-                      </button>
+    type="button"
+    className="w-7 h-7 rounded border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-colors shadow-2xs cursor-pointer shrink-0"
+    onClick={() => handleZoomChange(zoom + 0.1)}
+    title="Zoom in"
+  >
+    <Plus className="w-3.5 h-3.5 text-slate-700" />
+  </button>
                       <span className="crop-zoom-value font-mono-code small fw-bold">
                         {zoom.toFixed(2)}x
                       </span>

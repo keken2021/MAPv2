@@ -214,42 +214,42 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
       {/* CAPA Metric KPI Cards */}
       <div className="row g-3">
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Total Vessel CAPAs
             </div>
-            <div className="display-6 fw-bold text-primary font-mono-code mt-1">{totalCount}</div>
-            <div className="text-muted small mt-1">Total Logged Corrective Actions</div>
+            <div className="map-kpi-value text-primary mt-1">{totalCount}</div>
+            <div className="map-kpi-subtitle mt-1">Total Logged Corrective Actions</div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Open Findings
             </div>
-            <div className="display-6 fw-bold text-danger font-mono-code mt-1">{openCount}</div>
-            <div className="text-muted small mt-1">Awaiting Rectification</div>
+            <div className="map-kpi-value text-danger mt-1">{openCount}</div>
+            <div className="map-kpi-subtitle mt-1">Awaiting Rectification</div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Under Re-Inspection
             </div>
-            <div className="display-6 fw-bold text-warning font-mono-code mt-1">{reInspectionCount}</div>
-            <div className="text-muted small mt-1">Inspector Verification Pending</div>
+            <div className="map-kpi-value text-warning mt-1">{reInspectionCount}</div>
+            <div className="map-kpi-subtitle mt-1">Inspector Verification Pending</div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Verified & Closed
             </div>
-            <div className="display-6 fw-bold text-success font-mono-code mt-1">{closedCount}</div>
-            <div className="text-muted small mt-1">Signed Off & Compliant</div>
+            <div className="map-kpi-value text-success mt-1">{closedCount}</div>
+            <div className="map-kpi-subtitle mt-1">Signed Off & Compliant</div>
           </div>
         </div>
       </div>

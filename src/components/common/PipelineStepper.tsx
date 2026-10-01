@@ -5,6 +5,7 @@
 */
 
 import { AssuranceSet, AssuranceStage } from '../../types/assurance';
+import { Check } from 'lucide-react';
 
 interface PipelineStepperProps {
   currentStage: AssuranceStage;
@@ -158,7 +159,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
                   }`}
                 style={{ width: '24px', height: '24px', fontSize: '0.7rem' }}
               >
-                {isCompleted ? '✓' : s.num}
+                {isCompleted ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : s.num}
               </div>
               <span className="font-mono-code ms-1.5" style={{ fontSize: '0.775rem' }}>
                 {s.label}
@@ -184,7 +185,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
             style={{ cursor: onStageSelect ? 'pointer' : 'default' }}
           >
             <div className="map-stepper-number">
-              {isCompleted ? '✓' : s.num}
+              {isCompleted ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : s.num}
             </div>
             <span className="d-none d-md-inline">{s.label}</span>
           </div>

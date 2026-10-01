@@ -5,6 +5,7 @@
 */
 
 import React, { useState, useMemo } from 'react';
+import { LayoutGrid, Table as TableIcon, Check, MoreHorizontal, Download } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { VesselInformation } from '../../types/vessel';
 import { ReadinessGauge } from '../common/ReadinessGauge';
@@ -308,22 +309,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
               aria-label="Toggle View Mode"
             >
               {viewMode === 'grid' ? (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="3" width="7" height="7"></rect>
-                  <rect x="14" y="14" width="7" height="7"></rect>
-                  <rect x="3" y="14" width="7" height="7"></rect>
-                </svg>
+                <LayoutGrid size={15} />
               ) : (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <line x1="3" y1="12" x2="21" y2="12"></line>
-                  <line x1="3" y1="18" x2="21" y2="18"></line>
-                </svg>
+                <TableIcon size={15} />
               )}
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
             </button>
             {isViewDropdownOpen && (
               <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border py-1" style={{ minWidth: '120px' }}>
@@ -338,15 +327,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                     title="Grid View"
                   >
                     <div className="d-flex align-items-center gap-2">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="3" width="7" height="7"></rect>
-                        <rect x="14" y="14" width="7" height="7"></rect>
-                        <rect x="3" y="14" width="7" height="7"></rect>
-                      </svg>
+                      <LayoutGrid size={15} />
                       <span>Grid</span>
                     </div>
-                    {viewMode === 'grid' && <span>✓</span>}
+                    {viewMode === 'grid' && <Check size={14} />}
                   </button>
                 </li>
                 <li>
@@ -360,14 +344,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                     title="Table View"
                   >
                     <div className="d-flex align-items-center gap-2">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <line x1="3" y1="12" x2="21" y2="12"></line>
-                        <line x1="3" y1="18" x2="21" y2="18"></line>
-                      </svg>
+                      <TableIcon size={15} />
                       <span>Table</span>
                     </div>
-                    {viewMode === 'table' && <span>✓</span>}
+                    {viewMode === 'table' && <Check size={14} />}
                   </button>
                 </li>
               </ul>
@@ -479,11 +459,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                             }}
                             title="View Options"
                           >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="1.5"></circle>
-                              <circle cx="19" cy="12" r="1.5"></circle>
-                              <circle cx="5" cy="12" r="1.5"></circle>
-                            </svg>
+                            <MoreHorizontal size={16} />
                           </button>
                         </div>
 

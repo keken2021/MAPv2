@@ -197,7 +197,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                 }}
               >
                 <div>
-                  <div className="fw-bold">+ Upload Layer 1 — Universal Core Certificate</div>
+                  <div className="fw-bold">Upload Layer 1 — Universal Core Certificate</div>
                   <div className="small text-muted">Universal Core (Passport, Seaman's Book, BST, ENG1 Medical, Security Awareness)</div>
                 </div>
                 <span className="btn btn-sm btn-primary ms-2 flex-shrink-0">Add Layer 1</span>
@@ -216,7 +216,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                 }}
               >
                 <div>
-                  <div className="fw-bold">+ Upload Layer 2 — Vessel Specific Endorsement</div>
+                  <div className="fw-bold">Upload Layer 2 — Vessel Specific Endorsement</div>
                   <div className="small text-muted">Vessel & Cargo Specific (CoC, Flag Endorsement, Advanced Tanker, IGF, DP Operator)</div>
                 </div>
                 <span className="btn btn-sm btn-info text-dark ms-2 flex-shrink-0">Add Layer 2</span>

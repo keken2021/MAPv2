@@ -211,11 +211,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
               <span className="badge bg-info text-dark">{project.projectType}</span>
               {project.riskProfile && (
                 <span
-                  className={`badge ${
-                    project.riskProfile.includes('High') || project.riskProfile.includes('Armed')
+                  className={`badge ${project.riskProfile.includes('High') || project.riskProfile.includes('Armed')
                       ? 'bg-danger'
                       : 'bg-warning text-dark'
-                  }`}
+                    }`}
                 >
                   {project.riskProfile}
                 </span>
@@ -254,7 +253,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
             {canManage && (
               <div className="d-flex flex-wrap gap-2 justify-content-end mt-2">
                 <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setShowAddPanel((p) => !p)}>
-                  + Add Asset
+                  Add Asset
                 </button>
                 <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handleRefreshMaster}>
                   Refresh Project Assurance
@@ -324,19 +323,19 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
                   ? isOrganizationMatch(project.requestingOrganization, a.providerOrganization)
                   : false;
                 return (
-                <div key={`${a.assetType}-${a.assetId}`} className="d-flex justify-between align-items-center p-2 border-bottom small">
-                  <div>
-                    <strong>{a.assetName}</strong>
-                    <span className={`badge ms-1 ${isOwnOrg ? 'bg-success' : 'bg-warning text-dark'}`} style={{ fontSize: '0.6rem' }}>
-                      {isOwnOrg ? 'Your org' : 'External'}
-                    </span>
-                    <div className="text-muted">{a.assetType} · {a.providerOrganization}</div>
+                  <div key={`${a.assetType}-${a.assetId}`} className="d-flex justify-between align-items-center p-2 border-bottom small">
+                    <div>
+                      <strong>{a.assetName}</strong>
+                      <span className={`badge ms-1 ${isOwnOrg ? 'bg-success' : 'bg-warning text-dark'}`} style={{ fontSize: '0.6rem' }}>
+                        {isOwnOrg ? 'Your org' : 'External'}
+                      </span>
+                      <div className="text-muted">{a.assetType} · {a.providerOrganization}</div>
+                    </div>
+                    <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => handleAddAsset(a)}>
+                      Add
+                    </button>
                   </div>
-                  <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => handleAddAsset(a)}>
-                    Add
-                  </button>
-                </div>
-              );
+                );
               })
             )}
           </div>
@@ -373,8 +372,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
               <tbody>
                 {filteredLinks.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-4 text-muted">
-                      No assets linked yet. Use + Add Asset to compose this project.
+                    <td colSpan={6} className="text-center py-4 text-muted">
+                      No assets linked yet. Use Add Asset to compose this charter.
                     </td>
                   </tr>
                 ) : (

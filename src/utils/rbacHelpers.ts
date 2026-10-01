@@ -505,7 +505,7 @@ export function getBackButtonInfo(
 
   if (previousHashView === "dashboard" || !isParentAllowedInSidepanel) {
     return {
-      label: "← Back to Dashboard",
+      label: "Back to Dashboard",
       targetView: "dashboard",
     };
   }
@@ -513,8 +513,8 @@ export function getBackButtonInfo(
   if (previousHashView === "crew") {
     return {
       label: previousEntityId
-        ? "← Back to Seafarer Profile"
-        : "← Back to Crew Directory",
+        ? "Back to Seafarer Profile"
+        : "Back to Crew Directory",
       targetView: "crew",
       targetEntityId: previousEntityId,
     };
@@ -523,8 +523,8 @@ export function getBackButtonInfo(
   if (previousHashView === "vessels") {
     return {
       label: previousEntityId
-        ? "← Back to Vessel Detail"
-        : "← Back to Fleet Registry",
+        ? "Back to Vessel Detail"
+        : "Back to Fleet Registry",
       targetView: "vessels",
       targetEntityId: previousEntityId,
     };
@@ -533,8 +533,8 @@ export function getBackButtonInfo(
   if (previousHashView === "equipment") {
     return {
       label: previousEntityId
-        ? "← Back to Equipment Detail"
-        : "← Back to Equipment Registry",
+        ? "Back to Equipment Detail"
+        : "Back to Equipment Registry",
       targetView: "equipment",
       targetEntityId: previousEntityId,
     };
@@ -543,8 +543,8 @@ export function getBackButtonInfo(
   if (previousHashView === "project") {
     return {
       label: previousEntityId && previousEntityId !== "new"
-        ? "← Back to Project Detail"
-        : "← Back to Projects",
+        ? "Back to Project Detail"
+        : "Back to Projects",
       targetView: "project",
       targetEntityId: previousEntityId,
     };
@@ -553,8 +553,8 @@ export function getBackButtonInfo(
   if (previousHashView === "assurance-sets") {
     return {
       label: previousEntityId
-        ? "← Back to Assurance Set"
-        : "← Back to Assurance Sets",
+        ? "Back to Assurance Set"
+        : "Back to Assurance Sets",
       targetView: "assurance-sets",
       targetEntityId: previousEntityId,
     };
@@ -563,8 +563,8 @@ export function getBackButtonInfo(
   if (previousHashView === "documents") {
     return {
       label: previousEntityId
-        ? "← Back to Document Detail"
-        : "← Back to Document Library",
+        ? "Back to Document Detail"
+        : "Back to Document Library",
       targetView: "documents",
       targetEntityId: previousEntityId,
     };

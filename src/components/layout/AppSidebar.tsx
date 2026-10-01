@@ -5,6 +5,7 @@
 */
 
 import React, { useEffect, useState } from "react";
+import { ChevronDown, ChevronUp, LogOut } from "lucide-react";
 import { useMapStore } from "../../store/useMapStore";
 import { UserRolePersona } from "../../types/audit";
 import { ENABLE_ROLES_AND_PERMISSIONS } from "../../config/featureFlags";
@@ -310,11 +311,8 @@ export const AppSidebar: React.FC = () => {
         </div>
 
         {showChevron ? (
-          <span
-            className="small"
-            style={{ color: "#64748b", fontSize: "0.65rem" }}
-          >
-            {isExpanded ? "▲" : "▼"}
+          <span className="text-secondary d-flex align-items-center ms-auto">
+            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </span>
         ) : (
           item.badgeText && (
@@ -519,8 +517,8 @@ export const AppSidebar: React.FC = () => {
               </span>
             </div>
           </div>
-          <span className="text-secondary small ms-1">
-            {isUserMenuOpen ? "▲" : "▼"}
+          <span className="text-secondary d-flex align-items-center ms-1">
+            {isUserMenuOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </span>
         </div>
 
@@ -549,13 +547,14 @@ export const AppSidebar: React.FC = () => {
             </div>
             <button
               type="button"
-              className="btn btn-sm text-start text-danger w-100 d-flex align-items-center gap-2 py-1 px-2 border-0 bg-transparent hover-bg-dark"
+              className="btn btn-sm text-start text-danger w-100 d-flex align-items-center gap-2 py-1.5 px-2 border-0 bg-transparent hover-bg-dark"
               style={{ fontSize: "0.78rem" }}
               onClick={() => {
                 setIsUserMenuOpen(false);
                 logout();
               }}
             >
+              <LogOut size={14} />
               <span>Sign Out</span>
             </button>
           </div>

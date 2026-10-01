@@ -14,6 +14,7 @@ import { canPerform } from '../utils/permissionHelpers';
 import { MasterDocument } from '../types/document';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import { Ship, Camera, ShieldCheck } from 'lucide-react';
 
 /**
   what: renders approval requests table list view or approval detail page.
@@ -569,36 +570,23 @@ export const ApproverDashboardView: React.FC = () => {
                   onClick={() => setIsLightboxOpen(false)}
                 />
               </div>
-              <div className="p-3 bg-dark text-center">
-                <svg
-                  viewBox="0 0 800 450"
-                  className="map-photo-lightbox-img"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <rect width="800" height="450" fill="#0f172a" />
-                  <path d="M0 320 Q200 300 400 320 T800 320 L800 450 L0 450 Z" fill="#0369a1" opacity="0.6" />
-                  <path d="M0 340 Q200 330 400 340 T800 340 L800 450 L0 450 Z" fill="#0284c7" opacity="0.4" />
-                  <path
-                    d="M 120 310 L 180 230 L 580 230 L 660 300 L 640 330 L 140 330 Z"
-                    fill="#334155"
-                    stroke="#94a3b8"
-                    strokeWidth="3"
-                  />
-                  <rect x="220" y="140" width="160" height="90" fill="#cbd5e1" rx="4" />
-                  <rect x="250" y="90" width="100" height="50" fill="#e2e8f0" rx="3" />
-                  <rect x="270" y="60" width="60" height="30" fill="#f8fafc" rx="2" />
-                  <rect x="280" y="70" width="40" height="10" fill="#0284c7" />
-                  <rect x="260" y="105" width="80" height="12" fill="#0369a1" />
-                  <path d="M 500 230 L 500 130 L 530 130 L 530 230 Z" fill="#f59e0b" />
-                  <line x1="515" y1="130" x2="620" y2="180" stroke="#f59e0b" strokeWidth="6" />
-                  <line x1="80" y1="325" x2="720" y2="325" stroke="#38bdf8" strokeWidth="2" strokeDasharray="6 4" />
-                  <text x="390" y="280" fill="#ffffff" fontSize="20" fontWeight="bold" fontFamily="monospace">
-                    {selectedSet.vesselName.toUpperCase()}
-                  </text>
-                  <text x="390" y="302" fill="#94a3b8" fontSize="14" fontFamily="monospace">
-                    IMO {selectedSet.imoNumber} · STATUTORY VERIFIED ASSET PHOTO
-                  </text>
-                </svg>
+              <div className="p-8 bg-slate-900 text-center rounded-b flex flex-col items-center justify-center min-h-[300px] border border-slate-800">
+                <div className="relative mb-4 flex items-center justify-center w-24 h-24 rounded-2xl bg-slate-800/80 border border-slate-700 shadow-inner">
+                  <Ship className="w-12 h-12 text-sky-400" />
+                  <div className="absolute -bottom-2 -right-2 p-1.5 bg-sky-500 rounded-full text-white shadow">
+                    <Camera className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="text-xl font-bold font-mono text-white tracking-wide mb-1">
+                  {selectedSet.vesselName.toUpperCase()}
+                </div>
+                <div className="text-xs text-slate-400 font-mono flex items-center gap-2">
+                  <span>IMO {selectedSet.imoNumber}</span>
+                  <span>•</span>
+                  <span className="inline-flex items-center gap-1 text-emerald-400">
+                    <ShieldCheck className="w-3.5 h-3.5" /> STATUTORY VERIFIED ASSET PHOTO
+                  </span>
+                </div>
               </div>
               <div className="p-3 bg-light border-top d-flex align-items-center justify-between">
                 <span className="small text-secondary font-mono-code">
@@ -632,39 +620,39 @@ export const ApproverDashboardView: React.FC = () => {
       {/* top statistics summary row */}
       <div className="row g-3">
         <div className="col-md-3 col-6">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold mb-1" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Total Approval Requests
             </div>
-            <div className="display-6 fw-bold text-dark font-mono-code mt-1">{totalCampaigns}</div>
-            <div className="text-muted small mt-1">Assigned Campaigns</div>
+            <div className="map-kpi-value text-primary mt-1">{totalCampaigns}</div>
+            <div className="map-kpi-subtitle mt-1">Assigned Campaigns</div>
           </div>
         </div>
         <div className="col-md-3 col-6">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold mb-1" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Pending Sign-off
             </div>
-            <div className="display-6 fw-bold text-warning font-mono-code mt-1">{pendingApprovals}</div>
-            <div className="text-muted small mt-1">Awaiting Final Decision</div>
+            <div className="map-kpi-value text-warning mt-1">{pendingApprovals}</div>
+            <div className="map-kpi-subtitle mt-1">Awaiting Final Decision</div>
           </div>
         </div>
         <div className="col-md-3 col-6">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold mb-1" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Approved &amp; Certified
             </div>
-            <div className="display-6 fw-bold text-success font-mono-code mt-1">{approvedCount}</div>
-            <div className="text-muted small mt-1">Issued Assurance Certificates</div>
+            <div className="map-kpi-value text-success mt-1">{approvedCount}</div>
+            <div className="map-kpi-subtitle mt-1">Issued Assurance Certificates</div>
           </div>
         </div>
         <div className="col-md-3 col-6">
-          <div className="card map-card-custom p-3">
-            <div className="text-secondary small text-uppercase fw-bold mb-1" style={{ letterSpacing: '0.05em' }}>
+          <div className="card map-kpi-card shadow-2xs">
+            <div className="map-kpi-label">
               Returned / Rejected
             </div>
-            <div className="display-6 fw-bold text-danger font-mono-code mt-1">{returnedCount}</div>
-            <div className="text-muted small mt-1">Sent Back for Correction</div>
+            <div className="map-kpi-value text-danger mt-1">{returnedCount}</div>
+            <div className="map-kpi-subtitle mt-1">Sent Back for Correction</div>
           </div>
         </div>
       </div>

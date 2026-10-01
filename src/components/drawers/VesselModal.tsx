@@ -12,6 +12,7 @@ import { isDuplicateVessel, validateImoNumber } from '../../utils/validation';
 import { CURATED_VESSEL_PHOTOS } from '../../utils/vesselImageHelpers';
 import { VesselImageCropModal } from './VesselImageCropModal';
 import { formatDocumentId } from '../../utils/formatters';
+import { Upload, Image, Crop, FileText, Check } from 'lucide-react';
 
 interface VesselModalProps {
   isOpen: boolean;
@@ -730,11 +731,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   if (file) handleStageVesselFileForVerification(file, stepNumber);
                 }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary flex-shrink-0">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
+                <Upload className="w-4 h-4 text-primary shrink-0" />
                 <span className="small text-dark fw-semibold text-truncate" style={{ fontSize: '0.8125rem' }}>
                   Drop document file here or <span className="text-primary text-decoration-underline">browse</span>
                 </span>
@@ -961,11 +958,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   <div className="p-3 bg-light border rounded shadow-2xs mb-1">
                     <div className="d-flex align-items-center justify-content-between mb-2">
                       <span className="fw-bold text-dark small d-flex align-items-center gap-2">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                          <circle cx="8.5" cy="8.5" r="1.5" />
-                          <polyline points="21 15 16 10 5 21" />
-                        </svg>
+                        <Image className="w-4 h-4 text-primary" />
                         <span>Vessel Photography &amp; Gallery ({photos.length || (imageUrl ? 1 : 0)} photo{photos.length === 1 || (!photos.length && imageUrl) ? '' : 's'})</span>
                       </span>
                       {(imageUrl || photos.length > 0) && (
@@ -1012,11 +1005,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                               className="text-muted small d-flex flex-column align-items-center gap-1.5 p-2 cursor-pointer w-100 h-100 justify-content-center"
                               onClick={() => imageFileInputRef.current?.click()}
                             >
-                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-secondary">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" y1="3" x2="12" y2="15" />
-                              </svg>
+                              <Upload className="w-6 h-6 text-slate-500" />
                               <span className="text-secondary fw-semibold" style={{ fontSize: '0.75rem' }}>No Photo Uploaded</span>
                               <span className="text-primary text-decoration-underline" style={{ fontSize: '0.7rem' }}>Upload multiple photos</span>
                             </div>
@@ -1057,11 +1046,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                             style={{ fontSize: '0.75rem' }}
                             onClick={() => imageFileInputRef.current?.click()}
                           >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                              <polyline points="17 8 12 3 7 8" />
-                              <line x1="12" y1="3" x2="12" y2="15" />
-                            </svg>
+                            <Upload className="w-3.5 h-3.5" />
                             <span>Upload &amp; Crop Photo</span>
                           </button>
                           {(photos.length > 0 || imageUrl) && (
@@ -1111,10 +1096,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                       }}
                                       title="Crop / Reframe this photo"
                                     >
-                                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15" />
-                                        <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15" />
-                                      </svg>
+                                      <Crop className="w-2.5 h-2.5" />
                                     </button>
                                     <button
                                       type="button"
@@ -1622,7 +1604,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
               <div className="d-flex gap-2">
                 {currentStep > 1 && (
                   <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handlePrevious}>
-                    &larr; Back
+                    Back
                   </button>
                 )}
                 {currentStep < 4 ? (
@@ -1660,12 +1642,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
               <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
                 <div className="d-flex align-items-center gap-2">
                   <div className="p-2 rounded bg-primary-subtle text-primary">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                    </svg>
+                    <FileText className="w-5 h-5" />
                   </div>
                   <div>
                     <h5 className="modal-title fw-bold text-dark m-0">
@@ -1708,15 +1685,21 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     {/* OCR Criteria with universal staggered animation */}
                     <div className="d-flex flex-column gap-2 mt-2.5 p-2 bg-light rounded border font-sans">
                       <div className="map-criteria-item-1 d-flex align-items-center gap-2 small" style={{ fontSize: '0.725rem', color: '#475569' }}>
-                        <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px', fontSize: '0.65rem' }}>✓</span>
+                        <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
+                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                        </span>
                         <span className="ps-0.5 text-dark fw-medium">Resolution 240 DPI</span>
                       </div>
                       <div className="map-criteria-item-2 d-flex align-items-center gap-2 small" style={{ fontSize: '0.725rem', color: '#475569' }}>
-                        <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px', fontSize: '0.65rem' }}>✓</span>
+                        <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
+                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                        </span>
                         <span className="ps-0.5 text-dark fw-medium">Full page captured</span>
                       </div>
                       <div className="map-criteria-item-3 d-flex align-items-center gap-2 small" style={{ fontSize: '0.725rem', color: '#475569' }}>
-                        <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px', fontSize: '0.65rem' }}>✓</span>
+                        <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
+                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                        </span>
                         <span className="ps-0.5 text-dark fw-medium">Signature / stamp present</span>
                       </div>
                     </div>

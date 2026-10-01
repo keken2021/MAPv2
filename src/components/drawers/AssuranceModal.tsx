@@ -649,7 +649,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                 className="btn btn-sm btn-primary text-white"
                 onClick={() => handleAddSpecializedDoc(subtype)}
               >
-                + Add Specialized Document
+                Add Specialized Document
               </button>
             </div>
           </div>
@@ -1228,7 +1228,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
             <div className="d-flex align-items-center gap-2">
               {currentStep > 1 && (
                 <button type="button" className="btn btn-outline-primary btn-sm fw-semibold" onClick={handlePrevious}>
-                  &larr; Previous
+                  Previous
                 </button>
               )}
               {currentStep < totalSteps ? (
