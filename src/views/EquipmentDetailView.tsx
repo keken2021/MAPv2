@@ -61,14 +61,8 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
 
   return (
     <div className="d-flex flex-column gap-3">
-      <div className="d-flex align-items-center justify-between">
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-secondary"
-          onClick={() => setCurrentHashView(backInfo.targetView, backInfo.targetEntityId)}
-        >
-          {backInfo.label}
-        </button>
+      <div className="d-flex align-items-center justify-end">
+     
         {canAddToProject && (
           <button
             type="button"

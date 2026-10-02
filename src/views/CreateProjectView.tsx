@@ -267,13 +267,7 @@ export const CreateProjectView: React.FC = () => {
   return (
     <div className="d-flex flex-column gap-3">
       <div className="d-flex align-items-center justify-between">
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-secondary"
-          onClick={() => setCurrentHashView(backInfo.targetView, backInfo.targetEntityId)}
-        >
-          {backInfo.label}
-        </button>
+       
         <span className="badge bg-primary-subtle text-primary font-mono-code">
           Step {step} of 2
         </span>
