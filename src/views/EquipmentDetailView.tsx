@@ -8,7 +8,6 @@ import React, { useState } from 'react';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
 import { getEquipmentAssetStatus } from '../types/equipment';
-import { getBackButtonInfo } from '../utils/rbacHelpers';
 import { useMapStore } from '../store/useMapStore';
 
 interface EquipmentDetailViewProps {
@@ -57,13 +56,11 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
   }
 
   const status = getEquipmentAssetStatus(item);
-  const backInfo = getBackButtonInfo('equipment', 'Equipment Registry', previousHashView, activePersona, previousEntityId);
 
   return (
     <div className="d-flex flex-column gap-3">
-      <div className="d-flex align-items-center justify-end">
-     
-        {canAddToProject && (
+      {canAddToProject && (
+        <div className="d-flex align-items-center justify-content-end">
           <button
             type="button"
             className="btn btn-sm btn-outline-primary fw-semibold"
@@ -71,8 +68,8 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
           >
             Add to Project
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="card map-card-custom p-3">
         <div className="d-flex flex-wrap justify-between align-items-start gap-3">

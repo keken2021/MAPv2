@@ -132,7 +132,7 @@ export const ProjectView: React.FC = () => {
                           className="btn btn-sm btn-outline-primary"
                           onClick={() => setCurrentHashView('project', p.id)}
                         >
-                          Open →
+                          Open
                         </button>
                       </td>
                     </tr>

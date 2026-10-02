@@ -12,7 +12,7 @@ import { isDuplicateVessel, validateImoNumber } from '../../utils/validation';
 import { CURATED_VESSEL_PHOTOS } from '../../utils/vesselImageHelpers';
 import { VesselImageCropModal } from './VesselImageCropModal';
 import { formatDocumentId } from '../../utils/formatters';
-import { Upload, Image, Crop, FileText, Check } from 'lucide-react';
+import { Upload, Image, Crop, FileText, Check, X } from 'lucide-react';
 
 interface VesselModalProps {
   isOpen: boolean;
@@ -32,6 +32,8 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [cropModalImageSrc, setCropModalImageSrc] = useState('');
   const [cropTargetIndex, setCropTargetIndex] = useState<number | null>(null);
+  const [draggedPhotoIdx, setDraggedPhotoIdx] = useState<number | null>(null);
+  const [dragOverPhotoIdx, setDragOverPhotoIdx] = useState<number | null>(null);
 
   /* AI extraction and Document Library lookup states (tracked per step/stage) */
   const [isExtractingAi, setIsExtractingAi] = useState(false);
@@ -973,7 +975,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       <div className="col-md-4 text-center">
                         <div
                           className="position-relative border rounded overflow-hidden bg-dark d-flex align-items-center justify-content-center shadow-2xs group"
-                          style={{ height: '140px' }}
+                          style={{ width: '100%', aspectRatio: '16 / 9' }}
                           title={imageUrl ? 'Cover Photo Preview' : 'Click to upload vessel images'}
                         >
                           {imageUrl ? (
@@ -986,17 +988,17 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                 <span>Primary Cover (16:9)</span>
                                 <button
                                   type="button"
-                                  className="btn btn-xs btn-light py-0 px-1.5 fw-semibold text-dark rounded-pill d-inline-flex align-items-center gap-1"
-                                  style={{ fontSize: '0.62rem' }}
+                                  className="btn btn-xs btn-light p-1 text-dark rounded-circle d-inline-flex align-items-center justify-content-center shadow-2xs"
+                                  style={{ width: '22px', height: '22px' }}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setCropModalImageSrc(imageUrl);
                                     setCropTargetIndex(photos.indexOf(imageUrl) >= 0 ? photos.indexOf(imageUrl) : null);
                                     setIsCropModalOpen(true);
                                   }}
-                                  title="Universal Sizing & Crop Tool"
+                                  title="Crop photo"
                                 >
-                                  <span>Crop</span>
+                                  <Crop size={12} className="text-slate-800" />
                                 </button>
                               </div>
                             </>
@@ -1064,44 +1066,90 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                           )}
                         </div>
 
-                        {/* Uploaded Photos Gallery Thumbnails with Reordering & Re-crop */}
+                        {/* Uploaded Photos Gallery Thumbnails with Drag & Drop Reordering */}
                         {photos.length > 0 && (
-                          <div className="d-flex align-items-center gap-2 overflow-x-auto p-1.5 bg-white border rounded">
+                          <div className="d-flex align-items-center gap-2 overflow-x-auto p-2 bg-slate-50 border rounded-3 shadow-2xs">
                             {photos.map((photo, pIdx) => {
                               const isCover = photo === imageUrl;
+                              const isDragging = draggedPhotoIdx === pIdx;
+                              const isDragOver = dragOverPhotoIdx === pIdx;
                               return (
                                 <div
                                   key={pIdx}
-                                  className={`position-relative border rounded overflow-hidden flex-shrink-0 cursor-pointer transition-all ${isCover ? 'border-primary border-2 shadow-sm ring-2 ring-primary' : 'border-secondary-subtle'}`}
-                                  style={{ width: '80px', height: '56px' }}
+                                  draggable
+                                  onDragStart={(e) => {
+                                    setDraggedPhotoIdx(pIdx);
+                                    e.dataTransfer.setData('text/plain', pIdx.toString());
+                                    e.dataTransfer.effectAllowed = 'move';
+                                  }}
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.dataTransfer.dropEffect = 'move';
+                                  }}
+                                  onDragEnter={() => setDragOverPhotoIdx(pIdx)}
+                                  onDragEnd={() => {
+                                    setDraggedPhotoIdx(null);
+                                    setDragOverPhotoIdx(null);
+                                  }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    if (draggedPhotoIdx !== null && draggedPhotoIdx !== pIdx) {
+                                      const updated = [...photos];
+                                      const [moved] = updated.splice(draggedPhotoIdx, 1);
+                                      updated.splice(pIdx, 0, moved);
+                                      setPhotos(updated);
+                                      if (isCover || draggedPhotoIdx === 0 || pIdx === 0) {
+                                        setImageUrl(updated[0]);
+                                      }
+                                    }
+                                    setDraggedPhotoIdx(null);
+                                    setDragOverPhotoIdx(null);
+                                  }}
+                                  className={`position-relative border rounded overflow-hidden flex-shrink-0 cursor-grab active-cursor-grabbing transition-all ${isCover
+                                      ? 'border-primary border-2 shadow-sm ring-2 ring-primary'
+                                      : isDragOver
+                                        ? 'border-primary border-2 shadow-md ring-2 ring-sky-400 scale-105'
+                                        : 'border-secondary-subtle hover:shadow-xs'
+                                    } ${isDragging ? 'opacity-40 scale-95' : ''}`}
+                                  style={{ width: '92px', aspectRatio: '16 / 9' }}
                                   onClick={() => setImageUrl(photo)}
-                                  title={isCover ? 'Primary Cover Photo' : 'Click to set as primary cover'}
+                                  title={isCover ? 'Primary Cover Photo (Drag to reorder)' : 'Click to set cover · Drag to reorder'}
                                 >
-                                  <img src={photo} alt={`Photo ${pIdx + 1}`} className="w-100 h-100" style={{ objectFit: 'cover' }} />
+                                  <img src={photo} alt={`Photo ${pIdx + 1}`} className="w-100 h-100 pointer-events-none" style={{ objectFit: 'cover' }} />
                                   {isCover && (
                                     <div className="position-absolute top-0 start-0 bg-primary text-white px-1 font-mono-code fw-bold" style={{ fontSize: '0.55rem', borderBottomRightRadius: '3px' }}>
                                       Cover
                                     </div>
                                   )}
-                                  <div className="position-absolute top-0 end-0 d-flex align-items-center gap-0.5 m-0.5">
+
+                                  {/* Index badge at bottom left */}
+                                  <div
+                                    className="position-absolute bottom-0 start-0 px-1 py-0.5 text-white font-mono-code"
+                                    style={{ background: 'rgba(0,0,0,0.65)', fontSize: '0.55rem', borderTopRightRadius: '3px' }}
+                                  >
+                                    #{pIdx + 1}
+                                  </div>
+
+                                  {/* Top-right action icon buttons (tight padding, no bulky containers) */}
+                                  <div className="position-absolute top-0 end-0 d-flex align-items-center gap-0.5 m-1">
                                     <button
                                       type="button"
-                                      className="btn btn-xs btn-dark p-0 d-flex align-items-center justify-content-center rounded-circle"
-                                      style={{ width: '16px', height: '16px', fontSize: '0.6rem' }}
+                                      className="btn btn-xs btn-dark p-0 d-flex align-items-center justify-content-center rounded-circle border-0 shadow-2xs"
+                                      style={{ width: '18px', height: '18px' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setCropTargetIndex(pIdx);
                                         setCropModalImageSrc(photo);
                                         setIsCropModalOpen(true);
                                       }}
-                                      title="Crop / Reframe this photo"
+                                      title="Crop photo"
                                     >
-                                      <Crop className="w-2.5 h-2.5" />
+                                      <Crop size={10} className="text-white" />
                                     </button>
                                     <button
                                       type="button"
-                                      className="btn btn-xs btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle"
-                                      style={{ width: '16px', height: '16px', fontSize: '0.65rem' }}
+                                      className="btn btn-xs btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle border-0 shadow-2xs"
+                                      style={{ width: '18px', height: '18px' }}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         const updated = photos.filter((_, i) => i !== pIdx);
@@ -1110,54 +1158,10 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                           setImageUrl(updated.length > 0 ? updated[0] : '');
                                         }
                                       }}
-                                      title="Remove this photo"
+                                      title="Remove photo"
                                     >
-                                      ×
+                                      <X size={10} className="text-white" />
                                     </button>
-                                  </div>
-
-                                  {/* Bottom Rearrange Bar (Move Left / Right) */}
-                                  <div
-                                    className="position-absolute bottom-0 start-0 w-100 d-flex align-items-center justify-content-between px-1 py-0.5"
-                                    style={{ background: 'rgba(0, 0, 0, 0.65)' }}
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {pIdx > 0 ? (
-                                      <button
-                                        type="button"
-                                        className="btn btn-xs btn-outline-light p-0 border-0 text-white"
-                                        style={{ fontSize: '0.65rem', lineHeight: 1 }}
-                                        onClick={() => {
-                                          const updated = [...photos];
-                                          const [moved] = updated.splice(pIdx, 1);
-                                          updated.splice(pIdx - 1, 0, moved);
-                                          setPhotos(updated);
-                                          if (pIdx - 1 === 0) setImageUrl(moved);
-                                        }}
-                                        title="Move Left (Rearrange)"
-                                      >
-                                        ←
-                                      </button>
-                                    ) : <span style={{ width: '8px' }} />}
-
-                                    <span className="font-mono-code text-white" style={{ fontSize: '0.55rem' }}>#{pIdx + 1}</span>
-
-                                    {pIdx < photos.length - 1 ? (
-                                      <button
-                                        type="button"
-                                        className="btn btn-xs btn-outline-light p-0 border-0 text-white"
-                                        style={{ fontSize: '0.65rem', lineHeight: 1 }}
-                                        onClick={() => {
-                                          const updated = [...photos];
-                                          const [moved] = updated.splice(pIdx, 1);
-                                          updated.splice(pIdx + 1, 0, moved);
-                                          setPhotos(updated);
-                                        }}
-                                        title="Move Right (Rearrange)"
-                                      >
-                                        →
-                                      </button>
-                                    ) : <span style={{ width: '8px' }} />}
                                   </div>
                                 </div>
                               );
@@ -1609,7 +1613,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                 )}
                 {currentStep < 4 ? (
                   <button type="button" className="btn btn-sm btn-primary" onClick={handleNext}>
-                    Next Step &rarr;
+                    Next Step
                   </button>
                 ) : (
                   <button

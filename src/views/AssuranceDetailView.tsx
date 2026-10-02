@@ -118,7 +118,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               className="btn btn-primary px-4 fw-semibold"
               onClick={() => setCurrentHashView('create-assurance-set', assuranceSet.id)}
             >
-              Continue Wizard Setup &rarr;
+              Continue Wizard Setup
             </button>
           </div>
         </div>

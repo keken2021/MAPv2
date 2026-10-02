@@ -133,6 +133,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   /* interactive modals for quick actions, voyage history, company fleet, and certificate details */
   const [showVoyageHistoryModal, setShowVoyageHistoryModal] = useState(false);
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
+  const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
   const [selectedCompanyForFleetModal, setSelectedCompanyForFleetModal] = useState<string | null>(null);
   const [selectedVaultCertForModal, setSelectedVaultCertForModal] = useState<any | null>(null);
   const [customPhotoUrl, setCustomPhotoUrl] = useState('');
@@ -142,14 +143,21 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [cropModalImageSrc, setCropModalImageSrc] = useState('');
   const [cropTargetIdx, setCropTargetIdx] = useState<number | null>(null);
+  const [draggedPhotoIdx, setDraggedPhotoIdx] = useState<number | null>(null);
+  const [dragOverPhotoIdx, setDragOverPhotoIdx] = useState<number | null>(null);
   const photoFileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (vessel) {
-      const coverUrl = vessel.imageUrl || (vessel.photos && vessel.photos.length > 0 ? vessel.photos[0] : '');
+      const stockUrl = getVesselStockPhoto(vessel.id, vessel.name, vessel.vesselType, vessel.vesselSubtype);
+      const coverUrl = vessel.imageUrl || (vessel.photos && vessel.photos.length > 0 ? vessel.photos[0] : stockUrl);
       setPhotoModalUrl(coverUrl);
       setSelectedViewPhotoUrl(coverUrl);
-      setModalPhotos(vessel.photos && vessel.photos.length > 0 ? [...vessel.photos] : (vessel.imageUrl ? [vessel.imageUrl] : []));
+      let initialPhotos = vessel.photos && vessel.photos.length > 0 ? [...vessel.photos] : [coverUrl];
+      if (coverUrl && !initialPhotos.includes(coverUrl)) {
+        initialPhotos = [coverUrl, ...initialPhotos];
+      }
+      setModalPhotos(initialPhotos);
     }
   }, [vessel, showPhotoUploadModal]);
 
@@ -1285,7 +1293,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             {/* 1. Large Vessel Photo with Direct Edit / Manage Overlay (Only clickable for Vessel Owner / Admin) */}
             <div
               className={`position-relative overflow-hidden rounded-3 shadow-sm mb-1.5 ${canManagePhotos ? 'cursor-pointer group-photo-container' : ''}`}
-              style={{ height: '220px', backgroundColor: '#0b1b2b' }}
+              style={{ width: '100%', aspectRatio: '16 / 9', backgroundColor: '#0b1b2b' }}
               onClick={() => {
                 if (canManagePhotos) setShowPhotoUploadModal(true);
               }}
@@ -1301,7 +1309,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     'https://plus.unsplash.com/premium_photo-1661880889658-6c3ac991146f?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
                 }}
               />
-              {/* Photo Management Floating Badge & Trigger (Only shown for vessel owner / vessel admin) */}
+              {/* Photo Status Floating Badges */}
               <div
                 className="position-absolute top-0 end-0 m-2 d-flex align-items-center gap-1.5"
                 style={{ zIndex: 3 }}
@@ -1322,60 +1330,13 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     Custom Photo
                   </span>
                 ) : null}
-                {canManagePhotos && (
-                  <button
-                    type="button"
-                    className="btn btn-xs btn-dark bg-dark bg-opacity-75 text-white border-0 shadow-sm py-1 px-2 d-inline-flex align-items-center gap-1 rounded-pill"
-                    style={{ fontSize: '0.7rem' }}
-                    onClick={() => setShowPhotoUploadModal(true)}
-                    title="Add, Update or Delete photos"
-                  >
-                    <Camera className="w-3 h-3" />
-                    <span>{vessel.photos && vessel.photos.length > 1 ? 'Manage Gallery' : vessel.imageUrl ? 'Update Photo' : 'Add Photo'}</span>
-                  </button>
-                )}
               </div>
             </div>
 
-            {/* Gallery Thumbnail Strip (Rendered when multiple photos exist for this vessel) */}
-            {vessel.photos && vessel.photos.length > 1 && (
-              <div className="d-flex align-items-center gap-1.5 overflow-x-auto pb-1 mb-2">
-                {vessel.photos.map((pUrl, pIdx) => {
-                  const isCurrentActive = (selectedViewPhotoUrl || vessel.imageUrl) === pUrl;
-                  const isCover = vessel.imageUrl === pUrl;
-                  return (
-                    <div
-                      key={pIdx}
-                      className={`position-relative rounded overflow-hidden flex-shrink-0 cursor-pointer transition-all ${isCurrentActive ? 'border border-primary border-2 shadow-sm' : 'border border-secondary-subtle opacity-75 hover-opacity-100'}`}
-                      style={{ width: '48px', height: '36px' }}
-                      onClick={() => setSelectedViewPhotoUrl(pUrl)}
-                      title={isCover ? `Photo ${pIdx + 1} (Primary Cover)` : `Photo ${pIdx + 1}`}
-                    >
-                      <img src={pUrl} alt={`Thumbnail ${pIdx + 1}`} className="w-100 h-100" style={{ objectFit: 'cover' }} />
-                      {isCover && (
-                        <div className="position-absolute bottom-0 start-0 w-100 bg-primary text-white text-center font-mono-code" style={{ fontSize: '0.5rem', lineHeight: '1.1' }}>
-                          Cover
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {canManagePhotos && (
-                  <button
-                    type="button"
-                    className="btn btn-xs btn-outline-primary d-flex align-items-center justify-content-center flex-shrink-0 rounded"
-                    style={{ width: '36px', height: '36px', fontSize: '0.8rem' }}
-                    onClick={() => setShowPhotoUploadModal(true)}
-                    title="Upload more photos"
-                  >
-                    +
-                  </button>
-                )}
-              </div>
-            )}
 
-            {/* 2. Quick Action Buttons Row */}
-            <div className="d-flex align-items-center justify-content-between gap-1 mb-2">
+
+            {/* 2. Quick Action Buttons Row (with margin-top) */}
+            <div className="d-flex align-items-center justify-content-between gap-1 mb-2 mt-2">
               <button
                 type="button"
                 className="btn btn-sm btn-outline-primary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
@@ -2598,7 +2559,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                               setSelectedVaultCertForModal(cert);
                             }}
                           >
-                            View &rarr;
+                            View
                           </button>
                         </td>
                       </tr>
@@ -2819,7 +2780,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             className="btn btn-sm btn-outline-secondary"
                             onClick={() => setCurrentHashView('assurance-sets', s.id)}
                           >
-                            Open Set &rarr;
+                            Open Set
                           </button>
                         </td>
                       </tr>
@@ -3188,7 +3149,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                               className="btn btn-link btn-sm p-0 font-mono-code"
                               onClick={() => setCurrentHashView('assurance-sets', record.assuranceSetId!)}
                             >
-                              {record.assuranceSetId} &rarr;
+                              {record.assuranceSetId}
                             </button>
                           ) : (
                             <span className="text-muted">—</span>
@@ -3778,7 +3739,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                               }}
                               title="Open assigned Assurance Set"
                             >
-                              {insp.assuranceSetId} &rarr;
+                              {insp.assuranceSetId}
                             </button>
                           </td>
                           <td>
@@ -3914,7 +3875,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           }}
                           title="Open assigned Assurance Set"
                         >
-                          {selectedInspectionForDetail.assuranceSetId} &rarr;
+                          {selectedInspectionForDetail.assuranceSetId}
                         </button>
                         <div className="small text-secondary text-truncate" title={selectedInspectionForDetail.assuranceSetTitle}>
                           {selectedInspectionForDetail.assuranceSetTitle || 'Standard Vetting Audit'}
@@ -4107,7 +4068,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                     style={{ fontSize: '0.75rem' }}
                                     onClick={() => setSelectedCapaForDrawer(capa)}
                                   >
-                                    View / Re-inspect &rarr;
+                                    View / Re-inspect
                                   </button>
                                 </td>
                               </tr>
@@ -4155,7 +4116,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       setShowInspectionDrawer(true);
                     }}
                   >
-                    View Details &rarr;
+                    View Details
                   </button>
                 </div>
               </div>
@@ -4468,7 +4429,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                   setCurrentHashView('vessels', v.id);
                                 }}
                               >
-                                View Dossier &rarr;
+                                View Dossier
                               </button>
                             </td>
                           </tr>
@@ -4690,7 +4651,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   }}
                 >
                   <span>Open Full Document Workspace</span>
-                  <span>&rarr;</span>
                 </button>
               </div>
             </div>
@@ -4737,7 +4697,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
               {/* Body */}
               <div className="modal-body p-4">
-                {/* 1. Live Preview & Gallery Section */}
+                {/* 1. Live Cover Preview */}
                 <div className="mb-4">
                   <div className="d-flex align-items-center justify-content-between mb-2">
                     <label className="form-label fw-bold text-dark small mb-0">
@@ -4749,24 +4709,24 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       </span>
                       <button
                         type="button"
-                        className="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1.5 py-1 px-2 fw-semibold"
+                        className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded shadow-2xs fw-semibold"
                         onClick={() => {
                           const srcToCrop = photoModalUrl || getVesselStockPhoto(vessel.id, vessel.name, vessel.vesselType, vessel.vesselSubtype);
                           setCropModalImageSrc(srcToCrop);
                           setCropTargetIdx(modalPhotos.indexOf(photoModalUrl) >= 0 ? modalPhotos.indexOf(photoModalUrl) : null);
                           setIsCropModalOpen(true);
                         }}
-                        title="Crop or reframe this photo using the Universal Sizing Tool"
+                        title="Crop and resize active cover photo"
                       >
-                        <Crop className="w-3.5 h-3.5" />
-                        <span>Crop</span>
+                        <Crop className="w-3.5 h-3.5 text-white" strokeWidth={2.2} />
+                        <span className="text-white" style={{ fontSize: '0.75rem' }}>Crop</span>
                       </button>
                     </div>
                   </div>
 
                   <div
-                    className="position-relative overflow-hidden rounded-3 shadow-sm border bg-dark d-flex align-items-center justify-content-center mb-2"
-                    style={{ height: '220px' }}
+                    className="position-relative overflow-hidden rounded-3 shadow-sm border bg-dark d-flex align-items-center justify-content-center mb-3"
+                    style={{ width: '100%', aspectRatio: '16 / 9' }}
                   >
                     <img
                       src={getVesselStockPhoto(vessel.id, vessel.name, vessel.vesselType, vessel.vesselSubtype, photoModalUrl || undefined)}
@@ -4783,255 +4743,138 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)' }}
                     >
                       <span className="small fw-semibold">{vessel.name} (Primary Cover)</span>
-
                     </div>
                   </div>
 
-                  {/* Attached Photos Gallery Thumbnails */}
-                  {modalPhotos.length > 0 && (
-                    <div className="p-2.5 bg-light border rounded mb-3">
-                      <div className="d-flex align-items-center justify-content-between mb-2">
-                        <span className="small fw-bold text-dark">
+                  {/* 2. Attached Photos Gallery (Always visible, even with stock photo) */}
+                  <div className="p-3 bg-slate-50 border rounded-3 shadow-2xs">
+                    <div className="d-flex align-items-center justify-content-between mb-2.5 flex-wrap gap-2">
+                      <div>
+                        <span className="small fw-bold text-dark d-block">
                           Vessel Photo Gallery ({modalPhotos.length} image{modalPhotos.length > 1 ? 's' : ''})
                         </span>
-                        <span className="text-secondary" style={{ fontSize: '0.7rem' }}>Rearrange photos or click to preview / set as primary cover</span>
+                        <span className="text-secondary" style={{ fontSize: '0.7rem' }}>
+                          Drag photos to reorder · Click any photo to set as primary cover
+                        </span>
                       </div>
-                      <div className="row g-2">
-                        {modalPhotos.map((pUrl, pIdx) => {
-                          const isCover = photoModalUrl === pUrl;
-                          return (
-                            <div key={pIdx} className="col-6 col-sm-4 col-md-3 col-lg-2">
-                              <div
-                                className={`position-relative border rounded overflow-hidden cursor-pointer transition-all ${isCover ? 'border-primary border-2 shadow-sm ring-2 ring-primary' : 'border-secondary-subtle opacity-90 hover-opacity-100'}`}
-                                style={{ height: '84px' }}
-                                onClick={() => setPhotoModalUrl(pUrl)}
-                                title={isCover ? 'Active Primary Cover' : 'Click to set as primary cover'}
-                              >
-                                <img src={pUrl} alt={`Photo ${pIdx + 1}`} className="w-100 h-100" style={{ objectFit: 'cover' }} />
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold shadow-2xs"
+                        onClick={() => setShowAddPhotoModal(true)}
+                        title="Add a new photo to vessel gallery"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
+                        <span className="text-white">Add Photo</span>
+                      </button>
+                    </div>
+
+                    <div className="row g-2">
+                      {modalPhotos.map((pUrl, pIdx) => {
+                        const isCover = photoModalUrl === pUrl;
+                        const isDragging = draggedPhotoIdx === pIdx;
+                        const isDragOver = dragOverPhotoIdx === pIdx;
+                        return (
+                          <div key={pIdx} className="col-6 col-sm-4 col-md-3 col-lg-3">
+                            <div
+                              draggable
+                              onDragStart={(e) => {
+                                setDraggedPhotoIdx(pIdx);
+                                e.dataTransfer.setData('text/plain', pIdx.toString());
+                                e.dataTransfer.effectAllowed = 'move';
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                              }}
+                              onDragEnter={() => setDragOverPhotoIdx(pIdx)}
+                              onDragEnd={() => {
+                                setDraggedPhotoIdx(null);
+                                setDragOverPhotoIdx(null);
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                if (draggedPhotoIdx !== null && draggedPhotoIdx !== pIdx) {
+                                  const updated = [...modalPhotos];
+                                  const [moved] = updated.splice(draggedPhotoIdx, 1);
+                                  updated.splice(pIdx, 0, moved);
+                                  setModalPhotos(updated);
+                                  if (isCover || draggedPhotoIdx === 0 || pIdx === 0) {
+                                    setPhotoModalUrl(updated[0]);
+                                  }
+                                }
+                                setDraggedPhotoIdx(null);
+                                setDragOverPhotoIdx(null);
+                              }}
+                              className={`position-relative p-1 bg-white border rounded-2 overflow-hidden cursor-grab active-cursor-grabbing transition-all ${
+                                isCover
+                                  ? 'border-primary border-2 shadow-sm ring-2 ring-primary'
+                                  : isDragOver
+                                  ? 'border-primary border-2 shadow-md ring-2 ring-sky-400 scale-105'
+                                  : 'border-secondary-subtle opacity-90 hover-opacity-100 hover:shadow-xs'
+                              } ${isDragging ? 'opacity-40 scale-95' : ''}`}
+                              onClick={() => setPhotoModalUrl(pUrl)}
+                              title={isCover ? 'Active Primary Cover (Drag to reorder)' : 'Click to set as cover · Drag to reorder'}
+                            >
+                              <div className="position-relative overflow-hidden rounded-1" style={{ width: '100%', aspectRatio: '16 / 9' }}>
+                                <img src={pUrl} alt={`Photo ${pIdx + 1}`} className="w-100 h-100 pointer-events-none" style={{ objectFit: 'cover' }} />
                                 {isCover && (
                                   <div
-                                    className="position-absolute top-0 start-0 bg-primary text-white px-1 font-mono-code fw-bold"
+                                    className="position-absolute top-0 start-0 bg-primary text-white px-1.5 font-mono-code fw-bold"
                                     style={{ fontSize: '0.55rem', borderBottomRightRadius: '3px' }}
                                   >
                                     Cover
                                   </div>
                                 )}
-                                <div className="position-absolute top-0 end-0 d-flex align-items-center gap-0.5 m-0.5">
+                                
+                                {/* Index badge at bottom left */}
+                                <div
+                                  className="position-absolute bottom-0 start-0 px-1 py-0.5 text-white font-mono-code"
+                                  style={{ background: 'rgba(0,0,0,0.65)', fontSize: '0.55rem', borderTopRightRadius: '3px' }}
+                                >
+                                  #{pIdx + 1}
+                                </div>
+
+                                {/* Top-right action buttons with high-contrast white border */}
+                                <div className="position-absolute top-0 end-0 d-flex align-items-center gap-1 m-1">
                                   <button
                                     type="button"
-                                    className="btn btn-xs btn-dark p-0 d-flex align-items-center justify-content-center rounded-circle"
-                                    style={{ width: '18px', height: '18px', fontSize: '0.65rem' }}
+                                    className="btn btn-xs btn-primary p-0 d-flex align-items-center justify-content-center rounded-circle border border-white shadow-sm"
+                                    style={{ width: '22px', height: '22px' }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setCropTargetIdx(pIdx);
                                       setCropModalImageSrc(pUrl);
                                       setIsCropModalOpen(true);
                                     }}
-                                    title="Crop / Reframe this photo"
+                                    title="Crop photo"
                                   >
-                                    <Crop className="w-2.5 h-2.5" />
+                                    <Crop className="w-3 h-3 text-white" strokeWidth={2.2} />
                                   </button>
-                                  <button
-                                    type="button"
-                                    className="btn btn-xs btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle"
-                                    style={{ width: '18px', height: '18px', fontSize: '0.7rem' }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const updated = modalPhotos.filter((_, i) => i !== pIdx);
-                                      setModalPhotos(updated);
-                                      if (isCover) {
-                                        setPhotoModalUrl(updated.length > 0 ? updated[0] : '');
-                                      }
-                                    }}
-                                    title="Delete this photo from gallery"
-                                  >
-                                    ×
-                                  </button>
-                                </div>
-
-                                {/* Bottom Rearrange Bar (Move Left / Right) */}
-                                <div
-                                  className="position-absolute bottom-0 start-0 w-100 d-flex align-items-center justify-content-between px-1.5 py-0.5 text-white"
-                                  style={{ background: 'rgba(0, 0, 0, 0.7)' }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {pIdx > 0 ? (
+                                  {modalPhotos.length > 1 && (
                                     <button
                                       type="button"
-                                      className="btn btn-xs btn-outline-light p-0 border-0 text-white"
-                                      style={{ fontSize: '0.65rem', lineHeight: 1 }}
-                                      onClick={() => {
-                                        const updated = [...modalPhotos];
-                                        const [moved] = updated.splice(pIdx, 1);
-                                        updated.splice(pIdx - 1, 0, moved);
+                                      className="btn btn-xs btn-danger p-0 d-flex align-items-center justify-content-center rounded-circle border border-white shadow-sm"
+                                      style={{ width: '22px', height: '22px' }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const updated = modalPhotos.filter((_, i) => i !== pIdx);
                                         setModalPhotos(updated);
-                                        if (pIdx - 1 === 0) setPhotoModalUrl(moved);
+                                        if (isCover) {
+                                          setPhotoModalUrl(updated.length > 0 ? updated[0] : '');
+                                        }
                                       }}
-                                      title="Move Left (Rearrange)"
+                                      title="Delete photo"
                                     >
-                                      ←
+                                      <X className="w-3 h-3 text-white" strokeWidth={2.2} />
                                     </button>
-                                  ) : (
-                                    <span style={{ width: '10px' }} />
-                                  )}
-
-                                  <span className="font-mono-code text-white" style={{ fontSize: '0.55rem' }}>
-                                    #{pIdx + 1}
-                                  </span>
-
-                                  {pIdx < modalPhotos.length - 1 ? (
-                                    <button
-                                      type="button"
-                                      className="btn btn-xs btn-outline-light p-0 border-0 text-white"
-                                      style={{ fontSize: '0.65rem', lineHeight: 1 }}
-                                      onClick={() => {
-                                        const updated = [...modalPhotos];
-                                        const [moved] = updated.splice(pIdx, 1);
-                                        updated.splice(pIdx + 1, 0, moved);
-                                        setModalPhotos(updated);
-                                      }}
-                                      title="Move Right (Rearrange)"
-                                    >
-                                      →
-                                    </button>
-                                  ) : (
-                                    <span style={{ width: '10px' }} />
                                   )}
                                 </div>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 2. Upload Action & Drag/Drop Area for Multiple Files */}
-                <div className="p-3 bg-light border rounded shadow-2xs mb-3">
-                  <div className="d-flex align-items-center justify-content-between mb-2">
-                    <span className="fw-bold text-dark small">Option A: Upload &amp; Crop New Vessel Image</span>
-                    <span className="text-secondary" style={{ fontSize: '0.75rem' }}>JPEG, PNG, WEBP</span>
-                  </div>
-
-                  <input
-                    type="file"
-                    ref={photoFileInputRef}
-                    className="d-none"
-                    accept="image/png,image/jpeg,image/webp,image/jpg"
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (files && files.length > 0) {
-                        const file = files[0];
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          if (typeof reader.result === 'string') {
-                            setCropTargetIdx(null);
-                            setCropModalImageSrc(reader.result);
-                            setIsCropModalOpen(true);
-                          }
-                        };
-                        reader.readAsDataURL(file);
-                        e.target.value = '';
-                      }
-                    }}
-                  />
-
-                  <div
-                    className="border border-dashed border-primary rounded bg-white p-3 text-center cursor-pointer hover-bg-light transition-all d-flex flex-column align-items-center justify-content-center gap-1.5"
-                    style={{ borderStyle: 'dashed', borderWidth: '1.5px' }}
-                    onClick={() => photoFileInputRef.current?.click()}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const files = e.dataTransfer.files;
-                      if (files && files.length > 0) {
-                        const file = files[0];
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          if (typeof reader.result === 'string') {
-                            setCropTargetIdx(null);
-                            setCropModalImageSrc(reader.result);
-                            setIsCropModalOpen(true);
-                          }
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  >
-                    <Upload className="w-6 h-6 text-primary" />
-                    <span className="small text-dark fw-semibold">
-                      Drag &amp; drop vessel image here or <span className="text-primary text-decoration-underline">browse files</span>
-                    </span>
-                    <span className="text-secondary" style={{ fontSize: '0.72rem' }}>
-                      Picks image and opens universal 16:9 sizing &amp; crop tool before adding.
-                    </span>
-                  </div>
-                </div>
-
-                {/* 3. Option B: Select from Curated Maritime Fleet Stock Presets */}
-                <div className="p-3 bg-light border rounded shadow-2xs mb-3">
-                  <div className="fw-bold text-dark small mb-2">Option B: Select &amp; Crop from Maritime Fleet Stock Photos</div>
-                  <div className="row g-2">
-                    {CURATED_VESSEL_PHOTOS.map((p, idx) => (
-                      <div key={idx} className="col-6 col-md-3">
-                        <div
-                          className={`position-relative border rounded overflow-hidden cursor-pointer transition-all ${photoModalUrl === p.url ? 'border-primary border-2 shadow-sm ring-2 ring-primary' : 'border-secondary-subtle opacity-90 hover-opacity-100'}`}
-                          style={{ height: '70px' }}
-                          onClick={() => {
-                            setCropTargetIdx(null);
-                            setCropModalImageSrc(p.url);
-                            setIsCropModalOpen(true);
-                          }}
-                          title={`Crop and add ${p.title}`}
-                        >
-                          <img src={p.url} alt={p.title} className="w-100 h-100" style={{ objectFit: 'cover' }} />
-                          <div
-                            className="position-absolute bottom-0 start-0 w-100 px-1 py-0.5 text-truncate text-white fw-semibold"
-                            style={{ background: 'rgba(0,0,0,0.65)', fontSize: '0.62rem' }}
-                          >
-                            {p.title}
                           </div>
-                          {photoModalUrl === p.url && (
-                            <div className="position-absolute top-0 end-0 m-1">
-                              <span className="badge bg-primary text-white p-1 rounded-circle d-flex align-items-center justify-content-center" style={{ width: "18px", height: "18px" }}><Check className="w-2.5 h-2.5 text-white" strokeWidth={3} /></span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 4. Option C: Direct Image URL */}
-                <div className="p-3 bg-light border rounded shadow-2xs mb-2">
-                  <label className="form-label fw-bold text-dark small mb-1" htmlFor="custom-vessel-image-url">
-                    Option C: Direct Image URL
-                  </label>
-                  <div className="input-group input-group-sm">
-                    <input
-                      id="custom-vessel-image-url"
-                      type="url"
-                      className="form-control font-mono-code"
-                      placeholder="https://images.unsplash.com/photo-..."
-                      value={customPhotoUrl}
-                      onChange={(e) => setCustomPhotoUrl(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary"
-                      onClick={() => {
-                        const url = customPhotoUrl.trim();
-                        if (url) {
-                          setCropTargetIdx(null);
-                          setCropModalImageSrc(url);
-                          setIsCropModalOpen(true);
-                          setCustomPhotoUrl('');
-                        }
-                      }}
-                    >
-                      Crop &amp; Add
-                    </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -5050,16 +4893,17 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           photos: undefined,
                         };
                         updateVessel(updated);
-                        setPhotoModalUrl('');
-                        setModalPhotos([]);
-                        setSelectedViewPhotoUrl('');
+                        const defaultStock = getVesselStockPhoto(vessel.id, vessel.name, vessel.vesselType, vessel.vesselSubtype);
+                        setPhotoModalUrl(defaultStock);
+                        setModalPhotos([defaultStock]);
+                        setSelectedViewPhotoUrl(defaultStock);
                         setShowPhotoUploadModal(false);
                         setToastMessage(`Profile photos for ${vessel.name} reset to default stock.`);
                         setTimeout(() => setToastMessage(null), 3500);
                       }}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete All Custom Photos</span>
+                      <span>Reset to Default Stock</span>
                     </button>
                   )}
                 </div>
@@ -5099,6 +4943,188 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         </div>
       )}
 
+      {/* ========================================================================= */}
+      {/* Separate Dedicated Modal / Popup: Add Photo Options */}
+      {/* ========================================================================= */}
+      {showAddPhotoModal && canManagePhotos && (
+        <div
+          className="modal show d-block map-modal-backdrop"
+          tabIndex={-1}
+          style={{ zIndex: 1065 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAddPhotoModal(false);
+          }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content bg-white text-dark border shadow-lg">
+              {/* Header */}
+              <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
+                <div className="d-flex align-items-center gap-2">
+                  <div className="p-2 bg-primary-subtle text-primary rounded-3">
+                    <Camera className="w-4.5 h-4.5" />
+                  </div>
+                  <div>
+                    <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
+                      Add Vessel Photo
+                    </h5>
+                    <div className="text-secondary small font-mono-code">
+                      {vessel.name} · Choose upload, curated stock, or image link
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowAddPhotoModal(false)}
+                  aria-label="Close"
+                />
+              </div>
+
+              {/* Body */}
+              <div className="modal-body p-4">
+                {/* Option A: Upload & Crop */}
+                <div className="p-3 bg-light border rounded shadow-2xs mb-3">
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <span className="fw-bold text-dark small">Option A: Upload &amp; Crop New Vessel Image</span>
+                    <span className="text-secondary" style={{ fontSize: '0.75rem' }}>JPEG, PNG, WEBP</span>
+                  </div>
+
+                  <input
+                    type="file"
+                    ref={photoFileInputRef}
+                    className="d-none"
+                    accept="image/png,image/jpeg,image/webp,image/jpg"
+                    onChange={(e) => {
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        const file = files[0];
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          if (typeof reader.result === 'string') {
+                            setShowAddPhotoModal(false);
+                            setCropTargetIdx(null);
+                            setCropModalImageSrc(reader.result);
+                            setIsCropModalOpen(true);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+
+                  <div
+                    className="border border-dashed border-primary rounded bg-white p-3 text-center cursor-pointer hover-bg-light transition-all d-flex flex-column align-items-center justify-content-center gap-1.5"
+                    style={{ borderStyle: 'dashed', borderWidth: '1.5px' }}
+                    onClick={() => photoFileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const files = e.dataTransfer.files;
+                      if (files && files.length > 0) {
+                        const file = files[0];
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          if (typeof reader.result === 'string') {
+                            setShowAddPhotoModal(false);
+                            setCropTargetIdx(null);
+                            setCropModalImageSrc(reader.result);
+                            setIsCropModalOpen(true);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  >
+                    <Upload className="w-6 h-6 text-primary" />
+                    <span className="small text-dark fw-semibold">
+                      Drag &amp; drop vessel image here or <span className="text-primary text-decoration-underline">browse files</span>
+                    </span>
+                    <span className="text-secondary" style={{ fontSize: '0.72rem' }}>
+                      Picks image and opens universal 16:9 sizing &amp; crop tool before adding to gallery.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Option B: Curated Stock Presets */}
+                <div className="p-3 bg-light border rounded shadow-2xs mb-3">
+                  <div className="fw-bold text-dark small mb-2">Option B: Select &amp; Crop from Maritime Fleet Stock Photos</div>
+                  <div className="row g-2">
+                    {CURATED_VESSEL_PHOTOS.map((p, idx) => (
+                      <div key={idx} className="col-6 col-md-3">
+                        <div
+                          className="position-relative border rounded overflow-hidden cursor-pointer transition-all border-secondary-subtle opacity-90 hover-opacity-100 hover:shadow-xs"
+                          style={{ height: '75px' }}
+                          onClick={() => {
+                            setShowAddPhotoModal(false);
+                            setCropTargetIdx(null);
+                            setCropModalImageSrc(p.url);
+                            setIsCropModalOpen(true);
+                          }}
+                          title={`Crop and add ${p.title}`}
+                        >
+                          <img src={p.url} alt={p.title} className="w-100 h-100" style={{ objectFit: 'cover' }} />
+                          <div
+                            className="position-absolute bottom-0 start-0 w-100 px-1 py-0.5 text-truncate text-white fw-semibold"
+                            style={{ background: 'rgba(0,0,0,0.65)', fontSize: '0.62rem' }}
+                          >
+                            {p.title}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Option C: Direct Image URL */}
+                <div className="p-3 bg-light border rounded shadow-2xs">
+                  <label className="form-label fw-bold text-dark small mb-1" htmlFor="custom-vessel-image-url">
+                    Option C: Direct Image URL
+                  </label>
+                  <div className="input-group input-group-sm">
+                    <input
+                      id="custom-vessel-image-url"
+                      type="url"
+                      className="form-control font-mono-code"
+                      placeholder="https://images.unsplash.com/photo-..."
+                      value={customPhotoUrl}
+                      onChange={(e) => setCustomPhotoUrl(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary"
+                      onClick={() => {
+                        const url = customPhotoUrl.trim();
+                        if (url) {
+                          setShowAddPhotoModal(false);
+                          setCropTargetIdx(null);
+                          setCropModalImageSrc(url);
+                          setIsCropModalOpen(true);
+                          setCustomPhotoUrl('');
+                        }
+                      }}
+                    >
+                      Crop &amp; Add
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="modal-footer border-top bg-light d-flex justify-content-end p-3">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={() => setShowAddPhotoModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Interactive Universal Vessel Image Crop & Sizing Modal */}
       {isCropModalOpen && cropModalImageSrc && (
         <VesselImageCropModal
@@ -5116,16 +5142,19 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 setPhotoModalUrl(croppedUrl);
               }
             } else {
-              setPhotoModalUrl(croppedUrl);
+              // Adding new photo to gallery: always preserve current cover photo instead of overwriting it!
               setModalPhotos((prev) => {
                 if (!prev.includes(croppedUrl)) {
-                  return [croppedUrl, ...prev];
+                  return [...prev, croppedUrl];
                 }
                 return prev;
               });
+              if (!photoModalUrl) {
+                setPhotoModalUrl(croppedUrl);
+              }
             }
             setIsCropModalOpen(false);
-            setToastMessage(`Universal image crop applied to ${vessel?.name || 'vessel'}.`);
+            setToastMessage(`Universal image crop applied to ${vessel?.name || 'vessel'} gallery.`);
             setTimeout(() => setToastMessage(null), 3500);
           }}
           onClose={() => setIsCropModalOpen(false)}

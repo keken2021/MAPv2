@@ -8,7 +8,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { formatMaritimeDate } from '../utils/formatters';
-import { getBackButtonInfo } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
 import { DocumentVersion } from '../types/document';
@@ -34,7 +33,6 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
     return () => clearTimeout(timer);
   }, [documentId]);
 
-  const backInfo = getBackButtonInfo('documents', 'Document Vault', previousHashView, activePersona, previousEntityId);
   const canUpload = activePersona === 'Submitter' || activePersona === 'Administrator';
 
   const doc = documents.find((d) => d.id === documentId) || documents[0];

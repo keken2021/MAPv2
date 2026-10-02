@@ -6,7 +6,6 @@
 
 import React, { useState, useRef } from 'react';
 import { useMapStore } from '../store/useMapStore';
-import { getBackButtonInfo } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CapaItem } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';

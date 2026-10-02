@@ -9,7 +9,6 @@ import { useMapStore } from '../store/useMapStore';
 import { STCWDocumentItem, CrewVesselAssignment } from '../types/crew';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { formatMaritimeDate } from '../utils/formatters';
-import { getBackButtonInfo } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CrewDocumentUploadModal } from '../components/drawers/CrewDocumentUploadModal';
 import { CrewDocumentViewerModal } from '../components/drawers/CrewDocumentViewerModal';
@@ -45,7 +44,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
     return () => clearTimeout(timer);
   }, [crewId]);
 
-  const backInfo = getBackButtonInfo('crew', 'Crew Directory', previousHashView, activePersona, previousEntityId);
   const canManageDocuments = activePersona === 'Administrator' || activePersona === 'Submitter';
   const canAddToProject = activePersona === 'Administrator' || activePersona === 'C Admin';
 

@@ -1233,7 +1233,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
               )}
               {currentStep < totalSteps ? (
                 <button type="button" className="btn btn-primary btn-sm text-white fw-semibold" onClick={handleNext}>
-                  Next &rarr;
+                  Next
                 </button>
               ) : (
                 <button type="button" className="btn btn-primary btn-sm text-white fw-semibold" onClick={handleSubmit}>

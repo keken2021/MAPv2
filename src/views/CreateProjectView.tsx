@@ -26,7 +26,6 @@ import {
   projectTypeShowsServiceFields,
   requiresAssuranceSetForAssetLink,
 } from '../utils/projectHelpers';
-import { getBackButtonInfo } from '../utils/rbacHelpers';
 import { EXISTING_ACTIVITIES } from '../utils/assuranceTemplates';
 
 type DraftAssetLink = {
@@ -82,7 +81,6 @@ export const CreateProjectView: React.FC = () => {
   const [assetTypeFilter, setAssetTypeFilter] = useState<'All' | ProjectAssetType>('All');
   const [error, setError] = useState('');
 
-  const backInfo = getBackButtonInfo('project', 'Projects', previousHashView, activePersona, previousEntityId);
 
   const showCharterFields = projectType === 'Charter / Voyage' || projectType === 'Mixed / Composite';
   const showRiskProfile = projectTypeRequiresRiskProfile(projectType);
@@ -266,8 +264,7 @@ export const CreateProjectView: React.FC = () => {
 
   return (
     <div className="d-flex flex-column gap-3">
-      <div className="d-flex align-items-center justify-between">
-       
+      <div className="d-flex align-items-center justify-content-end">
         <span className="badge bg-primary-subtle text-primary font-mono-code">
           Step {step} of 2
         </span>
@@ -454,7 +451,7 @@ export const CreateProjectView: React.FC = () => {
                   if (validateStep1()) setStep(2);
                 }}
               >
-                Next: Compose Assets →
+                Next: Compose Assets
               </button>
             </div>
           </div>

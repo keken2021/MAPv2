@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
-import { filterVesselsForPersona, getBackButtonInfo } from '../utils/rbacHelpers';
+import { filterVesselsForPersona } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CapaItem, CapaStatus } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
@@ -33,7 +33,6 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
     previousEntityId,
   } = useMapStore();
 
-  const backInfo = getBackButtonInfo('inspector', 'Physical Inspections', previousHashView, activePersona, previousEntityId);
 
   /* filter available vessels and capas for non-admin personas */
   const availableVessels =

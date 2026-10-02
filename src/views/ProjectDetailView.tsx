@@ -263,7 +263,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
                   className="btn btn-sm btn-primary"
                   onClick={() => setCurrentHashView('assurance-sets', project.masterAssuranceSetId)}
                 >
-                  Open Master Set →
+                  Open Master Set
                 </button>
               </div>
             )}
@@ -502,7 +502,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
                       <td><ReadinessGauge score={s.readinessScore} size="sm" /></td>
                       <td className="text-end">
                         <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setCurrentHashView('assurance-sets', s.id)}>
-                          Open →
+                          Open
                         </button>
                       </td>
                     </tr>

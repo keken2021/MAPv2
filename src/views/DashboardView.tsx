@@ -800,7 +800,7 @@ export const DashboardView: React.FC = () => {
                 setCurrentHashView('assurance-sets', setId);
               }}
             >
-              Open Full Campaign Workspace →
+              Open Full Campaign Workspace
             </button>
           </div>
         </div>

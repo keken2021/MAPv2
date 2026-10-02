@@ -1905,7 +1905,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 className="btn btn-primary text-white px-4 py-1.5 fw-semibold"
                 onClick={handleNext}
               >
-                Next Step &rarr;
+                Next Step
               </button>
             ) : (
               <button
