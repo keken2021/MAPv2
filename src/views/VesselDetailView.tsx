@@ -35,6 +35,7 @@ import {
   statusHistoryBadgeClass,
 } from '../utils/vesselStatusHistoryHelpers';
 import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
+import { getFallbackPhysicalInspections } from '../store/inspectionMockData';
 import {
   MapPin,
   Download,
@@ -835,46 +836,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     }));
 
     if (derivedInspections.length === 0) {
-      return [
-        {
-          id: 'INSP-2026-001',
-          assuranceSetId: 'AS-2026-001',
-          title: `Annual Statutory Vetting & Safety Audit — ${vessel.name}`,
-          inspector: 'N. Technical (AMSA Marine Audit Division)',
-          inspectorRole: 'Senior Offshore Surveyor',
-          date: '10 Sep 2026',
-          location: 'Fremantle Port Outer Anchorage, WA',
-          client: 'Northwind Marine Pty Ltd',
-          status: 'Completed',
-          findingsSummary: {
-            satisfactory: 14,
-            observations: 1,
-            deficiencies: 0,
-            capaCode: 'CAPA-114'
-          },
-          checklists: [
-            {
-              id: 'CHK-01',
-              category: 'Life-Saving Appliances (LSA)',
-              ref: 'SOLAS Reg III/20',
-              status: 'Satisfactory',
-              notes: 'Life-saving appliances fully inspected and verified compliant.',
-              evidence: ['lsa_inspection.pdf']
-            },
-            {
-              id: 'CHK-02',
-              category: 'Dynamic Positioning Systems',
-              ref: 'IMCA M 103 / DP2',
-              status: 'Satisfactory',
-              notes: 'DP2 trial failure modes tested with zero thrust loss.',
-              evidence: ['dp2_trial_log.pdf']
-            }
-          ],
-          auditTrail: [
-            { time: '2026-09-10 09:00 UTC', action: 'INSPECTION_COMPLETED', user: 'N. Technical', notes: 'Annual statutory audit completed.' }
-          ]
-        }
-      ];
+      return getFallbackPhysicalInspections(vessel.name);
     }
 
     return derivedInspections;

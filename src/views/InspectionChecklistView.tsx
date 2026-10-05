@@ -11,32 +11,13 @@ import { CapaItem } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { Camera, FileText } from 'lucide-react';
 
-interface EvidenceItem {
-  id: string;
-  title: string;
-  type: 'Photo' | 'Document';
-  fileName?: string;
-  fileSize?: string;
-  previewUrl?: string;
-}
-
-interface InspectionItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  status: 'Satisfactory' | 'Observation' | 'Deficiency';
-  findingNotes?: string;
-  capaCode?: string;
-  evidences: EvidenceItem[];
-}
-
-interface CapaActionItem {
-  id: string;
-  title: string;
-  owner: string;
-  dueDate: string;
-  status: 'Open' | 'Closed';
-}
+import {
+  DEFAULT_INSPECTION_CHECKLIST_ITEMS,
+  DEFAULT_INSPECTION_CAPA_ITEMS,
+  EvidenceItem,
+  InspectionChecklistTemplateItem as InspectionItem,
+  InspectionCapaActionItem as CapaActionItem,
+} from '../store/inspectionMockData';
 
 interface InspectionChecklistViewProps {
   vesselName?: string;
@@ -51,68 +32,11 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   const cleanVesselName = decodeURIComponent(vesselName || 'MV Pacific Endeavour');
   const { capaItems, addCapaItem, logAuditEvent, activePersona, setCurrentHashView } = useMapStore();
 
-  const [items, setItems] = useState<InspectionItem[]>([
-    {
-      id: 'INS-01',
-      title: 'Life-saving appliances — stowage and condition',
-      subtitle: 'SOLAS III · LSA record',
-      status: 'Satisfactory',
-      evidences: [
-        { id: 'EV-101', title: 'LSA locker photo', type: 'Photo', fileName: 'lsa_locker_01.jpg', fileSize: '2.4 MB' },
-      ],
-    },
-    {
-      id: 'INS-02',
-      title: 'Fire-fighting equipment and fixed systems',
-      subtitle: 'SOLAS II-2 · FFE plan',
-      status: 'Satisfactory',
-      evidences: [
-        { id: 'EV-102', title: 'FFE station 3 tag', type: 'Photo', fileName: 'ffe_station3.jpg', fileSize: '1.8 MB' },
-      ],
-    },
-    {
-      id: 'INS-03',
-      title: 'Liferaft hydrostatic release units',
-      subtitle: 'Service due check',
-      status: 'Observation',
-      findingNotes: 'Port-side liferaft HRU service date exceeded by 3 weeks. Replacement unit on order; corrective action CAPA-118 raised.',
-      capaCode: 'CAPA-118',
-      evidences: [
-        { id: 'EV-103', title: 'Liferaft HRU tag', type: 'Photo', fileName: 'hru_tag_port.jpg', fileSize: '3.1 MB' },
-        { id: 'EV-104', title: 'Service cert scan', type: 'Document', fileName: 'hru_cert_2026.pdf', fileSize: '450 KB' },
-      ],
-    },
-    {
-      id: 'INS-04',
-      title: 'Deck cargo securing arrangements',
-      subtitle: 'Cargo securing manual',
-      status: 'Satisfactory',
-      evidences: [
-        { id: 'EV-105', title: 'Deck securing photo', type: 'Photo', fileName: 'deck_securing_aft.jpg', fileSize: '2.9 MB' },
-      ],
-    },
-    {
-      id: 'INS-05',
-      title: 'Crew familiarity — muster and abandon ship',
-      subtitle: 'ISM · drill records',
-      status: 'Satisfactory',
-      evidences: [
-        { id: 'EV-106', title: 'Muster drill log sheet', type: 'Document', fileName: 'muster_log_sep2026.pdf', fileSize: '620 KB' },
-      ],
-    },
-  ]);
+  const [items, setItems] = useState<InspectionItem[]>(DEFAULT_INSPECTION_CHECKLIST_ITEMS);
 
   const [selectedResult, setSelectedResult] = useState<'Pass' | 'Pass with observations' | 'Fail'>('Pass with observations');
 
-  const [capas, setCapas] = useState<CapaActionItem[]>([
-    {
-      id: 'CAPA-118',
-      title: 'Replace port-side liferaft HRU & update service log',
-      owner: 'Northwind Marine Technical Dept',
-      dueDate: '25 Sep 2026',
-      status: 'Open',
-    },
-  ]);
+  const [capas, setCapas] = useState<CapaActionItem[]>(DEFAULT_INSPECTION_CAPA_ITEMS);
 
   const [editingCommentItemId, setEditingCommentItemId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
