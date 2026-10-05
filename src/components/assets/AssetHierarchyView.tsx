@@ -59,9 +59,18 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
     return map;
   }, [visibleEquipment]);
 
+  const equipmentMatchesFilters = (item: EquipmentAsset) => {
+    if (ownerFilter !== 'All' && item.owningOrganization !== ownerFilter) return false;
+    if (availabilityFilter !== 'All' && item.availabilityStatus !== availabilityFilter) return false;
+    if (complianceFilter !== 'All' && item.complianceStatus !== complianceFilter) return false;
+    return true;
+  };
+
   const filteredVessels = useMemo(() => {
-    if (assetTypeFilter === 'equipment') return [];
     return visibleVessels.filter((vessel) => {
+      if (assetTypeFilter === 'equipment') {
+        return (equipmentByVessel.get(vessel.id) ?? []).some(equipmentMatchesFilters);
+      }
       const status = getVesselAssetStatus(vessel);
       const compliance = status.complianceStatus;
       if (ownerFilter !== 'All' && vessel.registeredOwner !== ownerFilter) return false;
@@ -69,7 +78,7 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
       if (complianceFilter !== 'All' && compliance !== complianceFilter) return false;
       return true;
     });
-  }, [visibleVessels, assetTypeFilter, ownerFilter, availabilityFilter, complianceFilter]);
+  }, [visibleVessels, assetTypeFilter, ownerFilter, availabilityFilter, complianceFilter, equipmentByVessel]);
 
   const filteredStandaloneEquipment = useMemo(() => {
     if (assetTypeFilter === 'vessel') return [];

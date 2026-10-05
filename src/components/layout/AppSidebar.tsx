@@ -25,7 +25,7 @@ interface NavItem {
   isGroup?: boolean;
 }
 
-const ASSETS_CHILD_KEYS = ["vessels", "equipment","project"];
+const ASSETS_CHILD_KEYS = ["vessels", "equipment", "project", "crew"];
 
 /**
   what: renders fixed dark navy sidepanel matching mockup design with organisation card and dot navigation.
@@ -278,35 +278,37 @@ export const AppSidebar: React.FC = () => {
     },
   ) => {
     const { isActive, onClick, depth, showChevron, isExpanded } = options;
-    const paddingLeft = `${12 + depth * 16}px`;
 
     return (
       <button
         type="button"
-        className={`nav-link text-start d-flex align-items-center justify-between mb-1 py-2 px-3 ${isActive ? "fw-semibold" : ""}`}
+        className={`nav-link text-start d-flex align-items-center justify-between mb-1 py-2 ${isActive ? "fw-semibold" : ""}`}
         style={{
           borderRadius: "6px",
-          fontSize: depth > 0 ? "0.82rem" : "0.85rem",
+          fontSize: depth > 0 ? "0.8rem" : "0.85rem",
           backgroundColor: isActive ? "#0e324c" : "transparent",
           color: isActive ? "#ffffff" : depth > 0 ? "#94a3b8" : "#cbd5e1",
           border: "none",
           cursor: "pointer",
           transition: "all 0.15s ease-in-out",
-          paddingLeft,
+          paddingLeft: depth > 0 ? "10px" : "12px",
+          paddingRight: "12px",
         }}
         onClick={onClick}
       >
         <div className="d-flex align-items-center">
-          <span
-            style={{
-              display: "inline-block",
-              width: "6px",
-              height: "6px",
-              borderRadius: "50%",
-              backgroundColor: isActive ? "#38bdf8" : "#475569",
-              marginRight: "10px",
-            }}
-          />
+          {depth === 0 && (
+            <span
+              style={{
+                display: "inline-block",
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                backgroundColor: isActive ? "#38bdf8" : "#475569",
+                marginRight: "10px",
+              }}
+            />
+          )}
           <span>{item.label}</span>
         </div>
 
@@ -345,8 +347,14 @@ export const AppSidebar: React.FC = () => {
             showChevron: true,
             isExpanded,
           })}
-          {isExpanded &&
-            item.children.map((child) => renderNavItem(child, depth + 1))}
+          {isExpanded && (
+            <div
+              className="d-flex flex-column mb-1"
+              style={{ marginLeft: "28px" }}
+            >
+              {item.children.map((child) => renderNavItem(child, depth + 1))}
+            </div>
+          )}
         </React.Fragment>
       );
     }

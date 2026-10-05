@@ -5,6 +5,7 @@
 */
 
 import React, { useMemo, useState } from 'react';
+import { Check, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { AssetHierarchyView } from '../components/assets/AssetHierarchyView';
 import { EquipmentModal } from '../components/drawers/EquipmentModal';
@@ -18,6 +19,7 @@ import { filterEquipmentForPersona } from '../utils/rbacHelpers';
 export const EquipmentView: React.FC = () => {
   const { equipment, vessels, assuranceSets, activePersona, setCurrentHashView } = useMapStore();
   const [viewMode, setViewMode] = useState<'list' | 'tree'>('list');
+  const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const visibleEquipment = useMemo(
@@ -33,24 +35,58 @@ export const EquipmentView: React.FC = () => {
 
   return (
     <div className="d-flex flex-column gap-3">
-      <div className="d-flex flex-wrap align-items-center justify-between gap-3">
-        <div className="nav nav-pills bg-light p-1 rounded-3 border">
+      <div className="d-flex flex-wrap align-items-center justify-content-end gap-2">
+        <div className="dropdown position-relative">
           <button
             type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${viewMode === 'list' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setViewMode('list')}
+            className="btn btn-sm btn-outline-secondary text-dark d-flex align-items-center gap-1.5 px-2.5 py-1"
+            onClick={() => setIsViewDropdownOpen(!isViewDropdownOpen)}
+            title={viewMode === 'list' ? 'List view' : 'Asset tree'}
+            aria-label="Toggle view mode"
           >
-            List ({visibleEquipment.length})
+            {viewMode === 'list' ? <TableIcon size={15} /> : <LayoutGrid size={15} />}
           </button>
-          <button
-            type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${viewMode === 'tree' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setViewMode('tree')}
-          >
-            Asset Tree
-          </button>
+          {isViewDropdownOpen && (
+            <ul
+              className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border py-1"
+              style={{ minWidth: '150px' }}
+            >
+              <li>
+                <button
+                  type="button"
+                  className={`dropdown-item d-flex align-items-center justify-content-between px-3 py-1.5 small ${viewMode === 'list' ? 'active bg-primary text-white' : ''}`}
+                  onClick={() => {
+                    setViewMode('list');
+                    setIsViewDropdownOpen(false);
+                  }}
+                  title="List view"
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <TableIcon size={15} />
+                    <span>List</span>
+                  </div>
+                  {viewMode === 'list' && <Check size={14} />}
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className={`dropdown-item d-flex align-items-center justify-content-between px-3 py-1.5 small ${viewMode === 'tree' ? 'active bg-primary text-white' : ''}`}
+                  onClick={() => {
+                    setViewMode('tree');
+                    setIsViewDropdownOpen(false);
+                  }}
+                  title="Asset tree"
+                >
+                  <div className="d-flex align-items-center gap-2">
+                    <LayoutGrid size={15} />
+                    <span>Asset Tree</span>
+                  </div>
+                  {viewMode === 'tree' && <Check size={14} />}
+                </button>
+              </li>
+            </ul>
+          )}
         </div>
 
         {canRegister && (
