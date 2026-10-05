@@ -25,7 +25,7 @@ export const EquipmentView: React.FC = () => {
     [equipment, vessels, assuranceSets, activePersona],
   );
 
-  const canRegister = activePersona === 'Administrator' || activePersona === 'Submitter';
+  const canRegister = activePersona === 'Administrator';
 
   const handleRegistered = (equipmentId: string) => {
     setCurrentHashView('equipment', equipmentId);
