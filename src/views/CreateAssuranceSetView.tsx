@@ -15,6 +15,7 @@ import {
   ReviewChannel,
   AuthorityValidationMethod,
   AssuranceRequirementCategory,
+  ThreePillarsCategory,
 } from '../types/assurance';
 import { UserProfile } from '../types/user';
 import {
@@ -37,13 +38,23 @@ import {
   getReviewChannelForUser,
 } from '../utils/userRoleHelpers';
 import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../utils/validation';
-import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES, SUBTYPE_CATEGORIES, StandardSubtypeDocument, SubtypeTemplate, EXISTING_PROJECTS, EXISTING_ACTIVITIES } from '../utils/assuranceTemplates';
+import {
+  SUBTYPE_STANDARD_DOCS,
+  SUBTYPE_TEMPLATES,
+  SUBTYPE_CATEGORIES,
+  StandardSubtypeDocument,
+  SubtypeTemplate,
+  EXISTING_PROJECTS,
+  EXISTING_ACTIVITIES,
+  getThreePillarsCategory,
+  THREE_PILLARS_CONFIG,
+} from '../utils/assuranceTemplates';
 import {
   autoAttachDocumentsToRequirements,
   findMatchingDocumentForRequirement,
   getAssetAutoAttachSummary,
 } from '../utils/documentMatchingHelpers';
-import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2 } from 'lucide-react';
+import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Layers, Sparkles, CheckCircle2 } from 'lucide-react';
 
 interface SpecializedDoc {
   id: string;
@@ -120,6 +131,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Global template selector from existing assurance sets (optional) */
   const [selectedGlobalTemplateId, setSelectedGlobalTemplateId] = useState<string>(templateSetId || '');
+  const [selectedProjectTemplateId, setSelectedProjectTemplateId] = useState<string>('tmpl-pub-imca-unified-project');
 
   /* Workflow requirements state */
   const [verificationRequired, setVerificationRequired] = useState(true);
@@ -314,20 +326,20 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   });
 
   /* Calculate active wizard steps depending on selected assuranceType */
-  const getWizardSteps = (): Array<{ id: string; label: string; subtype?: AssuranceSubtype }> => {
+  const getWizardSteps = (): Array<{ id: string; label: string; pillar?: ThreePillarsCategory; subtype?: AssuranceSubtype }> => {
     if (assuranceType === 'Project') {
       return [
         { id: 'step-scope', label: 'Identification & Scope' },
-        { id: 'step-vessel', label: 'Vessel', subtype: 'Vessel' },
-        { id: 'step-crew', label: 'Crew', subtype: 'Crew' },
-        { id: 'step-activity', label: 'Activity', subtype: 'Activity' },
-        { id: 'step-equipment', label: 'Equipment', subtype: 'Equipment' },
+        { id: 'step-plant', label: 'Plant', pillar: 'Plant' },
+        { id: 'step-people', label: 'People', pillar: 'People', subtype: 'Crew' },
+        { id: 'step-process', label: 'Process', pillar: 'Process', subtype: 'Activity' },
         { id: 'step-review', label: 'Review & Initiate' },
       ];
     } else {
+      const pillar = getThreePillarsCategory(assuranceType);
       return [
         { id: 'step-scope', label: 'Identification & Scope' },
-        { id: `step-${assuranceType.toLowerCase()}`, label: assuranceType, subtype: assuranceType as AssuranceSubtype },
+        { id: `step-${pillar.toLowerCase()}`, label: 'Documents', pillar, subtype: assuranceType as AssuranceSubtype },
         { id: 'step-review', label: 'Review & Initiate' },
       ];
     }
@@ -490,6 +502,82 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     });
 
     triggerAutofillAnimation([`subtype-docs-container-${subtype}`]);
+  };
+
+  /* Handle Full Project Scope Template Selection (Spanning all 4 Sub-Assets) */
+  const handleSelectProjectTemplate = (templateId: string) => {
+    setSelectedProjectTemplateId(templateId);
+
+    if (!templateId) return;
+
+    const tmpl = SUBTYPE_TEMPLATES.find((t) => t.id === templateId && t.subtype === 'All');
+    if (!tmpl) return;
+
+    setSelectedSubtypeTemplates({
+      Vessel: templateId,
+      Crew: templateId,
+      Activity: templateId,
+      Equipment: templateId,
+    });
+
+    setDocToggles((prev) => {
+      const updated = { ...prev };
+      Object.values(SUBTYPE_STANDARD_DOCS).forEach((list) => {
+        list.forEach((d) => {
+          updated[d.id] = tmpl.recommendedDocIds.includes(d.id);
+        });
+      });
+      return updated;
+    });
+
+    triggerAutofillAnimation([
+      'grid-campaign-title',
+      'project-template-card',
+      'subtype-docs-container-Vessel',
+      'subtype-docs-container-Crew',
+      'subtype-docs-container-Activity',
+      'subtype-docs-container-Equipment',
+    ]);
+  };
+
+  /* Handle Project Selection and auto-link its 4 sub-assets */
+  const handleProjectChange = (projId: string) => {
+    setSelectedProjectId(projId);
+    setFieldErrors((prev) => {
+      const u = { ...prev };
+      delete u.projectId;
+      return u;
+    });
+
+    const proj = EXISTING_PROJECTS.find((p) => p.id === projId);
+    if (proj) {
+      if (proj.primaryVesselId && vessels.some((v) => v.id === proj.primaryVesselId)) {
+        setVesselId(proj.primaryVesselId);
+      }
+      if (proj.primaryCrewId && crew.some((c) => c.id === proj.primaryCrewId)) {
+        setSelectedCrewId(proj.primaryCrewId);
+      }
+      if (proj.primaryEquipmentId && equipment.some((e) => e.id === proj.primaryEquipmentId)) {
+        setSelectedEquipmentId(proj.primaryEquipmentId);
+      }
+      if (proj.primaryActivityId && EXISTING_ACTIVITIES.some((a) => a.id === proj.primaryActivityId)) {
+        setSelectedActivityId(proj.primaryActivityId);
+      }
+      if (proj.defaultTemplateId) {
+        handleSelectProjectTemplate(proj.defaultTemplateId);
+      }
+      const chartererName = isClientAdmin ? clientOrg : proj.clientOperator;
+      setCharterer(chartererName);
+      setTitle(`${chartererName} - ${proj.name} Integrated Assurance Campaign`);
+      triggerAutofillAnimation([
+        'grid-campaign-title',
+        'grid-target-asset-project',
+        'project-subasset-vessel',
+        'project-subasset-crew',
+        'project-subasset-equipment',
+        'project-subasset-activity',
+      ]);
+    }
   };
 
   /* Toggle individual standard document */
@@ -763,6 +851,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       equipment,
       selectedEquipmentId,
       selectedVesselId: vesselId,
+      selectedActivityId,
       targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
     });
 
@@ -956,6 +1045,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       equipment,
       selectedEquipmentId,
       selectedVesselId: vesselId,
+      selectedActivityId,
       targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
     });
 
@@ -1092,13 +1182,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   };
 
   /* Render reusable Subtype Document Section */
-  const renderSubtypeSection = (subtype: AssuranceSubtype) => {
+  const renderSubtypeSection = (subtype: AssuranceSubtype, isProjectScope: boolean = true) => {
     const standardDocs = SUBTYPE_STANDARD_DOCS[subtype] || [];
     const publicTemplates = SUBTYPE_TEMPLATES.filter((t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'public');
     const orgTemplates = SUBTYPE_TEMPLATES.filter((t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'organization');
     const activeTemplateId = selectedSubtypeTemplates[subtype] || '';
     const specializedList = specializedDocs.filter((d: { subtype: string; }) => d.subtype === subtype);
     const specInput = specializedInputs[subtype];
+    /* Section label: for standalone (non-project) scopes use neutral 'Documents' label */
+    const sectionLabel = isProjectScope ? subtype : 'Documents';
 
     return (
       <div className="d-flex flex-column gap-4" id={`subtype-docs-container-${subtype}`}>
@@ -1107,10 +1199,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
               <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                {subtype} Assurance Templates (Optional)
+                {sectionLabel} Assurance Templates (Optional)
               </h5>
               <div className="text-muted small mt-0.5">
-                Apply a public standard or organizational baseline to automatically configure required {subtype.toLowerCase()} documents.
+                Apply a public standard or organizational baseline to automatically configure required {isProjectScope ? subtype.toLowerCase() : ''} documents.
               </div>
             </div>
             {activeTemplateId && (
@@ -1182,10 +1274,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         <div className="card border shadow-sm rounded-3 bg-white">
           <div className="card-header bg-light border-bottom px-4 py-3">
             <h5 className="fw-bold text-slate-900 m-0 fs-6">
-              Required {subtype} Documents &amp; Information
+              Required {isProjectScope ? `${subtype} ` : ''}Documents &amp; Information
             </h5>
             <p className="text-muted small m-0 mt-1">
-              Toggle mandatory and statutory compliance requirements for this {subtype.toLowerCase()} section. All documents include verified descriptions.
+              Toggle mandatory and statutory compliance requirements for this {isProjectScope ? `${subtype.toLowerCase()} ` : ''}section. All documents include verified descriptions.
             </p>
           </div>
           <div className="card-body p-4">
@@ -1292,7 +1384,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
               <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                Add Specialized {subtype} Document <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                Add Specialized {isProjectScope ? `${subtype} ` : ''}Document <span className="text-secondary fw-normal fs-7">(Optional)</span>
               </h5>
               <p className="text-muted small m-0 mt-1">
                 Optional: Specify any custom or project-specific document requirements needed for this campaign.
@@ -1405,7 +1497,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             {specializedList.length > 0 && (
               <div className="mt-4 border-top pt-3">
                 <h6 className="fw-bold text-dark small mb-2">
-                  Added Specialized {subtype} Requirements ({specializedList.length})
+                  Added Specialized {isProjectScope ? `${subtype} ` : ''}Requirements ({specializedList.length})
                 </h6>
                 <div className="d-flex flex-column gap-2">
                   {specializedList.map((spec: SpecializedDoc) => (
@@ -1586,11 +1678,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           setFieldErrors({});
                         }}
                       >
-                        <option value="Project">Project (Vessel, Crew, Activity, Equipment)</option>
-                        <option value="Vessel">Vessel Only</option>
-                        <option value="Crew">Crew Only</option>
-                        <option value="Activity">Activity Only</option>
-                        <option value="Equipment">Equipment Only</option>
+                        <option value="Project">Project</option>
+                        <option value="Vessel">Vessel</option>
+                        <option value="Crew">Crew</option>
+                        <option value="Activity">Activity</option>
+                        <option value="Equipment">Equipment</option>
                       </select>
                     </div>
 
@@ -1618,7 +1710,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      2. Primary Asset Selection ({assuranceType} Scope)
+                      2. Primary Asset Selection
                     </h5>
                     <div className="text-muted small">
                       {assuranceType === 'Project'
@@ -1626,61 +1718,300 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         : `Select the target ${assuranceType.toLowerCase()} asset undergoing assurance vetting.`}
                     </div>
                   </div>
-                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.7rem' }}>
-                    Asset Scope: {assuranceType}
-                  </span>
+
                 </div>
                 <div className="card-body p-4">
                   {assuranceType === 'Project' && (
-                    <div>
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-project">
-                        Target Project Asset <span className="text-danger">*</span>
-                      </label>
-                      <select
-                        id="grid-target-asset-project"
-                        className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.projectId ? ' is-invalid border-danger' : ''}`}
-                        value={selectedProjectId}
-                        onChange={(e) => {
-                          setSelectedProjectId(e.target.value);
-                          setFieldErrors((prev) => {
-                            const u = { ...prev };
-                            delete u.projectId;
-                            return u;
-                          });
-                        }}
-                        required
-                      >
-                        {EXISTING_PROJECTS.map((proj) => (
-                          <option key={proj.id} value={proj.id}>
-                            {proj.id} &mdash; {proj.name} ({proj.clientOperator})
-                          </option>
-                        ))}
-                      </select>
-                      {fieldErrors.projectId && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {fieldErrors.projectId}
+                    <div className="d-flex flex-column gap-4">
+                      {/* Project Scope Unified Template Selector Banner */}
+                      <div className="p-3 bg-light border border-secondary-subtle rounded-3" id="project-template-card">
+                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                          <div className="d-flex align-items-center gap-2">
+                            <Layers className="w-4 h-4 text-primary" />
+                            <span className="fw-bold text-dark small">Project Assurance Template Package</span>
+                          </div>
                         </div>
-                      )}
+                        <div className="text-secondary small mb-3" style={{ fontSize: '0.8rem' }}>
+                          Select an industry standard baseline or client project specification. Applying a project template pre-configures statutory, crew, activity, and equipment requirements across all operational sections.
+                        </div>
+                        <div className="row g-2">
+                          <div className="col-12 col-md-6">
+                            <label className="form-label text-secondary small fw-semibold" htmlFor="grid-project-template-public" style={{ fontSize: '0.75rem' }}>
+                              Public Industry Project Standards
+                            </label>
+                            <select
+                              id="grid-project-template-public"
+                              className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
+                              value={SUBTYPE_TEMPLATES.filter((t) => t.subtype === 'All' && t.source === 'public').some((t) => t.id === selectedProjectTemplateId) ? selectedProjectTemplateId : ''}
+                              onChange={(e) => handleSelectProjectTemplate(e.target.value)}
+                            >
+                              <option value="">-- Choose Public Project Standard --</option>
+                              {SUBTYPE_TEMPLATES.filter((t) => t.subtype === 'All' && t.source === 'public').map((tmpl) => (
+                                <option key={tmpl.id} value={tmpl.id}>
+                                  {tmpl.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="col-12 col-md-6">
+                            <label className="form-label text-secondary small fw-semibold" htmlFor="grid-project-template-org" style={{ fontSize: '0.75rem' }}>
+                              Within Organization Project Packages
+                            </label>
+                            <select
+                              id="grid-project-template-org"
+                              className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
+                              value={SUBTYPE_TEMPLATES.filter((t) => t.subtype === 'All' && t.source === 'organization').some((t) => t.id === selectedProjectTemplateId) ? selectedProjectTemplateId : ''}
+                              onChange={(e) => handleSelectProjectTemplate(e.target.value)}
+                            >
+                              <option value="">-- Choose Organization Project Standard --</option>
+                              {SUBTYPE_TEMPLATES.filter((t) => t.subtype === 'All' && t.source === 'organization').map((tmpl) => (
+                                <option key={tmpl.id} value={tmpl.id}>
+                                  {tmpl.name} ({tmpl.organizationName || 'Corporate'})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
 
-                      {selectedProject && (
-                        <div className="mt-3 p-3 bg-light border rounded-3 small">
-                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                            <span className="fw-bold text-dark fs-6">{selectedProject.name}</span>
-                            <span className="badge bg-primary text-white font-mono-code">{selectedProject.id}</span>
+                        {selectedProjectTemplateId && (
+                          <div className="mt-2 p-2 bg-white border border-primary-subtle rounded-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div className="small text-secondary" style={{ fontSize: '0.78rem' }}>
+                              <strong className="text-primary d-block">
+                                Applied: {SUBTYPE_TEMPLATES.find((t) => t.id === selectedProjectTemplateId)?.name}
+                              </strong>
+                              <span>{SUBTYPE_TEMPLATES.find((t) => t.id === selectedProjectTemplateId)?.description}</span>
+                            </div>
+                            <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
+                              All 4 Subtypes Configured
+                            </span>
                           </div>
-                          <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
-                            <div className="col-12 col-md-6">
-                              <strong>Client / Operator:</strong> {selectedProject.clientOperator}
+                        )}
+                      </div>
+
+                      {/* Primary Offshore Project Selection */}
+                      <div>
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-project">
+                          Target Offshore Project Scope <span className="text-danger">*</span>
+                        </label>
+                        <select
+                          id="grid-target-asset-project"
+                          className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.projectId ? ' is-invalid border-danger' : ''}`}
+                          value={selectedProjectId}
+                          onChange={(e) => handleProjectChange(e.target.value)}
+                          required
+                        >
+                          {EXISTING_PROJECTS.map((proj) => (
+                            <option key={proj.id} value={proj.id}>
+                              {proj.id} &mdash; {proj.name} ({proj.clientOperator})
+                            </option>
+                          ))}
+                        </select>
+                        {fieldErrors.projectId && (
+                          <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                            {fieldErrors.projectId}
+                          </div>
+                        )}
+
+                        {selectedProject && (
+                          <div className="mt-3 p-3 bg-light border rounded-3 small">
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                              <span className="fw-bold text-dark fs-6">{selectedProject.name}</span>
+                              <span className="badge bg-primary text-white font-mono-code">{selectedProject.id}</span>
                             </div>
-                            <div className="col-12 col-md-6">
-                              <strong>Basin / Location:</strong> {selectedProject.location}
+                            <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
+                              <div className="col-12 col-md-4">
+                                <strong>Client / Operator:</strong> {selectedProject.clientOperator}
+                              </div>
+                              <div className="col-12 col-md-4">
+                                <strong>Basin / Location:</strong> {selectedProject.location}
+                              </div>
+                              <div className="col-12 col-md-4">
+                                <strong>Assurance Coverage:</strong> Multi-Asset (Vessel, Crew, Equipment, Activity)
+                              </div>
+                              <div className="col-12">
+                                <strong>Scope Summary:</strong> {selectedProject.description}
+                              </div>
                             </div>
-                            <div className="col-12">
-                              <strong>Scope Summary:</strong> {selectedProject.description}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Multi-Asset Sub-Assets 4-Card Composition Grid */}
+                      <div>
+                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                          <div>
+                            <h6 className="fw-bold text-dark m-0 fs-6">Project Sub-Assets Composition</h6>
+                            <div className="text-muted small" style={{ fontSize: '0.8rem' }}>
+                              The 4 operational sub-assets deployed under this project campaign. Documents matching these assets will be auto-attached.
+                            </div>
+                          </div>
+                          <span className="badge bg-secondary text-white font-mono-code" style={{ fontSize: '0.7rem' }}>
+                            4 Sub-Assets Linked
+                          </span>
+                        </div>
+
+                        <div className="row g-3">
+                          {/* Sub-Asset 1: Plant - Chartered Vessel */}
+                          <div className="col-12 col-md-6" id="project-subasset-vessel">
+                            <div className="card border h-100 bg-white shadow-2xs">
+                              <div className="card-body p-3">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <Ship className="w-4 h-4 text-primary" />
+                                    <span className="fw-bold text-dark small">1. Plant: Vessels</span>
+                                  </div>
+                                  <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                    Plant Pillar
+                                  </span>
+                                </div>
+                                <select
+                                  id="grid-project-subasset-vessel"
+                                  className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold mb-2"
+                                  value={vesselId}
+                                  onChange={(e) => setVesselId(e.target.value)}
+                                >
+                                  {availableVessels.map((v) => (
+                                    <option key={v.id} value={v.id}>
+                                      {v.name} (IMO: {v.imoNumber} - {v.vesselType})
+                                    </option>
+                                  ))}
+                                </select>
+                                {selectedVessel && (
+                                  <div className="p-2 bg-light rounded-2 text-secondary" style={{ fontSize: '0.75rem' }}>
+                                    <div className="d-flex justify-content-between">
+                                      <span><strong>IMO:</strong> {selectedVessel.imoNumber}</span>
+                                      <span><strong>Flag:</strong> {selectedVessel.flagState}</span>
+                                    </div>
+                                    <div className="mt-1">
+                                      <strong>Owner:</strong> {selectedVessel.registeredOwner}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sub-Asset 2: Plant - Equipments */}
+                          <div className="col-12 col-md-6" id="project-subasset-equipment">
+                            <div className="card border h-100 bg-white shadow-2xs">
+                              <div className="card-body p-3">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <Wrench className="w-4 h-4 text-primary" />
+                                    <span className="fw-bold text-dark small">2. Plant: Equipments</span>
+                                  </div>
+                                  <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                    Plant Pillar
+                                  </span>
+                                </div>
+                                <select
+                                  id="grid-project-subasset-equipment"
+                                  className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold mb-2"
+                                  value={selectedEquipmentId}
+                                  onChange={(e) => setSelectedEquipmentId(e.target.value)}
+                                >
+                                  {equipment.map((e) => (
+                                    <option key={e.id} value={e.id}>
+                                      {e.name} (Tag: {e.equipmentIdentifier})
+                                    </option>
+                                  ))}
+                                </select>
+                                {selectedEquipment && (
+                                  <div className="p-2 bg-light rounded-2 text-secondary" style={{ fontSize: '0.75rem' }}>
+                                    <div className="d-flex justify-content-between">
+                                      <span><strong>Identifier:</strong> {selectedEquipment.equipmentIdentifier}</span>
+                                      <span><strong>Category:</strong> {selectedEquipment.category}</span>
+                                    </div>
+                                    <div className="mt-1">
+                                      <strong>Manufacturer:</strong> {selectedEquipment.manufacturer || 'N/A'}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sub-Asset 3: People - Crew */}
+                          <div className="col-12 col-md-6" id="project-subasset-crew">
+                            <div className="card border h-100 bg-white shadow-2xs">
+                              <div className="card-body p-3">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <Users className="w-4 h-4 text-primary" />
+                                    <span className="fw-bold text-dark small">3. People: Crew</span>
+                                  </div>
+                                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                    People Pillar
+                                  </span>
+                                </div>
+                                <select
+                                  id="grid-project-subasset-crew"
+                                  className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold mb-2"
+                                  value={selectedCrewId}
+                                  onChange={(e) => setSelectedCrewId(e.target.value)}
+                                >
+                                  {crew.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.fullName} - {c.rank} ({c.seamansBookNo})
+                                    </option>
+                                  ))}
+                                </select>
+                                {selectedCrew && (
+                                  <div className="p-2 bg-light rounded-2 text-secondary" style={{ fontSize: '0.75rem' }}>
+                                    <div className="d-flex justify-content-between">
+                                      <span><strong>Rank:</strong> {selectedCrew.rank}</span>
+                                      <span><strong>Nationality:</strong> {selectedCrew.nationality}</span>
+                                    </div>
+                                    <div className="mt-1">
+                                      <strong>Organization:</strong> {selectedCrew.organization}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sub-Asset 4: Process - Operations & HSE */}
+                          <div className="col-12 col-md-6" id="project-subasset-activity">
+                            <div className="card border h-100 bg-white shadow-2xs">
+                              <div className="card-body p-3">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                  <div className="d-flex align-items-center gap-2">
+                                    <Activity className="w-4 h-4 text-primary" />
+                                    <span className="fw-bold text-dark small">4. Process: Operations &amp; HSE</span>
+                                  </div>
+                                  <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                    Process Pillar
+                                  </span>
+                                </div>
+                                <select
+                                  id="grid-project-subasset-activity"
+                                  className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold mb-2"
+                                  value={selectedActivityId}
+                                  onChange={(e) => setSelectedActivityId(e.target.value)}
+                                >
+                                  {EXISTING_ACTIVITIES.map((act) => (
+                                    <option key={act.id} value={act.id}>
+                                      {act.id} - {act.name} ({act.category})
+                                    </option>
+                                  ))}
+                                </select>
+                                {selectedActivity && (
+                                  <div className="p-2 bg-light rounded-2 text-secondary" style={{ fontSize: '0.75rem' }}>
+                                    <div className="d-flex justify-content-between">
+                                      <span><strong>Category:</strong> {selectedActivity.category}</span>
+                                      <span><strong>Location:</strong> {selectedActivity.location}</span>
+                                    </div>
+                                    <div className="mt-1 text-truncate">
+                                      <strong>Plan:</strong> {selectedActivity.description}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      )}
+                      </div>
                     </div>
                   )}
 
@@ -2459,8 +2790,118 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             </div >
           )}
 
-          {/* DYNAMIC SUBTYPE STEPS */}
-          {currentStepData.subtype && renderSubtypeSection(currentStepData.subtype)}
+          {/* DYNAMIC PILLAR STEPS (SHALLOW MVP HIERARCHY) */}
+          {/* STEP: Plant (Single Screen for All Physical Assets: Vessel & Equipment) */}
+          {currentStepData.id === 'step-plant' && (
+            <div className="d-flex flex-column gap-4">
+              <div className="card border shadow-2xs rounded-3 bg-white">
+                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div className="d-flex align-items-center gap-2.5">
+                    <div className="p-2 bg-primary text-white rounded-2 d-flex align-items-center justify-content-center">
+                      <Ship className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                        Plant (Physical Assets)
+                      </h5>
+                      <div className="text-muted small mt-0.5">
+                        {assuranceType === 'Project'
+                          ? 'Configure statutory and specialized requirements for all physical assets (Vessels, Barges, Cranes, ROVs, Deck Equipment) under this campaign on a single screen.'
+                          : `Configure statutory and specialized requirements for ${assuranceType === 'Vessel' ? 'marine vessel hulls and barges' : 'critical deck equipment and machinery'}.`}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="badge bg-primary text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
+                    Plant Section
+                  </span>
+                </div>
+              </div>
+
+              {assuranceType === 'Project' ? (
+                <div className="d-flex flex-column gap-4">
+                  {/* Vessels */}
+                  <div className="p-3 bg-light-subtle border rounded-3 border-secondary-subtle">
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 pb-2 border-bottom">
+                      <div className="d-flex align-items-center gap-2">
+                        <Ship className="w-4 h-4 text-primary" />
+                        <h5 className="fw-bold text-slate-900 m-0 fs-6">Vessels</h5>
+                        <span className="text-muted small font-mono-code">({selectedVessel?.name || 'Selected Vessel'} &mdash; IMO: {selectedVessel?.imoNumber || 'N/A'})</span>
+                      </div>
+                    </div>
+                    {renderSubtypeSection('Vessel')}
+                  </div>
+
+                  {/* Equipments */}
+                  <div className="p-3 bg-light-subtle border rounded-3 border-secondary-subtle">
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 pb-2 border-bottom">
+                      <div className="d-flex align-items-center gap-2">
+                        <Wrench className="w-4 h-4 text-primary" />
+                        <h5 className="fw-bold text-slate-900 m-0 fs-6">Equipments</h5>
+                        <span className="text-muted small font-mono-code">({selectedEquipment?.name || 'Selected Equipment'} &mdash; Tag: {selectedEquipment?.equipmentIdentifier || 'N/A'})</span>
+                      </div>
+                    </div>
+                    {renderSubtypeSection('Equipment')}
+                  </div>
+                </div>
+              ) : (
+                renderSubtypeSection((assuranceType === 'Equipment' ? 'Equipment' : 'Vessel') as AssuranceSubtype, false)
+              )}
+            </div>
+          )}
+
+          {/* STEP: People */}
+          {currentStepData.id === 'step-people' && (
+            <div className="d-flex flex-column gap-4">
+              <div className="card border shadow-2xs rounded-3 bg-white">
+                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div className="d-flex align-items-center gap-2.5">
+                    <div className="p-2 bg-primary text-white rounded-2 d-flex align-items-center justify-content-center">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                        People (Key Seafarers &amp; Crew)
+                      </h5>
+                      <div className="text-muted small mt-0.5">
+                        Seafarer qualifications, STCW Certificates of Competency, BOSIET inductions, and medical fitness credentials for {selectedCrew?.fullName || 'Assigned Crew'}.
+                      </div>
+                    </div>
+                  </div>
+                  <span className="badge bg-primary text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
+                    People Section
+                  </span>
+                </div>
+              </div>
+              {renderSubtypeSection('Crew', assuranceType === 'Project')}
+            </div>
+          )}
+
+          {/* STEP: Process */}
+          {currentStepData.id === 'step-process' && (
+            <div className="d-flex flex-column gap-4">
+              <div className="card border shadow-2xs rounded-3 bg-white">
+                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div className="d-flex align-items-center gap-2.5">
+                    <div className="p-2 bg-primary text-white rounded-2 d-flex align-items-center justify-content-center">
+                      <Activity className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                        Process (Operational &amp; HSE Plans)
+                      </h5>
+                      <div className="text-muted small mt-0.5">
+                        Project-wide HSE management, Field Method Statements (MOP), HAZID/HAZOP risk mitigations, SIMOPS protocols, and insurances for {selectedActivity?.name || 'Operational Scope'}.
+                      </div>
+                    </div>
+                  </div>
+                  <span className="badge bg-primary text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
+                    Process Section
+                  </span>
+                </div>
+              </div>
+              {renderSubtypeSection('Activity', assuranceType === 'Project')}
+            </div>
+          )}
 
           {/* FINAL STEP: Review & Initiate */}
           {
@@ -2545,33 +2986,91 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         </div>
                       </div>
 
-                      {/* Subtypes Requirements Summary Breakdown */}
+                      {/* Three Pillars Requirements Summary Breakdown (People, Plant, Process) */}
                       <div className="col-12">
-                        <strong className="text-dark small d-block mb-2">Subtype Requirements Breakdown</strong>
-                        <div className="row g-3">
-                          {(assuranceType === 'Project' ? (['Vessel', 'Crew', 'Activity', 'Equipment'] as AssuranceSubtype[]) : [assuranceType as AssuranceSubtype]).map((sub) => {
-                            const stdCount = SUBTYPE_STANDARD_DOCS[sub].filter((d) => docToggles[d.id]).length;
-                            const specCount = specializedDocs.filter((d: { subtype: string; isEnabled: boolean }) => d.subtype === sub && d.isEnabled).length;
-                            const tmplName = SUBTYPE_TEMPLATES.find((t) => t.id === selectedSubtypeTemplates[sub])?.name;
+                        <div className="d-flex align-items-center justify-content-between mb-2">
+                          <strong className="text-dark small d-block">
+                            Assurance Campaign Scope Breakdown · People, Plant, Process Framework
+                          </strong>
+                          <span className="badge bg-secondary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                            Flattened MVP Structure
+                          </span>
+                        </div>
 
-                            return (
-                              <div key={sub} className="col-12 col-md-6 col-lg-3">
-                                <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
-                                  <div className="d-flex align-items-center justify-content-between mb-1">
-                                    <strong className="text-dark small">{sub} Subtype</strong>
-                                    <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                      {stdCount + specCount} Docs
-                                    </span>
-                                  </div>
-                                  <div className="text-secondary small" style={{ fontSize: '0.78rem' }}>
-                                    <div>Standard: {stdCount} required</div>
-                                    <div>Specialized: {specCount} custom</div>
-                                    {tmplName && <div className="text-primary mt-1 text-truncate" title={tmplName}>Template: {tmplName}</div>}
-                                  </div>
+                        <div className="row g-3">
+                          {/* Pillar 1: Plant (Physical Assets: Vessel & Equipment Side-by-Side) */}
+                          <div className="col-12 col-lg-5">
+                            <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
+                              <div className="d-flex align-items-center justify-content-between mb-2">
+                                <div className="d-flex align-items-center gap-1.5">
+                                  <Ship className="w-4 h-4 text-primary" />
+                                  <strong className="text-dark small">Plant (Physical Assets)</strong>
+                                </div>
+                                <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                  {SUBTYPE_STANDARD_DOCS.Vessel.filter((d) => docToggles[d.id]).length +
+                                    specializedDocs.filter((d) => d.subtype === 'Vessel' && d.isEnabled).length +
+                                    SUBTYPE_STANDARD_DOCS.Equipment.filter((d) => docToggles[d.id]).length +
+                                    specializedDocs.filter((d) => d.subtype === 'Equipment' && d.isEnabled).length} Docs
+                                </span>
+                              </div>
+                              <div className="d-flex flex-column gap-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
+                                <div className="p-2 bg-light rounded-2">
+                                  <div className="fw-semibold text-dark">Asset 1: {selectedVessel?.name || 'Vessel'} (IMO {selectedVessel?.imoNumber || 'N/A'})</div>
+                                  <div>Standard: {SUBTYPE_STANDARD_DOCS.Vessel.filter((d) => docToggles[d.id]).length} · Specialized: {specializedDocs.filter((d) => d.subtype === 'Vessel' && d.isEnabled).length}</div>
+                                </div>
+                                <div className="p-2 bg-light rounded-2">
+                                  <div className="fw-semibold text-dark">Asset 2: {selectedEquipment?.name || 'Equipment'} ({selectedEquipment?.equipmentIdentifier || 'N/A'})</div>
+                                  <div>Standard: {SUBTYPE_STANDARD_DOCS.Equipment.filter((d) => docToggles[d.id]).length} · Specialized: {specializedDocs.filter((d) => d.subtype === 'Equipment' && d.isEnabled).length}</div>
                                 </div>
                               </div>
-                            );
-                          })}
+                            </div>
+                          </div>
+
+                          {/* Pillar 2: People (Key Seafarers & Crew) */}
+                          <div className="col-12 col-md-6 col-lg-3.5" style={{ flex: '1 1 28%' }}>
+                            <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
+                              <div className="d-flex align-items-center justify-content-between mb-2">
+                                <div className="d-flex align-items-center gap-1.5">
+                                  <Users className="w-4 h-4 text-primary" />
+                                  <strong className="text-dark small">People (Seafarers &amp; Crew)</strong>
+                                </div>
+                                <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                  {SUBTYPE_STANDARD_DOCS.Crew.filter((d) => docToggles[d.id]).length +
+                                    specializedDocs.filter((d) => d.subtype === 'Crew' && d.isEnabled).length} Docs
+                                </span>
+                              </div>
+                              <div className="d-flex flex-column gap-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
+                                <div className="p-2 bg-light rounded-2">
+                                  <div className="fw-semibold text-dark">{selectedCrew?.fullName || 'Crew Seafarer'}</div>
+                                  <div className="text-muted">{selectedCrew?.rank || 'Master'} · {selectedCrew?.organization || 'Marine'}</div>
+                                  <div className="mt-1">Standard: {SUBTYPE_STANDARD_DOCS.Crew.filter((d) => docToggles[d.id]).length} · Specialized: {specializedDocs.filter((d) => d.subtype === 'Crew' && d.isEnabled).length}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Pillar 3: Process (Operations & HSE Plans) */}
+                          <div className="col-12 col-md-6 col-lg-3.5" style={{ flex: '1 1 28%' }}>
+                            <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
+                              <div className="d-flex align-items-center justify-content-between mb-2">
+                                <div className="d-flex align-items-center gap-1.5">
+                                  <Activity className="w-4 h-4 text-primary" />
+                                  <strong className="text-dark small">Process (Operations &amp; HSE)</strong>
+                                </div>
+                                <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                  {SUBTYPE_STANDARD_DOCS.Activity.filter((d) => docToggles[d.id]).length +
+                                    specializedDocs.filter((d) => d.subtype === 'Activity' && d.isEnabled).length} Docs
+                                </span>
+                              </div>
+                              <div className="d-flex flex-column gap-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
+                                <div className="p-2 bg-light rounded-2">
+                                  <div className="fw-semibold text-dark">{selectedActivity?.name || 'Operations'}</div>
+                                  <div className="text-muted">{selectedActivity?.category || 'SURF Activity'}</div>
+                                  <div className="mt-1">Standard: {SUBTYPE_STANDARD_DOCS.Activity.filter((d) => docToggles[d.id]).length} · Specialized: {specializedDocs.filter((d) => d.subtype === 'Activity' && d.isEnabled).length}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
 

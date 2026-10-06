@@ -19,6 +19,7 @@ export interface AssetMatchingContext {
   equipment?: EquipmentAsset[];
   selectedEquipmentId?: string;
   selectedVesselId?: string;
+  selectedActivityId?: string;
   targetSubtype?: AssuranceSubtype;
 }
 
@@ -310,6 +311,63 @@ export function matchesEquipmentRequirement(
     }
   }
 
+  // 5. Rigging Slings / Pad-Eye Load Test
+  if (rNorm.includes('rigging') || rNorm.includes('slings') || rNorm.includes('pad eye')) {
+    if (dNorm.includes('rigging') || dNorm.includes('slings') || dNorm.includes('pad eye') || dNorm.includes('spreader')) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Evaluates whether an activity document matches an activity operational requirement.
+ */
+export function matchesActivityRequirement(
+  reqTitle: string,
+  docTitle: string
+): boolean {
+  const rNorm = normalizeText(reqTitle);
+  const dNorm = normalizeText(docTitle);
+
+  if (hasKeywordMatch(rNorm, dNorm)) return true;
+
+  // 1. Marine Operations Plan (MOP)
+  if (rNorm.includes('mop') || rNorm.includes('marine operations plan') || rNorm.includes('method statement')) {
+    if (dNorm.includes('mop') || dNorm.includes('marine operations') || dNorm.includes('method statement')) {
+      return true;
+    }
+  }
+
+  // 2. Risk Assessment / HAZID / HAZOP
+  if (rNorm.includes('hazid') || rNorm.includes('hazop') || rNorm.includes('risk assessment')) {
+    if (dNorm.includes('hazid') || dNorm.includes('hazop') || dNorm.includes('risk assessment') || dNorm.includes('task risk')) {
+      return true;
+    }
+  }
+
+  // 3. Dynamic Mooring & Towage
+  if (rNorm.includes('mooring') || rNorm.includes('towage')) {
+    if (dNorm.includes('mooring') || dNorm.includes('towage') || dNorm.includes('catenary')) {
+      return true;
+    }
+  }
+
+  // 4. Emergency Response / ERP / Oil Spill
+  if (rNorm.includes('emergency') || rNorm.includes('oil spill') || rNorm.includes('contingency')) {
+    if (dNorm.includes('emergency') || dNorm.includes('oil spill') || dNorm.includes('contingency') || dNorm.includes('erp')) {
+      return true;
+    }
+  }
+
+  // 5. SIMOPS Matrix
+  if (rNorm.includes('simops') || rNorm.includes('simultaneous operations')) {
+    if (dNorm.includes('simops') || dNorm.includes('simultaneous operations')) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -470,6 +528,23 @@ export function findMatchingDocumentForRequirement(
           };
         }
       }
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 4. ACTIVITY SUBTYPE MATCHING
+  // -------------------------------------------------------------
+  if (subtype === 'Activity') {
+    const actDocs = context.documents.filter((d) => matchesActivityRequirement(req.title, d.title));
+    for (const doc of actDocs) {
+      return {
+        documentId: doc.id,
+        linkedDocumentId: doc.id,
+        documentTitle: doc.title,
+        documentVersion: doc.currentVersion || 'v1.0',
+        ocrConfidence: doc.ocrConfidence || 95,
+        matchedFrom: 'vault_document',
+      };
     }
   }
 

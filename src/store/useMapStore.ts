@@ -810,6 +810,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       equipment: state.equipment,
       selectedEquipmentId: newSet.equipmentId,
       selectedVesselId: newSet.vesselId,
+      selectedActivityId: newSet.activityId,
       targetSubtype: newSet.assuranceType === 'Project' ? undefined : (newSet.assuranceType as AssuranceSubtype),
     });
 
@@ -851,6 +852,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       equipment: state.equipment,
       selectedEquipmentId: updatedSet.equipmentId,
       selectedVesselId: updatedSet.vesselId,
+      selectedActivityId: updatedSet.activityId,
       targetSubtype: updatedSet.assuranceType === 'Project' ? undefined : (updatedSet.assuranceType as AssuranceSubtype),
     });
 

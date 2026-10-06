@@ -12,7 +12,8 @@ import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { formatMaritimeDate } from '../utils/formatters';
 import { MasterDocument } from '../types/document';
-import { AssuranceRequirement } from '../types/assurance';
+import { AssuranceRequirement, ThreePillarsCategory } from '../types/assurance';
+import { getThreePillarsCategory, THREE_PILLARS_CONFIG } from '../utils/assuranceTemplates';
 
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
@@ -68,6 +69,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   };
 
   const assuranceSet = assuranceSets.find((s) => s.id === setId) || assuranceSets[0];
+  const [pillarFilter, setPillarFilter] = useState<'All' | ThreePillarsCategory>('All');
+
+  const pillarCounts = useMemo(() => {
+    const counts = { All: assuranceSet?.requirements?.length || 0, Plant: 0, People: 0, Process: 0 };
+    assuranceSet?.requirements?.forEach((r) => {
+      const p = getThreePillarsCategory(r.subtype, r.category);
+      if (p in counts) {
+        counts[p]++;
+      }
+    });
+    return counts;
+  }, [assuranceSet]);
 
   const sortedRequirements = useMemo(() => {
     if (!assuranceSet?.requirements) return [];
@@ -91,6 +104,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       return reqSortDirection === 'asc' ? comp : -comp;
     });
   }, [assuranceSet, reqSortField, reqSortDirection, documents]);
+
+  const displayedRequirements = useMemo(() => {
+    return sortedRequirements.filter((r) => {
+      if (pillarFilter === 'All') return true;
+      return getThreePillarsCategory(r.subtype, r.category) === pillarFilter;
+    });
+  }, [sortedRequirements, pillarFilter]);
 
   if (!assuranceSet) return <div>Assurance Set not found.</div>;
 
@@ -599,47 +619,90 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
       {/* Bottom Row: Requirements Register Table taking full 100% width across two columns */}
       <div className="card map-card-custom">
-        <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-          <div className="fw-bold text-dark">
-            Statutory Requirements Register
-          </div>
-          <div className="d-flex align-items-center gap-2 ms-auto">
-            <div className="dropdown position-relative">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                onClick={() => setIsExportOpen(!isExportOpen)}
-              >
-                Export Data
-              </button>
-              {isExportOpen && (
-                <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      Export as CSV (.csv)
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      Export as PDF (.pdf)
-                    </button>
-                  </li>
-                </ul>
+        <div className="card-header border-bottom p-3">
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <div>
+              <div className="fw-bold text-dark fs-6">
+                Requirements Register
+              </div>
+              <div className="text-secondary small mt-0.5" style={{ fontSize: '0.8rem' }}>
+                Operational checklist organized across the People, Plant, and Process framework.
+              </div>
+            </div>
+            <div className="d-flex align-items-center gap-2 ms-auto">
+              <div className="dropdown position-relative">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
+                  onClick={() => setIsExportOpen(!isExportOpen)}
+                >
+                  Export Data
+                </button>
+                {isExportOpen && (
+                  <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
+                    <li>
+                      <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
+                        Export as CSV (.csv)
+                      </button>
+                    </li>
+                    <li>
+                      <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
+                        Export as PDF (.pdf)
+                      </button>
+                    </li>
+                  </ul>
+                )}
+              </div>
+              {canUpload && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary text-white font-mono-code"
+                  onClick={() => {
+                    setUploadTargetRequirement(null);
+                    setReplaceExistingDoc(null);
+                    setIsUploadModalOpen(true);
+                  }}
+                >
+                  Upload Other Document
+                </button>
               )}
             </div>
-            {canUpload && (
-              <button
-                type="button"
-                className="btn btn-sm btn-primary text-white font-mono-code"
-                onClick={() => {
-                  setUploadTargetRequirement(null);
-                  setReplaceExistingDoc(null);
-                  setIsUploadModalOpen(true);
-                }}
-              >
-                Upload Other Document
-              </button>
-            )}
+          </div>
+
+          {/* Three Pillars Filter Navigation Tabs */}
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className={`btn btn-sm ${pillarFilter === 'All' ? 'btn-primary' : 'btn-outline-secondary text-dark bg-white'} px-3 py-1.5 font-mono-code`}
+              style={{ fontSize: '0.75rem' }}
+              onClick={() => setPillarFilter('All')}
+            >
+              All Requirements ({pillarCounts.All})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${pillarFilter === 'Plant' ? 'btn-primary' : 'btn-outline-secondary text-dark bg-white'} px-3 py-1.5 font-mono-code`}
+              style={{ fontSize: '0.75rem' }}
+              onClick={() => setPillarFilter('Plant')}
+            >
+              Plant ({pillarCounts.Plant})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${pillarFilter === 'People' ? 'btn-primary' : 'btn-outline-secondary text-dark bg-white'} px-3 py-1.5 font-mono-code`}
+              style={{ fontSize: '0.75rem' }}
+              onClick={() => setPillarFilter('People')}
+            >
+              People ({pillarCounts.People})
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${pillarFilter === 'Process' ? 'btn-primary' : 'btn-outline-secondary text-dark bg-white'} px-3 py-1.5 font-mono-code`}
+              style={{ fontSize: '0.75rem' }}
+              onClick={() => setPillarFilter('Process')}
+            >
+              Process ({pillarCounts.Process})
+            </button>
           </div>
         </div>
         <div className="table-responsive">
@@ -675,15 +738,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             </thead>
             <tbody>
               {/* Main Files (Toggled Statutory Requirements during campaign creation) */}
-              {sortedRequirements.filter((r) => !r.isOtherDocument).map((req: AssuranceRequirement) => {
+              {displayedRequirements.filter((r) => !r.isOtherDocument).map((req: AssuranceRequirement) => {
                 const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
                 const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
                 const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
+                const pillar = getThreePillarsCategory(req.subtype, req.category);
 
                 return (
                   <tr key={req.id}>
                     <td>
                       <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                        <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                          {pillar}
+                        </span>
                         {req.subtype && (
                           <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.7rem' }}>
                             {req.subtype}

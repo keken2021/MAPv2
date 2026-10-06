@@ -21,6 +21,7 @@ export type InitiatingRoleType =
 
 export type AssuranceScopeType = 'Project' | 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 export type AssuranceSubtype = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
+export type ThreePillarsCategory = 'People' | 'Plant' | 'Process';
 
 export type ReviewMode = 'internal' | 'third_party' | 'issuing_authority' | 'mixed';
 export type ReviewChannel = 'internal' | 'third_party' | 'issuing_authority';
@@ -86,6 +87,11 @@ export interface AssuranceProject {
   clientOperator: string; // e.g. Chevron Australia Pty Ltd
   location: string; // e.g. Barrow Island / Greater Gorgon Area, WA
   description: string;
+  primaryVesselId?: string;
+  primaryCrewId?: string;
+  primaryEquipmentId?: string;
+  primaryActivityId?: string;
+  defaultTemplateId?: string;
 }
 
 export interface AssuranceActivity {

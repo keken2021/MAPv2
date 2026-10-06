@@ -4,7 +4,73 @@
   role in system: consumed by CreateAssuranceSetView.tsx and AssuranceModal.tsx during segmented assurance set initiation.
 */
 
-import { AssuranceSubtype, AssuranceRequirementCategory } from '../types/assurance';
+import { AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory } from '../types/assurance';
+
+export function getThreePillarsCategory(subtype?: AssuranceSubtype | string, category?: string): ThreePillarsCategory {
+  if (
+    subtype === 'Crew' ||
+    (category && [
+      'Crew Credential',
+      'Certificate of Competency (CoC)',
+      'Medical Fitness Certificate',
+      'Offshore Safety Induction (BOSIET)',
+      'Specialized Training Endorsement',
+      'Crew Custom Requirement',
+    ].includes(category))
+  ) {
+    return 'People';
+  }
+  if (
+    subtype === 'Vessel' ||
+    subtype === 'Equipment' ||
+    (category && [
+      'Statutory Certificate',
+      'Class Notation Certificate',
+      'Flag Administration Registry',
+      'Environmental Certificate',
+      'Safety & Lifesaving Equipment',
+      'Vessel Custom Requirement',
+      'Equipment Register',
+      'Lifting Appliance Register (ILO 152)',
+      'DP FMEA Proving Trial',
+      'Pull & Load Test Certificate',
+      'Helideck Safety Certificate',
+      'Equipment Custom Requirement',
+    ].includes(category))
+  ) {
+    return 'Plant';
+  }
+  return 'Process';
+}
+
+export const THREE_PILLARS_CONFIG: Record<
+  ThreePillarsCategory,
+  {
+    title: string;
+    description: string;
+    subtypes: AssuranceSubtype[];
+    iconName: string;
+  }
+> = {
+  Plant: {
+    title: 'Plant (Physical Assets)',
+    description: 'Physical vessel hulls, barges, and mission-critical deck equipment with flat checklists of statutory and specialized requirements.',
+    subtypes: ['Vessel', 'Equipment'],
+    iconName: 'Ship',
+  },
+  People: {
+    title: 'People (Key Seafarers & Crew)',
+    description: 'Seafarer qualifications, STCW Certificates of Competency, BOSIET inductions, and medical fitness credentials.',
+    subtypes: ['Crew'],
+    iconName: 'Users',
+  },
+  Process: {
+    title: 'Process (Operational & HSE Plans)',
+    description: 'Project-wide HSE management, Field Method Statements (MOP), HAZID/HAZOP risk mitigations, SIMOPS protocols, and insurance.',
+    subtypes: ['Activity'],
+    iconName: 'Activity',
+  },
+};
 
 export interface StandardSubtypeDocument {
   id: string;
@@ -263,7 +329,7 @@ export const SUBTYPE_STANDARD_DOCS: Record<AssuranceSubtype, StandardSubtypeDocu
 };
 
 export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
-  // Public Templates
+  // Public Subtype Templates
   {
     id: 'tmpl-pub-imca-vessel',
     subtype: 'Vessel',
@@ -305,7 +371,48 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
     recommendedDocIds: ['eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-rigging-slings'],
   },
 
-  // Organization Templates
+  // Public Unified Project Scope Templates (Covering All 4 Sub-Assets: Vessel, Crew, Activity, Equipment)
+  {
+    id: 'tmpl-pub-imca-unified-project',
+    subtype: 'All',
+    name: 'IMCA M 149 / M 220 Unified Marine Project Standard',
+    source: 'public',
+    description: 'Unified industry standard for turnkey offshore marine campaigns covering DP2/DP3 vessel certification, STCW/OPITO crew qualifications, marine operations risk mitigation, and certified subsea lifting equipment.',
+    recommendedDocIds: [
+      'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert', 'vessel-bwm-cert',
+      'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook', 'crew-dg-endorsement',
+      'act-mop-method', 'act-hazid-hazop', 'act-mooring-analysis', 'act-emergency-response', 'act-simops-matrix',
+      'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-helideck-cert', 'eq-rigging-slings',
+    ],
+  },
+  {
+    id: 'tmpl-pub-ogp-offshore-project',
+    subtype: 'All',
+    name: 'IOGP Report 390 Offshore Marine Project Baseline',
+    source: 'public',
+    description: 'International Oil & Gas Producers recommended practice for offshore exploration, field logistics, marine operations safety cases, and critical asset assurance governance.',
+    recommendedDocIds: [
+      'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert',
+      'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook',
+      'act-mop-method', 'act-hazid-hazop', 'act-emergency-response',
+      'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-rigging-slings',
+    ],
+  },
+  {
+    id: 'tmpl-pub-nopsema-project-assurance',
+    subtype: 'All',
+    name: 'NOPSEMA Safety Case & Marine Project Baseline',
+    source: 'public',
+    description: 'Australian National Offshore Petroleum Safety and Environmental Management Authority statutory compliance baseline for offshore facilities, chartered vessels, seafarer credentials, and well activity registers.',
+    recommendedDocIds: [
+      'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert', 'vessel-bwm-cert',
+      'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training',
+      'act-mop-method', 'act-hazid-hazop', 'act-emergency-response', 'act-simops-matrix',
+      'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-helideck-cert', 'eq-rigging-slings',
+    ],
+  },
+
+  // Organization Single-Subtype Templates
   {
     id: 'tmpl-org-northwind-fleet',
     subtype: 'Vessel',
@@ -315,13 +422,15 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
     description: 'Standard internal fleet statutory vetting and environmental management requirements.',
     recommendedDocIds: ['vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert'],
   },
+
+  // Organization Full Project Scope Templates (Covering All 4 Sub-Assets: Vessel, Crew, Activity, Equipment)
   {
     id: 'tmpl-org-chevron-gorgon',
     subtype: 'All',
     name: 'Chevron Gorgon Project Assurance Package',
     source: 'organization',
     organizationName: 'Chevron Australia Pty Ltd',
-    description: 'Comprehensive offshore project vetting criteria covering vessel, certified crew, marine operations, and equipment.',
+    description: 'Comprehensive offshore project vetting criteria covering DP2 vessel integrity, STCW crew certification, SURF subsea operations, and deck crane lifting gear.',
     recommendedDocIds: [
       'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert', 'vessel-bwm-cert',
       'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook', 'crew-dg-endorsement',
@@ -335,7 +444,7 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
     name: 'Woodside Scarborough Project Standard',
     source: 'organization',
     organizationName: 'Woodside Energy Ltd',
-    description: 'Offshore project assurance package covering full DP2/DP3 subsea intervention, heavy lift, and crew safety compliance.',
+    description: 'Offshore project assurance package covering full DP2/DP3 subsea intervention, heavy lift, drilling support, and crew safety compliance.',
     recommendedDocIds: [
       'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert',
       'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook',
@@ -349,12 +458,54 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
     name: 'Inpex Ichthys Field Operations Standard',
     source: 'organization',
     organizationName: 'Inpex Operations Australia',
-    description: 'Operational compliance standard for Darwin offshore field supply and marine support campaigns.',
+    description: 'Operational compliance standard for Darwin offshore field supply, topside heavy lift, and marine support campaigns.',
     recommendedDocIds: [
       'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert',
       'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training',
       'act-mop-method', 'act-hazid-hazop', 'act-emergency-response',
       'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rigging-slings',
+    ],
+  },
+  {
+    id: 'tmpl-org-santos-barossa',
+    subtype: 'All',
+    name: 'Santos Barossa Subsea Installation Project Standard',
+    source: 'organization',
+    organizationName: 'Santos Ltd',
+    description: 'SURF gas pipeline installation, offshore towing, winch proof test certificates, and marine construction assurance package.',
+    recommendedDocIds: [
+      'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert', 'vessel-bwm-cert',
+      'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook',
+      'act-mop-method', 'act-hazid-hazop', 'act-mooring-analysis', 'act-emergency-response',
+      'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-rigging-slings',
+    ],
+  },
+  {
+    id: 'tmpl-org-shell-prelude',
+    subtype: 'All',
+    name: 'Shell Prelude FLNG Marine Project Assurance Pack',
+    source: 'organization',
+    organizationName: 'Shell Australia Pty Ltd',
+    description: 'FLNG exclusion boundary escort, emergency standby, crew survival certification, and offshore lifting appliance verification package.',
+    recommendedDocIds: [
+      'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert',
+      'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook',
+      'act-mop-method', 'act-hazid-hazop', 'act-emergency-response', 'act-simops-matrix',
+      'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-helideck-cert', 'eq-rigging-slings',
+    ],
+  },
+  {
+    id: 'tmpl-org-northwind-integrated-project',
+    subtype: 'All',
+    name: 'Northwind Integrated Turnkey Marine Campaign Standard',
+    source: 'organization',
+    organizationName: 'Northwind Marine Pty Ltd',
+    description: 'Internal turnkey standard for multi-asset project charters across AHTS/OSV vessels, certified seafarers, and certified deck equipment.',
+    recommendedDocIds: [
+      'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert', 'vessel-bwm-cert',
+      'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook', 'crew-dg-endorsement',
+      'act-mop-method', 'act-hazid-hazop', 'act-mooring-analysis', 'act-emergency-response', 'act-simops-matrix',
+      'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-helideck-cert', 'eq-rigging-slings',
     ],
   },
 ];
@@ -366,6 +517,11 @@ export const EXISTING_PROJECTS: import('../types/assurance').AssuranceProject[] 
     clientOperator: 'Chevron Australia Pty Ltd',
     location: 'Barrow Island / Greater Gorgon Area, WA',
     description: 'Offshore subsea compression and pipeline tie-in campaign supporting Gorgon LNG operations.',
+    primaryVesselId: 'VESSEL-001',
+    primaryCrewId: 'CREW-101',
+    primaryEquipmentId: 'EQ-001',
+    primaryActivityId: 'MAP-ACT-2026-SURF-001',
+    defaultTemplateId: 'tmpl-org-chevron-gorgon',
   },
   {
     id: 'MAP-PROJ-2026-DRILL-002',
@@ -373,6 +529,11 @@ export const EXISTING_PROJECTS: import('../types/assurance').AssuranceProject[] 
     clientOperator: 'Woodside Energy Ltd',
     location: 'Carnarvon Basin, Offshore WA',
     description: 'Deepwater drilling support and floating production unit (FPU) installation campaign.',
+    primaryVesselId: 'VESSEL-002',
+    primaryCrewId: 'CREW-102',
+    primaryEquipmentId: 'EQ-002',
+    primaryActivityId: 'MAP-ACT-2026-DRILL-002',
+    defaultTemplateId: 'tmpl-org-woodside-scarborough',
   },
   {
     id: 'MAP-PROJ-2026-LOGISTICS-003',
@@ -380,6 +541,11 @@ export const EXISTING_PROJECTS: import('../types/assurance').AssuranceProject[] 
     clientOperator: 'INPEX Operations Australia',
     location: 'Browse Basin, Timor Sea, WA',
     description: 'Long-term PSV / AHTS supply and subsea maintenance logistics for Ichthys Explorer and Venturer.',
+    primaryVesselId: 'VESSEL-003',
+    primaryCrewId: 'CREW-103',
+    primaryEquipmentId: 'EQ-003',
+    primaryActivityId: 'MAP-ACT-2026-LIFT-003',
+    defaultTemplateId: 'tmpl-org-inpex-ichthys',
   },
   {
     id: 'MAP-PROJ-2026-SUBSEA-004',
@@ -387,6 +553,11 @@ export const EXISTING_PROJECTS: import('../types/assurance').AssuranceProject[] 
     clientOperator: 'Santos Ltd',
     location: 'Bonaparte Basin, Northern Territory',
     description: 'Gas pipeline fabrication, subsea SURF infrastructure installation, and umbilical lay operations.',
+    primaryVesselId: 'VESSEL-004',
+    primaryCrewId: 'CREW-104',
+    primaryEquipmentId: 'EQ-004',
+    primaryActivityId: 'MAP-ACT-2026-PIPE-005',
+    defaultTemplateId: 'tmpl-org-santos-barossa',
   },
   {
     id: 'MAP-PROJ-2026-OFFSHORE-005',
@@ -394,6 +565,11 @@ export const EXISTING_PROJECTS: import('../types/assurance').AssuranceProject[] 
     clientOperator: 'Chevron Australia Pty Ltd',
     location: 'Ashburton North / Offshore Onslow, WA',
     description: 'Offshore platform maintenance, diving support, and supply shuttle vessel operations.',
+    primaryVesselId: 'VESSEL-005',
+    primaryCrewId: 'CREW-105',
+    primaryEquipmentId: 'EQ-005',
+    primaryActivityId: 'MAP-ACT-2026-HULL-007',
+    defaultTemplateId: 'tmpl-pub-imca-unified-project',
   },
   {
     id: 'MAP-PROJ-2026-MARINE-006',
@@ -401,6 +577,11 @@ export const EXISTING_PROJECTS: import('../types/assurance').AssuranceProject[] 
     clientOperator: 'Shell Australia Pty Ltd',
     location: 'Browse Basin, Western Australia',
     description: 'Offshore LNG carrier escort, bunker assistance, emergency standby, and marine supply.',
+    primaryVesselId: 'VESSEL-006',
+    primaryCrewId: 'CREW-101',
+    primaryEquipmentId: 'EQ-006',
+    primaryActivityId: 'MAP-ACT-2026-TOW-004',
+    defaultTemplateId: 'tmpl-org-shell-prelude',
   },
 ];
 

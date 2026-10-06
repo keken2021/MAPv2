@@ -12,6 +12,7 @@ import {
   AssuranceScopeType,
   AssuranceSubtype,
   AssuranceRequirementCategory,
+  ThreePillarsCategory,
 } from '../../types/assurance';
 import { filterVesselsForPersona, getClientAdminOrganization } from '../../utils/rbacHelpers';
 import {
@@ -25,6 +26,7 @@ import {
   SUBTYPE_CATEGORIES,
   EXISTING_PROJECTS,
   EXISTING_ACTIVITIES,
+  getThreePillarsCategory,
 } from '../../utils/assuranceTemplates';
 import { autoAttachDocumentsToRequirements } from '../../utils/documentMatchingHelpers';
 
@@ -147,20 +149,20 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
   }, [isOpen, draftId, assuranceSets]);
 
   /* Calculate active wizard steps */
-  const getWizardSteps = (): Array<{ id: string; label: string; subtype?: AssuranceSubtype }> => {
+  const getWizardSteps = (): Array<{ id: string; label: string; subtype?: AssuranceSubtype; pillar?: ThreePillarsCategory }> => {
     if (assuranceType === 'Project') {
       return [
         { id: 'step-scope', label: 'Identification & Scope' },
-        { id: 'step-vessel', label: 'Vessel', subtype: 'Vessel' },
-        { id: 'step-crew', label: 'Crew', subtype: 'Crew' },
-        { id: 'step-activity', label: 'Activity', subtype: 'Activity' },
-        { id: 'step-equipment', label: 'Equipment', subtype: 'Equipment' },
+        { id: 'step-plant', label: 'Plant', pillar: 'Plant' },
+        { id: 'step-people', label: 'People', pillar: 'People', subtype: 'Crew' },
+        { id: 'step-process', label: 'Process', pillar: 'Process', subtype: 'Activity' },
         { id: 'step-review', label: 'Review & Initiate' },
       ];
     } else {
+      const pillar = getThreePillarsCategory(assuranceType);
       return [
         { id: 'step-scope', label: 'Identification & Scope' },
-        { id: `step-${assuranceType.toLowerCase()}`, label: assuranceType, subtype: assuranceType as AssuranceSubtype },
+        { id: `step-${pillar.toLowerCase()}`, label: 'Documents', pillar, subtype: assuranceType as AssuranceSubtype },
         { id: 'step-review', label: 'Review & Initiate' },
       ];
     }
@@ -370,6 +372,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
       equipment,
       selectedEquipmentId,
       selectedVesselId: vesselId,
+      selectedActivityId,
       targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
     });
 
@@ -484,6 +487,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
       equipment,
       selectedEquipmentId,
       selectedVesselId: vesselId,
+      selectedActivityId,
       targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
     });
 
@@ -541,7 +545,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
     onClose();
   };
 
-  const renderSubtypeSection = (subtype: AssuranceSubtype) => {
+  const renderSubtypeSection = (subtype: AssuranceSubtype, isProjectScope: boolean = true) => {
     const standardDocs = SUBTYPE_STANDARD_DOCS[subtype] || [];
     const publicTemplates = SUBTYPE_TEMPLATES.filter(
       (t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'public'
@@ -552,13 +556,15 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
     const activeTemplateId = selectedSubtypeTemplates[subtype] || '';
     const specializedList = specializedDocs.filter((d) => d.subtype === subtype);
     const specInput = specializedInputs[subtype];
+    /* Section label: for standalone (non-project) scopes use neutral 'Documents' label */
+    const sectionLabel = isProjectScope ? subtype : 'Documents';
 
     return (
       <div className="d-flex flex-column gap-3">
         {/* Template Option */}
         <div className="p-3 bg-light border rounded-3">
           <div className="d-flex align-items-center justify-content-between mb-2">
-            <strong className="text-dark small">{subtype} Subtype Templates (Optional)</strong>
+            <strong className="text-dark small">{sectionLabel} Subtype Templates (Optional)</strong>
             {activeTemplateId && (
               <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
                 Template Active
@@ -572,7 +578,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                 value={publicTemplates.some((t) => t.id === activeTemplateId) ? activeTemplateId : ''}
                 onChange={(e) => handleSelectSubtypeTemplate(subtype, e.target.value)}
               >
-                <option value="">-- Public {subtype} Templates --</option>
+                <option value="">-- Public {isProjectScope ? `${subtype} ` : ''}Templates --</option>
                 {publicTemplates.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
@@ -584,7 +590,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                 value={orgTemplates.some((t) => t.id === activeTemplateId) ? activeTemplateId : ''}
                 onChange={(e) => handleSelectSubtypeTemplate(subtype, e.target.value)}
               >
-                <option value="">-- Organization Templates --</option>
+                <option value="">-- Organization {isProjectScope ? `${subtype} ` : ''}Templates --</option>
                 {orgTemplates.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
@@ -595,7 +601,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
 
         {/* Standard Docs */}
         <div className="d-flex flex-column gap-2">
-          <strong className="text-dark small">Required {subtype} Documents</strong>
+          <strong className="text-dark small">Required {isProjectScope ? `${subtype} ` : ''}Documents</strong>
           {standardDocs.map((doc) => {
             const isEnabled = Boolean(docToggles[doc.id]);
             return (
@@ -630,7 +636,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
         {/* Specialized Doc Input (Optional) */}
         <div className="p-3 border rounded-3 bg-light-subtle">
           <div className="d-flex align-items-center justify-content-between mb-1.5">
-            <strong className="text-dark small">Add Specialized {subtype} Document <span className="text-muted fw-normal">(Optional)</span></strong>
+            <strong className="text-dark small">Add Specialized {isProjectScope ? `${subtype} ` : ''}Document <span className="text-muted fw-normal">(Optional)</span></strong>
             <span className="badge bg-secondary-subtle text-secondary border font-mono-code" style={{ fontSize: '0.65rem' }}>
               Optional
             </span>
@@ -1193,8 +1199,70 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
               </div>
             )}
 
-            {/* DYNAMIC SUBTYPE STEP */}
-            {currentStepData.subtype && renderSubtypeSection(currentStepData.subtype)}
+            {/* DYNAMIC PILLAR STEPS */}
+            {currentStepData.id === 'step-plant' && (
+              <div className="d-flex flex-column gap-3">
+                <div className="p-3 bg-light border rounded-3 d-flex align-items-center justify-content-between">
+                  <div>
+                    <strong className="text-dark small d-block">Plant (Physical Assets)</strong>
+                    <div className="text-muted small" style={{ fontSize: '0.78rem' }}>
+                      Configure statutory and specialized requirements for all physical assets (Vessels &amp; Equipment).
+                    </div>
+                  </div>
+                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.7rem' }}>
+                    Plant Section
+                  </span>
+                </div>
+                {assuranceType === 'Project' ? (
+                  <div className="d-flex flex-column gap-3">
+                    <div className="p-3 border rounded-2 bg-light-subtle">
+                      <h6 className="fw-bold text-dark small mb-2 px-1">Vessels</h6>
+                      {renderSubtypeSection('Vessel')}
+                    </div>
+                    <div className="p-3 border rounded-2 bg-light-subtle">
+                      <h6 className="fw-bold text-dark small mb-2 px-1">Equipments</h6>
+                      {renderSubtypeSection('Equipment')}
+                    </div>
+                  </div>
+                ) : (
+                  renderSubtypeSection((assuranceType === 'Equipment' ? 'Equipment' : 'Vessel') as AssuranceSubtype, false)
+                )}
+              </div>
+            )}
+
+            {currentStepData.id === 'step-people' && (
+              <div className="d-flex flex-column gap-3">
+                <div className="p-3 bg-light border rounded-3 d-flex align-items-center justify-content-between">
+                  <div>
+                    <strong className="text-dark small d-block">People (Key Seafarers &amp; Crew)</strong>
+                    <div className="text-muted small" style={{ fontSize: '0.78rem' }}>
+                      Seafarer qualifications, STCW credentials, and medical fitness certificates for {selectedCrew?.fullName || 'Assigned Crew'}.
+                    </div>
+                  </div>
+                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.7rem' }}>
+                    People Section
+                  </span>
+                </div>
+                {renderSubtypeSection('Crew', assuranceType === 'Project')}
+              </div>
+            )}
+
+            {currentStepData.id === 'step-process' && (
+              <div className="d-flex flex-column gap-3">
+                <div className="p-3 bg-light border rounded-3 d-flex align-items-center justify-content-between">
+                  <div>
+                    <strong className="text-dark small d-block">Process (Operational &amp; HSE Plans)</strong>
+                    <div className="text-muted small" style={{ fontSize: '0.78rem' }}>
+                      Operational procedures, MOP method statements, HAZID, and SIMOPS protocols for {selectedActivity?.name || 'Operations'}.
+                    </div>
+                  </div>
+                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.7rem' }}>
+                    Process Section
+                  </span>
+                </div>
+                {renderSubtypeSection('Activity', assuranceType === 'Project')}
+              </div>
+            )}
 
             {/* REVIEW STEP */}
             {currentStepData.id === 'step-review' && (
