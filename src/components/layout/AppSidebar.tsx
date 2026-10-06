@@ -35,6 +35,7 @@ const ASSETS_CHILD_KEYS = ["vessels", "equipment", "project", "crew"];
 export const AppSidebar: React.FC = () => {
   const {
     activePersona,
+    setActivePersona,
     currentHashView,
     setCurrentHashView,
     logout,
@@ -417,44 +418,8 @@ export const AppSidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* organisation card box */}
-      <div
-        className="mx-3 my-3 p-3 rounded"
-        style={{
-          backgroundColor: "rgba(255, 255, 255, 0.04)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-        }}
-      >
-        <div
-          className="text-uppercase fw-bold mb-1"
-          style={{
-            fontSize: "0.625rem",
-            letterSpacing: "0.08em",
-            color: "#64748b",
-          }}
-        >
-          Organisation
-        </div>
-        <div
-          className="fw-bold text-white text-truncate"
-          style={{ fontSize: "0.85rem" }}
-        >
-          {activePersona === "C Admin"
-            ? "Southern Basin Energy"
-            : "Northwind Marine Pty Ltd"}
-        </div>
-        <div
-          className="text-truncate"
-          style={{ fontSize: "0.725rem", color: "#94a3b8" }}
-        >
-          {activePersona === "C Admin"
-            ? "Client / Charterer"
-            : "Vessel Provider / Owner"}
-        </div>
-      </div>
-
       {/* main navigation list with dot highlights */}
-      <div className="nav flex-column nav-pills px-2">
+      <div className="nav flex-column nav-pills px-2 pt-3">
         {visibleItems.map((item) => (
           <React.Fragment key={item.key}>
             {item.key === "users" && (
@@ -474,7 +439,7 @@ export const AppSidebar: React.FC = () => {
         ))}
       </div>
 
-      {/* signed in as bottom card section with interactive user menu */}
+      {/* organisation & signed-in user footer card */}
       <div
         className="mt-auto p-3 border-top position-relative"
         style={{
@@ -482,22 +447,34 @@ export const AppSidebar: React.FC = () => {
           backgroundColor: "rgba(0, 0, 0, 0.2)",
         }}
       >
-        <div
-          className="text-uppercase fw-bold mb-1"
-          style={{
-            fontSize: "0.625rem",
-            letterSpacing: "0.08em",
-            color: "#64748b",
-          }}
-        >
-          Signed in as
+        <div className="mb-2">
+          <div
+            className="text-uppercase fw-bold mb-0.5"
+            style={{
+              fontSize: "0.625rem",
+              letterSpacing: "0.08em",
+              color: "#64748b",
+            }}
+          >
+            Organisation
+          </div>
+          <div
+            className="fw-bold text-white text-truncate"
+            style={{ fontSize: "0.85rem" }}
+          >
+            {activePersona === "C Admin"
+              ? "Southern Basin Energy"
+              : "Northwind Marine Pty Ltd"}
+          </div>
         </div>
+
         <div
           className="d-flex align-items-center justify-between p-2 rounded cursor-pointer"
           style={{
             backgroundColor: isUserMenuOpen
               ? "rgba(255, 255, 255, 0.08)"
-              : "transparent",
+              : "rgba(255, 255, 255, 0.03)",
+            border: "1px solid rgba(255, 255, 255, 0.06)",
             transition: "background-color 0.15s ease",
             cursor: "pointer",
           }}
@@ -519,7 +496,7 @@ export const AppSidebar: React.FC = () => {
               </span>
               <span
                 className="text-truncate"
-                style={{ fontSize: "0.7rem", color: "#94a3b8" }}
+                style={{ fontSize: "0.7rem", color: "#38bdf8" }}
               >
                 {activePersona}
               </span>
@@ -530,7 +507,7 @@ export const AppSidebar: React.FC = () => {
           </span>
         </div>
 
-        {/* logout popover menu */}
+        {/* user persona switch & sign out popover menu */}
         {isUserMenuOpen && (
           <div
             className="position-absolute bottom-100 start-0 mb-2 ms-2 p-2 rounded shadow-lg border"
@@ -542,20 +519,63 @@ export const AppSidebar: React.FC = () => {
             }}
           >
             <div
-              className="p-2 border-bottom mb-1"
-              style={{ borderColor: "rgba(255, 255, 255, 0.08)" }}
+              className="px-2 py-1 mb-1 text-uppercase fw-bold"
+              style={{
+                fontSize: "0.625rem",
+                letterSpacing: "0.08em",
+                color: "#64748b",
+              }}
             >
-              <div className="fw-bold text-white small">{userInfo.name}</div>
-              <div
-                className="text-white small"
-                style={{ fontSize: "0.68rem", color: "#94a3b8" }}
-              >
-                {activePersona}
-              </div>
+              Switch Role / Persona
             </div>
+            {([
+              { role: "Administrator" as UserRolePersona, name: "K. Osei" },
+              { role: "C Admin" as UserRolePersona, name: "S. Basin" },
+              { role: "Submitter" as UserRolePersona, name: "M. Chen" },
+              { role: "Verifier" as UserRolePersona, name: "A. Fontaine" },
+              { role: "Inspector" as UserRolePersona, name: "N. Technical" },
+              { role: "Approver" as UserRolePersona, name: "P. Nardelli" },
+            ]).map((p) => (
+              <button
+                key={p.role}
+                type="button"
+                className={`btn btn-sm text-start w-100 d-flex align-items-center justify-content-between py-1 px-2 mb-1 rounded border-0 ${
+                  activePersona === p.role
+                    ? "text-white fw-semibold"
+                    : "text-light"
+                }`}
+                style={{
+                  fontSize: "0.75rem",
+                  backgroundColor: activePersona === p.role ? "#0284c7" : "transparent",
+                }}
+                onClick={() => {
+                  setActivePersona(p.role);
+                  setIsUserMenuOpen(false);
+                }}
+              >
+                <div>
+                  <div className="fw-semibold">{p.name}</div>
+                  <div
+                    style={{
+                      fontSize: "0.65rem",
+                      color: activePersona === p.role ? "#e0f2fe" : "#94a3b8",
+                    }}
+                  >
+                    {p.role}
+                  </div>
+                </div>
+                {activePersona === p.role && (
+                  <span style={{ fontSize: "0.65rem", color: "#ffffff" }}>Active</span>
+                )}
+              </button>
+            ))}
+            <div
+              className="border-top my-1"
+              style={{ borderColor: "rgba(255, 255, 255, 0.08)" }}
+            />
             <button
               type="button"
-              className="btn btn-sm text-start text-danger w-100 d-flex align-items-center gap-2 py-1.5 px-2 border-0 bg-transparent hover-bg-dark"
+              className="btn btn-sm text-start text-danger w-100 d-flex align-items-center gap-2 py-1.5 px-2 border-0 bg-transparent"
               style={{ fontSize: "0.78rem" }}
               onClick={() => {
                 setIsUserMenuOpen(false);
