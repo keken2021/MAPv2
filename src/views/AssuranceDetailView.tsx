@@ -312,7 +312,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 {/* Stakeholder Role Assignments */}
                 <div className="col-md-6 d-flex flex-column gap-2.5">
                   <div className="text-uppercase fw-bold text-secondary mb-1" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                    Stakeholder Role Assignments
+                    Assigned Assurance Set Stakeholders
                   </div>
 
                   {/* Submitter */}
@@ -530,6 +530,42 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </div>
                 </div>
               </div>
+
+              {/* Per-Category Submitter & Verifier Matrix for Project Scopes */}
+              {assuranceSet.subtypeStakeholders && Object.keys(assuranceSet.subtypeStakeholders).length > 0 && (
+                <div className="mt-3 pt-3 border-top">
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <span className="text-uppercase fw-bold text-secondary" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                      Category Scope Assigned Assurance Set Stakeholders &amp; Segregation of Duties
+                    </span>
+                    <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.675rem' }}>
+                      Independent Category Roles
+                    </span>
+                  </div>
+                  <div className="row g-2">
+                    {Object.entries(assuranceSet.subtypeStakeholders).map(([categoryName, mapping]) => (
+                      <div key={categoryName} className="col-12 col-sm-6">
+                        <div className="p-2 bg-white border rounded">
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
+                              {categoryName}
+                            </span>
+                            {mapping.assignedSubmitter && mapping.assignedVerifier && mapping.assignedSubmitter === mapping.assignedVerifier ? (
+                              <span className="badge bg-danger text-white font-mono-code" style={{ fontSize: '0.65rem' }}>Conflict</span>
+                            ) : (
+                              <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>Segregated</span>
+                            )}
+                          </div>
+                          <div className="small" style={{ fontSize: '0.725rem' }}>
+                            <div className="text-muted"><span className="fw-semibold text-secondary">Submitter:</span> {mapping.assignedSubmitter || 'Not Assigned'}</div>
+                            <div className="text-muted"><span className="fw-semibold text-secondary">Verifier:</span> {mapping.assignedVerifier || 'Not Assigned'}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -675,6 +711,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       {req.description && (
                         <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
                           {req.description}
+                        </div>
+                      )}
+                      {(req.assignedSubmitter || req.assignedVerifier) && (
+                        <div className="font-mono-code text-muted mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
+                          {req.assignedSubmitter && (
+                            <span><span className="text-secondary fw-semibold">Submitter:</span> {req.assignedSubmitter.split(' (')[0]}</span>
+                          )}
+                          {req.assignedSubmitter && req.assignedVerifier && <span>·</span>}
+                          {req.assignedVerifier && (
+                            <span><span className="text-secondary fw-semibold">Verifier:</span> {req.assignedVerifier.split(' (')[0]}</span>
+                          )}
                         </div>
                       )}
                     </td>

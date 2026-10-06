@@ -42,10 +42,19 @@ describe('userRoleHelpers', () => {
     });
     expect(warnings.some((w) => w.includes('Submitter and Verifier'))).toBe(true);
 
+    // Verifier and Approver can be the same user
     expect(
       hasBlockingAssuranceAssignmentConflict({
         verifierId: 'USR-202',
         approverId: 'USR-202',
+      }),
+    ).toBe(false);
+
+    // Submitter cannot be the Approver
+    expect(
+      hasBlockingAssuranceAssignmentConflict({
+        submitterId: 'USR-102',
+        approverId: 'USR-102',
       }),
     ).toBe(true);
   });

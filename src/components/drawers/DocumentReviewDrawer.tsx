@@ -9,6 +9,7 @@ import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument } from '../../types/document';
 import { DocumentUploadModal } from './DocumentUploadModal';
 import { Check, AlertCircle } from 'lucide-react';
+import { isUserDocumentSubmitter } from '../../utils/userRoleHelpers';
 
 interface DocumentReviewDrawerProps {
   document: MasterDocument | null;
@@ -72,8 +73,25 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   if (!document) return null;
 
   const isVerified = document.verificationStatus === 'Verified';
+
+  const linkedReq = linkedSet?.requirements?.find(
+    (req) =>
+      req.documentId === document.id ||
+      req.linkedDocumentId === document.id ||
+      (req.title && document.title && req.title.toLowerCase().includes(document.title.toLowerCase())) ||
+      (document.title && req.title && document.title.toLowerCase().includes(req.title.toLowerCase()))
+  );
+
+  const isSubmitter = isUserDocumentSubmitter(
+    null,
+    activePersona,
+    document,
+    linkedReq,
+    linkedSet
+  );
+
   const canSubmit = activePersona === 'Submitter' || activePersona === 'Administrator';
-  const canVerify = activePersona === 'Verifier';
+  const canVerify = !isSubmitter && (activePersona === 'Verifier' || activePersona === 'Administrator');
 
   const requireComment = () => {
     if (!comment.trim()) {
@@ -457,26 +475,37 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                 </span>
               </div>
 
+              {isSubmitter && !isVerified && (
+                <div className="alert alert-warning d-flex align-items-center gap-2 mb-3 py-2 px-3 border border-warning font-mono-code" style={{ fontSize: '0.775rem' }}>
+                  <AlertCircle className="w-4 h-4 text-warning flex-shrink-0" />
+                  <div>
+                    <strong>Segregation of Duties Enforced:</strong> As the document submitter or vessel owner, you cannot verify or approve your own submission. A designated verifier or client/charterer must review and sign off.
+                  </div>
+                </div>
+              )}
+
               {/* justification & feedback notes field */}
-              <div className="mb-3.5">
-                <label className="form-label text-dark small fw-semibold mb-1.5" style={{ fontSize: '0.8rem' }}>
-                  Verifier Defect / Justification Notes
-                </label>
-                <textarea
-                  className={`form-control bg-white text-dark border p-3 ${commentError ? 'border-danger' : ''}`}
-                  rows={2}
-                  placeholder="Required when returning for correction or rejecting. Optional for verification sign-off."
-                  value={comment}
-                  onChange={(e) => {
-                    setComment(e.target.value);
-                    if (commentError && e.target.value.trim()) setCommentError('');
-                  }}
-                  style={{ fontSize: '0.825rem', borderRadius: '6px' }}
-                />
-                {commentError && (
-                  <div className="text-danger small mt-1">{commentError}</div>
-                )}
-              </div>
+              {canVerify && (
+                <div className="mb-3.5">
+                  <label className="form-label text-dark small fw-semibold mb-1.5" style={{ fontSize: '0.8rem' }}>
+                    Verifier Defect / Justification Notes
+                  </label>
+                  <textarea
+                    className={`form-control bg-white text-dark border p-3 ${commentError ? 'border-danger' : ''}`}
+                    rows={2}
+                    placeholder="Required when returning for correction or rejecting. Optional for verification sign-off."
+                    value={comment}
+                    onChange={(e) => {
+                      setComment(e.target.value);
+                      if (commentError && e.target.value.trim()) setCommentError('');
+                    }}
+                    style={{ fontSize: '0.825rem', borderRadius: '6px' }}
+                  />
+                  {commentError && (
+                    <div className="text-danger small mt-1">{commentError}</div>
+                  )}
+                </div>
+              )}
 
               <div className="d-flex align-items-center justify-content-end gap-2 pt-3 border-top flex-wrap">
                 {canSubmit && (
@@ -489,30 +518,34 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     Upload Replacement Revision
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="btn btn-outline-danger px-3.5 py-2 fw-bold shadow-sm"
-                  style={{ fontSize: '0.8rem' }}
-                  onClick={handleReject}
-                >
-                  Reject Document
-                </button>
-                <button
-                  type="button"
-                  className="btn text-dark px-3.5 py-2 fw-bold shadow-sm"
-                  style={{ fontSize: '0.8rem', backgroundColor: '#fef3c7', borderColor: '#fde68a' }}
-                  onClick={handleCorrection}
-                >
-                  Return for Correction
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-success text-white px-3.5 py-2 fw-bold shadow-sm"
-                  style={{ fontSize: '0.8rem', backgroundColor: '#059669', borderColor: '#059669' }}
-                  onClick={handleVerify}
-                >
-                  Verify Document
-                </button>
+                {canVerify && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger px-3.5 py-2 fw-bold shadow-sm"
+                      style={{ fontSize: '0.8rem' }}
+                      onClick={handleReject}
+                    >
+                      Reject Document
+                    </button>
+                    <button
+                      type="button"
+                      className="btn text-dark px-3.5 py-2 fw-bold shadow-sm"
+                      style={{ fontSize: '0.8rem', backgroundColor: '#fef3c7', borderColor: '#fde68a' }}
+                      onClick={handleCorrection}
+                    >
+                      Return for Correction
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-success text-white px-3.5 py-2 fw-bold shadow-sm"
+                      style={{ fontSize: '0.8rem', backgroundColor: '#059669', borderColor: '#059669' }}
+                      onClick={handleVerify}
+                    >
+                      Verify Document
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ) : null}

@@ -22,6 +22,10 @@ export type InitiatingRoleType =
 export type AssuranceScopeType = 'Project' | 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 export type AssuranceSubtype = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 
+export type ReviewMode = 'internal' | 'third_party' | 'issuing_authority' | 'mixed';
+export type ReviewChannel = 'internal' | 'third_party' | 'issuing_authority';
+export type AuthorityValidationMethod = 'api' | 'direct_link' | 'manual';
+
 export type AssuranceRequirementCategory =
   | 'Statutory Certificate'
   | 'Class Notation Certificate'
@@ -70,6 +74,10 @@ export interface AssuranceRequirement {
   notes?: string;
   isOtherDocument?: boolean;
   isSpecialized?: boolean;
+  assignedSubmitter?: string;
+  assignedVerifier?: string;
+  submitterId?: string;
+  verifierId?: string;
 }
 
 export interface AssuranceProject {
@@ -103,9 +111,22 @@ export interface AssuranceStakeholderMapping {
   approverOrg?: string;
 }
 
+export interface SubtypeStakeholderMapping {
+  submitterId?: string;
+  submitterName?: string;
+  submitterOrg?: string;
+  assignedSubmitter?: string;
+  verifierId?: string;
+  verifierName?: string;
+  verifierOrg?: string;
+  assignedVerifier?: string;
+}
+
 export interface AssuranceSet {
   stakeholders?: AssuranceStakeholderMapping | null;
   assignedStakeholders?: AssuranceStakeholderMapping | null;
+  subtypeStakeholders?: Partial<Record<AssuranceSubtype, SubtypeStakeholderMapping>>;
+  categoryStakeholders?: Record<string, SubtypeStakeholderMapping>;
   createdByPersona?: string;
   id: string; // e.g. AS-2026-001
   title: string; // e.g. Chevron Gorgon Charter Vetting
@@ -143,6 +164,16 @@ export interface AssuranceSet {
   assignedApprover?: string;
   approverDecision?: 'Approved' | 'Returned for Correction' | 'Rejected' | 'Pending';
   approverNotes?: string;
+  /** review channel governance (MVP 1.5): internal, third party, issuing authority, or mixed */
+  reviewMode?: ReviewMode;
+  reviewChannels?: ReviewChannel[];
+  validityCheckRequired?: boolean;
+  suitabilityCheckRequired?: boolean;
+  authorityValidationMethod?: AuthorityValidationMethod;
+  /** service provider organization delivering the asset or services (cannot verify/approve own documents) */
+  serviceProviderOrg?: string;
+  /** initiating client organization that owns the assurance set */
+  clientOrg?: string;
   /** true when C Admin runs assurance on their own fleet (internal deployment, not third-party charter) */
   internalDeployment?: boolean;
   /** true for project-level master rollup sets (e.g. AS-02-P001) */

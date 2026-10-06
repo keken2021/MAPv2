@@ -3717,5 +3717,18 @@ export const MOCK_USERS: import('../types/user').UserProfile[] = [
     createdBy: 'C Admin',
     invitedBy: 'C Admin',
   },
+  {
+    id: 'USR-209',
+    name: 'AMSA Statutory Verification Gateway',
+    email: 'statutory.validation@amsa.gov.au',
+    roles: ['Verifier'],
+    userType: 'Third-Party',
+    organization: 'Australian Maritime Safety Authority (AMSA)',
+    departmentOrScope: 'Statutory Authority Digital Validation (API & Link)',
+    status: 'Active',
+    lastActive: '2026-09-20 04:00 UTC',
+    createdBy: 'C Admin',
+    invitedBy: 'C Admin',
+  },
 ];
 
