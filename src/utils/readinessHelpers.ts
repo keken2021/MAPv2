@@ -240,8 +240,7 @@ export function isVesselStatusPermitted(
   const isRestrictedStatus =
     status === 'Under Charter' ||
     status === 'In Operations' ||
-    status === 'In Transit' ||
-    status === 'In-Transit';
+    status === 'In Transit';
   if (!isRestrictedStatus) {
     return { isPermitted: true };
   }
