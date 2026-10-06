@@ -9,7 +9,7 @@ import { UserRolePersona, AuditTrailEvent } from '../types/audit';
 import { VesselInformation, VesselStatusDimension, VesselStatusHistoryEntry } from '../types/vessel';
 import { EquipmentAsset } from '../types/equipment';
 import { AvailabilityStatus } from '../types/asset';
-import { AssuranceSet, AssuranceStage, AssuranceRequirement } from '../types/assurance';
+import { AssuranceSet, AssuranceStage, AssuranceRequirement, AssuranceSubtype } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { MOCK_VESSELS, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS, MOCK_AUDIT_TRAIL, MOCK_USERS } from './mockData';
 import { MOCK_EQUIPMENT } from './equipmentMockData';
@@ -66,6 +66,7 @@ import {
   generateVesselStatusHistoryId,
   getTrackedVesselStatusValues,
 } from '../utils/vesselStatusHistoryHelpers';
+import { autoAttachDocumentsToRequirements } from '../utils/documentMatchingHelpers';
 
 export interface MapStoreState {
 
@@ -798,10 +799,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ? generateUniqueAssuranceSetId(existingSets)
       : newSet.id || generateUniqueAssuranceSetId(existingSets);
 
-    const sanitizedRequirements = newSet.requirements?.map((r) => ({
+    const state = get();
+    const matchingVessel = state.vessels.find((v) => v.id === newSet.vesselId || v.name === newSet.vesselName);
+    const autoAttachedRequirements = autoAttachDocumentsToRequirements(newSet.requirements || [], {
+      documents: state.documents,
+      vessel: matchingVessel,
+      vessels: state.vessels,
+      crew: state.crew,
+      selectedCrewId: newSet.crewId,
+      equipment: state.equipment,
+      selectedEquipmentId: newSet.equipmentId,
+      selectedVesselId: newSet.vesselId,
+      targetSubtype: newSet.assuranceType === 'Project' ? undefined : (newSet.assuranceType as AssuranceSubtype),
+    });
+
+    const sanitizedRequirements = autoAttachedRequirements.map((r) => ({
       ...r,
-      ocrConfidence: (r.documentId || r.linkedDocumentId) ? (r.ocrConfidence || 0) : 0,
-    })) || [];
+      ocrConfidence: (r.documentId || r.linkedDocumentId) ? (r.ocrConfidence || 95) : 0,
+    }));
 
     const computedSet: AssuranceSet = {
       ...newSet,
@@ -825,10 +840,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   updateAssuranceSet: (updatedSet) => {
-    const sanitizedRequirements = updatedSet.requirements?.map((r) => ({
+    const state = get();
+    const matchingVessel = state.vessels.find((v) => v.id === updatedSet.vesselId || v.name === updatedSet.vesselName);
+    const autoAttachedRequirements = autoAttachDocumentsToRequirements(updatedSet.requirements || [], {
+      documents: state.documents,
+      vessel: matchingVessel,
+      vessels: state.vessels,
+      crew: state.crew,
+      selectedCrewId: updatedSet.crewId,
+      equipment: state.equipment,
+      selectedEquipmentId: updatedSet.equipmentId,
+      selectedVesselId: updatedSet.vesselId,
+      targetSubtype: updatedSet.assuranceType === 'Project' ? undefined : (updatedSet.assuranceType as AssuranceSubtype),
+    });
+
+    const sanitizedRequirements = autoAttachedRequirements.map((r) => ({
       ...r,
-      ocrConfidence: (r.documentId || r.linkedDocumentId) ? (r.ocrConfidence || 0) : 0,
-    })) || [];
+      ocrConfidence: (r.documentId || r.linkedDocumentId) ? (r.ocrConfidence || 95) : 0,
+    }));
 
     const computedSet: AssuranceSet = {
       ...updatedSet,

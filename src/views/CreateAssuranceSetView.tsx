@@ -38,6 +38,11 @@ import {
 } from '../utils/userRoleHelpers';
 import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../utils/validation';
 import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES, SUBTYPE_CATEGORIES, StandardSubtypeDocument, SubtypeTemplate, EXISTING_PROJECTS, EXISTING_ACTIVITIES } from '../utils/assuranceTemplates';
+import {
+  autoAttachDocumentsToRequirements,
+  findMatchingDocumentForRequirement,
+  getAssetAutoAttachSummary,
+} from '../utils/documentMatchingHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2 } from 'lucide-react';
 
 interface SpecializedDoc {
@@ -59,6 +64,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     vessels,
     equipment,
     crew,
+    documents,
     assuranceSets,
     addAssuranceSet,
     updateAssuranceSet,
@@ -748,6 +754,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     const targetSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
 
+    const effectiveRequirements = autoAttachDocumentsToRequirements(finalRequirements, {
+      documents,
+      vessel: selectedVesselForScope,
+      vessels,
+      crew,
+      selectedCrewId,
+      equipment,
+      selectedEquipmentId,
+      selectedVesselId: vesselId,
+      targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
+    });
+
     const effectiveAssetName =
       assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
         assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
@@ -842,7 +860,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
       serviceProviderOrg,
       clientOrg: initiatorOrg,
-      requirements: finalRequirements,
+      requirements: effectiveRequirements,
       stakeholders: undefined,
       assignedStakeholders: undefined,
       createdByPersona: '',
@@ -928,6 +946,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const initiatorOrg = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
     const effectiveCharterer = charterer.trim() || initiatorOrg;
     const internalDeployment = isClientAdmin && (vesselSource === 'own-fleet' || isOwnFleetSelection);
+
+    const effectiveRequirements = autoAttachDocumentsToRequirements(finalRequirements, {
+      documents,
+      vessel: selectedVesselForScope,
+      vessels,
+      crew,
+      selectedCrewId,
+      equipment,
+      selectedEquipmentId,
+      selectedVesselId: vesselId,
+      targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
+    });
 
     const effectiveAssetName =
       assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
@@ -1023,7 +1053,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
       serviceProviderOrg,
       clientOrg: initiatorOrg,
-      requirements: finalRequirements,
+      requirements: effectiveRequirements,
       stakeholders: undefined,
       assignedStakeholders: undefined,
       createdByPersona: '',
@@ -1162,6 +1192,30 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             <div className="d-flex flex-column gap-3">
               {standardDocs.map((doc) => {
                 const isEnabled = Boolean(docToggles[doc.id]);
+                const matchedAssetDoc = findMatchingDocumentForRequirement(
+                  {
+                    id: doc.id,
+                    title: doc.title,
+                    category: doc.category,
+                    subtype: doc.subtype,
+                    isMandatory: doc.isMandatory,
+                    isFulfilled: false,
+                    ocrConfidence: 0,
+                    verifierStatus: 'Pending',
+                  },
+                  {
+                    documents,
+                    vessel: selectedVesselForScope,
+                    vessels,
+                    crew,
+                    selectedCrewId,
+                    equipment,
+                    selectedEquipmentId,
+                    selectedVesselId: vesselId,
+                    targetSubtype: subtype,
+                  }
+                );
+
                 return (
                   <div
                     key={doc.id}
@@ -1194,6 +1248,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             {doc.isMandatory && (
                               <span className="badge bg-danger-subtle text-danger border border-danger-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
                                 Statutory Mandatory
+                              </span>
+                            )}
+                            {matchedAssetDoc && (
+                              <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                Vault Linked ({matchedAssetDoc.documentId})
                               </span>
                             )}
                           </div>
@@ -2515,6 +2574,86 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           })}
                         </div>
                       </div>
+
+                      {/* Auto-Attached Documents from Asset Vault */}
+                      {(() => {
+                        const activeSubtypes: AssuranceSubtype[] =
+                          assuranceType === 'Project'
+                            ? ['Vessel', 'Crew', 'Activity', 'Equipment']
+                            : [assuranceType as AssuranceSubtype];
+
+                        const currentReqs: AssuranceRequirement[] = [];
+                        let reqIndex = 0;
+                        activeSubtypes.forEach((subtype) => {
+                          SUBTYPE_STANDARD_DOCS[subtype].forEach((doc) => {
+                            if (docToggles[doc.id]) {
+                              currentReqs.push({
+                                id: `req-preview-${reqIndex++}`,
+                                category: doc.category,
+                                title: doc.title,
+                                subtype: doc.subtype,
+                                isMandatory: doc.isMandatory,
+                                isFulfilled: false,
+                                ocrConfidence: 0,
+                                verifierStatus: 'Pending',
+                              });
+                            }
+                          });
+                          specializedDocs.filter((d: { subtype: string; isEnabled: boolean }) => d.subtype === subtype && d.isEnabled).forEach((spec: { category: any; title: any; subtype: any; isMandatory: any; }) => {
+                            currentReqs.push({
+                              id: `req-preview-${reqIndex++}`,
+                              category: spec.category,
+                              title: spec.title,
+                              subtype: spec.subtype,
+                              isMandatory: spec.isMandatory,
+                              isSpecialized: true,
+                              isFulfilled: false,
+                              ocrConfidence: 0,
+                              verifierStatus: 'Pending',
+                            });
+                          });
+                        });
+
+                        const summary = getAssetAutoAttachSummary(currentReqs, {
+                          documents,
+                          vessel: selectedVesselForScope,
+                          vessels,
+                          crew,
+                          selectedCrewId,
+                          equipment,
+                          selectedEquipmentId,
+                          selectedVesselId: vesselId,
+                          targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
+                        });
+
+                        return (
+                          <div className="col-12">
+                            <div className="p-3 bg-light-subtle rounded-3 border border-primary-subtle">
+                              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                                <div className="d-flex align-items-center gap-2">
+                                  <FileCheck className="text-primary" style={{ width: '18px', height: '18px' }} />
+                                  <strong className="text-dark small">Asset Document Auto-Attachment Status</strong>
+                                </div>
+                                <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.75rem' }}>
+                                  {summary.autoAttachedCount} of {summary.totalCount} Documents Pre-Matched
+                                </span>
+                              </div>
+                              <p className="text-secondary small mb-2" style={{ fontSize: '0.8125rem' }}>
+                                Existing statutory certificates, STCW credentials, and equipment registers linked to the chartered asset will be automatically attached upon creation.
+                              </p>
+                              {summary.attachedDetails.length > 0 && (
+                                <div className="d-flex flex-wrap gap-2 pt-1">
+                                  {summary.attachedDetails.map((item, idx) => (
+                                    <span key={idx} className="badge bg-white text-dark border font-mono-code px-2 py-1" style={{ fontSize: '0.7rem' }}>
+                                      {item.reqTitle} &rarr; <span className="text-primary fw-semibold">{item.docId}</span> (OCR: {item.ocrConfidence}%)
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

@@ -255,7 +255,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const newCampaign: AssuranceSet = {
       id: 'AS-NEW-INIT-01',
       title: 'Newly Initiated Campaign',
-      vesselId: 'VESSEL-001',
+      vesselId: 'VESSEL-NO-DOCS',
       vesselName: 'MV Torrens Supporter',
       imoNumber: '9840123',
       initiatorOrg: 'Northwind Marine',

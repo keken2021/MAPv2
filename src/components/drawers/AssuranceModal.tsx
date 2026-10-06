@@ -26,6 +26,7 @@ import {
   EXISTING_PROJECTS,
   EXISTING_ACTIVITIES,
 } from '../../utils/assuranceTemplates';
+import { autoAttachDocumentsToRequirements } from '../../utils/documentMatchingHelpers';
 
 interface AssuranceModalProps {
   isOpen: boolean;
@@ -44,7 +45,7 @@ interface SpecializedDoc {
 }
 
 export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose, draftId }) => {
-  const { vessels, equipment, crew, assuranceSets, addAssuranceSet, updateAssuranceSet, activePersona, users } = useMapStore();
+  const { vessels, equipment, crew, documents, assuranceSets, addAssuranceSet, updateAssuranceSet, activePersona, users } = useMapStore();
 
   const isClientAdmin = activePersona === 'C Admin';
   const clientOrg = getClientAdminOrganization(users);
@@ -360,6 +361,18 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
     const effectiveImo =
       assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
 
+    const effectiveRequirements = autoAttachDocumentsToRequirements(finalRequirements, {
+      documents,
+      vessel: selectedVessel,
+      vessels,
+      crew,
+      selectedCrewId,
+      equipment,
+      selectedEquipmentId,
+      selectedVesselId: vesselId,
+      targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
+    });
+
     const newSet: AssuranceSet = {
       id: uniqueSetId,
       title: title.trim(),
@@ -390,7 +403,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
       mandatoryInspectionRequired: inspectionRequired,
       formalApprovalRequired: approvalRequired,
       inspectionCompleted: false,
-      requirements: finalRequirements,
+      requirements: effectiveRequirements,
       stakeholders: undefined,
       assignedStakeholders: undefined,
       createdByPersona: '',
@@ -462,6 +475,18 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
     const effectiveImo =
       assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
 
+    const effectiveRequirements = autoAttachDocumentsToRequirements(finalRequirements, {
+      documents,
+      vessel: selectedVessel,
+      vessels,
+      crew,
+      selectedCrewId,
+      equipment,
+      selectedEquipmentId,
+      selectedVesselId: vesselId,
+      targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
+    });
+
     const draftSet: AssuranceSet = {
       id: uniqueSetId,
       title: title.trim() || `${defaultOrg} - Draft Campaign`,
@@ -492,7 +517,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
       mandatoryInspectionRequired: inspectionRequired,
       formalApprovalRequired: approvalRequired,
       inspectionCompleted: false,
-      requirements: finalRequirements,
+      requirements: effectiveRequirements,
       stakeholders: undefined,
       assignedStakeholders: undefined,
       createdByPersona: '',
