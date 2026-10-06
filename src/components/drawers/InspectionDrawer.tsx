@@ -6,7 +6,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
-import { Camera, FileText } from 'lucide-react';
+import { Camera, FileText, X } from 'lucide-react';
 
 interface EvidenceItem {
   id: string;
@@ -972,7 +972,14 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
           <div className="map-camera-modal-dialog card p-3">
             <div className="d-flex align-items-center justify-content-between pb-2 border-bottom mb-3">
               <h6 className="fw-bold text-dark m-0">Live Camera Photo Capture</h6>
-              <button type="button" className="btn-close" onClick={closeCameraModal} aria-label="Close modal" />
+              <button
+                type="button"
+                className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
+                onClick={closeCameraModal}
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
             </div>
 
             <div className="d-flex flex-column align-items-center gap-3">

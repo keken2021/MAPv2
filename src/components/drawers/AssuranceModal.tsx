@@ -5,6 +5,7 @@
 */
 
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import {
   AssuranceSet,
@@ -205,7 +206,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
   const handleAddSpecializedDoc = (subtype: AssuranceSubtype) => {
     const input = specializedInputs[subtype];
     if (!input.title.trim()) {
-      setErrorMessage(`Please enter a title for the specialized ${subtype} document.`);
+      setErrorMessage(`Document title is required for specialized ${subtype} document.`);
       return;
     }
 
@@ -255,23 +256,23 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
         return false;
       }
       if (assuranceType === 'Project' && !selectedProjectId) {
-        setErrorMessage('Please select an existing project from the asset list.');
+        setErrorMessage('Project selection is required.');
         return false;
       }
       if (assuranceType === 'Vessel' && !vesselId) {
-        setErrorMessage('Please select a target vessel from the asset list.');
+        setErrorMessage('Target vessel is required.');
         return false;
       }
       if (assuranceType === 'Crew' && !selectedCrewId) {
-        setErrorMessage('Please select a target crew member from the asset list.');
+        setErrorMessage('Crew member selection is required.');
         return false;
       }
       if (assuranceType === 'Equipment' && !selectedEquipmentId) {
-        setErrorMessage('Please select a target equipment item from the asset list.');
+        setErrorMessage('Equipment item selection is required.');
         return false;
       }
       if (assuranceType === 'Activity' && !selectedActivityId) {
-        setErrorMessage('Please select a target operational activity from the asset list.');
+        setErrorMessage('Operational activity selection is required.');
         return false;
       }
       if (!startDate || !endDate) {
@@ -740,7 +741,14 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                 Segmented assurance set creation across asset scopes and required documents
               </div>
             </div>
-            <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
+            <button
+              type="button"
+              className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           {/* Step Progress Header */}

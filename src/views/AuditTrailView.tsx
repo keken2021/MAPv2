@@ -5,6 +5,7 @@
 */
 
 import React, { useState } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { formatMaritimeDate } from '../utils/formatters';
 import { filterAuditTrailForPersona } from '../utils/rbacHelpers';
@@ -26,8 +27,14 @@ export const AuditTrailView: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   const renderSortIndicator = (field: AuditSortField) => {
-    if (sortField !== field) return <span className="text-muted ms-1 small opacity-50">↕</span>;
-    return <span className="text-primary ms-1 small fw-bold">{sortDirection === 'asc' ? '▲' : '▼'}</span>;
+    if (sortField !== field) {
+      return <ArrowUpDown size={14} className="text-muted ms-1 opacity-50 inline-block align-middle" />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp size={14} className="text-primary ms-1 inline-block align-middle" />
+    ) : (
+      <ArrowDown size={14} className="text-primary ms-1 inline-block align-middle" />
+    );
   };
 
   const handleSort = (field: AuditSortField) => {

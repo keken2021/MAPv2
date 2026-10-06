@@ -1434,7 +1434,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 }}
               >
                 <Info className="w-3 h-3 text-primary shrink-0" />
-                <span>Click to view other historical data!</span>
+                <span>View historical data</span>
               </button>
             </div>
 
@@ -2324,7 +2324,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </div>
                 <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
                   <Info className="w-2.5 h-2.5 text-primary shrink-0" />
-                  <span className="text-truncate">Click to view the company's entire fleet!</span>
+                  <span className="text-truncate">View company fleet</span>
                 </div>
               </div>
 
@@ -2341,7 +2341,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </div>
                 <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
                   <Info className="w-2.5 h-2.5 text-primary shrink-0" />
-                  <span className="text-truncate">Click to view the company's entire fleet!</span>
+                  <span className="text-truncate">View company fleet</span>
                 </div>
               </div>
 
@@ -2358,7 +2358,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </div>
                 <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
                   <Info className="w-2.5 h-2.5 text-primary shrink-0" />
-                  <span className="text-truncate">Click to view the company's entire fleet!</span>
+                  <span className="text-truncate">View company fleet</span>
                 </div>
               </div>
             </div>

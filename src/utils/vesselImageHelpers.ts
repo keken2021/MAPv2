@@ -213,9 +213,7 @@ export const getVesselCharterBadge = (
     case 'Under Charter':
       return { label: 'Time Charter', dotColor: '#ef4444' }; // Red dot
     case 'In Transit':
-    case 'In-Transit':
       return { label: 'Freight Charter', dotColor: '#8b5cf6' }; // Purple dot
-    case 'Awaiting Orders':
     case 'Standby':
       return { label: 'Standby / Available', dotColor: '#eab308' }; // Yellow/Amber dot
     case 'Port Stay':
@@ -225,7 +223,6 @@ export const getVesselCharterBadge = (
       return { label: 'Active Campaign', dotColor: '#10b981' }; // Green dot
     case 'Maintenance':
     case 'Dry Docking':
-    case 'Dry-Docking':
       return { label: 'Maintenance Yard', dotColor: '#f97316' }; // Orange dot
     case 'Lay-up':
     case 'Decommissioned':

@@ -14,7 +14,7 @@ import { canPerform } from '../utils/permissionHelpers';
 import { MasterDocument } from '../types/document';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
-import { Ship, Camera, ShieldCheck } from 'lucide-react';
+import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 /**
   what: renders approval requests table list view or approval detail page.
@@ -88,8 +88,14 @@ export const ApproverDashboardView: React.FC = () => {
   const [pipelineSortDirection, setPipelineSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const renderSortIndicator = (currentField: string, field: string, direction: 'asc' | 'desc') => {
-    if (currentField !== field) return <span className="text-muted ms-1 small opacity-50">↕</span>;
-    return <span className="text-primary ms-1 small fw-bold">{direction === 'asc' ? '▲' : '▼'}</span>;
+    if (currentField !== field) {
+      return <ArrowUpDown size={14} className="text-muted ms-1 opacity-50 inline-block align-middle" />;
+    }
+    return direction === 'asc' ? (
+      <ArrowUp size={14} className="text-primary ms-1 inline-block align-middle" />
+    ) : (
+      <ArrowDown size={14} className="text-primary ms-1 inline-block align-middle" />
+    );
   };
 
   const handleReqSort = (field: ReqSortField) => {

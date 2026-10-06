@@ -175,11 +175,11 @@ describe('vessel status assurance gating', () => {
   });
 
   it('maps vessel statuses to correct color badge classes (green, yellow, blue, red, grey)', () => {
-    // Awaiting Orders -> Green
-    expect(getVesselStatusBadgeClass('Awaiting Orders')).toBe('bg-success text-white');
+    // In Operations / Active -> Green
+    expect(getVesselStatusBadgeClass('In Operations')).toBe('bg-success text-white');
+    expect(getVesselStatusBadgeClass('Active')).toBe('bg-success text-white');
 
-    // In-Transit / In Transit -> Yellow
-    expect(getVesselStatusBadgeClass('In-Transit')).toBe('bg-warning text-dark');
+    // In Transit -> Yellow
     expect(getVesselStatusBadgeClass('In Transit')).toBe('bg-warning text-dark');
 
     // Port Stay -> Blue
@@ -188,8 +188,8 @@ describe('vessel status assurance gating', () => {
     // Under Charter -> Red
     expect(getVesselStatusBadgeClass('Under Charter')).toBe('bg-danger text-white');
 
-    // Dry Docking / Dry-Docking -> Grey
+    // Dry Docking / Lay-up -> Grey
     expect(getVesselStatusBadgeClass('Dry Docking')).toBe('bg-secondary text-white');
-    expect(getVesselStatusBadgeClass('Dry-Docking')).toBe('bg-secondary text-white');
+    expect(getVesselStatusBadgeClass('Lay-up')).toBe('bg-secondary text-white');
   });
 });

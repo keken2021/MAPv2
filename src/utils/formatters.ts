@@ -52,10 +52,8 @@ export function getVesselStatusBadgeClass(status: string): string {
   switch (status) {
     case 'In Operations':
     case 'Active':
-    case 'Awaiting Orders':
       return 'bg-success text-white';
     case 'In Transit':
-    case 'In-Transit':
       return 'bg-warning text-dark';
     case 'Port Stay':
       return 'bg-primary text-white';
@@ -66,7 +64,6 @@ export function getVesselStatusBadgeClass(status: string): string {
     case 'Maintenance':
       return 'bg-warning text-dark';
     case 'Dry Docking':
-    case 'Dry-Docking':
     case 'Lay-up':
       return 'bg-secondary text-white';
     case 'Decommissioned':

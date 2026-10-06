@@ -5,6 +5,7 @@
 */
 
 import React, { useState } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { MasterDocument } from '../types/document';
@@ -122,9 +123,11 @@ export const VerifierWorkspaceView: React.FC = () => {
     >
       {label}{' '}
       {sortField !== field ? (
-        <span className="text-muted ms-1 small opacity-50">↕</span>
+        <ArrowUpDown size={14} className="text-muted ms-1 opacity-50 inline-block align-middle" />
+      ) : sortOrder === 'asc' ? (
+        <ArrowUp size={14} className="text-primary ms-1 inline-block align-middle" />
       ) : (
-        <span className="text-primary ms-1 small fw-bold">{sortOrder === 'asc' ? '▲' : '▼'}</span>
+        <ArrowDown size={14} className="text-primary ms-1 inline-block align-middle" />
       )}
     </th>
   );

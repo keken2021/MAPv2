@@ -8,7 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { STCWDocumentItem, STCWLayer } from '../../types/crew';
 import { formatDocumentId } from '../../utils/formatters';
-import { Upload, FileText, Check, AlertCircle } from 'lucide-react';
+import { Upload, FileText, Check, AlertCircle, X } from 'lucide-react';
 
 interface CrewDocumentUploadModalProps {
   isOpen: boolean;
@@ -311,7 +311,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
     }
 
     if (!title.trim()) {
-      setErrorMessage('Please enter a Document Title.');
+      setErrorMessage('Document title is required.');
       return;
     }
 
@@ -983,10 +983,12 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                 </div>
                 <button
                   type="button"
-                  className="btn-close"
+                  className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
                   onClick={() => setIsPendingVerification(false)}
                   aria-label="Close"
-                />
+                >
+                  <X size={18} />
+                </button>
               </div>
 
               {/* Body */}

@@ -242,7 +242,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
     if (!validateCurrentStep()) return;
 
     const newVessel: VesselInformation = {
-      id: `VESSEL-${Math.floor(100 + Math.random() * 900)}`,
+      id: `MAP-VES-2026-ASST-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
       name,
       previousNames: previousNames || undefined,
       imoNumber,
@@ -796,7 +796,14 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                 Complete all 11 statutory categories for offshore compliance onboarding
               </div>
             </div>
-            <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
+            <button
+              type="button"
+              className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           {/* Step Progress Bar */}
@@ -1659,10 +1666,12 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                 </div>
                 <button
                   type="button"
-                  className="btn-close"
+                  className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
                   onClick={() => setPendingVerificationState(null)}
                   aria-label="Close"
-                />
+                >
+                  <X size={18} />
+                </button>
               </div>
 
               {/* Body */}

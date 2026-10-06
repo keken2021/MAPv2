@@ -5,6 +5,7 @@
 */
 
 import React, { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { ProjectAssetType } from '../../types/project';
 import {
@@ -122,9 +123,16 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
     >
       <div className="modal-dialog modal-md modal-dialog-centered">
         <div className="modal-content bg-white text-dark border shadow-lg">
-          <div className="modal-header border-bottom bg-light">
+          <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
             <h5 className="modal-title fw-bold m-0">Add to Project</h5>
-            <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
+            <button
+              type="button"
+              className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
           <div className="modal-body p-4">
             <div className="mb-3 p-2 bg-light border rounded small">

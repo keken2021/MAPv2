@@ -5,6 +5,7 @@
 */
 
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { CrewMember, STCWLayer } from '../../types/crew';
 import { filterVesselsForPersona } from '../../utils/rbacHelpers';
@@ -76,12 +77,12 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
     }
 
     if (!fullName.trim() || !seamansBookNo.trim() || !passportNo.trim()) {
-      setErrorMessage('Please fill out all required fields (Full Name, Seaman\'s Book No, and Passport No).');
+      setErrorMessage("Full Name, Seaman's Book No, and Passport No are required.");
       return;
     }
 
     const selectedVessel = vessels.find((v) => v.id === currentVesselId);
-    const newCrewId = `CREW-${Math.floor(200 + Math.random() * 800)}`;
+    const newCrewId = `MAP-CRW-2026-PERS-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`;
 
     const newCrew: CrewMember = {
       id: newCrewId,
@@ -100,7 +101,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
       assignments: selectedVessel
         ? [
           {
-            id: `ASG-${Math.floor(600 + Math.random() * 300)}`,
+            id: `MAP-ASG-2026-ASGN-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
             vesselId: selectedVessel.id,
             vesselName: selectedVessel.name,
             imoNumber: selectedVessel.imoNumber,
@@ -113,7 +114,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
         : [],
       layer1CoreDocuments: [
         {
-          id: `DOC-CRW-L1-${Math.floor(100 + Math.random() * 900)}`,
+          id: `MAP-CRW-2026-STCW-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
           title: 'Valid International Passport',
           layer: 'Layer 1 - Universal Core',
           stcwRegulation: 'SOLAS / National Regs',
@@ -126,7 +127,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
           fileSizeBytes: 1400000,
         },
         {
-          id: `DOC-CRW-L1-${Math.floor(100 + Math.random() * 900)}`,
+          id: `MAP-CRW-2026-STCW-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
           title: "National Seaman's Book (Continuous Discharge Certificate)",
           layer: 'Layer 1 - Universal Core',
           stcwRegulation: 'STCW Reg I/9',
@@ -257,17 +258,18 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
   return (
     <div className="map-modal-backdrop d-flex align-items-center justify-content-center p-3">
       <div className="card map-card-custom shadow-lg" style={{ width: '100%', maxWidth: '600px', zIndex: 1100 }}>
-        {/* Modal Header */}
         <div className="card-header d-flex align-items-center justify-content-between p-3 border-bottom">
           <div className="fw-bold text-dark fs-6">
             Register New Crew Member Profile
           </div>
           <button
             type="button"
-            className="btn-close"
+            className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
             onClick={onClose}
             aria-label="Close"
-          />
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Modal Body Form */}

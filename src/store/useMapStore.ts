@@ -1424,7 +1424,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   auditEvents: MOCK_AUDIT_TRAIL,
   logAuditEvent: (eventData) => {
     const newEvent: AuditTrailEvent = {
-      id: `AUD-${Math.floor(10000 + Math.random() * 90000)}`,
+      id: `MAP-AUD-2026-EVNT-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
       timestampUtc: new Date().toISOString(),
       ...eventData,
     };
@@ -1767,7 +1767,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         }
         const existingAssignments = c.assignments || [];
         const newAssignment = {
-          id: `ASG-${Math.floor(600 + Math.random() * 300)}`,
+          id: `MAP-ASG-2026-ASGN-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
           vesselId: vessel!.id,
           vesselName: vessel!.name,
           imoNumber: vessel!.imoNumber,

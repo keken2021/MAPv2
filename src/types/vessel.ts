@@ -43,10 +43,7 @@ export type VesselRegistrationStatus =
   | 'Active'
   | 'Standby'
   | 'Maintenance'
-  | 'Decommissioned'
-  | 'Awaiting Orders'
-  | 'In-Transit'
-  | 'Dry-Docking';
+  | 'Decommissioned';
 
 export type ClassificationSociety = 'DNV' | 'ABS' | "Lloyd's Register" | 'Bureau Veritas' | 'RINA';
 

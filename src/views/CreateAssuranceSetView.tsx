@@ -594,7 +594,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (!input.title.trim()) {
       setFieldErrors((prev) => ({
         ...prev,
-        [`specialized_${subtype}`]: `Please enter a title for the specialized ${subtype.toLowerCase()} document.`,
+        [`specialized_${subtype}`]: `Document title is required for specialized ${subtype.toLowerCase()} document.`,
       }));
       return;
     }
@@ -648,24 +648,24 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       } else {
         const duplicateCheck = isDuplicateCampaignTitle(title, assuranceSets, editingDraftId);
         if (duplicateCheck.isDuplicate) {
-          newErrors.title = duplicateCheck.reason || 'Campaign title already exists. Please choose a unique name.';
+          newErrors.title = duplicateCheck.reason || 'Campaign title already exists. Choose a unique name.';
         }
       }
 
       if (assuranceType === 'Project' && !selectedProjectId) {
-        newErrors.projectId = 'Please select an existing project from the asset list.';
+        newErrors.projectId = 'Project selection is required.';
       }
       if (assuranceType === 'Vessel' && !vesselId) {
-        newErrors.vesselId = 'Please select a target vessel from the asset list.';
+        newErrors.vesselId = 'Target vessel is required.';
       }
       if (assuranceType === 'Crew' && !selectedCrewId) {
-        newErrors.crewId = 'Please select a target crew member from the asset list.';
+        newErrors.crewId = 'Crew member selection is required.';
       }
       if (assuranceType === 'Equipment' && !selectedEquipmentId) {
-        newErrors.equipmentId = 'Please select a target equipment item from the asset list.';
+        newErrors.equipmentId = 'Equipment item selection is required.';
       }
       if (assuranceType === 'Activity' && !selectedActivityId) {
-        newErrors.activityId = 'Please select a target operational activity from the asset list.';
+        newErrors.activityId = 'Operational activity selection is required.';
       }
       if (!isClientAdmin && !charterer.trim()) {
         newErrors.charterer = 'Charterer organization name is required.';
@@ -682,13 +682,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
       /* Verifier, Inspector & Approver Role Validations (MVP 1:1 Mapping) */
       if (verificationRequired && reviewMode !== 'issuing_authority' && !assignedVerifier) {
-        newErrors.verifier = 'Please assign a verifier for the assurance set.';
+        newErrors.verifier = 'Verifier assignment is required.';
       }
       if (inspectionRequired && !assignedInspector) {
-        newErrors.inspector = 'Please assign a visual inspector for the campaign.';
+        newErrors.inspector = 'Visual inspector assignment is required.';
       }
       if (approvalRequired && !assignedApprover) {
-        newErrors.approver = 'Please assign a formal campaign approver.';
+        newErrors.approver = 'Campaign approver assignment is required.';
       }
 
       if (

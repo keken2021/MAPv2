@@ -38,17 +38,18 @@ export function mapVesselOperatingStatusToAvailability(status: VesselRegistratio
   switch (status) {
     case 'Under Charter':
       return 'On Charter';
-    case 'Dry-Docking':
     case 'Dry Docking':
+    case 'Maintenance':
       return 'Under Maintenance';
     case 'Lay-up':
+    case 'Decommissioned':
       return 'Unavailable';
-    case 'Awaiting Orders':
+    case 'Active':
     case 'Port Stay':
     case 'In Operations':
       return 'Available';
-    case 'In-Transit':
     case 'In Transit':
+    case 'Standby':
       return 'Pending';
     default:
       return 'Unknown';

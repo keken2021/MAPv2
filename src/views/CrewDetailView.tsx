@@ -5,6 +5,7 @@
 */
 
 import React, { useEffect, useState, useMemo } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { STCWDocumentItem, CrewVesselAssignment } from '../types/crew';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -65,8 +66,14 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const [layer2SortDirection, setLayer2SortDirection] = useState<'asc' | 'desc'>('asc');
 
   const renderSortIndicator = (currentField: string, field: string, direction: 'asc' | 'desc') => {
-    if (currentField !== field) return <span className="text-muted ms-1 small opacity-50">↕</span>;
-    return <span className="text-primary ms-1 small fw-bold">{direction === 'asc' ? '▲' : '▼'}</span>;
+    if (currentField !== field) {
+      return <ArrowUpDown size={14} className="text-muted ms-1 opacity-50 inline-block align-middle" />;
+    }
+    return direction === 'asc' ? (
+      <ArrowUp size={14} className="text-primary ms-1 inline-block align-middle" />
+    ) : (
+      <ArrowDown size={14} className="text-primary ms-1 inline-block align-middle" />
+    );
   };
 
   const sortedAssignments = useMemo(() => {

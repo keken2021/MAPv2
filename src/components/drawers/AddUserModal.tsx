@@ -5,6 +5,7 @@
 */
 
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { UserType, UserProfile } from '../../types/user';
 import { RoleName } from '../../types/permissions';
@@ -57,7 +58,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
     const resolvedOrg = isOrgMember ? defaultOrgName : organization.trim();
 
     if (!name.trim() || !email.trim() || !resolvedOrg) {
-      setErrorMessage('Please fill out all required fields (Name, Email, and Organization).');
+      setErrorMessage('Name, Email, and Organization are required.');
       return;
     }
 
@@ -83,7 +84,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
     }
 
     const newUser: UserProfile = {
-      id: `USR-${Math.floor(300 + Math.random() * 600)}`,
+      id: `MAP-USR-2026-USER-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
       name: name.trim(),
       email: email.trim(),
       roles,
@@ -126,10 +127,12 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
           </div>
           <button
             type="button"
-            className="btn-close"
+            className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
             onClick={onClose}
             aria-label="Close"
-          />
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Modal Body Form */}

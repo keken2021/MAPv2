@@ -542,7 +542,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                             const matched = capaItems.find((c) => c.id === item.capaCode);
                             if (matched) setSelectedCapaForDrawer(matched);
                           }}
-                          title={`Click to view ${item.capaCode} in drawer`}
+                          title={`View ${item.capaCode} Details`}
                         >
                           Linked {item.capaCode}
                         </span>
@@ -1000,7 +1000,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                     className="p-3 border rounded-3 bg-white shadow-2xs cursor-pointer"
                     onClick={() => setSelectedCapaForDrawer(c as CapaItem)}
                     style={{ cursor: 'pointer', transition: 'all 0.15s ease-in-out' }}
-                    title="Click to view details, upload evidence, and re-inspect this CAPA"
+                    title="View CAPA details and evidence"
                   >
                     <div className="d-flex align-items-center justify-between mb-1.5 gap-2">
                       <div className="d-flex align-items-center gap-2">

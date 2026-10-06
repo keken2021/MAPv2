@@ -5,6 +5,7 @@
 */
 
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { filterAuditTrailForPersona } from '../../utils/rbacHelpers';
@@ -44,9 +45,12 @@ export const AuditTrailDrawer: React.FC = () => {
         </h5>
         <button
           type="button"
-          className="btn-close"
+          className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
           onClick={() => setAuditDrawerOpen(false)}
-        />
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       <div className="offcanvas-body p-3">

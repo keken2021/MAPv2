@@ -5,6 +5,7 @@
 */
 
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { RoleName } from '../../types/permissions';
 import { UserType, UserProfile } from '../../types/user';
@@ -88,7 +89,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
     const resolvedOrg = isOrgMember ? defaultOrgName : organization.trim();
 
     if (!name.trim() || !email.trim() || !resolvedOrg) {
-      setErrorMessage('Please fill out all required fields (Name, Email, and Organization).');
+      setErrorMessage('Name, Email, and Organization are required.');
       return;
     }
 
@@ -142,10 +143,12 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
           </div>
           <button
             type="button"
-            className="btn-close"
+            className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
             onClick={onClose}
             aria-label="Close"
-          />
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Modal Body Form */}

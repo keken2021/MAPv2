@@ -5,6 +5,7 @@
 */
 
 import React, { useState } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselInformation } from '../types/vessel';
 import { filterVesselsForPersona } from '../utils/rbacHelpers';
@@ -44,8 +45,14 @@ export const InspectorWorkspaceView: React.FC = () => {
   };
 
   const renderSortIndicator = (field: InspectorSortField) => {
-    if (sortField !== field) return <span className="text-muted ms-1 small opacity-50">↕</span>;
-    return <span className="text-primary ms-1 small fw-bold">{sortDirection === 'asc' ? '▲' : '▼'}</span>;
+    if (sortField !== field) {
+      return <ArrowUpDown size={14} className="text-muted ms-1 opacity-50 inline-block align-middle" />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp size={14} className="text-primary ms-1 inline-block align-middle" />
+    ) : (
+      <ArrowDown size={14} className="text-primary ms-1 inline-block align-middle" />
+    );
   };
 
   /* apply search and status filters before sorting */
@@ -153,13 +160,13 @@ export const InspectorWorkspaceView: React.FC = () => {
             className="card map-kpi-card shadow-2xs w-100"
             onClick={() => setCurrentHashView('capa')}
             style={{ cursor: 'pointer' }}
-            title="Click to open CAPA Tracker"
+            title="Open CAPA Tracker"
           >
             <div className="map-kpi-label">
               Open Corrective Actions
             </div>
             <div className="map-kpi-value text-danger mt-1">{openCapaCount}</div>
-            <div className="map-kpi-subtitle mt-1">Active CAPA Items Tracked (Click to View)</div>
+            <div className="map-kpi-subtitle mt-1">Active CAPA items</div>
           </div>
         </div>
 

@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo } from 'react';
-import { LayoutGrid, Table as TableIcon, Check, MoreHorizontal, Download } from 'lucide-react';
+import { LayoutGrid, Table as TableIcon, Check, MoreHorizontal, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { VesselInformation } from '../../types/vessel';
 import { ReadinessGauge } from '../common/ReadinessGauge';
@@ -128,12 +128,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
     const matchesFlag = flagFilter === 'ALL' || v.flagState === flagFilter;
     const matchesClass = classFilter === 'ALL' || v.classificationSociety === classFilter;
     const matchesStatus =
-      statusFilter === 'ALL' ||
-      v.status === statusFilter ||
-      (statusFilter === 'In-Transit' && (v.status === 'In Transit' || v.status === 'In-Transit')) ||
-      (statusFilter === 'In Transit' && (v.status === 'In Transit' || v.status === 'In-Transit')) ||
-      (statusFilter === 'Dry-Docking' && (v.status === 'Dry Docking' || v.status === 'Dry-Docking')) ||
-      (statusFilter === 'Dry Docking' && (v.status === 'Dry Docking' || v.status === 'Dry-Docking'));
+      statusFilter === 'ALL' || v.status === statusFilter;
     const matchesAssuranceSet =
       assuranceSetFilter === 'ALL' ||
       assuranceSets.some(
@@ -157,8 +152,14 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
   };
 
   const renderSortIndicator = (field: VesselSortField) => {
-    if (sortField !== field) return <span className="text-muted ms-1 small opacity-50">↕</span>;
-    return <span className="text-primary ms-1 small fw-bold">{sortDirection === 'asc' ? '▲' : '▼'}</span>;
+    if (sortField !== field) {
+      return <ArrowUpDown size={14} className="text-muted ms-1 opacity-50 inline-block align-middle" />;
+    }
+    return sortDirection === 'asc' ? (
+      <ArrowUp size={14} className="text-primary ms-1 inline-block align-middle" />
+    ) : (
+      <ArrowDown size={14} className="text-primary ms-1 inline-block align-middle" />
+    );
   };
 
   const sortedVessels = [...filteredVessels].sort((a, b) => {

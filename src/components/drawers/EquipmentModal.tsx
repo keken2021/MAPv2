@@ -5,6 +5,7 @@
 */
 
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { EquipmentAsset, EquipmentCategory } from '../../types/equipment';
 import { getDefaultAssetStatus, deriveComplianceStatus } from '../../types/asset';
@@ -99,9 +100,16 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
       <div className="modal fade show d-block" tabIndex={-1} role="dialog" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
         <div className="modal-dialog modal-lg modal-dialog-centered">
           <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title fw-bold">Register Equipment</h5>
-              <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
+            <div className="modal-header d-flex align-items-center justify-content-between p-3 border-bottom">
+              <h5 className="modal-title fw-bold m-0">Register Equipment</h5>
+              <button
+                type="button"
+                className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
+                onClick={onClose}
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
             </div>
             <div className="modal-body">
               {errorMessage && <div className="alert alert-danger py-2 small">{errorMessage}</div>}
