@@ -1202,16 +1202,13 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
             {/* DYNAMIC PILLAR STEPS */}
             {currentStepData.id === 'step-plant' && (
               <div className="d-flex flex-column gap-3">
-                <div className="p-3 bg-light border rounded-3 d-flex align-items-center justify-content-between">
+                <div className="p-3 bg-light border rounded-3 d-flex align-items-center gap-2.5">
                   <div>
-                    <strong className="text-dark small d-block">Plant (Physical Assets)</strong>
+                    <strong className="text-dark small d-block">{assuranceType === 'Project' ? 'Plant' : 'Documents'}</strong>
                     <div className="text-muted small" style={{ fontSize: '0.78rem' }}>
-                      Configure statutory and specialized requirements for all physical assets (Vessels &amp; Equipment).
+                      Statutory and specialized requirements for all physical assets (Vessels &amp; Equipment).
                     </div>
                   </div>
-                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.7rem' }}>
-                    Plant Section
-                  </span>
                 </div>
                 {assuranceType === 'Project' ? (
                   <div className="d-flex flex-column gap-3">
@@ -1232,16 +1229,13 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
 
             {currentStepData.id === 'step-people' && (
               <div className="d-flex flex-column gap-3">
-                <div className="p-3 bg-light border rounded-3 d-flex align-items-center justify-content-between">
+                <div className="p-3 bg-light border rounded-3 d-flex align-items-center gap-2.5">
                   <div>
-                    <strong className="text-dark small d-block">People (Key Seafarers &amp; Crew)</strong>
+                    <strong className="text-dark small d-block">{assuranceType === 'Project' ? 'People' : 'Documents'}</strong>
                     <div className="text-muted small" style={{ fontSize: '0.78rem' }}>
-                      Seafarer qualifications, STCW credentials, and medical fitness certificates for {selectedCrew?.fullName || 'Assigned Crew'}.
+                      Seafarer qualifications, STCW credentials, and medical fitness for {selectedCrew?.fullName || 'assigned crew'}.
                     </div>
                   </div>
-                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.7rem' }}>
-                    People Section
-                  </span>
                 </div>
                 {renderSubtypeSection('Crew', assuranceType === 'Project')}
               </div>
@@ -1249,16 +1243,13 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
 
             {currentStepData.id === 'step-process' && (
               <div className="d-flex flex-column gap-3">
-                <div className="p-3 bg-light border rounded-3 d-flex align-items-center justify-content-between">
+                <div className="p-3 bg-light border rounded-3 d-flex align-items-center gap-2.5">
                   <div>
-                    <strong className="text-dark small d-block">Process (Operational &amp; HSE Plans)</strong>
+                    <strong className="text-dark small d-block">{assuranceType === 'Project' ? 'Process' : 'Documents'}</strong>
                     <div className="text-muted small" style={{ fontSize: '0.78rem' }}>
-                      Operational procedures, MOP method statements, HAZID, and SIMOPS protocols for {selectedActivity?.name || 'Operations'}.
+                      HSE plans, Method Statements (MOP), HAZID/HAZOP, and SIMOPS protocols for {selectedActivity?.name || 'operations'}.
                     </div>
                   </div>
-                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.7rem' }}>
-                    Process Section
-                  </span>
                 </div>
                 {renderSubtypeSection('Activity', assuranceType === 'Project')}
               </div>

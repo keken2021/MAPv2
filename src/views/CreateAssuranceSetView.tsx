@@ -1858,11 +1858,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 <div className="d-flex align-items-center justify-content-between mb-2">
                                   <div className="d-flex align-items-center gap-2">
                                     <Ship className="w-4 h-4 text-primary" />
-                                    <span className="fw-bold text-dark small">1. Plant: Vessels</span>
+                                    <span className="fw-bold text-dark small">Vessels</span>
                                   </div>
-                                  <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                    Plant Pillar
-                                  </span>
                                 </div>
                                 <select
                                   id="grid-project-subasset-vessel"
@@ -1898,11 +1895,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 <div className="d-flex align-items-center justify-content-between mb-2">
                                   <div className="d-flex align-items-center gap-2">
                                     <Wrench className="w-4 h-4 text-primary" />
-                                    <span className="fw-bold text-dark small">2. Plant: Equipments</span>
+                                    <span className="fw-bold text-dark small">Equipments</span>
                                   </div>
-                                  <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                    Plant Pillar
-                                  </span>
                                 </div>
                                 <select
                                   id="grid-project-subasset-equipment"
@@ -1938,11 +1932,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 <div className="d-flex align-items-center justify-content-between mb-2">
                                   <div className="d-flex align-items-center gap-2">
                                     <Users className="w-4 h-4 text-primary" />
-                                    <span className="fw-bold text-dark small">3. People: Crew</span>
+                                    <span className="fw-bold text-dark small">Crew</span>
                                   </div>
-                                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                    People Pillar
-                                  </span>
                                 </div>
                                 <select
                                   id="grid-project-subasset-crew"
@@ -1978,11 +1969,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 <div className="d-flex align-items-center justify-content-between mb-2">
                                   <div className="d-flex align-items-center gap-2">
                                     <Activity className="w-4 h-4 text-primary" />
-                                    <span className="fw-bold text-dark small">4. Process: Operations &amp; HSE</span>
+                                    <span className="fw-bold text-dark small">Operations &amp; HSE</span>
                                   </div>
-                                  <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                    Process Pillar
-                                  </span>
                                 </div>
                                 <select
                                   id="grid-project-subasset-activity"
@@ -2802,18 +2790,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
                     <div>
                       <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        Plant (Physical Assets)
+                        {assuranceType === 'Project' ? 'Plant' : 'Documents'}
                       </h5>
                       <div className="text-muted small mt-0.5">
                         {assuranceType === 'Project'
-                          ? 'Configure statutory and specialized requirements for all physical assets (Vessels, Barges, Cranes, ROVs, Deck Equipment) under this campaign on a single screen.'
-                          : `Configure statutory and specialized requirements for ${assuranceType === 'Vessel' ? 'marine vessel hulls and barges' : 'critical deck equipment and machinery'}.`}
+                          ? 'Statutory and specialized requirements for all physical assets (Vessels, Equipment) under this campaign.'
+                          : `Statutory and specialized requirements for ${assuranceType === 'Vessel' ? 'marine vessels' : 'deck equipment and machinery'}.`}
                       </div>
                     </div>
                   </div>
-                  <span className="badge bg-primary text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
-                    Plant Section
-                  </span>
                 </div>
               </div>
 
@@ -2860,16 +2845,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
                     <div>
                       <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        People (Key Seafarers &amp; Crew)
+                        {assuranceType === 'Project' ? 'People' : 'Documents'}
                       </h5>
                       <div className="text-muted small mt-0.5">
-                        Seafarer qualifications, STCW Certificates of Competency, BOSIET inductions, and medical fitness credentials for {selectedCrew?.fullName || 'Assigned Crew'}.
+                        Seafarer qualifications, STCW certificates, BOSIET inductions, and medical fitness for {selectedCrew?.fullName || 'assigned crew'}.
                       </div>
                     </div>
                   </div>
-                  <span className="badge bg-primary text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
-                    People Section
-                  </span>
                 </div>
               </div>
               {renderSubtypeSection('Crew', assuranceType === 'Project')}
@@ -2887,16 +2869,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
                     <div>
                       <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        Process (Operational &amp; HSE Plans)
+                        {assuranceType === 'Project' ? 'Process' : 'Documents'}
                       </h5>
                       <div className="text-muted small mt-0.5">
-                        Project-wide HSE management, Field Method Statements (MOP), HAZID/HAZOP risk mitigations, SIMOPS protocols, and insurances for {selectedActivity?.name || 'Operational Scope'}.
+                        HSE plans, Method Statements (MOP), HAZID/HAZOP, SIMOPS protocols, and insurances for {selectedActivity?.name || 'operational scope'}.
                       </div>
                     </div>
                   </div>
-                  <span className="badge bg-primary text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
-                    Process Section
-                  </span>
                 </div>
               </div>
               {renderSubtypeSection('Activity', assuranceType === 'Project')}
