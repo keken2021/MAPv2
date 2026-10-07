@@ -4,7 +4,7 @@
   role in system: rendered by App.tsx when currentHashView is 'create-assurance-set'.
 */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import {
   AssuranceSet,
@@ -20,11 +20,9 @@ import {
 import { UserProfile } from '../types/user';
 import {
   filterCAdminAvailableToCharter,
-  filterCAdminOwnFleet,
-  filterVesselsForPersona,
+  filterVesselAdminAvailableToCharter,
   getClientAdminOrganization,
   isChartererMatchingVesselOwner,
-  isVesselOwnedByClientOrg,
 } from '../utils/rbacHelpers';
 import {
   usersWithRole,
@@ -44,7 +42,6 @@ import {
   SUBTYPE_CATEGORIES,
   StandardSubtypeDocument,
   SubtypeTemplate,
-  EXISTING_PROJECTS,
   EXISTING_ACTIVITIES,
   getThreePillarsCategory,
   THREE_PILLARS_CONFIG,
@@ -54,6 +51,7 @@ import {
   findMatchingDocumentForRequirement,
   getAssetAutoAttachSummary,
 } from '../utils/documentMatchingHelpers';
+import { getAssuranceWizardProjectOptions } from '../utils/projectHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Layers, Sparkles, CheckCircle2 } from 'lucide-react';
 
 interface SpecializedDoc {
@@ -84,26 +82,33 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     previousHashView,
     createAssuranceForVesselId,
     setCreateAssuranceForVesselId,
+    projects,
+    returnToProjectId,
+    setReturnToProjectId,
     users,
   } = useMapStore();
 
+  const availableProjectOptions = useMemo(
+    () => getAssuranceWizardProjectOptions(projects, activePersona, users, assuranceSets),
+    [projects, activePersona, users, assuranceSets],
+  );
+
   const isClientAdmin = activePersona === 'C Admin';
+  const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
   const clientOrg = getClientAdminOrganization(users);
 
-  const [vesselSource, setVesselSource] = useState<'external' | 'own-fleet'>('external');
-
   const availableVessels = isClientAdmin
-    ? vesselSource === 'own-fleet'
-      ? filterCAdminOwnFleet(vessels, clientOrg)
-      : filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg)
-    : vessels;
+    ? filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg)
+    : isVesselAdmin
+      ? filterVesselAdminAvailableToCharter(vessels)
+      : vessels;
 
   const defaultCharterer = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
-  const prefilledVessel = createAssuranceForVesselId
-    ? vessels.find((v) => v.id === createAssuranceForVesselId)
+  const lockedVessel = createAssuranceForVesselId
+    ? availableVessels.find((v) => v.id === createAssuranceForVesselId)
     : undefined;
-  const initialVesselId = prefilledVessel?.id || availableVessels[0]?.id || vessels[0]?.id || '';
-  const initialVesselName = prefilledVessel?.name || availableVessels[0]?.name || vessels[0]?.name || 'Vessel';
+  const initialVesselId = lockedVessel?.id || availableVessels[0]?.id || '';
+  const initialVesselName = lockedVessel?.name || availableVessels[0]?.name || 'Vessel';
 
   /* Wizard Step State */
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -116,7 +121,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     () => `${defaultCharterer} - ${initialVesselName} Charter Vetting`
   );
   const [assuranceType, setAssuranceType] = useState<AssuranceScopeType>('Project');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => EXISTING_PROJECTS[0]?.id || '');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [vesselId, setVesselId] = useState(initialVesselId);
   const [selectedCrewId, setSelectedCrewId] = useState<string>(() => crew[0]?.id || '');
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(() => equipment[0]?.id || '');
@@ -127,7 +132,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [charterer, setCharterer] = useState(defaultCharterer);
   const [startDate, setStartDate] = useState('2026-11-01');
   const [endDate, setEndDate] = useState('2027-11-01');
-  const isVesselLocked = Boolean(createAssuranceForVesselId);
+  const isVesselLocked = Boolean(lockedVessel);
+
+  useEffect(() => {
+    if (createAssuranceForVesselId && !lockedVessel) {
+      setCreateAssuranceForVesselId(undefined);
+    }
+  }, [createAssuranceForVesselId, lockedVessel, setCreateAssuranceForVesselId]);
 
   /* Global template selector from existing assurance sets (optional) */
   const [selectedGlobalTemplateId, setSelectedGlobalTemplateId] = useState<string>(templateSetId || '');
@@ -144,7 +155,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [suitabilityCheckRequired, setSuitabilityCheckRequired] = useState<boolean>(true);
   const [authorityValidationMethod, setAuthorityValidationMethod] = useState<AuthorityValidationMethod>('api');
 
-  const selectedVesselForScope = vessels.find((v) => v.id === vesselId) || availableVessels[0] || vessels[0];
+  const selectedVesselForScope = availableVessels.find((v) => v.id === vesselId) || availableVessels[0];
   const selectedEquipmentForScope = equipment.find((e) => e.id === selectedEquipmentId);
   const selectedCrewForScope = crew.find((c) => c.id === selectedCrewId);
   const selectedActivityForScope = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId);
@@ -162,7 +173,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             : (selectedVesselForScope?.registeredOwner || 'Northwind Marine Pty Ltd');
 
   const vesselOwnerOrg = serviceProviderOrg;
-  const isCharteringOtherServices = !isClientAdmin && (vesselSource === 'external' || (selectedVesselForScope && !selectedVesselForScope.registeredOwner?.includes('Northwind')));
+  const isCharteringOtherServices =
+    !isClientAdmin ||
+    Boolean(selectedVesselForScope && !isChartererMatchingVesselOwner(clientOrg, selectedVesselForScope));
 
   /* Dynamic Stakeholder candidate lists strictly enforcing Review Channel Governance & Segregation of Duties */
   const verifierCandidates = filterCandidatesByReviewMode(users, reviewMode, 'Verifier', {
@@ -357,8 +370,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Handle global existing assurance set template selection */
   const applyGlobalTemplateData = (targetSet: AssuranceSet) => {
-    if (!createAssuranceForVesselId) {
-      setVesselId(targetSet.vesselId);
+    if (!lockedVessel) {
+      const templateVesselId = availableVessels.some((v) => v.id === targetSet.vesselId)
+        ? targetSet.vesselId
+        : availableVessels[0]?.id || '';
+      setVesselId(templateVesselId);
     }
     if (targetSet.charterWindowStart) setStartDate(targetSet.charterWindowStart);
     if (targetSet.charterWindowEnd) setEndDate(targetSet.charterWindowEnd);
@@ -371,9 +387,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       : (targetSet.charterer || targetSet.initiatorOrg || 'Northwind Marine Pty Ltd');
     setCharterer(templateCharterer);
 
-    const targetVesselObj = createAssuranceForVesselId
-      ? vessels.find((v) => v.id === createAssuranceForVesselId)
-      : vessels.find((v) => v.id === targetSet.vesselId) || vessels[0];
+    const targetVesselObj = lockedVessel
+      || availableVessels.find((v) => v.id === targetSet.vesselId)
+      || availableVessels[0];
     const vesselDisplayName = targetSet.vesselName || targetVesselObj?.name || 'Vessel';
 
     const baseSubject = targetSet.title
@@ -427,7 +443,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           } else {
             setTemplatePrivacy('organization');
           }
-          if (target.vesselId) setVesselId(target.vesselId);
+          if (target.vesselId) {
+            setVesselId(
+              availableVessels.some((v) => v.id === target.vesselId)
+                ? target.vesselId
+                : availableVessels[0]?.id || '',
+            );
+          }
           if (target.charterer) setCharterer(target.charterer);
           if (target.charterWindowStart) setStartDate(target.charterWindowStart);
           if (target.charterWindowEnd) setEndDate(target.charterWindowEnd);
@@ -549,9 +571,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       return u;
     });
 
-    const proj = EXISTING_PROJECTS.find((p) => p.id === projId);
+    const proj = availableProjectOptions.find((p) => p.id === projId);
+    const storeProject = projects.find((p) => p.id === projId);
     if (proj) {
-      if (proj.primaryVesselId && vessels.some((v) => v.id === proj.primaryVesselId)) {
+      if (proj.primaryVesselId && availableVessels.some((v) => v.id === proj.primaryVesselId)) {
         setVesselId(proj.primaryVesselId);
       }
       if (proj.primaryCrewId && crew.some((c) => c.id === proj.primaryCrewId)) {
@@ -566,7 +589,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       if (proj.defaultTemplateId) {
         handleSelectProjectTemplate(proj.defaultTemplateId);
       }
-      const chartererName = isClientAdmin ? clientOrg : proj.clientOperator;
+      if (storeProject?.charterWindowStart) {
+        setStartDate(storeProject.charterWindowStart);
+      }
+      if (storeProject?.charterWindowEnd) {
+        setEndDate(storeProject.charterWindowEnd);
+      }
+      const chartererName = isClientAdmin
+        ? clientOrg
+        : (storeProject?.charterer || storeProject?.clientOperator || proj.clientOperator);
       setCharterer(chartererName);
       setTitle(`${chartererName} - ${proj.name} Integrated Assurance Campaign`);
       triggerAutofillAnimation([
@@ -579,6 +610,25 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       ]);
     }
   };
+
+  useEffect(() => {
+    if (availableProjectOptions.length === 0) return;
+
+    const nextProjectId =
+      returnToProjectId && availableProjectOptions.some((p) => p.id === returnToProjectId)
+        ? returnToProjectId
+        : selectedProjectId && availableProjectOptions.some((p) => p.id === selectedProjectId)
+          ? selectedProjectId
+          : availableProjectOptions[0].id;
+
+    if (returnToProjectId) {
+      setReturnToProjectId(undefined);
+    }
+
+    if (nextProjectId && nextProjectId !== selectedProjectId) {
+      handleProjectChange(nextProjectId);
+    }
+  }, [availableProjectOptions, returnToProjectId, selectedProjectId, setReturnToProjectId]);
 
   /* Toggle individual standard document */
   const handleToggleStandardDoc = (docId: string) => {
@@ -655,8 +705,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       if (assuranceType === 'Project' && !selectedProjectId) {
         newErrors.projectId = 'Project selection is required.';
       }
-      if (assuranceType === 'Vessel' && !vesselId) {
-        newErrors.vesselId = 'Target vessel is required.';
+      if ((assuranceType === 'Vessel' || assuranceType === 'Project') && !availableVessels.some((v) => v.id === vesselId)) {
+        newErrors.vesselId = 'Select a vessel from another organization. You cannot assign your own vessel to this assurance set.';
       }
       if (assuranceType === 'Crew' && !selectedCrewId) {
         newErrors.crewId = 'Crew member selection is required.';
@@ -697,8 +747,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           approverId: approvalRequired ? assignedApprover : undefined,
           vesselOwnerOrg: serviceProviderOrg,
           serviceProviderOrg,
-          isCharteringOtherServices: false,
-          isClientAdmin: false,
+          isCharteringOtherServices,
+          isClientAdmin,
           users,
         })
       ) {
@@ -729,8 +779,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const selectedProject = EXISTING_PROJECTS.find((p) => p.id === selectedProjectId) || EXISTING_PROJECTS[0];
-  const selectedVessel = vessels.find((v) => v.id === vesselId) || availableVessels[0] || vessels[0];
+  const selectedProject =
+    availableProjectOptions.find((p) => p.id === selectedProjectId) || availableProjectOptions[0];
+  const selectedVessel = availableVessels.find((v) => v.id === vesselId) || availableVessels[0];
   const selectedCrew = crew.find((c) => c.id === selectedCrewId) || crew[0];
   const selectedEquipment = equipment.find((e) => e.id === selectedEquipmentId) || equipment[0];
   const selectedActivity = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId) || EXISTING_ACTIVITIES[0];
@@ -758,19 +809,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (!validateCurrentStep()) {
       setCurrentStep(1);
       return;
-    }
-
-    const isOwnFleetSelection = isClientAdmin && isVesselOwnedByClientOrg(selectedVessel, clientOrg);
-    const isExternalSelfCharterRisk =
-      isClientAdmin &&
-      vesselSource === 'external' &&
-      isChartererMatchingVesselOwner(clientOrg, selectedVessel);
-
-    if (isExternalSelfCharterRisk) {
-      const confirmed = window.confirm(
-        `The selected vessel appears to be owned by ${clientOrg}. This looks like an internal deployment, not a third-party charter.\n\nClick OK to proceed as internal deployment.`
-      );
-      if (!confirmed) return;
     }
 
     const uniqueSetId = generateUniqueAssuranceSetId(assuranceSets);
@@ -836,9 +874,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     });
 
-    const initiatorOrg = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
-    const effectiveCharterer = charterer.trim() || initiatorOrg;
-    const internalDeployment = isClientAdmin && (vesselSource === 'own-fleet' || isOwnFleetSelection);
+    const ownerOrg = charterer.trim() || (isClientAdmin ? clientOrg : defaultCharterer);
+    const effectiveCharterer = ownerOrg;
+    const initiatorOrg = ownerOrg;
 
     const targetSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
 
@@ -915,13 +953,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       visibility: templatePrivacy,
       templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
-      vesselId: selectedVessel?.id || 'VESSEL-001',
+      vesselId: selectedVessel?.id || '',
       vesselName: effectiveAssetName,
       imoNumber: effectiveImo,
       initiatorOrg,
       initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
       charterer: effectiveCharterer,
-      internalDeployment: internalDeployment || undefined,
       charterWindowStart: startDate,
       charterWindowEnd: endDate,
       stage: 'Initiated',
@@ -948,11 +985,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       suitabilityCheckRequired,
       authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
       serviceProviderOrg,
-      clientOrg: initiatorOrg,
+      clientOrg: ownerOrg,
       requirements: effectiveRequirements,
       stakeholders: undefined,
       assignedStakeholders: undefined,
-      createdByPersona: '',
+      createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
+      clientWorkflowStage: isClientAdmin ? 'draft' : undefined,
     };
 
     if (editingDraftId) {
@@ -1031,10 +1069,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     });
 
-    const isOwnFleetSelection = isClientAdmin && isVesselOwnedByClientOrg(selectedVessel, clientOrg);
-    const initiatorOrg = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
-    const effectiveCharterer = charterer.trim() || initiatorOrg;
-    const internalDeployment = isClientAdmin && (vesselSource === 'own-fleet' || isOwnFleetSelection);
+    const ownerOrg = charterer.trim() || (isClientAdmin ? clientOrg : defaultCharterer);
+    const effectiveCharterer = ownerOrg;
+    const initiatorOrg = ownerOrg;
 
     const effectiveRequirements = autoAttachDocumentsToRequirements(finalRequirements, {
       documents,
@@ -1109,13 +1146,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       visibility: 'draft',
       templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
-      vesselId: selectedVessel?.id || 'VESSEL-001',
+      vesselId: selectedVessel?.id || '',
       vesselName: effectiveAssetName,
       imoNumber: effectiveImo,
       initiatorOrg,
       initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
       charterer: effectiveCharterer,
-      internalDeployment: internalDeployment || undefined,
       charterWindowStart: startDate || '2026-11-01',
       charterWindowEnd: endDate || '2027-11-01',
       stage: 'Initiated',
@@ -1142,11 +1178,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       suitabilityCheckRequired,
       authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
       serviceProviderOrg,
-      clientOrg: initiatorOrg,
+      clientOrg: ownerOrg,
       requirements: effectiveRequirements,
       stakeholders: undefined,
       assignedStakeholders: undefined,
-      createdByPersona: '',
+      createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
+      clientWorkflowStage: isClientAdmin ? 'draft' : undefined,
     };
 
     if (editingDraftId) {
@@ -1800,11 +1837,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           onChange={(e) => handleProjectChange(e.target.value)}
                           required
                         >
-                          {EXISTING_PROJECTS.map((proj) => (
-                            <option key={proj.id} value={proj.id}>
-                              {proj.id} &mdash; {proj.name} ({proj.clientOperator})
-                            </option>
-                          ))}
+                          {availableProjectOptions.length === 0 ? (
+                            <option value="">No projects available — create a project first</option>
+                          ) : (
+                            availableProjectOptions.map((proj) => (
+                              <option key={proj.id} value={proj.id}>
+                                {proj.id} &mdash; {proj.name} ({proj.clientOperator})
+                              </option>
+                            ))
+                          )}
                         </select>
                         {fieldErrors.projectId && (
                           <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
@@ -1863,16 +1904,36 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 </div>
                                 <select
                                   id="grid-project-subasset-vessel"
-                                  className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold mb-2"
+                                  className={`form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold mb-2${fieldErrors.vesselId ? ' is-invalid border-danger' : ''}`}
                                   value={vesselId}
-                                  onChange={(e) => setVesselId(e.target.value)}
+                                  onChange={(e) => {
+                                    setVesselId(e.target.value);
+                                    setFieldErrors((prev) => {
+                                      const u = { ...prev };
+                                      delete u.vesselId;
+                                      return u;
+                                    });
+                                  }}
+                                  disabled={availableVessels.length === 0}
                                 >
-                                  {availableVessels.map((v) => (
-                                    <option key={v.id} value={v.id}>
-                                      {v.name} (IMO: {v.imoNumber} - {v.vesselType})
-                                    </option>
-                                  ))}
+                                  {availableVessels.length === 0 ? (
+                                    <option value="">No vessels from another organization</option>
+                                  ) : (
+                                    availableVessels.map((v) => (
+                                      <option key={v.id} value={v.id}>
+                                        {v.name} (IMO: {v.imoNumber} - {v.vesselType})
+                                      </option>
+                                    ))
+                                  )}
                                 </select>
+                                {fieldErrors.vesselId && (
+                                  <div className="invalid-feedback d-block small mt-1" style={{ fontSize: '0.75rem' }}>
+                                    {fieldErrors.vesselId}
+                                  </div>
+                                )}
+                                <div className="text-secondary mt-1" style={{ fontSize: '0.72rem' }}>
+                                  Own-organization vessels are excluded. Creating this set makes you the client of the selected vessel.
+                                </div>
                                 {selectedVessel && (
                                   <div className="p-2 bg-light rounded-2 text-secondary" style={{ fontSize: '0.75rem' }}>
                                     <div className="d-flex justify-content-between">
@@ -2023,7 +2084,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         disabled={availableVessels.length === 0 || isVesselLocked}
                       >
                         {availableVessels.length === 0 ? (
-                          <option value="">No vessels available</option>
+                          <option value="">No vessels from another organization</option>
                         ) : (
                           availableVessels.map((v) => (
                             <option key={v.id} value={v.id}>
@@ -2037,6 +2098,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           {fieldErrors.vesselId}
                         </div>
                       )}
+                      <div className="text-secondary small mt-1" style={{ fontSize: '0.78rem' }}>
+                        Own-organization vessels are excluded. Creating this set makes you the client of the selected vessel.
+                      </div>
 
                       {selectedVessel && (
                         <div className="mt-3 p-3 bg-light border rounded-3 small">

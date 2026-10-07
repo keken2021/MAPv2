@@ -4,7 +4,8 @@
   role in system: consumed by useMapStore and project views.
 */
 
-import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
+import { AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype } from '../types/assurance';
+import { EXISTING_PROJECTS } from './assuranceTemplates';
 import { UserRolePersona } from '../types/audit';
 import { CrewMember } from '../types/crew';
 import { EquipmentAsset } from '../types/equipment';
@@ -20,6 +21,7 @@ import { calculateAssuranceSetReadiness } from './readinessHelpers';
 import {
   filterVesselsForPersona,
   getClientAdminOrganization,
+  isAssuranceSetAssignedToPersona,
   orgFieldMatches,
 } from './rbacHelpers';
 
@@ -172,10 +174,52 @@ export function getEligibleAssuranceSetsForAsset(
   );
 }
 
+function assetTypeToSubtype(assetType: ProjectAssetLink['assetType']): AssuranceSubtype {
+  if (assetType === 'Crew') return 'Crew';
+  if (assetType === 'Equipment') return 'Equipment';
+  if (assetType === 'Activity') return 'Activity';
+  return 'Vessel';
+}
+
+function isChildSetComplete(childSet: AssuranceSet): boolean {
+  return (
+    childSet.stage === 'Approved' ||
+    childSet.stage === 'Certified' ||
+    childSet.approverDecision === 'Approved'
+  );
+}
+
+/** Master project requirements that link to child assurance sub-sets (not flattened documents). */
 export function buildMasterAssuranceRequirements(
   childSets: AssuranceSet[],
   projectName: string,
+  assetLinks: ProjectAssetLink[] = [],
 ): AssuranceRequirement[] {
+  if (assetLinks.length > 0) {
+    const links: AssuranceRequirement[] = assetLinks
+      .map((link) => {
+        const childSet = childSets.find((s) => s.id === link.assuranceSetId);
+        if (!childSet) return null;
+        const complete = isChildSetComplete(childSet);
+        return {
+          id: `PROJ-LINK-${link.assuranceSetId}`,
+          category: 'Custom Requirement',
+          title: childSet.title,
+          description: `Linked sub-set for ${link.assetName} (${link.assetType}) · ${link.providerOrganization}`,
+          subtype: assetTypeToSubtype(link.assetType),
+          fulfillmentType: 'assurance_set' as const,
+          linkedAssuranceSetId: childSet.id,
+          isMandatory: true,
+          isFulfilled: complete,
+          ocrConfidence: 0,
+          verifierStatus: complete ? ('Verified' as const) : ('Pending' as const),
+        };
+      })
+      .filter((r): r is AssuranceRequirement => r !== null);
+
+    if (links.length > 0) return links;
+  }
+
   const merged: AssuranceRequirement[] = [];
   const seen = new Set<string>();
 
@@ -186,6 +230,7 @@ export function buildMasterAssuranceRequirements(
       seen.add(key);
       merged.push({
         ...req,
+        fulfillmentType: 'document',
         id: `PROJ-REQ-${childSet.id}-${req.id}`,
         description: req.description
           ? `${req.description} (from ${childSet.id} · ${childSet.title})`
@@ -200,6 +245,7 @@ export function buildMasterAssuranceRequirements(
       category: 'Activity Custom Requirement',
       title: `Project Charter Scope — ${projectName}`,
       description: 'Placeholder until asset assurance sets are linked and synced.',
+      fulfillmentType: 'document',
       isMandatory: true,
       isFulfilled: false,
       ocrConfidence: 0,
@@ -208,6 +254,17 @@ export function buildMasterAssuranceRequirements(
   }
 
   return merged;
+}
+
+/** Standalone assurance sets eligible to attach to a project roster. */
+export function getStandaloneAssuranceSetsForAttach(
+  assuranceSets: AssuranceSet[],
+  project: Project,
+): AssuranceSet[] {
+  const linkedIds = new Set(project.assetLinks.map((l) => l.assuranceSetId));
+  return assuranceSets.filter(
+    (s) => !s.isProjectMaster && !linkedIds.has(s.id) && s.visibility !== 'draft',
+  );
 }
 
 export function calculateProjectReadiness(
@@ -228,24 +285,90 @@ export function calculateProjectReadiness(
   return scores.length > 0 ? Math.min(...scores) : 0;
 }
 
+function projectOrgMatchesClient(
+  project: Project,
+  clientOrg: string,
+): boolean {
+  const fields = [
+    project.ownerOrganization,
+    project.operatorOrganization,
+    project.clientOperator,
+    project.requestingOrganization,
+    project.charterer,
+    project.serviceProvider,
+  ];
+  return fields.some((field) => field && orgFieldMatches(clientOrg, field));
+}
+
 export function filterProjectsForPersona(
   projects: Project[],
   persona: UserRolePersona,
   users: UserProfile[],
+  assuranceSets: AssuranceSet[] = [],
 ): Project[] {
   if (persona === 'Administrator') return projects;
   if (persona === 'C Admin') {
     const clientOrg = getClientAdminOrganization(users);
-    return projects.filter(
-      (p) =>
-        p.operatorOrganization.toLowerCase().includes(clientOrg.toLowerCase()) ||
-        p.clientOperator.toLowerCase().includes(clientOrg.toLowerCase()) ||
-        p.requestingOrganization.toLowerCase().includes(clientOrg.toLowerCase()) ||
-        (p.charterer && p.charterer.toLowerCase().includes(clientOrg.toLowerCase())) ||
-        (p.serviceProvider && p.serviceProvider.toLowerCase().includes(clientOrg.toLowerCase())),
-    );
+    return projects.filter((p) => {
+      if (projectOrgMatchesClient(p, clientOrg)) return true;
+      if (assuranceSets.length === 0) return false;
+
+      const master = assuranceSets.find((s) => s.id === p.masterAssuranceSetId);
+      if (master && isAssuranceSetAssignedToPersona(master, persona)) return true;
+
+      return p.assetLinks.some((link) => {
+        const child = assuranceSets.find((s) => s.id === link.assuranceSetId);
+        return child && isAssuranceSetAssignedToPersona(child, persona);
+      });
+    });
   }
   return [];
+}
+
+/** Resolve primary sub-asset ids from explicit project fields or first matching asset link. */
+export function resolveProjectPrimaryAssetIds(
+  project: Project,
+): Pick<AssuranceProject, 'primaryVesselId' | 'primaryCrewId' | 'primaryEquipmentId' | 'primaryActivityId'> {
+  const fromLink = (assetType: ProjectAssetLink['assetType']) =>
+    project.assetLinks.find((link) => link.assetType === assetType)?.assetId;
+
+  return {
+    primaryVesselId: project.primaryVesselId || fromLink('Vessel'),
+    primaryCrewId: project.primaryCrewId || fromLink('Crew'),
+    primaryEquipmentId: project.primaryEquipmentId || fromLink('Equipment'),
+    primaryActivityId: project.primaryActivityId || fromLink('Activity'),
+  };
+}
+
+/** Map a live registry project to assurance wizard project scope metadata. */
+export function projectToAssuranceProjectScope(project: Project): AssuranceProject {
+  return {
+    id: project.id,
+    name: project.name,
+    clientOperator: project.clientOperator || project.requestingOrganization,
+    location: project.location,
+    description: project.description,
+    ...resolveProjectPrimaryAssetIds(project),
+    defaultTemplateId: project.defaultTemplateId,
+  };
+}
+
+/**
+  what: project scope options for Create Assurance Set wizard.
+  how: persona-filtered live projects first, then static template catalog entries not already in the registry.
+*/
+export function getAssuranceWizardProjectOptions(
+  projects: Project[],
+  persona: UserRolePersona,
+  users: UserProfile[],
+  assuranceSets: AssuranceSet[] = [],
+): AssuranceProject[] {
+  const registryProjects = filterProjectsForPersona(projects, persona, users, assuranceSets).map(
+    projectToAssuranceProjectScope,
+  );
+  const registryIds = new Set(registryProjects.map((project) => project.id));
+  const templateOnly = EXISTING_PROJECTS.filter((project) => !registryIds.has(project.id));
+  return [...registryProjects, ...templateOnly];
 }
 
 export function generateUniqueProjectId(existing: Project[]): string {

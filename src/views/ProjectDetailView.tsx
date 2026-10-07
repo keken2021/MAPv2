@@ -4,26 +4,29 @@
   role in system: rendered for #/project/{id}.
 */
 
-import React, { useMemo, useState } from 'react';
-import { ReadinessGauge } from '../components/common/ReadinessGauge';
-import { useMapStore } from '../store/useMapStore';
-import { ProjectAssetLink, ProjectAssetType } from '../types/project';
+import React, { useEffect, useMemo, useState } from "react";
+import { ReadinessGauge } from "../components/common/ReadinessGauge";
+import { useMapStore } from "../store/useMapStore";
+import { ProjectAssetLink, ProjectAssetType } from "../types/project";
 import {
   filterCrewForProjectComposition,
   filterEquipmentForProjectComposition,
   filterProjectsForPersona,
   filterVesselsForProjectComposition,
   getEligibleAssuranceSetsForAsset,
+  getStandaloneAssuranceSetsForAttach,
   isOrganizationMatch,
   requiresAssuranceSetForAssetLink,
-} from '../utils/projectHelpers';
-import { EXISTING_ACTIVITIES } from '../utils/assuranceTemplates';
+} from "../utils/projectHelpers";
+import { EXISTING_ACTIVITIES } from "../utils/assuranceTemplates";
 
 interface ProjectDetailViewProps {
   projectId: string;
 }
 
-export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId }) => {
+export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
+  projectId,
+}) => {
   const {
     projects,
     assuranceSets,
@@ -41,34 +44,54 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
     syncProjectMasterAssurance,
   } = useMapStore();
 
-  const [activeTab, setActiveTab] = useState<'roster' | 'master' | 'assurance'>('roster');
-  const [assetFilter, setAssetFilter] = useState<'All' | ProjectAssetType>('All');
+  const [activeTab, setActiveTab] = useState<"roster" | "master" | "assurance">(
+    () => (activePersona === "C Admin" ? "master" : "roster"),
+  );
+  const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
+    "All",
+  );
   const [showAddPanel, setShowAddPanel] = useState(false);
-  const [includeExternalProviders, setIncludeExternalProviders] = useState(false);
+  const [attachSetId, setAttachSetId] = useState("");
+  const [includeExternalProviders, setIncludeExternalProviders] =
+    useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const visibleProjects = useMemo(
-    () => filterProjectsForPersona(projects, activePersona, users),
-    [projects, activePersona, users],
+    () =>
+      filterProjectsForPersona(projects, activePersona, users, assuranceSets),
+    [projects, activePersona, users, assuranceSets],
   );
 
   const project = visibleProjects.find((p) => p.id === projectId);
-  const masterSet = assuranceSets.find((s) => s.id === project?.masterAssuranceSetId);
+  const masterSet = assuranceSets.find(
+    (s) => s.id === project?.masterAssuranceSetId,
+  );
 
   const filteredLinks = useMemo(() => {
     if (!project) return [];
-    if (assetFilter === 'All') return project.assetLinks;
+    if (assetFilter === "All") return project.assetLinks;
     return project.assetLinks.filter((l) => l.assetType === assetFilter);
   }, [project, assetFilter]);
 
-  const canManage = activePersona === 'Administrator' || activePersona === 'C Admin';
+  const canManage =
+    activePersona === "Administrator" || activePersona === "C Admin";
+  const isCAdmin = activePersona === "C Admin";
+
+  useEffect(() => {
+    setActiveTab(isCAdmin ? "master" : "roster");
+  }, [projectId, isCAdmin]);
 
   const availableToAdd = useMemo(() => {
     if (!project) return [];
-    const linked = new Set(project.assetLinks.map((l) => `${l.assetType}:${l.assetId}`));
-    const items: Omit<ProjectAssetLink, 'id' | 'projectId' | 'addedAt' | 'addedByPersona'>[] = [];
+    const linked = new Set(
+      project.assetLinks.map((l) => `${l.assetType}:${l.assetId}`),
+    );
+    const items: Omit<
+      ProjectAssetLink,
+      "id" | "projectId" | "addedAt" | "addedByPersona"
+    >[] = [];
     const asOptions = (
-      assetType: ProjectAssetLink['assetType'],
+      assetType: ProjectAssetLink["assetType"],
       assetId: string,
       providerOrganization: string,
     ) =>
@@ -87,54 +110,68 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
       if (linked.has(`Vessel:${v.id}`)) return;
       const providerOrganization = v.registeredOwner;
       items.push({
-        assetType: 'Vessel',
+        assetType: "Vessel",
         assetId: v.id,
         assetName: v.name,
         providerOrganization,
-        assuranceSetId: asOptions('Vessel', v.id, providerOrganization)[0]?.id || '',
+        assuranceSetId:
+          asOptions("Vessel", v.id, providerOrganization)[0]?.id || "",
       });
     });
 
-    filterCrewForProjectComposition(crew, project.requestingOrganization, includeExternalProviders).forEach((c) => {
+    filterCrewForProjectComposition(
+      crew,
+      project.requestingOrganization,
+      includeExternalProviders,
+    ).forEach((c) => {
       if (linked.has(`Crew:${c.id}`)) return;
-      const providerOrganization = c.organization || project.requestingOrganization;
+      const providerOrganization =
+        c.organization || project.requestingOrganization;
       items.push({
-        assetType: 'Crew',
+        assetType: "Crew",
         assetId: c.id,
         assetName: c.fullName,
         providerOrganization,
-        assuranceSetId: asOptions('Crew', c.id, providerOrganization)[0]?.id || '',
+        assuranceSetId:
+          asOptions("Crew", c.id, providerOrganization)[0]?.id || "",
       });
     });
 
-    filterEquipmentForProjectComposition(equipment, project.requestingOrganization, includeExternalProviders).forEach(
-      (e) => {
-        if (linked.has(`Equipment:${e.id}`)) return;
-        items.push({
-          assetType: 'Equipment',
-          assetId: e.id,
-          assetName: e.name,
-          providerOrganization: e.owningOrganization,
-          assuranceSetId: asOptions('Equipment', e.id, e.owningOrganization)[0]?.id || '',
-        });
-      },
-    );
+    filterEquipmentForProjectComposition(
+      equipment,
+      project.requestingOrganization,
+      includeExternalProviders,
+    ).forEach((e) => {
+      if (linked.has(`Equipment:${e.id}`)) return;
+      items.push({
+        assetType: "Equipment",
+        assetId: e.id,
+        assetName: e.name,
+        providerOrganization: e.owningOrganization,
+        assuranceSetId:
+          asOptions("Equipment", e.id, e.owningOrganization)[0]?.id || "",
+      });
+    });
 
     if (includeExternalProviders) {
       EXISTING_ACTIVITIES.forEach((a) => {
         if (linked.has(`Activity:${a.id}`)) return;
         items.push({
-          assetType: 'Activity',
+          assetType: "Activity",
           assetId: a.id,
           assetName: a.name,
           providerOrganization: project.requestingOrganization,
-          assuranceSetId: asOptions('Activity', a.id, project.requestingOrganization)[0]?.id || '',
-          roleInProject: 'Service / activity',
+          assuranceSetId:
+            asOptions("Activity", a.id, project.requestingOrganization)[0]
+              ?.id || "",
+          roleInProject: "Service / activity",
         });
       });
     }
 
-    return items.filter((a) => assetFilter === 'All' || a.assetType === assetFilter);
+    return items.filter(
+      (a) => assetFilter === "All" || a.assetType === assetFilter,
+    );
   }, [
     project,
     vessels,
@@ -150,7 +187,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
     return (
       <div className="alert alert-warning">
         Project not found or not accessible.
-        <button type="button" className="btn btn-sm btn-link" onClick={() => setCurrentHashView('project')}>
+        <button
+          type="button"
+          className="btn btn-sm btn-link"
+          onClick={() => setCurrentHashView("project")}
+        >
           Back to Projects
         </button>
       </div>
@@ -159,17 +200,17 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
 
   const handleRefreshMaster = () => {
     syncProjectMasterAssurance(project.id);
-    setToast('Project master assurance set refreshed.');
+    setToast("Project master assurance set refreshed.");
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleAddAsset = (item: typeof availableToAdd[0]) => {
+  const handleAddAsset = (item: (typeof availableToAdd)[0]) => {
     const needsAssurance = requiresAssuranceSetForAssetLink(
       project.requestingOrganization,
       item.providerOrganization,
     );
     if (needsAssurance && !item.assuranceSetId) {
-      setToast('Cross-organization assets require an assurance set.');
+      setToast("Cross-organization assets require an assurance set.");
       return;
     }
     const result = addAssetToProject(project.id, item);
@@ -177,44 +218,57 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
       setToast(`${item.assetName} added to project.`);
       setShowAddPanel(false);
     } else {
-      setToast(result.message || 'Could not add asset.');
+      setToast(result.message || "Could not add asset.");
     }
     setTimeout(() => setToast(null), 3500);
   };
 
-  const groupedMasterReqs = useMemo(() => {
-    if (!masterSet) return [];
+  const masterSubSets = useMemo(() => {
     return project.assetLinks.map((link) => {
       const sourceSet = assuranceSets.find((s) => s.id === link.assuranceSetId);
-      const reqs = masterSet.requirements.filter((r) =>
-        r.id.includes(link.assuranceSetId) || r.description?.includes(link.assuranceSetId),
+      const linkReq = masterSet?.requirements.find(
+        (r) =>
+          r.linkedAssuranceSetId === link.assuranceSetId ||
+          r.id === `PROJ-LINK-${link.assuranceSetId}`,
       );
-      return {
-        link,
-        sourceSet,
-        requirements: reqs.length > 0 ? reqs : sourceSet?.requirements || [],
-      };
+      return { link, sourceSet, linkReq };
     });
   }, [masterSet, project.assetLinks, assuranceSets]);
 
+  const standaloneSetsForAttach = useMemo(
+    () => getStandaloneAssuranceSetsForAttach(assuranceSets, project),
+    [assuranceSets, project],
+  );
+
   return (
     <div className="d-flex flex-column gap-3">
-      {toast && (
-        <div className="alert alert-success py-2 mb-0">{toast}</div>
+      {toast && <div className="alert alert-success py-2 mb-0">{toast}</div>}
+
+      {isCAdmin && project && (
+        <div className="alert alert-info py-2 mb-0 small">
+          Client-owned project — open a linked sub-set below to review documents
+          (read-only).
+        </div>
       )}
 
       <div className="card map-card-custom p-3">
         <div className="d-flex flex-wrap justify-between align-items-start gap-3">
           <div>
             <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
-              <span className="badge bg-primary font-mono-code">{project.id}</span>
-              <span className="badge bg-info text-dark">{project.projectType}</span>
+              <span className="badge bg-primary font-mono-code">
+                {project.id}
+              </span>
+              <span className="badge bg-info text-dark">
+                {project.projectType}
+              </span>
               {project.riskProfile && (
                 <span
-                  className={`badge ${project.riskProfile.includes('High') || project.riskProfile.includes('Armed')
-                      ? 'bg-danger'
-                      : 'bg-warning text-dark'
-                    }`}
+                  className={`badge ${
+                    project.riskProfile.includes("High") ||
+                    project.riskProfile.includes("Armed")
+                      ? "bg-danger"
+                      : "bg-warning text-dark"
+                  }`}
                 >
                   {project.riskProfile}
                 </span>
@@ -223,45 +277,77 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
             </div>
             <h2 className="h4 fw-bold text-dark mb-1">{project.name}</h2>
             <div className="text-muted small">
-              Requesting: {project.requestingOrganization}
-              {project.charterer && project.charterer !== project.requestingOrganization && (
-                <> · Charterer: {project.charterer}</>
-              )}
+              Client owner:{" "}
+              {project.ownerOrganization ||
+                project.charterer ||
+                project.requestingOrganization}
+              {project.charterer &&
+                project.charterer !== project.requestingOrganization && (
+                  <> · Charterer: {project.charterer}</>
+                )}
             </div>
             {project.serviceProvider && (
-              <div className="text-muted small mt-1">Service Provider: {project.serviceProvider}</div>
+              <div className="text-muted small mt-1">
+                Service Provider: {project.serviceProvider}
+              </div>
             )}
             {project.description && (
               <div className="text-muted small mt-1">{project.description}</div>
             )}
             {project.routeDescription && (
-              <div className="text-muted small mt-1">{project.routeDescription}</div>
+              <div className="text-muted small mt-1">
+                {project.routeDescription}
+              </div>
             )}
             <div className="d-flex flex-wrap gap-3 font-mono-code small mt-1">
-              <span>{project.charterWindowStart} → {project.charterWindowEnd}</span>
+              <span>
+                {project.charterWindowStart} → {project.charterWindowEnd}
+              </span>
               {project.workLocationType && (
-                <span className="text-secondary">· {project.workLocationType}</span>
+                <span className="text-secondary">
+                  · {project.workLocationType}
+                </span>
               )}
               {project.workOrderRef && (
-                <span className="text-secondary">· WO: {project.workOrderRef}</span>
+                <span className="text-secondary">
+                  · WO: {project.workOrderRef}
+                </span>
               )}
             </div>
           </div>
           <div className="text-end">
-            <div className="small text-secondary mb-1">Master AS: {project.masterAssuranceSetId}</div>
-            <ReadinessGauge score={project.readinessScore ?? masterSet?.readinessScore ?? 0} size="md" />
+            <div className="small text-secondary mb-1">
+              Master AS: {project.masterAssuranceSetId}
+            </div>
+            <ReadinessGauge
+              score={project.readinessScore ?? masterSet?.readinessScore ?? 0}
+              size="md"
+            />
             {canManage && (
               <div className="d-flex flex-wrap gap-2 justify-content-end mt-2">
-                <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setShowAddPanel((p) => !p)}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => setShowAddPanel((p) => !p)}
+                >
                   Add Asset
                 </button>
-                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handleRefreshMaster}>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={handleRefreshMaster}
+                >
                   Refresh Project Assurance
                 </button>
                 <button
                   type="button"
                   className="btn btn-sm btn-primary"
-                  onClick={() => setCurrentHashView('assurance-sets', project.masterAssuranceSetId)}
+                  onClick={() =>
+                    setCurrentHashView(
+                      "assurance-sets",
+                      project.masterAssuranceSetId,
+                    )
+                  }
                 >
                   Open Master Set
                 </button>
@@ -272,14 +358,18 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
       </div>
 
       <ul className="nav nav-tabs">
-        {(['roster', 'master', 'assurance'] as const).map((tab) => (
+        {(["roster", "master", "assurance"] as const).map((tab) => (
           <li className="nav-item" key={tab}>
             <button
               type="button"
-              className={`nav-link ${activeTab === tab ? 'active fw-semibold' : ''}`}
+              className={`nav-link ${activeTab === tab ? "active fw-semibold" : ""}`}
               onClick={() => setActiveTab(tab)}
             >
-              {tab === 'roster' ? 'Asset Roster' : tab === 'master' ? 'Master Assurance' : 'Assurance Sets'}
+              {tab === "roster"
+                ? "Asset Roster"
+                : tab === "master"
+                  ? "Master Assurance"
+                  : "Assurance Sets"}
             </button>
           </li>
         ))}
@@ -297,41 +387,72 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
                 checked={includeExternalProviders}
                 onChange={(e) => setIncludeExternalProviders(e.target.checked)}
               />
-              <label className="form-check-label small" htmlFor="projectDetailIncludeExternal">
+              <label
+                className="form-check-label small"
+                htmlFor="projectDetailIncludeExternal"
+              >
                 Include external providers
               </label>
             </div>
           </div>
           <div className="d-flex gap-2 mb-2">
-            {(['All', 'Vessel', 'Crew', 'Equipment', ...(includeExternalProviders ? (['Activity'] as const) : [])] as const).map((t) => (
+            {(
+              [
+                "All",
+                "Vessel",
+                "Crew",
+                "Equipment",
+                ...(includeExternalProviders ? (["Activity"] as const) : []),
+              ] as const
+            ).map((t) => (
               <button
                 key={t}
                 type="button"
-                className={`btn btn-sm ${assetFilter === t ? 'btn-primary' : 'btn-outline-secondary'}`}
+                className={`btn btn-sm ${assetFilter === t ? "btn-primary" : "btn-outline-secondary"}`}
                 onClick={() => setAssetFilter(t)}
               >
                 {t}
               </button>
             ))}
           </div>
-          <div className="border rounded" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+          <div
+            className="border rounded"
+            style={{ maxHeight: "200px", overflowY: "auto" }}
+          >
             {availableToAdd.length === 0 ? (
-              <div className="p-3 text-muted small text-center">No additional assets available.</div>
+              <div className="p-3 text-muted small text-center">
+                No additional assets available.
+              </div>
             ) : (
               availableToAdd.map((a) => {
                 const isOwnOrg = project
-                  ? isOrganizationMatch(project.requestingOrganization, a.providerOrganization)
+                  ? isOrganizationMatch(
+                      project.requestingOrganization,
+                      a.providerOrganization,
+                    )
                   : false;
                 return (
-                  <div key={`${a.assetType}-${a.assetId}`} className="d-flex justify-between align-items-center p-2 border-bottom small">
+                  <div
+                    key={`${a.assetType}-${a.assetId}`}
+                    className="d-flex justify-between align-items-center p-2 border-bottom small"
+                  >
                     <div>
                       <strong>{a.assetName}</strong>
-                      <span className={`badge ms-1 ${isOwnOrg ? 'bg-success' : 'bg-warning text-dark'}`} style={{ fontSize: '0.6rem' }}>
-                        {isOwnOrg ? 'Your org' : 'External'}
+                      <span
+                        className={`badge ms-1 ${isOwnOrg ? "bg-success" : "bg-warning text-dark"}`}
+                        style={{ fontSize: "0.6rem" }}
+                      >
+                        {isOwnOrg ? "Your org" : "External"}
                       </span>
-                      <div className="text-muted">{a.assetType} · {a.providerOrganization}</div>
+                      <div className="text-muted">
+                        {a.assetType} · {a.providerOrganization}
+                      </div>
                     </div>
-                    <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => handleAddAsset(a)}>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => handleAddAsset(a)}
+                    >
                       Add
                     </button>
                   </div>
@@ -342,19 +463,21 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
         </div>
       )}
 
-      {activeTab === 'roster' && (
+      {activeTab === "roster" && (
         <div className="card map-card-custom">
           <div className="card-header d-flex gap-2 p-3">
-            {(['All', 'Vessel', 'Crew', 'Equipment', 'Activity'] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={`btn btn-sm ${assetFilter === t ? 'btn-primary' : 'btn-outline-secondary'}`}
-                onClick={() => setAssetFilter(t)}
-              >
-                {t}
-              </button>
-            ))}
+            {(["All", "Vessel", "Crew", "Equipment", "Activity"] as const).map(
+              (t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`btn btn-sm ${assetFilter === t ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => setAssetFilter(t)}
+                >
+                  {t}
+                </button>
+              ),
+            )}
           </div>
           <div className="table-responsive">
             <table className="table map-table-custom align-middle mb-0">
@@ -373,7 +496,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
                 {filteredLinks.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-4 text-muted">
-                      No assets linked yet. Use Add Asset to compose this charter.
+                      No assets linked yet. Use Add Asset to compose this
+                      charter.
                     </td>
                   </tr>
                 ) : (
@@ -387,39 +511,58 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
                         providerOrganization: link.providerOrganization,
                       },
                     );
-                    const activeSet = assuranceSets.find((s) => s.id === link.assuranceSetId);
+                    const activeSet = assuranceSets.find(
+                      (s) => s.id === link.assuranceSetId,
+                    );
                     return (
                       <tr key={link.id}>
                         <td className="fw-semibold">{link.assetName}</td>
                         <td>{link.assetType}</td>
-                        <td className="small text-secondary">{link.roleInProject || '—'}</td>
+                        <td className="small text-secondary">
+                          {link.roleInProject || "—"}
+                        </td>
                         <td className="small">{link.providerOrganization}</td>
                         <td>
                           {canManage ? (
                             <select
                               className="form-select form-select-sm"
                               value={link.assuranceSetId}
-                              onChange={(e) => linkAssuranceSetToProjectAsset(project.id, link.id, e.target.value)}
+                              onChange={(e) =>
+                                linkAssuranceSetToProjectAsset(
+                                  project.id,
+                                  link.id,
+                                  e.target.value,
+                                )
+                              }
                             >
                               {sets.map((s) => (
-                                <option key={s.id} value={s.id}>{s.id} — {s.title}</option>
+                                <option key={s.id} value={s.id}>
+                                  {s.id} — {s.title}
+                                </option>
                               ))}
                             </select>
                           ) : (
-                            <span className="font-mono-code small">{link.assuranceSetId}</span>
+                            <span className="font-mono-code small">
+                              {link.assuranceSetId}
+                            </span>
                           )}
                         </td>
                         <td className="small">
-                          {activeSet?.requirements.map((r) => r.title).join(', ') || '—'}
+                          {activeSet?.requirements
+                            .map((r) => r.title)
+                            .join(", ") || "—"}
                         </td>
                         <td className="text-end">
                           <button
                             type="button"
                             className="btn btn-sm btn-outline-primary me-1"
                             onClick={() => {
-                              if (link.assetType === 'Vessel') setCurrentHashView('vessels', link.assetId);
-                              else if (link.assetType === 'Crew') setCurrentHashView('crew', link.assetId);
-                              else if (link.assetType === 'Equipment') setCurrentHashView('equipment', link.assetId);
+                              if (link.assetType === "Vessel")
+                                setCurrentHashView("vessels", link.assetId);
+                              else if (link.assetType === "Crew")
+                                setCurrentHashView("crew", link.assetId);
+                              else if (link.assetType === "Equipment")
+                                setCurrentHashView("equipment", link.assetId);
                             }}
                           >
                             Open Asset
@@ -428,7 +571,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
                             <button
                               type="button"
                               className="btn btn-sm btn-outline-danger"
-                              onClick={() => removeAssetFromProject(project.id, link.id)}
+                              onClick={() =>
+                                removeAssetFromProject(project.id, link.id)
+                              }
                             >
                               Remove
                             </button>
@@ -444,39 +589,147 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
         </div>
       )}
 
-      {activeTab === 'master' && masterSet && (
+      {activeTab === "master" && masterSet && (
         <div className="card map-card-custom p-3">
           <div className="d-flex align-items-center justify-between mb-3">
             <div>
-              <h5 className="fw-bold m-0">{masterSet.id} — Project Master Assurance Set</h5>
+              <h5 className="fw-bold m-0">
+                {masterSet.id} — Project Master Assurance Set
+              </h5>
               <div className="text-muted small">{masterSet.title}</div>
+              <div className="text-muted small mt-1">
+                Master rollup links to child assurance sub-sets (documents live
+                in each sub-set).
+              </div>
             </div>
             <ReadinessGauge score={masterSet.readinessScore} size="sm" />
           </div>
-          {groupedMasterReqs.map(({ link, sourceSet, requirements }) => (
-            <div key={link.id} className="mb-3 border rounded p-3 bg-light">
-              <div className="fw-semibold small mb-2">
-                From {link.assetName} ({link.assetType}) · {link.assuranceSetId}
+          <div className="row g-3">
+            {masterSubSets.map(({ link, sourceSet }) => (
+              <div key={link.id} className="col-md-6">
+                <div className="border rounded p-3 bg-light h-100">
+                  <div className="d-flex align-items-start justify-between gap-2 mb-2">
+                    <div>
+                      <div className="fw-bold text-dark">{link.assetName}</div>
+                      <div className="small text-muted">
+                        {link.assetType} · {link.providerOrganization}
+                      </div>
+                      <div className="font-mono-code small text-primary mt-1">
+                        {link.assuranceSetId}
+                      </div>
+                    </div>
+                    {sourceSet && (
+                      <ReadinessGauge
+                        score={sourceSet.readinessScore}
+                        size="sm"
+                      />
+                    )}
+                  </div>
+                  {sourceSet ? (
+                    <>
+                      <div className="small mb-2">{sourceSet.title}</div>
+                      <span className="badge bg-secondary me-1">
+                        {sourceSet.stage}
+                      </span>
+                      <span className="badge bg-light text-dark border">
+                        {sourceSet.assuranceType || "Asset"}
+                      </span>
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${isCAdmin ? "btn-primary" : "btn-outline-primary"}`}
+                          onClick={() =>
+                            setCurrentHashView("assurance-sets", sourceSet.id)
+                          }
+                        >
+                          {isCAdmin
+                            ? "Review Sub-Set Campaign"
+                            : "Open Sub-Set"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-muted small">
+                      Sub-set not found — refresh project assurance.
+                    </div>
+                  )}
+                </div>
               </div>
-              <ul className="mb-0 small">
-                {requirements.map((r) => (
-                  <li key={r.id}>
-                    {r.title}
-                    <span className={`badge ms-2 ${r.verifierStatus === 'Verified' ? 'bg-success' : 'bg-secondary'}`}>
-                      {r.verifierStatus}
-                    </span>
-                  </li>
-                ))}
-                {requirements.length === 0 && sourceSet && (
-                  <li className="text-muted">No requirements synced — click Refresh Project Assurance</li>
-                )}
-              </ul>
+            ))}
+          </div>
+          {canManage && standaloneSetsForAttach.length > 0 && (
+            <div className="mt-3 p-3 border rounded bg-white">
+              <div className="fw-semibold small mb-2">
+                Attach existing assurance set
+              </div>
+              <div className="d-flex flex-wrap gap-2 align-items-center">
+                <select
+                  className="form-select form-select-sm"
+                  style={{ maxWidth: "420px" }}
+                  value={attachSetId}
+                  onChange={(e) => setAttachSetId(e.target.value)}
+                >
+                  <option value="">Select standalone set…</option>
+                  {standaloneSetsForAttach.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.id} — {s.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  disabled={!attachSetId}
+                  onClick={() => {
+                    const selected = assuranceSets.find(
+                      (s) => s.id === attachSetId,
+                    );
+                    if (!selected) return;
+                    const assetType =
+                      selected.assuranceType === "Crew"
+                        ? "Crew"
+                        : selected.assuranceType === "Equipment"
+                          ? "Equipment"
+                          : selected.assuranceType === "Activity"
+                            ? "Activity"
+                            : "Vessel";
+                    const result = addAssetToProject(project.id, {
+                      assetType,
+                      assetId:
+                        selected.vesselId ||
+                        selected.crewId ||
+                        selected.equipmentId ||
+                        selected.activityId ||
+                        selected.id,
+                      assetName:
+                        selected.vesselName ||
+                        selected.crewName ||
+                        selected.equipmentName ||
+                        selected.activityName ||
+                        selected.title,
+                      providerOrganization: selected.initiatorOrg,
+                      assuranceSetId: selected.id,
+                      roleInProject: "Attached standalone set",
+                    });
+                    if (result.success) {
+                      setToast(`Attached ${selected.id} to project.`);
+                      setAttachSetId("");
+                      handleRefreshMaster();
+                    } else {
+                      setToast(result.message || "Could not attach set.");
+                    }
+                    setTimeout(() => setToast(null), 3500);
+                  }}
+                >
+                  Attach to Project
+                </button>
+              </div>
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      {activeTab === 'assurance' && (
+      {activeTab === "assurance" && (
         <div className="card map-card-custom">
           <div className="table-responsive">
             <table className="table map-table-custom mb-0">
@@ -491,22 +744,56 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId 
                 </tr>
               </thead>
               <tbody>
-                {[masterSet, ...project.assetLinks.map((l) => assuranceSets.find((s) => s.id === l.assuranceSetId)).filter(Boolean)]
-                  .filter((s, i, arr) => s && arr.findIndex((x) => x?.id === s.id) === i)
-                  .map((s) => s && (
-                    <tr key={s.id}>
-                      <td className="font-mono-code text-primary">{s.id}</td>
-                      <td>{s.title}</td>
-                      <td>{s.isProjectMaster ? 'Project Master' : s.assuranceType || 'Asset'}</td>
-                      <td><span className="badge bg-secondary">{s.stage}</span></td>
-                      <td><ReadinessGauge score={s.readinessScore} size="sm" /></td>
-                      <td className="text-end">
-                        <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => setCurrentHashView('assurance-sets', s.id)}>
-                          Open
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                {[
+                  masterSet,
+                  ...project.assetLinks
+                    .map((l) =>
+                      assuranceSets.find((s) => s.id === l.assuranceSetId),
+                    )
+                    .filter(Boolean),
+                ]
+                  .filter(
+                    (s, i, arr) =>
+                      s && arr.findIndex((x) => x?.id === s.id) === i,
+                  )
+                  .map(
+                    (s) =>
+                      s && (
+                        <tr key={s.id}>
+                          <td className="font-mono-code text-primary">
+                            {s.id}
+                          </td>
+                          <td>{s.title}</td>
+                          <td>
+                            {s.isProjectMaster
+                              ? "Project Master"
+                              : s.assuranceType || "Asset"}
+                          </td>
+                          <td>
+                            <span className="badge bg-secondary">
+                              {s.stage}
+                            </span>
+                          </td>
+                          <td>
+                            <ReadinessGauge
+                              score={s.readinessScore}
+                              size="sm"
+                            />
+                          </td>
+                          <td className="text-end">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={() =>
+                                setCurrentHashView("assurance-sets", s.id)
+                              }
+                            >
+                              Open
+                            </button>
+                          </td>
+                        </tr>
+                      ),
+                  )}
               </tbody>
             </table>
           </div>

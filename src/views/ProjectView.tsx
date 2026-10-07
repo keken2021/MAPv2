@@ -15,8 +15,8 @@ export const ProjectView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   const visibleProjects = useMemo(
-    () => filterProjectsForPersona(projects, activePersona, users),
-    [projects, activePersona, users],
+    () => filterProjectsForPersona(projects, activePersona, users, assuranceSets),
+    [projects, activePersona, users, assuranceSets],
   );
 
   const filtered = useMemo(() => {

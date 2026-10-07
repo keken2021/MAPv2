@@ -19,8 +19,16 @@ import { getThreePillarsCategory, THREE_PILLARS_CONFIG } from '../utils/assuranc
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
-import { userHasRole, getEligibleVerifiers } from '../utils/userRoleHelpers';
+import {
+  userHasRole,
+  filterCandidatesByReviewMode,
+  filterEligibleApproversForScope,
+} from '../utils/userRoleHelpers';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import {
+  canEditAssuranceSetStakeholders,
+  getAssuranceSetStakeholderLockReason,
+} from '../utils/rbacHelpers';
 
 interface AssuranceDetailViewProps {
   setId: string;
@@ -43,6 +51,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     users,
     setCurrentHashView,
   } = useMapStore();
+  const [stakeholderError, setStakeholderError] = useState<string | null>(null);
   const [selectedDocForReview, setSelectedDocForReview] = useState<{ doc: MasterDocument; notes?: string } | null>(null);
   const [selectedDocForVersionHistory, setSelectedDocForVersionHistory] = useState<MasterDocument | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -119,6 +128,32 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     });
   }, [sortedRequirements, pillarFilter]);
 
+  const isCAdminPersona = activePersona === 'C Admin';
+  const clientOwnerOrg =
+    assuranceSet?.clientOrg || assuranceSet?.charterer || assuranceSet?.initiatorOrg || '';
+  const serviceProviderOrg = assuranceSet?.serviceProviderOrg;
+
+  const verifierCandidates = useMemo(
+    () =>
+      filterCandidatesByReviewMode(
+        users,
+        assuranceSet?.reviewMode || 'third_party',
+        'Verifier',
+        { clientOrg: clientOwnerOrg, serviceProviderOrg },
+      ),
+    [users, assuranceSet?.reviewMode, clientOwnerOrg, serviceProviderOrg],
+  );
+
+  const approverCandidates = useMemo(
+    () =>
+      filterEligibleApproversForScope(users, {
+        serviceProviderOrg,
+        isClientAdmin: isCAdminPersona,
+        isCharteringOtherServices: true,
+      }),
+    [users, serviceProviderOrg, isCAdminPersona],
+  );
+
   if (!assuranceSet) return <div>Assurance Set not found.</div>;
 
   if (assuranceSet.visibility === 'draft') {
@@ -153,8 +188,25 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     );
   }
 
-  const isCAdmin = activePersona === 'C Admin';
+  const isCAdmin = isCAdminPersona;
   const canUpload = activePersona === 'Submitter' || activePersona === 'Administrator';
+  const stakeholderLockReason = getAssuranceSetStakeholderLockReason(assuranceSet);
+  const canEditStakeholders = canEditAssuranceSetStakeholders(assuranceSet, activePersona);
+  const isLinkedSubSet = (req: AssuranceRequirement) =>
+    req.fulfillmentType === 'assurance_set' || Boolean(req.linkedAssuranceSetId);
+
+  const assignStakeholder = (
+    role: 'Submitter' | 'Verifier' | 'Inspector' | 'Approver',
+    assigneeName: string,
+  ) => {
+    const result = updateAssuranceStakeholder(assuranceSet.id, role, assigneeName);
+    if (!result.success) {
+      setStakeholderError(result.message || 'Could not assign stakeholder.');
+      return;
+    }
+    setStakeholderError(null);
+    setEditingRole(null);
+  };
 
   const verifiedCount = assuranceSet.requirements.filter((r) => r.verifierStatus === 'Verified').length;
   const totalCount = assuranceSet.requirements.length;
@@ -254,7 +306,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         <div className="col-lg-8 col-md-7">
           <div className="card map-card-custom p-4 h-100">
             <div className="d-flex flex-wrap align-items-center justify-between gap-3 mb-3">
-              <h3 className="fw-bold mb-0 text-primary">{assuranceSet.title}</h3>
+              <div>
+                <h3 className="fw-bold mb-0 text-primary">{assuranceSet.title}</h3>
+               
+              </div>
               {/* Top header action controls: Use as Template button & Export Data dropdown */}
               <div className="d-flex align-items-center gap-2 ms-auto">
                 {(isCAdmin || activePersona === 'Administrator') && (
@@ -306,12 +361,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <div className="fw-bold text-dark">{assuranceSet.id}</div>
                   </div>
                   <div className="border-bottom pb-1.5">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Initiator:</div>
-                    <div className="fw-bold text-dark">{assuranceSet.initiatorOrg}</div>
+                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Client owner:</div>
+                    <div className="fw-bold text-dark">{clientOwnerOrg}</div>
                   </div>
+                  {serviceProviderOrg && (
+                    <div className="border-bottom pb-1.5">
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Service provider:</div>
+                      <div className="fw-bold text-dark">{serviceProviderOrg}</div>
+                    </div>
+                  )}
                   <div className="border-bottom pb-1.5">
                     <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Charterer:</div>
-                    <div className="fw-bold text-dark">{assuranceSet.charterer || assuranceSet.initiatorOrg}</div>
+                    <div className="fw-bold text-dark">{assuranceSet.charterer || clientOwnerOrg}</div>
                   </div>
                   <div className="border-bottom pb-1.5">
                     <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Vessel:</div>
@@ -341,12 +402,20 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   <div className="text-uppercase fw-bold text-secondary mb-1" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
                     Assigned Assurance Set Stakeholders
                   </div>
+                  {stakeholderError && (
+                    <div className="alert alert-danger py-2 small mb-0">{stakeholderError}</div>
+                  )}
+                  {!canEditStakeholders && stakeholderLockReason && (isCAdmin || activePersona === 'Administrator') && (
+                    <div className="alert alert-light border py-2 small mb-0 text-secondary">
+                      {stakeholderLockReason}
+                    </div>
+                  )}
 
                   {/* Submitter */}
                   <div className="border-bottom pb-1.5">
                     <div className="d-flex align-items-center justify-content-between">
                       <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Submitter:</div>
-                      {(isCAdmin || activePersona === 'Administrator') && (
+                      {canEditStakeholders && (
                         <button
                           type="button"
                           className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
@@ -364,10 +433,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.75rem' }}
                           value={assuranceSet.assignedSubmitter || ''}
                           onChange={(e) => {
-                            if (e.target.value) {
-                              updateAssuranceStakeholder(assuranceSet.id, 'Submitter', e.target.value);
-                              setEditingRole(null);
-                            }
+                            if (e.target.value) assignStakeholder('Submitter', e.target.value);
                           }}
                         >
                           <option value="">Select Submitter...</option>
@@ -397,7 +463,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   <div className="border-bottom pb-1.5">
                     <div className="d-flex align-items-center justify-content-between">
                       <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Verifier:</div>
-                      {(isCAdmin || activePersona === 'Administrator') && (
+                      {canEditStakeholders && (
                         <button
                           type="button"
                           className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
@@ -415,14 +481,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.75rem' }}
                           value={assuranceSet.assignedVerifier || ''}
                           onChange={(e) => {
-                            if (e.target.value) {
-                              updateAssuranceStakeholder(assuranceSet.id, 'Verifier', e.target.value);
-                              setEditingRole(null);
-                            }
+                            if (e.target.value) assignStakeholder('Verifier', e.target.value);
                           }}
                         >
                           <option value="">Select Verifier...</option>
-                          {getEligibleVerifiers(users).map((u) => (
+                          {verifierCandidates.map((u) => (
                             <option key={u.id} value={`${u.name} (${u.organization})`}>
                               {u.name} - {u.organization}
                             </option>
@@ -450,7 +513,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   <div className="border-bottom pb-1.5">
                     <div className="d-flex align-items-center justify-content-between">
                       <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Inspector:</div>
-                      {(isCAdmin || activePersona === 'Administrator') && (
+                      {canEditStakeholders && (
                         <button
                           type="button"
                           className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
@@ -468,10 +531,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.75rem' }}
                           value={assuranceSet.assignedInspector || ''}
                           onChange={(e) => {
-                            if (e.target.value) {
-                              updateAssuranceStakeholder(assuranceSet.id, 'Inspector', e.target.value);
-                              setEditingRole(null);
-                            }
+                            if (e.target.value) assignStakeholder('Inspector', e.target.value);
                           }}
                         >
                           <option value="">Select Inspector...</option>
@@ -505,7 +565,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   <div>
                     <div className="d-flex align-items-center justify-content-between">
                       <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Approver:</div>
-                      {(isCAdmin || activePersona === 'Administrator') && (
+                      {canEditStakeholders && (
                         <button
                           type="button"
                           className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
@@ -523,20 +583,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.75rem' }}
                           value={assuranceSet.assignedApprover || ''}
                           onChange={(e) => {
-                            if (e.target.value) {
-                              updateAssuranceStakeholder(assuranceSet.id, 'Approver', e.target.value);
-                              setEditingRole(null);
-                            }
+                            if (e.target.value) assignStakeholder('Approver', e.target.value);
                           }}
                         >
                           <option value="">Select Approver...</option>
-                          {users
-                            .filter((u) => userHasRole(u, 'Approver') || userHasRole(u, 'C Admin'))
-                            .map((u) => (
-                              <option key={u.id} value={`${u.name} (${u.organization})`}>
-                                {u.name} - {u.organization}
-                              </option>
-                            ))}
+                          {approverCandidates.map((u) => (
+                            <option key={u.id} value={`${u.name} (${u.organization})`}>
+                              {u.name} - {u.organization}
+                            </option>
+                          ))}
                         </select>
                         <button
                           type="button"
@@ -747,9 +802,53 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               {/* Main Files (Toggled Statutory Requirements during campaign creation) */}
               {displayedRequirements.filter((r) => !r.isOtherDocument).map((req: AssuranceRequirement) => {
                 const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+                const linkedChildSet = req.linkedAssuranceSetId
+                  ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
+                  : undefined;
                 const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
                 const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
                 const pillar = getThreePillarsCategory(req.subtype, req.category);
+
+                if (isLinkedSubSet(req) && linkedChildSet) {
+                  return (
+                    <tr key={req.id} className="table-light">
+                      <td>
+                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                          <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                            {pillar}
+                          </span>
+                          <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.7rem' }}>
+                            Linked Sub-Set
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <div className="fw-semibold text-dark">{req.title}</div>
+                        <div className="font-mono-code small text-primary">{linkedChildSet.id}</div>
+                        {req.description && (
+                          <div className="text-secondary small mt-0.5">{req.description}</div>
+                        )}
+                      </td>
+                      <td>
+                        <span className="text-muted small">—</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'} font-mono-code`}>
+                          {linkedChildSet.stage}
+                        </span>
+                      </td>
+                      <td className="text-end">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary font-mono-code"
+                          onClick={() => setCurrentHashView('assurance-sets', linkedChildSet.id)}
+                        >
+                          Open Sub-Set
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
 
                 return (
                   <tr key={req.id}>

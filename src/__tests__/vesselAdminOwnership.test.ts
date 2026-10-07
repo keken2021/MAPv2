@@ -9,6 +9,7 @@ import {
   filterCAdminActiveCharters,
   filterCAdminAvailableToCharter,
   filterCAdminOwnFleet,
+  filterVesselAdminAvailableToCharter,
   filterVesselsForPersona,
   getClientAdminOrganization,
   isAssuranceSetAssignedToPersona,
@@ -430,6 +431,20 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     externalVessels.forEach((v) => {
       expect(isVesselOwnedByAdmin(v)).toBe(false);
     });
+  });
+
+  it('excludes the vessel admin organization from vessels that can be assigned to a new assurance set', () => {
+    const charterable = filterVesselAdminAvailableToCharter(MOCK_VESSELS);
+
+    expect(charterable.map((v) => v.id)).toEqual(['VESSEL-008', 'VESSEL-009', 'VESSEL-010', 'VESSEL-011']);
+    charterable.forEach((v) => {
+      expect(isVesselOwnedByAdmin(v)).toBe(false);
+      expect(v.status).not.toBe('Under Charter');
+    });
+
+    const ownedUnderCharter = MOCK_VESSELS.find((v) => v.id === 'VESSEL-004');
+    expect(charterable.find((v) => v.id === 'VESSEL-001')).toBeUndefined();
+    expect(charterable.find((v) => v.id === ownedUnderCharter?.id)).toBeUndefined();
   });
 
   it('restricts client history, assigned crew, and audit trail tabs to owned vessels only in vessel detail view', () => {

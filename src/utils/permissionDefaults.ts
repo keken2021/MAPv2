@@ -378,11 +378,12 @@ function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
 
     case 'approval_decisions':
       if (role === 'Approver') return readUpdate();
+      if (role === 'C Admin') return readUpdate();
       if (role === 'Administrator') return readOnly();
       return emptyCrud();
 
     case 'assurance_completion':
-      if (role === 'Approver') return readUpdate();
+      if (role === 'Approver' || role === 'C Admin') return readUpdate();
       return emptyCrud();
 
     case 'dashboard':

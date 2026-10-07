@@ -18,9 +18,9 @@ export const LoginView: React.FC = () => {
   const [password, setPassword] = useState('••••••••••••');
   const [rememberMe, setRememberMe] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent, role: 'Administrator' | 'C Admin' = 'Administrator') => {
     e.preventDefault();
-    login('Administrator');
+    login(role);
   };
 
   return (
@@ -90,7 +90,7 @@ export const LoginView: React.FC = () => {
 
       {/* right column: sign in form */}
       <div
-        className="d-flex flex-column justify-content-center align-items-center p-5 flex-grow-1"
+        className="d-flex flex-column justify-content-center align-items-center p-5 grow"
         style={{ backgroundColor: '#f1f5f9' }}
       >
         <div style={{ width: '100%', maxWidth: '540px' }}>
@@ -108,7 +108,7 @@ export const LoginView: React.FC = () => {
           <form
             className="card border-0 shadow-sm p-4 p-md-5 mb-4"
             style={{ borderRadius: '12px', backgroundColor: '#ffffff' }}
-            onSubmit={handleLogin}
+            onSubmit={(e) => handleLogin(e, 'Administrator')}
           >
             <div className="mb-3">
               <label className="form-label font-mono-code text-uppercase fw-semibold" style={{ fontSize: '0.7rem', color: '#64748b', letterSpacing: '0.05em' }}>
@@ -162,6 +162,7 @@ export const LoginView: React.FC = () => {
             >
               Login
             </button>
+          
           </form>
 
          

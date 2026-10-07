@@ -12,7 +12,6 @@ import { AssetHierarchyView } from '../components/assets/AssetHierarchyView';
 import {
   filterCAdminActiveCharters,
   filterCAdminAvailableToCharter,
-  filterCAdminOwnFleet,
   getClientAdminOrganization,
   isVesselOwnedByAdmin,
 } from '../utils/rbacHelpers';
@@ -27,7 +26,7 @@ export const FleetRegistryView: React.FC = () => {
     useMapStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'tree'>('list');
-  const [activeTab, setActiveTab] = useState<'available' | 'own-fleet' | 'chartered' | 'all' | 'owned'>(() => {
+  const [activeTab, setActiveTab] = useState<'available' | 'chartered' | 'all' | 'owned'>(() => {
     if (activePersona === 'Administrator' || activePersona === 'Submitter') {
       return 'owned';
     }
@@ -54,7 +53,6 @@ export const FleetRegistryView: React.FC = () => {
     assuranceSets,
     clientOrg,
   ).length;
-  const ownFleetCount = filterCAdminOwnFleet(vessels, clientOrg).length;
   const activeChartersCount = filterCAdminActiveCharters(vessels, assuranceSets).length;
 
   const isVesselOwned = isVesselOwnedByAdmin;
@@ -99,14 +97,6 @@ export const FleetRegistryView: React.FC = () => {
               onClick={() => setActiveTab('available')}
             >
               Available to Charter ({availableToCharterCount})
-            </button>
-            <button
-              type="button"
-              className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${activeTab === 'own-fleet' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
-              style={{ fontSize: '0.8rem' }}
-              onClick={() => setActiveTab('own-fleet')}
-            >
-              Own Fleet ({ownFleetCount})
             </button>
             <button
               type="button"

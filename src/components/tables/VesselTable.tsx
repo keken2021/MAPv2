@@ -21,7 +21,6 @@ import {
 import {
   filterCAdminActiveCharters,
   filterCAdminAvailableToCharter,
-  filterCAdminOwnFleet,
   filterVesselsForPersona,
   getClientAdminOrganization,
   isAssuranceSetAssignedToPersona,
@@ -104,9 +103,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
     activePersona === 'C Admin'
       ? filterMode === 'chartered'
         ? filterCAdminActiveCharters(vessels, assuranceSets)
-        : filterMode === 'own-fleet'
-          ? filterCAdminOwnFleet(vessels, clientOrg)
-          : filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg)
+        : filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg)
       : activePersona === 'Administrator' || activePersona === 'Submitter'
         ? filterMode === 'all'
           ? vessels.filter((v) => !isVesselOwned(v) && v.status !== 'Under Charter')

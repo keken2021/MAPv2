@@ -8,6 +8,7 @@ import {
   hasBlockingAssuranceAssignmentConflict,
   splitRolesForForm,
   usersWithRole,
+  validateStakeholderAssignmentForSet,
 } from '../utils/userRoleHelpers';
 import { MOCK_USERS } from '../store/mockData';
 
@@ -57,6 +58,33 @@ describe('userRoleHelpers', () => {
         approverId: 'USR-102',
       }),
     ).toBe(true);
+  });
+
+  it('blocks service provider org from verifier assignment even for client admin flows', () => {
+    expect(
+      hasBlockingAssuranceAssignmentConflict({
+        serviceProviderOrg: 'Northwind Marine Pty Ltd',
+        verifierId: 'USR-102',
+        users: MOCK_USERS,
+        isClientAdmin: true,
+      }),
+    ).toBe(true);
+  });
+
+  it('validateStakeholderAssignmentForSet rejects service provider as approver by label', () => {
+    const result = validateStakeholderAssignmentForSet(
+      {
+        serviceProviderOrg: 'Northwind Marine Pty Ltd',
+        assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      },
+      'Approver',
+      'M. Chen (Northwind Marine Pty Ltd)',
+      MOCK_USERS,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toContain('Service provider conflict');
+    }
   });
 
   it('should list stakeholder operational roles without C Admin (one C Admin per organization)', () => {

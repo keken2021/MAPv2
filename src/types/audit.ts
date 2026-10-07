@@ -5,12 +5,12 @@
 */
 
 export type UserRolePersona =
-  | 'Administrator'
-  | 'C Admin'
-  | 'Submitter'
-  | 'Verifier'
-  | 'Inspector'
-  | 'Approver';
+  | "Administrator"
+  | "C Admin"
+  | "Submitter"
+  | "Verifier"
+  | "Inspector"
+  | "Approver";
 
 export interface AuditTrailEvent {
   id: string; // e.g. AUD-90481

@@ -361,6 +361,110 @@ export function getAssuranceAssignmentWarnings(assignments: {
   return warnings;
 }
 
+function stakeholderOrgMatches(orgA: string, orgB: string): boolean {
+  const a = orgA.trim().toLowerCase();
+  const b = orgB.trim().toLowerCase();
+  if (!a || !b) return false;
+  return a.includes(b) || b.includes(a);
+}
+
+/** Parse organization from display label "Name (Organization)" */
+export function parseAssigneeOrganization(assigneeName: string): string | undefined {
+  const match = assigneeName.match(/\(([^)]+)\)\s*$/);
+  return match?.[1]?.trim();
+}
+
+export function findUserByAssigneeLabel(
+  users: UserProfile[],
+  assigneeName: string,
+): UserProfile | undefined {
+  const org = parseAssigneeOrganization(assigneeName);
+  const namePart = assigneeName.replace(/\s*\([^)]+\)\s*$/, '').trim().toLowerCase();
+  return users.find(
+    (u) =>
+      u.name.toLowerCase() === namePart ||
+      assigneeName.includes(u.name) ||
+      (org && u.organization && stakeholderOrgMatches(u.organization, org) && assigneeName.includes(u.name.split(' ')[0])),
+  );
+}
+
+export type StakeholderAssignmentValidation =
+  | { ok: true }
+  | { ok: false; message: string };
+
+/**
+  Validates stakeholder changes on an existing assurance set (Assurance Detail, store updates).
+*/
+export function validateStakeholderAssignmentForSet(
+  assuranceSet: {
+    serviceProviderOrg?: string;
+    assignedSubmitter?: string;
+    internalDeployment?: boolean;
+    reviewMode?: 'internal' | 'third_party' | 'issuing_authority' | 'mixed';
+    clientOrg?: string;
+  },
+  role: 'Submitter' | 'Verifier' | 'Inspector' | 'Approver',
+  assigneeName: string,
+  users: UserProfile[],
+): StakeholderAssignmentValidation {
+  if (!assigneeName.trim()) {
+    return { ok: false, message: 'Please select an assignee.' };
+  }
+
+  const providerOrg = assuranceSet.serviceProviderOrg;
+  const assigneeOrg = parseAssigneeOrganization(assigneeName);
+  const assigneeUser = findUserByAssigneeLabel(users, assigneeName);
+
+  if (
+    (role === 'Verifier' || role === 'Approver') &&
+    providerOrg &&
+    !assuranceSet.internalDeployment
+  ) {
+    if (assigneeOrg && stakeholderOrgMatches(providerOrg, assigneeOrg)) {
+      return {
+        ok: false,
+        message: `Service provider conflict: staff from ${assigneeOrg} cannot ${role.toLowerCase()} their own documents.`,
+      };
+    }
+    if (assigneeUser?.organization && stakeholderOrgMatches(providerOrg, assigneeUser.organization)) {
+      return {
+        ok: false,
+        message: `Service provider conflict: ${assigneeUser.name} cannot ${role.toLowerCase()} their own organization's documents.`,
+      };
+    }
+  }
+
+  if (role === 'Verifier' || role === 'Approver') {
+    const submitterOrg = assuranceSet.assignedSubmitter
+      ? parseAssigneeOrganization(assuranceSet.assignedSubmitter)
+      : undefined;
+    if (
+      role === 'Verifier' &&
+      assigneeName === assuranceSet.assignedSubmitter
+    ) {
+      return { ok: false, message: 'Submitter and Verifier cannot be the same person on one assurance set.' };
+    }
+    if (
+      role === 'Approver' &&
+      assigneeName === assuranceSet.assignedSubmitter
+    ) {
+      return { ok: false, message: 'Submitter and Approver cannot be the same person on one assurance set.' };
+    }
+    if (assigneeUser && assuranceSet.assignedSubmitter) {
+      const submitterUser = findUserByAssigneeLabel(users, assuranceSet.assignedSubmitter);
+      if (submitterUser && assigneeUser.id === submitterUser.id && (role === 'Verifier' || role === 'Approver')) {
+        return {
+          ok: false,
+          message: `Segregation of duties: the same user cannot be both Submitter and ${role}.`,
+        };
+      }
+    }
+    void submitterOrg;
+  }
+
+  return { ok: true };
+}
+
 export function hasBlockingAssuranceAssignmentConflict(assignments: {
   submitterId?: string;
   verifierId?: string;
@@ -370,6 +474,7 @@ export function hasBlockingAssuranceAssignmentConflict(assignments: {
   serviceProviderOrg?: string;
   isCharteringOtherServices?: boolean;
   isClientAdmin?: boolean;
+  internalDeployment?: boolean;
   users?: UserProfile[];
 }): boolean {
   if (
@@ -397,14 +502,19 @@ export function hasBlockingAssuranceAssignmentConflict(assignments: {
   }
 
   const providerOrg = assignments.serviceProviderOrg || assignments.vesselOwnerOrg;
-  if (providerOrg && !assignments.isCharteringOtherServices && !assignments.isClientAdmin && assignments.users) {
-    const ownerOrgLower = providerOrg.toLowerCase();
+  if (providerOrg && !assignments.internalDeployment && assignments.users) {
     const verifierUser = assignments.users.find((u) => u.id === assignments.verifierId);
     const approverUser = assignments.users.find((u) => u.id === assignments.approverId);
-    if (verifierUser && verifierUser.organization?.toLowerCase().includes(ownerOrgLower)) {
+    if (
+      verifierUser?.organization &&
+      stakeholderOrgMatches(providerOrg, verifierUser.organization)
+    ) {
       return true;
     }
-    if (approverUser && approverUser.organization?.toLowerCase().includes(ownerOrgLower)) {
+    if (
+      approverUser?.organization &&
+      stakeholderOrgMatches(providerOrg, approverUser.organization)
+    ) {
       return true;
     }
   }

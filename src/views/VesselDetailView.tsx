@@ -16,7 +16,7 @@ import {
 } from '../types/vessel';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { formatMaritimeDate, getDaysUntilExpiry, getVesselStatusBadgeClass } from '../utils/formatters';
-import { filterAuditTrailForPersona, filterVesselsForPersona, getBackButtonInfo, isVesselOwnedByAdmin, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
+import { filterAuditTrailForPersona, filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, filterVesselsForPersona, getBackButtonInfo, getClientAdminOrganization, isVesselOwnedByAdmin, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateAssuranceSetReadiness, calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
@@ -87,6 +87,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     previousHashView,
     previousEntityId,
     activePersona,
+    users,
     assuranceSets,
     documents,
     auditEvents,
@@ -270,6 +271,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const showManagementSection = isCAdmin;
 
   const canCreateAssurance = isAdmin || isCAdmin;
+  const clientOrg = getClientAdminOrganization(users);
+  const canCreateAssuranceForThisVessel = Boolean(
+    vessel &&
+    canCreateAssurance &&
+    (isCAdmin
+      ? filterCAdminAvailableToCharter([vessel], assuranceSets, clientOrg).length > 0
+      : filterVesselAdminAvailableToCharter([vessel]).length > 0),
+  );
 
   /* fallback active tab to Information if current tab is restricted for non-owned vessels */
   useEffect(() => {
@@ -372,7 +381,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   }, [linkedSets, selectedAssuranceSetId]);
 
   const handleCreateAssuranceForVessel = (templateSetId?: string) => {
-    if (!vessel) return;
+    if (!vessel || !canCreateAssuranceForThisVessel) return;
     setCreateAssuranceForVesselId(vessel.id);
     setCurrentHashView('create-assurance-set', templateSetId);
   };
@@ -2563,7 +2572,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   >
                     Open Selected
                   </button>
-                  {canCreateAssurance && (
+                  {canCreateAssuranceForThisVessel && (
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-secondary"
@@ -2624,22 +2633,26 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </button>
             </div>
 
-            {canCreateAssurance && (
+            {(canCreateAssurance || canCreateAssuranceForThisVessel) && (
               <div className="d-flex align-items-center gap-2">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary fw-semibold"
-                  onClick={() => setShowAddToProjectModal(true)}
-                >
-                  Add to Project
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary fw-semibold"
-                  onClick={() => handleCreateAssuranceForVessel()}
-                >
-                  Create Assurance Set
-                </button>
+                {canCreateAssurance && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary fw-semibold"
+                    onClick={() => setShowAddToProjectModal(true)}
+                  >
+                    Add to Project
+                  </button>
+                )}
+                {canCreateAssuranceForThisVessel && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary fw-semibold"
+                    onClick={() => handleCreateAssuranceForVessel()}
+                  >
+                    Create Assurance Set
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -2650,7 +2663,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 {linkedSets.length === 0 ? (
                   <>
                     <div className="mb-3">No assurance sets linked to this vessel yet.</div>
-                    {canCreateAssurance && (
+                    {canCreateAssuranceForThisVessel && (
                       <button
                         type="button"
                         className="btn btn-sm btn-primary fw-semibold"

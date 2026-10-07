@@ -27,6 +27,12 @@ export type ReviewMode = 'internal' | 'third_party' | 'issuing_authority' | 'mix
 export type ReviewChannel = 'internal' | 'third_party' | 'issuing_authority';
 export type AuthorityValidationMethod = 'api' | 'direct_link' | 'manual';
 
+/** How a master-project requirement is fulfilled: document upload or link to child assurance set */
+export type RequirementFulfillmentType = 'document' | 'assurance_set';
+
+/** Client-owned campaign workflow (C Admin controls review & approval) */
+export type ClientWorkflowStage = 'draft' | 'in_review' | 'pending_approval' | 'approved';
+
 export type AssuranceRequirementCategory =
   | 'Statutory Certificate'
   | 'Class Notation Certificate'
@@ -79,6 +85,9 @@ export interface AssuranceRequirement {
   assignedVerifier?: string;
   submitterId?: string;
   verifierId?: string;
+  /** document (default) or pointer to a nested child assurance set */
+  fulfillmentType?: RequirementFulfillmentType;
+  linkedAssuranceSetId?: string;
 }
 
 export interface AssuranceProject {
@@ -186,4 +195,7 @@ export interface AssuranceSet {
   isProjectMaster?: boolean;
   parentProjectId?: string;
   aggregatedFromSetIds?: string[];
+  /** C Admin workflow: draft until sent for review; client owns final approval */
+  clientWorkflowStage?: ClientWorkflowStage;
+  sentForReviewAt?: string;
 }

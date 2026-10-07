@@ -42,8 +42,8 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
   } = useMapStore();
 
   const visibleProjects = useMemo(
-    () => filterProjectsForPersona(projects, activePersona, users),
-    [projects, activePersona, users],
+    () => filterProjectsForPersona(projects, activePersona, users, assuranceSets),
+    [projects, activePersona, users, assuranceSets],
   );
 
   const [selectedProjectId, setSelectedProjectId] = useState(visibleProjects[0]?.id || '');

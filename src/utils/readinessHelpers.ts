@@ -30,8 +30,21 @@ export const STAGE_READINESS_WEIGHTS = {
 export function getRequirementReadinessPercentage(
   req: AssuranceRequirement,
   parentSet?: Partial<AssuranceSet>,
+  linkedSetResolver?: (setId: string) => AssuranceSet | undefined,
 ): number {
-  const hasUploadedDoc = Boolean(req.documentId) || Boolean(req.linkedDocumentId);
+  if (
+    (req.fulfillmentType === 'assurance_set' || req.linkedAssuranceSetId) &&
+    req.linkedAssuranceSetId &&
+    linkedSetResolver
+  ) {
+    const child = linkedSetResolver(req.linkedAssuranceSetId);
+    if (child) return calculateAssuranceSetReadiness(child, linkedSetResolver);
+  }
+
+  const hasUploadedDoc =
+    Boolean(req.documentId) ||
+    Boolean(req.linkedDocumentId) ||
+    Boolean(req.linkedAssuranceSetId);
 
   /* if no document is uploaded/attached and requirement is not fulfilled, it remains in initiated state (10%) and can never be 100% */
   if (!hasUploadedDoc && !req.isFulfilled) {
@@ -101,7 +114,12 @@ export function calculateDocumentReadiness(doc: MasterDocument): number {
   how: sums requirement stage weights and divides by total requirement count, rounding to nearest whole integer.
   with what file: src/utils/readinessHelpers.ts consumed by store and views.
 */
-export function calculateAssuranceSetReadiness(set: AssuranceSet): number {
+export function calculateAssuranceSetReadiness(
+  set: AssuranceSet,
+  allSets?: AssuranceSet[],
+): number {
+  const resolveLinked = (id: string) => allSets?.find((s) => s.id === id);
+
   if (!set.requirements || set.requirements.length === 0) {
     if (set.stage === 'Certified' || set.stage === 'Approved' || set.stage === 'Approval') return STAGE_READINESS_WEIGHTS.approved;
     if (set.stage === 'Verification' || set.stage === 'Inspection') return STAGE_READINESS_WEIGHTS.verified;
@@ -109,7 +127,9 @@ export function calculateAssuranceSetReadiness(set: AssuranceSet): number {
     return STAGE_READINESS_WEIGHTS.initiated;
   }
 
-  const uploadedCount = set.requirements.filter((r) => Boolean(r.documentId || r.linkedDocumentId || r.isFulfilled)).length;
+  const uploadedCount = set.requirements.filter((r) =>
+    Boolean(r.documentId || r.linkedDocumentId || r.linkedAssuranceSetId || r.isFulfilled),
+  ).length;
 
   /* if there are no uploaded documents for any requirement, readiness will never be 100% and stays at initiated 10% */
   if (uploadedCount === 0) {
@@ -124,8 +144,9 @@ export function calculateAssuranceSetReadiness(set: AssuranceSet): number {
   }
 
   const allReqsReady = set.requirements.every(
-    (r) => (Boolean(r.documentId || r.linkedDocumentId) || r.isFulfilled) &&
-      (r.isFulfilled || r.verifierStatus === 'Verified' || set.verificationRequired === false)
+    (r) =>
+      (Boolean(r.documentId || r.linkedDocumentId || r.linkedAssuranceSetId) || r.isFulfilled) &&
+      (r.isFulfilled || r.verifierStatus === 'Verified' || set.verificationRequired === false),
   );
 
   /* if formal approval is disabled and all requirements and mandatory inspections are fulfilled with uploaded docs, return 100% */
@@ -134,8 +155,8 @@ export function calculateAssuranceSetReadiness(set: AssuranceSet): number {
   }
 
   const totalScore = set.requirements.reduce(
-    (sum, req) => sum + getRequirementReadinessPercentage(req, set),
-    0
+    (sum, req) => sum + getRequirementReadinessPercentage(req, set, resolveLinked),
+    0,
   );
 
   const calculatedAvg = Math.round(totalScore / set.requirements.length);

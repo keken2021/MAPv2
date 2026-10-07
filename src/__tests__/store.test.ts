@@ -361,7 +361,8 @@ describe('Map Store State Management', () => {
 
   it('should update stakeholder role assignments (Submitter, Verifier, Inspector, Approver) and log audit events', () => {
     const store = useMapStore.getState();
-    const targetSet = store.assuranceSets[0];
+    const targetSet = store.assuranceSets.find((s) => s.id === 'AS-2026-003')!;
+    expect(targetSet).toBeDefined();
 
     // Test Submitter update
     store.updateAssuranceStakeholder(targetSet.id, 'Submitter', 'E. Ramirez (Pacific Ocean Shipping)');

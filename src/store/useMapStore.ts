@@ -4,27 +4,46 @@
   role in system: central state store consumed by all header, sidebar, table, view, drawer, and modal components.
 */
 
-import { create } from 'zustand';
-import { UserRolePersona, AuditTrailEvent } from '../types/audit';
-import { VesselInformation, VesselStatusDimension, VesselStatusHistoryEntry } from '../types/vessel';
-import { EquipmentAsset } from '../types/equipment';
-import { AvailabilityStatus } from '../types/asset';
-import { AssuranceSet, AssuranceStage, AssuranceRequirement, AssuranceSubtype } from '../types/assurance';
-import { MasterDocument } from '../types/document';
-import { MOCK_VESSELS, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS, MOCK_AUDIT_TRAIL, MOCK_USERS } from './mockData';
-import { MOCK_EQUIPMENT } from './equipmentMockData';
-import { MOCK_CREW } from './crewMockData';
+import { create } from "zustand";
+import { UserRolePersona, AuditTrailEvent } from "../types/audit";
+import {
+  VesselInformation,
+  VesselStatusDimension,
+  VesselStatusHistoryEntry,
+} from "../types/vessel";
+import { EquipmentAsset } from "../types/equipment";
+import { AvailabilityStatus } from "../types/asset";
+import {
+  AssuranceSet,
+  AssuranceStage,
+  AssuranceRequirement,
+  AssuranceSubtype,
+} from "../types/assurance";
+import { MasterDocument } from "../types/document";
+import {
+  MOCK_VESSELS,
+  MOCK_ASSURANCE_SETS,
+  MOCK_DOCUMENTS,
+  MOCK_AUDIT_TRAIL,
+  MOCK_USERS,
+} from "./mockData";
+import { MOCK_EQUIPMENT } from "./equipmentMockData";
+import { MOCK_CREW } from "./crewMockData";
 import {
   isDuplicateVessel,
   isDuplicateEquipment,
   isDuplicateCampaignTitle,
   generateUniqueAssuranceSetId,
-} from '../utils/validation';
-import { isViewAccessibleToPersona } from '../utils/rbacHelpers';
-import { UserProfile } from '../types/user';
-import { CrewMember, STCWDocumentItem } from '../types/crew';
-import { CapaItem, CapaStatus, CapaEvidenceItem } from '../types/capa';
-import { MOCK_CAPA_ITEMS } from './capaMockData';
+} from "../utils/validation";
+import {
+  canEditAssuranceSetStakeholders,
+  getAssuranceSetStakeholderLockReason,
+  isViewAccessibleToPersona,
+} from "../utils/rbacHelpers";
+import { UserProfile } from "../types/user";
+import { CrewMember, STCWDocumentItem } from "../types/crew";
+import { CapaItem, CapaStatus, CapaEvidenceItem } from "../types/capa";
+import { MOCK_CAPA_ITEMS } from "./capaMockData";
 import {
   CrudAction,
   PermissionCategory,
@@ -35,22 +54,23 @@ import {
   slugifyPermissionKey,
   ALL_ROLE_PERSONAS,
   BUILTIN_PERMISSION_CATEGORIES,
-} from '../types/permissions';
+} from "../types/permissions";
 import {
   PERMISSION_SCOPE_CATALOG,
   buildBrdRolePermissionDefaults,
   buildEmptyFlagsForCatalog,
-} from '../utils/permissionDefaults';
-import { applyPermissionGuards } from '../utils/permissionHelpers';
-import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+} from "../utils/permissionDefaults";
+import { applyPermissionGuards } from "../utils/permissionHelpers";
+import { validateStakeholderAssignmentForSet } from "../utils/userRoleHelpers";
+import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import {
   Project,
   ProjectAssetLink,
   ProjectRiskProfile,
   ProjectType,
   WorkLocationType,
-} from '../types/project';
-import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from './projectMockData';
+} from "../types/project";
+import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from "./projectMockData";
 import {
   buildMasterAssuranceRequirements,
   calculateProjectReadiness,
@@ -58,18 +78,17 @@ import {
   generateUniqueProjectId,
   getProjectEffectiveCharterer,
   requiresAssuranceSetForAssetLink,
-} from '../utils/projectHelpers';
-import { MOCK_VESSEL_STATUS_HISTORY } from './vesselStatusHistoryMockData';
+} from "../utils/projectHelpers";
+import { MOCK_VESSEL_STATUS_HISTORY } from "./vesselStatusHistoryMockData";
 import {
   buildInitialVesselStatusHistoryEntries,
   diffVesselStatusChanges,
   generateVesselStatusHistoryId,
   getTrackedVesselStatusValues,
-} from '../utils/vesselStatusHistoryHelpers';
-import { autoAttachDocumentsToRequirements } from '../utils/documentMatchingHelpers';
+} from "../utils/vesselStatusHistoryHelpers";
+import { autoAttachDocumentsToRequirements } from "../utils/documentMatchingHelpers";
 
 export interface MapStoreState {
-
   // Authentication State
   isAuthenticated: boolean;
   login: (role: UserRolePersona) => void;
@@ -117,23 +136,43 @@ export interface MapStoreState {
     workOrderRef?: string;
     workLocationType?: WorkLocationType;
     primaryVesselId?: string;
-    assetLinks?: Omit<ProjectAssetLink, 'id' | 'projectId' | 'addedAt' | 'addedByPersona'>[];
+    assetLinks?: Omit<
+      ProjectAssetLink,
+      "id" | "projectId" | "addedAt" | "addedByPersona"
+    >[];
   }) => { success: boolean; projectId?: string; message?: string };
   updateProject: (project: Project) => void;
   addAssetToProject: (
     projectId: string,
-    link: Omit<ProjectAssetLink, 'id' | 'projectId' | 'addedAt' | 'addedByPersona'>,
+    link: Omit<
+      ProjectAssetLink,
+      "id" | "projectId" | "addedAt" | "addedByPersona"
+    >,
   ) => { success: boolean; message?: string };
   removeAssetFromProject: (projectId: string, linkId: string) => void;
-  linkAssuranceSetToProjectAsset: (projectId: string, linkId: string, assuranceSetId: string) => void;
+  linkAssuranceSetToProjectAsset: (
+    projectId: string,
+    linkId: string,
+    assuranceSetId: string,
+  ) => void;
   syncProjectMasterAssurance: (projectId: string) => void;
 
   // Vessel Fleet State
   vessels: VesselInformation[];
-  addVessel: (vessel: VesselInformation) => { success: boolean; message?: string; vesselId?: string };
+  addVessel: (vessel: VesselInformation) => {
+    success: boolean;
+    message?: string;
+    vesselId?: string;
+  };
   updateVessel: (vessel: VesselInformation) => void;
-  updateVesselStatus: (vesselId: string, status: VesselInformation['status']) => void;
-  updateVesselAvailability: (vesselId: string, availabilityStatus: AvailabilityStatus) => void;
+  updateVesselStatus: (
+    vesselId: string,
+    status: VesselInformation["status"],
+  ) => void;
+  updateVesselAvailability: (
+    vesselId: string,
+    availabilityStatus: AvailabilityStatus,
+  ) => void;
 
   // Vessel Status History
   vesselStatusHistory: VesselStatusHistoryEntry[];
@@ -145,15 +184,22 @@ export interface MapStoreState {
     changedBy?: string;
     changedByRole?: UserRolePersona;
     notes?: string;
-    source?: VesselStatusHistoryEntry['source'];
+    source?: VesselStatusHistoryEntry["source"];
     effectiveFrom?: string;
   }) => void;
 
   // Equipment Assets State
   equipment: EquipmentAsset[];
-  addEquipment: (item: EquipmentAsset) => { success: boolean; message?: string; equipmentId?: string };
+  addEquipment: (item: EquipmentAsset) => {
+    success: boolean;
+    message?: string;
+    equipmentId?: string;
+  };
   updateEquipment: (item: EquipmentAsset) => void;
-  updateEquipmentAvailability: (equipmentId: string, availabilityStatus: AvailabilityStatus) => void;
+  updateEquipmentAvailability: (
+    equipmentId: string,
+    availabilityStatus: AvailabilityStatus,
+  ) => void;
 
   // Assurance Sets State
   assuranceSets: AssuranceSet[];
@@ -162,32 +208,43 @@ export interface MapStoreState {
   updateAssuranceStage: (setId: string, stage: AssuranceStage) => void;
   updateAssuranceStakeholder: (
     setId: string,
-    role: 'Submitter' | 'Verifier' | 'Inspector' | 'Approver',
-    assigneeName: string
-  ) => void;
+    role: "Submitter" | "Verifier" | "Inspector" | "Approver",
+    assigneeName: string,
+  ) => { success: boolean; message?: string };
   updateAssuranceInspector: (setId: string, inspectorName: string) => void;
   updateRequirementStatus: (
     setId: string,
     reqId: string,
-    status: 'Verified' | 'Correction Requested' | 'Rejected',
-    notes?: string
+    status: "Verified" | "Correction Requested" | "Rejected",
+    notes?: string,
   ) => void;
   denyRequirementByApprover: (
     setId: string,
     reqId: string,
-    decision: 'Correction Requested' | 'Rejected',
-    notes: string
+    decision: "Correction Requested" | "Rejected",
+    notes: string,
   ) => void;
   setApproverDecision: (
     setId: string,
-    decision: 'Approved' | 'Returned for Correction' | 'Rejected',
-    notes?: string
+    decision: "Approved" | "Returned for Correction" | "Rejected",
+    notes?: string,
+  ) => void;
+  sendAssuranceForReview: (setId: string) => void;
+  setClientApproval: (
+    setId: string,
+    decision: "Approved" | "Returned for Correction" | "Rejected",
+    notes?: string,
   ) => void;
 
   // Document Library State
   documents: MasterDocument[];
   addDocument: (doc: MasterDocument) => void;
-  linkDocumentToVessel: (docId: string, vesselId: string, vesselName?: string, imoNumber?: string) => void;
+  linkDocumentToVessel: (
+    docId: string,
+    vesselId: string,
+    vesselName?: string,
+    imoNumber?: string,
+  ) => void;
   uploadDocumentForRequirement: (
     setId: string,
     requirementId: string | undefined,
@@ -198,24 +255,24 @@ export interface MapStoreState {
     newVersionLabel: string,
     fileName: string,
     fileSizeBytes: number,
-    changeSummary: string
+    changeSummary: string,
   ) => void;
   verifyDocument: (
     docId: string,
-    status: 'Pending' | 'Verified' | 'Correction Requested' | 'Rejected',
+    status: "Pending" | "Verified" | "Correction Requested" | "Rejected",
     notes?: string,
-    routeTarget?: 'Inspector' | 'Approver',
+    routeTarget?: "Inspector" | "Approver",
   ) => void;
 
   // Audit Trail State
   auditEvents: AuditTrailEvent[];
-  logAuditEvent: (event: Omit<AuditTrailEvent, 'id' | 'timestampUtc'>) => void;
+  logAuditEvent: (event: Omit<AuditTrailEvent, "id" | "timestampUtc">) => void;
 
   // User Management State
   users: UserProfile[];
   addUser: (user: UserProfile) => void;
   updateUser: (user: UserProfile) => void;
-  updateUserStatus: (userId: string, status: UserProfile['status']) => void;
+  updateUserStatus: (userId: string, status: UserProfile["status"]) => void;
 
   // Roles & Permissions State (BRD defaults + admin overrides)
   rolePermissionDefaults: RolePermissionMatrix;
@@ -240,7 +297,10 @@ export interface MapStoreState {
   ) => void;
   clearUserPermissionOverrides: (userId: string) => void;
   addCustomRole: (roleName: string) => { success: boolean; message?: string };
-  addCustomCategory: (categoryName: string) => { success: boolean; message?: string };
+  addCustomCategory: (categoryName: string) => {
+    success: boolean;
+    message?: string;
+  };
   addCustomScope: (input: {
     label: string;
     description: string;
@@ -262,7 +322,11 @@ export interface MapStoreState {
   // CAPA Management State
   capaItems: CapaItem[];
   addCapaItem: (capa: CapaItem) => void;
-  updateCapaStatus: (capaId: string, status: CapaStatus, inspectorNotes?: string) => void;
+  updateCapaStatus: (
+    capaId: string,
+    status: CapaStatus,
+    inspectorNotes?: string,
+  ) => void;
   addCapaEvidence: (capaId: string, evidence: CapaEvidenceItem) => void;
   removeCapaEvidence: (capaId: string, evidenceId: string) => void;
   flagCapaForReinspection: (capaId: string, reason?: string) => void;
@@ -270,43 +334,53 @@ export interface MapStoreState {
 
 const BRD_PERMISSION_DEFAULTS = buildBrdRolePermissionDefaults();
 
-
 export const useMapStore = create<MapStoreState>((set, get) => ({
   isAuthenticated: false,
   login: (role) => {
     get().logAuditEvent({
-      userId: 'USR-LOGIN',
+      userId: "USR-LOGIN",
       userRole: role,
-      organization: role === 'C Admin' ? 'Southern Basin Energy' : 'Northwind Marine',
-      action: 'Authenticated User Session',
-      targetAsset: 'Authentication Gateway',
+      organization:
+        role === "C Admin" ? "Southern Basin Energy" : "Northwind Marine",
+      action: "Authenticated User Session",
+      targetAsset: "Authentication Gateway",
       justificationNotes: `Logged in as ${role}`,
     });
-    const targetView = role === 'Verifier' ? 'verifier' : role === 'Inspector' ? 'inspector' : 'dashboard';
+    const targetView =
+      role === "Verifier"
+        ? "verifier"
+        : role === "Inspector"
+          ? "inspector"
+          : "dashboard";
     window.location.hash = `#/${targetView}`;
-    set({ isAuthenticated: true, activePersona: role, currentHashView: targetView });
+    set({
+      isAuthenticated: true,
+      activePersona: role,
+      currentHashView: targetView,
+    });
   },
   logout: () => {
     get().logAuditEvent({
-      userId: 'USR-LOGOUT',
+      userId: "USR-LOGOUT",
       userRole: get().activePersona,
-      organization: 'MAP Gateway',
-      action: 'Terminated User Session',
-      targetAsset: 'Authentication Gateway',
-      justificationNotes: 'User signed out.',
+      organization: "MAP Gateway",
+      action: "Terminated User Session",
+      targetAsset: "Authentication Gateway",
+      justificationNotes: "User signed out.",
     });
-    window.location.hash = '#/login';
-    set({ isAuthenticated: false, currentHashView: 'login' });
+    window.location.hash = "#/login";
+    set({ isAuthenticated: false, currentHashView: "login" });
   },
 
-  activePersona: 'Administrator',
+  activePersona: "Administrator",
   setActivePersona: (persona) => {
     get().logAuditEvent({
-      userId: 'USR-PERSONA-SWITCH',
+      userId: "USR-PERSONA-SWITCH",
       userRole: persona,
-      organization: persona === 'C Admin' ? 'Southern Basin Energy' : 'Northwind Marine',
-      action: 'Switched Active User Persona',
-      targetAsset: 'Global System Context',
+      organization:
+        persona === "C Admin" ? "Southern Basin Energy" : "Northwind Marine",
+      action: "Switched Active User Persona",
+      targetAsset: "Global System Context",
       justificationNotes: `Persona set to ${persona}`,
     });
 
@@ -315,13 +389,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const currentId = get().currentEntityId;
 
     if (!isViewAccessibleToPersona(currentView, currentId, persona)) {
-      get().setCurrentHashView('dashboard');
+      get().setCurrentHashView("dashboard");
     }
 
     set({ activePersona: persona });
   },
 
-  currentHashView: 'login',
+  currentHashView: "login",
   previousHashView: undefined,
   currentEntityId: undefined,
   previousEntityId: undefined,
@@ -346,11 +420,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
 
-  activeVesselId: 'VESSEL-001',
+  activeVesselId: "VESSEL-001",
   setActiveVesselId: (id) => set({ activeVesselId: id }),
 
   createAssuranceForVesselId: undefined,
-  setCreateAssuranceForVesselId: (vesselId) => set({ createAssuranceForVesselId: vesselId }),
+  setCreateAssuranceForVesselId: (vesselId) =>
+    set({ createAssuranceForVesselId: vesselId }),
 
   returnToProjectId: undefined,
   setReturnToProjectId: (projectId) => set({ returnToProjectId: projectId }),
@@ -359,51 +434,76 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   addProject: (input) => {
     const existing = get().projects;
     const projectId = generateUniqueProjectId(existing);
-    const masterId = generateMasterAssuranceSetId(projectId, get().assuranceSets);
+    const masterId = generateMasterAssuranceSetId(
+      projectId,
+      get().assuranceSets,
+    );
     const persona = get().activePersona;
-    const effectiveCharterer = input.charterer?.trim() || input.requestingOrganization;
+    const effectiveCharterer =
+      input.charterer?.trim() || input.requestingOrganization;
 
     const crossOrgMissingAssurance = (input.assetLinks ?? []).filter(
       (link) =>
-        requiresAssuranceSetForAssetLink(input.requestingOrganization, link.providerOrganization) &&
-        !link.assuranceSetId,
+        requiresAssuranceSetForAssetLink(
+          input.requestingOrganization,
+          link.providerOrganization,
+        ) && !link.assuranceSetId,
     );
     if (crossOrgMissingAssurance.length > 0) {
       return {
         success: false,
-        message: 'Cross-organization assets require an assurance set to be selected.',
+        message:
+          "Cross-organization assets require an assurance set to be selected.",
       };
     }
 
-    const assetLinks: ProjectAssetLink[] = (input.assetLinks ?? []).map((link, idx) => ({
-      ...link,
-      id: `PAL-${Date.now()}-${idx}`,
-      projectId,
-      addedAt: new Date().toISOString(),
-      addedByPersona: persona,
-    }));
+    const assetLinks: ProjectAssetLink[] = (input.assetLinks ?? []).map(
+      (link, idx) => ({
+        ...link,
+        id: `PAL-${Date.now()}-${idx}`,
+        projectId,
+        addedAt: new Date().toISOString(),
+        addedByPersona: persona,
+      }),
+    );
 
     const childSets = assetLinks
       .map((l) => get().assuranceSets.find((s) => s.id === l.assuranceSetId))
       .filter((s): s is AssuranceSet => Boolean(s));
 
-    const masterRequirements = buildMasterAssuranceRequirements(childSets, input.name);
+    const masterRequirements = buildMasterAssuranceRequirements(
+      childSets,
+      input.name,
+      assetLinks,
+    );
+    const clientOwnerOrg = effectiveCharterer;
+    const primaryProviderOrg =
+      assetLinks[0]?.providerOrganization ||
+      (persona === "C Admin" ? undefined : input.requestingOrganization);
+
     const masterSet: AssuranceSet = {
       id: masterId,
       title: `${input.name} — Project Master Assurance`,
-      assuranceType: 'Project',
-      subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+      assuranceType: "Project",
+      subtypes: ["Vessel", "Crew", "Activity", "Equipment"],
       projectId,
       projectName: input.name,
-      vesselId: childSets[0]?.vesselId || get().vessels[0]?.id || '',
-      vesselName: childSets[0]?.vesselName || get().vessels[0]?.name || 'Project Asset',
-      imoNumber: childSets[0]?.imoNumber || get().vessels[0]?.imoNumber || '0000000',
-      initiatorOrg: input.operatorOrganization,
-      initiatorRole: persona === 'C Admin' ? 'C Admin · Client Created' : 'Vessel Provider Admin',
+      vesselId: childSets[0]?.vesselId || get().vessels[0]?.id || "",
+      vesselName:
+        childSets[0]?.vesselName || get().vessels[0]?.name || "Project Asset",
+      imoNumber:
+        childSets[0]?.imoNumber || get().vessels[0]?.imoNumber || "0000000",
+      initiatorOrg: clientOwnerOrg,
+      initiatorRole:
+        persona === "C Admin"
+          ? "C Admin · Client Created"
+          : "Vessel Provider Admin",
       charterer: effectiveCharterer,
+      clientOrg: clientOwnerOrg,
+      serviceProviderOrg: primaryProviderOrg,
       charterWindowStart: input.charterWindowStart,
       charterWindowEnd: input.charterWindowEnd,
-      stage: 'Initiated',
+      stage: "Initiated",
       readinessScore: 0,
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
@@ -412,6 +512,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       aggregatedFromSetIds: assetLinks.map((l) => l.assuranceSetId),
       requirements: masterRequirements,
       createdByPersona: persona,
+      clientWorkflowStage: persona === "C Admin" ? "draft" : undefined,
     };
 
     const projectDraft: Project = {
@@ -419,15 +520,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       name: input.name,
       projectType: input.projectType,
       requestingOrganization: input.requestingOrganization,
-      clientOperator: input.clientOperator,
+      clientOperator: input.clientOperator || clientOwnerOrg,
+      ownerOrganization: clientOwnerOrg,
       location: input.location,
-      description: input.description || '',
+      description: input.description || "",
       charterer: input.charterer,
       routeDescription: input.routeDescription,
       riskProfile: input.riskProfile ?? null,
       charterWindowStart: input.charterWindowStart,
       charterWindowEnd: input.charterWindowEnd,
-      status: assetLinks.length > 0 ? 'Assurance In Progress' : 'Composing',
+      status: assetLinks.length > 0 ? "Assurance In Progress" : "Composing",
       operatorOrganization: input.operatorOrganization,
       masterAssuranceSetId: masterId,
       assetLinks,
@@ -437,10 +539,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       primaryVesselId: input.primaryVesselId,
     };
 
-    const readinessScore = calculateProjectReadiness(
-      projectDraft,
-      [...get().assuranceSets, masterSet],
-    );
+    const readinessScore = calculateProjectReadiness(projectDraft, [
+      ...get().assuranceSets,
+      masterSet,
+    ]);
 
     const project: Project = {
       ...projectDraft,
@@ -455,10 +557,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
 
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: persona,
       organization: input.operatorOrganization,
-      action: 'Created Project Charter',
+      action: "Created Project Charter",
       targetAsset: `${projectId} (${input.name})`,
       justificationNotes: `Master assurance set ${masterId} auto-created.`,
     });
@@ -468,19 +570,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
   updateProject: (updatedProject) => {
     set((state) => ({
-      projects: state.projects.map((p) => (p.id === updatedProject.id ? updatedProject : p)),
+      projects: state.projects.map((p) =>
+        p.id === updatedProject.id ? updatedProject : p,
+      ),
     }));
   },
 
   addAssetToProject: (projectId, linkInput) => {
     const project = get().projects.find((p) => p.id === projectId);
-    if (!project) return { success: false, message: 'Project not found.' };
+    if (!project) return { success: false, message: "Project not found." };
 
     const duplicate = project.assetLinks.some(
-      (l) => l.assetType === linkInput.assetType && l.assetId === linkInput.assetId,
+      (l) =>
+        l.assetType === linkInput.assetType && l.assetId === linkInput.assetId,
     );
     if (duplicate) {
-      return { success: false, message: 'This asset is already linked to the project.' };
+      return {
+        success: false,
+        message: "This asset is already linked to the project.",
+      };
     }
 
     const link: ProjectAssetLink = {
@@ -494,20 +602,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const updatedProject: Project = {
       ...project,
       assetLinks: [...project.assetLinks, link],
-      status: 'Assurance In Progress',
+      status: "Assurance In Progress",
     };
 
     set((state) => ({
-      projects: state.projects.map((p) => (p.id === projectId ? updatedProject : p)),
+      projects: state.projects.map((p) =>
+        p.id === projectId ? updatedProject : p,
+      ),
     }));
 
     get().syncProjectMasterAssurance(projectId);
 
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
       organization: project.operatorOrganization,
-      action: 'Linked Asset to Project',
+      action: "Linked Asset to Project",
       targetAsset: `${projectId} ← ${link.assetName}`,
       justificationNotes: `Attached ${link.assuranceSetId} for ${link.assetType} asset.`,
     });
@@ -523,10 +633,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       projects: state.projects.map((p) =>
         p.id === projectId
           ? {
-            ...p,
-            assetLinks: p.assetLinks.filter((l) => l.id !== linkId),
-            status: p.assetLinks.length <= 1 ? 'Composing' : p.status,
-          }
+              ...p,
+              assetLinks: p.assetLinks.filter((l) => l.id !== linkId),
+              status: p.assetLinks.length <= 1 ? "Composing" : p.status,
+            }
           : p,
       ),
     }));
@@ -539,11 +649,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       projects: state.projects.map((p) =>
         p.id === projectId
           ? {
-            ...p,
-            assetLinks: p.assetLinks.map((l) =>
-              l.id === linkId ? { ...l, assuranceSetId } : l,
-            ),
-          }
+              ...p,
+              assetLinks: p.assetLinks.map((l) =>
+                l.id === linkId ? { ...l, assuranceSetId } : l,
+              ),
+            }
           : p,
       ),
     }));
@@ -558,9 +668,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       .map((l) => get().assuranceSets.find((s) => s.id === l.assuranceSetId))
       .filter((s): s is AssuranceSet => Boolean(s));
 
-    const masterRequirements = buildMasterAssuranceRequirements(childSets, project.name);
-    const aggregatedFromSetIds = project.assetLinks.map((l) => l.assuranceSetId);
-    const readinessScore = calculateProjectReadiness(project, get().assuranceSets);
+    const masterRequirements = buildMasterAssuranceRequirements(
+      childSets,
+      project.name,
+      project.assetLinks,
+    );
+    const aggregatedFromSetIds = project.assetLinks.map(
+      (l) => l.assuranceSetId,
+    );
+    const allSets = get().assuranceSets;
+    const readinessScore = calculateProjectReadiness(project, allSets);
 
     set((state) => ({
       projects: state.projects.map((p) =>
@@ -568,6 +685,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ),
       assuranceSets: state.assuranceSets.map((s) => {
         if (s.id !== project.masterAssuranceSetId) return s;
+        const clientOwner =
+          project.ownerOrganization || getProjectEffectiveCharterer(project);
+        const primaryProvider = project.assetLinks[0]?.providerOrganization;
         const updated: AssuranceSet = {
           ...s,
           projectId: project.id,
@@ -577,10 +697,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           charterWindowStart: project.charterWindowStart,
           charterWindowEnd: project.charterWindowEnd,
           charterer: getProjectEffectiveCharterer(project),
+          initiatorOrg: clientOwner,
+          clientOrg: clientOwner,
+          serviceProviderOrg: primaryProvider || s.serviceProviderOrg,
         };
         return {
           ...updated,
-          readinessScore: calculateAssuranceSetReadiness(updated),
+          readinessScore: calculateAssuranceSetReadiness(
+            updated,
+            state.assuranceSets,
+          ),
         };
       }),
     }));
@@ -601,10 +727,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       newValue: params.newValue,
       effectiveFrom: now,
       changedAt: now,
-      changedBy: params.changedBy ?? 'USR-CURRENT',
+      changedBy: params.changedBy ?? "USR-CURRENT",
       changedByRole: params.changedByRole ?? activePersona,
       notes: params.notes,
-      source: params.source ?? 'manual',
+      source: params.source ?? "manual",
     };
 
     set((state) => ({
@@ -622,7 +748,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   addVessel: (newVessel) => {
-    const dupCheck = isDuplicateVessel(newVessel.imoNumber, newVessel.officialRegNumber, get().vessels);
+    const dupCheck = isDuplicateVessel(
+      newVessel.imoNumber,
+      newVessel.officialRegNumber,
+      get().vessels,
+    );
     if (dupCheck.isDuplicate) {
       return { success: false, message: dupCheck.reason };
     }
@@ -630,7 +760,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const registeredAt = new Date().toISOString();
     const initialHistory = buildInitialVesselStatusHistoryEntries(
       newVessel,
-      'USR-CURRENT',
+      "USR-CURRENT",
       get().activePersona,
       registeredAt,
     );
@@ -641,10 +771,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
 
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
-      organization: get().activePersona === 'Administrator' ? 'Northwind Marine Pty Ltd' : 'Northwind Marine Pty Ltd',
-      action: 'Registered Unique Vessel Record',
+      organization:
+        get().activePersona === "Administrator"
+          ? "Northwind Marine Pty Ltd"
+          : "Northwind Marine Pty Ltd",
+      action: "Registered Unique Vessel Record",
       targetAsset: `${newVessel.name} (IMO ${newVessel.imoNumber})`,
       justificationNotes: `Registered vessel under ${newVessel.flagState} flag.`,
     });
@@ -654,32 +787,36 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
   updateVessel: (updatedVessel) => {
     const previousVessel = get().vessels.find((v) => v.id === updatedVessel.id);
-    const statusChanges = previousVessel ? diffVesselStatusChanges(previousVessel, updatedVessel) : [];
+    const statusChanges = previousVessel
+      ? diffVesselStatusChanges(previousVessel, updatedVessel)
+      : [];
 
     set((state) => ({
-      vessels: state.vessels.map((v) => (v.id === updatedVessel.id ? updatedVessel : v)),
+      vessels: state.vessels.map((v) =>
+        v.id === updatedVessel.id ? updatedVessel : v,
+      ),
       /* synchronize vessel name and imo across all linked assurance sets */
       assuranceSets: state.assuranceSets.map((s) =>
         s.vesselId === updatedVessel.id
           ? {
-            ...s,
-            vesselName: updatedVessel.name,
-            imoNumber: updatedVessel.imoNumber,
-          }
-          : s
+              ...s,
+              vesselName: updatedVessel.name,
+              imoNumber: updatedVessel.imoNumber,
+            }
+          : s,
       ),
       /* synchronize vessel attributes in linked master documents */
       documents: state.documents.map((d) =>
         d.vesselId === updatedVessel.id && d.vesselAttributes
           ? {
-            ...d,
-            vesselAttributes: {
-              ...d.vesselAttributes,
-              vesselName: updatedVessel.name,
-              imoNumber: updatedVessel.imoNumber,
-            },
-          }
-          : d
+              ...d,
+              vesselAttributes: {
+                ...d.vesselAttributes,
+                vesselName: updatedVessel.name,
+                imoNumber: updatedVessel.imoNumber,
+              },
+            }
+          : d,
       ),
     }));
 
@@ -689,15 +826,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         dimension: change.dimension,
         previousValue: change.previousValue,
         newValue: change.newValue,
-        source: 'manual',
+        source: "manual",
       });
     });
 
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
-      organization: get().activePersona === 'C Admin' ? 'Chevron Australia' : 'Northwind Marine Pty Ltd',
-      action: 'Updated Vessel Specifications',
+      organization:
+        get().activePersona === "C Admin"
+          ? "Chevron Australia"
+          : "Northwind Marine Pty Ltd",
+      action: "Updated Vessel Specifications",
       targetAsset: `${updatedVessel.name} (IMO ${updatedVessel.imoNumber})`,
       justificationNotes: `Updated vessel Information for ${updatedVessel.name}`,
     });
@@ -720,7 +860,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         dimension: change.dimension,
         previousValue: change.previousValue,
         newValue: change.newValue,
-        source: 'manual',
+        source: "manual",
       });
     });
   },
@@ -738,32 +878,37 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const now = new Date().toISOString();
     set((state) => ({
       vessels: state.vessels.map((v) =>
-        v.id === vesselId ? { ...v, availabilityStatus, availabilityUpdatedAt: now } : v,
+        v.id === vesselId
+          ? { ...v, availabilityStatus, availabilityUpdatedAt: now }
+          : v,
       ),
     }));
 
     get().recordVesselStatusChange({
       vesselId,
-      dimension: 'availability',
+      dimension: "availability",
       previousValue: previousAvailability,
       newValue: availabilityStatus,
-      source: 'manual',
+      source: "manual",
       effectiveFrom: now,
     });
   },
 
   equipment: MOCK_EQUIPMENT,
   addEquipment: (newEquipment) => {
-    const dupCheck = isDuplicateEquipment(newEquipment.equipmentIdentifier, get().equipment);
+    const dupCheck = isDuplicateEquipment(
+      newEquipment.equipmentIdentifier,
+      get().equipment,
+    );
     if (dupCheck.isDuplicate) {
       return { success: false, message: dupCheck.reason };
     }
     set((state) => ({ equipment: [...state.equipment, newEquipment] }));
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
       organization: newEquipment.owningOrganization,
-      action: 'Registered Equipment Asset',
+      action: "Registered Equipment Asset",
       targetAsset: `${newEquipment.name} (${newEquipment.equipmentIdentifier})`,
       justificationNotes: `Registered equipment under category ${newEquipment.category}.`,
     });
@@ -772,7 +917,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
   updateEquipment: (updatedEquipment) => {
     set((state) => ({
-      equipment: state.equipment.map((e) => (e.id === updatedEquipment.id ? updatedEquipment : e)),
+      equipment: state.equipment.map((e) =>
+        e.id === updatedEquipment.id ? updatedEquipment : e,
+      ),
     }));
   },
 
@@ -780,7 +927,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const now = new Date().toISOString();
     set((state) => ({
       equipment: state.equipment.map((e) =>
-        e.id === equipmentId ? { ...e, availabilityStatus, availabilityUpdatedAt: now } : e,
+        e.id === equipmentId
+          ? { ...e, availabilityStatus, availabilityUpdatedAt: now }
+          : e,
       ),
     }));
   },
@@ -789,7 +938,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   assuranceSets: [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS],
   addAssuranceSet: (newSet) => {
     const existingSets = get().assuranceSets;
-    const titleCheck = isDuplicateCampaignTitle(newSet.title, existingSets, newSet.id);
+    const titleCheck = isDuplicateCampaignTitle(
+      newSet.title,
+      existingSets,
+      newSet.id,
+    );
     if (titleCheck.isDuplicate) {
       console.warn(`[MAP Duplicate Guard] ${titleCheck.reason}`);
       return;
@@ -800,29 +953,38 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       : newSet.id || generateUniqueAssuranceSetId(existingSets);
 
     const state = get();
-    const matchingVessel = state.vessels.find((v) => v.id === newSet.vesselId || v.name === newSet.vesselName);
-    const autoAttachedRequirements = autoAttachDocumentsToRequirements(newSet.requirements || [], {
-      documents: state.documents,
-      vessel: matchingVessel,
-      vessels: state.vessels,
-      crew: state.crew,
-      selectedCrewId: newSet.crewId,
-      equipment: state.equipment,
-      selectedEquipmentId: newSet.equipmentId,
-      selectedVesselId: newSet.vesselId,
-      selectedActivityId: newSet.activityId,
-      targetSubtype: newSet.assuranceType === 'Project' ? undefined : (newSet.assuranceType as AssuranceSubtype),
-    });
+    const matchingVessel = state.vessels.find(
+      (v) => v.id === newSet.vesselId || v.name === newSet.vesselName,
+    );
+    const autoAttachedRequirements = autoAttachDocumentsToRequirements(
+      newSet.requirements || [],
+      {
+        documents: state.documents,
+        vessel: matchingVessel,
+        vessels: state.vessels,
+        crew: state.crew,
+        selectedCrewId: newSet.crewId,
+        equipment: state.equipment,
+        selectedEquipmentId: newSet.equipmentId,
+        selectedVesselId: newSet.vesselId,
+        selectedActivityId: newSet.activityId,
+        targetSubtype:
+          newSet.assuranceType === "Project"
+            ? undefined
+            : (newSet.assuranceType as AssuranceSubtype),
+      },
+    );
 
     const sanitizedRequirements = autoAttachedRequirements.map((r) => ({
       ...r,
-      ocrConfidence: (r.documentId || r.linkedDocumentId) ? (r.ocrConfidence || 95) : 0,
+      ocrConfidence:
+        r.documentId || r.linkedDocumentId ? r.ocrConfidence || 95 : 0,
     }));
 
     const computedSet: AssuranceSet = {
       ...newSet,
       id: uniqueId,
-      stage: newSet.stage || 'Initiated',
+      stage: newSet.stage || "Initiated",
       requirements: sanitizedRequirements,
       readinessScore: calculateAssuranceSetReadiness({
         ...newSet,
@@ -832,33 +994,42 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     };
     set((state) => ({ assuranceSets: [...state.assuranceSets, computedSet] }));
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
       organization: newSet.initiatorOrg,
-      action: 'Initiated Assurance Set',
+      action: "Initiated Assurance Set",
       targetAsset: `${computedSet.id} (${computedSet.title})`,
       justificationNotes: `Created assurance set for vessel ${computedSet.vesselName}`,
     });
   },
   updateAssuranceSet: (updatedSet) => {
     const state = get();
-    const matchingVessel = state.vessels.find((v) => v.id === updatedSet.vesselId || v.name === updatedSet.vesselName);
-    const autoAttachedRequirements = autoAttachDocumentsToRequirements(updatedSet.requirements || [], {
-      documents: state.documents,
-      vessel: matchingVessel,
-      vessels: state.vessels,
-      crew: state.crew,
-      selectedCrewId: updatedSet.crewId,
-      equipment: state.equipment,
-      selectedEquipmentId: updatedSet.equipmentId,
-      selectedVesselId: updatedSet.vesselId,
-      selectedActivityId: updatedSet.activityId,
-      targetSubtype: updatedSet.assuranceType === 'Project' ? undefined : (updatedSet.assuranceType as AssuranceSubtype),
-    });
+    const matchingVessel = state.vessels.find(
+      (v) => v.id === updatedSet.vesselId || v.name === updatedSet.vesselName,
+    );
+    const autoAttachedRequirements = autoAttachDocumentsToRequirements(
+      updatedSet.requirements || [],
+      {
+        documents: state.documents,
+        vessel: matchingVessel,
+        vessels: state.vessels,
+        crew: state.crew,
+        selectedCrewId: updatedSet.crewId,
+        equipment: state.equipment,
+        selectedEquipmentId: updatedSet.equipmentId,
+        selectedVesselId: updatedSet.vesselId,
+        selectedActivityId: updatedSet.activityId,
+        targetSubtype:
+          updatedSet.assuranceType === "Project"
+            ? undefined
+            : (updatedSet.assuranceType as AssuranceSubtype),
+      },
+    );
 
     const sanitizedRequirements = autoAttachedRequirements.map((r) => ({
       ...r,
-      ocrConfidence: (r.documentId || r.linkedDocumentId) ? (r.ocrConfidence || 95) : 0,
+      ocrConfidence:
+        r.documentId || r.linkedDocumentId ? r.ocrConfidence || 95 : 0,
     }));
 
     const computedSet: AssuranceSet = {
@@ -871,7 +1042,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     };
 
     set((state) => ({
-      assuranceSets: state.assuranceSets.map((s) => (s.id === updatedSet.id ? computedSet : s)),
+      assuranceSets: state.assuranceSets.map((s) =>
+        s.id === updatedSet.id ? computedSet : s,
+      ),
     }));
   },
   updateAssuranceStage: (setId, stage) => {
@@ -887,35 +1060,76 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
   },
   updateAssuranceStakeholder: (setId, role, assigneeName) => {
+    const assuranceSet = get().assuranceSets.find((s) => s.id === setId);
+    if (!assuranceSet) {
+      return { success: false, message: "Assurance set not found." };
+    }
+
+    const persona = get().activePersona;
+    if (!canEditAssuranceSetStakeholders(assuranceSet, persona)) {
+      return {
+        success: false,
+        message:
+          getAssuranceSetStakeholderLockReason(assuranceSet) ||
+          "Stakeholder assignments cannot be changed for this campaign.",
+      };
+    }
+
+    const validation = validateStakeholderAssignmentForSet(
+      assuranceSet,
+      role,
+      assigneeName,
+      get().users,
+    );
+    if (!validation.ok) {
+      return { success: false, message: validation.message };
+    }
+
     set((state) => ({
       assuranceSets: state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
-        if (role === 'Submitter') {
+        if (role === "Submitter") {
           return { ...s, assignedSubmitter: assigneeName };
         }
-        if (role === 'Verifier') {
-          return { ...s, assignedVerifier: assigneeName, verificationRequired: true };
+        if (role === "Verifier") {
+          return {
+            ...s,
+            assignedVerifier: assigneeName,
+            verificationRequired: true,
+          };
         }
-        if (role === 'Inspector') {
-          return { ...s, assignedInspector: assigneeName, mandatoryInspectionRequired: true };
+        if (role === "Inspector") {
+          return {
+            ...s,
+            assignedInspector: assigneeName,
+            mandatoryInspectionRequired: true,
+          };
         }
-        if (role === 'Approver') {
-          return { ...s, assignedApprover: assigneeName, formalApprovalRequired: true };
+        if (role === "Approver") {
+          return {
+            ...s,
+            assignedApprover: assigneeName,
+            formalApprovalRequired: true,
+          };
         }
         return s;
       }),
     }));
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
-      organization: get().activePersona === 'C Admin' ? 'Southern Basin Energy' : 'Northwind Marine',
+      organization:
+        get().activePersona === "C Admin"
+          ? "Southern Basin Energy"
+          : "Northwind Marine",
       action: `Assigned Vessel ${role}`,
       targetAsset: `${setId} · ${assigneeName}`,
       justificationNotes: `Assigned ${role.toLowerCase()} ${assigneeName} to assurance campaign ${setId}`,
     });
+    return { success: true };
   },
   updateAssuranceInspector: (setId, inspectorName) => {
-    get().updateAssuranceStakeholder(setId, 'Inspector', inspectorName);
+    get().updateAssuranceStakeholder(setId, "Inspector", inspectorName);
   },
   updateRequirementStatus: (setId, reqId, status, notes) => {
     const affectedDocIds = new Set<string>();
@@ -931,7 +1145,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               ...r,
               verifierStatus: status,
               notes: notes || r.notes,
-              isFulfilled: status === 'Verified',
+              isFulfilled: status === "Verified",
             };
           }
           return r;
@@ -941,23 +1155,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           updatedReqs.every(
             (r) =>
               Boolean(r.documentId || r.linkedDocumentId || r.isFulfilled) &&
-              (r.verifierStatus === 'Verified' || s.verificationRequired === false || r.isFulfilled)
+              (r.verifierStatus === "Verified" ||
+                s.verificationRequired === false ||
+                r.isFulfilled),
           );
 
         let nextStage = s.stage;
         if (allVerified) {
           const routesToInspector =
-            updatedReqs.some((r) => r.verificationRoute === 'Inspector') ||
+            updatedReqs.some((r) => r.verificationRoute === "Inspector") ||
             (s.mandatoryInspectionRequired && !s.inspectionCompleted);
           if (routesToInspector) {
-            nextStage = 'Inspection';
+            nextStage = "Inspection";
           } else if (s.formalApprovalRequired !== false) {
-            nextStage = 'Approval';
+            nextStage = "Approval";
           } else {
-            nextStage = 'Approved';
+            nextStage = "Approved";
           }
-        } else if (status === 'Correction Requested' || status === 'Rejected') {
-          nextStage = 'Verification';
+        } else if (status === "Correction Requested" || status === "Rejected") {
+          nextStage = "Verification";
         }
 
         const candidateSet: AssuranceSet = {
@@ -965,12 +1181,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           requirements: updatedReqs,
           stage: nextStage,
           approverDecision: allVerified
-            ? (s.formalApprovalRequired !== false ? 'Pending' : 'Approved')
-            : status === 'Verified'
+            ? s.formalApprovalRequired !== false
+              ? "Pending"
+              : "Approved"
+            : status === "Verified"
               ? s.approverDecision
-              : status === 'Correction Requested'
-                ? 'Returned for Correction'
-                : 'Rejected',
+              : status === "Correction Requested"
+                ? "Returned for Correction"
+                : "Rejected",
         };
 
         return {
@@ -992,15 +1210,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     });
 
-    const isDenial = status === 'Correction Requested' || status === 'Rejected';
-    const actionTag = isDenial ? ' [PING: SUBMITTER ACTION REQUIRED]' : '';
+    const isDenial = status === "Correction Requested" || status === "Rejected";
+    const actionTag = isDenial ? " [PING: SUBMITTER ACTION REQUIRED]" : "";
     get().logAuditEvent({
-      userId: get().activePersona === 'Approver' ? 'USR-APPROVE-01' : 'USR-VERIFY-01',
+      userId:
+        get().activePersona === "Approver" ? "USR-APPROVE-01" : "USR-VERIFY-01",
       userRole: get().activePersona,
-      organization: get().activePersona === 'Approver' ? 'Marine Assurance Authority' : 'Compliance Services',
+      organization:
+        get().activePersona === "Approver"
+          ? "Marine Assurance Authority"
+          : "Compliance Services",
       action: `Requirement Verification: ${status}${actionTag}`,
       targetAsset: `${setId} / Requirement ${reqId}`,
-      justificationNotes: notes || `Verifier status set to ${status}${isDenial ? ' — Submitter revision required.' : ''}`,
+      justificationNotes:
+        notes ||
+        `Verifier status set to ${status}${isDenial ? " — Submitter revision required." : ""}`,
     });
   },
   denyRequirementByApprover: (setId, reqId, decision, notes) => {
@@ -1020,7 +1244,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               ...r,
               verifierStatus: decision,
               isFulfilled: false,
-              notes: notes || `Executive Approver returned document as ${decision}.`,
+              notes:
+                notes || `Executive Approver returned document as ${decision}.`,
             };
           }
           return r;
@@ -1029,8 +1254,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
-          stage: 'Verification',
-          approverDecision: decision === 'Correction Requested' ? 'Returned for Correction' : 'Rejected',
+          stage: "Verification",
+          approverDecision:
+            decision === "Correction Requested"
+              ? "Returned for Correction"
+              : "Rejected",
           approverNotes: notes,
         };
 
@@ -1042,16 +1270,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
       /* synchronize master documents matching the requirement */
       const updatedDocs = state.documents.map((d) => {
-        const isMatchedDoc = affectedDocIds.has(d.id) ||
+        const isMatchedDoc =
+          affectedDocIds.has(d.id) ||
           d.title.toLowerCase() === requirementTitle.toLowerCase() ||
-          (d.vesselId && state.assuranceSets.find((s) => s.id === setId)?.vesselId === d.vesselId &&
+          (d.vesselId &&
+            state.assuranceSets.find((s) => s.id === setId)?.vesselId ===
+              d.vesselId &&
             d.title.toLowerCase().includes(requirementTitle.toLowerCase()));
 
         if (isMatchedDoc) {
           return {
             ...d,
             verificationStatus: decision,
-            verificationNotes: notes || `Executive Approver set status to ${decision}. Submitter revision required.`,
+            verificationNotes:
+              notes ||
+              `Executive Approver set status to ${decision}. Submitter revision required.`,
           };
         }
         return d;
@@ -1064,18 +1297,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: 'USR-APPROVE-01',
+      userId: "USR-APPROVE-01",
       userRole: get().activePersona,
-      organization: 'Marine Assurance Authority',
+      organization: "Marine Assurance Authority",
       action: `Approver Denied Verified Document [PING: SUBMITTER ACTION REQUIRED]`,
       targetAsset: `${setId} / ${requirementTitle}`,
-      justificationNotes: `Approver denied verified document (${decision}): ${notes || 'Revision requested from submitter.'}`,
+      justificationNotes: `Approver denied verified document (${decision}): ${notes || "Revision requested from submitter."}`,
     });
   },
   setApproverDecision: (setId, decision, notes) => {
-    const isDenial = decision === 'Returned for Correction' || decision === 'Rejected';
-    const mappedStatus: 'Correction Requested' | 'Rejected' =
-      decision === 'Returned for Correction' ? 'Correction Requested' : 'Rejected';
+    const isDenial =
+      decision === "Returned for Correction" || decision === "Rejected";
+    const mappedStatus: "Correction Requested" | "Rejected" =
+      decision === "Returned for Correction"
+        ? "Correction Requested"
+        : "Rejected";
     const affectedDocIds = new Set<string>();
 
     set((state) => {
@@ -1083,19 +1319,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
       const updatedSets = state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
-        const newStage = decision === 'Approved' ? 'Approved' : 'Verification';
+        const newStage = decision === "Approved" ? "Approved" : "Verification";
 
         const updatedReqs: AssuranceRequirement[] = isDenial
           ? s.requirements.map((r) => {
-            if (r.documentId) affectedDocIds.add(r.documentId);
-            if (r.linkedDocumentId) affectedDocIds.add(r.linkedDocumentId);
-            return {
-              ...r,
-              verifierStatus: mappedStatus,
-              isFulfilled: false,
-              notes: notes || `Campaign returned to verification stage by Executive Approver.`,
-            };
-          })
+              if (r.documentId) affectedDocIds.add(r.documentId);
+              if (r.linkedDocumentId) affectedDocIds.add(r.linkedDocumentId);
+              return {
+                ...r,
+                verifierStatus: mappedStatus,
+                isFulfilled: false,
+                notes:
+                  notes ||
+                  `Campaign returned to verification stage by Executive Approver.`,
+              };
+            })
           : s.requirements;
 
         const candidateSet: AssuranceSet = {
@@ -1114,16 +1352,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       /* when entire campaign is denied, cascade returned/rejected status to all linked documents */
       const updatedDocs = isDenial
         ? state.documents.map((d) => {
-          const isSetLinked = affectedDocIds.has(d.id) || (targetSet && d.vesselId === targetSet.vesselId);
-          if (isSetLinked) {
-            return {
-              ...d,
-              verificationStatus: mappedStatus,
-              verificationNotes: notes || `Approver ${decision}: Revision required for campaign ${setId}.`,
-            };
-          }
-          return d;
-        })
+            const isSetLinked =
+              affectedDocIds.has(d.id) ||
+              (targetSet && d.vesselId === targetSet.vesselId);
+            if (isSetLinked) {
+              return {
+                ...d,
+                verificationStatus: mappedStatus,
+                verificationNotes:
+                  notes ||
+                  `Approver ${decision}: Revision required for campaign ${setId}.`,
+              };
+            }
+            return d;
+          })
         : state.documents;
 
       return {
@@ -1132,14 +1374,71 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     });
 
-    const pingTag = isDenial ? ' [PING: SUBMITTER ACTION REQUIRED]' : '';
+    const pingTag = isDenial ? " [PING: SUBMITTER ACTION REQUIRED]" : "";
     get().logAuditEvent({
-      userId: 'USR-APPROVE-01',
+      userId: "USR-APPROVE-01",
       userRole: get().activePersona,
-      organization: 'Marine Assurance Authority',
+      organization: "Marine Assurance Authority",
       action: `Approver Final Decision: ${decision}${pingTag}`,
       targetAsset: `Assurance Set ${setId}`,
-      justificationNotes: notes || `Executive decision: ${decision}${isDenial ? ' — Submitter revision ping dispatched.' : ''}`,
+      justificationNotes:
+        notes ||
+        `Executive decision: ${decision}${isDenial ? " — Submitter revision ping dispatched." : ""}`,
+    });
+  },
+
+  sendAssuranceForReview: (setId) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      assuranceSets: state.assuranceSets.map((s) => {
+        if (s.id !== setId) return s;
+        const nextStage =
+          s.stage === "Initiated" || s.stage === "Validation"
+            ? "Verification"
+            : s.stage;
+        return {
+          ...s,
+          clientWorkflowStage: "in_review" as const,
+          sentForReviewAt: now,
+          stage: nextStage,
+        };
+      }),
+    }));
+    get().logAuditEvent({
+      userId: "USR-CADMIN-01",
+      userRole: get().activePersona,
+      organization: "Southern Basin Energy",
+      action: "Client Sent Campaign for Review",
+      targetAsset: `Assurance Set ${setId}`,
+      justificationNotes:
+        "Campaign submitted to verification / review workflow. Documents are read-only for client.",
+    });
+  },
+
+  setClientApproval: (setId, decision, notes) => {
+    get().setApproverDecision(setId, decision, notes);
+    set((state) => ({
+      assuranceSets: state.assuranceSets.map((s) => {
+        if (s.id !== setId) return s;
+        const workflowStage =
+          decision === "Approved"
+            ? ("approved" as const)
+            : decision === "Returned for Correction"
+              ? ("in_review" as const)
+              : ("pending_approval" as const);
+        return {
+          ...s,
+          clientWorkflowStage: workflowStage,
+        };
+      }),
+    }));
+    get().logAuditEvent({
+      userId: "USR-CADMIN-01",
+      userRole: get().activePersona,
+      organization: "Southern Basin Energy",
+      action: `Client Campaign Decision: ${decision}`,
+      targetAsset: `Assurance Set ${setId}`,
+      justificationNotes: notes || `Client sign-off: ${decision}`,
     });
   },
 
@@ -1148,10 +1447,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   addDocument: (doc) => {
     set((state) => ({ documents: [...state.documents, doc] }));
     get().logAuditEvent({
-      userId: 'USR-SUBMIT-01',
+      userId: "USR-SUBMIT-01",
       userRole: get().activePersona,
-      organization: 'Vessel Provider Operations',
-      action: 'Uploaded New Master Document',
+      organization: "Vessel Provider Operations",
+      action: "Uploaded New Master Document",
       targetAsset: `${doc.id} (${doc.title})`,
       justificationNotes: `Uploaded certificate ${doc.certificateNo}`,
     });
@@ -1165,10 +1464,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           vesselId,
           vesselAttributes: d.vesselAttributes
             ? {
-              ...d.vesselAttributes,
-              vesselName: vesselName || d.vesselAttributes.vesselName,
-              imoNumber: imoNumber || d.vesselAttributes.imoNumber,
-            }
+                ...d.vesselAttributes,
+                vesselName: vesselName || d.vesselAttributes.vesselName,
+                imoNumber: imoNumber || d.vesselAttributes.imoNumber,
+              }
             : undefined,
         };
       }),
@@ -1180,7 +1479,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         if (s.id !== setId) return s;
 
         let updatedReqs = [...s.requirements];
-        const targetReqExists = requirementId ? updatedReqs.some((r) => r.id === requirementId) : false;
+        const targetReqExists = requirementId
+          ? updatedReqs.some((r) => r.id === requirementId)
+          : false;
 
         if (targetReqExists) {
           updatedReqs = updatedReqs.map((r) => {
@@ -1189,7 +1490,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               ...r,
               documentId: doc.id,
               documentVersion: doc.currentVersion,
-              verifierStatus: 'Pending' as const,
+              verifierStatus: "Pending" as const,
               isFulfilled: false,
               ocrConfidence: doc.ocrConfidence,
               notes: `Upload linked to requirement (${doc.versions[0]?.fileName || doc.title}).`,
@@ -1198,14 +1499,17 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         } else {
           const newReq: AssuranceRequirement = {
             id: `req-other-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
-            category: doc.entityType === 'Crew Certificate' ? 'Crew Credential' : 'Statutory Certificate',
+            category:
+              doc.entityType === "Crew Certificate"
+                ? "Crew Credential"
+                : "Statutory Certificate",
             title: doc.title,
             isMandatory: false,
             isFulfilled: false,
             ocrConfidence: doc.ocrConfidence || 99,
             documentId: doc.id,
-            documentVersion: doc.currentVersion || 'v1.0',
-            verifierStatus: 'Pending',
+            documentVersion: doc.currentVersion || "v1.0",
+            verifierStatus: "Pending",
             isOtherDocument: true,
             notes: `Uploaded additional document (${doc.versions?.[0]?.fileName || doc.title}).`,
           };
@@ -1214,19 +1518,23 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
         const hasLinkedDocuments = updatedReqs.some((r) => r.documentId);
         let nextStage = s.stage;
-        if (hasLinkedDocuments && (s.stage === 'Initiated' || s.stage === 'Validation')) {
+        if (
+          hasLinkedDocuments &&
+          (s.stage === "Initiated" || s.stage === "Validation")
+        ) {
           if (s.verificationRequired !== false) {
-            nextStage = 'Verification';
+            nextStage = "Verification";
           } else {
             const allUploaded = updatedReqs.every((r) => r.documentId);
             if (allUploaded) {
-              nextStage = s.mandatoryInspectionRequired && !s.inspectionCompleted
-                ? 'Inspection'
-                : s.formalApprovalRequired !== false
-                  ? 'Approval'
-                  : 'Approved';
+              nextStage =
+                s.mandatoryInspectionRequired && !s.inspectionCompleted
+                  ? "Inspection"
+                  : s.formalApprovalRequired !== false
+                    ? "Approval"
+                    : "Approved";
             } else {
-              nextStage = 'Validation';
+              nextStage = "Validation";
             }
           }
         }
@@ -1244,28 +1552,36 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       });
 
       return {
-        documents: state.documents.some((d) => d.id === doc.id) ? state.documents : [...state.documents, doc],
+        documents: state.documents.some((d) => d.id === doc.id)
+          ? state.documents
+          : [...state.documents, doc],
         assuranceSets: updatedSets,
       };
     });
 
     get().logAuditEvent({
-      userId: 'USR-SUBMIT-01',
+      userId: "USR-SUBMIT-01",
       userRole: get().activePersona,
-      organization: 'Vessel Provider Operations',
-      action: 'Uploaded Document for Assurance Requirement',
-      targetAsset: `${doc.id} -> ${setId} / ${requirementId || 'Other Documents'}`,
+      organization: "Vessel Provider Operations",
+      action: "Uploaded Document for Assurance Requirement",
+      targetAsset: `${doc.id} -> ${setId} / ${requirementId || "Other Documents"}`,
       justificationNotes: `Upload: ${doc.title} (${doc.certificateNo}) queued for verifier review.`,
     });
   },
-  addDocumentVersion: (docId, newVersionLabel, fileName, fileSizeBytes, changeSummary) => {
+  addDocumentVersion: (
+    docId,
+    newVersionLabel,
+    fileName,
+    fileSizeBytes,
+    changeSummary,
+  ) => {
     set((state) => {
       const updatedDocs = state.documents.map((d) => {
         if (d.id !== docId) return d;
         const newVersionObj = {
           versionLabel: newVersionLabel,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: 'Ops Submitter',
+          uploadedBy: "Ops Submitter",
           fileSizeBytes,
           fileName,
           changeSummary,
@@ -1274,7 +1590,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           ...d,
           currentVersion: newVersionLabel,
           ocrConfidence: 98,
-          verificationStatus: 'Pending' as const,
+          verificationStatus: "Pending" as const,
           versions: [newVersionObj, ...d.versions],
         };
       });
@@ -1283,16 +1599,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       const updatedSets = state.assuranceSets.map((s) => {
         let hasMatchedReq = false;
         const updatedReqs = s.requirements.map((r) => {
-          if (r.documentId === docId || (targetDoc && r.title.toLowerCase() === targetDoc.title.toLowerCase())) {
+          if (
+            r.documentId === docId ||
+            (targetDoc &&
+              r.title.toLowerCase() === targetDoc.title.toLowerCase())
+          ) {
             hasMatchedReq = true;
             return {
               ...r,
               documentId: docId,
               documentVersion: newVersionLabel,
-              verifierStatus: 'Pending' as const,
+              verifierStatus: "Pending" as const,
               isFulfilled: false,
               ocrConfidence: 98,
-              notes: changeSummary || `Replacement revision ${newVersionLabel} uploaded by submitter.`,
+              notes:
+                changeSummary ||
+                `Replacement revision ${newVersionLabel} uploaded by submitter.`,
             };
           }
           return r;
@@ -1303,7 +1625,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
-          stage: 'Verification' as const,
+          stage: "Verification" as const,
         };
 
         return {
@@ -1319,9 +1641,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: 'USR-SUBMIT-01',
+      userId: "USR-SUBMIT-01",
       userRole: get().activePersona,
-      organization: 'Vessel Provider Operations',
+      organization: "Vessel Provider Operations",
       action: `Uploaded Document Revision ${newVersionLabel}`,
       targetAsset: `Document ${docId}`,
       justificationNotes: changeSummary,
@@ -1330,7 +1652,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   verifyDocument: (docId, status, notes, routeTarget) => {
     set((state) => {
       const updatedDocs = state.documents.map((d) =>
-        d.id === docId ? { ...d, verificationStatus: status, verificationNotes: notes } : d
+        d.id === docId
+          ? { ...d, verificationStatus: status, verificationNotes: notes }
+          : d,
       );
       const targetDoc = updatedDocs.find((d) => d.id === docId);
 
@@ -1339,23 +1663,31 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
         const updatedReqs = s.requirements.map((r) => {
           const isDocIdMatch = r.documentId === docId;
-          const isTitleMatch = targetDoc && r.title.toLowerCase() === targetDoc.title.toLowerCase();
-          const isSubTitleMatch = targetDoc && (
-            r.title.toLowerCase().includes(targetDoc.title.toLowerCase()) ||
-            targetDoc.title.toLowerCase().includes(r.title.toLowerCase())
-          );
+          const isTitleMatch =
+            targetDoc &&
+            r.title.toLowerCase() === targetDoc.title.toLowerCase();
+          const isSubTitleMatch =
+            targetDoc &&
+            (r.title.toLowerCase().includes(targetDoc.title.toLowerCase()) ||
+              targetDoc.title.toLowerCase().includes(r.title.toLowerCase()));
 
-          if (isDocIdMatch || isTitleMatch || (s.vesselId === targetDoc?.vesselId && isSubTitleMatch)) {
+          if (
+            isDocIdMatch ||
+            isTitleMatch ||
+            (s.vesselId === targetDoc?.vesselId && isSubTitleMatch)
+          ) {
             hasMatchedReq = true;
             return {
               ...r,
               documentId: docId,
               verifierStatus: status,
-              isFulfilled: status === 'Verified',
+              isFulfilled: status === "Verified",
               ocrConfidence: targetDoc?.ocrConfidence || 98,
               notes: notes || r.notes,
               verificationRoute:
-                status === 'Verified' && routeTarget ? routeTarget : r.verificationRoute,
+                status === "Verified" && routeTarget
+                  ? routeTarget
+                  : r.verificationRoute,
             };
           }
           return r;
@@ -1363,22 +1695,28 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
         if (!hasMatchedReq) return s;
 
-        const allVerified = updatedReqs.length > 0 && updatedReqs.every((r) => r.verifierStatus === 'Verified' || s.verificationRequired === false);
+        const allVerified =
+          updatedReqs.length > 0 &&
+          updatedReqs.every(
+            (r) =>
+              r.verifierStatus === "Verified" ||
+              s.verificationRequired === false,
+          );
 
         let nextStage = s.stage;
         if (allVerified) {
           const routesToInspector =
-            updatedReqs.some((r) => r.verificationRoute === 'Inspector') ||
+            updatedReqs.some((r) => r.verificationRoute === "Inspector") ||
             (s.mandatoryInspectionRequired && !s.inspectionCompleted);
           if (routesToInspector) {
-            nextStage = 'Inspection';
+            nextStage = "Inspection";
           } else if (s.formalApprovalRequired !== false) {
-            nextStage = 'Approval';
+            nextStage = "Approval";
           } else {
-            nextStage = 'Approved';
+            nextStage = "Approved";
           }
-        } else if (status === 'Correction Requested' || status === 'Rejected') {
-          nextStage = 'Verification';
+        } else if (status === "Correction Requested" || status === "Rejected") {
+          nextStage = "Verification";
         }
 
         const candidateSet: AssuranceSet = {
@@ -1386,12 +1724,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           requirements: updatedReqs,
           stage: nextStage,
           approverDecision: allVerified
-            ? (s.formalApprovalRequired !== false ? 'Pending' : 'Approved')
-            : status === 'Verified'
+            ? s.formalApprovalRequired !== false
+              ? "Pending"
+              : "Approved"
+            : status === "Verified"
               ? s.approverDecision
-              : status === 'Correction Requested'
-                ? 'Returned for Correction'
-                : 'Rejected',
+              : status === "Correction Requested"
+                ? "Returned for Correction"
+                : "Rejected",
         };
 
         return {
@@ -1406,17 +1746,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     });
 
-    const isDenial = status === 'Correction Requested' || status === 'Rejected';
-    const pingTag = isDenial ? ' [PING: SUBMITTER ACTION REQUIRED]' : '';
-    const routeNote = routeTarget ? ` | Routed to ${routeTarget}` : '';
+    const isDenial = status === "Correction Requested" || status === "Rejected";
+    const pingTag = isDenial ? " [PING: SUBMITTER ACTION REQUIRED]" : "";
+    const routeNote = routeTarget ? ` | Routed to ${routeTarget}` : "";
     const activePersona = get().activePersona;
     get().logAuditEvent({
-      userId: activePersona === 'Approver' ? 'USR-APPROVE-01' : 'USR-VERIFY-01',
+      userId: activePersona === "Approver" ? "USR-APPROVE-01" : "USR-VERIFY-01",
       userRole: activePersona,
-      organization: activePersona === 'Approver' ? 'Marine Assurance Authority' : 'Verifier Inspectorate',
-      action: `${activePersona === 'Approver' ? 'Approver' : 'Verifier'} Document Action: ${status}${pingTag}`,
+      organization:
+        activePersona === "Approver"
+          ? "Marine Assurance Authority"
+          : "Verifier Inspectorate",
+      action: `${activePersona === "Approver" ? "Approver" : "Verifier"} Document Action: ${status}${pingTag}`,
       targetAsset: `Document ${docId}`,
-      justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${isDenial ? ' — Submitter revision required.' : ''}`,
+      justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${isDenial ? " — Submitter revision required." : ""}`,
     });
   },
 
@@ -1424,7 +1767,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   auditEvents: MOCK_AUDIT_TRAIL,
   logAuditEvent: (eventData) => {
     const newEvent: AuditTrailEvent = {
-      id: `MAP-AUD-2026-EVNT-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
+      id: `MAP-AUD-2026-EVNT-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, "0")}`,
       timestampUtc: new Date().toISOString(),
       ...eventData,
     };
@@ -1438,29 +1781,33 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const preparedUser: UserProfile = {
       ...newUser,
       createdBy: newUser.createdBy || activePersona,
-      invitedBy: newUser.invitedBy || (newUser.status === 'Pending Invitation' ? activePersona : undefined),
+      invitedBy:
+        newUser.invitedBy ||
+        (newUser.status === "Pending Invitation" ? activePersona : undefined),
     };
     set((state) => ({ users: [preparedUser, ...state.users] }));
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: activePersona,
-      organization: 'Northwind Marine Pty Ltd',
+      organization: "Northwind Marine Pty Ltd",
       action: `Provisioned New User Profile (${preparedUser.userType})`,
       targetAsset: `${preparedUser.name} (${preparedUser.email})`,
-      justificationNotes: `Added ${preparedUser.userType} user assigned as ${preparedUser.roles.join(', ')} for ${preparedUser.organization}.`,
+      justificationNotes: `Added ${preparedUser.userType} user assigned as ${preparedUser.roles.join(", ")} for ${preparedUser.organization}.`,
     });
   },
   updateUser: (updatedUser) => {
     set((state) => ({
-      users: state.users.map((u) => (u.id === updatedUser.id ? updatedUser : u)),
+      users: state.users.map((u) =>
+        u.id === updatedUser.id ? updatedUser : u,
+      ),
     }));
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Updated User Profile',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Updated User Profile",
       targetAsset: `${updatedUser.name} (${updatedUser.email})`,
-      justificationNotes: `Updated user profile for ${updatedUser.name} (${updatedUser.roles.join(', ')}, ${updatedUser.userType}).`,
+      justificationNotes: `Updated user profile for ${updatedUser.name} (${updatedUser.roles.join(", ")}, ${updatedUser.userType}).`,
     });
   },
   updateUserStatus: (userId, status) => {
@@ -1494,37 +1841,40 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       },
     }));
     const scopeLabel =
-      [...PERMISSION_SCOPE_CATALOG, ...get().customScopes].find((s) => s.key === scopeKey)?.label ??
-      scopeKey;
+      [...PERMISSION_SCOPE_CATALOG, ...get().customScopes].find(
+        (s) => s.key === scopeKey,
+      )?.label ?? scopeKey;
     get().logAuditEvent({
-      userId: 'USR-ADMIN',
+      userId: "USR-ADMIN",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Updated Role Permission Default',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Updated Role Permission Default",
       targetAsset: `${role} · ${scopeLabel} · ${action}`,
-      justificationNotes: `Set ${action} to ${value ? 'allowed' : 'denied'} for role ${role} on "${scopeLabel}".`,
+      justificationNotes: `Set ${action} to ${value ? "allowed" : "denied"} for role ${role} on "${scopeLabel}".`,
     });
   },
   commitRolePermissionDefaults: (matrix) => {
     set({ rolePermissionDefaults: matrix });
     get().logAuditEvent({
-      userId: 'USR-ADMIN',
+      userId: "USR-ADMIN",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Saved Role Permission Defaults',
-      targetAsset: 'Role Rights Matrix',
-      justificationNotes: 'Administrator committed role-default permission changes.',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Saved Role Permission Defaults",
+      targetAsset: "Role Rights Matrix",
+      justificationNotes:
+        "Administrator committed role-default permission changes.",
     });
   },
   commitUserPermissionOverrides: (overrides) => {
     set({ userPermissionOverrides: overrides });
     get().logAuditEvent({
-      userId: 'USR-ADMIN',
+      userId: "USR-ADMIN",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Saved User Permission Overrides',
-      targetAsset: 'User Rights Matrix',
-      justificationNotes: 'Administrator committed per-user permission overrides.',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Saved User Permission Overrides",
+      targetAsset: "User Rights Matrix",
+      justificationNotes:
+        "Administrator committed per-user permission overrides.",
     });
   },
   resetRolePermissionsToBrd: () => {
@@ -1536,18 +1886,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       customCategories: [],
     });
     get().logAuditEvent({
-      userId: 'USR-ADMIN',
+      userId: "USR-ADMIN",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Reset Role Permissions to BRD Defaults',
-      targetAsset: 'Role Rights Matrix',
-      justificationNotes: 'Restored BRD-seeded CRUD defaults and cleared custom roles/scopes/categories/overrides.',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Reset Role Permissions to BRD Defaults",
+      targetAsset: "Role Rights Matrix",
+      justificationNotes:
+        "Restored BRD-seeded CRUD defaults and cleared custom roles/scopes/categories/overrides.",
     });
   },
   setUserPermissionOverride: (userId, scopeKey, action, value) => {
     set((state) => {
-      const userOverrides = { ...(state.userPermissionOverrides[userId] || {}) };
-      const scopePatch = { ...(userOverrides[scopeKey] || {}), [action]: value };
+      const userOverrides = {
+        ...(state.userPermissionOverrides[userId] || {}),
+      };
+      const scopePatch = {
+        ...(userOverrides[scopeKey] || {}),
+        [action]: value,
+      };
       userOverrides[scopeKey] = scopePatch;
       return {
         userPermissionOverrides: {
@@ -1557,14 +1913,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     });
     const scopeLabel =
-      [...PERMISSION_SCOPE_CATALOG, ...get().customScopes].find((s) => s.key === scopeKey)?.label ??
-      scopeKey;
+      [...PERMISSION_SCOPE_CATALOG, ...get().customScopes].find(
+        (s) => s.key === scopeKey,
+      )?.label ?? scopeKey;
     const userName = get().users.find((u) => u.id === userId)?.name ?? userId;
     get().logAuditEvent({
-      userId: 'USR-ADMIN',
+      userId: "USR-ADMIN",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Updated User Permission Override',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Updated User Permission Override",
       targetAsset: `${userName} · ${scopeLabel} · ${action}`,
       justificationNotes: `Override ${action}=${value} for ${userName} on "${scopeLabel}".`,
     });
@@ -1576,20 +1933,23 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       return { userPermissionOverrides: next };
     });
     get().logAuditEvent({
-      userId: 'USR-ADMIN',
+      userId: "USR-ADMIN",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Cleared User Permission Overrides',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Cleared User Permission Overrides",
       targetAsset: userId,
       justificationNotes: `Restored user ${userId} to role-default permissions.`,
     });
   },
   addCustomRole: (roleName) => {
     const name = roleName.trim();
-    if (!name) return { success: false, message: 'Role name is required.' };
+    if (!name) return { success: false, message: "Role name is required." };
     const existing = [...ALL_ROLE_PERSONAS, ...get().customRoles];
     if (existing.some((r) => r.toLowerCase() === name.toLowerCase())) {
-      return { success: false, message: 'A role with this name already exists.' };
+      return {
+        success: false,
+        message: "A role with this name already exists.",
+      };
     }
     const catalog = [...PERMISSION_SCOPE_CATALOG, ...get().customScopes];
     set((state) => ({
@@ -1600,10 +1960,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       },
     }));
     get().logAuditEvent({
-      userId: 'USR-ADMIN',
+      userId: "USR-ADMIN",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Created Custom Role',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Created Custom Role",
       targetAsset: name,
       justificationNotes: `Added custom role "${name}" with empty CRUD defaults.`,
     });
@@ -1611,19 +1971,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   addCustomCategory: (categoryName) => {
     const name = categoryName.trim();
-    if (!name) return { success: false, message: 'Category name is required.' };
-    const existing = [...BUILTIN_PERMISSION_CATEGORIES, ...get().customCategories];
+    if (!name) return { success: false, message: "Category name is required." };
+    const existing = [
+      ...BUILTIN_PERMISSION_CATEGORIES,
+      ...get().customCategories,
+    ];
     if (existing.some((c) => c.toLowerCase() === name.toLowerCase())) {
-      return { success: false, message: 'A category with this name already exists.' };
+      return {
+        success: false,
+        message: "A category with this name already exists.",
+      };
     }
     set((state) => ({
       customCategories: [...state.customCategories, name],
     }));
     get().logAuditEvent({
-      userId: 'USR-ADMIN',
+      userId: "USR-ADMIN",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Created Permission Category',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Created Permission Category",
       targetAsset: name,
       justificationNotes: `Added permission category "${name}".`,
     });
@@ -1631,9 +1997,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   addCustomScope: ({ label, description, category }) => {
     const trimmed = label.trim();
-    if (!trimmed) return { success: false, message: 'Feature / scope name is required.' };
+    if (!trimmed)
+      return { success: false, message: "Feature / scope name is required." };
     const categoryName = category.trim();
-    if (!categoryName) return { success: false, message: 'Category is required.' };
+    if (!categoryName)
+      return { success: false, message: "Category is required." };
 
     let key = `custom_${slugifyPermissionKey(trimmed)}`;
     const allKeys = new Set([
@@ -1645,13 +2013,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const def: PermissionScopeDefinition = {
       key,
       label: trimmed,
-      description: description.trim() || 'Feature scope added by administrator.',
+      description:
+        description.trim() || "Feature scope added by administrator.",
       category: categoryName,
       isCustom: true,
     };
 
     set((state) => {
-      const nextMatrix: RolePermissionMatrix = { ...state.rolePermissionDefaults };
+      const nextMatrix: RolePermissionMatrix = {
+        ...state.rolePermissionDefaults,
+      };
       for (const role of Object.keys(nextMatrix)) {
         nextMatrix[role] = {
           ...nextMatrix[role],
@@ -1660,8 +2031,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       }
       const cats = state.customCategories;
       const known =
-        BUILTIN_PERMISSION_CATEGORIES.some((c) => c.toLowerCase() === categoryName.toLowerCase()) ||
-        cats.some((c) => c.toLowerCase() === categoryName.toLowerCase());
+        BUILTIN_PERMISSION_CATEGORIES.some(
+          (c) => c.toLowerCase() === categoryName.toLowerCase(),
+        ) || cats.some((c) => c.toLowerCase() === categoryName.toLowerCase());
       return {
         customScopes: [...state.customScopes, def],
         rolePermissionDefaults: nextMatrix,
@@ -1669,10 +2041,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     });
     get().logAuditEvent({
-      userId: 'USR-ADMIN',
+      userId: "USR-ADMIN",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Created Custom Permission Scope',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Created Custom Permission Scope",
       targetAsset: trimmed,
       justificationNotes: `Added permission "${trimmed}" under category "${categoryName}".`,
     });
@@ -1684,27 +2056,38 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   addCrewMember: (newCrew) => {
     const activePersona = get().activePersona;
     /* convert all layer 1 and layer 2 certificates attached to new crew into MasterDocument entries */
-    const allCrewDocs = [...newCrew.layer1CoreDocuments, ...newCrew.layer2Endorsements];
+    const allCrewDocs = [
+      ...newCrew.layer1CoreDocuments,
+      ...newCrew.layer2Endorsements,
+    ];
     const newMasterDocs: MasterDocument[] = allCrewDocs.map((doc) => {
-      const isExpired = doc.verificationStatus === 'Expired' || new Date(doc.expiryDate).getTime() < Date.now();
+      const isExpired =
+        doc.verificationStatus === "Expired" ||
+        new Date(doc.expiryDate).getTime() < Date.now();
       return {
         id: doc.id,
         title: `${doc.title} — ${newCrew.fullName}`,
-        entityType: 'Crew Certificate',
-        vesselId: newCrew.currentVesselId || '',
+        entityType: "Crew Certificate",
+        vesselId: newCrew.currentVesselId || "",
         certificateNo: doc.certificateNo,
         issuingAuthority: doc.issuingAuthority,
         expiryDate: doc.expiryDate,
         ocrConfidence: 98.5,
-        complianceState: isExpired ? 'Expired' : doc.verificationStatus === 'Expiring' ? 'Expiring < 6 Mos' : 'Valid',
-        currentVersion: 'v1.0',
+        complianceState: isExpired
+          ? "Expired"
+          : doc.verificationStatus === "Expiring"
+            ? "Expiring < 6 Mos"
+            : "Valid",
+        currentVersion: "v1.0",
         versions: [
           {
-            versionLabel: 'v1.0',
+            versionLabel: "v1.0",
             uploadedAt: new Date().toISOString(),
-            uploadedBy: activePersona || 'Crewing Administrator',
+            uploadedBy: activePersona || "Crewing Administrator",
             fileSizeBytes: doc.fileSizeBytes || 1500000,
-            fileName: doc.fileName || `${doc.title.toLowerCase().replace(/\s+/g, '_')}.pdf`,
+            fileName:
+              doc.fileName ||
+              `${doc.title.toLowerCase().replace(/\s+/g, "_")}.pdf`,
             changeSummary: `Uploaded ${doc.layer} certificate for STCW compliance tracking.`,
           },
         ],
@@ -1716,7 +2099,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           issuingCenter: doc.issuingAuthority,
           issueDate: doc.issueDate,
           expiryDate: doc.expiryDate,
-          assignedVessel: newCrew.currentVesselName || '',
+          assignedVessel: newCrew.currentVesselName || "",
           nationality: newCrew.nationality,
           trainingDate: doc.issueDate,
           ocrConfidence: 98.5,
@@ -1726,16 +2109,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           assetMatch100Percent: true,
           iacsAuthorityValid: true,
           overallValid: !isExpired,
-          exceptionDetails: isExpired ? `Certificate expired on ${doc.expiryDate}. Immediate renewal required.` : undefined,
+          exceptionDetails: isExpired
+            ? `Certificate expired on ${doc.expiryDate}. Immediate renewal required.`
+            : undefined,
         },
-        verificationStatus: isExpired ? 'Correction Requested' : 'Verified',
-        verificationNotes: isExpired ? 'Expired certificate. Please upload updated renewal scan.' : undefined,
+        verificationStatus: isExpired ? "Correction Requested" : "Verified",
+        verificationNotes: isExpired
+          ? "Expired certificate. Please upload updated renewal scan."
+          : undefined,
       };
     });
 
     set((state) => {
       const existingDocIds = new Set(state.documents.map((d) => d.id));
-      const filteredNewDocs = newMasterDocs.filter((d) => !existingDocIds.has(d.id));
+      const filteredNewDocs = newMasterDocs.filter(
+        (d) => !existingDocIds.has(d.id),
+      );
       return {
         crew: [newCrew, ...state.crew],
         documents: [...filteredNewDocs, ...state.documents],
@@ -1743,10 +2132,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Registered Crew Member',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Registered Crew Member",
       targetAsset: `${newCrew.fullName} (${newCrew.rank})`,
       justificationNotes: `Registered crew member with Seaman's Book ${newCrew.seamansBookNo}`,
     });
@@ -1767,16 +2156,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         }
         const existingAssignments = c.assignments || [];
         const newAssignment = {
-          id: `MAP-ASG-2026-ASGN-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
+          id: `MAP-ASG-2026-ASGN-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, "0")}`,
           vesselId: vessel!.id,
           vesselName: vessel!.name,
           imoNumber: vessel!.imoNumber,
-          vesselType: vessel!.classificationSociety ? `${vessel!.classificationSociety} Vessel` : 'Offshore Support Vessel',
+          vesselType: vessel!.classificationSociety
+            ? `${vessel!.classificationSociety} Vessel`
+            : "Offshore Support Vessel",
           rankHeld: c.rank,
-          embarkDate: new Date().toISOString().split('T')[0],
+          embarkDate: new Date().toISOString().split("T")[0],
           isCurrent: true,
         };
-        const updatedAssignments = [newAssignment, ...existingAssignments.map((a) => ({ ...a, isCurrent: false }))];
+        const updatedAssignments = [
+          newAssignment,
+          ...existingAssignments.map((a) => ({ ...a, isCurrent: false })),
+        ];
         return {
           ...c,
           currentVesselId: vessel!.id,
@@ -1787,15 +2181,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
       /* update corresponding documents in document library with new vessel association */
       const updatedDocuments = state.documents.map((d) => {
-        if (d.entityType === 'Crew Certificate' && d.crewAttributes?.crewName === crewName) {
+        if (
+          d.entityType === "Crew Certificate" &&
+          d.crewAttributes?.crewName === crewName
+        ) {
           return {
             ...d,
-            vesselId: vesselId || '',
+            vesselId: vesselId || "",
             crewAttributes: d.crewAttributes
               ? {
-                ...d.crewAttributes,
-                assignedVessel: vessel ? `${vessel.name} (IMO ${vessel.imoNumber})` : '',
-              }
+                  ...d.crewAttributes,
+                  assignedVessel: vessel
+                    ? `${vessel.name} (IMO ${vessel.imoNumber})`
+                    : "",
+                }
               : undefined,
           };
         }
@@ -1809,85 +2208,106 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: 'USR-ADMIN-01',
+      userId: "USR-ADMIN-01",
       userRole: get().activePersona,
-      organization: 'Northwind Marine',
-      action: 'Updated Crew Vessel Assignment',
+      organization: "Northwind Marine",
+      action: "Updated Crew Vessel Assignment",
       targetAsset: `Crew ${crewId}`,
-      justificationNotes: vesselId ? `Assigned crew ${crewId} to vessel ${vessel?.name}` : `Unassigned crew ${crewId}`,
+      justificationNotes: vesselId
+        ? `Assigned crew ${crewId} to vessel ${vessel?.name}`
+        : `Unassigned crew ${crewId}`,
     });
   },
   addCrewDocument: (crewId, doc) => {
     const targetCrew = get().crew.find((c) => c.id === crewId);
     const activePersona = get().activePersona;
-    const isExpired = doc.verificationStatus === 'Expired' || new Date(doc.expiryDate).getTime() < Date.now();
+    const isExpired =
+      doc.verificationStatus === "Expired" ||
+      new Date(doc.expiryDate).getTime() < Date.now();
     const newMasterDoc: MasterDocument = {
       id: doc.id,
       title: targetCrew ? `${doc.title} — ${targetCrew.fullName}` : doc.title,
-      entityType: 'Crew Certificate',
-      vesselId: targetCrew?.currentVesselId || '',
+      entityType: "Crew Certificate",
+      vesselId: targetCrew?.currentVesselId || "",
       certificateNo: doc.certificateNo,
       issuingAuthority: doc.issuingAuthority,
       expiryDate: doc.expiryDate,
       ocrConfidence: 98.5,
-      complianceState: isExpired ? 'Expired' : doc.verificationStatus === 'Expiring' ? 'Expiring < 6 Mos' : 'Valid',
-      currentVersion: 'v1.0',
+      complianceState: isExpired
+        ? "Expired"
+        : doc.verificationStatus === "Expiring"
+          ? "Expiring < 6 Mos"
+          : "Valid",
+      currentVersion: "v1.0",
       versions: [
         {
-          versionLabel: 'v1.0',
+          versionLabel: "v1.0",
           uploadedAt: new Date().toISOString(),
-          uploadedBy: activePersona || 'Crewing Administrator',
+          uploadedBy: activePersona || "Crewing Administrator",
           fileSizeBytes: doc.fileSizeBytes || 1500000,
-          fileName: doc.fileName || `${doc.title.toLowerCase().replace(/\s+/g, '_')}.pdf`,
+          fileName:
+            doc.fileName ||
+            `${doc.title.toLowerCase().replace(/\s+/g, "_")}.pdf`,
           changeSummary: `Uploaded ${doc.layer} certificate for STCW compliance tracking.`,
         },
       ],
       crewAttributes: targetCrew
         ? {
-          crewName: targetCrew.fullName,
-          passportId: targetCrew.passportNo,
-          rank: targetCrew.rank,
-          certType: doc.stcwRegulation || doc.title,
-          issuingCenter: doc.issuingAuthority,
-          issueDate: doc.issueDate,
-          expiryDate: doc.expiryDate,
-          assignedVessel: targetCrew.currentVesselName || '',
-          nationality: targetCrew.nationality,
-          trainingDate: doc.issueDate,
-          ocrConfidence: 98.5,
-        }
+            crewName: targetCrew.fullName,
+            passportId: targetCrew.passportNo,
+            rank: targetCrew.rank,
+            certType: doc.stcwRegulation || doc.title,
+            issuingCenter: doc.issuingAuthority,
+            issueDate: doc.issueDate,
+            expiryDate: doc.expiryDate,
+            assignedVessel: targetCrew.currentVesselName || "",
+            nationality: targetCrew.nationality,
+            trainingDate: doc.issueDate,
+            ocrConfidence: 98.5,
+          }
         : undefined,
       validationRules: {
         charterBufferPassed: !isExpired,
         assetMatch100Percent: true,
         iacsAuthorityValid: true,
         overallValid: !isExpired,
-        exceptionDetails: isExpired ? `Certificate expired on ${doc.expiryDate}. Immediate renewal required.` : undefined,
+        exceptionDetails: isExpired
+          ? `Certificate expired on ${doc.expiryDate}. Immediate renewal required.`
+          : undefined,
       },
-      verificationStatus: isExpired ? 'Correction Requested' : 'Verified',
-      verificationNotes: isExpired ? 'Expired certificate. Please upload updated renewal scan.' : undefined,
+      verificationStatus: isExpired ? "Correction Requested" : "Verified",
+      verificationNotes: isExpired
+        ? "Expired certificate. Please upload updated renewal scan."
+        : undefined,
     };
 
     set((state) => ({
       crew: state.crew.map((c) => {
         if (c.id !== crewId) return c;
-        const isLayer1 = doc.layer === 'Layer 1 - Universal Core';
-        const updatedL1 = isLayer1 ? [doc, ...c.layer1CoreDocuments] : c.layer1CoreDocuments;
-        const updatedL2 = !isLayer1 ? [doc, ...c.layer2Endorsements] : c.layer2Endorsements;
+        const isLayer1 = doc.layer === "Layer 1 - Universal Core";
+        const updatedL1 = isLayer1
+          ? [doc, ...c.layer1CoreDocuments]
+          : c.layer1CoreDocuments;
+        const updatedL2 = !isLayer1
+          ? [doc, ...c.layer2Endorsements]
+          : c.layer2Endorsements;
         return {
           ...c,
           layer1CoreDocuments: updatedL1,
           layer2Endorsements: updatedL2,
-          lastAuditedDate: new Date().toISOString().split('T')[0],
+          lastAuditedDate: new Date().toISOString().split("T")[0],
         };
       }),
-      documents: [newMasterDoc, ...state.documents.filter((d) => d.id !== doc.id)],
+      documents: [
+        newMasterDoc,
+        ...state.documents.filter((d) => d.id !== doc.id),
+      ],
     }));
 
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
+      organization: "Northwind Marine Pty Ltd",
       action: `Uploaded Crew STCW Document (${doc.title})`,
       targetAsset: `Crew ${crewId} / ${doc.certificateNo}`,
       justificationNotes: `Uploaded ${doc.layer} certificate for STCW compliance tracking.`,
@@ -1896,96 +2316,115 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   updateCrewDocument: (crewId, doc) => {
     const targetCrew = get().crew.find((c) => c.id === crewId);
     const activePersona = get().activePersona;
-    const isExpired = doc.verificationStatus === 'Expired' || new Date(doc.expiryDate).getTime() < Date.now();
+    const isExpired =
+      doc.verificationStatus === "Expired" ||
+      new Date(doc.expiryDate).getTime() < Date.now();
 
     set((state) => {
       const updatedCrew = state.crew.map((c) => {
         if (c.id !== crewId) return c;
         const filteredL1 = c.layer1CoreDocuments.filter((d) => d.id !== doc.id);
         const filteredL2 = c.layer2Endorsements.filter((d) => d.id !== doc.id);
-        const isLayer1 = doc.layer === 'Layer 1 - Universal Core';
+        const isLayer1 = doc.layer === "Layer 1 - Universal Core";
         const updatedL1 = isLayer1 ? [doc, ...filteredL1] : filteredL1;
         const updatedL2 = !isLayer1 ? [doc, ...filteredL2] : filteredL2;
         return {
           ...c,
           layer1CoreDocuments: updatedL1,
           layer2Endorsements: updatedL2,
-          lastAuditedDate: new Date().toISOString().split('T')[0],
+          lastAuditedDate: new Date().toISOString().split("T")[0],
         };
       });
 
       const existingDoc = state.documents.find((d) => d.id === doc.id);
       const updatedDocuments = existingDoc
         ? state.documents.map((d) => {
-          if (d.id !== doc.id) return d;
-          return {
-            ...d,
-            title: targetCrew ? `${doc.title} — ${targetCrew.fullName}` : doc.title,
-            certificateNo: doc.certificateNo,
-            issuingAuthority: doc.issuingAuthority,
-            expiryDate: doc.expiryDate,
-            complianceState: isExpired ? ('Expired' as const) : doc.verificationStatus === 'Expiring' ? ('Expiring < 6 Mos' as const) : ('Valid' as const),
-            verificationStatus: isExpired ? ('Correction Requested' as const) : ('Verified' as const),
-            versions: [
-              {
-                versionLabel: `v${d.versions.length + 1}.0`,
-                uploadedAt: new Date().toISOString(),
-                uploadedBy: activePersona || 'Crewing Administrator',
-                fileSizeBytes: doc.fileSizeBytes || 1500000,
-                fileName: doc.fileName || d.versions[0]?.fileName || 'updated_cert.pdf',
-                changeSummary: `Reuploaded / updated ${doc.layer} certificate.`,
-              },
-              ...d.versions,
-            ],
-          };
-        })
+            if (d.id !== doc.id) return d;
+            return {
+              ...d,
+              title: targetCrew
+                ? `${doc.title} — ${targetCrew.fullName}`
+                : doc.title,
+              certificateNo: doc.certificateNo,
+              issuingAuthority: doc.issuingAuthority,
+              expiryDate: doc.expiryDate,
+              complianceState: isExpired
+                ? ("Expired" as const)
+                : doc.verificationStatus === "Expiring"
+                  ? ("Expiring < 6 Mos" as const)
+                  : ("Valid" as const),
+              verificationStatus: isExpired
+                ? ("Correction Requested" as const)
+                : ("Verified" as const),
+              versions: [
+                {
+                  versionLabel: `v${d.versions.length + 1}.0`,
+                  uploadedAt: new Date().toISOString(),
+                  uploadedBy: activePersona || "Crewing Administrator",
+                  fileSizeBytes: doc.fileSizeBytes || 1500000,
+                  fileName:
+                    doc.fileName ||
+                    d.versions[0]?.fileName ||
+                    "updated_cert.pdf",
+                  changeSummary: `Reuploaded / updated ${doc.layer} certificate.`,
+                },
+                ...d.versions,
+              ],
+            };
+          })
         : [
-          {
-            id: doc.id,
-            title: targetCrew ? `${doc.title} — ${targetCrew.fullName}` : doc.title,
-            entityType: 'Crew Certificate' as const,
-            vesselId: targetCrew?.currentVesselId || '',
-            certificateNo: doc.certificateNo,
-            issuingAuthority: doc.issuingAuthority,
-            expiryDate: doc.expiryDate,
-            ocrConfidence: 98.5,
-            complianceState: isExpired ? ('Expired' as const) : ('Valid' as const),
-            currentVersion: 'v1.0',
-            versions: [
-              {
-                versionLabel: 'v1.0',
-                uploadedAt: new Date().toISOString(),
-                uploadedBy: activePersona || 'Crewing Administrator',
-                fileSizeBytes: doc.fileSizeBytes || 1500000,
-                fileName: doc.fileName || 'cert.pdf',
-                changeSummary: `Uploaded ${doc.layer} certificate.`,
+            {
+              id: doc.id,
+              title: targetCrew
+                ? `${doc.title} — ${targetCrew.fullName}`
+                : doc.title,
+              entityType: "Crew Certificate" as const,
+              vesselId: targetCrew?.currentVesselId || "",
+              certificateNo: doc.certificateNo,
+              issuingAuthority: doc.issuingAuthority,
+              expiryDate: doc.expiryDate,
+              ocrConfidence: 98.5,
+              complianceState: isExpired
+                ? ("Expired" as const)
+                : ("Valid" as const),
+              currentVersion: "v1.0",
+              versions: [
+                {
+                  versionLabel: "v1.0",
+                  uploadedAt: new Date().toISOString(),
+                  uploadedBy: activePersona || "Crewing Administrator",
+                  fileSizeBytes: doc.fileSizeBytes || 1500000,
+                  fileName: doc.fileName || "cert.pdf",
+                  changeSummary: `Uploaded ${doc.layer} certificate.`,
+                },
+              ],
+              crewAttributes: targetCrew
+                ? {
+                    crewName: targetCrew.fullName,
+                    passportId: targetCrew.passportNo,
+                    rank: targetCrew.rank,
+                    certType: doc.stcwRegulation || doc.title,
+                    issuingCenter: doc.issuingAuthority,
+                    issueDate: doc.issueDate,
+                    expiryDate: doc.expiryDate,
+                    assignedVessel: targetCrew.currentVesselName || "",
+                    nationality: targetCrew.nationality,
+                    trainingDate: doc.issueDate,
+                    ocrConfidence: 98.5,
+                  }
+                : undefined,
+              validationRules: {
+                charterBufferPassed: !isExpired,
+                assetMatch100Percent: true,
+                iacsAuthorityValid: true,
+                overallValid: !isExpired,
               },
-            ],
-            crewAttributes: targetCrew
-              ? {
-                crewName: targetCrew.fullName,
-                passportId: targetCrew.passportNo,
-                rank: targetCrew.rank,
-                certType: doc.stcwRegulation || doc.title,
-                issuingCenter: doc.issuingAuthority,
-                issueDate: doc.issueDate,
-                expiryDate: doc.expiryDate,
-                assignedVessel: targetCrew.currentVesselName || '',
-                nationality: targetCrew.nationality,
-                trainingDate: doc.issueDate,
-                ocrConfidence: 98.5,
-              }
-              : undefined,
-            validationRules: {
-              charterBufferPassed: !isExpired,
-              assetMatch100Percent: true,
-              iacsAuthorityValid: true,
-              overallValid: !isExpired,
+              verificationStatus: isExpired
+                ? ("Correction Requested" as const)
+                : ("Verified" as const),
             },
-            verificationStatus: isExpired ? ('Correction Requested' as const) : ('Verified' as const),
-          },
-          ...state.documents,
-        ];
+            ...state.documents,
+          ];
 
       return {
         crew: updatedCrew,
@@ -1994,9 +2433,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
+      organization: "Northwind Marine Pty Ltd",
       action: `Updated / Reuploaded Crew STCW Document (${doc.title})`,
       targetAsset: `Crew ${crewId} / ${doc.certificateNo}`,
       justificationNotes: `Reuploaded / updated ${doc.layer} certificate status (${doc.verificationStatus}), expiry date ${doc.expiryDate}.`,
@@ -2012,18 +2451,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           ...c,
           layer1CoreDocuments: updatedL1,
           layer2Endorsements: updatedL2,
-          lastAuditedDate: new Date().toISOString().split('T')[0],
+          lastAuditedDate: new Date().toISOString().split("T")[0],
         };
       }),
       documents: state.documents.filter((d) => d.id !== docId),
     }));
     get().logAuditEvent({
-      userId: 'USR-CURRENT',
+      userId: "USR-CURRENT",
       userRole: get().activePersona,
-      organization: 'Northwind Marine Pty Ltd',
-      action: 'Deleted Crew STCW Document',
+      organization: "Northwind Marine Pty Ltd",
+      action: "Deleted Crew STCW Document",
       targetAsset: `Crew ${crewId} / Doc ${docId}`,
-      justificationNotes: 'Removed STCW certificate record from crew profile.',
+      justificationNotes: "Removed STCW certificate record from crew profile.",
     });
   },
 
@@ -2032,25 +2471,35 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
   // CAPA Management Store Implementation
   capaItems: MOCK_CAPA_ITEMS,
-  addCapaItem: (capa) => set((state) => ({ capaItems: [capa, ...state.capaItems] })),
+  addCapaItem: (capa) =>
+    set((state) => ({ capaItems: [capa, ...state.capaItems] })),
   updateCapaStatus: (capaId, status, inspectorNotes) => {
     set((state) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
           ? {
-            ...item,
-            status,
-            inspectorNotes: inspectorNotes !== undefined ? inspectorNotes : item.inspectorNotes,
-            lastInspectedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-          }
-          : item
+              ...item,
+              status,
+              inspectorNotes:
+                inspectorNotes !== undefined
+                  ? inspectorNotes
+                  : item.inspectorNotes,
+              lastInspectedDate: new Date().toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }),
+            }
+          : item,
       ),
     }));
   },
   addCapaEvidence: (capaId, evidence) => {
     set((state) => ({
       capaItems: state.capaItems.map((item) =>
-        item.id === capaId ? { ...item, evidences: [...item.evidences, evidence] } : item
+        item.id === capaId
+          ? { ...item, evidences: [...item.evidences, evidence] }
+          : item,
       ),
     }));
   },
@@ -2058,8 +2507,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     set((state) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
-          ? { ...item, evidences: item.evidences.filter((ev) => ev.id !== evidenceId) }
-          : item
+          ? {
+              ...item,
+              evidences: item.evidences.filter((ev) => ev.id !== evidenceId),
+            }
+          : item,
       ),
     }));
   },
@@ -2068,22 +2520,29 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
           ? {
-            ...item,
-            status: 'Under Re-Inspection',
-            flaggedForReinspection: true,
-            cadminFlagReason: reason?.trim() || 'Re-inspection requested by C Admin charterer',
-            flaggedByCAdminDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-          }
-          : item
+              ...item,
+              status: "Under Re-Inspection",
+              flaggedForReinspection: true,
+              cadminFlagReason:
+                reason?.trim() ||
+                "Re-inspection requested by C Admin charterer",
+              flaggedByCAdminDate: new Date().toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }),
+            }
+          : item,
       ),
     }));
     get().logAuditEvent({
-      userId: 'USR-CADMIN-01',
+      userId: "USR-CADMIN-01",
       userRole: get().activePersona,
-      organization: 'Charterer Organization',
+      organization: "Charterer Organization",
       action: `Flagged CAPA (${capaId}) for Re-Inspection`,
       targetAsset: `CAPA ${capaId}`,
-      justificationNotes: reason || 'C Admin requested re-inspection verification by inspector',
+      justificationNotes:
+        reason || "C Admin requested re-inspection verification by inspector",
     });
   },
 }));

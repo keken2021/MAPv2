@@ -4,7 +4,7 @@
   role in system: modal drawer component for assurance campaign initiation.
 */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import {
@@ -15,7 +15,12 @@ import {
   AssuranceRequirementCategory,
   ThreePillarsCategory,
 } from '../../types/assurance';
-import { filterVesselsForPersona, getClientAdminOrganization } from '../../utils/rbacHelpers';
+import {
+  filterCAdminAvailableToCharter,
+  filterVesselAdminAvailableToCharter,
+  filterVesselsForPersona,
+  getClientAdminOrganization,
+} from '../../utils/rbacHelpers';
 import {
   isDuplicateCampaignTitle,
   generateUniqueAssuranceSetId,
@@ -25,11 +30,11 @@ import {
   SUBTYPE_STANDARD_DOCS,
   SUBTYPE_TEMPLATES,
   SUBTYPE_CATEGORIES,
-  EXISTING_PROJECTS,
   EXISTING_ACTIVITIES,
   getThreePillarsCategory,
 } from '../../utils/assuranceTemplates';
 import { autoAttachDocumentsToRequirements } from '../../utils/documentMatchingHelpers';
+import { getAssuranceWizardProjectOptions } from '../../utils/projectHelpers';
 
 interface AssuranceModalProps {
   isOpen: boolean;
@@ -48,18 +53,36 @@ interface SpecializedDoc {
 }
 
 export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose, draftId }) => {
-  const { vessels, equipment, crew, documents, assuranceSets, addAssuranceSet, updateAssuranceSet, activePersona, users } = useMapStore();
+  const {
+    vessels,
+    equipment,
+    crew,
+    documents,
+    assuranceSets,
+    addAssuranceSet,
+    updateAssuranceSet,
+    activePersona,
+    projects,
+    users,
+  } = useMapStore();
+
+  const availableProjectOptions = useMemo(
+    () => getAssuranceWizardProjectOptions(projects, activePersona, users, assuranceSets),
+    [projects, activePersona, users, assuranceSets],
+  );
 
   const isClientAdmin = activePersona === 'C Admin';
+  const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
   const clientOrg = getClientAdminOrganization(users);
   const defaultOrg = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
 
-  const availableVessels =
-    activePersona === 'Administrator'
-      ? vessels
+  const availableVessels = isClientAdmin
+    ? filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg)
+    : isVesselAdmin
+      ? filterVesselAdminAvailableToCharter(vessels)
       : filterVesselsForPersona(vessels, assuranceSets, activePersona);
 
-  const initialVessel = availableVessels[0] || vessels[0];
+  const initialVessel = availableVessels[0];
 
   /* Wizard state */
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -71,7 +94,9 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
     () => `${defaultOrg} - ${initialVessel?.name || 'Vessel'} Charter Vetting`
   );
   const [assuranceType, setAssuranceType] = useState<AssuranceScopeType>('Project');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => EXISTING_PROJECTS[0]?.id || '');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(
+    () => availableProjectOptions[0]?.id || '',
+  );
   const [vesselId, setVesselId] = useState(initialVessel?.id || '');
   const [selectedCrewId, setSelectedCrewId] = useState<string>(() => crew[0]?.id || '');
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(() => equipment[0]?.id || '');
@@ -138,7 +163,13 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
         if (target.crewId) setSelectedCrewId(target.crewId);
         if (target.equipmentId) setSelectedEquipmentId(target.equipmentId);
         if (target.activityId) setSelectedActivityId(target.activityId);
-        if (target.vesselId) setVesselId(target.vesselId);
+        if (target.vesselId) {
+          setVesselId(
+            availableVessels.some((v) => v.id === target.vesselId)
+              ? target.vesselId
+              : availableVessels[0]?.id || '',
+          );
+        }
         if (target.charterer) setCharterer(target.charterer);
         if (target.charterWindowStart) setStartDate(target.charterWindowStart);
         if (target.charterWindowEnd) setEndDate(target.charterWindowEnd);
@@ -259,8 +290,8 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
         setErrorMessage('Project selection is required.');
         return false;
       }
-      if (assuranceType === 'Vessel' && !vesselId) {
-        setErrorMessage('Target vessel is required.');
+      if (assuranceType === 'Vessel' && !availableVessels.some((v) => v.id === vesselId)) {
+        setErrorMessage('Select a vessel from another organization. You cannot assign your own vessel to this assurance set.');
         return false;
       }
       if (assuranceType === 'Crew' && !selectedCrewId) {
@@ -294,8 +325,9 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const selectedProject = EXISTING_PROJECTS.find((p) => p.id === selectedProjectId) || EXISTING_PROJECTS[0];
-  const selectedVessel = vessels.find((v) => v.id === vesselId) || availableVessels[0] || vessels[0];
+  const selectedProject =
+    availableProjectOptions.find((p) => p.id === selectedProjectId) || availableProjectOptions[0];
+  const selectedVessel = availableVessels.find((v) => v.id === vesselId) || availableVessels[0];
   const selectedCrew = crew.find((c) => c.id === selectedCrewId) || crew[0];
   const selectedEquipment = equipment.find((e) => e.id === selectedEquipmentId) || equipment[0];
   const selectedActivity = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId) || EXISTING_ACTIVITIES[0];
@@ -393,7 +425,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
       visibility: templatePrivacy,
       templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
-      vesselId: selectedVessel?.id || 'VESSEL-001',
+      vesselId: selectedVessel?.id || '',
       vesselName: effectiveAssetName,
       imoNumber: effectiveImo,
       initiatorOrg,
@@ -508,7 +540,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
       visibility: 'draft',
       templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
-      vesselId: selectedVessel?.id || 'VESSEL-001',
+      vesselId: selectedVessel?.id || '',
       vesselName: effectiveAssetName,
       imoNumber: effectiveImo,
       initiatorOrg,
@@ -880,11 +912,15 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                         onChange={(e) => setSelectedProjectId(e.target.value)}
                         required
                       >
-                        {EXISTING_PROJECTS.map((proj) => (
-                          <option key={proj.id} value={proj.id}>
-                            {proj.id} &mdash; {proj.name} ({proj.clientOperator})
-                          </option>
-                        ))}
+                        {availableProjectOptions.length === 0 ? (
+                          <option value="">No projects available</option>
+                        ) : (
+                          availableProjectOptions.map((proj) => (
+                            <option key={proj.id} value={proj.id}>
+                              {proj.id} &mdash; {proj.name} ({proj.clientOperator})
+                            </option>
+                          ))
+                        )}
                       </select>
 
                       {selectedProject && (

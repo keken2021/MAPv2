@@ -128,6 +128,58 @@ export function filterDocumentsForVerifierQueue(
   return documents.filter((d) => allowedIds.has(d.id));
 }
 
+export type AssuranceSetStakeholderLockInput = Pick<
+  AssuranceSet,
+  'stage' | 'approverDecision' | 'clientWorkflowStage'
+>;
+
+/**
+  what: human-readable reason stakeholder reassignment is blocked, or null when edits are allowed.
+  how: locks finalized campaigns (Approved/Certified, client-approved) and sets sent for review; allows edits during Returned for Correction.
+*/
+export function getAssuranceSetStakeholderLockReason(
+  assuranceSet: AssuranceSetStakeholderLockInput,
+): string | null {
+  if (assuranceSet.approverDecision === 'Returned for Correction') {
+    return null;
+  }
+  if (assuranceSet.stage === 'Approved' || assuranceSet.stage === 'Certified') {
+    return 'Stakeholder assignments are locked once the campaign is approved or certified.';
+  }
+  if (assuranceSet.approverDecision === 'Approved') {
+    return 'Stakeholder assignments are locked after formal approval.';
+  }
+  const clientStage = assuranceSet.clientWorkflowStage;
+  if (clientStage === 'in_review') {
+    return 'Stakeholder assignments are locked while the campaign is under review.';
+  }
+  if (clientStage === 'pending_approval') {
+    return 'Stakeholder assignments are locked while awaiting client approval.';
+  }
+  if (clientStage === 'approved') {
+    return 'Stakeholder assignments are locked after client workflow approval.';
+  }
+  return null;
+}
+
+/** True when verifier/inspector/approver/submitter cannot be reassigned on this set. */
+export function isAssuranceSetStakeholderAssignmentLocked(
+  assuranceSet: AssuranceSetStakeholderLockInput,
+): boolean {
+  return getAssuranceSetStakeholderLockReason(assuranceSet) !== null;
+}
+
+/** Administrator and C Admin may reassign stakeholders only while the campaign is still editable. */
+export function canEditAssuranceSetStakeholders(
+  assuranceSet: AssuranceSetStakeholderLockInput,
+  persona: UserRolePersona,
+): boolean {
+  if (persona !== 'Administrator' && persona !== 'C Admin') {
+    return false;
+  }
+  return !isAssuranceSetStakeholderAssignmentLocked(assuranceSet);
+}
+
 /**
   what: checks if a vessel is owned or managed by the current administrator organization.
   how: inspects registeredOwner, technicalManager, and ismCompany for organization keywords.
@@ -149,7 +201,7 @@ export function isVesselOwnedByAdmin(v?: VesselInformation): boolean {
   );
 }
 
-export type FleetRegistryTab = 'available' | 'own-fleet' | 'chartered' | 'all' | 'owned';
+export type FleetRegistryTab = 'available' | 'chartered' | 'all' | 'owned';
 
 const ORG_MATCH_STOP_WORDS = new Set(['pty', 'ltd', 'pl', 'inc', 'corp', 'the', 'and']);
 
@@ -237,6 +289,18 @@ export function filterCAdminAvailableToCharter(
       vessel.status !== 'Under Charter' &&
       !isVesselCharteredByCAdmin(vessel, assuranceSets) &&
       !isVesselOwnedByClientOrg(vessel, clientOrg),
+  );
+}
+
+/**
+  what: vessels a vessel admin may place on a new assurance set.
+  how: drops vessels owned or managed by the vessel admin organization, and vessels already under charter. Creating the set makes the vessel admin the client of another organization's vessel.
+*/
+export function filterVesselAdminAvailableToCharter(
+  vessels: VesselInformation[],
+): VesselInformation[] {
+  return vessels.filter(
+    (vessel) => !isVesselOwnedByAdmin(vessel) && vessel.status !== 'Under Charter',
   );
 }
 

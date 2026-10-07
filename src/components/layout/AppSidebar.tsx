@@ -25,7 +25,7 @@ interface NavItem {
   isGroup?: boolean;
 }
 
-const ASSETS_CHILD_KEYS = ["vessels", "equipment", "project", "crew"];
+const ASSETS_CHILD_KEYS = ["vessels", "equipment", "crew"];
 
 /**
   what: renders fixed dark navy sidepanel matching mockup design with organisation card and dot navigation.
@@ -88,6 +88,11 @@ export const AppSidebar: React.FC = () => {
       ],
     },
     {
+      key: "project",
+      label: "Projects",
+      allowedRoles: ["Administrator", "C Admin"],
+    },
+    {
       key: "assets",
       label: "Assets",
       isGroup: true,
@@ -104,11 +109,6 @@ export const AppSidebar: React.FC = () => {
           allowedRoles: ["Administrator", "C Admin"],
         },
         {
-          key: "project",
-          label: "Project",
-          allowedRoles: ["Administrator", "C Admin"],
-        },
-         {
           key: "crew",
           label: "Crew Directory",
           allowedRoles: ["Administrator", "C Admin"],
