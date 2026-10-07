@@ -33,6 +33,7 @@ import { ApproverDashboardView } from './views/ApproverDashboardView';
 import { ProjectView } from './views/ProjectView';
 import { ProjectDetailView } from './views/ProjectDetailView';
 import { CreateProjectView } from './views/CreateProjectView';
+import { MarketplaceView } from './views/MarketplaceView';
 import './App.css';
 
 import { isViewAccessibleToPersona } from './utils/rbacHelpers';
@@ -131,6 +132,8 @@ export const App: React.FC = () => {
       case 'project':
         if (currentEntityId === 'new') return <CreateProjectView />;
         return currentEntityId ? <ProjectDetailView projectId={currentEntityId} /> : <ProjectView />;
+      case 'marketplace':
+        return <MarketplaceView />;
       case 'assurance-sets':
         return currentEntityId ? <AssuranceDetailView setId={currentEntityId} /> : <AssuranceSetsView />;
       case 'create-assurance-set':

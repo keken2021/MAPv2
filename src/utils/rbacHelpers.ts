@@ -694,7 +694,7 @@ export function isViewAccessibleToPersona(
         persona === "Inspector"
       );
     }
-    if (view === "dashboard" || view === "audit") return true;
+    if (view === "dashboard" || view === "audit" || view === "marketplace") return true;
 
     if (persona === "Administrator") {
       return true;

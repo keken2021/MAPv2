@@ -93,6 +93,18 @@ export const AppSidebar: React.FC = () => {
       allowedRoles: ["Administrator", "C Admin"],
     },
     {
+      key: "marketplace",
+      label: "Marketplace",
+      allowedRoles: [
+        "Administrator",
+        "C Admin",
+        "Submitter",
+        "Verifier",
+        "Inspector",
+        "Approver",
+      ],
+    },
+    {
       key: "assets",
       label: "Assets",
       isGroup: true,

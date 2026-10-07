@@ -723,7 +723,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         newErrors.startDate = 'Charter on-hire start date is required.';
       }
       if (!endDate) {
-        newErrors.endDate = 'Charter off-hire redelivery date is required.';
+        newErrors.endDate = 'Charter Charter End is required.';
       }
       if (startDate && endDate && startDate > endDate) {
         newErrors.endDate = 'Charter redelivery date cannot be prior to on-hire start date.';
@@ -1947,9 +1947,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <Clock className="w-4 h-4 text-primary" />
                               Charter Period
                             </strong>
-                            <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
-                              Full Commercial Scope
-                            </span>
                           </div>
                           <p className="text-secondary small mb-3" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
                             Full contractual hire span from on-hire delivery to final off-hire redelivery. Encompasses mobilization, transit, on-hire proving trials (JH2013/DP), weather contingencies, and demobilization.
@@ -1958,7 +1955,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <div className="row g-3">
                             <div className="col-12 col-md-6">
                               <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-start" style={{ fontSize: '0.75rem' }}>
-                                On-Hire Delivery Date <span className="text-danger">*</span>
+                                Charter Start <span className="text-danger">*</span>
                               </label>
                               <input
                                 id="grid-charter-start"
@@ -1985,7 +1982,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
                             <div className="col-12 col-md-6">
                               <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-end" style={{ fontSize: '0.75rem' }}>
-                                Off-Hire Redelivery Date <span className="text-danger">*</span>
+                                Charter End <span className="text-danger">*</span>
                               </label>
                               <input
                                 id="grid-charter-end"

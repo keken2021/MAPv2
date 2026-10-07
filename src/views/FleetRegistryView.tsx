@@ -108,27 +108,6 @@ export const FleetRegistryView: React.FC = () => {
             </button>
           </div>
         )}
-
-        {viewMode === 'list' && (activePersona === 'Administrator' || activePersona === 'Submitter') && (
-          <div className="nav nav-pills bg-light p-1 rounded-3 border">
-            <button
-              type="button"
-              className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${activeTab === 'all' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
-              style={{ fontSize: '0.8rem' }}
-              onClick={() => setActiveTab('all')}
-            >
-              All Fleet Vessels ({externalUncharteredCount})
-            </button>
-            <button
-              type="button"
-              className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${activeTab === 'owned' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
-              style={{ fontSize: '0.8rem' }}
-              onClick={() => setActiveTab('owned')}
-            >
-              Owned Vessels ({ownedCount})
-            </button>
-          </div>
-        )}
       </div>
 
       {viewMode === 'tree' ? (

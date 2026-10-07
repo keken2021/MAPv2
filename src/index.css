@@ -650,3 +650,64 @@ label .req-star {
   border-radius: 8px;
   letter-spacing: -0.01em;
 }
+
+/* ==========================================================================
+   Universal Form Select, Dropdown Fade & Unified Modal Standards
+   ========================================================================== */
+
+/* Universal Form Controls & Dropdowns */
+.form-select,
+select.form-control {
+  font-family: var(--font-sans);
+  border-color: #cbd5e1 !important;
+  border-radius: 6px !important;
+  padding-right: 2.5rem !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  background-position: right 0.85rem center !important;
+}
+
+.map-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.map-select-fade {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  right: 28px;
+  width: 28px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 1));
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Unified Modal Layout Standards */
+.map-modal-dialog {
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+.map-modal-header {
+  background-color: var(--map-primary-blue);
+  color: #ffffff;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.map-modal-body {
+  padding: 1.5rem;
+  background-color: var(--map-bg-main);
+}
+
+.map-modal-footer {
+  background-color: #ffffff;
+  border-top: 1px solid var(--map-border-color);
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
