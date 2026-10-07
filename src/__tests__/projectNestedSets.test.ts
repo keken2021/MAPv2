@@ -66,6 +66,7 @@ const assetLinks: ProjectAssetLink[] = [
     assuranceSetId: 'AS-CHILD-V',
     roleInProject: 'Subject vessel',
     addedAt: '2026-01-01T00:00:00Z',
+    addedByPersona: 'Test User',
   },
   {
     id: 'PAL-2',
@@ -77,6 +78,7 @@ const assetLinks: ProjectAssetLink[] = [
     assuranceSetId: 'AS-CHILD-C',
     roleInProject: 'Master',
     addedAt: '2026-01-01T00:00:00Z',
+    addedByPersona: 'Test User',
   },
 ];
 
@@ -148,7 +150,7 @@ describe('nested project assurance sets (Req 3–4)', () => {
         visibility: 'active',
         isProjectMaster: false,
         requirements: [],
-      } as AssuranceSet,
+      } as unknown as AssuranceSet,
       {
         id: 'AS-MASTER',
         title: 'Master',
@@ -157,7 +159,7 @@ describe('nested project assurance sets (Req 3–4)', () => {
         stage: 'Initiated',
         isProjectMaster: true,
         requirements: [],
-      } as AssuranceSet,
+      } as unknown as AssuranceSet,
       {
         id: 'AS-DRAFT',
         title: 'Draft',
@@ -166,7 +168,7 @@ describe('nested project assurance sets (Req 3–4)', () => {
         stage: 'Initiated',
         visibility: 'draft',
         requirements: [],
-      } as AssuranceSet,
+      } as unknown as AssuranceSet,
     ];
 
     const eligible = getStandaloneAssuranceSetsForAttach(allSets, project);

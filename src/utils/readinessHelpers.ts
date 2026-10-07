@@ -116,9 +116,12 @@ export function calculateDocumentReadiness(doc: MasterDocument): number {
 */
 export function calculateAssuranceSetReadiness(
   set: AssuranceSet,
-  allSets?: AssuranceSet[],
+  allSetsOrResolver?: AssuranceSet[] | ((setId: string) => AssuranceSet | undefined),
 ): number {
-  const resolveLinked = (id: string) => allSets?.find((s) => s.id === id);
+  const resolveLinked =
+    typeof allSetsOrResolver === 'function'
+      ? allSetsOrResolver
+      : (id: string) => allSetsOrResolver?.find((s) => s.id === id);
 
   if (!set.requirements || set.requirements.length === 0) {
     if (set.stage === 'Certified' || set.stage === 'Approved' || set.stage === 'Approval') return STAGE_READINESS_WEIGHTS.approved;

@@ -196,8 +196,8 @@ export function buildMasterAssuranceRequirements(
   assetLinks: ProjectAssetLink[] = [],
 ): AssuranceRequirement[] {
   if (assetLinks.length > 0) {
-    const links: AssuranceRequirement[] = assetLinks
-      .map((link) => {
+    const links = assetLinks
+      .map((link): AssuranceRequirement | null => {
         const childSet = childSets.find((s) => s.id === link.assuranceSetId);
         if (!childSet) return null;
         const complete = isChildSetComplete(childSet);
