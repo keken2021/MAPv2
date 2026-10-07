@@ -261,4 +261,97 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     expect(THREE_PILLARS_CONFIG.Process.title).toContain('Process');
     expect(THREE_PILLARS_CONFIG.Process.subtypes).toEqual(['Activity']);
   });
+
+  it('should support dynamic physical asset customization (adding/removing equipment or vessel sections) in project assurance set', () => {
+    // 1. Full default physical assets
+    const defaultPhysicals: ('Vessel' | 'Equipment')[] = ['Vessel', 'Equipment'];
+    const computeActiveSubtypes = (physicals: ('Vessel' | 'Equipment')[]) => {
+      const list = [...physicals, 'Crew', 'Activity'];
+      return list;
+    };
+
+    expect(computeActiveSubtypes(defaultPhysicals)).toEqual(['Vessel', 'Equipment', 'Crew', 'Activity']);
+
+    // 2. Remove equipment physical asset section
+    const withoutEquipment = defaultPhysicals.filter((p) => p !== 'Equipment');
+    expect(computeActiveSubtypes(withoutEquipment)).toEqual(['Vessel', 'Crew', 'Activity']);
+
+    // Build requirements when Equipment section is removed
+    const reqsWithoutEquipment: AssuranceRequirement[] = [];
+    computeActiveSubtypes(withoutEquipment).forEach((st, idx) => {
+      SUBTYPE_STANDARD_DOCS[st as keyof typeof SUBTYPE_STANDARD_DOCS].forEach((doc, dIdx) => {
+        reqsWithoutEquipment.push({
+          id: `req-${st}-${dIdx}`,
+          title: doc.title,
+          category: doc.category,
+          subtype: doc.subtype,
+          isMandatory: doc.isMandatory,
+          isFulfilled: false,
+          ocrConfidence: 0,
+          verifierStatus: 'Pending',
+        });
+      });
+    });
+
+    expect(reqsWithoutEquipment.some((r) => r.subtype === 'Equipment')).toBe(false);
+    expect(reqsWithoutEquipment.some((r) => r.subtype === 'Vessel')).toBe(true);
+    expect(reqsWithoutEquipment.some((r) => r.subtype === 'Crew')).toBe(true);
+    expect(reqsWithoutEquipment.some((r) => r.subtype === 'Activity')).toBe(true);
+
+    // 3. Remove vessel physical asset section
+    const withoutVessel = defaultPhysicals.filter((p) => p !== 'Vessel');
+    expect(computeActiveSubtypes(withoutVessel)).toEqual(['Equipment', 'Crew', 'Activity']);
+
+    // 4. Re-add equipment section
+    const reAddedEquipment = [...withoutEquipment, 'Equipment' as const];
+    expect(computeActiveSubtypes(reAddedEquipment)).toEqual(['Vessel', 'Equipment', 'Crew', 'Activity']);
+  });
+
+  it('should maintain baseline unattached requirements at creation for all scopes, deferring asset nomination to Project / Roster Management', () => {
+    // 1. All Assurance Set scope requirements remain unassigned templates at creation
+    const rawRequirements: AssuranceRequirement[] = [
+      ...SUBTYPE_STANDARD_DOCS.Vessel.map((doc, idx) => ({
+        id: `req-ves-${idx}`,
+        title: doc.title,
+        category: doc.category,
+        subtype: 'Vessel' as const,
+        isMandatory: doc.isMandatory,
+        isFulfilled: false,
+        ocrConfidence: 0,
+        verifierStatus: 'Pending' as const,
+      })),
+      ...SUBTYPE_STANDARD_DOCS.Crew.map((doc, idx) => ({
+        id: `req-crew-${idx}`,
+        title: doc.title,
+        category: doc.category,
+        subtype: 'Crew' as const,
+        isMandatory: doc.isMandatory,
+        isFulfilled: false,
+        ocrConfidence: 0,
+        verifierStatus: 'Pending' as const,
+      })),
+    ];
+
+    // Assurance Set creation preserves pristine unfulfilled standard requirements
+    expect(rawRequirements.every((r) => !r.isFulfilled && !r.documentId)).toBe(true);
+
+    // 2. Downstream inside Project / Roster Management, nominating assets executes auto-attachment against vaults
+    const targetVessel = MOCK_VESSELS.find((v) => v.id === 'VESSEL-001') || MOCK_VESSELS[0];
+    const targetCrew = MOCK_CREW[0];
+
+    const downstreamAttached = autoAttachDocumentsToRequirements(rawRequirements, {
+      documents: MOCK_DOCUMENTS,
+      vessel: targetVessel,
+      vessels: MOCK_VESSELS,
+      crew: MOCK_CREW,
+      selectedCrewId: targetCrew.id,
+      equipment: MOCK_EQUIPMENT,
+      selectedVesselId: targetVessel.id,
+    });
+
+    // Validates that asset vault documents attach during roster/campaign nomination
+    expect(downstreamAttached.some((r) => r.isFulfilled && r.documentId)).toBe(true);
+  });
 });
+
+

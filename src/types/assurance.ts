@@ -164,8 +164,10 @@ export interface AssuranceSet {
   initiatorOrg: string;
   initiatorRole: InitiatingRoleType;
   charterer?: string; /* charterer organization or entity assigned to the campaign set */
-  charterWindowStart: string; /* iso date */
-  charterWindowEnd: string; /* iso date */
+  charterWindowStart: string; /* iso date - contractual hire window (on-hire delivery to off-hire redelivery) */
+  charterWindowEnd: string; /* iso date - contractual hire window */
+  projectWindowStart?: string; /* iso date - active offshore field operations window */
+  projectWindowEnd?: string; /* iso date - active offshore field operations window */
   stage: AssuranceStage;
   readinessScore: number; // 0 - 100%
   requirements: AssuranceRequirement[];

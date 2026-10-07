@@ -388,10 +388,10 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
 
     const effectiveAssetName =
       assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
-      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
-      assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
-      assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
-      (selectedActivity?.name || 'Activity Asset');
+        assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
+          assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
+            assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
+              (selectedActivity?.name || 'Activity Asset');
 
     const effectiveImo =
       assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
@@ -503,10 +503,10 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
 
     const effectiveAssetName =
       assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
-      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
-      assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
-      assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
-      (selectedActivity?.name || 'Activity Asset');
+        assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
+          assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
+            assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
+              (selectedActivity?.name || 'Activity Asset');
 
     const effectiveImo =
       assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
@@ -1113,7 +1113,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                             className="form-check-input mt-0.5 cursor-pointer"
                           />
                           <div>
-                            <strong className="text-dark small d-block">Organization Only (Private)</strong>
+                            <strong className="text-dark small d-block">Organization Wide</strong>
                             <span className="text-secondary small" style={{ fontSize: '0.75rem' }}>
                               Available only for members of your organization to use as a template.
                             </span>
@@ -1317,7 +1317,7 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                   <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
                     <span>Privacy:</span>
                     <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>
-                      {templatePrivacy === 'public' ? 'Public Standard (Shared)' : 'Organization Only (Private)'}
+                      {templatePrivacy === 'public' ? 'Public Standard (Shared)' : 'Organization Wide'}
                     </span>
                   </div>
                 </div>
@@ -1404,10 +1404,10 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                   <div className="text-muted mt-0.5">
                     {assuranceType} &middot;{' '}
                     {assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
-                     assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
-                     assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
-                     assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
-                     (selectedActivity?.name || 'Activity Asset')}
+                      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
+                        assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
+                          assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
+                            (selectedActivity?.name || 'Activity Asset')}
                   </div>
                 </div>
               </div>
