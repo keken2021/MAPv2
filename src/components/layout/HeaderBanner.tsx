@@ -54,6 +54,8 @@ export const HeaderBanner: React.FC = () => {
         return getBackButtonInfo('approver', 'Approval Gate', previousHashView, activePersona, previousEntityId);
       case 'roles-permissions':
         return getBackButtonInfo('roles-permissions', 'Roles & Permissions', previousHashView, activePersona, previousEntityId);
+      case 'marketplace':
+        return getBackButtonInfo('marketplace', 'Marketplace', previousHashView, activePersona, previousEntityId);
       case 'create-assurance-set':
       case 'assurance-sets':
       default:
@@ -172,6 +174,8 @@ export const HeaderBanner: React.FC = () => {
         return { breadcrumb: 'IMMUTABLE LOGS · CRYPTOGRAPHIC AUDIT', title: 'Audit Trail' };
       case 'create-assurance-set':
         return { breadcrumb: 'NEW ASSURANCE CAMPAIGN · INITIATION', title: 'Create Assurance Set' };
+      case 'marketplace':
+        return { breadcrumb: 'CHARTER & ASSET PROVISION · THIRD-PARTY MARKETPLACE', title: 'Marketplace' };
       case 'dashboard':
       default:
         return { breadcrumb: 'MARINE ASSURANCE PLATFORM · FLEET OVERVIEW', title: 'Dashboard' };

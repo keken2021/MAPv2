@@ -4,12 +4,15 @@
   role in system: primary operational workspace for Inspectors (/inspector).
 */
 
-import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, Eye, AlertTriangle } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselInformation } from '../types/vessel';
 import { filterVesselsForPersona } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { FilterModal } from '../components/common/FilterModal';
+import { FilterButton } from '../components/common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 
 type InspectorSortField = 'name' | 'imoNumber' | 'campaignTitle' | 'status';
 
@@ -21,10 +24,31 @@ type InspectorSortField = 'name' | 'imoNumber' | 'campaignTitle' | 'status';
 export const InspectorWorkspaceView: React.FC = () => {
   const { vessels, assuranceSets, capaItems, activePersona, setCurrentHashView } = useMapStore();
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<InspectorSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
+
+  const handleResetFilters = () => {
+    setStatusFilter('All');
+    setSearchQuery('');
+  };
+
+  const activeChips = useMemo<FilterChip[]>(() => {
+    const chips: FilterChip[] = [];
+    if (statusFilter !== 'All') {
+      chips.push({
+        id: 'status',
+        label: 'Status',
+        value: statusFilter,
+        onRemove: () => setStatusFilter('All'),
+      });
+    }
+    return chips;
+  }, [statusFilter]);
+
+  const activeFilterCount = activeChips.length;
 
   const assignedVessels = filterVesselsForPersona(vessels, assuranceSets, activePersona);
 
@@ -184,48 +208,42 @@ export const InspectorWorkspaceView: React.FC = () => {
       {/* Survey Schedule Table */}
       <div className="card map-card-custom">
 
-        {/* controls header: search input + status filter + export */}
-        <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-          <div className="d-flex flex-wrap align-items-center gap-2">
+        {/* controls header: search input + FilterButton + export */}
+        <div className="card-header d-flex flex-column gap-2.5 p-3">
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div className="d-flex flex-wrap align-items-center gap-2.5 flex-grow-1">
+              <div className="position-relative" style={{ minWidth: '240px', maxWidth: '320px' }}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
+                  style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
+                  placeholder="Search vessel, IMO, campaign..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <Search size={14} className="position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" />
+              </div>
 
-            {/* search input */}
-            <input
-              type="text"
-              className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search vessel, IMO, campaign..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '240px' }}
-            />
+              <FilterButton
+                onClick={() => setIsFilterModalOpen(true)}
+                activeCount={activeFilterCount}
+              />
+            </div>
 
-            {/* status filter dropdown */}
-            <select
-              className="form-select form-select-sm bg-white text-dark border-secondary"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ width: '180px' }}
-            >
-              <option value="All">All Statuses</option>
-              {vesselStatuses.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-
-          </div>
-
-          {/* result count + export */}
-          <div className="d-flex align-items-center gap-3 ms-auto">
-            <span className="text-muted small">
-              {sortedAssignedVessels.length} of {assignedVessels.length} vessels
-            </span>
-            <div className="dropdown position-relative">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                onClick={() => setIsExportOpen(!isExportOpen)}
-              >
-                Export
-              </button>
+            {/* result count + export */}
+            <div className="d-flex align-items-center gap-3 ms-auto">
+              <span className="text-muted small">
+                {sortedAssignedVessels.length} of {assignedVessels.length} vessels
+              </span>
+              <div className="dropdown position-relative">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
+                  style={{ fontSize: '0.82rem', height: '34px', borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}
+                  onClick={() => setIsExportOpen(!isExportOpen)}
+                >
+                  Export
+                </button>
               {isExportOpen && (
                 <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                   <li>
@@ -244,15 +262,20 @@ export const InspectorWorkspaceView: React.FC = () => {
           </div>
         </div>
 
+        {activeChips.length > 0 && (
+          <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+        )}
+      </div>
+
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
             <thead>
               <tr>
-                <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Vessel Name {renderSortIndicator('name')}
-                </th>
                 <th onClick={() => handleSort('imoNumber')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   IMO Number {renderSortIndicator('imoNumber')}
+                </th>
+                <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Vessel Name {renderSortIndicator('name')}
                 </th>
                 <th onClick={() => handleSort('campaignTitle')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   Assurance Campaign {renderSortIndicator('campaignTitle')}
@@ -275,11 +298,11 @@ export const InspectorWorkspaceView: React.FC = () => {
                     onClick={() => setCurrentHashView('inspector', v.name)}
                     style={{ cursor: 'pointer' }}
                   >
+                    <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
                     <td>
-                      <div className="fw-semibold text-primary">{v.name}</div>
+                      <div className="fw-semibold text-dark">{v.name}</div>
                       <div className="small text-secondary">{v.flagState} · {v.portOfRegistry}</div>
                     </td>
-                    <td className="font-mono-code">{v.imoNumber}</td>
                     <td>
                       {linkedSet ? (
                         <div>
@@ -296,27 +319,32 @@ export const InspectorWorkspaceView: React.FC = () => {
                       <span className="badge bg-light text-dark border">{v.status}</span>
                     </td>
                     <td className="text-end">
-                      <div className="d-flex align-items-center justify-content-end gap-2">
+                      <div className="d-flex align-items-center justify-content-end gap-1.5">
                         <button
                           type="button"
-                          className={`btn btn-sm ${totalCapaCountForVessel > 0 ? 'btn-outline-danger fw-bold' : 'btn-outline-secondary'}`}
+                          className={`btn btn-sm ${totalCapaCountForVessel > 0 ? 'btn-outline-danger' : 'btn-outline-secondary'} d-inline-flex align-items-center justify-content-center p-0`}
+                          style={{ width: '32px', height: '32px' }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setCurrentHashView('capa', v.name);
                           }}
-                          title={`View ${totalCapaCountForVessel} CAPA items for ${v.name} physical inspection`}
+                          title={`View ${totalCapaCountForVessel} CAPA items for ${v.name}`}
+                          aria-label={`View ${totalCapaCountForVessel} CAPA items for ${v.name}`}
                         >
-                          CAPAs ({totalCapaCountForVessel})
+                          <AlertTriangle size={16} />
                         </button>
                         <button
                           type="button"
-                          className="btn btn-sm btn-warning text-dark font-weight-500"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setCurrentHashView('inspector', v.name);
                           }}
+                          title={`View Physical Survey for ${v.name}`}
+                          aria-label={`View Physical Survey for ${v.name}`}
                         >
-                          View Details
+                          <Eye size={16} />
                         </button>
                       </div>
                     </td>
@@ -335,6 +363,38 @@ export const InspectorWorkspaceView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Dedicated Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="Inspector Survey Schedule Filters"
+        subtitle="Filter assigned physical surveys by vessel operational status"
+        activeCount={activeFilterCount}
+      >
+        <div className="d-flex flex-column gap-3">
+          {/* Status Filter */}
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
+              Vessel Operational Status
+            </label>
+            <select
+              className="form-select form-select-sm bg-white text-dark font-sans"
+              style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="All">All Statuses ({vesselStatuses.length})</option>
+              {vesselStatuses.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </FilterModal>
     </div>
   );
 };

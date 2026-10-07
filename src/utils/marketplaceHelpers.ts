@@ -7,10 +7,11 @@
 import { MarketplaceCategory, MarketplaceItem } from '../types/marketplace';
 import { VesselInformation } from '../types/vessel';
 import { EquipmentAsset } from '../types/equipment';
+import { CrewMember } from '../types/crew';
 import { UserRolePersona } from '../types/audit';
 import { UserProfile } from '../types/user';
 import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
-import { getVesselStockPhoto, getOrganizationLogo } from './vesselImageHelpers';
+import { getVesselStockPhoto, getEquipmentStockPhoto, getCrewStockPhoto, getOrganizationLogo } from './vesselImageHelpers';
 import { getClientAdminOrganization } from './rbacHelpers';
 
 /**
@@ -47,16 +48,44 @@ export function isItemOwnedByCurrentOrganization(
 
 /**
   what: builds a unified list of all service provider marketplace offerings from both store assets and dedicated service records.
-  how: extracts non-user-owned vessels and equipment, wraps them into MarketplaceItem format, and appends external crew and turnkey services.
+  how: extracts non-user-owned vessels, equipment, and crew, synchronizes updated photos and image crops from store, and wraps them into MarketplaceItem format.
 */
 export function getMarketplaceItems(
   vessels: VesselInformation[],
   equipment: EquipmentAsset[],
   activePersona: UserRolePersona,
   users: Pick<UserProfile, 'roles' | 'organization'>[] = [],
+  crew: CrewMember[] = [],
 ): MarketplaceItem[] {
-  // 1. Gather all dedicated service provider mock items
-  const baseItems: MarketplaceItem[] = [...MOCK_MARKETPLACE_ITEMS];
+  // 1. Gather all dedicated service provider mock items and synchronize linked entity photos/images
+  const baseItems: MarketplaceItem[] = MOCK_MARKETPLACE_ITEMS.map((item) => {
+    const cloned = { ...item };
+    if (cloned.linkedEntityId) {
+      if (cloned.linkedEntityType === 'vessel') {
+        const v = vessels.find((ves) => ves.id === cloned.linkedEntityId);
+        if (v) {
+          const stockPhoto = getVesselStockPhoto(v.id, v.name, v.vesselType, v.vesselSubtype, v.imageUrl);
+          cloned.imageUrl = v.imageUrl || stockPhoto;
+          cloned.photos = v.photos && v.photos.length > 0 ? v.photos : cloned.photos || [cloned.imageUrl];
+        }
+      } else if (cloned.linkedEntityType === 'equipment') {
+        const eq = equipment.find((e) => e.id === cloned.linkedEntityId);
+        if (eq) {
+          const stockPhoto = getEquipmentStockPhoto(eq.id, eq.name, eq.category, eq.imageUrl);
+          cloned.imageUrl = eq.imageUrl || stockPhoto;
+          cloned.photos = eq.photos && eq.photos.length > 0 ? eq.photos : cloned.photos || [cloned.imageUrl];
+        }
+      } else if (cloned.linkedEntityType === 'crew') {
+        const c = crew.find((cr) => cr.id === cloned.linkedEntityId);
+        if (c) {
+          const stockPhoto = getCrewStockPhoto(c.id, c.fullName, c.rank, c.imageUrl);
+          cloned.imageUrl = c.imageUrl || stockPhoto;
+          cloned.photos = c.photos && c.photos.length > 0 ? c.photos : cloned.photos || [cloned.imageUrl];
+        }
+      }
+    }
+    return cloned;
+  });
 
   // 2. Wrap third-party store vessels if not already present in base items
   vessels.forEach((v) => {
@@ -75,6 +104,7 @@ export function getMarketplaceItems(
         availabilityStatus: v.status === 'Under Charter' ? 'Under Charter' : 'Available for Charter',
         availabilityTagColor: v.status === 'Under Charter' ? '#3b82f6' : '#059669',
         imageUrl: photoUrl,
+        photos: v.photos && v.photos.length > 0 ? v.photos : [photoUrl],
         shortDescription: `${v.vesselType || 'Offshore Vessel'} certified for ${v.intendedUse || 'commercial maritime operations'}.`,
         metrics: [
           {
@@ -126,6 +156,7 @@ export function getMarketplaceItems(
   equipment.forEach((eq) => {
     const isBasePresent = baseItems.some((item) => item.linkedEntityId === eq.id);
     if (!isBasePresent) {
+      const photoUrl = eq.imageUrl || getEquipmentStockPhoto(eq.id, eq.name, eq.category);
       baseItems.push({
         id: `MAP-EQP-2026-MKT-${eq.id.replace('EQ-', '')}`,
         name: eq.name,
@@ -135,7 +166,8 @@ export function getMarketplaceItems(
         location: 'Western Australia Shorebase',
         availabilityStatus: eq.availabilityStatus === 'Available' ? 'Available for Lease' : eq.availabilityStatus,
         availabilityTagColor: '#059669',
-        imageUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=1000&q=80',
+        imageUrl: photoUrl,
+        photos: eq.photos && eq.photos.length > 0 ? eq.photos : [photoUrl],
         shortDescription: `${eq.manufacturer || 'Certified'} ${eq.model || eq.category} inspected and ready for marine deployment.`,
         metrics: [
           { label: 'Category', value: eq.category },

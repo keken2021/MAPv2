@@ -1,4 +1,4 @@
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye, AlertTriangle } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -473,10 +473,13 @@ export const DashboardView: React.FC = () => {
                               <td className="text-end" onClick={(e) => e.stopPropagation()}>
                                 <button
                                   type="button"
-                                  className="btn btn-sm btn-outline-primary"
+                                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                  style={{ width: '32px', height: '32px' }}
                                   onClick={() => setCurrentHashView('project', p.id)}
+                                  title="Open Project"
+                                  aria-label="Open Project"
                                 >
-                                  Open
+                                  <Eye size={16} />
                                 </button>
                               </td>
                             </tr>
@@ -585,10 +588,13 @@ export const DashboardView: React.FC = () => {
                             <td className="text-end" onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
-                                className="btn btn-sm btn-outline-primary"
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
                                 onClick={() => setCurrentHashView('assurance-sets', s.id)}
+                                title="View Assurance Set"
+                                aria-label="View Assurance Set"
                               >
-                                View
+                                <Eye size={16} />
                               </button>
                             </td>
                           </tr>
@@ -713,23 +719,28 @@ export const DashboardView: React.FC = () => {
                                 <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />
                               </td>
                               <td className="text-end" onClick={(e) => e.stopPropagation()}>
-                                <div className="d-flex align-items-center justify-content-end gap-2">
+                                <div className="d-flex align-items-center justify-content-end gap-1.5">
                                   {returnedCount > 0 && (
                                     <button
                                       type="button"
-                                      className="btn btn-sm btn-outline-danger fw-bold font-mono-code"
+                                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                      style={{ width: '32px', height: '32px' }}
                                       onClick={() => setSelectedReturnedSet(s)}
                                       title={`View ${returnedCount} returned or rejected document(s) requiring revision`}
+                                      aria-label={`View ${returnedCount} returned or rejected document(s)`}
                                     >
-                                      Revisions ({returnedCount})
+                                      <AlertTriangle size={16} />
                                     </button>
                                   )}
                                   <button
                                     type="button"
-                                    className="btn btn-sm btn-outline-primary"
+                                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                    style={{ width: '32px', height: '32px' }}
                                     onClick={() => setCurrentHashView('assurance-sets', s.id)}
+                                    title="Open Assurance Set"
+                                    aria-label="Open Assurance Set"
                                   >
-                                    View Details
+                                    <Eye size={16} />
                                   </button>
                                 </div>
                               </td>
@@ -765,15 +776,15 @@ export const DashboardView: React.FC = () => {
                       <tr>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleFleetSort('name')}
-                        >
-                          Vessel Name {renderSortIndicator(fleetSortField, 'name', fleetSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleFleetSort('imoNumber')}
                         >
                           IMO Number {renderSortIndicator(fleetSortField, 'imoNumber', fleetSortDirection)}
+                        </th>
+                        <th
+                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                          onClick={() => handleFleetSort('name')}
+                        >
+                          Vessel Name {renderSortIndicator(fleetSortField, 'name', fleetSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -808,8 +819,8 @@ export const DashboardView: React.FC = () => {
                           onClick={() => setCurrentHashView('vessels', v.id)}
                           style={{ cursor: 'pointer' }}
                         >
-                          <td className="fw-semibold text-primary">{v.name}</td>
-                          <td className="font-mono-code">{v.imoNumber}</td>
+                          <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
+                          <td className="fw-semibold text-dark">{v.name}</td>
                           <td>{v.flagState}</td>
                           <td>
                             <span className="badge bg-light text-dark border">{v.classificationSociety}</span>

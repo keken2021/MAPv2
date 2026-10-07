@@ -51,7 +51,8 @@ import {
   findMatchingDocumentForRequirement,
 } from '../utils/documentMatchingHelpers';
 import { getAssuranceWizardProjectOptions } from '../utils/projectHelpers';
-import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Layers, Sparkles, CheckCircle2, Trash2, Clock, Calendar } from 'lucide-react';
+import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Layers, Sparkles, CheckCircle2, Trash2, Clock, Calendar, FileText, BadgeCheck, AlertCircle } from 'lucide-react';
 
 interface SpecializedDoc {
   id: string;
@@ -201,14 +202,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     !isClientAdmin ||
     Boolean(selectedVesselForScope && !isChartererMatchingVesselOwner(clientOrg, selectedVesselForScope));
 
+  /* When scope is not Project (Vessel, Crew, Equipment, Activity), it is an internal deployment/self-assurance by the asset provider */
+  const isInternalDeployment = assuranceType !== 'Project' || !isCharteringOtherServices;
+
   /* Dynamic Stakeholder candidate lists strictly enforcing Review Channel Governance & Segregation of Duties */
   const verifierCandidates = filterCandidatesByReviewMode(users, reviewMode, 'Verifier', {
     clientOrg,
     serviceProviderOrg,
+    internalDeployment: isInternalDeployment,
   });
   const approverCandidates = filterCandidatesByReviewMode(users, reviewMode, 'Approver', {
     clientOrg,
     serviceProviderOrg,
+    internalDeployment: isInternalDeployment,
   });
   const inspectorCandidates = usersWithRole(users, 'Inspector');
 
@@ -245,6 +251,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       !list.some((u) => u.id === currentVerifierUser.id)
     ) {
       const isRestricted = Boolean(
+        !isInternalDeployment &&
         serviceProviderOrg &&
         currentVerifierUser.organization?.toLowerCase().includes(serviceProviderOrg.toLowerCase())
       );
@@ -253,7 +260,29 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       }
     }
     return list;
-  }, [approverCandidates, users, assignedVerifier, reviewMode, serviceProviderOrg]);
+  }, [approverCandidates, users, assignedVerifier, reviewMode, serviceProviderOrg, isInternalDeployment]);
+
+  const handleScopeChange = (newScope: AssuranceScopeType) => {
+    setAssuranceType(newScope);
+    setFieldErrors({});
+
+    if (newScope === 'Project') {
+      const proj = availableProjectOptions.find((p) => p.id === selectedProjectId) || availableProjectOptions[0];
+      setTitle(`${defaultCharterer} - ${proj ? proj.name : 'Offshore Project'} Campaign`);
+    } else if (newScope === 'Vessel') {
+      const v = availableVessels.find((item) => item.id === vesselId) || availableVessels[0];
+      setTitle(`${defaultCharterer} - ${v ? v.name : 'MV Pacific Endeavour'} Vetting`);
+    } else if (newScope === 'Crew') {
+      const c = crew.find((item) => item.id === selectedCrewId) || crew[0];
+      setTitle(`${defaultCharterer} - ${c ? c.fullName : 'Capt. Alexander Wright'} Vetting`);
+    } else if (newScope === 'Equipment') {
+      const e = equipment.find((item) => item.id === selectedEquipmentId) || equipment[0];
+      setTitle(`${defaultCharterer} - ${e ? e.name : '150T Traction Winch'} Vetting`);
+    } else if (newScope === 'Activity') {
+      const a = EXISTING_ACTIVITIES.find((item) => item.id === selectedActivityId) || EXISTING_ACTIVITIES[0];
+      setTitle(`${defaultCharterer} - ${a ? a.name : 'Operational Procedure'} Vetting`);
+    }
+  };
 
   const handleReviewModeChange = (newMode: ReviewMode) => {
     setReviewMode(newMode);
@@ -261,10 +290,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const newVerifiers = filterCandidatesByReviewMode(users, newMode, 'Verifier', {
       clientOrg,
       serviceProviderOrg,
+      internalDeployment: isInternalDeployment,
     });
     const newApprovers = filterCandidatesByReviewMode(users, newMode, 'Approver', {
       clientOrg,
       serviceProviderOrg,
+      internalDeployment: isInternalDeployment,
     });
 
     if (newMode === 'issuing_authority') {
@@ -716,8 +747,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         }
       }
 
-      if (!selectedProjectId) {
+      if (assuranceType === 'Project' && !selectedProjectId) {
         newErrors.projectId = 'Target Project selection is required.';
+      } else if (assuranceType === 'Vessel' && !vesselId) {
+        newErrors.vesselId = 'Vessel selection is required.';
+      } else if (assuranceType === 'Crew' && !selectedCrewId) {
+        newErrors.crewId = 'Seafarer selection is required.';
+      } else if (assuranceType === 'Equipment' && !selectedEquipmentId) {
+        newErrors.equipmentId = 'Equipment selection is required.';
+      } else if (assuranceType === 'Activity' && !selectedActivityId) {
+        newErrors.activityId = 'Operational procedure selection is required.';
       }
       if (!startDate) {
         newErrors.startDate = 'Charter on-hire start date is required.';
@@ -746,9 +785,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           approverId: approvalRequired ? assignedApprover : undefined,
           vesselOwnerOrg: serviceProviderOrg,
           serviceProviderOrg,
-          isCharteringOtherServices,
+          isCharteringOtherServices: !isInternalDeployment,
           isClientAdmin,
           users,
+          internalDeployment: isInternalDeployment,
         })
       ) {
         const verifierUser = users.find((u) => u.id === assignedVerifier);
@@ -795,9 +835,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     subtypeStakeholders: assuranceType === 'Project' ? assignedSubtypeStakeholders : undefined,
     vesselOwnerOrg: serviceProviderOrg,
     serviceProviderOrg,
-    isCharteringOtherServices: true,
+    isCharteringOtherServices: !isInternalDeployment,
     isClientAdmin,
     users,
+    internalDeployment: isInternalDeployment,
   });
 
   /* Submit and create assurance set */
@@ -915,22 +956,22 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       id: '',
       title: title.trim(),
       assuranceType,
-      projectId: selectedProjectId || undefined,
-      projectName: selectedProject?.name || selectedProjectId || undefined,
-      crewId: undefined,
-      crewName: undefined,
-      equipmentId: undefined,
-      equipmentName: undefined,
-      activityId: undefined,
-      activityName: undefined,
+      projectId: assuranceType === 'Project' ? (selectedProjectId || undefined) : undefined,
+      projectName: assuranceType === 'Project' ? (selectedProject?.name || selectedProjectId || undefined) : undefined,
+      crewId: assuranceType === 'Crew' ? (selectedCrew?.id || selectedCrewId) : undefined,
+      crewName: assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') : undefined,
+      equipmentId: assuranceType === 'Equipment' ? (selectedEquipment?.id || selectedEquipmentId) : undefined,
+      equipmentName: assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') : undefined,
+      activityId: assuranceType === 'Activity' ? (selectedActivity?.id || selectedActivityId) : undefined,
+      activityName: assuranceType === 'Activity' ? (selectedActivity?.name || 'Activity Asset') : undefined,
       subtypes: activeSubtypes,
       subtypeStakeholders: effectiveSubtypeStakeholders as any,
       visibility: templatePrivacy,
       templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
-      vesselId: '',
-      vesselName: assuranceType === 'Project' ? (selectedProject?.name || 'Project Scope') : `${assuranceType} Assurance Scope`,
-      imoNumber: 'N/A',
+      vesselId: assuranceType === 'Vessel' ? (selectedVessel?.id || vesselId) : (assuranceType === 'Crew' ? (selectedCrew?.currentVesselId || '') : (assuranceType === 'Equipment' ? (selectedEquipment?.parentVesselId || '') : '')),
+      vesselName: effectiveAssetName,
+      imoNumber: effectiveImo,
       initiatorOrg,
       initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
       charterer: effectiveCharterer,
@@ -966,8 +1007,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assignedStakeholders: undefined,
       createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
       clientWorkflowStage: isClientAdmin ? 'draft' : undefined,
-
+      internalDeployment: isInternalDeployment,
     };
+
+    newSet.readinessScore = calculateAssuranceSetReadiness(newSet);
 
     if (editingDraftId) {
       updateAssuranceSet(newSet);
@@ -1051,7 +1094,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const effectiveAssetName =
       assuranceType === 'Project'
         ? (selectedProject?.name || 'Project Scope')
-        : `${assuranceType} Assurance Scope`;
+        : assuranceType === 'Vessel'
+          ? (selectedVessel?.name || 'Vessel Asset')
+          : assuranceType === 'Crew'
+            ? (selectedCrew?.fullName || 'Crew Asset')
+            : assuranceType === 'Equipment'
+              ? (selectedEquipment?.name || 'Equipment Asset')
+              : (selectedActivity?.name || 'Activity Asset');
 
     const effectiveSubtypeStakeholders: Record<string, any> = {};
     activeSubtypes.forEach((st) => {
@@ -1069,22 +1118,22 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       id: targetSetId,
       title: title.trim() || `${defaultCharterer} - Draft Campaign`,
       assuranceType,
-      projectId: selectedProjectId || undefined,
-      projectName: selectedProject?.name || selectedProjectId || undefined,
-      crewId: undefined,
-      crewName: undefined,
-      equipmentId: undefined,
-      equipmentName: undefined,
-      activityId: undefined,
-      activityName: undefined,
+      projectId: assuranceType === 'Project' ? (selectedProjectId || undefined) : undefined,
+      projectName: assuranceType === 'Project' ? (selectedProject?.name || selectedProjectId || undefined) : undefined,
+      crewId: assuranceType === 'Crew' ? (selectedCrew?.id || selectedCrewId) : undefined,
+      crewName: assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') : undefined,
+      equipmentId: assuranceType === 'Equipment' ? (selectedEquipment?.id || selectedEquipmentId) : undefined,
+      equipmentName: assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') : undefined,
+      activityId: assuranceType === 'Activity' ? (selectedActivity?.id || selectedActivityId) : undefined,
+      activityName: assuranceType === 'Activity' ? (selectedActivity?.name || 'Activity Asset') : undefined,
       subtypes: activeSubtypes,
       subtypeStakeholders: effectiveSubtypeStakeholders as any,
       visibility: 'draft',
       templateSource: templatePrivacy,
       appliedTemplates: selectedSubtypeTemplates,
-      vesselId: '',
+      vesselId: assuranceType === 'Vessel' ? (selectedVessel?.id || vesselId) : (assuranceType === 'Crew' ? (selectedCrew?.currentVesselId || '') : (assuranceType === 'Equipment' ? (selectedEquipment?.parentVesselId || '') : '')),
       vesselName: effectiveAssetName,
-      imoNumber: 'N/A',
+      imoNumber: assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : 'N/A',
       initiatorOrg,
       initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
       charterer: effectiveCharterer,
@@ -1120,7 +1169,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assignedStakeholders: undefined,
       createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
       clientWorkflowStage: isClientAdmin ? 'draft' : undefined,
+      internalDeployment: isInternalDeployment,
     };
+
+    draftSet.readinessScore = calculateAssuranceSetReadiness(draftSet);
 
     if (editingDraftId) {
       updateAssuranceSet(draftSet);
@@ -1618,10 +1670,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         id="grid-assurance-type"
                         className="form-select bg-white text-dark border-secondary-subtle fw-semibold"
                         value={assuranceType}
-                        onChange={(e) => {
-                          setAssuranceType(e.target.value as AssuranceScopeType);
-                          setFieldErrors({});
-                        }}
+                        onChange={(e) => handleScopeChange(e.target.value as AssuranceScopeType)}
                       >
                         <option value="Project">Project</option>
                         <option value="Vessel">Vessel</option>
@@ -1640,12 +1689,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      2. Target Project
+                      {assuranceType === 'Project' ? '2. Target Project Scope' : `2. Target Asset Selection (${assuranceType})`}
                     </h5>
                     <div className="text-muted small">
                       {assuranceType === 'Project'
                         ? 'Select the offshore project and configure physical asset sections for this multi-subtype campaign.'
-                        : `Select the Target Project scope and configure verification standards for ${assuranceType.toLowerCase()} assurance.`}
+                        : `Select the specific ${assuranceType.toLowerCase()} to perform direct self-assurance and compliance passport verification.`}
                     </div>
                   </div>
                 </div>
@@ -1770,54 +1819,71 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
                   )}
 
-                  {assuranceType !== 'Project' && (
+                  {/* Vessel Scope: Direct Vessel Selection */}
+                  {assuranceType === 'Vessel' && (
                     <div className="d-flex flex-column gap-4">
-                      {/* Primary Offshore Project Selection */}
                       <div>
-                        <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-project">
-                          Target Project Scope <span className="text-danger">*</span>
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-vessel">
+                          Select Target Vessel <span className="text-danger">*</span>
                         </label>
                         <select
-                          id="grid-target-asset-project"
-                          className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.projectId ? ' is-invalid border-danger' : ''}`}
-                          value={selectedProjectId}
-                          onChange={(e) => handleProjectChange(e.target.value)}
+                          id="grid-target-vessel"
+                          className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.vesselId ? ' is-invalid border-danger' : ''}`}
+                          value={vesselId}
+                          onChange={(e) => {
+                            const newVId = e.target.value;
+                            setVesselId(newVId);
+                            const v = availableVessels.find((item) => item.id === newVId);
+                            if (v) setTitle(`${defaultCharterer} - ${v.name} Vetting`);
+                            setFieldErrors((prev) => {
+                              const u = { ...prev };
+                              delete u.vesselId;
+                              return u;
+                            });
+                          }}
+                          disabled={isVesselLocked}
                           required
                         >
-                          {availableProjectOptions.length === 0 ? (
-                            <option value="">No projects available — create a project first</option>
-                          ) : (
-                            availableProjectOptions.map((proj) => (
-                              <option key={proj.id} value={proj.id}>
-                                {proj.id} &mdash; {proj.name} ({proj.clientOperator})
-                              </option>
-                            ))
-                          )}
+                          {availableVessels.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.name} (IMO: {v.imoNumber}) &mdash; {v.vesselType} [{v.status}]
+                            </option>
+                          ))}
                         </select>
-                        {fieldErrors.projectId && (
+                        {fieldErrors.vesselId && (
                           <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                            {fieldErrors.projectId}
+                            {fieldErrors.vesselId}
                           </div>
                         )}
 
-                        {selectedProject && (
+                        {selectedVessel && (
                           <div className="mt-3 p-3 bg-light border rounded-3 small">
                             <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                              <span className="fw-bold text-dark fs-6">{selectedProject.name}</span>
-                              <span className="badge bg-primary text-white font-mono-code">{selectedProject.id}</span>
+                              <div className="d-flex align-items-center gap-2">
+                                <Ship className="w-4 h-4 text-primary" />
+                                <span className="fw-bold text-dark fs-6">{selectedVessel.name}</span>
+                              </div>
+                              <div className="d-flex align-items-center gap-2">
+                                <span className="badge bg-primary text-white font-mono-code">{selectedVessel.id}</span>
+                                <span className="badge bg-slate-100 text-slate-800 border font-mono-code">IMO: {selectedVessel.imoNumber}</span>
+                                <span className="badge bg-success-subtle text-success border border-success-subtle">{selectedVessel.status}</span>
+                              </div>
                             </div>
                             <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
                               <div className="col-12 col-md-4">
-                                <strong>Client / Operator:</strong> {selectedProject.clientOperator}
+                                <strong>Vessel Type:</strong> {selectedVessel.vesselType}
                               </div>
                               <div className="col-12 col-md-4">
-                                <strong>Basin / Location:</strong> {selectedProject.location}
+                                <strong>Class Society:</strong> {selectedVessel.classificationSociety}
                               </div>
                               <div className="col-12 col-md-4">
-                                <strong>Attached Scope:</strong> {assuranceType} Assurance Scope
+                                <strong>Flag State:</strong> {selectedVessel.flagState}
                               </div>
-                              <div className="col-12">
-                                <strong>Scope Summary:</strong> {selectedProject.description}
+                              <div className="col-12 col-md-6">
+                                <strong>Registered Owner:</strong> {selectedVessel.registeredOwner}
+                              </div>
+                              <div className="col-12 col-md-6">
+                                <strong>ISM Manager:</strong> {selectedVessel.ismCompany}
                               </div>
                             </div>
                           </div>
@@ -1827,9 +1893,236 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <div className="p-3 bg-light-subtle border border-secondary-subtle rounded-3 text-secondary small" style={{ fontSize: '0.8125rem', lineHeight: '1.5' }}>
                         <div className="d-flex align-items-center gap-2 mb-1.5">
                           <Sparkles className="w-4 h-4 text-primary" />
-                          <strong className="text-dark">Asset Nomination &amp; Campaign Scheduling</strong>
+                          <strong className="text-dark">Self-Assurance &amp; Asset Vault Pre-Fulfillment</strong>
                         </div>
-                        This {assuranceType.toLowerCase()} assurance standard is attached to the selected offshore project. Specific {assuranceType.toLowerCase()} assets will be nominated and scheduled inside the <strong>Project / Roster Management</strong> workspace.
+                        This assurance set is created directly for <strong>{selectedVessel?.name || 'the selected vessel'}</strong> by the asset provider ({serviceProviderOrg}). Statutory certificates in the vessel vault will be automatically matched and pre-fulfilled.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Crew Scope: Direct Seafarer Selection */}
+                  {assuranceType === 'Crew' && (
+                    <div className="d-flex flex-column gap-4">
+                      <div>
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-crew">
+                          Select Target Seafarer <span className="text-danger">*</span>
+                        </label>
+                        <select
+                          id="grid-target-crew"
+                          className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.crewId ? ' is-invalid border-danger' : ''}`}
+                          value={selectedCrewId}
+                          onChange={(e) => {
+                            const newCId = e.target.value;
+                            setSelectedCrewId(newCId);
+                            const c = crew.find((item) => item.id === newCId);
+                            if (c) setTitle(`${defaultCharterer} - ${c.fullName} Vetting`);
+                            setFieldErrors((prev) => {
+                              const u = { ...prev };
+                              delete u.crewId;
+                              return u;
+                            });
+                          }}
+                          required
+                        >
+                          {crew.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.fullName} ({c.id}) &mdash; {c.rank} [{c.complianceStatus}]
+                            </option>
+                          ))}
+                        </select>
+                        {fieldErrors.crewId && (
+                          <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                            {fieldErrors.crewId}
+                          </div>
+                        )}
+
+                        {selectedCrew && (
+                          <div className="mt-3 p-3 bg-light border rounded-3 small">
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                              <div className="d-flex align-items-center gap-2">
+                                <Users className="w-4 h-4 text-primary" />
+                                <span className="fw-bold text-dark fs-6">{selectedCrew.fullName}</span>
+                              </div>
+                              <div className="d-flex align-items-center gap-2">
+                                <span className="badge bg-primary text-white font-mono-code">{selectedCrew.id}</span>
+                                <span className="badge bg-info-subtle text-info border border-info-subtle">{selectedCrew.rank}</span>
+                                <span className="badge bg-success-subtle text-success border border-success-subtle">{selectedCrew.complianceStatus}</span>
+                              </div>
+                            </div>
+                            <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
+                              <div className="col-12 col-md-4">
+                                <strong>Nationality:</strong> {selectedCrew.nationality}
+                              </div>
+                              <div className="col-12 col-md-4">
+                                <strong>Current Vessel:</strong> {selectedCrew.currentVesselId || 'Unassigned / Standby'}
+                              </div>
+                              <div className="col-12 col-md-4">
+                                <strong>Seaman's Book:</strong> <span className="font-mono-code">{selectedCrew.seamansBookNo}</span>
+                              </div>
+                              <div className="col-12">
+                                <strong>Employer / Organization:</strong> {selectedCrew.organization || 'Global Maritime Crewing'}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3 bg-light-subtle border border-secondary-subtle rounded-3 text-secondary small" style={{ fontSize: '0.8125rem', lineHeight: '1.5' }}>
+                        <div className="d-flex align-items-center gap-2 mb-1.5">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <strong className="text-dark">Seafarer STCW Credentials Pre-Fulfillment</strong>
+                        </div>
+                        This assurance set creates a standing qualification passport for <strong>{selectedCrew?.fullName || 'the selected seafarer'}</strong>. STCW certificates, medical clearances, and endorsements in their record will be automatically attached.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Equipment Scope: Direct Equipment Selection */}
+                  {assuranceType === 'Equipment' && (
+                    <div className="d-flex flex-column gap-4">
+                      <div>
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-equipment">
+                          Select Target Equipment <span className="text-danger">*</span>
+                        </label>
+                        <select
+                          id="grid-target-equipment"
+                          className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.equipmentId ? ' is-invalid border-danger' : ''}`}
+                          value={selectedEquipmentId}
+                          onChange={(e) => {
+                            const newEId = e.target.value;
+                            setSelectedEquipmentId(newEId);
+                            const eq = equipment.find((item) => item.id === newEId);
+                            if (eq) setTitle(`${defaultCharterer} - ${eq.name} Vetting`);
+                            setFieldErrors((prev) => {
+                              const u = { ...prev };
+                              delete u.equipmentId;
+                              return u;
+                            });
+                          }}
+                          required
+                        >
+                          {equipment.map((eq) => (
+                            <option key={eq.id} value={eq.id}>
+                              {eq.name} ({eq.equipmentIdentifier}) &mdash; {eq.category} [{eq.availabilityStatus || 'Available'}]
+                            </option>
+                          ))}
+                        </select>
+                        {fieldErrors.equipmentId && (
+                          <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                            {fieldErrors.equipmentId}
+                          </div>
+                        )}
+
+                        {selectedEquipment && (
+                          <div className="mt-3 p-3 bg-light border rounded-3 small">
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                              <div className="d-flex align-items-center gap-2">
+                                <Wrench className="w-4 h-4 text-primary" />
+                                <span className="fw-bold text-dark fs-6">{selectedEquipment.name}</span>
+                              </div>
+                              <div className="d-flex align-items-center gap-2">
+                                <span className="badge bg-primary text-white font-mono-code">{selectedEquipment.equipmentIdentifier}</span>
+                                <span className="badge bg-secondary-subtle text-secondary border">{selectedEquipment.category}</span>
+                                <span className="badge bg-success-subtle text-success border border-success-subtle">{selectedEquipment.availabilityStatus || 'Available'}</span>
+                              </div>
+                            </div>
+                            <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
+                              <div className="col-12 col-md-4">
+                                <strong>Manufacturer / Model:</strong> {selectedEquipment.manufacturer || 'OEM'} {selectedEquipment.model || ''}
+                              </div>
+                              <div className="col-12 col-md-4">
+                                <strong>Owning Organization:</strong> {selectedEquipment.owningOrganization}
+                              </div>
+                              <div className="col-12 col-md-4">
+                                <strong>Assigned Location:</strong> {selectedEquipment.parentVesselId ? `Vessel ${selectedEquipment.parentVesselId}` : 'Modular / Standby'}
+                              </div>
+                              <div className="col-12">
+                                <strong>Compliance Score:</strong> {selectedEquipment.complianceReadinessScore}% &bull; <strong>Serial No:</strong> <span className="font-mono-code">{selectedEquipment.serialNumber || 'N/A'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3 bg-light-subtle border border-secondary-subtle rounded-3 text-secondary small" style={{ fontSize: '0.8125rem', lineHeight: '1.5' }}>
+                        <div className="d-flex align-items-center gap-2 mb-1.5">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <strong className="text-dark">Equipment Certification &amp; Load Test Pre-Fulfillment</strong>
+                        </div>
+                        This assurance set verifies technical readiness for <strong>{selectedEquipment?.name || 'the selected equipment'}</strong>. Load test certificates, class surveys, and maintenance logs in the equipment vault will be automatically matched.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Activity Scope: Direct Procedure Selection */}
+                  {assuranceType === 'Activity' && (
+                    <div className="d-flex flex-column gap-4">
+                      <div>
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-activity">
+                          Select Operational Procedure / Activity <span className="text-danger">*</span>
+                        </label>
+                        <select
+                          id="grid-target-activity"
+                          className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.activityId ? ' is-invalid border-danger' : ''}`}
+                          value={selectedActivityId}
+                          onChange={(e) => {
+                            const newAId = e.target.value;
+                            setSelectedActivityId(newAId);
+                            const act = EXISTING_ACTIVITIES.find((item) => item.id === newAId);
+                            if (act) setTitle(`${defaultCharterer} - ${act.name} Vetting`);
+                            setFieldErrors((prev) => {
+                              const u = { ...prev };
+                              delete u.activityId;
+                              return u;
+                            });
+                          }}
+                          required
+                        >
+                          {EXISTING_ACTIVITIES.map((act) => (
+                            <option key={act.id} value={act.id}>
+                              {act.name} &mdash; {act.category}
+                            </option>
+                          ))}
+                        </select>
+                        {fieldErrors.activityId && (
+                          <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                            {fieldErrors.activityId}
+                          </div>
+                        )}
+
+                        {selectedActivity && (
+                          <div className="mt-3 p-3 bg-light border rounded-3 small">
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                              <div className="d-flex align-items-center gap-2">
+                                <Activity className="w-4 h-4 text-primary" />
+                                <span className="fw-bold text-dark fs-6">{selectedActivity.name}</span>
+                              </div>
+                              <div className="d-flex align-items-center gap-2">
+                                <span className="badge bg-primary text-white font-mono-code">{selectedActivity.id}</span>
+                                <span className="badge bg-secondary-subtle text-secondary border">{selectedActivity.category}</span>
+                              </div>
+                            </div>
+                            <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
+                              <div className="col-12 col-md-6">
+                                <strong>Operation Category:</strong> {selectedActivity.category}
+                              </div>
+                              <div className="col-12 col-md-6">
+                                <strong>Operational Location:</strong> {selectedActivity.location}
+                              </div>
+                              <div className="col-12">
+                                <strong>Scope Summary:</strong> {selectedActivity.description}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3 bg-light-subtle border border-secondary-subtle rounded-3 text-secondary small" style={{ fontSize: '0.8125rem', lineHeight: '1.5' }}>
+                        <div className="d-flex align-items-center gap-2 mb-1.5">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          <strong className="text-dark">Operational Procedure &amp; Safety Assurance</strong>
+                        </div>
+                        This assurance set defines the procedural safety and compliance baseline for <strong>{selectedActivity?.name || 'the selected operation'}</strong> across active marine and subsea projects.
                       </div>
                     </div>
                   )}

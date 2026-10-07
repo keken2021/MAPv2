@@ -5,7 +5,10 @@
 */
 
 import React, { useMemo, useState } from 'react';
+import { Trash2, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
+import { AttachAssuranceSetPreviewModal } from '../components/drawers/AttachAssuranceSetPreviewModal';
+import { AssuranceSet } from '../types/assurance';
 import {
   PROJECT_TYPE_OPTIONS,
   ProjectAssetType,
@@ -28,13 +31,11 @@ import {
   projectTypeShowsServiceFields,
   requiresAssuranceSetForAssetLink,
 } from '../utils/projectHelpers';
-import { EXISTING_ACTIVITIES } from '../utils/assuranceTemplates';
 
 const DEFAULT_ROLES: Partial<Record<ProjectAssetType, string>> = {
   Vessel: 'Subject vessel',
   Crew: 'Service crew',
   Equipment: 'Rented equipment',
-  Activity: 'Service / activity',
 };
 
 export const CreateProjectView: React.FC = () => {
@@ -53,20 +54,21 @@ export const CreateProjectView: React.FC = () => {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [projectType, setProjectType] = useState<ProjectType>('Service Engagement');
-  const [name, setName] = useState('');
+  const [name, setName] = useState('Pacific Endeavour — Subsea Maintenance Campaign');
   const [requestingOrganization, setRequestingOrganization] = useState(defaultOrg);
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState('Timor Sea — Offshore Sector 4');
   const [projectWindowStart, setProjectWindowStart] = useState('2026-11-01');
   const [projectWindowEnd, setProjectWindowEnd] = useState('2027-02-28');
-  const [description, setDescription] = useState('');
+  const [description, setDescription] = useState('Subsea equipment inspection, statutory assurance verification, and offshore charter mobilization.');
   const [charterer, setCharterer] = useState(defaultOrg);
-  const [routeDescription, setRouteDescription] = useState('');
+  const [routeDescription, setRouteDescription] = useState('Dampier Port to Browse Basin Field Corridor');
   const [riskProfile, setRiskProfile] = useState<ProjectRiskProfile | ''>('Standard');
-  const [serviceProvider, setServiceProvider] = useState('');
-  const [workOrderRef, setWorkOrderRef] = useState('');
+  const [serviceProvider, setServiceProvider] = useState('Oceanic Subsea Services');
+  const [workOrderRef, setWorkOrderRef] = useState('WO-2026-MAR-0412');
   const [workLocationType, setWorkLocationType] = useState<WorkLocationType>('Onboard');
   const [primaryVesselId, setPrimaryVesselId] = useState('');
   const [selectedAssuranceSetIds, setSelectedAssuranceSetIds] = useState<string[]>([]);
+  const [previewSet, setPreviewSet] = useState<AssuranceSet | null>(null);
   const [draftLinks, setDraftLinks] = useState<DraftProjectAssetLink[]>([]);
   const [assetTypeFilter, setAssetTypeFilter] = useState<'All' | ProjectAssetType>('All');
   const [error, setError] = useState('');
@@ -102,7 +104,6 @@ export const CreateProjectView: React.FC = () => {
         vessels,
         crew,
         equipment,
-        EXISTING_ACTIVITIES,
       ).links,
     [selectedAssuranceSetIds, assuranceSets, vessels, crew, equipment],
   );
@@ -166,25 +167,6 @@ export const CreateProjectView: React.FC = () => {
       });
     });
 
-    EXISTING_ACTIVITIES.forEach((a) => {
-      const sets = assuranceSets.filter(
-        (s) =>
-          !s.isProjectMaster &&
-          s.activityId === a.id &&
-          !requiresAssuranceSetForAssetLink(requestingOrganization, s.initiatorOrg || ''),
-      );
-      if (sets.length === 0) return;
-      list.push({
-        assetType: 'Activity',
-        assetId: a.id,
-        assetName: a.name,
-        providerOrganization: sets[0].initiatorOrg || sets[0].serviceProviderOrg || '',
-        assuranceSetId: sets[0].id,
-        roleInProject: DEFAULT_ROLES.Activity || '',
-        notes: a.category,
-      });
-    });
-
     return list;
   }, [externalVessels, crew, equipment, assuranceSets, requestingOrganization]);
 
@@ -233,7 +215,6 @@ export const CreateProjectView: React.FC = () => {
       vessels,
       crew,
       equipment,
-      EXISTING_ACTIVITIES,
     );
     if (unresolvedSetIds.length > 0) {
       setError(
@@ -327,7 +308,9 @@ export const CreateProjectView: React.FC = () => {
         {step === 1 && (
           <div className="row g-3">
             <div className="col-md-8">
-              <label className="form-label small fw-semibold">Project Name *</label>
+              <label className="form-label small fw-semibold">
+                Project Name <span className="text-danger">*</span>
+              </label>
               <input
                 className="form-control form-control-sm"
                 value={name}
@@ -336,7 +319,9 @@ export const CreateProjectView: React.FC = () => {
               />
             </div>
             <div className="col-md-4">
-              <label className="form-label small fw-semibold">Project Type *</label>
+              <label className="form-label small fw-semibold">
+                Project Type <span className="text-danger">*</span>
+              </label>
               <select
                 className="form-select form-select-sm"
                 value={projectType}
@@ -351,7 +336,9 @@ export const CreateProjectView: React.FC = () => {
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold">Requesting Organization *</label>
+              <label className="form-label small fw-semibold">
+                Requesting Organization <span className="text-danger">*</span>
+              </label>
               <input
                 className="form-control form-control-sm"
                 value={requestingOrganization}
@@ -359,7 +346,9 @@ export const CreateProjectView: React.FC = () => {
               />
             </div>
             <div className="col-md-6">
-              <label className="form-label small fw-semibold">Location / Site *</label>
+              <label className="form-label small fw-semibold">
+                Location / Site <span className="text-danger">*</span>
+              </label>
               <input
                 className="form-control form-control-sm"
                 value={location}
@@ -369,7 +358,9 @@ export const CreateProjectView: React.FC = () => {
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold">Project Window Start *</label>
+              <label className="form-label small fw-semibold">
+                Project Window Start <span className="text-danger">*</span>
+              </label>
               <input
                 type="date"
                 className="form-control form-control-sm"
@@ -378,7 +369,9 @@ export const CreateProjectView: React.FC = () => {
               />
             </div>
             <div className="col-md-6">
-              <label className="form-label small fw-semibold">Project Window End *</label>
+              <label className="form-label small fw-semibold">
+                Project Window End <span className="text-danger">*</span>
+              </label>
               <input
                 type="date"
                 className="form-control form-control-sm"
@@ -411,7 +404,9 @@ export const CreateProjectView: React.FC = () => {
 
             {showRoute && (
               <div className="col-12">
-                <label className="form-label small fw-semibold">Route / Transit Description *</label>
+                <label className="form-label small fw-semibold">
+                  Route / Transit Description <span className="text-danger">*</span>
+                </label>
                 <textarea
                   className="form-control form-control-sm"
                   rows={2}
@@ -441,15 +436,6 @@ export const CreateProjectView: React.FC = () => {
             {showServiceFields && (
               <>
                 <div className="col-md-6">
-                  <label className="form-label small fw-semibold">Service Provider Organization</label>
-                  <input
-                    className="form-control form-control-sm"
-                    value={serviceProvider}
-                    onChange={(e) => setServiceProvider(e.target.value)}
-                    placeholder="External org supplying crew, equipment, or service"
-                  />
-                </div>
-                <div className="col-md-6">
                   <label className="form-label small fw-semibold">Work Order / PO Reference</label>
                   <input
                     className="form-control form-control-sm"
@@ -467,21 +453,6 @@ export const CreateProjectView: React.FC = () => {
                     {WORK_LOCATION_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
                         {opt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small fw-semibold">Primary Vessel (optional)</label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={primaryVesselId}
-                    onChange={(e) => setPrimaryVesselId(e.target.value)}
-                  >
-                    <option value="">— None —</option>
-                    {externalVessels.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
                       </option>
                     ))}
                   </select>
@@ -522,19 +493,22 @@ export const CreateProjectView: React.FC = () => {
                 {selectableAssuranceSets.map((s) => {
                   const isSelected = selectedAssuranceSetIds.includes(s.id);
                   return (
-                    <label
+                    <div
                       key={s.id}
-                      className={`list-group-item list-group-item-action d-flex align-items-start gap-3 ${
-                        isSelected ? 'active' : ''
-                      }`}
+                      className={`list-group-item list-group-item-action d-flex align-items-center gap-3 ${isSelected ? 'active' : ''
+                        }`}
                     >
                       <input
                         type="checkbox"
-                        className="form-check-input mt-1"
+                        className="form-check-input mt-0"
                         checked={isSelected}
                         onChange={() => toggleAssuranceSet(s.id)}
                       />
-                      <div className="flex-grow-1">
+                      <div
+                        className="flex-grow-1"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => toggleAssuranceSet(s.id)}
+                      >
                         <div className="fw-semibold font-mono-code">{s.id}</div>
                         <div className={isSelected ? '' : 'text-dark'}>{s.title}</div>
                         <div className={`small ${isSelected ? 'text-white-50' : 'text-muted'}`}>
@@ -543,10 +517,24 @@ export const CreateProjectView: React.FC = () => {
                           {s.crewName ? ` · ${s.crewName}` : ''}
                         </div>
                       </div>
+                      <button
+                        type="button"
+                        className={`btn btn-sm ${isSelected ? 'btn-light text-dark' : 'btn-outline-primary'} p-0 d-inline-flex align-items-center justify-content-center`}
+                        style={{ width: '32px', height: '32px' }}
+                        title="Preview Documents & Requirements"
+                        aria-label="Preview Documents & Requirements"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setPreviewSet(s);
+                        }}
+                      >
+                        <Eye size={16} />
+                      </button>
                       <span className={`badge ${isSelected ? 'bg-light text-dark' : 'bg-secondary'}`}>
                         {s.readinessScore}% ready
                       </span>
-                    </label>
+                    </div>
                   );
                 })}
               </div>
@@ -601,7 +589,7 @@ export const CreateProjectView: React.FC = () => {
             </div>
 
             <div className="d-flex flex-wrap gap-2 mb-3">
-              {(['All', 'Vessel', 'Crew', 'Equipment', 'Activity'] as const).map((t) => (
+              {(['All', 'Vessel', 'Crew', 'Equipment'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -667,11 +655,12 @@ export const CreateProjectView: React.FC = () => {
                     <table className="table table-sm align-middle mb-0">
                       <thead>
                         <tr>
-                          <th>Asset</th>
+                          <th>Asset ID</th>
+                          <th>Asset Name</th>
                           <th>Organization</th>
-                          <th>Role</th>
+                          <th>Project Role</th>
                           <th>Assurance Set</th>
-                          <th />
+                          <th className="text-end">Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -680,15 +669,19 @@ export const CreateProjectView: React.FC = () => {
                           const isSeedAsset = selectedAssuranceSetIds.includes(link.assuranceSetId);
                           return (
                             <tr key={`${link.assetType}-${link.assetId}`}>
+                              <td className="font-mono-code fw-semibold text-primary">
+                                {link.assetId}
+                              </td>
                               <td>
-                                <div className="fw-semibold">{link.assetName}</div>
-                                <div className="text-muted">{link.assetType}</div>
+                                <div className="fw-semibold text-dark">{link.assetName}</div>
+                                <div className="text-muted small">{link.assetType}</div>
                               </td>
                               <td className="small">{link.providerOrganization}</td>
                               <td>
                                 <input
                                   className="form-control form-control-sm"
                                   value={link.roleInProject}
+                                  placeholder="e.g. Lead Towing Tug"
                                   onChange={(e) =>
                                     setDraftLinks((prev) =>
                                       prev.map((l) =>
@@ -713,11 +706,12 @@ export const CreateProjectView: React.FC = () => {
                                   </span>
                                 )}
                               </td>
-                              <td>
+                              <td className="text-end">
                                 {!isSeedAsset && (
                                   <button
                                     type="button"
-                                    className="btn btn-sm btn-outline-danger"
+                                    className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                    style={{ width: '32px', height: '32px' }}
                                     onClick={() =>
                                       setDraftLinks((prev) =>
                                         prev.filter(
@@ -726,8 +720,10 @@ export const CreateProjectView: React.FC = () => {
                                         ),
                                       )
                                     }
+                                    title="Remove Asset from Roster"
+                                    aria-label="Remove Asset from Roster"
                                   >
-                                    Remove
+                                    <Trash2 size={16} />
                                   </button>
                                 )}
                               </td>
@@ -761,6 +757,31 @@ export const CreateProjectView: React.FC = () => {
           </>
         )}
       </div>
+
+      <AttachAssuranceSetPreviewModal
+        isOpen={Boolean(previewSet)}
+        onClose={() => setPreviewSet(null)}
+        assuranceSet={previewSet}
+        project={{
+          id: 'MAP-PROJ-DRAFT',
+          name: name || 'Draft Project',
+          clientOperator: requestingOrganization || defaultOrg,
+          location: location || 'Offshore',
+          projectType,
+          status: 'Draft',
+          charterWindowStart: projectWindowStart,
+          charterWindowEnd: projectWindowEnd,
+          requestingOrganization: requestingOrganization || defaultOrg,
+          operatorOrganization: requestingOrganization || defaultOrg,
+          assetLinks: [],
+        }}
+        onConfirm={() => {
+          if (previewSet && !selectedAssuranceSetIds.includes(previewSet.id)) {
+            setSelectedAssuranceSetIds((prev) => [...prev, previewSet.id]);
+          }
+          setPreviewSet(null);
+        }}
+      />
     </div>
   );
 };

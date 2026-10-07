@@ -5,10 +5,13 @@
 */
 
 import React, { useState, useMemo } from 'react';
-import { LayoutGrid, Table as TableIcon, Check, MoreHorizontal, Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { LayoutGrid, Table as TableIcon, Check, MoreHorizontal, Download, ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { VesselInformation } from '../../types/vessel';
 import { ReadinessGauge } from '../common/ReadinessGauge';
+import { FilterModal } from '../common/FilterModal';
+import { FilterButton } from '../common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { getVesselStatusBadgeClass } from '../../utils/formatters';
 import {
@@ -32,6 +35,7 @@ import { canPerform } from '../../utils/permissionHelpers';
 import { calculateVesselReadiness } from '../../utils/readinessHelpers';
 
 type VesselSortField =
+  | 'imoNumber'
   | 'name'
   | 'classNotation'
   | 'flagState'
@@ -67,6 +71,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
   const [classFilter, setClassFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [assuranceSetFilter, setAssuranceSetFilter] = useState('ALL');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<VesselSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -218,11 +223,31 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
     setIsExportOpen(false);
   };
 
+  const activeFilterCount =
+    (flagFilter !== 'ALL' ? 1 : 0) +
+    (classFilter !== 'ALL' ? 1 : 0) +
+    (statusFilter !== 'ALL' ? 1 : 0) +
+    (assuranceSetFilter !== 'ALL' ? 1 : 0);
+
+  const activeChips: FilterChip[] = [
+    ...(flagFilter !== 'ALL' ? [{ id: 'flag', label: 'Flag', value: flagFilter, onRemove: () => setFlagFilter('ALL') }] : []),
+    ...(classFilter !== 'ALL' ? [{ id: 'class', label: 'Class', value: classFilter, onRemove: () => setClassFilter('ALL') }] : []),
+    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'Status', value: statusFilter, onRemove: () => setStatusFilter('ALL') }] : []),
+    ...(assuranceSetFilter !== 'ALL' ? [{ id: 'set', label: 'Assurance Set', value: assuranceSetFilter, onRemove: () => setAssuranceSetFilter('ALL') }] : []),
+  ];
+
+  const handleResetFilters = () => {
+    setFlagFilter('ALL');
+    setClassFilter('ALL');
+    setStatusFilter('ALL');
+    setAssuranceSetFilter('ALL');
+  };
+
   return (
     <div className="card map-card-custom">
       {/* Table Controls Header */}
       <div className="card-header d-flex flex-wrap align-items-center justify-content-between gap-3 p-3">
-        {/* Left: Search & Filter */}
+        {/* Left: Search & Filter Button */}
         <div className="d-flex flex-wrap align-items-center gap-2">
           <input
             type="text"
@@ -233,66 +258,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
             style={{ width: '280px' }}
           />
 
-          <select
-            className="form-select form-select-sm bg-white text-dark border-secondary"
-            value={flagFilter}
-            onChange={(e) => setFlagFilter(e.target.value)}
-            style={{ width: '150px' }}
-          >
-            <option value="ALL">All Flags</option>
-            <option value="Australia">Australia</option>
-          </select>
-
-          <select
-            className="form-select form-select-sm bg-white text-dark border-secondary"
-            value={classFilter}
-            onChange={(e) => setClassFilter(e.target.value)}
-            style={{ width: '160px' }}
-          >
-            <option value="ALL">All Class Societies</option>
-            <option value="DNV">DNV</option>
-            <option value="ABS">ABS</option>
-            <option value="Lloyd's Register">Lloyd's Register</option>
-            <option value="Bureau Veritas">Bureau Veritas</option>
-          </select>
-
-          {(activePersona === 'Administrator' || activePersona === 'Submitter') && filterMode === 'owned' && (
-            <select
-              className="form-select form-select-sm bg-white text-dark border-secondary"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ width: '160px' }}
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="In Operations">In Operations</option>
-              <option value="In Transit">In Transit</option>
-              <option value="Port Stay">Port Stay</option>
-              <option value="Under Charter">Under Charter</option>
-              <option value="Active">Active</option>
-              <option value="Standby">Standby</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="Dry Docking">Dry Docking</option>
-              <option value="Lay-up">Lay-up</option>
-              <option value="Decommissioned">Decommissioned</option>
-            </select>
-          )}
-
-          {(activePersona === 'C Admin' || activePersona === 'Administrator' || activePersona === 'Submitter') && availableAssuranceSets.length > 0 && (
-            <select
-              className="form-select form-select-sm bg-white text-dark border-secondary font-mono-code"
-              value={assuranceSetFilter}
-              onChange={(e) => setAssuranceSetFilter(e.target.value)}
-              style={{ minWidth: '220px', maxWidth: '300px', fontSize: '0.8rem' }}
-              title="Filter by Assurance Set"
-            >
-              <option value="ALL">All Assurance Sets</option>
-              {availableAssuranceSets.map((set) => (
-                <option key={set.id} value={set.id}>
-                  {set.id} - {set.title}
-                </option>
-              ))}
-            </select>
-          )}
+          <FilterButton
+            onClick={() => setIsFilterModalOpen(true)}
+            activeCount={activeFilterCount}
+          />
         </div>
 
         {/* Right: View Mode Dropdown (Icons only), Export & Register */}
@@ -387,6 +356,12 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
           )}
         </div>
       </div>
+
+      {activeChips.length > 0 && (
+        <div className="px-3 py-2 bg-light border-bottom">
+          <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+        </div>
+      )}
 
       {/* Main Content: Tile Grid vs Data Table */}
       {viewMode === 'grid' ? (
@@ -488,48 +463,6 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                             </span>
                           </div>
                         </div>
-
-                        {/* Bottom Listing / Organization Box */}
-                        <div className="map-marketplace-org-box mt-auto">
-                          <div
-                            className="text-uppercase fw-bold mb-1.5"
-                            style={{ fontSize: '0.625rem', letterSpacing: '0.08em', color: '#94a3b8' }}
-                          >
-                            LISTING ORGANIZATION
-                          </div>
-                          <div className="d-flex align-items-center gap-1">
-                            {orgInfo.logoUrl ? (
-                              <img
-                                src={orgInfo.logoUrl}
-                                alt={orgInfo.name}
-                                className="rounded-2 flex-shrink-0 border"
-                                style={{ width: '36px', height: '36px', objectFit: 'cover' }}
-                              />
-                            ) : (
-                              <div
-                                className="rounded-2 flex-shrink-0 d-flex align-items-center justify-content-center fw-bold shadow-sm"
-                                style={{
-                                  width: '36px',
-                                  height: '36px',
-                                  background: orgInfo.badgeBg,
-                                  color: orgInfo.badgeColor,
-                                  fontSize: '0.78rem',
-                                  letterSpacing: '0.04em',
-                                }}
-                              >
-                                {orgInfo.initials}
-                              </div>
-                            )}
-                            <div className="d-flex flex-column min-w-0 ps-0.5">
-                              <span className="fw-bold text-dark text-truncate" style={{ fontSize: '0.88rem' }} title={orgInfo.name}>
-                                {orgInfo.name}
-                              </span>
-                              <span className="text-muted text-truncate" style={{ fontSize: '0.72rem' }}>
-                                Verified Maritime Provider
-                              </span>
-                            </div>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -544,6 +477,9 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
           <table className="table map-table-custom align-middle mb-0">
             <thead>
               <tr>
+                <th onClick={() => handleSort('imoNumber')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  IMO Number {renderSortIndicator('imoNumber')}
+                </th>
                 <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   Vessel Name {renderSortIndicator('name')}
                 </th>
@@ -551,7 +487,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                   Class Notation / Type {renderSortIndicator('classNotation')}
                 </th>
                 <th onClick={() => handleSort('flagState')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Flag State {renderSortIndicator('flagState')}
+                  Flag &amp; Port {renderSortIndicator('flagState')}
                 </th>
                 <th onClick={() => handleSort('registeredOwner')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   Registered Owner {renderSortIndicator('registeredOwner')}
@@ -568,7 +504,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
             <tbody>
               {sortedVessels.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-5">
+                  <td colSpan={8} className="text-center py-5">
                     <div className="map-vessel-empty-state">
                       <div className="map-vessel-empty-title">No vessels match your search</div>
                       <div className="map-vessel-empty-hint text-muted small">
@@ -588,7 +524,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                     style={{ cursor: 'pointer' }}
                   >
                     <td>
-                      <div className="fw-semibold text-primary">{v.name}</div>
+                      <span className="font-mono-code fw-semibold text-primary">{v.imoNumber}</span>
+                    </td>
+                    <td>
+                      <div className="fw-semibold text-dark">{v.name}</div>
                     </td>
                     <td className="small">
                       <div>{v.vesselSubtype || v.classNotation}</div>
@@ -610,13 +549,16 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                     <td className="text-end" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-primary"
+                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                        style={{ width: '32px', height: '32px' }}
+                        title="View Vessel Details"
+                        aria-label="View Vessel Details"
                         onClick={() => {
                           setActiveVesselId(v.id);
                           onSelectVessel(v);
                         }}
                       >
-                        View Details
+                        <Eye size={16} />
                       </button>
                     </td>
                   </tr>
@@ -626,6 +568,88 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
           </table>
         </div>
       )}
+
+      {/* Vessel Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="Fleet Filters"
+        subtitle="Filter vessels by flag, classification society, operational status, and assurance campaign"
+        activeCount={activeFilterCount}
+      >
+        <div className="card p-3 bg-white border rounded">
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Flag State</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={flagFilter}
+                onChange={(e) => setFlagFilter(e.target.value)}
+              >
+                <option value="ALL">All Flags</option>
+                <option value="Australia">Australia</option>
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Classification Society</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={classFilter}
+                onChange={(e) => setClassFilter(e.target.value)}
+              >
+                <option value="ALL">All Class Societies</option>
+                <option value="DNV">DNV</option>
+                <option value="ABS">ABS</option>
+                <option value="Lloyd's Register">Lloyd's Register</option>
+                <option value="Bureau Veritas">Bureau Veritas</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-3 bg-white border rounded">
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Operational Status</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="In Operations">In Operations</option>
+                <option value="In Transit">In Transit</option>
+                <option value="Port Stay">Port Stay</option>
+                <option value="Under Charter">Under Charter</option>
+                <option value="Active">Active</option>
+                <option value="Standby">Standby</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Dry Docking">Dry Docking</option>
+                <option value="Lay-up">Lay-up</option>
+                <option value="Decommissioned">Decommissioned</option>
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Assurance Set</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary font-mono-code"
+                value={assuranceSetFilter}
+                onChange={(e) => setAssuranceSetFilter(e.target.value)}
+              >
+                <option value="ALL">All Assurance Sets</option>
+                {availableAssuranceSets.map((set) => (
+                  <option key={set.id} value={set.id}>
+                    {set.id} - {set.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </FilterModal>
     </div>
   );
 };

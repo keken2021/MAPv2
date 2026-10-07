@@ -27,17 +27,17 @@ export interface OrganizationLogoInfo {
 
 /* Curated maritime vessel stock photography — verified authentic ships, boats & offshore vessels */
 const VESSEL_STOCK_PHOTOS: Record<string, string> = {
-  'VESSEL-001': 'https://plus.unsplash.com/premium_photo-1661880889658-6c3ac991146f?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Pacific Endeavour
-  'VESSEL-002': 'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Coral Titan
-  'VESSEL-003': 'https://images.unsplash.com/photo-1713127563314-5163b052cf8b?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Tasman Pioneer
-  'VESSEL-004': 'https://images.unsplash.com/photo-1658684276903-d01b7974ca90?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Southern Cross
-  'VESSEL-005': 'https://images.unsplash.com/photo-1703977883249-d959f2b0c1ae?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Atlantic Ocean
-  'VESSEL-006': 'https://images.unsplash.com/photo-1732515742827-b46fba760ff1?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Kimberley Guardian
-  'VESSEL-007': 'https://plus.unsplash.com/premium_photo-1661881151268-8c3ee3de4c38?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Ningaloo Voyager
-  'VESSEL-008': 'https://plus.unsplash.com/premium_photo-1661879449050-069f67e200bd?q=80&w=1122&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Meridian Pioneer
-  'VESSEL-009': 'https://plus.unsplash.com/premium_photo-1661962278758-d529030366fb?q=80&w=1228&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Austral Horizon
-  'VESSEL-010': 'https://plus.unsplash.com/premium_photo-1664298003939-e93f37196118?q=80&w=1333&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Oceanic Sentinel
-  'VESSEL-011': 'https://plus.unsplash.com/premium_photo-1661880889658-6c3ac991146f?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Southern Basin Pioneer
+  'VESSEL-001': 'https://plus.unsplash.com/premium_photo-1661880889658-6c3ac991146f?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Pacific Endeavour (AHTS DP2)
+  'VESSEL-002': 'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Coral Titan (Heavy AHTS)
+  'VESSEL-003': 'https://images.unsplash.com/photo-1713127563314-5163b052cf8b?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Tasman Pioneer (Tanker)
+  'VESSEL-004': 'https://images.unsplash.com/photo-1658684276903-d01b7974ca90?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Southern Cross (OSV)
+  'VESSEL-005': 'https://images.unsplash.com/photo-1703977883249-d959f2b0c1ae?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Atlantic Ocean (Towing / AHTS)
+  'VESSEL-006': 'https://images.unsplash.com/photo-1732515742827-b46fba760ff1?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Kimberley Guardian (ERRV)
+  'VESSEL-007': 'https://plus.unsplash.com/premium_photo-1661881151268-8c3ee3de4c38?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Ningaloo Voyager (Fast Crew Craft)
+  'VESSEL-008': 'https://plus.unsplash.com/premium_photo-1661879449050-069f67e200bd?q=80&w=1122&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Meridian Pioneer (PSV DP2)
+  'VESSEL-009': 'https://plus.unsplash.com/premium_photo-1661962278758-d529030366fb?q=80&w=1228&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Austral Horizon (Liquid Cargo PSV)
+  'VESSEL-010': 'https://plus.unsplash.com/premium_photo-1664298003939-e93f37196118?q=80&w=1333&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Oceanic Sentinel (Heavy 180T AHTS)
+  'VESSEL-011': 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1000&q=80', // MV Southern Basin Pioneer (Subsea Construction)
 };
 
 const TYPE_ACCURATE_PHOTOS: Record<string, string> = {
@@ -49,11 +49,11 @@ const TYPE_ACCURATE_PHOTOS: Record<string, string> = {
   TOWING: 'https://images.unsplash.com/photo-1703977883249-d959f2b0c1ae?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   TUG: 'https://images.unsplash.com/photo-1703977883249-d959f2b0c1ae?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   CARRIER: 'https://plus.unsplash.com/premium_photo-1661879449050-069f67e200bd?q=80&w=1122&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-  TANKER: 'https://plus.unsplash.com/premium_photo-1661879449050-069f67e200bd?q=80&w=1122&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  TANKER: 'https://images.unsplash.com/photo-1713127563314-5163b052cf8b?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   LNG: 'https://plus.unsplash.com/premium_photo-1661879449050-069f67e200bd?q=80&w=1122&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   OSV: 'https://images.unsplash.com/photo-1658684276903-d01b7974ca90?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   CARGO: 'https://plus.unsplash.com/premium_photo-1661962278758-d529030366fb?q=80&w=1228&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-  BARGE: 'https://images.unsplash.com/photo-1703977883249-d959f2b0c1ae?q=80&w=2071&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  BARGE: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1000&q=80',
   CREW: 'https://plus.unsplash.com/premium_photo-1661881151268-8c3ee3de4c38?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   OFFSHORE: 'https://plus.unsplash.com/premium_photo-1664298003939-e93f37196118?q=80&w=1333&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
 };
@@ -69,18 +69,19 @@ const DEFAULT_VESSEL_PHOTOS = [
   'https://plus.unsplash.com/premium_photo-1661879449050-069f67e200bd?q=80&w=1122&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   'https://plus.unsplash.com/premium_photo-1661962278758-d529030366fb?q=80&w=1228&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
   'https://plus.unsplash.com/premium_photo-1664298003939-e93f37196118?q=80&w=1333&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1000&q=80',
 ];
 
 const CONTACT_AVATARS = [
   {
     name: 'Capt. Alexander Wright',
     role: 'Master Mariner · Northwind Marine',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+    avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=150&q=80',
   },
   {
     name: 'Capt. Sarah Jenkins',
     role: 'Operations Lead · Northwind Marine',
-    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=150&q=80',
+    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80',
   },
   {
     name: 'Marcus Chen',
@@ -90,7 +91,7 @@ const CONTACT_AVATARS = [
   {
     name: 'Elena Rostova',
     role: 'Fleet Manager · Southern Basin',
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80',
+    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=150&q=80',
   },
   {
     name: 'Justin Franci',
@@ -325,5 +326,227 @@ export const getOrganizationLogo = (orgName?: string): OrganizationLogoInfo => {
     badgeBg: colorPool[hash % colorPool.length],
     badgeColor: '#ffffff',
   };
+};
+
+/* ========================================================================= */
+/* Equipment Stock Photography & Curated Presets                              */
+/* ========================================================================= */
+
+export const CURATED_EQUIPMENT_PHOTOS = [
+  {
+    title: 'Work-Class ROV System',
+    url: 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1000&q=80',
+  },
+  {
+    title: 'Offshore Active Heave Crane',
+    url: 'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=1000&q=80',
+  },
+  {
+    title: 'DP2 Console & Navigation Spread',
+    url: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1000&q=80',
+  },
+  {
+    title: 'Fast Rescue Craft (FRC / Life-Saving)',
+    url: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80',
+  },
+  {
+    title: 'Fire-Fighting Foam & Monitor Spread (FFE)',
+    url: 'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=1000&q=80',
+  },
+  {
+    title: 'Heavy Subsea Winch & Hydraulics',
+    url: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=1000&q=80',
+  },
+  {
+    title: 'ECDIS Navigation Suite',
+    url: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1000&q=80',
+  },
+  {
+    title: 'Aviation Helideck Landing Platform',
+    url: 'https://images.unsplash.com/photo-1519074069444-1ba4ea16e91f?auto=format&fit=crop&w=1000&q=80',
+  },
+  {
+    title: 'Offshore Rigging & Heavy Slings',
+    url: 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1000&q=80',
+  },
+];
+
+const EQUIPMENT_STOCK_PHOTOS: Record<string, string> = {
+  'EQ-001': 'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=1000&q=80',
+  'EQ-002': 'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1000&q=80',
+  'EQ-003': 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80',
+  'EQ-004': 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=1000&q=80',
+  'EQ-005': 'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=1000&q=80',
+  'EQ-006': 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1000&q=80',
+  'EQ-007': 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1000&q=80',
+  'EQ-008': 'https://images.unsplash.com/photo-1519074069444-1ba4ea16e91f?auto=format&fit=crop&w=1000&q=80',
+  'EQ-009': 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1000&q=80',
+};
+
+export const getEquipmentStockPhoto = (
+  equipmentId?: string,
+  name?: string,
+  category?: string,
+  customUrl?: string,
+): string => {
+  if (customUrl && customUrl.trim().length > 0) return customUrl.trim();
+  if (equipmentId && EQUIPMENT_STOCK_PHOTOS[equipmentId]) return EQUIPMENT_STOCK_PHOTOS[equipmentId];
+
+  const catLower = (category || '').toLowerCase();
+  const nameLower = (name || '').toLowerCase();
+
+  if (catLower.includes('fire') || nameLower.includes('fire') || catLower.includes('ffe')) {
+    return 'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=1000&q=80';
+  }
+  if (catLower.includes('life') || catLower.includes('saving') || nameLower.includes('rescue')) {
+    return 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80';
+  }
+  if (catLower.includes('navigation') || catLower.includes('bridge')) {
+    return 'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1000&q=80';
+  }
+  if (nameLower.includes('dp') || catLower.includes('dp')) {
+    return 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1000&q=80';
+  }
+  if (catLower.includes('machinery') || catLower.includes('propulsion') || nameLower.includes('crane')) {
+    return 'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=1000&q=80';
+  }
+  if (nameLower.includes('rov') || catLower.includes('robotics')) {
+    return 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1000&q=80';
+  }
+  if (nameLower.includes('helideck') || catLower.includes('helideck')) {
+    return 'https://images.unsplash.com/photo-1519074069444-1ba4ea16e91f?auto=format&fit=crop&w=1000&q=80';
+  }
+  if (nameLower.includes('rigging') || nameLower.includes('sling')) {
+    return 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1000&q=80';
+  }
+
+  const defaultPool = CURATED_EQUIPMENT_PHOTOS.map((p) => p.url);
+  const hash = ((equipmentId || '') + (name || '')).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return defaultPool[hash % defaultPool.length] || defaultPool[0];
+};
+
+/* ========================================================================= */
+/* Crew Stock Photography & Curated Presets                                  */
+/* ========================================================================= */
+
+export const CURATED_CREW_PHOTOS = [
+  {
+    title: 'Ship Master / Captain Wright',
+    url: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Master Mariner Sterling',
+    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Chief Engineer Sterling',
+    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Chief Engineer Vestergaard',
+    url: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Chief Officer Jenkins',
+    url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Senior DPO Capt. Rostova',
+    url: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Bosun Kowalski',
+    url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Second Engineer O Connor',
+    url: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Saturation Dive Supt Dr Vance',
+    url: 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'ROV Pilot Gallagher',
+    url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Towing Master Capt Mahuta',
+    url: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Marine QHSE Lead Jenkins',
+    url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=800&q=80',
+  },
+  {
+    title: 'Heavy Lift Supt Vance-Chen',
+    url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=800&q=80',
+  },
+];
+
+const CREW_STOCK_PHOTOS: Record<string, string> = {
+  'CREW-101': 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80',
+  'CREW-102': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80',
+  'CREW-103': 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80',
+  'CREW-104': 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80',
+  'CREW-105': 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=800&q=80',
+};
+
+export const getCrewStockPhoto = (
+  crewId?: string,
+  fullName?: string,
+  rank?: string,
+  customUrl?: string,
+): string => {
+  if (customUrl && customUrl.trim().length > 0) return customUrl.trim();
+  if (crewId && CREW_STOCK_PHOTOS[crewId]) return CREW_STOCK_PHOTOS[crewId];
+
+  const nameLower = (fullName || '').toLowerCase();
+  const rankLower = (rank || '').toLowerCase();
+
+  if (nameLower.includes('callum') || (rankLower.includes('master') && nameLower.includes('sterling'))) {
+    return 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80';
+  }
+  if (nameLower.includes('henrik') || nameLower.includes('vestergaard')) {
+    return 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=800&q=80';
+  }
+  if (nameLower.includes('elena') || nameLower.includes('rostova')) {
+    return 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=800&q=80';
+  }
+  if (nameLower.includes('vance') && (nameLower.includes('arthur') || rankLower.includes('dive'))) {
+    return 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=800&q=80';
+  }
+  if (nameLower.includes('gallagher') || rankLower.includes('rov')) {
+    return 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=800&q=80';
+  }
+  if (nameLower.includes('mahuta') || rankLower.includes('towing')) {
+    return 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=800&q=80';
+  }
+  if (nameLower.includes('qhse') || (nameLower.includes('jenkins') && rankLower.includes('qhse'))) {
+    return 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=800&q=80';
+  }
+  if (nameLower.includes('vance-chen') || (rankLower.includes('heavy') && rankLower.includes('deck'))) {
+    return 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=800&q=80';
+  }
+
+  if (rankLower.includes('captain') || rankLower.includes('master')) {
+    return 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=800&q=80';
+  }
+  if (rankLower.includes('chief engineer')) {
+    return 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=80';
+  }
+  if (rankLower.includes('chief officer') || rankLower.includes('navigator')) {
+    return 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80';
+  }
+  if (rankLower.includes('bosun') || rankLower.includes('deck')) {
+    return 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80';
+  }
+  if (rankLower.includes('second engineer') || rankLower.includes('engineer')) {
+    return 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=800&q=80';
+  }
+
+  const defaultPool = CURATED_CREW_PHOTOS.map((p) => p.url);
+  const hash = ((crewId || '') + (fullName || '')).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return defaultPool[hash % defaultPool.length] || defaultPool[0];
 };
 

@@ -5,10 +5,13 @@
 */
 
 import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Copy, Play, Eye } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { AssuranceSet, AssuranceStage } from '../../types/assurance';
 import { ReadinessGauge } from '../common/ReadinessGauge';
+import { FilterModal } from '../common/FilterModal';
+import { FilterButton } from '../common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 
@@ -50,6 +53,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const [activeTab, setActiveTab] = useState<AssuranceViewTab>(defaultTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('ALL');
+  const [scopeFilter, setScopeFilter] = useState<string>('ALL');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<AssuranceSortField>('id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -95,10 +100,26 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     const matchesSearch =
       s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.vesselName.toLowerCase().includes(searchTerm.toLowerCase());
+      s.vesselName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.initiatorOrg && s.initiatorOrg.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStage = stageFilter === 'ALL' || s.stage === stageFilter;
-    return matchesTab && matchesSearch && matchesStage;
+    const matchesScope = scopeFilter === 'ALL' || s.assuranceType === scopeFilter || (s.subtypes && s.subtypes.includes(scopeFilter as any));
+    return matchesTab && matchesSearch && matchesStage && matchesScope;
   });
+
+  const activeFilterCount =
+    (stageFilter !== 'ALL' ? 1 : 0) +
+    (scopeFilter !== 'ALL' ? 1 : 0);
+
+  const activeChips: FilterChip[] = [
+    ...(stageFilter !== 'ALL' ? [{ id: 'stage', label: 'Stage', value: stageFilter, onRemove: () => setStageFilter('ALL') }] : []),
+    ...(scopeFilter !== 'ALL' ? [{ id: 'scope', label: 'Scope', value: scopeFilter, onRemove: () => setScopeFilter('ALL') }] : []),
+  ];
+
+  const handleResetFilters = () => {
+    setStageFilter('ALL');
+    setScopeFilter('ALL');
+  };
 
   const handleSort = (field: AssuranceSortField) => {
     if (sortField === field) {
@@ -229,20 +250,10 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ width: '260px' }}
             />
-            <select
-              className="form-select form-select-sm bg-white text-dark border-secondary"
-              value={stageFilter}
-              onChange={(e) => setStageFilter(e.target.value)}
-              style={{ width: '150px' }}
-            >
-              <option value="ALL">All Stages</option>
-              <option value="Initiated">Initiated</option>
-              <option value="Validation">Validation</option>
-              <option value="Verification">Verification</option>
-              <option value="Inspection">Inspection</option>
-              <option value="Approval">Approval</option>
-              <option value="Certified">Certified</option>
-            </select>
+            <FilterButton
+              onClick={() => setIsFilterModalOpen(true)}
+              activeCount={activeFilterCount}
+            />
           </div>
 
           {/* Right Side: Export & Initiate Buttons */}
@@ -284,6 +295,12 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
             )}
           </div>
         </div>
+
+        {activeChips.length > 0 && (
+          <div className="px-3 py-2 bg-light border-bottom">
+            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+          </div>
+        )}
 
       <div className="table-responsive">
         <table className="table map-table-custom align-middle mb-0">
@@ -349,42 +366,49 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                     <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />
                   </td>
                   <td className="text-end">
-                    <div className="d-flex align-items-center justify-content-end gap-1">
+                    <div className="d-flex align-items-center justify-content-end gap-1.5">
                       {!isDraft && canInitiate && (
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-secondary"
-                          title="Use this Assurance Set as template to auto-fill new campaign"
+                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
+                          title="Use as Template"
+                          aria-label="Use as Template"
                           onClick={(e) => {
                             e.stopPropagation();
                             setCurrentHashView('create-assurance-set', s.id);
                           }}
                         >
-                          Use as Template
+                          <Copy size={16} />
                         </button>
                       )}
                       {isDraft ? (
                         <button
                           type="button"
-                          className="btn btn-sm btn-primary fw-semibold"
-                          title="Continue and finalize wizard setup for this draft"
+                          className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center p-0 text-white"
+                          style={{ width: '32px', height: '32px' }}
+                          title="Continue Setup"
+                          aria-label="Continue Setup"
                           onClick={(e) => {
                             e.stopPropagation();
                             setCurrentHashView('create-assurance-set', s.id);
                           }}
                         >
-                          Continue Setup
+                          <Play size={16} />
                         </button>
                       ) : (
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
+                          title="View Campaign Details"
+                          aria-label="View Campaign Details"
                           onClick={(e) => {
                             e.stopPropagation();
                             onSelectSet(s);
                           }}
                         >
-                          View Details
+                          <Eye size={16} />
                         </button>
                       )}
                     </div>
@@ -395,6 +419,53 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
           </tbody>
         </table>
       </div>
+
+      {/* Assurance Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="Assurance Set Filters"
+        subtitle="Filter assurance campaigns by workflow stage and scope taxonomy"
+        activeCount={activeFilterCount}
+      >
+        <div className="card p-3 bg-white border rounded">
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Workflow Stage</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={stageFilter}
+                onChange={(e) => setStageFilter(e.target.value)}
+              >
+                <option value="ALL">All Stages</option>
+                <option value="Initiated">Initiated</option>
+                <option value="Validation">Validation</option>
+                <option value="Verification">Verification</option>
+                <option value="Inspection">Inspection</option>
+                <option value="Approval">Approval</option>
+                <option value="Approved">Approved</option>
+                <option value="Certified">Certified</option>
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Scope Element</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={scopeFilter}
+                onChange={(e) => setScopeFilter(e.target.value)}
+              >
+                <option value="ALL">All Scopes</option>
+                <option value="Vessel">Vessel</option>
+                <option value="Crew">Crew</option>
+                <option value="Activity">Activity</option>
+                <option value="Equipment">Equipment</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </FilterModal>
     </div>
   </div>
 );

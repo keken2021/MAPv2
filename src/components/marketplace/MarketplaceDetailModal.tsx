@@ -21,6 +21,7 @@ import {
   FolderPlus,
   ExternalLink,
   Download,
+  Camera,
 } from 'lucide-react';
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
@@ -45,6 +46,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'specs' | 'capabilities' | 'compliance' | 'provider'>('specs');
   const [inquirySent, setInquirySent] = useState(false);
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string>('');
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -60,12 +62,14 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
     if (isOpen) {
       setActiveTab('specs');
       setInquirySent(false);
+      setSelectedPhotoUrl(item?.imageUrl || (item?.photos && item.photos.length > 0 ? item.photos[0] : ''));
     }
   }, [isOpen, item]);
 
   if (!isOpen || !item) return null;
 
   const orgInfo = getOrganizationLogo(item.providerOrg);
+  const activePhoto = selectedPhotoUrl || item.imageUrl;
 
   const getCategoryIcon = () => {
     switch (item.category) {
@@ -179,27 +183,58 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
           {/* Modal Body */}
           <div className="modal-body p-0">
             {/* Hero Image & Overlay Banner */}
-            <div
-              className="position-relative overflow-hidden w-100 bg-slate-900"
-              style={{ height: '220px' }}
-            >
-              <img
-                src={item.imageUrl}
-                alt={item.name}
-                className="w-100 h-100 object-fit-cover opacity-90"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src =
-                    'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
-                }}
-              />
+            {item.category === 'crew' ? (
+              /* Dedicated Square 1:1 Portrait Layout for Crew Members */
               <div
-                className="position-absolute bottom-0 start-0 end-0 px-4 py-3"
+                className="p-4 d-flex flex-column flex-sm-row align-items-center gap-4 text-white position-relative"
                 style={{
-                  background: 'linear-gradient(to top, rgba(11, 27, 43, 0.96) 0%, rgba(11, 27, 43, 0.5) 65%, transparent 100%)',
+                  backgroundColor: '#0B1B2B',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
                 }}
               >
-                <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 text-white">
-                  <div className="d-flex align-items-center gap-3">
+                {/* Square 1:1 Portrait Photo Container */}
+                <div
+                  className="position-relative overflow-hidden rounded-3 border flex-shrink-0 shadow-md"
+                  style={{
+                    width: '180px',
+                    height: '180px',
+                    aspectRatio: '1 / 1',
+                    backgroundColor: '#08131F',
+                    borderColor: 'rgba(255, 255, 255, 0.25)',
+                  }}
+                >
+                  <img
+                    src={activePhoto}
+                    alt={item.name}
+                    className="w-100 h-100 object-fit-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src =
+                        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80';
+                    }}
+                  />
+                  {item.photos && item.photos.length > 1 && (
+                    <div
+                      className="position-absolute d-inline-flex align-items-center gap-1.5 px-2 py-0.5 rounded-pill shadow-sm"
+                      style={{
+                        bottom: '8px',
+                        right: '8px',
+                        backgroundColor: 'rgba(11, 27, 43, 0.88)',
+                        backdropFilter: 'blur(6px)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        zIndex: 3,
+                      }}
+                    >
+                      <Camera size={11} className="text-white" />
+                      <span className="text-white font-mono-code fw-semibold" style={{ fontSize: '0.65rem' }}>
+                        {item.photos.length} Photos
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Crew Key Badges & Parameters */}
+                <div className="d-flex flex-column justify-content-center gap-2.5 flex-grow-1 min-w-0 w-100">
+                  <div className="d-flex flex-wrap align-items-center gap-2">
                     <span
                       className="badge rounded-pill d-inline-flex align-items-center gap-1.5 px-3 py-1.5 shadow-sm"
                       style={{
@@ -213,37 +248,162 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                       {item.availabilityStatus}
                     </span>
                     <span
-                      className="small d-flex align-items-center gap-1.5"
-                      style={{ color: '#E2E8F0', fontSize: '0.82rem' }}
+                      className="small d-flex align-items-center gap-1.5 text-slate-200"
+                      style={{ fontSize: '0.82rem' }}
                     >
                       <MapPin size={15} className="text-warning flex-shrink-0" />
                       <span>{item.location}</span>
                     </span>
                   </div>
 
-                  <div className="d-flex align-items-center gap-3.5">
+                  <div className="d-flex flex-wrap align-items-center gap-3 mt-1">
                     {item.rateEstimate && (
-                      <span
-                        className="small d-flex align-items-center gap-1.5 font-mono-code fw-semibold"
-                        style={{ color: '#38BDF8', fontSize: '0.85rem' }}
+                      <div
+                        className="d-flex align-items-center gap-1.5 font-mono-code fw-semibold"
+                        style={{ color: '#38BDF8', fontSize: '0.9rem' }}
                       >
-                        <DollarSign size={15} className="flex-shrink-0" />
+                        <DollarSign size={16} className="flex-shrink-0" />
                         <span>{item.rateEstimate}</span>
-                      </span>
+                      </div>
                     )}
                     {item.mobilizationLeadTime && (
-                      <span
-                        className="small d-flex align-items-center gap-1.5"
-                        style={{ color: '#CBD5E1', fontSize: '0.82rem' }}
-                      >
-                        <Clock size={15} className="flex-shrink-0" />
+                      <div className="d-flex align-items-center gap-1.5 small text-slate-300" style={{ fontSize: '0.82rem' }}>
+                        <Clock size={15} className="flex-shrink-0 text-slate-400" />
                         <span>Lead: {item.mobilizationLeadTime}</span>
-                      </span>
+                      </div>
                     )}
+                  </div>
+
+                  <div className="d-flex align-items-center gap-2 mt-1">
+                    <span className="badge bg-slate-800 text-slate-200 border border-slate-700 font-mono-code px-2.5 py-1" style={{ fontSize: '0.75rem' }}>
+                      STCW Compliance Readiness: <strong className="text-success">{item.complianceReadinessScore}%</strong>
+                    </span>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Standard 16:9 Banner for Vessels & Equipment */
+              <div
+                className="position-relative overflow-hidden w-100 bg-slate-900"
+                style={{ height: '220px' }}
+              >
+                <img
+                  src={activePhoto}
+                  alt={item.name}
+                  className="w-100 h-100 object-fit-cover opacity-90"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src =
+                      'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
+                  }}
+                />
+
+                {/* Photo Count Badge */}
+                {item.photos && item.photos.length > 1 && (
+                  <div
+                    className="position-absolute d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill shadow-sm"
+                    style={{
+                      top: '12px',
+                      left: '16px',
+                      backgroundColor: 'rgba(11, 27, 43, 0.85)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(255, 255, 255, 0.18)',
+                      zIndex: 3,
+                    }}
+                  >
+                    <Camera size={13} className="text-white" />
+                    <span className="text-white font-mono-code fw-semibold" style={{ fontSize: '0.72rem' }}>
+                      {item.photos.length} Photos
+                    </span>
+                  </div>
+                )}
+
+                <div
+                  className="position-absolute bottom-0 start-0 end-0 px-4 py-3"
+                  style={{
+                    background: 'linear-gradient(to top, rgba(11, 27, 43, 0.96) 0%, rgba(11, 27, 43, 0.5) 65%, transparent 100%)',
+                  }}
+                >
+                  <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 text-white">
+                    <div className="d-flex align-items-center gap-3">
+                      <span
+                        className="badge rounded-pill d-inline-flex align-items-center gap-1.5 px-3 py-1.5 shadow-sm"
+                        style={{
+                          backgroundColor: item.availabilityTagColor || '#059669',
+                          color: '#FFFFFF',
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                        }}
+                      >
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#FFFFFF' }} />
+                        {item.availabilityStatus}
+                      </span>
+                      <span
+                        className="small d-flex align-items-center gap-1.5"
+                        style={{ color: '#E2E8F0', fontSize: '0.82rem' }}
+                      >
+                        <MapPin size={15} className="text-warning flex-shrink-0" />
+                        <span>{item.location}</span>
+                      </span>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-3.5">
+                      {item.rateEstimate && (
+                        <span
+                          className="small d-flex align-items-center gap-1.5 font-mono-code fw-semibold"
+                          style={{ color: '#38BDF8', fontSize: '0.85rem' }}
+                        >
+                          <DollarSign size={15} className="flex-shrink-0" />
+                          <span>{item.rateEstimate}</span>
+                        </span>
+                      )}
+                      {item.mobilizationLeadTime && (
+                        <span
+                          className="small d-flex align-items-center gap-1.5"
+                          style={{ color: '#CBD5E1', fontSize: '0.82rem' }}
+                        >
+                          <Clock size={15} className="flex-shrink-0" />
+                          <span>Lead: {item.mobilizationLeadTime}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Thumbnail Gallery Switcher Strip (if multiple photos exist) */}
+            {item.photos && item.photos.length > 1 && (
+              <div
+                className="px-4 py-2 border-bottom d-flex align-items-center gap-2 overflow-x-auto"
+                style={{ backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' }}
+              >
+                <span className="text-secondary small fw-medium me-1" style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                  Photos:
+                </span>
+                {item.photos.map((pUrl, pIdx) => {
+                  const isSelected = pUrl === activePhoto;
+                  const isCrew = item.category === 'crew';
+                  return (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      className={`border rounded-2 p-0 overflow-hidden flex-shrink-0 transition-all ${isSelected ? 'border-primary ring-2 ring-primary shadow-xs' : 'border-secondary-subtle opacity-75 hover-opacity-100'
+                        }`}
+                      style={{
+                        width: isCrew ? '42px' : '56px',
+                        height: isCrew ? '42px' : '36px',
+                        aspectRatio: isCrew ? '1 / 1' : '16 / 9',
+                        backgroundColor: '#0B1B2B',
+                      }}
+                      onClick={() => setSelectedPhotoUrl(pUrl)}
+                      title={`View photo #${pIdx + 1}`}
+                    >
+                      <img src={pUrl} alt="" className="w-100 h-100 object-fit-cover" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Description & KPI Metrics Section */}
             <div
@@ -315,8 +475,8 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                   <button
                     type="button"
                     className={`nav-link border-0 px-3.5 py-2.5 small fw-medium ${activeTab === 'specs'
-                        ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                        : 'text-secondary'
+                      ? 'active border-bottom border-primary border-3 fw-bold text-primary'
+                      : 'text-secondary'
                       }`}
                     style={{
                       fontSize: '0.84rem',
@@ -332,8 +492,8 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                   <button
                     type="button"
                     className={`nav-link border-0 px-3.5 py-2.5 small fw-medium ${activeTab === 'capabilities'
-                        ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                        : 'text-secondary'
+                      ? 'active border-bottom border-primary border-3 fw-bold text-primary'
+                      : 'text-secondary'
                       }`}
                     style={{
                       fontSize: '0.84rem',
@@ -349,8 +509,8 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                   <button
                     type="button"
                     className={`nav-link border-0 px-3.5 py-2.5 small fw-medium ${activeTab === 'compliance'
-                        ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                        : 'text-secondary'
+                      ? 'active border-bottom border-primary border-3 fw-bold text-primary'
+                      : 'text-secondary'
                       }`}
                     style={{
                       fontSize: '0.84rem',
@@ -366,8 +526,8 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                   <button
                     type="button"
                     className={`nav-link border-0 px-3.5 py-2.5 small fw-medium ${activeTab === 'provider'
-                        ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                        : 'text-secondary'
+                      ? 'active border-bottom border-primary border-3 fw-bold text-primary'
+                      : 'text-secondary'
                       }`}
                     style={{
                       fontSize: '0.84rem',
@@ -488,11 +648,8 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                     ))}
                   </div>
                   <div
-                    className="rounded-2 border text-muted small"
+                    className="text-muted small mt-3"
                     style={{
-                      backgroundColor: '#F8FAFC',
-                      borderColor: '#E2E8F0',
-                      padding: '14px 20px',
                       fontSize: '0.82rem',
                       lineHeight: '1.5',
                       color: '#64748B',
@@ -632,23 +789,6 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                 <Download size={14} />
                 <span>Export Dossier</span>
               </button>
-
-              {item.linkedEntityId && onNavigateToEntity && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1.5 px-3 py-1.5"
-                  onClick={() => {
-                    const targetView = item.linkedEntityType === 'equipment' ? 'equipment' : 'vessels';
-                    onNavigateToEntity(targetView, item.linkedEntityId!);
-                    onClose();
-                  }}
-                  title="Open full master system record"
-                  style={{ fontSize: '0.82rem', height: '34px' }}
-                >
-                  <ExternalLink size={14} />
-                  <span>View Registry Record</span>
-                </button>
-              )}
             </div>
 
             <div className="d-flex align-items-center gap-2">

@@ -140,6 +140,42 @@
   color: #ffffff !important;
 }
 
+.btn-outline-primary:hover .text-muted,
+.btn-outline-primary:hover .text-secondary,
+.btn-outline-primary:hover p,
+.btn-outline-primary:hover span:not(.badge),
+.btn-outline-primary:focus .text-muted,
+.btn-outline-primary:focus .text-secondary {
+  color: #cbd5e1 !important;
+}
+
+/* Modal interactive action card button styling */
+.map-action-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.18s ease-in-out;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.map-action-card:hover {
+  background-color: #f1f5f9 !important;
+  border-color: var(--map-primary-blue) !important;
+  box-shadow: 0 2px 8px rgba(11, 27, 43, 0.08);
+}
+
+.map-action-card:hover .text-dark,
+.map-action-card:hover .fw-bold {
+  color: var(--map-primary-blue) !important;
+}
+
+.map-action-card:hover .text-muted,
+.map-action-card:hover .text-secondary {
+  color: #475569 !important;
+}
+
 .bg-primary {
   background-color: var(--map-primary-blue) !important;
   color: #ffffff !important;

@@ -5,10 +5,13 @@
 */
 
 import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, ComplianceState } from '../../types/document';
 import { ConfidenceBadge } from '../common/ConfidenceBadge';
+import { FilterModal } from '../common/FilterModal';
+import { FilterButton } from '../common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
@@ -50,6 +53,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [verificationFilter, setVerificationFilter] = useState('ALL');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -74,8 +79,26 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
       d.issuingAuthority.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'ALL' || d.entityType === typeFilter;
     const matchesStatus = statusFilter === 'ALL' || d.complianceState === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
+    const matchesVerification = verificationFilter === 'ALL' || d.verificationStatus === verificationFilter;
+    return matchesSearch && matchesType && matchesStatus && matchesVerification;
   });
+
+  const activeFilterCount =
+    (typeFilter !== 'ALL' ? 1 : 0) +
+    (statusFilter !== 'ALL' ? 1 : 0) +
+    (verificationFilter !== 'ALL' ? 1 : 0);
+
+  const activeChips: FilterChip[] = [
+    ...(typeFilter !== 'ALL' ? [{ id: 'type', label: 'Entity Type', value: typeFilter, onRemove: () => setTypeFilter('ALL') }] : []),
+    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'State', value: statusFilter, onRemove: () => setStatusFilter('ALL') }] : []),
+    ...(verificationFilter !== 'ALL' ? [{ id: 'verif', label: 'Verification', value: verificationFilter, onRemove: () => setVerificationFilter('ALL') }] : []),
+  ];
+
+  const handleResetFilters = () => {
+    setTypeFilter('ALL');
+    setStatusFilter('ALL');
+    setVerificationFilter('ALL');
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -156,7 +179,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
     <div className="card map-card-custom">
       {/* Table Header Controls Row: Grouped Search/Filter/Sort Left, Grouped Export/Upload Right */}
       <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-        {/* Group 1 (Left): Search Box, Filter Dropdowns & Sort Controls */}
+        {/* Group 1 (Left): Search Box & Filter Button */}
         <div className="d-flex flex-wrap align-items-center gap-2">
           <input
             type="text"
@@ -166,27 +189,10 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '240px' }}
           />
-          <select
-            className="form-select form-select-sm bg-white text-dark border-secondary"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            style={{ width: '150px' }}
-          >
-            <option value="ALL">All Entity Types</option>
-            <option value="Vessel Certificate">Vessel Certificate</option>
-            <option value="Crew Certificate">Crew Certificate</option>
-          </select>
-          <select
-            className="form-select form-select-sm bg-white text-dark border-secondary"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ width: '150px' }}
-          >
-            <option value="ALL">All States</option>
-            <option value="Valid">Valid</option>
-            <option value="Expiring < 6 Mos">Expiring &lt; 6 Mos</option>
-            <option value="Mismatch/Exception">Mismatch/Exception</option>
-          </select>
+          <FilterButton
+            onClick={() => setIsFilterModalOpen(true)}
+            activeCount={activeFilterCount}
+          />
         </div>
 
         {/* Group 2 (Right): Export & Upload Action Buttons on corner right of the row */}
@@ -229,30 +235,30 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         </div>
       </div>
 
+      {activeChips.length > 0 && (
+        <div className="px-3 py-2 bg-light border-bottom">
+          <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+        </div>
+      )}
+
       <div className="table-responsive">
         <table className="table map-table-custom align-middle mb-0">
           <thead>
             <tr>
+              <th onClick={() => handleSort('certificateNo')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                Certificate No / ID {renderSortIndicator('certificateNo')}
+              </th>
               <th onClick={() => handleSort('title')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Document Title {renderSortIndicator('title')}
               </th>
               <th onClick={() => handleSort('entityType')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Type {renderSortIndicator('entityType')}
-              </th>
-              <th onClick={() => handleSort('issuingAuthority')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Issuing Authority {renderSortIndicator('issuingAuthority')}
+                Type &amp; Authority {renderSortIndicator('entityType')}
               </th>
               <th onClick={() => handleSort('expiryDate')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Expiry Date {renderSortIndicator('expiryDate')}
               </th>
-              <th onClick={() => handleSort('ocrConfidence')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                OCR Confidence {renderSortIndicator('ocrConfidence')}
-              </th>
               <th onClick={() => handleSort('complianceState')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Compliance State {renderSortIndicator('complianceState')}
-              </th>
-              <th onClick={() => handleSort('currentVersion')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Version {renderSortIndicator('currentVersion')}
               </th>
               <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
             </tr>
@@ -264,44 +270,38 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                 onClick={() => onSelectDocument(doc)}
                 style={{ cursor: 'pointer' }}
               >
-                <td className="fw-semibold text-primary">{doc.title}</td>
+                <td className="font-mono-code fw-semibold text-primary">{doc.certificateNo}</td>
+                <td>
+                  <div className="fw-semibold text-dark">{doc.title}</div>
+                  <div className="small font-mono-code text-secondary">
+                    v{doc.currentVersion}
+                  </div>
+                </td>
                 <td>
                   <span className="badge bg-light text-dark border" style={{ fontSize: '0.75rem' }}>
                     {doc.entityType}
                   </span>
+                  <div className="small text-muted mt-0.5">{doc.issuingAuthority}</div>
                 </td>
-                <td>{doc.issuingAuthority}</td>
                 <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
-                <td>
-                  <ConfidenceBadge score={doc.ocrConfidence} />
-                </td>
                 <td>
                   <span className={`badge ${getComplianceBadgeClass(doc.complianceState)}`}>
                     {doc.complianceState}
                   </span>
                 </td>
-                <td>
-                  <span
-                    className="badge bg-info text-dark font-mono-code"
-                    style={{ cursor: 'pointer' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onOpenVersionHistory) onOpenVersionHistory(doc);
-                    }}
-                  >
-                    {doc.currentVersion}
-                  </span>
-                </td>
                 <td className="text-end">
                   <button
                     type="button"
-                    className="btn btn-sm btn-outline-primary me-1"
+                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                    style={{ width: '32px', height: '32px' }}
+                    title="View Document Details"
+                    aria-label="View Document Details"
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectDocument(doc);
                     }}
                   >
-                    View Details
+                    <Eye size={16} />
                   </button>
                 </td>
               </tr>
@@ -309,6 +309,65 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Document Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="Document Library Filters"
+        subtitle="Filter documents and certificates by entity type, compliance validity, and verification status"
+        activeCount={activeFilterCount}
+      >
+        <div className="card p-3 bg-white border rounded">
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Entity Type</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="ALL">All Entity Types</option>
+                <option value="Vessel Certificate">Vessel Certificate</option>
+                <option value="Crew Certificate">Crew Certificate</option>
+                <option value="Equipment Certificate">Equipment Certificate</option>
+                <option value="Project Dossier">Project Dossier</option>
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Compliance State</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All States</option>
+                <option value="Valid">Valid</option>
+                <option value="Expiring < 6 Mos">Expiring &lt; 6 Mos</option>
+                <option value="Mismatch/Exception">Mismatch/Exception</option>
+                <option value="Expired">Expired</option>
+              </select>
+            </div>
+
+            <div className="col-12">
+              <label className="form-label small fw-semibold text-secondary mb-1">Verification Status</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={verificationFilter}
+                onChange={(e) => setVerificationFilter(e.target.value)}
+              >
+                <option value="ALL">All Verification Statuses</option>
+                <option value="Verified">Verified</option>
+                <option value="Pending">Pending</option>
+                <option value="Correction Requested">Correction Requested</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </FilterModal>
     </div>
   );
 };

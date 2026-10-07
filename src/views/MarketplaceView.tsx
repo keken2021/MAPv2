@@ -20,6 +20,7 @@ import {
   X,
   ArrowRight,
   ShieldCheck,
+  Eye,
 } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { MarketplaceCategory, MarketplaceItem } from '../types/marketplace';
@@ -29,9 +30,12 @@ import { MarketplaceDetailModal } from '../components/marketplace/MarketplaceDet
 import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
 import { getOrganizationLogo } from '../utils/vesselImageHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { FilterModal } from '../components/common/FilterModal';
+import { FilterButton } from '../components/common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 
 export const MarketplaceView: React.FC = () => {
-  const { vessels, equipment, activePersona, users, setCurrentHashView } = useMapStore();
+  const { vessels, equipment, crew, activePersona, users, setCurrentHashView } = useMapStore();
   const [activeCategory, setActiveCategory] = useState<MarketplaceCategory>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [providerFilter, setProviderFilter] = useState('ALL');
@@ -43,13 +47,14 @@ export const MarketplaceView: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [selectedItemForProject, setSelectedItemForProject] = useState<MarketplaceItem | null>(null);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
 
   // 1. Resolve all marketplace items strictly excluding current user's organization
   const allMarketplaceItems = useMemo(() => {
-    return getMarketplaceItems(vessels, equipment, activePersona, users);
-  }, [vessels, equipment, activePersona, users]);
+    return getMarketplaceItems(vessels, equipment, activePersona, users, crew);
+  }, [vessels, equipment, crew, activePersona, users]);
 
   // 2. Count statistics per category
   const counts = useMemo(() => {
@@ -112,6 +117,45 @@ export const MarketplaceView: React.FC = () => {
     locationFilter !== 'ALL' ||
     statusFilter !== 'ALL' ||
     activeCategory !== 'all';
+
+  const activeChips = useMemo<FilterChip[]>(() => {
+    const chips: FilterChip[] = [];
+    if (providerFilter !== 'ALL') {
+      chips.push({
+        id: 'provider',
+        label: 'Provider',
+        value: providerFilter,
+        onRemove: () => setProviderFilter('ALL'),
+      });
+    }
+    if (locationFilter !== 'ALL') {
+      chips.push({
+        id: 'location',
+        label: 'Location',
+        value: locationFilter,
+        onRemove: () => setLocationFilter('ALL'),
+      });
+    }
+    if (statusFilter !== 'ALL') {
+      chips.push({
+        id: 'status',
+        label: 'Status',
+        value: statusFilter,
+        onRemove: () => setStatusFilter('ALL'),
+      });
+    }
+    if (activeCategory !== 'all') {
+      chips.push({
+        id: 'category',
+        label: 'Category',
+        value: activeCategory.toUpperCase(),
+        onRemove: () => setActiveCategory('all'),
+      });
+    }
+    return chips;
+  }, [providerFilter, locationFilter, statusFilter, activeCategory]);
+
+  const activeFilterCount = activeChips.length;
 
   const handleExportCsv = () => {
     const exportData = filteredItems.map((item) => ({
@@ -206,19 +250,6 @@ export const MarketplaceView: React.FC = () => {
             onClick={() => setActiveCategory('crew')}
           >
             Crew ({counts.crew})
-          </button>
-
-          <button
-            type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${
-              activeCategory === 'service'
-                ? 'active bg-primary text-white fw-semibold'
-                : 'text-secondary'
-            }`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setActiveCategory('service')}
-          >
-            Services ({counts.service})
           </button>
         </div>
 
@@ -319,37 +350,11 @@ export const MarketplaceView: React.FC = () => {
                 <Search size={14} className="position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" />
               </div>
 
-              {/* Provider Filter */}
-              <select
-                className="form-select form-select-sm bg-white text-dark font-sans"
-                style={{ width: '180px', borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                value={providerFilter}
-                onChange={(e) => setProviderFilter(e.target.value)}
-                title="Filter by Provider"
-              >
-                <option value="ALL">All Providers</option>
-                {uniqueProviders.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-
-              {/* Location Filter */}
-              <select
-                className="form-select form-select-sm bg-white text-dark font-sans"
-                style={{ width: '140px', borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                value={locationFilter}
-                onChange={(e) => setLocationFilter(e.target.value)}
-                title="Filter by Location"
-              >
-                <option value="ALL">All Locations</option>
-                {uniqueLocations.map((loc) => (
-                  <option key={loc} value={loc}>
-                    {loc}
-                  </option>
-                ))}
-              </select>
+              {/* Filter Button */}
+              <FilterButton
+                onClick={() => setIsFilterModalOpen(true)}
+                activeCount={activeFilterCount}
+              />
 
               {/* Sort By Dropdown */}
               <select
@@ -392,72 +397,8 @@ export const MarketplaceView: React.FC = () => {
           </div>
 
           {/* Active Filter Chips Bar */}
-          {hasActiveFilters && (
-            <div className="d-flex flex-wrap align-items-center gap-1.5 pt-1">
-              <span className="small text-muted me-1" style={{ fontSize: '0.72rem', color: '#64748B' }}>
-                Active filters:
-              </span>
-
-              {activeCategory !== 'all' && (
-                <span
-                  className="badge bg-light text-dark border d-inline-flex align-items-center gap-1 py-1 px-2 rounded-pill font-sans"
-                  style={{ fontSize: '0.72rem', borderColor: '#CBD5E1' }}
-                >
-                  <span>Category: {activeCategory.toUpperCase()}</span>
-                  <X
-                    size={12}
-                    className="cursor-pointer text-muted hover-text-dark"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => setActiveCategory('all')}
-                  />
-                </span>
-              )}
-
-              {searchTerm.trim() !== '' && (
-                <span
-                  className="badge bg-light text-dark border d-inline-flex align-items-center gap-1 py-1 px-2 rounded-pill font-sans"
-                  style={{ fontSize: '0.72rem', borderColor: '#CBD5E1' }}
-                >
-                  <span>Query: "{searchTerm}"</span>
-                  <X
-                    size={12}
-                    className="cursor-pointer text-muted hover-text-dark"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => setSearchTerm('')}
-                  />
-                </span>
-              )}
-
-              {providerFilter !== 'ALL' && (
-                <span
-                  className="badge bg-light text-dark border d-inline-flex align-items-center gap-1 py-1 px-2 rounded-pill font-sans"
-                  style={{ fontSize: '0.72rem', borderColor: '#CBD5E1' }}
-                >
-                  <span>Provider: {providerFilter}</span>
-                  <X
-                    size={12}
-                    className="cursor-pointer text-muted hover-text-dark"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => setProviderFilter('ALL')}
-                  />
-                </span>
-              )}
-
-              {locationFilter !== 'ALL' && (
-                <span
-                  className="badge bg-light text-dark border d-inline-flex align-items-center gap-1 py-1 px-2 rounded-pill font-sans"
-                  style={{ fontSize: '0.72rem', borderColor: '#CBD5E1' }}
-                >
-                  <span>Location: {locationFilter}</span>
-                  <X
-                    size={12}
-                    className="cursor-pointer text-muted hover-text-dark"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => setLocationFilter('ALL')}
-                  />
-                </span>
-              )}
-            </div>
+          {activeChips.length > 0 && (
+            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
           )}
         </div>
 
@@ -501,6 +442,9 @@ export const MarketplaceView: React.FC = () => {
               <thead>
                 <tr>
                   <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
+                    Offering ID
+                  </th>
+                  <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
                     Offering Title
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
@@ -523,7 +467,7 @@ export const MarketplaceView: React.FC = () => {
               <tbody>
                 {filteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center text-muted py-5" style={{ fontSize: '0.85rem' }}>
+                    <td colSpan={7} className="text-center text-muted py-5" style={{ fontSize: '0.85rem' }}>
                       No offerings found matching your search.
                     </td>
                   </tr>
@@ -536,7 +480,14 @@ export const MarketplaceView: React.FC = () => {
                         style={{ cursor: 'pointer', transition: 'background-color 0.15s ease' }}
                         onClick={() => handleSelectItem(item)}
                       >
-                        {/* Column 1: Asset Name */}
+                        {/* Column 1: Offering ID */}
+                        <td style={{ padding: '12px 16px' }}>
+                          <span className="font-mono-code fw-semibold text-primary" style={{ fontSize: '0.82rem' }}>
+                            {item.id}
+                          </span>
+                        </td>
+
+                        {/* Column 2: Asset Name */}
                         <td style={{ padding: '12px 16px' }}>
                           <div className="d-flex align-items-center gap-3">
                             <img
@@ -639,15 +590,16 @@ export const MarketplaceView: React.FC = () => {
                         <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-secondary px-2.5 py-1 d-inline-flex align-items-center gap-1 font-sans"
-                            style={{ fontSize: '0.78rem', height: '30px' }}
+                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
+                            title="View Offering Dossier"
+                            aria-label="View Offering Dossier"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSelectItem(item);
                             }}
                           >
-                            <span>View Dossier</span>
-                            <ArrowRight size={13} />
+                            <Eye size={16} />
                           </button>
                         </td>
                       </tr>
@@ -699,6 +651,96 @@ export const MarketplaceView: React.FC = () => {
           marketplaceItem={selectedItemForProject}
         />
       )}
+
+      {/* Dedicated Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="Marketplace Filters"
+        subtitle="Filter offerings by category, provider organization, location base, and operational availability"
+        activeCount={activeFilterCount}
+      >
+        <div className="d-flex flex-column gap-3">
+          {/* Category Filter */}
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
+              Offering Category
+            </label>
+            <select
+              className="form-select form-select-sm bg-white text-dark font-sans"
+              style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+              value={activeCategory}
+              onChange={(e) => setActiveCategory(e.target.value as MarketplaceCategory)}
+            >
+              <option value="all">All Categories ({counts.all})</option>
+              <option value="vessel">Vessels ({counts.vessel})</option>
+              <option value="equipment">Equipment ({counts.equipment})</option>
+              <option value="crew">Crew ({counts.crew})</option>
+              <option value="service">Services ({counts.service})</option>
+            </select>
+          </div>
+
+          {/* Provider Organization Filter */}
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
+              Provider Organization
+            </label>
+            <select
+              className="form-select form-select-sm bg-white text-dark font-sans"
+              style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+              value={providerFilter}
+              onChange={(e) => setProviderFilter(e.target.value)}
+            >
+              <option value="ALL">All Providers ({uniqueProviders.length})</option>
+              {uniqueProviders.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Location Filter */}
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
+              Location Base
+            </label>
+            <select
+              className="form-select form-select-sm bg-white text-dark font-sans"
+              style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+            >
+              <option value="ALL">All Locations ({uniqueLocations.length})</option>
+              {uniqueLocations.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Availability Status Filter */}
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
+              Availability Status
+            </label>
+            <select
+              className="form-select form-select-sm bg-white text-dark font-sans"
+              style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="ALL">All Availability Statuses</option>
+              <option value="Available Now">Available Now</option>
+              <option value="Ready for Mobilization">Ready for Mobilization</option>
+              <option value="Under Review">Under Review</option>
+              <option value="On Assignment">On Assignment</option>
+            </select>
+          </div>
+        </div>
+      </FilterModal>
     </div>
   );
 };

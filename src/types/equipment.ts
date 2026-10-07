@@ -24,6 +24,8 @@ export interface EquipmentAsset extends AssetStatusFields {
   parentVesselId?: string;
   owningOrganization: string;
   complianceReadinessScore: number;
+  imageUrl?: string;
+  photos?: string[];
 }
 
 export function getEquipmentAssetStatus(equipment: EquipmentAsset): AssetStatusFields {

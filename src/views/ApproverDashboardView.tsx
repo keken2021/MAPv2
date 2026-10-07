@@ -4,7 +4,7 @@
   role in system: primary operational workspace for Approvers (/approver and /approver/:setId).
 */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
@@ -14,7 +14,10 @@ import { canPerform } from '../utils/permissionHelpers';
 import { MasterDocument } from '../types/document';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
-import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, Search, FileCheck, RotateCcw, XCircle, Eye } from 'lucide-react';
+import { FilterModal } from '../components/common/FilterModal';
+import { FilterButton } from '../components/common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 
 /**
   what: renders approval requests table list view or approval detail page.
@@ -74,10 +77,31 @@ export const ApproverDashboardView: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('All');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [approverNotes, setApproverNotes] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [selectedDocForReview, setSelectedDocForReview] = useState<{ doc: MasterDocument; notes?: string } | null>(null);
+
+  const handleResetFilters = () => {
+    setStageFilter('All');
+    setSearchTerm('');
+  };
+
+  const activeChips = useMemo<FilterChip[]>(() => {
+    const chips: FilterChip[] = [];
+    if (stageFilter !== 'All') {
+      chips.push({
+        id: 'stage',
+        label: 'Stage',
+        value: stageFilter,
+        onRemove: () => setStageFilter('All'),
+      });
+    }
+    return chips;
+  }, [stageFilter]);
+
+  const activeFilterCount = activeChips.length;
 
   type ReqSortField = 'category' | 'title' | 'ocrConfidence' | 'status';
   const [reqSortField, setReqSortField] = useState<ReqSortField>('category');
@@ -408,10 +432,13 @@ export const ApproverDashboardView: React.FC = () => {
                                       {linkedDoc ? (
                                         <button
                                           type="button"
-                                          className="btn btn-sm btn-outline-primary font-mono-code"
+                                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                          style={{ width: '32px', height: '32px' }}
                                           onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
+                                          title="Review Document"
+                                          aria-label="Review Document"
                                         >
-                                          Review
+                                          <FileCheck size={16} />
                                         </button>
                                       ) : (
                                         <span className="text-secondary small font-mono-code">No Document</span>
@@ -420,8 +447,10 @@ export const ApproverDashboardView: React.FC = () => {
                                         <>
                                           <button
                                             type="button"
-                                            className="btn btn-sm btn-outline-warning text-dark font-mono-code"
+                                            className="btn btn-sm btn-outline-warning text-dark d-inline-flex align-items-center justify-content-center p-0"
+                                            style={{ width: '32px', height: '32px' }}
                                             title="Return for Correction"
+                                            aria-label="Return for Correction"
                                             onClick={() => {
                                               const reason = window.prompt(`Enter return reason for "${req.title}":`, approverNotes || 'Approver requested revision and correction.');
                                               if (reason && reason.trim()) {
@@ -430,12 +459,14 @@ export const ApproverDashboardView: React.FC = () => {
                                               }
                                             }}
                                           >
-                                            Return
+                                            <RotateCcw size={16} />
                                           </button>
                                           <button
                                             type="button"
-                                            className="btn btn-sm btn-outline-danger font-mono-code"
+                                            className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                            style={{ width: '32px', height: '32px' }}
                                             title="Reject Document"
+                                            aria-label="Reject Document"
                                             onClick={() => {
                                               const reason = window.prompt(`Enter rejection reason for "${req.title}":`, approverNotes || 'Document does not satisfy executive statutory criteria.');
                                               if (reason && reason.trim()) {
@@ -444,7 +475,7 @@ export const ApproverDashboardView: React.FC = () => {
                                               }
                                             }}
                                           >
-                                            Reject
+                                            <XCircle size={16} />
                                           </button>
                                         </>
                                       )}
@@ -665,31 +696,31 @@ export const ApproverDashboardView: React.FC = () => {
 
       {/* main approval requests table card */}
       <div className="card map-card-custom">
-        <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3">
-          {/* filter controls inline row */}
-          <div className="d-flex align-items-center gap-2 flex-nowrap">
-            <input
-              type="text"
-              className="form-control form-control-sm font-mono-code"
-              style={{ width: '260px' }}
-              placeholder="Search ID, Vessel, Submitter..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <select
-              className="form-select form-select-sm font-mono-code"
-              style={{ width: '190px' }}
-              value={stageFilter}
-              onChange={(e) => setStageFilter(e.target.value)}
-            >
-              <option value="All">All Stages</option>
-              <option value="Initiated">Initiated</option>
-              <option value="Validation">Validation</option>
-              <option value="Verification">Verification</option>
-              <option value="Approval">Approval</option>
-              <option value="Approved">Approved</option>
-            </select>
+        <div className="card-header d-flex flex-column gap-2.5 p-3">
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div className="d-flex flex-wrap align-items-center gap-2.5 flex-grow-1">
+              <div className="position-relative" style={{ minWidth: '240px', maxWidth: '320px' }}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
+                  style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
+                  placeholder="Search ID, Vessel, Submitter..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Search size={14} className="position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" />
+              </div>
+
+              <FilterButton
+                onClick={() => setIsFilterModalOpen(true)}
+                activeCount={activeFilterCount}
+              />
+            </div>
           </div>
+
+          {activeChips.length > 0 && (
+            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+          )}
         </div>
 
         <div className="table-responsive">
@@ -769,10 +800,13 @@ export const ApproverDashboardView: React.FC = () => {
                       <td className="text-end" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
-                          className="btn btn-sm btn-primary text-white font-mono-code"
+                          className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center p-0 text-white"
+                          style={{ width: '32px', height: '32px' }}
                           onClick={() => setCurrentHashView('approver', set.id)}
+                          title="Review Approval Request"
+                          aria-label="Review Approval Request"
                         >
-                          View Details
+                          <Eye size={16} />
                         </button>
                       </td>
                     </tr>
@@ -783,6 +817,38 @@ export const ApproverDashboardView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Dedicated Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="Approval Requests Filters"
+        subtitle="Filter assigned vetting campaigns by lifecycle workflow stage"
+        activeCount={activeFilterCount}
+      >
+        <div className="d-flex flex-column gap-3">
+          {/* Stage Filter */}
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
+              Workflow Stage
+            </label>
+            <select
+              className="form-select form-select-sm bg-white text-dark font-sans"
+              style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+            >
+              <option value="All">All Stages</option>
+              <option value="Initiated">Initiated</option>
+              <option value="Validation">Validation</option>
+              <option value="Verification">Verification</option>
+              <option value="Approval">Approval</option>
+              <option value="Approved">Approved</option>
+            </select>
+          </div>
+        </div>
+      </FilterModal>
     </div>
   );
 };

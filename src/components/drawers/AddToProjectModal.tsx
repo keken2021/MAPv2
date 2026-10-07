@@ -1108,7 +1108,7 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
                             <td className="px-3 py-2.5">
                               <div className="fw-semibold text-dark">{comp.requirementTitle}</div>
                               <span className="text-secondary small" style={{ fontSize: '0.74rem' }}>
-                                {comp.category} · {comp.isMandatory ? 'Mandatory' : 'Supplementary'}
+                                {comp.category} · {comp.isMandatory ? <span className="text-danger fw-semibold">Mandatory</span> : 'Supplementary'}
                               </span>
                             </td>
 
@@ -1192,7 +1192,10 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
                       <thead style={{ backgroundColor: '#F8FAFC', color: '#64748B' }}>
                         <tr>
                           <th className="px-3 py-2.5 text-uppercase fw-semibold" style={{ fontSize: '0.7rem' }}>
-                            Document Title & ID
+                            Certificate No / ID
+                          </th>
+                          <th className="px-3 py-2.5 text-uppercase fw-semibold" style={{ fontSize: '0.7rem' }}>
+                            Document Title
                           </th>
                           <th className="px-3 py-2.5 text-uppercase fw-semibold" style={{ fontSize: '0.7rem' }}>
                             Issuing Authority
@@ -1209,12 +1212,14 @@ export const AddToProjectModal: React.FC<AddToProjectModalProps> = ({
                         {vaultDocuments.map((doc) => (
                           <tr key={doc.id}>
                             <td className="px-3 py-2.5">
+                              <span className="font-mono-code fw-semibold text-primary" style={{ fontSize: '0.8rem' }}>
+                                {doc.certificateNo}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5">
                               <div className="d-flex align-items-center gap-1.5 fw-semibold text-dark">
                                 <FileCheck size={14} className="text-primary flex-shrink-0" />
                                 <span className="text-truncate">{doc.title}</span>
-                              </div>
-                              <div className="font-mono-code small text-primary mt-0.5" style={{ fontSize: '0.74rem' }}>
-                                {doc.certificateNo}
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-secondary small">

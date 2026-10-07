@@ -5,10 +5,13 @@
 */
 
 import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Pencil, UserX, UserCheck } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { UserProfile, UserRolePersona } from '../../types/user';
 import { RoleName } from '../../types/permissions';
+import { FilterModal } from '../common/FilterModal';
+import { FilterButton } from '../common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { EditUserModal } from '../drawers/EditUserModal';
 import { canPerform } from '../../utils/permissionHelpers';
@@ -17,6 +20,7 @@ import { filterUsersForPersona } from '../../utils/rbacHelpers';
 import { formatUserRoles, userHasRole, userMatchesAnyRole } from '../../utils/userRoleHelpers';
 
 type UserSortField =
+  | 'id'
   | 'name'
   | 'roles'
   | 'userType'
@@ -48,6 +52,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<UserSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -190,11 +195,28 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
     setIsExportOpen(false);
   };
 
+  const activeFilterCount =
+    (roleFilter !== 'ALL' ? 1 : 0) +
+    (typeFilter !== 'ALL' ? 1 : 0) +
+    (statusFilter !== 'ALL' ? 1 : 0);
+
+  const activeChips: FilterChip[] = [
+    ...(roleFilter !== 'ALL' ? [{ id: 'role', label: 'Role', value: roleFilter, onRemove: () => setRoleFilter('ALL') }] : []),
+    ...(typeFilter !== 'ALL' ? [{ id: 'type', label: 'Classification', value: typeFilter, onRemove: () => setTypeFilter('ALL') }] : []),
+    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'Status', value: statusFilter, onRemove: () => setStatusFilter('ALL') }] : []),
+  ];
+
+  const handleResetFilters = () => {
+    setRoleFilter('ALL');
+    setTypeFilter('ALL');
+    setStatusFilter('ALL');
+  };
+
   return (
     <div className="card map-card-custom">
       {/* Table Header Controls Row: Grouped Search/Filters Left, Grouped Export/Add User Right */}
       <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-        {/* Left Side: Search Box & Filter Dropdowns */}
+        {/* Left Side: Search Box & Filter Button */}
         <div className="d-flex flex-wrap align-items-center gap-2">
           <input
             type="text"
@@ -205,48 +227,10 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
             style={{ width: '260px' }}
           />
 
-          <select
-            className="form-select form-select-sm bg-white text-dark border-secondary"
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            style={{ width: '160px' }}
-          >
-            <option value="ALL">All Persona Roles</option>
-            {activePersona !== 'C Admin' && <option value="Administrator">Administrator</option>}
-            <option value="Submitter">Submitter</option>
-            <option value="Verifier">Verifier</option>
-            <option value="Inspector">Inspector</option>
-            <option value="Approver">Approver</option>
-            <option value="C Admin">C Admin</option>
-            {customRoles.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="form-select form-select-sm bg-white text-dark border-secondary"
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            style={{ width: '160px' }}
-          >
-            <option value="ALL">All Classifications</option>
-            <option value="Organization">Organization</option>
-            <option value="Third-Party">Third-Party</option>
-          </select>
-
-          <select
-            className="form-select form-select-sm bg-white text-dark border-secondary"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ width: '140px' }}
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="Active">Active</option>
-            <option value="Pending Invitation">Pending</option>
-            <option value="Inactive">Inactive</option>
-          </select>
+          <FilterButton
+            onClick={() => setIsFilterModalOpen(true)}
+            activeCount={activeFilterCount}
+          />
         </div>
 
         {/* Opposite (Right) Side: Export & Add User Buttons on corner right of the row */}
@@ -289,19 +273,25 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
         </div>
       </div>
 
+      {activeChips.length > 0 && (
+        <div className="px-3 py-2 bg-light border-bottom">
+          <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+        </div>
+      )}
+
       {/* User Data Table matching Assurance Sets table grid format */}
       <div className="table-responsive">
         <table className="table map-table-custom align-middle mb-0">
           <thead>
             <tr>
+              <th onClick={() => handleSort('id')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                User ID {renderSortIndicator('id')}
+              </th>
               <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 User Name &amp; Email {renderSortIndicator('name')}
               </th>
               <th onClick={() => handleSort('roles')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Assigned Role {renderSortIndicator('roles')}
-              </th>
-              <th onClick={() => handleSort('userType')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Classification {renderSortIndicator('userType')}
+                Assigned Role &amp; Type {renderSortIndicator('roles')}
               </th>
               <th onClick={() => handleSort('organization')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Organization &amp; Scope {renderSortIndicator('organization')}
@@ -309,39 +299,35 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
               <th onClick={() => handleSort('status')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Status {renderSortIndicator('status')}
               </th>
-              <th onClick={() => handleSort('lastActive')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Last Active {renderSortIndicator('lastActive')}
-              </th>
               <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {sortedUsers.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-4 text-muted">
+                <td colSpan={6} className="text-center py-4 text-muted">
                   No user accounts match your search or filter criteria.
                 </td>
               </tr>
             ) : (
               sortedUsers.map((u) => (
                 <tr key={u.id}>
+                  <td className="font-mono-code fw-semibold text-primary">{u.id}</td>
                   <td>
                     <div className="fw-semibold text-dark">{u.name}</div>
                     <div className="small font-mono-code text-muted">{u.email}</div>
                   </td>
                   <td>
-                    <div className="d-flex flex-wrap gap-1">
+                    <div className="d-flex flex-wrap align-items-center gap-1">
                       {u.roles.map((role) => (
                         <span key={role} className={`badge ${getRoleBadgeClass(role)}`}>
                           {role}
                         </span>
                       ))}
+                      <span className={`badge ${u.userType === 'Organization' ? 'bg-light text-secondary border' : 'bg-info-subtle text-info-emphasis border border-info-subtle'}`} style={{ fontSize: '0.7rem' }}>
+                        {u.userType}
+                      </span>
                     </div>
-                  </td>
-                  <td>
-                    <span className={`badge ${u.userType === 'Organization' ? 'bg-light text-dark border' : 'bg-info text-dark'}`}>
-                      {u.userType}
-                    </span>
                   </td>
                   <td>
                     <div className="fw-semibold text-dark">{u.organization}</div>
@@ -352,34 +338,40 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
                       {u.status}
                     </span>
                   </td>
-                  <td className="font-mono-code small text-secondary">
-                    {u.lastActive}
-                  </td>
                   <td className="text-end">
                     {canUpdateUser && (
-                      <div className="d-flex align-items-center justify-content-end gap-2">
+                      <div className="d-flex align-items-center justify-content-end gap-1.5">
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
                           onClick={() => setEditingUser(u)}
+                          title="Edit User Profile"
+                          aria-label="Edit User Profile"
                         >
-                          Edit
+                          <Pencil size={16} />
                         </button>
                         {u.status === 'Active' ? (
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-danger"
+                            className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
                             onClick={() => updateUserStatus(u.id, 'Inactive')}
+                            title="Deactivate User"
+                            aria-label="Deactivate User"
                           >
-                            Deactivate
+                            <UserX size={16} />
                           </button>
                         ) : (
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-success"
+                            className="btn btn-sm btn-outline-success d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
                             onClick={() => updateUserStatus(u.id, 'Active')}
+                            title="Activate User"
+                            aria-label="Activate User"
                           >
-                            Activate
+                            <UserCheck size={16} />
                           </button>
                         )}
                       </div>
@@ -391,6 +383,69 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
           </tbody>
         </table>
       </div>
+
+      {/* User Directory Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="User Directory Filters"
+        subtitle="Filter platform members and stakeholders by persona role, classification, and status"
+        activeCount={activeFilterCount}
+      >
+        <div className="card p-3 bg-white border rounded">
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Persona Role</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+              >
+                <option value="ALL">All Persona Roles</option>
+                {activePersona !== 'C Admin' && <option value="Administrator">Administrator</option>}
+                <option value="Submitter">Submitter</option>
+                <option value="Verifier">Verifier</option>
+                <option value="Inspector">Inspector</option>
+                <option value="Approver">Approver</option>
+                <option value="C Admin">C Admin</option>
+                {customRoles.map((role) => (
+                  <option key={role} value={role}>
+                    {role}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Classification</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="ALL">All Classifications</option>
+                <option value="Organization">Organization</option>
+                <option value="Third-Party">Third-Party</option>
+              </select>
+            </div>
+
+            <div className="col-12">
+              <label className="form-label small fw-semibold text-secondary mb-1">Account Status</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Pending Invitation">Pending</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </FilterModal>
 
       {/* Edit User Modal */}
       <EditUserModal

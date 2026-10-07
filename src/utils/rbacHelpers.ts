@@ -522,7 +522,7 @@ export function filterAuditTrailForPersona(
   with what file: src/utils/rbacHelpers.ts consumed by HeaderBanner, VesselDetailView, DocumentDetailView, InspectionChecklistView, and CreateAssuranceSetView.
 */
 export function getBackButtonInfo(
-  parentView: "assurance-sets" | "vessels" | "equipment" | "project" | "documents" | "inspector" | "crew" | "capa" | "approver" | "roles-permissions" | "users",
+  parentView: "assurance-sets" | "vessels" | "equipment" | "project" | "documents" | "inspector" | "crew" | "capa" | "approver" | "roles-permissions" | "users" | "marketplace",
   parentLabel: string,
   previousHashView: string | undefined,
   activePersona: UserRolePersona,
@@ -565,12 +565,22 @@ export function getBackButtonInfo(
     isParentAllowedInSidepanel = ["Administrator"].includes(activePersona);
   } else if (parentView === "users") {
     isParentAllowedInSidepanel = ["Administrator", "C Admin"].includes(activePersona);
+  } else if (parentView === "marketplace") {
+    isParentAllowedInSidepanel = true;
   }
 
   if (previousHashView === "dashboard" || !isParentAllowedInSidepanel) {
     return {
       label: "Back to Dashboard",
       targetView: "dashboard",
+    };
+  }
+
+  if (previousHashView === "marketplace") {
+    return {
+      label: "Back to Marketplace",
+      targetView: "marketplace",
+      targetEntityId: undefined,
     };
   }
 

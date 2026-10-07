@@ -77,7 +77,10 @@ import {
   generateMasterAssuranceSetId,
   generateUniqueProjectId,
   getProjectEffectiveCharterer,
+  recalculateSetReadiness,
   requiresAssuranceSetForAssetLink,
+  syncAllAffectedProjectRollups,
+  syncProjectMasterRollup,
 } from "../utils/projectHelpers";
 import { MOCK_VESSEL_STATUS_HISTORY } from "./vesselStatusHistoryMockData";
 import {
@@ -310,6 +313,7 @@ export interface MapStoreState {
   // Crew Directory State
   crew: CrewMember[];
   addCrewMember: (crew: CrewMember) => void;
+  updateCrewMember: (updatedCrew: CrewMember) => void;
   assignCrewToVessel: (crewId: string, vesselId: string | undefined) => void;
   addCrewDocument: (crewId: string, doc: STCWDocumentItem) => void;
   updateCrewDocument: (crewId: string, doc: STCWDocumentItem) => void;
@@ -539,22 +543,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       primaryVesselId: input.primaryVesselId,
     };
 
-    const readinessScore = calculateProjectReadiness(projectDraft, [
-      ...get().assuranceSets,
-      masterSet,
-    ]);
+    const initialProjects = [...get().projects, projectDraft];
+    const initialSets = [...get().assuranceSets, masterSet];
+    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+      syncProjectMasterRollup(projectId, initialProjects, initialSets);
 
-    const project: Project = {
-      ...projectDraft,
-      readinessScore,
-    };
-
-    masterSet.readinessScore = calculateAssuranceSetReadiness(masterSet);
-
-    set((state) => ({
-      projects: [...state.projects, project],
-      assuranceSets: [...state.assuranceSets, masterSet],
-    }));
+    set({
+      projects: syncedProjects,
+      assuranceSets: syncedSets,
+    });
 
     get().logAuditEvent({
       userId: "USR-CURRENT",
@@ -601,17 +598,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const updatedProject: Project = {
       ...project,
-      assetLinks: [...project.assetLinks, link],
-      status: "Assurance In Progress",
+      assetLinks: [...project.assetLinks.filter((l) => !(l.assetType === linkInput.assetType && l.assetId === linkInput.assetId)), link],
     };
 
-    set((state) => ({
-      projects: state.projects.map((p) =>
-        p.id === projectId ? updatedProject : p,
-      ),
-    }));
+    const updatedProjects = get().projects.map((p) =>
+      p.id === projectId ? updatedProject : p,
+    );
 
-    get().syncProjectMasterAssurance(projectId);
+    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+      syncProjectMasterRollup(projectId, updatedProjects, get().assuranceSets);
+
+    set({
+      projects: syncedProjects,
+      assuranceSets: syncedSets,
+    });
 
     get().logAuditEvent({
       userId: "USR-CURRENT",
@@ -629,87 +629,58 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const project = get().projects.find((p) => p.id === projectId);
     if (!project) return;
 
-    set((state) => ({
-      projects: state.projects.map((p) =>
-        p.id === projectId
-          ? {
-              ...p,
-              assetLinks: p.assetLinks.filter((l) => l.id !== linkId),
-              status: p.assetLinks.length <= 1 ? "Composing" : p.status,
-            }
-          : p,
-      ),
-    }));
+    const updatedProject: Project = {
+      ...project,
+      assetLinks: project.assetLinks.filter((l) => l.id !== linkId),
+    };
 
-    get().syncProjectMasterAssurance(projectId);
+    const updatedProjects = get().projects.map((p) =>
+      p.id === projectId ? updatedProject : p,
+    );
+
+    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+      syncProjectMasterRollup(projectId, updatedProjects, get().assuranceSets);
+
+    set({
+      projects: syncedProjects,
+      assuranceSets: syncedSets,
+    });
   },
 
   linkAssuranceSetToProjectAsset: (projectId, linkId, assuranceSetId) => {
-    set((state) => ({
-      projects: state.projects.map((p) =>
-        p.id === projectId
-          ? {
-              ...p,
-              assetLinks: p.assetLinks.map((l) =>
-                l.id === linkId ? { ...l, assuranceSetId } : l,
-              ),
-            }
-          : p,
-      ),
-    }));
-    get().syncProjectMasterAssurance(projectId);
-  },
-
-  syncProjectMasterAssurance: (projectId) => {
     const project = get().projects.find((p) => p.id === projectId);
     if (!project) return;
 
-    const childSets = project.assetLinks
-      .map((l) => get().assuranceSets.find((s) => s.id === l.assuranceSetId))
-      .filter((s): s is AssuranceSet => Boolean(s));
-
-    const masterRequirements = buildMasterAssuranceRequirements(
-      childSets,
-      project.name,
-      project.assetLinks,
-    );
-    const aggregatedFromSetIds = project.assetLinks.map(
-      (l) => l.assuranceSetId,
-    );
-    const allSets = get().assuranceSets;
-    const readinessScore = calculateProjectReadiness(project, allSets);
-
-    set((state) => ({
-      projects: state.projects.map((p) =>
-        p.id === projectId ? { ...p, readinessScore } : p,
+    const updatedProject: Project = {
+      ...project,
+      assetLinks: project.assetLinks.map((l) =>
+        l.id === linkId ? { ...l, assuranceSetId } : l,
       ),
-      assuranceSets: state.assuranceSets.map((s) => {
-        if (s.id !== project.masterAssuranceSetId) return s;
-        const clientOwner =
-          project.ownerOrganization || getProjectEffectiveCharterer(project);
-        const primaryProvider = project.assetLinks[0]?.providerOrganization;
-        const updated: AssuranceSet = {
-          ...s,
-          projectId: project.id,
-          projectName: project.name,
-          aggregatedFromSetIds,
-          requirements: masterRequirements,
-          charterWindowStart: project.charterWindowStart,
-          charterWindowEnd: project.charterWindowEnd,
-          charterer: getProjectEffectiveCharterer(project),
-          initiatorOrg: clientOwner,
-          clientOrg: clientOwner,
-          serviceProviderOrg: primaryProvider || s.serviceProviderOrg,
-        };
-        return {
-          ...updated,
-          readinessScore: calculateAssuranceSetReadiness(
-            updated,
-            state.assuranceSets,
-          ),
-        };
-      }),
-    }));
+    };
+
+    const updatedProjects = get().projects.map((p) =>
+      p.id === projectId ? updatedProject : p,
+    );
+
+    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+      syncProjectMasterRollup(projectId, updatedProjects, get().assuranceSets);
+
+    set({
+      projects: syncedProjects,
+      assuranceSets: syncedSets,
+    });
+  },
+
+  syncProjectMasterAssurance: (projectId) => {
+    const { updatedProjects, updatedAssuranceSets } = syncProjectMasterRollup(
+      projectId,
+      get().projects,
+      get().assuranceSets,
+    );
+    set({
+      projects: updatedProjects,
+      assuranceSets: updatedAssuranceSets,
+    });
   },
 
   // Fleet Vessels
@@ -981,18 +952,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         r.documentId || r.linkedDocumentId ? r.ocrConfidence || 95 : 0,
     }));
 
-    const computedSet: AssuranceSet = {
+    const computedSet = recalculateSetReadiness({
       ...newSet,
       id: uniqueId,
       stage: newSet.stage || "Initiated",
       requirements: sanitizedRequirements,
-      readinessScore: calculateAssuranceSetReadiness({
-        ...newSet,
-        id: uniqueId,
-        requirements: sanitizedRequirements,
-      }),
-    };
-    set((state) => ({ assuranceSets: [...state.assuranceSets, computedSet] }));
+    });
+
+    const allSets = [...get().assuranceSets, computedSet];
+    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+      syncAllAffectedProjectRollups(get().projects, allSets, [computedSet.id]);
+
+    set({
+      assuranceSets: syncedSets,
+      projects: syncedProjects,
+    });
+
     get().logAuditEvent({
       userId: "USR-CURRENT",
       userRole: get().activePersona,
@@ -1032,32 +1007,36 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         r.documentId || r.linkedDocumentId ? r.ocrConfidence || 95 : 0,
     }));
 
-    const computedSet: AssuranceSet = {
+    const computedSet = recalculateSetReadiness({
       ...updatedSet,
       requirements: sanitizedRequirements,
-      readinessScore: calculateAssuranceSetReadiness({
-        ...updatedSet,
-        requirements: sanitizedRequirements,
-      }),
-    };
+    });
 
-    set((state) => ({
-      assuranceSets: state.assuranceSets.map((s) =>
-        s.id === updatedSet.id ? computedSet : s,
-      ),
-    }));
+    const updatedSets = state.assuranceSets.map((s) =>
+      s.id === updatedSet.id ? computedSet : s,
+    );
+
+    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+      syncAllAffectedProjectRollups(state.projects, updatedSets, [computedSet.id]);
+
+    set({
+      assuranceSets: syncedSets,
+      projects: syncedProjects,
+    });
   },
   updateAssuranceStage: (setId, stage) => {
-    set((state) => ({
-      assuranceSets: state.assuranceSets.map((s) => {
-        if (s.id !== setId) return s;
-        const candidateSet: AssuranceSet = { ...s, stage };
-        return {
-          ...candidateSet,
-          readinessScore: calculateAssuranceSetReadiness(candidateSet),
-        };
-      }),
-    }));
+    const updatedSets = get().assuranceSets.map((s) => {
+      if (s.id !== setId) return s;
+      return recalculateSetReadiness({ ...s, stage });
+    });
+
+    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+      syncAllAffectedProjectRollups(get().projects, updatedSets, [setId]);
+
+    set({
+      assuranceSets: syncedSets,
+      projects: syncedProjects,
+    });
   },
   updateAssuranceStakeholder: (setId, role, assigneeName) => {
     const assuranceSet = get().assuranceSets.find((s) => s.id === setId);
@@ -1191,10 +1170,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                 : "Rejected",
         };
 
-        return {
-          ...candidateSet,
-          readinessScore: calculateAssuranceSetReadiness(candidateSet),
-        };
+        return recalculateSetReadiness(candidateSet);
       });
 
       const updatedDocs = state.documents.map((d) => {
@@ -1204,8 +1180,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         return d;
       });
 
+      const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+        syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
+
       return {
-        assuranceSets: updatedSets,
+        assuranceSets: syncedSets,
+        projects: syncedProjects,
         documents: updatedDocs,
       };
     });
@@ -1262,10 +1242,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           approverNotes: notes,
         };
 
-        return {
-          ...candidateSet,
-          readinessScore: calculateAssuranceSetReadiness(candidateSet),
-        };
+        return recalculateSetReadiness(candidateSet);
       });
 
       /* synchronize master documents matching the requirement */
@@ -1290,8 +1267,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         return d;
       });
 
+      const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+        syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
+
       return {
-        assuranceSets: updatedSets,
+        assuranceSets: syncedSets,
+        projects: syncedProjects,
         documents: updatedDocs,
       };
     });
@@ -1343,10 +1324,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           approverDecision: decision,
           approverNotes: notes,
         };
-        return {
-          ...candidateSet,
-          readinessScore: calculateAssuranceSetReadiness(candidateSet),
-        };
+        return recalculateSetReadiness(candidateSet);
       });
 
       /* when entire campaign is denied, cascade returned/rejected status to all linked documents */
@@ -1368,8 +1346,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           })
         : state.documents;
 
+      const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+        syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
+
       return {
-        assuranceSets: updatedSets,
+        assuranceSets: syncedSets,
+        projects: syncedProjects,
         documents: updatedDocs,
       };
     });
@@ -1389,21 +1371,29 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
   sendAssuranceForReview: (setId) => {
     const now = new Date().toISOString();
-    set((state) => ({
-      assuranceSets: state.assuranceSets.map((s) => {
+    set((state) => {
+      const updatedSets = state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
         const nextStage =
           s.stage === "Initiated" || s.stage === "Validation"
             ? "Verification"
             : s.stage;
-        return {
+        return recalculateSetReadiness({
           ...s,
           clientWorkflowStage: "in_review" as const,
           sentForReviewAt: now,
           stage: nextStage,
-        };
-      }),
-    }));
+        });
+      });
+
+      const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+        syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
+
+      return {
+        assuranceSets: syncedSets,
+        projects: syncedProjects,
+      };
+    });
     get().logAuditEvent({
       userId: "USR-CADMIN-01",
       userRole: get().activePersona,
@@ -1417,8 +1407,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
   setClientApproval: (setId, decision, notes) => {
     get().setApproverDecision(setId, decision, notes);
-    set((state) => ({
-      assuranceSets: state.assuranceSets.map((s) => {
+    set((state) => {
+      const updatedSets = state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
         const workflowStage =
           decision === "Approved"
@@ -1430,8 +1420,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           ...s,
           clientWorkflowStage: workflowStage,
         };
-      }),
-    }));
+      });
+
+      const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+        syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
+
+      return {
+        assuranceSets: syncedSets,
+        projects: syncedProjects,
+      };
+    });
     get().logAuditEvent({
       userId: "USR-CADMIN-01",
       userRole: get().activePersona,
@@ -1545,17 +1543,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           stage: nextStage,
         };
 
-        return {
-          ...candidateSet,
-          readinessScore: calculateAssuranceSetReadiness(candidateSet),
-        };
+        return recalculateSetReadiness(candidateSet);
       });
 
+      const updatedDocs = state.documents.some((d) => d.id === doc.id)
+        ? state.documents
+        : [...state.documents, doc];
+
+      const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+        syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
+
       return {
-        documents: state.documents.some((d) => d.id === doc.id)
-          ? state.documents
-          : [...state.documents, doc],
-        assuranceSets: updatedSets,
+        documents: updatedDocs,
+        assuranceSets: syncedSets,
+        projects: syncedProjects,
       };
     });
 
@@ -2138,6 +2139,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       action: "Registered Crew Member",
       targetAsset: `${newCrew.fullName} (${newCrew.rank})`,
       justificationNotes: `Registered crew member with Seaman's Book ${newCrew.seamansBookNo}`,
+    });
+  },
+  updateCrewMember: (updatedCrew) => {
+    set((state) => ({
+      crew: state.crew.map((c) => (c.id === updatedCrew.id ? updatedCrew : c)),
+    }));
+    get().logAuditEvent({
+      userId: "USR-CURRENT",
+      userRole: get().activePersona,
+      organization: updatedCrew.organization || "Northwind Marine Pty Ltd",
+      action: "Updated Seafarer Profile",
+      targetAsset: `${updatedCrew.fullName} (${updatedCrew.id})`,
+      justificationNotes: `Updated profile details and photo gallery for ${updatedCrew.fullName}.`,
     });
   },
   assignCrewToVessel: (crewId, vesselId) => {

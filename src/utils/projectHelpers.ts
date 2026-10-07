@@ -105,7 +105,6 @@ export function isAssetOwnedByOrganization(
   if (assetType === 'Vessel' && vessel) return isVesselOwnedByOrganization(vessel, org);
   if (assetType === 'Crew' && crewMember) return isCrewOwnedByOrganization(crewMember, org);
   if (assetType === 'Equipment' && equipment) return isEquipmentOwnedByOrganization(equipment, org);
-  if (assetType === 'Activity') return true;
   return false;
 }
 
@@ -169,18 +168,24 @@ export function filterExternalEquipmentForProjectComposition(
   );
 }
 
-/** Non-master assurance sets the requester may seed a new project from. */
+/** Non-master assurance sets the requester may seed a new project from (public and organizational). */
 export function getAssuranceSetsForProjectCreation(
   assuranceSets: AssuranceSet[],
   requestingOrganization: string,
 ): AssuranceSet[] {
-  return assuranceSets.filter(
-    (s) =>
-      !s.isProjectMaster &&
-      s.visibility !== 'draft' &&
-      (orgFieldMatches(requestingOrganization, s.charterer || '') ||
-        orgFieldMatches(requestingOrganization, s.initiatorOrg || '')),
-  );
+  return assuranceSets.filter((s) => {
+    if (s.isProjectMaster) return false;
+    if (s.visibility === 'draft' || (s.visibility as string) === 'private') return false;
+    const isPublic = s.visibility === 'public';
+    const matchesOrg =
+      !requestingOrganization ||
+      orgFieldMatches(requestingOrganization, s.charterer || '') ||
+      orgFieldMatches(requestingOrganization, s.initiatorOrg || '') ||
+      orgFieldMatches(requestingOrganization, s.clientOrg || '') ||
+      orgFieldMatches(requestingOrganization, s.serviceProviderOrg || '');
+
+    return isPublic || matchesOrg;
+  });
 }
 
 export type DraftProjectAssetLink = {
@@ -199,13 +204,11 @@ export function buildDraftAssetLinkFromAssuranceSet(
   vessels: VesselInformation[],
   crew: CrewMember[],
   equipment: EquipmentAsset[],
-  activities: { id: string; name: string }[] = [],
 ): DraftProjectAssetLink | null {
   const defaultRoles: Partial<Record<ProjectAssetLink['assetType'], string>> = {
     Vessel: 'Subject vessel',
     Crew: 'Service crew',
     Equipment: 'Rented equipment',
-    Activity: 'Service / activity',
   };
 
   if (set.assuranceType === 'Crew' && set.crewId) {
@@ -234,18 +237,6 @@ export function buildDraftAssetLinkFromAssuranceSet(
     };
   }
 
-  if (set.assuranceType === 'Activity' && set.activityId) {
-    const activity = activities.find((a) => a.id === set.activityId);
-    return {
-      assetType: 'Activity',
-      assetId: set.activityId,
-      assetName: set.activityName || activity?.name || set.activityId,
-      providerOrganization: set.initiatorOrg || set.serviceProviderOrg || '',
-      assuranceSetId: set.id,
-      roleInProject: defaultRoles.Activity || '',
-    };
-  }
-
   if (set.vesselId) {
     const vessel = vessels.find((v) => v.id === set.vesselId);
     return {
@@ -269,7 +260,6 @@ export function buildDraftAssetLinksFromAssuranceSets(
   vessels: VesselInformation[],
   crew: CrewMember[],
   equipment: EquipmentAsset[],
-  activities: { id: string; name: string }[] = [],
 ): { links: DraftProjectAssetLink[]; unresolvedSetIds: string[] } {
   const links: DraftProjectAssetLink[] = [];
   const seen = new Set<string>();
@@ -286,7 +276,6 @@ export function buildDraftAssetLinksFromAssuranceSets(
       vessels,
       crew,
       equipment,
-      activities,
     );
     if (!link) {
       unresolvedSetIds.push(setId);
@@ -312,6 +301,7 @@ export function getEligibleAssuranceSetsForAsset(
 ): AssuranceSet[] {
   const matched = assuranceSets.filter((set) => {
     if (set.isProjectMaster) return false;
+    if (set.visibility === 'draft' || (set.visibility as string) === 'private') return false;
     if (assetType === 'Vessel') return set.vesselId === assetId;
     if (assetType === 'Crew') return set.crewId === assetId;
     if (assetType === 'Equipment') return set.equipmentId === assetId;
@@ -327,17 +317,20 @@ export function getEligibleAssuranceSetsForAsset(
 
   if (isCrossOrg) return matched;
 
-  return matched.filter(
-    (set) =>
+  return matched.filter((set) => {
+    if (set.visibility === 'public') return true;
+    return (
       orgFieldMatches(requestingOrg, set.initiatorOrg || '') ||
-      orgFieldMatches(requestingOrg, set.charterer || ''),
-  );
+      orgFieldMatches(requestingOrg, set.charterer || '') ||
+      orgFieldMatches(requestingOrg, set.clientOrg || '') ||
+      orgFieldMatches(requestingOrg, set.serviceProviderOrg || '')
+    );
+  });
 }
 
 function assetTypeToSubtype(assetType: ProjectAssetLink['assetType']): AssuranceSubtype {
   if (assetType === 'Crew') return 'Crew';
   if (assetType === 'Equipment') return 'Equipment';
-  if (assetType === 'Activity') return 'Activity';
   return 'Vessel';
 }
 
@@ -416,15 +409,18 @@ export function buildMasterAssuranceRequirements(
   return merged;
 }
 
-/** Standalone assurance sets eligible to attach to a project roster. */
+/** Standalone assurance sets eligible to attach to a project roster (public and organizational). */
 export function getStandaloneAssuranceSetsForAttach(
   assuranceSets: AssuranceSet[],
   project: Project,
 ): AssuranceSet[] {
   const linkedIds = new Set(project.assetLinks.map((l) => l.assuranceSetId));
-  return assuranceSets.filter(
-    (s) => !s.isProjectMaster && !linkedIds.has(s.id) && s.visibility !== 'draft',
-  );
+  return assuranceSets.filter((s) => {
+    if (s.isProjectMaster || linkedIds.has(s.id) || s.visibility === 'draft' || (s.visibility as string) === 'private') {
+      return false;
+    }
+    return true;
+  });
 }
 
 export function calculateProjectReadiness(
@@ -496,7 +492,7 @@ export function resolveProjectPrimaryAssetIds(
     primaryVesselId: project.primaryVesselId || fromLink('Vessel'),
     primaryCrewId: project.primaryCrewId || fromLink('Crew'),
     primaryEquipmentId: project.primaryEquipmentId || fromLink('Equipment'),
-    primaryActivityId: project.primaryActivityId || fromLink('Activity'),
+    primaryActivityId: project.primaryActivityId,
   };
 }
 
@@ -568,3 +564,152 @@ export function countProjectAssets(links: ProjectAssetLink[]): string {
   if (equipment) parts.push(`${equipment} equipment`);
   return parts.length > 0 ? parts.join(', ') : '0 assets';
 }
+
+/**
+ * Trigger 1: Auto-Recalculate Assurance Set Readiness & Auto-Advance Stage
+ * Replicates database trigger trg_fn_recalc_assurance_set_readiness
+ */
+export function recalculateSetReadiness(
+  set: AssuranceSet,
+  linkedSetResolver?: (setId: string) => AssuranceSet | undefined,
+): AssuranceSet {
+  const score = calculateAssuranceSetReadiness(set, linkedSetResolver);
+
+  // Auto-advance stage when 100% verified and currently in Initiated/Verification
+  let nextStage = set.stage;
+  const mandatoryReqs = set.requirements.filter((r) => r.isMandatory !== false);
+  const allMandatoryVerified =
+    mandatoryReqs.length > 0 &&
+    mandatoryReqs.every(
+      (r) =>
+        (r.isFulfilled && (r.verifierStatus === 'Verified' || set.verificationRequired === false)) ||
+        (r.fulfillmentType === 'assurance_set' && r.isFulfilled),
+    );
+
+  if (score === 100 && (set.stage === 'Initiated' || set.stage === 'Verification')) {
+    if (set.mandatoryInspectionRequired && !set.inspectionCompleted) {
+      nextStage = 'Inspection';
+    } else if (set.formalApprovalRequired !== false) {
+      nextStage = 'Approval';
+    } else {
+      nextStage = 'Approved';
+    }
+  } else if (allMandatoryVerified && set.stage === 'Initiated') {
+    nextStage = 'Verification';
+  }
+
+  return {
+    ...set,
+    readinessScore: score,
+    stage: nextStage,
+  };
+}
+
+/**
+ * Trigger 2: Auto-Sync Project Master Rollup
+ * Replicates database trigger trg_fn_sync_project_master_rollup
+ */
+export function syncProjectMasterRollup(
+  projectId: string,
+  projects: Project[],
+  assuranceSets: AssuranceSet[],
+): { updatedProjects: Project[]; updatedAssuranceSets: AssuranceSet[] } {
+  const targetProject = projects.find((p) => p.id === projectId);
+  if (!targetProject) return { updatedProjects: projects, updatedAssuranceSets: assuranceSets };
+
+  // 1. Gather all child sets linked via assetLinks
+  const childSetIds = targetProject.assetLinks.map((l) => l.assuranceSetId).filter(Boolean);
+  const childSets = assuranceSets.filter((s) => childSetIds.includes(s.id));
+
+  // 2. Compute project readiness and approval states
+  const childScores = childSets.map((s) => s.readinessScore ?? calculateAssuranceSetReadiness(s));
+  const minReadiness = childScores.length > 0 ? Math.min(...childScores) : 0;
+  const allChildSetsApproved =
+    childSets.length > 0 &&
+    childSets.every(
+      (s) => s.stage === 'Approved' || s.stage === 'Certified' || s.approverDecision === 'Approved',
+    );
+
+  const clientOwner =
+    targetProject.ownerOrganization || getProjectEffectiveCharterer(targetProject);
+  const primaryProvider = targetProject.assetLinks[0]?.providerOrganization;
+
+  // 3. Update Master Assurance Set requirements (pointer requirements linking child sets)
+  const masterRequirements = buildMasterAssuranceRequirements(
+    childSets,
+    targetProject.name,
+    targetProject.assetLinks,
+  );
+
+  const updatedAssuranceSets = assuranceSets.map((s) => {
+    if (s.id !== targetProject.masterAssuranceSetId) return s;
+
+    const updatedSet: AssuranceSet = {
+      ...s,
+      projectId: targetProject.id,
+      projectName: targetProject.name,
+      aggregatedFromSetIds: childSetIds,
+      requirements: masterRequirements,
+      charterWindowStart: targetProject.charterWindowStart,
+      charterWindowEnd: targetProject.charterWindowEnd,
+      charterer: getProjectEffectiveCharterer(targetProject),
+      initiatorOrg: clientOwner,
+      clientOrg: clientOwner,
+      serviceProviderOrg: primaryProvider || s.serviceProviderOrg,
+      stage: allChildSetsApproved
+        ? ('Approved' as const)
+        : minReadiness > 0
+          ? ('Verification' as const)
+          : s.stage,
+      approverDecision: allChildSetsApproved ? ('Approved' as const) : s.approverDecision,
+    };
+
+    return recalculateSetReadiness(updatedSet, (id) => assuranceSets.find((item) => item.id === id));
+  });
+
+  // 4. Update Project Header
+  const updatedProjects = projects.map((p) => {
+    if (p.id !== projectId) return p;
+    return {
+      ...p,
+      readinessScore: minReadiness,
+      status: allChildSetsApproved
+        ? ('Ready for Charter' as const)
+        : p.assetLinks.length > 0
+          ? ('Assurance In Progress' as const)
+          : ('Composing' as const),
+    };
+  });
+
+  return { updatedProjects, updatedAssuranceSets };
+}
+
+/**
+ * Trigger Helper: Sync Master Rollups across all projects affected by changed assurance sets
+ */
+export function syncAllAffectedProjectRollups(
+  projects: Project[],
+  assuranceSets: AssuranceSet[],
+  affectedSetIds?: string[],
+): { updatedProjects: Project[]; updatedAssuranceSets: AssuranceSet[] } {
+  let curProjects = projects;
+  let curSets = assuranceSets;
+
+  const targetProjects =
+    affectedSetIds && affectedSetIds.length > 0
+      ? projects.filter(
+          (p) =>
+            p.assetLinks.some((l) => affectedSetIds.includes(l.assuranceSetId)) ||
+            affectedSetIds.includes(p.masterAssuranceSetId),
+        )
+      : projects;
+
+  for (const proj of targetProjects) {
+    const res = syncProjectMasterRollup(proj.id, curProjects, curSets);
+    curProjects = res.updatedProjects;
+    curSets = res.updatedAssuranceSets;
+  }
+
+  return { updatedProjects: curProjects, updatedAssuranceSets: curSets };
+}
+

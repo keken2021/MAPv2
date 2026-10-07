@@ -29,7 +29,7 @@ export type ProjectRiskProfile =
 
 export type WorkLocationType = 'Onboard' | 'Shoreside' | 'Offshore' | 'Mixed';
 
-export type ProjectAssetType = 'Vessel' | 'Crew' | 'Equipment' | 'Activity';
+export type ProjectAssetType = 'Vessel' | 'Crew' | 'Equipment';
 
 export const PROJECT_TYPE_OPTIONS: ProjectType[] = [
   'Charter / Voyage',

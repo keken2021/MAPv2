@@ -65,14 +65,16 @@ describe('Marketplace Module & Segregation', () => {
     expect(cAdminItems.some((v) => v.providerOrg.toLowerCase().includes('meridian'))).toBe(true);
   });
 
-  it('includes vessels, equipment, crew, and turnkey services in marketplace catalog', () => {
+  it('includes vessels, equipment, and multiple specialized crew in marketplace catalog', () => {
     const items = getMarketplaceItems(MOCK_VESSELS, MOCK_EQUIPMENT, 'Administrator', mockUsers);
 
     const categories = new Set(items.map((i) => i.category));
     expect(categories.has('vessel')).toBe(true);
     expect(categories.has('equipment')).toBe(true);
     expect(categories.has('crew')).toBe(true);
-    expect(categories.has('service')).toBe(true);
+
+    const crewItems = items.filter((i) => i.category === 'crew');
+    expect(crewItems.length).toBeGreaterThanOrEqual(4);
   });
 
   it('filters items correctly by category', () => {
@@ -89,10 +91,6 @@ describe('Marketplace Module & Segregation', () => {
     const crewOnly = filterMarketplaceItems(items, { category: 'crew' });
     expect(crewOnly.every((i) => i.category === 'crew')).toBe(true);
     expect(crewOnly.length).toBeGreaterThan(0);
-
-    const servicesOnly = filterMarketplaceItems(items, { category: 'service' });
-    expect(servicesOnly.every((i) => i.category === 'service')).toBe(true);
-    expect(servicesOnly.length).toBeGreaterThan(0);
   });
 
   it('filters items accurately with search query keywords', () => {
@@ -101,12 +99,12 @@ describe('Marketplace Module & Segregation', () => {
     // Search by name
     const rovMatch = filterMarketplaceItems(items, { searchTerm: 'Schilling' });
     expect(rovMatch.length).toBeGreaterThan(0);
-    expect(rovMatch[0].name).toContain('Schilling');
+    expect(rovMatch.some((i) => i.name.includes('Schilling'))).toBe(true);
 
-    // Search by provider
-    const fugroMatch = filterMarketplaceItems(items, { searchTerm: 'Fugro' });
-    expect(fugroMatch.length).toBeGreaterThan(0);
-    expect(fugroMatch[0].providerOrg).toContain('Fugro');
+    // Search by specialized crew role / skill
+    const diveMatch = filterMarketplaceItems(items, { searchTerm: 'Arthur' });
+    expect(diveMatch.length).toBeGreaterThan(0);
+    expect(diveMatch[0].subcategory).toContain('Saturation Dive');
 
     // Search by certification / standard
     const imcaMatch = filterMarketplaceItems(items, { searchTerm: 'IMCA' });

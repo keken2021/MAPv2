@@ -28,6 +28,8 @@ export interface VesselImageCropModalProps {
   isOpen: boolean;
   imageSrc: string;
   vesselName?: string;
+  assetName?: string;
+  title?: string;
   initialPreset?: string;
   onSave: (croppedDataUrl: string) => void;
   onClose: () => void;
@@ -36,10 +38,16 @@ export interface VesselImageCropModalProps {
 export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
   isOpen,
   imageSrc,
-  vesselName = 'Vessel Profile',
+  vesselName,
+  assetName,
+  title,
+  initialPreset = '16:9',
   onSave,
   onClose,
 }) => {
+  const displayTitle = title || 'Image Framing & Sizing';
+  const displaySubtitle = assetName || vesselName || 'Asset Profile';
+  const isSquare = initialPreset === '1:1';
   const [zoom, setZoom] = useState<number>(1.0);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [rotate, setRotate] = useState<number>(0);
@@ -49,7 +57,9 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
   const [imgNaturalSize, setImgNaturalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [isInteracting, setIsInteracting] = useState<boolean>(false);
 
-  const [containerBoxSize, setContainerBoxSize] = useState<{ width: number; height: number }>({ width: 800, height: 450 });
+  const [containerBoxSize, setContainerBoxSize] = useState<{ width: number; height: number }>(
+    isSquare ? { width: 450, height: 450 } : { width: 800, height: 450 }
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef<boolean>(false);
@@ -68,13 +78,13 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     }, 450);
   }, []);
 
-  // Measure and track container width/height dynamically based on exact 16:9 aspect ratio
+  // Measure and track container width/height dynamically based on aspect ratio
   useEffect(() => {
     if (!isOpen) return;
     const updateSize = () => {
       if (containerRef.current) {
-        const w = containerRef.current.clientWidth || 800;
-        const h = containerRef.current.clientHeight || (w * 9) / 16;
+        const w = containerRef.current.clientWidth || (isSquare ? 450 : 800);
+        const h = isSquare ? w : (w * 9) / 16;
         setContainerBoxSize({ width: w, height: h });
       }
     };
@@ -84,7 +94,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
       ro.observe(containerRef.current);
     }
     return () => ro.disconnect();
-  }, [isOpen]);
+  }, [isOpen, isSquare]);
 
   // Reset or initialize state when opening or when image changes
   useEffect(() => {
@@ -249,14 +259,14 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     setFlipH((prev) => !prev);
   };
 
-  // Apply and export cropped image matching 16:9 vessel container
+  // Apply and export cropped image matching preset container
   const handleApply = async () => {
     if (!loadedImageRef.current) return;
     setIsProcessing(true);
     try {
       const croppedUrl = renderCroppedImageToDataUrl(
         loadedImageRef.current,
-        '16:9',
+        (initialPreset as import('../../utils/imageCropHelpers').VesselImageCropPreset) || '16:9',
         {
           zoom,
           panX: pan.x,
@@ -272,7 +282,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
       onSave(croppedUrl);
       onClose();
     } catch (err) {
-      console.error('Failed to crop and save vessel image:', err);
+      console.error('Failed to crop and save image:', err);
     } finally {
       setIsProcessing(false);
     }
@@ -294,10 +304,10 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
             <div className="d-flex align-items-center gap-2.5">
               <div>
                 <h5 className="modal-title fs-6 fw-bold mb-0 crop-modal-title d-flex align-items-center gap-2">
-                  Vessel Image Framing &amp; Sizing
+                  {displayTitle}
                 </h5>
                 <span className="crop-modal-subtitle font-mono-code">
-                  {vesselName}
+                  {displaySubtitle}
                 </span>
               </div>
             </div>
@@ -315,18 +325,19 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
             </div>
           </div>
 
-          {/* Body: 100% Width Framing View */}
+          {/* Body: Framing View */}
           <div className="modal-body p-3 crop-modal-body">
             <div className="card border shadow-2xs rounded-3 overflow-hidden bg-white w-100">
-              {/* Viewport Stage Container (Flush with 0 padding) */}
-              <div className="crop-stage-container w-100 p-0 bg-dark overflow-hidden">
+              {/* Viewport Stage Container */}
+              <div className="crop-stage-container w-100 p-0 bg-dark overflow-hidden d-flex justify-content-center">
                 <div
                   ref={containerRef}
                   className="crop-viewport position-relative overflow-hidden w-100"
                   style={{
-                    aspectRatio: '16 / 9',
+                    aspectRatio: isSquare ? '1 / 1' : '16 / 9',
+                    maxWidth: isSquare ? '420px' : '100%',
                     cursor: isDraggingRef.current ? 'grabbing' : 'grab',
-                    width: '100%',
+                    margin: '0 auto',
                   }}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
@@ -338,10 +349,10 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                   onWheel={handleWheel}
                   onDragStart={(e) => e.preventDefault()}
                 >
-                  {/* Transformed Image covering 100% of the 16:9 viewport */}
+                  {/* Transformed Image covering 100% of the viewport */}
                   {imageSrc && (() => {
-                    const boxW = containerBoxSize.width || 800;
-                    const boxH = containerBoxSize.height || (boxW * 9) / 16;
+                    const boxW = containerBoxSize.width || (isSquare ? 420 : 800);
+                    const boxH = containerBoxSize.height || (isSquare ? boxW : (boxW * 9) / 16);
                     const baseSize = getBaseImageDisplaySize(
                       imgNaturalSize.width,
                       imgNaturalSize.height,
@@ -396,7 +407,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                     <div className="crop-insta-btn">
                       <ZoomIn size={14} strokeWidth={2} />
                       <span className="font-mono-code fw-bold ms-1" style={{ fontSize: '0.68rem' }}>
-                        16:9 · {zoom.toFixed(1)}x
+                        {initialPreset} · {zoom.toFixed(1)}x
                       </span>
                     </div>
                   </div>
@@ -520,3 +531,6 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     </div>
   );
 };
+
+export { VesselImageCropModal as AssetImageCropModal };
+export { VesselImageCropModal as ImageCropModal };

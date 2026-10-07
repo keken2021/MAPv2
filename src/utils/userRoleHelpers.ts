@@ -202,14 +202,16 @@ export function filterCandidatesByReviewMode(
   options?: {
     clientOrg?: string;
     serviceProviderOrg?: string;
+    internalDeployment?: boolean;
   }
 ): UserProfile[] {
   const providerOrgLower = (options?.serviceProviderOrg || '').toLowerCase();
   const clientOrg = options?.clientOrg;
+  const isInternal = options?.internalDeployment === true;
 
   return users.filter((u) => {
-    // 1. Absolute Rule: Never allow Service Provider personnel
-    if (providerOrgLower && u.organization?.toLowerCase().includes(providerOrgLower)) {
+    // 1. Absolute Rule: Exclude Service Provider personnel ONLY during third-party charters (not internal self-assurance)
+    if (!isInternal && providerOrgLower && u.organization?.toLowerCase().includes(providerOrgLower)) {
       return false;
     }
 
@@ -226,7 +228,7 @@ export function filterCandidatesByReviewMode(
     const channel = getReviewChannelForUser(u, clientOrg);
 
     if (reviewMode === 'internal') {
-      return channel === 'internal';
+      return isInternal || channel === 'internal';
     }
 
     if (reviewMode === 'third_party') {
@@ -236,11 +238,11 @@ export function filterCandidatesByReviewMode(
     if (reviewMode === 'issuing_authority') {
       // Verifier is handled by Authority API; Approver can be internal client or appointed third party
       if (role === 'Verifier') return false;
-      return channel === 'internal' || channel === 'third_party';
+      return channel === 'internal' || channel === 'third_party' || isInternal;
     }
 
     if (reviewMode === 'mixed') {
-      return channel === 'internal' || channel === 'third_party';
+      return channel === 'internal' || channel === 'third_party' || isInternal;
     }
 
     return true;
@@ -313,10 +315,11 @@ export function getAssuranceAssignmentWarnings(assignments: {
   serviceProviderOrg?: string;
   isCharteringOtherServices?: boolean;
   isClientAdmin?: boolean;
+  internalDeployment?: boolean;
   users?: UserProfile[];
 }): string[] {
   const warnings: string[] = [];
-  const { submitterId, verifierId, approverId, subtypeStakeholders, vesselOwnerOrg, serviceProviderOrg, isCharteringOtherServices, isClientAdmin, users } = assignments;
+  const { submitterId, verifierId, approverId, subtypeStakeholders, vesselOwnerOrg, serviceProviderOrg, isCharteringOtherServices, isClientAdmin, internalDeployment, users } = assignments;
   const providerOrg = serviceProviderOrg || vesselOwnerOrg;
 
   if (submitterId && verifierId && submitterId === verifierId) {
@@ -341,7 +344,7 @@ export function getAssuranceAssignmentWarnings(assignments: {
     });
   }
 
-  if (providerOrg && !isCharteringOtherServices && !isClientAdmin && users) {
+  if (providerOrg && !isCharteringOtherServices && !isClientAdmin && !internalDeployment && users) {
     const ownerOrgLower = providerOrg.toLowerCase();
     const verifierUser = users.find((u) => u.id === verifierId);
     const approverUser = users.find((u) => u.id === approverId);

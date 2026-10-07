@@ -66,6 +66,10 @@ import {
   Save,
   ChevronDown,
   Check,
+  Eye,
+  FolderOpen,
+  UserMinus,
+  UserPlus,
 } from 'lucide-react';
 
 
@@ -993,21 +997,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       {/* Top Header Navigation & Action Bar matching mockup */}
       <div className="map-vessel-topbar d-flex flex-wrap align-items-center justify-content-between gap-3 shadow-sm mb-1">
         <div className="d-flex align-items-center gap-3 min-w-0">
-          {/* Flag Status Badge */}
-          <div
-            className="rounded-2 d-flex align-items-center justify-content-center flex-shrink-0 text-white fw-bold shadow-sm"
-            style={{
-              width: '42px',
-              height: '30px',
-              background: 'linear-gradient(135deg, rgb(11, 27, 43), rgb(22, 45, 69))',
-              fontSize: '0.72rem',
-              letterSpacing: '0.05em',
-              border: '1px solid rgba(255,255,255,0.2)',
-            }}
-            title={vessel.flagState}
-          >
-            {vessel.flagState ? vessel.flagState.slice(0, 3).toUpperCase() : 'FLG'}
-          </div>
 
           <div className="d-flex flex-column min-w-0">
             <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -2423,20 +2412,20 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                     onClick={() => {
-                      if (vaultSortField === 'name') setVaultSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setVaultSortField('name'); setVaultSortDirection('asc'); }
-                    }}
-                  >
-                    Certificate Name {renderSortIndicator(vaultSortField, 'name', vaultSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
                       if (vaultSortField === 'number') setVaultSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
                       else { setVaultSortField('number'); setVaultSortDirection('asc'); }
                     }}
                   >
                     Certificate Number {renderSortIndicator(vaultSortField, 'number', vaultSortDirection)}
+                  </th>
+                  <th
+                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                    onClick={() => {
+                      if (vaultSortField === 'name') setVaultSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
+                      else { setVaultSortField('name'); setVaultSortDirection('asc'); }
+                    }}
+                  >
+                    Certificate Name {renderSortIndicator(vaultSortField, 'name', vaultSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -2497,6 +2486,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         style={{ cursor: 'pointer' }}
                         onClick={() => setSelectedVaultCertForModal(cert)}
                       >
+                        <td className="font-mono-code fw-semibold text-primary">{cert.number}</td>
                         <td className="fw-semibold text-dark">
                           <button
                             type="button"
@@ -2509,7 +2499,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             {cert.name}
                           </button>
                         </td>
-                        <td className="font-mono-code">{cert.number}</td>
                         <td>{cert.issuingBody}</td>
                         <td className="font-mono-code small">
                           {cert.issueDate !== '—' ? `${formatMaritimeDate(cert.issueDate)} → ` : ''}{formatMaritimeDate(cert.expiryDate)}
@@ -2523,14 +2512,16 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         <td className="text-end">
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-primary py-1 px-2"
-                            style={{ fontSize: '0.75rem' }}
+                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedVaultCertForModal(cert);
                             }}
+                            title="View Certificate Details"
+                            aria-label="View Certificate Details"
                           >
-                            View
+                            <Eye size={16} />
                           </button>
                         </td>
                       </tr>
@@ -2752,10 +2743,13 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         <td className="text-end">
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-secondary"
+                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
                             onClick={() => setCurrentHashView('assurance-sets', s.id)}
+                            title="Open Assurance Set"
+                            aria-label="Open Assurance Set"
                           >
-                            Open Set
+                            <FolderOpen size={16} />
                           </button>
                         </td>
                       </tr>
@@ -3385,39 +3379,45 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         </span>
                       </td>
                       <td className="text-end">
-                        <div className="d-flex align-items-center justify-content-end gap-2">
+                        <div className="d-flex align-items-center justify-content-end gap-1.5">
                           {c.currentVesselId === vessel.id ? (
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-danger py-1 px-2"
-                              style={{ fontSize: '0.75rem' }}
+                              className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                              style={{ width: '32px', height: '32px' }}
                               onClick={() => {
                                 assignCrewToVessel(c.id, undefined);
                                 setToastMessage(`Unassigned ${c.fullName} from ${vessel.name}`);
                               }}
+                              title={`Unassign ${c.fullName} from ${vessel.name}`}
+                              aria-label={`Unassign ${c.fullName}`}
                             >
-                              Unassign
+                              <UserMinus size={16} />
                             </button>
                           ) : (
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-success py-1 px-2"
-                              style={{ fontSize: '0.75rem' }}
+                              className="btn btn-sm btn-outline-success d-inline-flex align-items-center justify-content-center p-0"
+                              style={{ width: '32px', height: '32px' }}
                               onClick={() => {
                                 assignCrewToVessel(c.id, vessel.id);
                                 setToastMessage(`Reassigned ${c.fullName} to ${vessel.name}`);
                               }}
+                              title={`Assign ${c.fullName} to ${vessel.name}`}
+                              aria-label={`Assign ${c.fullName}`}
                             >
-                              Make Current
+                              <UserPlus size={16} />
                             </button>
                           )}
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-primary py-1 px-2"
-                            style={{ fontSize: '0.75rem' }}
+                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
                             onClick={() => setCurrentHashView('crew', c.id)}
+                            title={`View ${c.fullName} Details`}
+                            aria-label={`View ${c.fullName} Details`}
                           >
-                            View Details
+                            <Eye size={16} />
                           </button>
                         </div>
                       </td>
@@ -3564,11 +3564,13 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       <td className="text-end">
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary py-1 px-2"
-                          style={{ fontSize: '0.75rem' }}
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
                           onClick={() => setSelectedAuditForDetail(event)}
+                          title="View Audit Event Details"
+                          aria-label="View Audit Event Details"
                         >
-                          View Details
+                          <Eye size={16} />
                         </button>
                       </td>
                     </tr>
@@ -3734,14 +3736,16 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             <div className="d-flex align-items-center justify-content-end gap-1.5">
                               <button
                                 type="button"
-                                className="btn btn-sm btn-outline-primary py-1 px-2 fw-semibold"
-                                style={{ fontSize: '0.75rem' }}
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedInspectionForDetail(insp);
                                 }}
+                                title="View Physical Inspection Details"
+                                aria-label="View Physical Inspection Details"
                               >
-                                View Details
+                                <Eye size={16} />
                               </button>
                             </div>
                           </td>
@@ -4364,7 +4368,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <table className="table map-table-custom align-middle mb-0">
                     <thead>
                       <tr>
-                        <th>Vessel Name &amp; IMO</th>
+                        <th>IMO Number</th>
+                        <th>Vessel Name</th>
                         <th>Vessel Type</th>
                         <th>Flag State</th>
                         <th>Operating Status</th>
@@ -4382,10 +4387,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         )
                         .map((v) => (
                           <tr key={v.id}>
-                            <td>
-                              <div className="fw-semibold text-primary">{v.name}</div>
-                              <div className="font-mono-code text-muted" style={{ fontSize: '0.75rem' }}>IMO: {v.imoNumber}</div>
-                            </td>
+                            <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
+                            <td className="fw-semibold text-dark">{v.name}</td>
                             <td className="small">{v.vesselSubtype || v.vesselType}</td>
                             <td>{v.flagState}</td>
                             <td>
@@ -4397,14 +4400,16 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             <td className="text-end">
                               <button
                                 type="button"
-                                className="btn btn-sm btn-outline-primary py-1 px-2"
-                                style={{ fontSize: '0.75rem' }}
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
                                 onClick={() => {
                                   setSelectedCompanyForFleetModal(null);
                                   setCurrentHashView('vessels', v.id);
                                 }}
+                                title="View Vessel Details"
+                                aria-label="View Vessel Details"
                               >
-                                View Dossier
+                                <Eye size={16} />
                               </button>
                             </td>
                           </tr>
@@ -4780,13 +4785,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                 setDraggedPhotoIdx(null);
                                 setDragOverPhotoIdx(null);
                               }}
-                              className={`position-relative p-1 bg-white border rounded-2 overflow-hidden cursor-grab active-cursor-grabbing transition-all ${
-                                isCover
-                                  ? 'border-primary border-2 shadow-sm ring-2 ring-primary'
-                                  : isDragOver
+                              className={`position-relative p-1 bg-white border rounded-2 overflow-hidden cursor-grab active-cursor-grabbing transition-all ${isCover
+                                ? 'border-primary border-2 shadow-sm ring-2 ring-primary'
+                                : isDragOver
                                   ? 'border-primary border-2 shadow-md ring-2 ring-sky-400 scale-105'
                                   : 'border-secondary-subtle opacity-90 hover-opacity-100 hover:shadow-xs'
-                              } ${isDragging ? 'opacity-40 scale-95' : ''}`}
+                                } ${isDragging ? 'opacity-40 scale-95' : ''}`}
                               onClick={() => setPhotoModalUrl(pUrl)}
                               title={isCover ? 'Active Primary Cover (Drag to reorder)' : 'Click to set as cover · Drag to reorder'}
                             >
@@ -4800,7 +4804,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                     Cover
                                   </div>
                                 )}
-                                
+
                                 {/* Index badge at bottom left */}
                                 <div
                                   className="position-absolute bottom-0 start-0 px-1 py-0.5 text-white font-mono-code"

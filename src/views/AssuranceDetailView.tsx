@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, FolderOpen, FileCheck, RefreshCw, Upload } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -840,10 +840,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <td className="text-end">
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary font-mono-code"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
                           onClick={() => setCurrentHashView('assurance-sets', linkedChildSet.id)}
+                          title="Open Sub-Set"
+                          aria-label="Open Sub-Set"
                         >
-                          Open Sub-Set
+                          <FolderOpen size={16} />
                         </button>
                       </td>
                     </tr>
@@ -905,33 +908,42 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       {renderRequirementStatus(req)}
                     </td>
                     <td className="text-end">
-                      <div className="d-flex align-items-center justify-content-end gap-2 flex-wrap">
+                      <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
                         {linkedDoc ? (
                           <>
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-primary font-mono-code"
+                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                              style={{ width: '32px', height: '32px' }}
                               onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
+                              title="Review Document"
+                              aria-label="Review Document"
                             >
-                              Review Document
+                              <FileCheck size={16} />
                             </button>
                             {canUpload && linkedDoc.verificationStatus !== 'Verified' && (
                               <button
                                 type="button"
-                                className="btn btn-sm btn-outline-secondary font-mono-code"
+                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
                                 onClick={() => openRequirementUpload(req, linkedDoc)}
+                                title="Replace Revision"
+                                aria-label="Replace Revision"
                               >
-                                Replace Revision
+                                <RefreshCw size={16} />
                               </button>
                             )}
                           </>
                         ) : canUpload ? (
                           <button
                             type="button"
-                            className="btn btn-sm btn-primary text-white font-mono-code"
+                            className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
                             onClick={() => openRequirementUpload(req)}
+                            title="Upload Document"
+                            aria-label="Upload Document"
                           >
-                            Upload Document
+                            <Upload size={16} />
                           </button>
                         ) : (
                           <span className="text-secondary small font-mono-code">No Document</span>
@@ -982,33 +994,42 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         {renderRequirementStatus(req)}
                       </td>
                       <td className="text-end">
-                        <div className="d-flex align-items-center justify-content-end gap-2 flex-wrap">
+                        <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
                           {linkedDoc ? (
                             <>
                               <button
                                 type="button"
-                                className="btn btn-sm btn-outline-primary font-mono-code"
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
                                 onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
+                                title="Review Document"
+                                aria-label="Review Document"
                               >
-                                Review Document
+                                <FileCheck size={16} />
                               </button>
                               {canUpload && linkedDoc.verificationStatus !== 'Verified' && (
                                 <button
                                   type="button"
-                                  className="btn btn-sm btn-outline-secondary font-mono-code"
+                                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                  style={{ width: '32px', height: '32px' }}
                                   onClick={() => openRequirementUpload(req, linkedDoc)}
+                                  title="Replace Revision"
+                                  aria-label="Replace Revision"
                                 >
-                                  Replace Revision
+                                  <RefreshCw size={16} />
                                 </button>
                               )}
                             </>
                           ) : canUpload ? (
                             <button
                               type="button"
-                              className="btn btn-sm btn-primary text-white font-mono-code"
+                              className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
+                              style={{ width: '32px', height: '32px' }}
                               onClick={() => openRequirementUpload(req)}
+                              title="Upload Document"
+                              aria-label="Upload Document"
                             >
-                              Upload Document
+                              <Upload size={16} />
                             </button>
                           ) : (
                             <span className="text-secondary small font-mono-code">No Document</span>

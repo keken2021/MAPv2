@@ -5,7 +5,11 @@
 */
 
 import React, { useMemo, useState } from 'react';
+import { Eye } from 'lucide-react';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
+import { FilterModal } from '../components/common/FilterModal';
+import { FilterButton } from '../components/common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { useMapStore } from '../store/useMapStore';
 import { countProjectAssets, filterProjectsForPersona } from '../utils/projectHelpers';
 
@@ -13,11 +17,18 @@ export const ProjectView: React.FC = () => {
   const { projects, assuranceSets, activePersona, users, setCurrentHashView } = useMapStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   const visibleProjects = useMemo(
     () => filterProjectsForPersona(projects, activePersona, users, assuranceSets),
     [projects, activePersona, users, assuranceSets],
   );
+
+  const projectTypes = useMemo(() => {
+    const set = new Set(projects.map((p) => p.projectType).filter(Boolean));
+    return Array.from(set).sort();
+  }, [projects]);
 
   const filtered = useMemo(() => {
     return visibleProjects.filter((p) => {
@@ -32,9 +43,24 @@ export const ProjectView: React.FC = () => {
         (p.serviceProvider && p.serviceProvider.toLowerCase().includes(q)) ||
         p.masterAssuranceSetId.toLowerCase().includes(q);
       const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
-      return matchesSearch && matchesStatus;
+      const matchesType = typeFilter === 'ALL' || p.projectType === typeFilter;
+      return matchesSearch && matchesStatus && matchesType;
     });
-  }, [visibleProjects, search, statusFilter]);
+  }, [visibleProjects, search, statusFilter, typeFilter]);
+
+  const activeFilterCount =
+    (statusFilter !== 'ALL' ? 1 : 0) +
+    (typeFilter !== 'ALL' ? 1 : 0);
+
+  const activeChips: FilterChip[] = [
+    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'Status', value: statusFilter, onRemove: () => setStatusFilter('ALL') }] : []),
+    ...(typeFilter !== 'ALL' ? [{ id: 'type', label: 'Type', value: typeFilter, onRemove: () => setTypeFilter('ALL') }] : []),
+  ];
+
+  const handleResetFilters = () => {
+    setStatusFilter('ALL');
+    setTypeFilter('ALL');
+  };
 
   const canCreate = activePersona === 'Administrator' || activePersona === 'C Admin';
 
@@ -50,19 +76,10 @@ export const ProjectView: React.FC = () => {
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: '280px' }}
           />
-          <select
-            className="form-select form-select-sm"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ width: '200px' }}
-          >
-            <option value="ALL">All Statuses</option>
-            <option value="Draft">Draft</option>
-            <option value="Composing">Composing</option>
-            <option value="Assurance In Progress">Assurance In Progress</option>
-            <option value="Ready for Charter">Ready for Charter</option>
-            <option value="Closed">Closed</option>
-          </select>
+          <FilterButton
+            onClick={() => setIsFilterModalOpen(true)}
+            activeCount={activeFilterCount}
+          />
         </div>
         {canCreate && (
           <button
@@ -75,6 +92,12 @@ export const ProjectView: React.FC = () => {
         )}
       </div>
 
+      {activeChips.length > 0 && (
+        <div className="px-3 py-2 bg-light rounded border">
+          <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+        </div>
+      )}
+
       <div className="card map-card-custom">
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
@@ -82,11 +105,8 @@ export const ProjectView: React.FC = () => {
               <tr>
                 <th>Project ID</th>
                 <th>Project Name</th>
-                <th>Type</th>
-                <th>Requesting Org</th>
+                <th>Type & Organization</th>
                 <th>Project Window</th>
-                <th>Assets</th>
-                <th>Master AS</th>
                 <th>Readiness</th>
                 <th>Status</th>
                 <th className="text-end">Action</th>
@@ -95,7 +115,7 @@ export const ProjectView: React.FC = () => {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-4 text-muted">
+                  <td colSpan={7} className="text-center py-4 text-muted">
                     No projects match your search criteria.
                   </td>
                 </tr>
@@ -103,23 +123,27 @@ export const ProjectView: React.FC = () => {
                 filtered.map((p) => {
                   const master = assuranceSets.find((s) => s.id === p.masterAssuranceSetId);
                   return (
-                    <tr key={p.id}>
+                    <tr
+                      key={p.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => setCurrentHashView('project', p.id)}
+                    >
                       <td className="font-mono-code text-primary fw-semibold">{p.id}</td>
-                      <td>{p.name}</td>
-                      <td className="small">
-                        <span className="badge bg-light text-dark border">{p.projectType}</span>
+                      <td>
+                        <div className="fw-semibold text-dark">{p.name}</div>
+                        <div className="small text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
+                          {countProjectAssets(p.assetLinks)} linked · {p.masterAssuranceSetId}
+                        </div>
                       </td>
                       <td className="small">
-                        <div>{p.requestingOrganization}</div>
-                        {p.serviceProvider && (
-                          <div className="text-muted">via {p.serviceProvider}</div>
-                        )}
+                        <div className="d-flex align-items-center gap-1.5 mb-0.5">
+                          <span className="badge bg-light text-dark border">{p.projectType}</span>
+                        </div>
+                        <div className="text-secondary small">{p.requestingOrganization}</div>
                       </td>
                       <td className="font-mono-code small">
                         {p.charterWindowStart} → {p.charterWindowEnd}
                       </td>
-                      <td className="small">{countProjectAssets(p.assetLinks)}</td>
-                      <td className="font-mono-code small">{p.masterAssuranceSetId}</td>
                       <td>
                         <ReadinessGauge score={p.readinessScore ?? master?.readinessScore ?? 0} size="sm" />
                       </td>
@@ -129,10 +153,16 @@ export const ProjectView: React.FC = () => {
                       <td className="text-end">
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => setCurrentHashView('project', p.id)}
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentHashView('project', p.id);
+                          }}
+                          title="Open Project"
+                          aria-label="Open Project"
                         >
-                          Open
+                          <Eye size={16} />
                         </button>
                       </td>
                     </tr>
@@ -143,6 +173,52 @@ export const ProjectView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Project Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="Project Filters"
+        subtitle="Filter project charter packages by lifecycle status and project scope type"
+        activeCount={activeFilterCount}
+      >
+        <div className="card p-3 bg-white border rounded">
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Project Status</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="Draft">Draft</option>
+                <option value="Composing">Composing</option>
+                <option value="Assurance In Progress">Assurance In Progress</option>
+                <option value="Ready for Charter">Ready for Charter</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Project Type</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="ALL">All Types</option>
+                {projectTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </FilterModal>
     </div>
   );
 };

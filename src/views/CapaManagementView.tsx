@@ -5,12 +5,15 @@
 */
 
 import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { filterVesselsForPersona } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CapaItem, CapaStatus } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
+import { FilterModal } from '../components/common/FilterModal';
+import { FilterButton } from '../components/common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 
 interface CapaManagementViewProps {
   vesselName?: string;
@@ -33,6 +36,8 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
     previousHashView,
     previousEntityId,
   } = useMapStore();
+
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
 
   /* filter available vessels and capas for non-admin personas */
@@ -98,6 +103,21 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [sortField, setSortField] = useState<CapaSortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleResetFilters = () => {
+    setActiveTab('All');
+    setSearchQuery('');
+    if (!isFleetOverview) {
+      setCurrentHashView('capas', 'ALL_FLEET');
+    }
+  };
+
+  const activeChips: FilterChip[] = [
+    ...(!isFleetOverview ? [{ id: 'vessel', label: 'Vessel', value: selectedVesselName, onRemove: () => setCurrentHashView('capas', 'ALL_FLEET') }] : []),
+    ...(activeTab !== 'All' ? [{ id: 'status', label: 'Status', value: activeTab, onRemove: () => setActiveTab('All') }] : []),
+  ];
+
+  const activeFilterCount = activeChips.length;
 
   /* re-inspection drawer state */
   const [activeCapa, setActiveCapa] = useState<CapaItem | null>(null);
@@ -258,45 +278,9 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
 
       {/* Main CAPA Master Table Card */}
       <div className="card map-card-custom">
-        {/* Controls Header: Vessel Filter + Status Filter + Search + Export */}
+        {/* Controls Header: Search + Filter Button + Export */}
         <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
           <div className="d-flex flex-wrap align-items-center gap-2">
-            {/* vessel selector dropdown */}
-            <select
-              className="form-select form-select-sm bg-white text-dark border-secondary"
-              value={isFleetOverview ? 'ALL_FLEET' : selectedVesselName}
-              onChange={(e) => setCurrentHashView('capas', e.target.value)}
-              style={{ width: '220px' }}
-            >
-              <option value="ALL_FLEET">
-                {activePersona === 'Submitter' ? 'All Assigned Vessels' : 'All Fleet Vessels'} ({availableCapas.length})
-              </option>
-              {availableVessels.map((v) => {
-                const vesselCapaCount = availableCapas.filter(
-                  (c) => c.vesselName.toLowerCase() === v.name.toLowerCase() || c.vesselId === v.id
-                ).length;
-                return (
-                  <option key={v.id} value={v.name}>
-                    {v.name} ({vesselCapaCount})
-                  </option>
-                );
-              })}
-            </select>
-
-            {/* Status Filter Dropdown */}
-            <select
-              className="form-select form-select-sm bg-white text-dark border-secondary"
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value as any)}
-              style={{ width: '180px' }}
-            >
-              <option value="All">All Statuses</option>
-              <option value="Open">Open</option>
-              <option value="Under Re-Inspection">Under Re-Inspection</option>
-              <option value="Rectification Required">Rectification Required</option>
-              <option value="Verified & Closed">Verified & Closed</option>
-            </select>
-
             {/* Search Input */}
             <input
               type="text"
@@ -304,7 +288,12 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
               placeholder="Search CAPA ID, Title, Owner, Finding..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '250px' }}
+              style={{ width: '270px' }}
+            />
+
+            <FilterButton
+              onClick={() => setIsFilterModalOpen(true)}
+              activeCount={activeFilterCount}
             />
           </div>
 
@@ -333,15 +322,20 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
           </div>
         </div>
 
+        {activeChips.length > 0 && (
+          <div className="px-3 py-2 bg-light border-bottom">
+            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+          </div>
+        )}
+
         {/* Table Area */}
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
             <thead>
               <tr>
                 {renderSortHeader('CAPA ID', 'id')}
-                {renderSortHeader('Vessel Name', 'vesselName')}
-                {renderSortHeader('Title', 'title')}
-                {renderSortHeader('Owner / Dept', 'owner')}
+                {renderSortHeader('Finding & Description', 'title')}
+                {renderSortHeader('Vessel Scope & Owner', 'vesselName')}
                 {renderSortHeader('Due Date', 'dueDate')}
                 {renderSortHeader('Status', 'status')}
                 <th className="text-end">Actions</th>
@@ -351,20 +345,22 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
               {sortedCapas.map((capa) => (
                 <tr key={capa.id} onClick={() => setActiveCapa(capa)} style={{ cursor: 'pointer' }}>
                   <td>
-                    <span className="font-mono-code fw-bold text-primary small me-1.5">{capa.id}</span>
+                    <span className="font-mono-code fw-bold text-primary">{capa.id}</span>
+                  </td>
+                  <td>
+                    <div className="fw-semibold text-dark" style={{ fontSize: '0.88rem' }}>
+                      {capa.title}
+                    </div>
                     {capa.flaggedForReinspection && (
-                      <span className="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                        Flagged
+                      <span className="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle mt-0.5" style={{ fontSize: '0.65rem' }}>
+                        Flagged for Re-inspection
                       </span>
                     )}
                   </td>
                   <td>
-                    <span className="fw-semibold text-dark font-mono-code small">{capa.vesselName}</span>
+                    <div className="fw-semibold text-dark font-mono-code small">{capa.vesselName}</div>
+                    <div className="small text-secondary">{capa.owner}</div>
                   </td>
-                  <td>
-                    <span className="fw-bold text-dark" style={{ fontSize: '0.875rem' }}>{capa.title}</span>
-                  </td>
-                  <td className="small text-secondary">{capa.owner}</td>
                   <td className="font-mono-code small">{capa.dueDate}</td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(capa.status)}`}>
@@ -374,13 +370,16 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
                   <td className="text-end">
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-primary ms-2"
+                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                      style={{ width: '32px', height: '32px' }}
                       onClick={(e) => {
                         e.stopPropagation();
                         setActiveCapa(capa);
                       }}
+                      title="View CAPA Details"
+                      aria-label="View CAPA Details"
                     >
-                      View Details
+                      <Eye size={16} />
                     </button>
                   </td>
                 </tr>
@@ -388,7 +387,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
 
               {sortedCapas.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted py-4 fst-italic">
+                  <td colSpan={6} className="text-center text-muted py-4 fst-italic">
                     No corrective action items match the selected search filters.
                   </td>
                 </tr>
@@ -397,6 +396,58 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
           </table>
         </div>
       </div>
+
+      {/* CAPA Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="CAPA Filters"
+        subtitle="Filter corrective actions by vessel scope and remediation status"
+        activeCount={activeFilterCount}
+      >
+        <div className="card p-3 bg-white border rounded">
+          <div className="row g-3">
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">Vessel Scope</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={isFleetOverview ? 'ALL_FLEET' : selectedVesselName}
+                onChange={(e) => setCurrentHashView('capas', e.target.value)}
+              >
+                <option value="ALL_FLEET">
+                  {activePersona === 'Submitter' ? 'All Assigned Vessels' : 'All Fleet Vessels'} ({availableCapas.length})
+                </option>
+                {availableVessels.map((v) => {
+                  const vesselCapaCount = availableCapas.filter(
+                    (c) => c.vesselName.toLowerCase() === v.name.toLowerCase() || c.vesselId === v.id
+                  ).length;
+                  return (
+                    <option key={v.id} value={v.name}>
+                      {v.name} ({vesselCapaCount})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1">CAPA Status</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as any)}
+              >
+                <option value="All">All Statuses</option>
+                <option value="Open">Open</option>
+                <option value="Under Re-Inspection">Under Re-Inspection</option>
+                <option value="Rectification Required">Rectification Required</option>
+                <option value="Verified & Closed">Verified & Closed</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </FilterModal>
 
       {/* Interactive CAPA Re-Inspection & Evidence Drawer */}
       {activeCapa && (

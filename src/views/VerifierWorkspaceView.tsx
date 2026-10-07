@@ -4,13 +4,16 @@
   role in system: primary operational workspace for Verifiers (/verifier).
 */
 
-import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Search, FileCheck } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { MasterDocument } from '../types/document';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { formatMaritimeDate } from '../utils/formatters';
+import { FilterModal } from '../components/common/FilterModal';
+import { FilterButton } from '../components/common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 
 import { filterDocumentsForVerifierQueue } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
@@ -35,6 +38,7 @@ export const VerifierWorkspaceView: React.FC = () => {
   const { documents, assuranceSets, activePersona } = useMapStore();
   const [selectedDoc, setSelectedDoc] = useState<MasterDocument | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   /* Search, Filter & Sort State for Single Master Table */
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +46,35 @@ export const VerifierWorkspaceView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleResetFilters = () => {
+    setTypeFilter('ALL');
+    setStatusFilter('ALL');
+    setSearchTerm('');
+  };
+
+  const activeChips = useMemo<FilterChip[]>(() => {
+    const chips: FilterChip[] = [];
+    if (typeFilter !== 'ALL') {
+      chips.push({
+        id: 'type',
+        label: 'Type',
+        value: typeFilter,
+        onRemove: () => setTypeFilter('ALL'),
+      });
+    }
+    if (statusFilter !== 'ALL') {
+      chips.push({
+        id: 'status',
+        label: 'Status',
+        value: statusFilter,
+        onRemove: () => setStatusFilter('ALL'),
+      });
+    }
+    return chips;
+  }, [typeFilter, statusFilter]);
+
+  const activeFilterCount = activeChips.length;
 
   /* All documents in Verifier's queue (Pending, Correction Requested, Verified) */
   const scopedDocs = filterDocumentsForVerifierQueue(documents, assuranceSets, activePersona);
@@ -186,76 +219,66 @@ export const VerifierWorkspaceView: React.FC = () => {
       {/* Single Master Verification Table */}
       <div className="card map-card-custom">
         {/* Table Header Controls: Search & Filters Left, Export Button Right */}
-        <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-          <div className="d-flex flex-wrap align-items-center gap-2">
+        <div className="card-header d-flex flex-column gap-2.5 p-3">
+          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div className="d-flex flex-wrap align-items-center gap-2.5 flex-grow-1">
+              <div className="position-relative" style={{ minWidth: '240px', maxWidth: '320px' }}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
+                  style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
+                  placeholder="Search Cert #, Title, Set, Vessel..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Search size={14} className="position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" />
+              </div>
 
-            <input
-              type="text"
-              className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search Cert #, Title, Set, Vessel..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ width: '250px' }}
-            />
-            <select
-              className="form-select form-select-sm bg-white text-dark border-secondary"
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              style={{ width: '160px' }}
-            >
-              <option value="ALL">All Entity Types</option>
-              <option value="Vessel Certificate">Vessel Certificate</option>
-              <option value="Crew Certificate">Crew Certificate</option>
-            </select>
-            <select
-              className="form-select form-select-sm bg-white text-dark border-secondary"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ width: '170px' }}
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="Pending">Submitted</option>
-              <option value="Correction Requested">Correction Requested</option>
-              <option value="Rejected">Rejected</option>
-              <option value="Verified">Verified</option>
-            </select>
+              <FilterButton
+                onClick={() => setIsFilterModalOpen(true)}
+                activeCount={activeFilterCount}
+              />
+            </div>
+
+            <div className="dropdown position-relative ms-auto">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
+                style={{ fontSize: '0.82rem', height: '34px', borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}
+                onClick={() => setIsExportOpen(!isExportOpen)}
+              >
+                Export Data
+              </button>
+              {isExportOpen && (
+                <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
+                  <li>
+                    <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
+                      Export as CSV (.csv)
+                    </button>
+                  </li>
+                  <li>
+                    <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
+                      Export as PDF (.pdf)
+                    </button>
+                  </li>
+                </ul>
+              )}
+            </div>
           </div>
 
-          <div className="dropdown position-relative ms-auto">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle ms-2"
-              onClick={() => setIsExportOpen(!isExportOpen)}
-            >
-              Export Data
-            </button>
-            {isExportOpen && (
-              <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    Export as CSV (.csv)
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    Export as PDF (.pdf)
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
+          {activeChips.length > 0 && (
+            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+          )}
         </div>
 
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
             <thead>
               <tr>
-                {renderSortHeader('Assurance Set', 'assuranceSet')}
-                {renderSortHeader('Vessel Name', 'vesselName')}
+                {renderSortHeader('Set ID / Cert #', 'assuranceSet')}
                 {renderSortHeader('Certificate Title', 'title')}
-                {renderSortHeader('Issuing Authority', 'issuingAuthority')}
+                {renderSortHeader('Vessel & Authority', 'issuingAuthority')}
                 {renderSortHeader('Expiry Date', 'expiryDate')}
-                {renderSortHeader('OCR Confidence', 'ocrConfidence')}
                 {renderSortHeader('Status', 'verificationStatus')}
                 <th className="text-end">Actions</th>
               </tr>
@@ -274,22 +297,20 @@ export const VerifierWorkspaceView: React.FC = () => {
                           {info.setId}
                         </span>
                       ) : (
-                        <span className="text-muted small">Unlinked</span>
+                        <span className="font-mono-code text-primary fw-semibold small">{doc.certificateNo}</span>
                       )}
                     </td>
                     <td>
-                      {info ? (
-                        <span className="fw-semibold text-dark font-mono-code small">{info.vesselName}</span>
-                      ) : (
-                        <span className="text-muted small">-</span>
-                      )}
+                      <div className="fw-semibold text-dark">{doc.title}</div>
+                      <div className="small font-mono-code text-secondary">
+                        {doc.certificateNo} &middot; {doc.entityType}
+                      </div>
                     </td>
-                    <td className="fw-semibold text-primary">{doc.title}</td>
-                    <td>{doc.issuingAuthority}</td>
+                    <td>
+                      <div className="fw-semibold text-dark font-mono-code small">{info?.vesselName || 'Unlinked'}</div>
+                      <div className="text-muted small">{doc.issuingAuthority}</div>
+                    </td>
                     <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
-                    <td>
-                      <ConfidenceBadge score={doc.ocrConfidence} />
-                    </td>
                     <td>
                       {(() => {
                         if (doc.verificationStatus === 'Verified') {
@@ -310,13 +331,16 @@ export const VerifierWorkspaceView: React.FC = () => {
                     <td className="text-end">
                       <button
                         type="button"
-                        className="btn btn-sm btn-primary ms-2"
+                        className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center p-0 text-white"
+                        style={{ width: '32px', height: '32px' }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedDoc(doc);
                         }}
+                        title="Review Document"
+                        aria-label="Review Document"
                       >
-                        Review Document
+                        <FileCheck size={16} />
                       </button>
                     </td>
                   </tr>
@@ -325,7 +349,7 @@ export const VerifierWorkspaceView: React.FC = () => {
 
               {sortedDocs.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center text-muted py-4 fst-italic">
+                  <td colSpan={6} className="text-center text-muted py-4 fst-italic">
                     No documents match the selected search terms or filters.
                   </td>
                 </tr>
@@ -337,6 +361,54 @@ export const VerifierWorkspaceView: React.FC = () => {
 
       {/* Split-Screen Review Drawer */}
       <DocumentReviewDrawer document={selectedDoc} onClose={() => setSelectedDoc(null)} />
+
+      {/* Dedicated Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="Verifier Queue Filters"
+        subtitle="Filter statutory documents by entity type and verification audit status"
+        activeCount={activeFilterCount}
+      >
+        <div className="d-flex flex-column gap-3">
+          {/* Entity Type Filter */}
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
+              Entity Type
+            </label>
+            <select
+              className="form-select form-select-sm bg-white text-dark font-sans"
+              style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <option value="ALL">All Entity Types</option>
+              <option value="Vessel Certificate">Vessel Certificate</option>
+              <option value="Crew Certificate">Crew Certificate</option>
+            </select>
+          </div>
+
+          {/* Verification Status Filter */}
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
+              Verification Status
+            </label>
+            <select
+              className="form-select form-select-sm bg-white text-dark font-sans"
+              style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="Pending">Submitted</option>
+              <option value="Correction Requested">Correction Requested</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Verified">Verified</option>
+            </select>
+          </div>
+        </div>
+      </FilterModal>
     </div>
   );
 };

@@ -34,6 +34,7 @@ export interface MarketplaceItem {
   availabilityStatus: string;
   availabilityTagColor: string;
   imageUrl: string;
+  photos?: string[];
   shortDescription: string;
   metrics: MarketplaceMetric[];
   complianceReadinessScore: number;

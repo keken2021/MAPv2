@@ -49,6 +49,8 @@ export interface CrewMember {
   emergencyContact: string;
   currentVesselId?: string;
   currentVesselName?: string;
+  imageUrl?: string;
+  photos?: string[];
   complianceStatus: CrewComplianceStatus;
   overallComplianceScore: number; // 0-100%
   lastAuditedDate: string;

@@ -1,11 +1,11 @@
 /* 
   file summary: sleek enterprise thumbnail preview card for vessels, equipment, crew, and services in the marketplace.
-  responsibilities: presents an unboxed, high-hierarchy preview with photo, status indicator, category eyebrow, tabular metrics, and provider footer.
+  responsibilities: presents an unboxed, high-hierarchy preview with photo, floating status indicator badge, category eyebrow, tabular metrics, and listing organization callout.
   role in system: rendered in the MarketplaceView grid.
 */
 
 import React from 'react';
-import { ArrowUpRight, MapPin, ShieldCheck } from 'lucide-react';
+import { Camera, MoreHorizontal } from 'lucide-react';
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 
@@ -16,6 +16,13 @@ interface MarketplaceCardProps {
 
 export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect }) => {
   const orgInfo = getOrganizationLogo(item.providerOrg);
+
+  // Derive metric values with fallbacks
+  const metric1Label = item.metrics?.[0]?.label || (item.category === 'vessel' ? 'Capacity (DWT)' : item.category === 'crew' ? 'Experience' : 'Capacity / Output');
+  const metric1Value = item.metrics?.[0]?.value || (item.category === 'vessel' ? '4,400 MT' : item.category === 'crew' ? '12+ Years' : 'Standard');
+
+  const metric2Label = item.metrics?.[1]?.label || (item.category === 'vessel' ? 'Assurance / Class' : 'Assurance / Readiness');
+  const metric2Value = item.metrics?.[1]?.value || `ABS · ${item.complianceReadinessScore}%`;
 
   return (
     <div
@@ -31,7 +38,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
       }}
       aria-label={`View details for ${item.name}`}
       style={{
-        borderRadius: '8px',
+        borderRadius: '16px',
         borderColor: '#E2E8F0',
         backgroundColor: '#FFFFFF',
         cursor: 'pointer',
@@ -48,11 +55,11 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
         e.currentTarget.style.borderColor = '#E2E8F0';
       }}
     >
-      {/* 1. Header (Visual): Fixed 16:9 Aspect Ratio with Subtle Gradient & Single Status Pill */}
+      {/* 1. Header (Visual): Image with Floating Top-Left Status Pill Badge */}
       <div
         className="position-relative overflow-hidden w-100"
         style={{
-          height: '175px',
+          height: '190px',
           backgroundColor: '#0B1B2B',
         }}
       >
@@ -61,51 +68,45 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
           alt={item.name}
           className="w-100 h-100 object-fit-cover"
           loading="lazy"
-          style={{ transition: 'transform 0.35s ease' }}
+          style={{
+            objectPosition: item.category === 'crew' ? 'center 15%' : 'center',
+            transition: 'transform 0.35s ease',
+          }}
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src =
-              'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
+              item.category === 'crew'
+                ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80'
+                : 'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
           }}
         />
 
-        {/* Subtle Bottom Dark Gradient Overlay */}
+        {/* Floating Top-Left Status Badge Pill (White with Colored Dot) */}
         <div
-          className="position-absolute bottom-0 start-0 end-0"
+          className="position-absolute d-inline-flex align-items-center rounded-pill shadow-sm"
           style={{
-            height: '40%',
-            background: 'linear-gradient(to top, rgba(11, 27, 43, 0.45) 0%, transparent 100%)',
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* Single Integrated Status Indicator Pill */}
-        <div
-          className="position-absolute d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-pill shadow-sm"
-          style={{
-            top: '10px',
-            right: '10px',
-            maxWidth: '75%',
-            backgroundColor: 'rgba(11, 27, 43, 0.82)',
-            backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            zIndex: 2,
+            top: '12px',
+            left: '12px',
+            backgroundColor: '#FFFFFF',
+            padding: '5px 12px',
+            zIndex: 3,
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
+            maxWidth: '85%',
           }}
         >
           <span
-            className="flex-shrink-0"
+            className="rounded-circle flex-shrink-0"
             style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              backgroundColor: item.availabilityTagColor || '#10B981',
-              boxShadow: `0 0 6px ${item.availabilityTagColor || '#10B981'}`,
+              width: '8px',
+              height: '8px',
+              backgroundColor: item.availabilityTagColor || '#F97316',
+              marginRight: '7px',
             }}
           />
           <span
-            className="text-truncate text-white"
+            className="fw-semibold text-truncate"
             style={{
-              fontSize: '0.72rem',
-              fontWeight: 500,
+              fontSize: '0.78rem',
+              color: '#0B1B2B',
               letterSpacing: '0.01em',
             }}
             title={item.availabilityStatus}
@@ -113,28 +114,41 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
             {item.availabilityStatus}
           </span>
         </div>
+
+        {/* Photo Gallery Count (Top-Right if multiple photos exist) */}
+        {item.photos && item.photos.length > 1 && (
+          <div
+            className="position-absolute d-inline-flex align-items-center gap-1"
+            style={{
+              top: '12px',
+              right: '14px',
+              zIndex: 3,
+              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9))',
+            }}
+          >
+            <Camera size={15} className="text-white" />
+            <span
+              className="text-white font-mono-code fw-bold"
+              style={{
+                fontSize: '0.82rem',
+                textShadow: '0 1px 3px rgba(0, 0, 0, 0.85)',
+              }}
+            >
+              {item.photos.length}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Card Content Body */}
-      <div className="p-3.5 d-flex flex-column flex-grow-1" style={{ padding: '16px' }}>
-        {/* 2. Identity Zone: Subcategory Eyebrow -> Asset Name */}
-        <div className="mb-2.5">
-          <div
-            className="text-uppercase fw-semibold mb-1 text-truncate"
-            style={{
-              fontSize: '0.68rem',
-              color: '#64748B',
-              letterSpacing: '0.05em',
-            }}
-            title={item.subcategory}
-          >
-            {item.subcategory}
-          </div>
+      {/* 2. Card Content Body */}
+      <div className="p-4 d-flex flex-column flex-grow-1 justify-content-between">
+        <div>
+          {/* Title Row with More Options */}
           <div className="d-flex align-items-start justify-content-between gap-2">
-            <h6
+            <h5
               className="mb-0 fw-bold text-truncate"
               style={{
-                fontSize: '0.98rem',
+                fontSize: '1.12rem',
                 lineHeight: '1.3',
                 color: '#0B1B2B',
                 fontFamily: "'IBM Plex Sans', sans-serif",
@@ -142,113 +156,143 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
               title={item.name}
             >
               {item.name}
-            </h6>
-            <span className="text-secondary flex-shrink-0 pt-0.5 opacity-60">
-              <ArrowUpRight size={16} />
-            </span>
+            </h5>
+            <button
+              type="button"
+              className="btn btn-link p-0 text-secondary opacity-60 border-0 flex-shrink-0 d-inline-flex align-items-center justify-content-center"
+              style={{ width: '24px', height: '24px', color: '#64748B' }}
+              title="More options"
+              aria-label="More options"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(item);
+              }}
+            >
+              <MoreHorizontal size={18} />
+            </button>
           </div>
-        </div>
 
-        {/* 3. Specs Strip: Borderless Clean Key-Value Row with Hairline Top Divider */}
-        <div
-          className="pt-2.5 pb-2 mb-auto border-top"
-          style={{
-            borderColor: '#F1F5F9',
-          }}
-        >
-          <div className="d-flex align-items-center justify-content-between gap-2">
+          {/* Subtitle / Subcategory */}
+          <div
+            className="text-truncate mt-1 mb-3"
+            style={{
+              fontSize: '0.88rem',
+              color: '#64748B',
+              fontWeight: 400,
+            }}
+            title={item.subcategory}
+          >
+            {item.subcategory}
+          </div>
+
+          {/* Key Metrics Row */}
+          <div className="d-flex align-items-center justify-content-between gap-3 mb-3">
             {/* Metric 1 */}
-            {item.metrics[0] && (
-              <div className="d-flex flex-column min-w-0 pe-2">
-                <span
-                  className="text-secondary text-uppercase fw-medium text-truncate"
-                  style={{ fontSize: '0.65rem', color: '#64748B', letterSpacing: '0.04em' }}
-                  title={item.metrics[0].label}
-                >
-                  {item.metrics[0].label}
-                </span>
-                <span
-                  className="fw-semibold font-mono-code text-truncate"
-                  style={{ fontSize: '0.85rem', color: '#1E293B' }}
-                  title={item.metrics[0].value}
-                >
-                  {item.metrics[0].value}
-                </span>
-              </div>
-            )}
-
-            {/* Metric 2 or Readiness */}
-            <div className="d-flex flex-column min-w-0 text-end ps-2 ms-auto">
+            <div className="d-flex flex-column min-w-0">
               <span
-                className="text-secondary text-uppercase fw-medium text-truncate d-flex align-items-center justify-content-end gap-1"
-                style={{ fontSize: '0.65rem', color: '#64748B', letterSpacing: '0.04em' }}
+                className="text-secondary text-truncate mb-0.5"
+                style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 500 }}
+                title={metric1Label}
               >
-                <ShieldCheck size={11} className="text-primary" />
-                <span>Readiness</span>
+                {metric1Label}
               </span>
               <span
-                className="fw-semibold font-mono-code text-truncate text-primary"
-                style={{ fontSize: '0.85rem' }}
+                className="fw-bold text-truncate"
+                style={{ fontSize: '1.05rem', color: '#0B1B2B', fontFamily: "'IBM Plex Sans', sans-serif" }}
+                title={metric1Value}
               >
-                {item.complianceReadinessScore}%
+                {metric1Value}
+              </span>
+            </div>
+
+            {/* Metric 2 */}
+            <div className="d-flex flex-column min-w-0 text-end ms-auto">
+              <span
+                className="text-secondary text-truncate mb-0.5"
+                style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 500 }}
+                title={metric2Label}
+              >
+                {metric2Label}
+              </span>
+              <span
+                className="fw-bold text-truncate"
+                style={{ fontSize: '1.05rem', color: '#0B1B2B', fontFamily: "'IBM Plex Sans', sans-serif" }}
+                title={metric2Value}
+              >
+                {metric2Value}
               </span>
             </div>
           </div>
         </div>
 
-        {/* 4. Footer (Commercial Context): Streamlined Logo + Provider Name + Location */}
+        {/* 3. Listing Organization Nested Card Box */}
         <div
-          className="pt-2.5 mt-2 border-top d-flex align-items-center justify-content-between gap-2 min-w-0"
+          className="p-3 rounded-3 mt-2 d-flex flex-column gap-2"
           style={{
-            borderColor: '#F1F5F9',
+            backgroundColor: '#F8FAFC',
+            border: '1px solid #F1F5F9',
+            borderRadius: '12px',
           }}
         >
-          {/* Provider Identity */}
-          <div className="d-flex align-items-center gap-2 min-w-0">
+          <div
+            className="text-uppercase fw-bold"
+            style={{
+              fontSize: '0.68rem',
+              letterSpacing: '0.05em',
+              color: '#8E9BAE',
+            }}
+          >
+            Listing Organization
+          </div>
+          <div className="d-flex align-items-center gap-2.5 min-w-0">
             {orgInfo.logoUrl ? (
               <img
                 src={orgInfo.logoUrl}
                 alt={orgInfo.name}
                 className="rounded-2 flex-shrink-0 border"
-                style={{ width: '28px', height: '28px', objectFit: 'cover', borderColor: '#E2E8F0' }}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  objectFit: 'contain',
+                  backgroundColor: '#FFFFFF',
+                  borderColor: '#E2E8F0',
+                  padding: '2px',
+                }}
               />
             ) : (
               <div
                 className="rounded-2 flex-shrink-0 d-flex align-items-center justify-content-center fw-bold shadow-2xs"
                 style={{
-                  width: '28px',
-                  height: '28px',
+                  width: '36px',
+                  height: '36px',
                   background: orgInfo.badgeBg,
                   color: orgInfo.badgeColor,
-                  fontSize: '0.72rem',
+                  fontSize: '0.82rem',
                   letterSpacing: '0.02em',
                 }}
               >
                 {orgInfo.initials}
               </div>
             )}
-            <span
-              className="fw-medium text-dark text-truncate"
-              style={{ fontSize: '0.82rem', color: '#1E293B' }}
-              title={item.providerOrg}
-            >
-              {item.providerOrg}
-            </span>
-          </div>
-
-          {/* Location Pin */}
-          <div
-            className="text-secondary text-truncate d-flex align-items-center gap-1 flex-shrink-0 ps-2"
-            style={{ fontSize: '0.75rem', color: '#64748B' }}
-            title={item.location}
-          >
-            <MapPin size={12} className="flex-shrink-0 text-muted" />
-            <span className="text-truncate" style={{ maxWidth: '100px' }}>
-              {item.location.split(',')[0]}
-            </span>
+            <div className="min-w-0 d-flex flex-column">
+              <span
+                className="fw-bold text-truncate"
+                style={{ fontSize: '0.88rem', color: '#0B1B2B', lineHeight: '1.25' }}
+                title={item.providerOrg}
+              >
+                {item.providerOrg}
+              </span>
+              <span
+                className="text-secondary text-truncate"
+                style={{ fontSize: '0.76rem', color: '#64748B' }}
+              >
+                Verified Maritime Provider
+              </span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
+

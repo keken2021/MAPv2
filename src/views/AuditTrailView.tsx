@@ -10,6 +10,9 @@ import { useMapStore } from '../store/useMapStore';
 import { formatMaritimeDate } from '../utils/formatters';
 import { filterAuditTrailForPersona } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { FilterModal } from '../components/common/FilterModal';
+import { FilterButton } from '../components/common/FilterButton';
+import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 
 /**
   what: renders the full-page Audit Trail view in clean light theme with data export capabilities.
@@ -20,6 +23,7 @@ export const AuditTrailView: React.FC = () => {
   const { auditEvents, activePersona, assuranceSets, vessels } = useMapStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
 
   type AuditSortField = 'timestampUtc' | 'action' | 'targetAsset' | 'userRole' | 'fieldDelta' | 'justificationNotes';
@@ -95,6 +99,16 @@ export const AuditTrailView: React.FC = () => {
     setIsExportOpen(false);
   };
 
+  const activeFilterCount = (roleFilter !== 'ALL' ? 1 : 0);
+
+  const activeChips: FilterChip[] = [
+    ...(roleFilter !== 'ALL' ? [{ id: 'role', label: 'Role', value: roleFilter, onRemove: () => setRoleFilter('ALL') }] : []),
+  ];
+
+  const handleResetFilters = () => {
+    setRoleFilter('ALL');
+  };
+
   return (
     <div className="d-flex flex-column gap-4">
       {/* Main Audit Card */}
@@ -110,20 +124,10 @@ export const AuditTrailView: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ width: '320px' }}
             />
-            <select
-              className="form-select form-select-sm bg-white text-dark border-secondary"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              style={{ width: '200px' }}
-            >
-              <option value="ALL">All User Roles</option>
-              <option value="Administrator">Administrator</option>
-              <option value="C Admin">C Admin</option>
-              <option value="Submitter">Submitter</option>
-              <option value="Verifier">Verifier</option>
-              <option value="Inspector">Inspector</option>
-              <option value="Approver">Approver</option>
-            </select>
+            <FilterButton
+              onClick={() => setIsFilterModalOpen(true)}
+              activeCount={activeFilterCount}
+            />
           </div>
 
           <div className="d-flex align-items-center gap-3 ms-auto">
@@ -155,6 +159,12 @@ export const AuditTrailView: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {activeChips.length > 0 && (
+          <div className="px-3 py-2 bg-light border-bottom">
+            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+          </div>
+        )}
 
         {/* Audit Log Table */}
         <div className="table-responsive">
@@ -237,6 +247,37 @@ export const AuditTrailView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Audit Trail Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        onReset={handleResetFilters}
+        title="Audit Trail Filters"
+        subtitle="Filter regulatory audit log records by performer persona role"
+        activeCount={activeFilterCount}
+      >
+        <div className="card p-3 bg-white border rounded">
+          <div className="row g-3">
+            <div className="col-12">
+              <label className="form-label small fw-semibold text-secondary mb-1">User Role</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+              >
+                <option value="ALL">All User Roles</option>
+                <option value="Administrator">Administrator</option>
+                <option value="C Admin">C Admin</option>
+                <option value="Submitter">Submitter</option>
+                <option value="Verifier">Verifier</option>
+                <option value="Inspector">Inspector</option>
+                <option value="Approver">Approver</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </FilterModal>
     </div>
   );
 };
