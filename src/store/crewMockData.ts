@@ -456,6 +456,7 @@ export const MOCK_CREW: CrewMember[] = [
     fullName: 'Bosun David Kowalski',
     rank: 'Bosun / Deck Foreman',
     nationality: 'Australian',
+    organization: 'Gulf Security Services Pty Ltd',
     seamansBookNo: 'SB-AU-554109',
     passportNo: 'PA-AU-3310498',
     dateOfBirth: '1985-03-30',

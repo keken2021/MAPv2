@@ -141,6 +141,166 @@ export function filterEquipmentForProjectComposition(
   return equipment.filter((e) => isEquipmentOwnedByOrganization(e, requestingOrganization));
 }
 
+/** External-provider assets only (excludes same organization as the project requester). */
+export function filterExternalVesselsForProjectComposition(
+  vessels: VesselInformation[],
+  requestingOrganization: string,
+): VesselInformation[] {
+  return vessels.filter(
+    (v) => !isVesselOwnedByOrganization(v, requestingOrganization),
+  );
+}
+
+export function filterExternalCrewForProjectComposition(
+  crew: CrewMember[],
+  requestingOrganization: string,
+): CrewMember[] {
+  return crew.filter(
+    (c) => !isCrewOwnedByOrganization(c, requestingOrganization),
+  );
+}
+
+export function filterExternalEquipmentForProjectComposition(
+  equipment: EquipmentAsset[],
+  requestingOrganization: string,
+): EquipmentAsset[] {
+  return equipment.filter(
+    (e) => !isEquipmentOwnedByOrganization(e, requestingOrganization),
+  );
+}
+
+/** Non-master assurance sets the requester may seed a new project from. */
+export function getAssuranceSetsForProjectCreation(
+  assuranceSets: AssuranceSet[],
+  requestingOrganization: string,
+): AssuranceSet[] {
+  return assuranceSets.filter(
+    (s) =>
+      !s.isProjectMaster &&
+      s.visibility !== 'draft' &&
+      (orgFieldMatches(requestingOrganization, s.charterer || '') ||
+        orgFieldMatches(requestingOrganization, s.initiatorOrg || '')),
+  );
+}
+
+export type DraftProjectAssetLink = {
+  assetType: ProjectAssetLink['assetType'];
+  assetId: string;
+  assetName: string;
+  providerOrganization: string;
+  assuranceSetId: string;
+  roleInProject: string;
+  notes?: string;
+};
+
+/** Resolve the primary asset represented by a standalone assurance set. */
+export function buildDraftAssetLinkFromAssuranceSet(
+  set: AssuranceSet,
+  vessels: VesselInformation[],
+  crew: CrewMember[],
+  equipment: EquipmentAsset[],
+  activities: { id: string; name: string }[] = [],
+): DraftProjectAssetLink | null {
+  const defaultRoles: Partial<Record<ProjectAssetLink['assetType'], string>> = {
+    Vessel: 'Subject vessel',
+    Crew: 'Service crew',
+    Equipment: 'Rented equipment',
+    Activity: 'Service / activity',
+  };
+
+  if (set.assuranceType === 'Crew' && set.crewId) {
+    const member = crew.find((c) => c.id === set.crewId);
+    return {
+      assetType: 'Crew',
+      assetId: set.crewId,
+      assetName: set.crewName || member?.fullName || set.crewId,
+      providerOrganization:
+        member?.organization || set.initiatorOrg || set.serviceProviderOrg || '',
+      assuranceSetId: set.id,
+      roleInProject: defaultRoles.Crew || '',
+    };
+  }
+
+  if (set.assuranceType === 'Equipment' && set.equipmentId) {
+    const item = equipment.find((e) => e.id === set.equipmentId);
+    return {
+      assetType: 'Equipment',
+      assetId: set.equipmentId,
+      assetName: set.equipmentName || item?.name || set.equipmentId,
+      providerOrganization:
+        item?.owningOrganization || set.initiatorOrg || set.serviceProviderOrg || '',
+      assuranceSetId: set.id,
+      roleInProject: defaultRoles.Equipment || '',
+    };
+  }
+
+  if (set.assuranceType === 'Activity' && set.activityId) {
+    const activity = activities.find((a) => a.id === set.activityId);
+    return {
+      assetType: 'Activity',
+      assetId: set.activityId,
+      assetName: set.activityName || activity?.name || set.activityId,
+      providerOrganization: set.initiatorOrg || set.serviceProviderOrg || '',
+      assuranceSetId: set.id,
+      roleInProject: defaultRoles.Activity || '',
+    };
+  }
+
+  if (set.vesselId) {
+    const vessel = vessels.find((v) => v.id === set.vesselId);
+    return {
+      assetType: 'Vessel',
+      assetId: set.vesselId,
+      assetName: set.vesselName || vessel?.name || set.vesselId,
+      providerOrganization:
+        vessel?.registeredOwner || set.initiatorOrg || set.serviceProviderOrg || '',
+      assuranceSetId: set.id,
+      roleInProject: defaultRoles.Vessel || '',
+    };
+  }
+
+  return null;
+}
+
+/** Build draft roster links from one or more seed assurance sets (deduped by asset). */
+export function buildDraftAssetLinksFromAssuranceSets(
+  setIds: string[],
+  assuranceSets: AssuranceSet[],
+  vessels: VesselInformation[],
+  crew: CrewMember[],
+  equipment: EquipmentAsset[],
+  activities: { id: string; name: string }[] = [],
+): { links: DraftProjectAssetLink[]; unresolvedSetIds: string[] } {
+  const links: DraftProjectAssetLink[] = [];
+  const seen = new Set<string>();
+  const unresolvedSetIds: string[] = [];
+
+  setIds.forEach((setId) => {
+    const set = assuranceSets.find((s) => s.id === setId);
+    if (!set) {
+      unresolvedSetIds.push(setId);
+      return;
+    }
+    const link = buildDraftAssetLinkFromAssuranceSet(
+      set,
+      vessels,
+      crew,
+      equipment,
+      activities,
+    );
+    if (!link) {
+      unresolvedSetIds.push(setId);
+      return;
+    }
+    const key = `${link.assetType}:${link.assetId}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    links.push(link);
+  });
+
+  return { links, unresolvedSetIds };
+}
+
 export function getEligibleAssuranceSetsForAsset(
   assetType: ProjectAssetLink['assetType'],
   assetId: string,

@@ -178,6 +178,8 @@ describe('nested project assurance sets (Req 3–4)', () => {
   it('shows Southern Basin client projects to C Admin', () => {
     const visible = filterProjectsForPersona(MOCK_PROJECTS, 'C Admin', MOCK_USERS);
     expect(visible.some((p) => p.id === 'MAP-PROJ-2026-MARINE-009')).toBe(true);
+    expect(visible.some((p) => p.id === 'MAP-PROJ-2026-MARINE-010')).toBe(true);
+    expect(visible.some((p) => p.id === 'MAP-PROJ-2026-MARINE-012')).toBe(true);
     expect(visible.some((p) => p.id === 'MAP-PROJ-2026-MARINE-007')).toBe(false);
   });
 });

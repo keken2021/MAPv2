@@ -1,6 +1,6 @@
 /*
-  file summary: two-step create project wizard with type-driven fields and asset roster.
-  responsibilities: captures project header by type and links vessels, crew, equipment, or services.
+  file summary: three-step create project wizard — project info, assurance set, external assets.
+  responsibilities: captures project header, seeds roster from selected assurance sets, adds external assets.
   role in system: rendered when hash route is #/project/new.
 */
 
@@ -15,28 +15,20 @@ import {
   WorkLocationType,
 } from '../types/project';
 import {
-  filterCrewForProjectComposition,
-  filterEquipmentForProjectComposition,
-  filterVesselsForProjectComposition,
+  buildDraftAssetLinksFromAssuranceSets,
+  DraftProjectAssetLink,
+  filterExternalCrewForProjectComposition,
+  filterExternalEquipmentForProjectComposition,
+  filterExternalVesselsForProjectComposition,
+  getAssuranceSetsForProjectCreation,
   getEligibleAssuranceSetsForAsset,
   getProjectOrganizationForPersona,
-  isOrganizationMatch,
   projectTypeRequiresRiskProfile,
   projectTypeRequiresRoute,
   projectTypeShowsServiceFields,
   requiresAssuranceSetForAssetLink,
 } from '../utils/projectHelpers';
 import { EXISTING_ACTIVITIES } from '../utils/assuranceTemplates';
-
-type DraftAssetLink = {
-  assetType: ProjectAssetType;
-  assetId: string;
-  assetName: string;
-  providerOrganization: string;
-  assuranceSetId: string;
-  roleInProject: string;
-  notes?: string;
-};
 
 const DEFAULT_ROLES: Partial<Record<ProjectAssetType, string>> = {
   Vessel: 'Subject vessel',
@@ -55,14 +47,11 @@ export const CreateProjectView: React.FC = () => {
     users,
     addProject,
     setCurrentHashView,
-    previousHashView,
-    previousEntityId,
   } = useMapStore();
 
   const defaultOrg = getProjectOrganizationForPersona(activePersona, users);
 
-  const [step, setStep] = useState<1 | 2>(1);
-  const [includeExternalProviders, setIncludeExternalProviders] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [projectType, setProjectType] = useState<ProjectType>('Service Engagement');
   const [name, setName] = useState('');
   const [requestingOrganization, setRequestingOrganization] = useState(defaultOrg);
@@ -77,94 +66,52 @@ export const CreateProjectView: React.FC = () => {
   const [workOrderRef, setWorkOrderRef] = useState('');
   const [workLocationType, setWorkLocationType] = useState<WorkLocationType>('Onboard');
   const [primaryVesselId, setPrimaryVesselId] = useState('');
-  const [draftLinks, setDraftLinks] = useState<DraftAssetLink[]>([]);
+  const [selectedAssuranceSetIds, setSelectedAssuranceSetIds] = useState<string[]>([]);
+  const [draftLinks, setDraftLinks] = useState<DraftProjectAssetLink[]>([]);
   const [assetTypeFilter, setAssetTypeFilter] = useState<'All' | ProjectAssetType>('All');
   const [error, setError] = useState('');
-
 
   const showCharterFields = projectType === 'Charter / Voyage' || projectType === 'Mixed / Composite';
   const showRiskProfile = projectTypeRequiresRiskProfile(projectType);
   const showRoute = projectTypeRequiresRoute(projectType);
   const showServiceFields = projectTypeShowsServiceFields(projectType);
 
-  const composableVessels = useMemo(
+  const externalVessels = useMemo(
+    () => filterExternalVesselsForProjectComposition(vessels, requestingOrganization),
+    [vessels, requestingOrganization],
+  );
+
+  const selectableAssuranceSets = useMemo(
+    () => getAssuranceSetsForProjectCreation(assuranceSets, requestingOrganization),
+    [assuranceSets, requestingOrganization],
+  );
+
+  const selectedAssuranceSets = useMemo(
     () =>
-      filterVesselsForProjectComposition(
-        vessels,
-        activePersona,
-        requestingOrganization,
+      selectedAssuranceSetIds
+        .map((id) => assuranceSets.find((s) => s.id === id))
+        .filter((s): s is NonNullable<typeof s> => Boolean(s)),
+    [assuranceSets, selectedAssuranceSetIds],
+  );
+
+  const seedPreviewLinks = useMemo(
+    () =>
+      buildDraftAssetLinksFromAssuranceSets(
+        selectedAssuranceSetIds,
         assuranceSets,
-        includeExternalProviders,
-      ),
-    [vessels, activePersona, requestingOrganization, assuranceSets, includeExternalProviders],
+        vessels,
+        crew,
+        equipment,
+        EXISTING_ACTIVITIES,
+      ).links,
+    [selectedAssuranceSetIds, assuranceSets, vessels, crew, equipment],
   );
 
-  const composableCrew = useMemo(
-    () => filterCrewForProjectComposition(crew, requestingOrganization, includeExternalProviders),
-    [crew, requestingOrganization, includeExternalProviders],
-  );
-
-  const composableEquipment = useMemo(
-    () => filterEquipmentForProjectComposition(equipment, requestingOrganization, includeExternalProviders),
-    [equipment, requestingOrganization, includeExternalProviders],
-  );
-
-  const availableAssets = useMemo(() => {
-    const list: DraftAssetLink[] = [];
-    composableVessels.forEach((v) => {
-      list.push({
-        assetType: 'Vessel',
-        assetId: v.id,
-        assetName: v.name,
-        providerOrganization: v.registeredOwner,
-        assuranceSetId: '',
-        roleInProject: DEFAULT_ROLES.Vessel || '',
-      });
-    });
-    composableCrew.forEach((c) => {
-      list.push({
-        assetType: 'Crew',
-        assetId: c.id,
-        assetName: c.fullName,
-        providerOrganization: c.organization || requestingOrganization,
-        assuranceSetId: '',
-        roleInProject: DEFAULT_ROLES.Crew || '',
-      });
-    });
-    composableEquipment.forEach((e) => {
-      list.push({
-        assetType: 'Equipment',
-        assetId: e.id,
-        assetName: e.name,
-        providerOrganization: e.owningOrganization,
-        assuranceSetId: '',
-        roleInProject: DEFAULT_ROLES.Equipment || '',
-      });
-    });
-    if (includeExternalProviders) {
-      EXISTING_ACTIVITIES.forEach((a) => {
-        list.push({
-          assetType: 'Activity',
-          assetId: a.id,
-          assetName: a.name,
-          providerOrganization: requestingOrganization,
-          assuranceSetId: '',
-          roleInProject: DEFAULT_ROLES.Activity || '',
-          notes: a.category,
-        });
-      });
-    }
-    return list;
-  }, [composableVessels, composableCrew, composableEquipment, includeExternalProviders, requestingOrganization]);
-
-  const filteredAvailable = useMemo(() => {
-    const linked = new Set(draftLinks.map((l) => `${l.assetType}:${l.assetId}`));
-    return availableAssets.filter((a) => {
-      if (linked.has(`${a.assetType}:${a.assetId}`)) return false;
-      if (assetTypeFilter !== 'All' && a.assetType !== assetTypeFilter) return false;
-      return true;
-    });
-  }, [availableAssets, draftLinks, assetTypeFilter]);
+  const toggleAssuranceSet = (setId: string) => {
+    setSelectedAssuranceSetIds((prev) =>
+      prev.includes(setId) ? prev.filter((id) => id !== setId) : [...prev, setId],
+    );
+  };
 
   const assuranceSetOptions = (
     assetType: ProjectAssetType,
@@ -176,16 +123,79 @@ export const CreateProjectView: React.FC = () => {
       providerOrganization,
     });
 
-  const handleAddAsset = (asset: DraftAssetLink) => {
-    const sets = assuranceSetOptions(asset.assetType, asset.assetId, asset.providerOrganization);
-    setDraftLinks((prev) => [
-      ...prev,
-      {
-        ...asset,
-        assuranceSetId: sets[0]?.id || '',
-      },
-    ]);
-  };
+  const externalAssetsWithSets = useMemo(() => {
+    const list: DraftProjectAssetLink[] = [];
+
+    externalVessels.forEach((v) => {
+      const sets = assuranceSetOptions('Vessel', v.id, v.registeredOwner);
+      if (sets.length === 0) return;
+      list.push({
+        assetType: 'Vessel',
+        assetId: v.id,
+        assetName: v.name,
+        providerOrganization: v.registeredOwner,
+        assuranceSetId: sets[0].id,
+        roleInProject: DEFAULT_ROLES.Vessel || '',
+      });
+    });
+
+    filterExternalCrewForProjectComposition(crew, requestingOrganization).forEach((c) => {
+      const providerOrganization = c.organization || '';
+      const sets = assuranceSetOptions('Crew', c.id, providerOrganization);
+      if (sets.length === 0) return;
+      list.push({
+        assetType: 'Crew',
+        assetId: c.id,
+        assetName: c.fullName,
+        providerOrganization,
+        assuranceSetId: sets[0].id,
+        roleInProject: DEFAULT_ROLES.Crew || '',
+      });
+    });
+
+    filterExternalEquipmentForProjectComposition(equipment, requestingOrganization).forEach((e) => {
+      const sets = assuranceSetOptions('Equipment', e.id, e.owningOrganization);
+      if (sets.length === 0) return;
+      list.push({
+        assetType: 'Equipment',
+        assetId: e.id,
+        assetName: e.name,
+        providerOrganization: e.owningOrganization,
+        assuranceSetId: sets[0].id,
+        roleInProject: DEFAULT_ROLES.Equipment || '',
+      });
+    });
+
+    EXISTING_ACTIVITIES.forEach((a) => {
+      const sets = assuranceSets.filter(
+        (s) =>
+          !s.isProjectMaster &&
+          s.activityId === a.id &&
+          !requiresAssuranceSetForAssetLink(requestingOrganization, s.initiatorOrg || ''),
+      );
+      if (sets.length === 0) return;
+      list.push({
+        assetType: 'Activity',
+        assetId: a.id,
+        assetName: a.name,
+        providerOrganization: sets[0].initiatorOrg || sets[0].serviceProviderOrg || '',
+        assuranceSetId: sets[0].id,
+        roleInProject: DEFAULT_ROLES.Activity || '',
+        notes: a.category,
+      });
+    });
+
+    return list;
+  }, [externalVessels, crew, equipment, assuranceSets, requestingOrganization]);
+
+  const filteredAvailable = useMemo(() => {
+    const linked = new Set(draftLinks.map((l) => `${l.assetType}:${l.assetId}`));
+    return externalAssetsWithSets.filter((a) => {
+      if (linked.has(`${a.assetType}:${a.assetId}`)) return false;
+      if (assetTypeFilter !== 'All' && a.assetType !== assetTypeFilter) return false;
+      return true;
+    });
+  }, [externalAssetsWithSets, draftLinks, assetTypeFilter]);
 
   const validateStep1 = (): boolean => {
     if (!name.trim()) {
@@ -212,16 +222,52 @@ export const CreateProjectView: React.FC = () => {
     return true;
   };
 
-  const handleSave = () => {
-    if (!validateStep1()) return;
-
-    const crossOrgMissing = draftLinks.filter(
-      (l) =>
-        requiresAssuranceSetForAssetLink(requestingOrganization, l.providerOrganization) &&
-        !l.assuranceSetId,
+  const validateStep2 = (): boolean => {
+    if (selectedAssuranceSetIds.length === 0) {
+      setError('Select at least one assurance set to continue.');
+      return false;
+    }
+    const { links, unresolvedSetIds } = buildDraftAssetLinksFromAssuranceSets(
+      selectedAssuranceSetIds,
+      assuranceSets,
+      vessels,
+      crew,
+      equipment,
+      EXISTING_ACTIVITIES,
     );
-    if (crossOrgMissing.length > 0) {
-      setError('Cross-organization assets require an assurance set. Same-org assets may proceed without one.');
+    if (unresolvedSetIds.length > 0) {
+      setError(
+        `Could not resolve assets for: ${unresolvedSetIds.join(', ')}.`,
+      );
+      return false;
+    }
+    if (links.length === 0) {
+      setError('Selected assurance sets do not resolve to any project assets.');
+      return false;
+    }
+    setDraftLinks(links);
+    setError('');
+    return true;
+  };
+
+  const handleAddAsset = (asset: DraftProjectAssetLink) => {
+    setDraftLinks((prev) => [...prev, asset]);
+  };
+
+  const handleSave = () => {
+    if (!validateStep1()) {
+      setStep(1);
+      return;
+    }
+
+    const missingAssurance = draftLinks.filter((l) => !l.assuranceSetId);
+    if (missingAssurance.length > 0) {
+      setError('Every external asset requires an assurance set.');
+      return;
+    }
+
+    if (draftLinks.length === 0) {
+      setError('Add at least one external asset to the project roster.');
       return;
     }
 
@@ -262,18 +308,20 @@ export const CreateProjectView: React.FC = () => {
     }
   };
 
+  const stepLabels = ['Project Info', 'Assurance Set', 'Assets'];
+
   return (
     <div className="d-flex flex-column gap-3">
       <div className="d-flex align-items-center justify-content-end">
         <span className="badge bg-primary-subtle text-primary font-mono-code">
-          Step {step} of 2
+          Step {step} of 3 — {stepLabels[step - 1]}
         </span>
       </div>
 
       <div className="card map-card-custom p-4">
         <h2 className="h4 fw-bold text-dark mb-1">Create Project</h2>
         <p className="text-muted small mb-4">
-          Compose vessels, crew, equipment, or services from one or more organizations for any type of work.
+          Define project details, choose one or more seed assurance sets, then compose external-provider assets.
         </p>
 
         {step === 1 && (
@@ -431,7 +479,7 @@ export const CreateProjectView: React.FC = () => {
                     onChange={(e) => setPrimaryVesselId(e.target.value)}
                   >
                     <option value="">— None —</option>
-                    {composableVessels.map((v) => (
+                    {externalVessels.map((v) => (
                       <option key={v.id} value={v.id}>
                         {v.name}
                       </option>
@@ -451,7 +499,7 @@ export const CreateProjectView: React.FC = () => {
                   if (validateStep1()) setStep(2);
                 }}
               >
-                Next: Compose Assets
+                Next: Choose Assurance Set
               </button>
             </div>
           </div>
@@ -459,27 +507,101 @@ export const CreateProjectView: React.FC = () => {
 
         {step === 2 && (
           <>
-            <div className="d-flex flex-wrap align-items-center justify-between gap-2 mb-3">
-              <div className="text-muted small">
-                Showing assets for <strong>{requestingOrganization}</strong>
-                {!includeExternalProviders && ' (your organization only)'}
+            <p className="text-muted small mb-3">
+              Select one or more existing assurance sets for <strong>{requestingOrganization}</strong>.
+              Their linked assets will prefill the project roster in the next step.
+            </p>
+
+            {selectableAssuranceSets.length === 0 ? (
+              <div className="alert alert-warning small">
+                No eligible assurance sets found for this organization. Create an assurance set first, then
+                return to compose a project.
               </div>
-              <div className="form-check form-switch mb-0">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="includeExternalProviders"
-                  checked={includeExternalProviders}
-                  onChange={(e) => setIncludeExternalProviders(e.target.checked)}
-                />
-                <label className="form-check-label small" htmlFor="includeExternalProviders">
-                  Include external providers
-                </label>
+            ) : (
+              <div className="list-group mb-3">
+                {selectableAssuranceSets.map((s) => {
+                  const isSelected = selectedAssuranceSetIds.includes(s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className={`list-group-item list-group-item-action d-flex align-items-start gap-3 ${
+                        isSelected ? 'active' : ''
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="form-check-input mt-1"
+                        checked={isSelected}
+                        onChange={() => toggleAssuranceSet(s.id)}
+                      />
+                      <div className="flex-grow-1">
+                        <div className="fw-semibold font-mono-code">{s.id}</div>
+                        <div className={isSelected ? '' : 'text-dark'}>{s.title}</div>
+                        <div className={`small ${isSelected ? 'text-white-50' : 'text-muted'}`}>
+                          {s.assuranceType || 'Asset'} · {s.stage}
+                          {s.vesselName ? ` · ${s.vesselName}` : ''}
+                          {s.crewName ? ` · ${s.crewName}` : ''}
+                        </div>
+                      </div>
+                      <span className={`badge ${isSelected ? 'bg-light text-dark' : 'bg-secondary'}`}>
+                        {s.readinessScore}% ready
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
+            )}
+
+            {selectedAssuranceSets.length > 0 && (
+              <div className="alert alert-info py-2 small mb-3">
+                <div className="fw-semibold mb-1">
+                  {selectedAssuranceSetIds.length} assurance set
+                  {selectedAssuranceSetIds.length !== 1 ? 's' : ''} selected ·{' '}
+                  {seedPreviewLinks.length} seed asset
+                  {seedPreviewLinks.length !== 1 ? 's' : ''}
+                </div>
+                <ul className="mb-0 ps-3">
+                  {seedPreviewLinks.map((link) => (
+                    <li key={`${link.assetType}-${link.assetId}`}>
+                      {link.assetName} ({link.assetType}) ·{' '}
+                      <span className="font-mono-code">{link.assuranceSetId}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {error && <div className="alert alert-danger py-2 small">{error}</div>}
+
+            <div className="d-flex justify-content-between">
+              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setStep(1)}>
+                Back
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary fw-semibold"
+                disabled={selectableAssuranceSets.length === 0 || selectedAssuranceSetIds.length === 0}
+                onClick={() => {
+                  if (validateStep2()) setStep(3);
+                }}
+              >
+                Next: Compose Assets
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <div className="text-muted small mb-3">
+              External-provider assets only for <strong>{requestingOrganization}</strong>. Seed assets from{' '}
+              {selectedAssuranceSetIds.length} selected assurance set
+              {selectedAssuranceSetIds.length !== 1 ? 's' : ''} are already on the roster — add more from the
+              left panel.
             </div>
 
             <div className="d-flex flex-wrap gap-2 mb-3">
-              {(['All', 'Vessel', 'Crew', 'Equipment', ...(includeExternalProviders ? (['Activity'] as const) : [])] as const).map((t) => (
+              {(['All', 'Vessel', 'Crew', 'Equipment', 'Activity'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -493,38 +615,43 @@ export const CreateProjectView: React.FC = () => {
 
             <div className="row g-3 mb-4">
               <div className="col-md-5">
-                <h6 className="fw-bold small text-uppercase text-secondary">Available Assets &amp; Services</h6>
+                <h6 className="fw-bold small text-uppercase text-secondary">
+                  Available External Assets
+                </h6>
                 <div className="border rounded" style={{ maxHeight: '280px', overflowY: 'auto' }}>
                   {filteredAvailable.length === 0 ? (
                     <div className="p-3 text-muted small text-center">
-                      No assets available.
-                      {!includeExternalProviders && ' Enable external providers to add cross-org assets.'}
+                      No additional external assets with assurance sets available.
                     </div>
                   ) : (
-                    filteredAvailable.map((a) => {
-                      const isOwnOrg = isOrganizationMatch(requestingOrganization, a.providerOrganization);
-                      return (
-                        <div
-                          key={`${a.assetType}-${a.assetId}`}
-                          className="d-flex align-items-center justify-between p-2 border-bottom small"
-                        >
-                          <div>
-                            <div className="fw-semibold d-flex align-items-center gap-1 flex-wrap">
-                              {a.assetName}
-                              <span className={`badge ${isOwnOrg ? 'bg-success' : 'bg-warning text-dark'}`} style={{ fontSize: '0.6rem' }}>
-                                {isOwnOrg ? 'Your org' : 'External'}
-                              </span>
-                            </div>
-                            <div className="text-muted">
-                              {a.assetType} · {a.providerOrganization}
-                            </div>
+                    filteredAvailable.map((a) => (
+                      <div
+                        key={`${a.assetType}-${a.assetId}`}
+                        className="d-flex align-items-center justify-between p-2 border-bottom small"
+                      >
+                        <div>
+                          <div className="fw-semibold d-flex align-items-center gap-1 flex-wrap">
+                            {a.assetName}
+                            <span className="badge bg-warning text-dark" style={{ fontSize: '0.6rem' }}>
+                              External
+                            </span>
                           </div>
-                          <button type="button" className="btn btn-xs btn-outline-primary btn-sm" onClick={() => handleAddAsset(a)}>
-                            Add
-                          </button>
+                          <div className="text-muted">
+                            {a.assetType} · {a.providerOrganization}
+                          </div>
+                          <div className="font-mono-code text-primary" style={{ fontSize: '0.7rem' }}>
+                            {a.assuranceSetId}
+                          </div>
                         </div>
-                      );
-                    })
+                        <button
+                          type="button"
+                          className="btn btn-xs btn-outline-primary btn-sm"
+                          onClick={() => handleAddAsset(a)}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
@@ -533,7 +660,7 @@ export const CreateProjectView: React.FC = () => {
                 <h6 className="fw-bold small text-uppercase text-secondary">Project Asset Roster</h6>
                 {draftLinks.length === 0 ? (
                   <div className="p-4 border rounded text-center text-muted small">
-                    Add your organization&apos;s assets first. Enable external providers for cross-org crew, equipment, or services — assurance sets are required for external assets.
+                    No assets on the roster. Go back and select assurance sets to seed the roster.
                   </div>
                 ) : (
                   <div className="table-responsive border rounded">
@@ -549,15 +676,8 @@ export const CreateProjectView: React.FC = () => {
                       </thead>
                       <tbody>
                         {draftLinks.map((link) => {
-                          const sets = assuranceSetOptions(
-                            link.assetType,
-                            link.assetId,
-                            link.providerOrganization,
-                          );
-                          const needsAssurance = requiresAssuranceSetForAssetLink(
-                            requestingOrganization,
-                            link.providerOrganization,
-                          );
+                          const linkedSet = assuranceSets.find((s) => s.id === link.assuranceSetId);
+                          const isSeedAsset = selectedAssuranceSetIds.includes(link.assuranceSetId);
                           return (
                             <tr key={`${link.assetType}-${link.assetId}`}>
                               <td>
@@ -581,43 +701,35 @@ export const CreateProjectView: React.FC = () => {
                                 />
                               </td>
                               <td>
-                                <select
-                                  className={`form-select form-select-sm ${needsAssurance && !link.assuranceSetId ? 'border-danger' : ''}`}
-                                  value={link.assuranceSetId}
-                                  onChange={(e) =>
-                                    setDraftLinks((prev) =>
-                                      prev.map((l) =>
-                                        l.assetId === link.assetId && l.assetType === link.assetType
-                                          ? { ...l, assuranceSetId: e.target.value }
-                                          : l,
-                                      ),
-                                    )
-                                  }
-                                >
-                                  <option value="">
-                                    {needsAssurance ? 'Required for cross-org' : 'Optional (same org)'}
-                                  </option>
-                                  {sets.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                      {s.id}
-                                    </option>
-                                  ))}
-                                </select>
+                                <div className="font-mono-code small text-primary">
+                                  {link.assuranceSetId}
+                                </div>
+                                {linkedSet && (
+                                  <div className="text-muted small">{linkedSet.title}</div>
+                                )}
+                                {isSeedAsset && (
+                                  <span className="badge bg-info text-dark mt-1" style={{ fontSize: '0.6rem' }}>
+                                    Seed set
+                                  </span>
+                                )}
                               </td>
                               <td>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-outline-danger"
-                                  onClick={() =>
-                                    setDraftLinks((prev) =>
-                                      prev.filter(
-                                        (l) => !(l.assetId === link.assetId && l.assetType === link.assetType),
-                                      ),
-                                    )
-                                  }
-                                >
-                                  Remove
-                                </button>
+                                {!isSeedAsset && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() =>
+                                      setDraftLinks((prev) =>
+                                        prev.filter(
+                                          (l) =>
+                                            !(l.assetId === link.assetId && l.assetType === link.assetType),
+                                        ),
+                                      )
+                                    }
+                                  >
+                                    Remove
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           );
@@ -632,7 +744,14 @@ export const CreateProjectView: React.FC = () => {
             {error && <div className="alert alert-danger py-2 small">{error}</div>}
 
             <div className="d-flex justify-content-between">
-              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setStep(1)}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => {
+                  setDraftLinks([]);
+                  setStep(2);
+                }}
+              >
                 Back
               </button>
               <button type="button" className="btn btn-sm btn-primary fw-semibold" onClick={handleSave}>

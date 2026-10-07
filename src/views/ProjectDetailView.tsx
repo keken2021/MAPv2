@@ -1,6 +1,6 @@
 /*
-  file summary: project detail with asset roster, master assurance rollup, and cross-org composition.
-  responsibilities: displays project summary, asset tabs, AS dropdowns, and master AS-02-P001 view.
+  file summary: project detail with asset roster and assurance sets tabs.
+  responsibilities: displays project summary, asset roster, assurance set list, and attach-existing-set flow.
   role in system: rendered for #/project/{id}.
 */
 
@@ -38,15 +38,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setCurrentHashView,
     previousHashView,
     previousEntityId,
-    linkAssuranceSetToProjectAsset,
     removeAssetFromProject,
     addAssetToProject,
     syncProjectMasterAssurance,
   } = useMapStore();
 
-  const [activeTab, setActiveTab] = useState<"roster" | "master" | "assurance">(
-    () => (activePersona === "C Admin" ? "master" : "roster"),
-  );
+  const [activeTab, setActiveTab] = useState<"roster" | "assurance">("roster");
   const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
     "All",
   );
@@ -78,8 +75,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const isCAdmin = activePersona === "C Admin";
 
   useEffect(() => {
-    setActiveTab(isCAdmin ? "master" : "roster");
-  }, [projectId, isCAdmin]);
+    setActiveTab("roster");
+  }, [projectId]);
 
   const availableToAdd = useMemo(() => {
     if (!project) return [];
@@ -223,18 +220,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setTimeout(() => setToast(null), 3500);
   };
 
-  const masterSubSets = useMemo(() => {
-    return project.assetLinks.map((link) => {
-      const sourceSet = assuranceSets.find((s) => s.id === link.assuranceSetId);
-      const linkReq = masterSet?.requirements.find(
-        (r) =>
-          r.linkedAssuranceSetId === link.assuranceSetId ||
-          r.id === `PROJ-LINK-${link.assuranceSetId}`,
-      );
-      return { link, sourceSet, linkReq };
-    });
-  }, [masterSet, project.assetLinks, assuranceSets]);
-
   const standaloneSetsForAttach = useMemo(
     () => getStandaloneAssuranceSetsForAttach(assuranceSets, project),
     [assuranceSets, project],
@@ -246,8 +231,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {isCAdmin && project && (
         <div className="alert alert-info py-2 mb-0 small">
-          Client-owned project — open a linked sub-set below to review documents
-          (read-only).
+          Client-owned project — open a linked sub-set from the Assurance Sets
+          tab to review documents (read-only).
         </div>
       )}
 
@@ -358,18 +343,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       </div>
 
       <ul className="nav nav-tabs">
-        {(["roster", "master", "assurance"] as const).map((tab) => (
+        {(["roster", "assurance"] as const).map((tab) => (
           <li className="nav-item" key={tab}>
             <button
               type="button"
               className={`nav-link ${activeTab === tab ? "active fw-semibold" : ""}`}
               onClick={() => setActiveTab(tab)}
             >
-              {tab === "roster"
-                ? "Asset Roster"
-                : tab === "master"
-                  ? "Master Assurance"
-                  : "Assurance Sets"}
+              {tab === "roster" ? "Asset Roster" : "Assurance Sets"}
             </button>
           </li>
         ))}
@@ -502,15 +483,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   </tr>
                 ) : (
                   filteredLinks.map((link) => {
-                    const sets = getEligibleAssuranceSetsForAsset(
-                      link.assetType,
-                      link.assetId,
-                      assuranceSets,
-                      {
-                        requestingOrganization: project.requestingOrganization,
-                        providerOrganization: link.providerOrganization,
-                      },
-                    );
                     const activeSet = assuranceSets.find(
                       (s) => s.id === link.assuranceSetId,
                     );
@@ -523,28 +495,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                         </td>
                         <td className="small">{link.providerOrganization}</td>
                         <td>
-                          {canManage ? (
-                            <select
-                              className="form-select form-select-sm"
-                              value={link.assuranceSetId}
-                              onChange={(e) =>
-                                linkAssuranceSetToProjectAsset(
-                                  project.id,
-                                  link.id,
-                                  e.target.value,
-                                )
-                              }
-                            >
-                              {sets.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                  {s.id} — {s.title}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="font-mono-code small">
-                              {link.assuranceSetId}
-                            </span>
+                          <div className="font-mono-code small text-primary">
+                            {link.assuranceSetId}
+                          </div>
+                          {activeSet && (
+                            <div className="text-muted small">{activeSet.title}</div>
                           )}
                         </td>
                         <td className="small">
@@ -589,76 +544,78 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       )}
 
-      {activeTab === "master" && masterSet && (
-        <div className="card map-card-custom p-3">
-          <div className="d-flex align-items-center justify-between mb-3">
-            <div>
-              <h5 className="fw-bold m-0">
-                {masterSet.id} — Project Master Assurance Set
-              </h5>
-              <div className="text-muted small">{masterSet.title}</div>
-              <div className="text-muted small mt-1">
-                Master rollup links to child assurance sub-sets (documents live
-                in each sub-set).
-              </div>
-            </div>
-            <ReadinessGauge score={masterSet.readinessScore} size="sm" />
-          </div>
-          <div className="row g-3">
-            {masterSubSets.map(({ link, sourceSet }) => (
-              <div key={link.id} className="col-md-6">
-                <div className="border rounded p-3 bg-light h-100">
-                  <div className="d-flex align-items-start justify-between gap-2 mb-2">
-                    <div>
-                      <div className="fw-bold text-dark">{link.assetName}</div>
-                      <div className="small text-muted">
-                        {link.assetType} · {link.providerOrganization}
-                      </div>
-                      <div className="font-mono-code small text-primary mt-1">
-                        {link.assuranceSetId}
-                      </div>
-                    </div>
-                    {sourceSet && (
-                      <ReadinessGauge
-                        score={sourceSet.readinessScore}
-                        size="sm"
-                      />
-                    )}
-                  </div>
-                  {sourceSet ? (
-                    <>
-                      <div className="small mb-2">{sourceSet.title}</div>
-                      <span className="badge bg-secondary me-1">
-                        {sourceSet.stage}
-                      </span>
-                      <span className="badge bg-light text-dark border">
-                        {sourceSet.assuranceType || "Asset"}
-                      </span>
-                      <div className="mt-3">
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${isCAdmin ? "btn-primary" : "btn-outline-primary"}`}
-                          onClick={() =>
-                            setCurrentHashView("assurance-sets", sourceSet.id)
-                          }
-                        >
-                          {isCAdmin
-                            ? "Review Sub-Set Campaign"
-                            : "Open Sub-Set"}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-muted small">
-                      Sub-set not found — refresh project assurance.
-                    </div>
+      {activeTab === "assurance" && (
+        <div className="card map-card-custom">
+          <div className="table-responsive">
+            <table className="table map-table-custom mb-0">
+              <thead>
+                <tr>
+                  <th>Set ID</th>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Stage</th>
+                  <th>Readiness</th>
+                  <th className="text-end">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  masterSet,
+                  ...project.assetLinks
+                    .map((l) =>
+                      assuranceSets.find((s) => s.id === l.assuranceSetId),
+                    )
+                    .filter(Boolean),
+                ]
+                  .filter(
+                    (s, i, arr) =>
+                      s && arr.findIndex((x) => x?.id === s.id) === i,
+                  )
+                  .map(
+                    (s) =>
+                      s && (
+                        <tr key={s.id}>
+                          <td className="font-mono-code text-primary">
+                            {s.id}
+                          </td>
+                          <td>{s.title}</td>
+                          <td>
+                            {s.isProjectMaster
+                              ? "Project Master"
+                              : s.assuranceType || "Asset"}
+                          </td>
+                          <td>
+                            <span className="badge bg-secondary">
+                              {s.stage}
+                            </span>
+                          </td>
+                          <td>
+                            <ReadinessGauge
+                              score={s.readinessScore}
+                              size="sm"
+                            />
+                          </td>
+                          <td className="text-end">
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${isCAdmin && !s.isProjectMaster ? "btn-primary" : "btn-outline-primary"}`}
+                              onClick={() =>
+                                setCurrentHashView("assurance-sets", s.id)
+                              }
+                            >
+                              {isCAdmin && !s.isProjectMaster
+                                ? "Review"
+                                : "Open"}
+                            </button>
+                          </td>
+                        </tr>
+                      ),
                   )}
-                </div>
-              </div>
-            ))}
+              </tbody>
+            </table>
           </div>
           {canManage && standaloneSetsForAttach.length > 0 && (
-            <div className="mt-3 p-3 border rounded bg-white">
+            <div className="p-3 border-top">
               <div className="fw-semibold small mb-2">
                 Attach existing assurance set
               </div>
@@ -726,77 +683,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {activeTab === "assurance" && (
-        <div className="card map-card-custom">
-          <div className="table-responsive">
-            <table className="table map-table-custom mb-0">
-              <thead>
-                <tr>
-                  <th>Set ID</th>
-                  <th>Title</th>
-                  <th>Type</th>
-                  <th>Stage</th>
-                  <th>Readiness</th>
-                  <th className="text-end">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  masterSet,
-                  ...project.assetLinks
-                    .map((l) =>
-                      assuranceSets.find((s) => s.id === l.assuranceSetId),
-                    )
-                    .filter(Boolean),
-                ]
-                  .filter(
-                    (s, i, arr) =>
-                      s && arr.findIndex((x) => x?.id === s.id) === i,
-                  )
-                  .map(
-                    (s) =>
-                      s && (
-                        <tr key={s.id}>
-                          <td className="font-mono-code text-primary">
-                            {s.id}
-                          </td>
-                          <td>{s.title}</td>
-                          <td>
-                            {s.isProjectMaster
-                              ? "Project Master"
-                              : s.assuranceType || "Asset"}
-                          </td>
-                          <td>
-                            <span className="badge bg-secondary">
-                              {s.stage}
-                            </span>
-                          </td>
-                          <td>
-                            <ReadinessGauge
-                              score={s.readinessScore}
-                              size="sm"
-                            />
-                          </td>
-                          <td className="text-end">
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary"
-                              onClick={() =>
-                                setCurrentHashView("assurance-sets", s.id)
-                              }
-                            >
-                              Open
-                            </button>
-                          </td>
-                        </tr>
-                      ),
-                  )}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
     </div>
