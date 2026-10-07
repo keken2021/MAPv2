@@ -368,6 +368,9 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
       },
     ],
     createdByPersona: 'C Admin',
+    vesselId: '',
+    vesselName: '',
+    imoNumber: ''
   },
   {
     id: 'AS-02-P010-MASTER',
