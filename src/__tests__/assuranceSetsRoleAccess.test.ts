@@ -33,9 +33,9 @@ describe('assurance sets page access for workflow roles', () => {
     });
   });
 
-  it('does not open projects to verifier, inspector or approver', () => {
+  it('opens read-only projects to verifier, inspector and approver', () => {
     (['Verifier', 'Inspector', 'Approver'] as UserRolePersona[]).forEach((role) => {
-      expect(isViewAccessibleToPersona('project', undefined, role, matrix)).toBe(false);
+      expect(isViewAccessibleToPersona('project', undefined, role, matrix)).toBe(true);
     });
   });
 

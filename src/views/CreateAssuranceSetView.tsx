@@ -87,6 +87,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     projects,
     returnToProjectId,
     setReturnToProjectId,
+    lockedProjectId: storeLockedProjectId,
+    setLockedProjectId,
     users,
   } = useMapStore();
 
@@ -100,11 +102,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   );
 
   /* project the wizard was opened from; captured once so the store value can be cleared */
-  const [lockedProjectId] = useState<string | undefined>(() =>
-    returnToProjectId && projects.some((p) => p.id === returnToProjectId)
-      ? returnToProjectId
-      : undefined,
-  );
+  const [lockedProjectId] = useState<string | undefined>(() => {
+    const candidate = storeLockedProjectId || returnToProjectId;
+    return candidate && projects.some((p) => p.id === candidate)
+      ? candidate
+      : undefined;
+  });
   const isProjectLocked = Boolean(lockedProjectId);
 
   /* scope and asset handed over by a charter action; captured once so the store value can be cleared */
@@ -130,7 +133,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (returnToProjectId) {
       setReturnToProjectId(undefined);
     }
-  }, [returnToProjectId, setReturnToProjectId]);
+    if (storeLockedProjectId) {
+      setLockedProjectId(undefined);
+    }
+  }, [
+    returnToProjectId,
+    setReturnToProjectId,
+    storeLockedProjectId,
+    setLockedProjectId,
+  ]);
 
   const isClientAdmin = activePersona === 'C Admin';
   /* user recorded as the creator of sets made in this session */
@@ -1778,7 +1789,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     {/* Charter Window Dates */}
                     <div className="col-12 col-md-3">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-start">
-                        Charter Start Date <span className="text-danger">*</span>
+                        Contract Start Date <span className="text-danger">*</span>
                       </label>
                       <input
                         id="grid-charter-start"
@@ -1805,7 +1816,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
                     <div className="col-12 col-md-3">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-end">
-                        Charter End Date <span className="text-danger">*</span>
+                        Contract End Date <span className="text-danger">*</span>
                       </label>
                       <input
                         id="grid-charter-end"

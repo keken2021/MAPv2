@@ -32,12 +32,8 @@ import { VesselInformation } from '../../types/vessel';
 import { CrewMember } from '../../types/crew';
 import { EquipmentAsset } from '../../types/equipment';
 import {
-  getProjectOrganizationForPersona,
-  isVesselOwnedByOrganization,
-  isCrewOwnedByOrganization,
-  isEquipmentOwnedByOrganization,
-  getEligibleAssuranceSetsForAsset,
-  requiresAssuranceSetForAssetLink,
+  getLinkableProjectAssets,
+  PROJECT_ASSET_LINK_HINT,
 } from '../../utils/projectHelpers';
 import { normalizeText, matchesVesselRequirement } from '../../utils/documentMatchingHelpers';
 
@@ -71,6 +67,7 @@ export interface CandidateAsset {
   subtypeOrRole: string;
   operationalStatus: string;
   complianceScore: number;
+  eligibleAssuranceSets: AssuranceSet[];
   vesselRef?: VesselInformation;
   crewRef?: CrewMember;
   equipmentRef?: EquipmentAsset;
@@ -93,25 +90,17 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
     crew,
     equipment,
     documents,
-    activePersona,
-    users,
     addAssetToProject,
-    syncProjectMasterAssurance,
   } = useMapStore();
 
   const [categoryFilter, setCategoryFilter] = useState<'All' | 'Vessel' | 'Equipment' | 'Crew'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAsset, setSelectedAsset] = useState<CandidateAsset | null>(null);
   const [activeTab, setActiveTab] = useState<'comparison' | 'vault'>('comparison');
-  const [selectedAssuranceSetId, setSelectedAssuranceSetId] = useState('AUTO_GEN');
+  const [selectedAssuranceSetId, setSelectedAssuranceSetId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successToast, setSuccessToast] = useState(false);
-
-  // 1. Current user's organization
-  const currentUserOrg = useMemo(() => {
-    return getProjectOrganizationForPersona(activePersona, users);
-  }, [activePersona, users]);
 
   // Reset state on modal open/close
   useEffect(() => {
@@ -120,79 +109,80 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
       setSearchQuery('');
       setCategoryFilter('All');
       setActiveTab('comparison');
-      setSelectedAssuranceSetId('AUTO_GEN');
+      setSelectedAssuranceSetId('');
       setErrorMessage('');
       setSuccessToast(false);
       setIsSubmitting(false);
     }
   }, [isOpen]);
 
-  // 2. Filter ONLY assets NOT owned by current user's organization and not already linked
+  // 2. Shared linkable list — chartered/rented external assets with eligible assurance sets
   const candidateAssets = useMemo<CandidateAsset[]>(() => {
     if (!project) return [];
 
-    const linkedAssetKeys = new Set(
-      project.assetLinks.map((l) => `${l.assetType}:${l.assetId}`),
-    );
-
-    const list: CandidateAsset[] = [];
-
-    // Vessels: NOT owned by currentUserOrg
-    vessels.forEach((v) => {
-      if (isVesselOwnedByOrganization(v, currentUserOrg)) return;
-      if (linkedAssetKeys.has(`Vessel:${v.id}`)) return;
-
-      list.push({
-        assetType: 'Vessel',
-        assetId: v.id,
-        assetName: v.name,
-        providerOrganization: v.registeredOwner || v.technicalManager || 'External Vessel Provider',
-        location: v.portOfRegistry || 'Dampier, WA',
-        subtypeOrRole: `${v.vesselType} · ${v.vesselSubtype || 'General'}`,
-        operationalStatus: v.status,
-        complianceScore: v.complianceReadinessScore,
-        vesselRef: v,
-      });
+    const linkable = getLinkableProjectAssets({
+      vessels,
+      crew,
+      equipment,
+      assuranceSets,
+      requestingOrganization: project.requestingOrganization,
+      excludeAssetKeys: project.assetLinks.map((l) => `${l.assetType}:${l.assetId}`),
     });
 
-    // Equipment: NOT owned by currentUserOrg
-    equipment.forEach((e) => {
-      if (isEquipmentOwnedByOrganization(e, currentUserOrg)) return;
-      if (linkedAssetKeys.has(`Equipment:${e.id}`)) return;
+    return linkable.map((asset) => {
+      if (asset.assetType === 'Vessel') {
+        const vesselRef = vessels.find((v) => v.id === asset.assetId);
+        return {
+          ...asset,
+          location: vesselRef?.portOfRegistry || 'Dampier, WA',
+          subtypeOrRole: `${vesselRef?.vesselType || 'Vessel'} · ${vesselRef?.vesselSubtype || 'General'}`,
+          operationalStatus: vesselRef?.status || 'Available',
+          complianceScore: vesselRef?.complianceReadinessScore ?? 0,
+          vesselRef,
+        };
+      }
 
-      list.push({
-        assetType: 'Equipment',
-        assetId: e.id,
-        assetName: e.name,
-        providerOrganization: e.owningOrganization || 'External Equipment Specialist',
-        location: 'Henderson Marine Base, WA',
-        subtypeOrRole: `${e.category} · ${e.model || 'Standard'}`,
-        operationalStatus: e.availabilityStatus,
-        complianceScore: e.complianceStatus === 'Compliant' ? 95 : e.complianceStatus === 'Partially Compliant' ? 65 : 40,
-        equipmentRef: e,
-      });
-    });
+      if (asset.assetType === 'Equipment') {
+        const equipmentRef = equipment.find((e) => e.id === asset.assetId);
+        return {
+          ...asset,
+          location: 'Henderson Marine Base, WA',
+          subtypeOrRole: `${equipmentRef?.category || 'Equipment'} · ${equipmentRef?.model || 'Standard'}`,
+          operationalStatus: equipmentRef?.availabilityStatus || 'Available',
+          complianceScore:
+            equipmentRef?.complianceStatus === 'Compliant'
+              ? 95
+              : equipmentRef?.complianceStatus === 'Partially Compliant'
+                ? 65
+                : 40,
+          equipmentRef,
+        };
+      }
 
-    // Crew: NOT owned by currentUserOrg
-    crew.forEach((c) => {
-      if (isCrewOwnedByOrganization(c, currentUserOrg)) return;
-      if (linkedAssetKeys.has(`Crew:${c.id}`)) return;
-
-      list.push({
-        assetType: 'Crew',
-        assetId: c.id,
-        assetName: c.fullName,
-        providerOrganization: c.organization || 'External Marine Staffing',
+      const crewRef = crew.find((c) => c.id === asset.assetId);
+      return {
+        ...asset,
         location: 'Perth, WA (Available Worldwide)',
-        subtypeOrRole: `${c.rank} · ${c.nationality || 'STCW Certified'}`,
-        operationalStatus: c.complianceStatus,
-        complianceScore: c.complianceStatus === 'Fully Compliant' ? 98 : c.complianceStatus === 'Expiring < 60 Days' ? 75 : 45,
-        crewRef: c,
-      });
+        subtypeOrRole: `${crewRef?.rank || 'Crew'} · ${crewRef?.nationality || 'STCW Certified'}`,
+        operationalStatus: crewRef?.complianceStatus || 'Available',
+        complianceScore:
+          crewRef?.complianceStatus === 'Fully Compliant'
+            ? 98
+            : crewRef?.complianceStatus === 'Expiring < 60 Days'
+              ? 75
+              : 45,
+        crewRef,
+      };
     });
+  }, [project, vessels, equipment, crew, assuranceSets]);
 
-    return list;
-  }, [project, vessels, equipment, crew, currentUserOrg]);
+  useEffect(() => {
+    if (!selectedAsset) {
+      setSelectedAssuranceSetId('');
+      return;
+    }
+    setSelectedAssuranceSetId(selectedAsset.eligibleAssuranceSets[0]?.id || '');
+  }, [selectedAsset]);
 
   // Filtered by Category and Search
   const filteredAssets = useMemo(() => {
@@ -451,88 +441,19 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
     return false;
   };
 
-  // 4. Multiple Assurance Sets Applicable to this Asset Type in this Project
-  const applicableProjectAssuranceSets = useMemo<AssuranceSet[]>(() => {
-    if (!project || !selectedAsset) return [];
+  const assetEligibleAssuranceSets = useMemo(
+    () => selectedAsset?.eligibleAssuranceSets ?? [],
+    [selectedAsset],
+  );
 
-    const candidatesMap = new Map<string, AssuranceSet>();
-    const assetType = selectedAsset.assetType;
-
-    const matchesCurrentAssetType = (s: AssuranceSet) => {
-      if (!s) return false;
-      if (s.assuranceType === assetType) return true;
-      if (s.subtypes && Array.isArray(s.subtypes) && s.subtypes.includes(assetType as any)) return true;
-      return false;
-    };
-
-    // A. Master aggregated child sets
-    const masterSet = assuranceSets.find((s) => s.id === project.masterAssuranceSetId);
-    if (masterSet) {
-      if (masterSet.aggregatedFromSetIds) {
-        masterSet.aggregatedFromSetIds.forEach((childId) => {
-          const child = assuranceSets.find((s) => s.id === childId);
-          if (child && matchesCurrentAssetType(child)) {
-            candidatesMap.set(child.id, child);
-          }
-        });
-      }
-      if (matchesCurrentAssetType(masterSet)) {
-        candidatesMap.set(masterSet.id, masterSet);
-      }
-    }
-
-    // B. Direct project sets matching assetType
-    assuranceSets.forEach((s) => {
-      if (
-        (s.projectId === project.id || project.assetLinks.some((l) => l.assuranceSetId === s.id)) &&
-        matchesCurrentAssetType(s)
-      ) {
-        candidatesMap.set(s.id, s);
-      }
-    });
-
-    // C. Eligible sets for this asset & provider organization
-    const eligible = getEligibleAssuranceSetsForAsset(
-      selectedAsset.assetType,
-      selectedAsset.assetId,
-      assuranceSets,
-      {
-        requestingOrganization: project.requestingOrganization,
-        providerOrganization: selectedAsset.providerOrganization,
-      },
-    );
-    eligible.forEach((es) => {
-      if (matchesCurrentAssetType(es)) {
-        candidatesMap.set(es.id, es);
-      }
-    });
-
-    // D. Organization sets matching assetType
-    assuranceSets.forEach((s) => {
-      if (
-        !s.isProjectMaster &&
-        matchesCurrentAssetType(s) &&
-        (!s.projectId ||
-          s.projectId === project.id ||
-          s.charterer === project.requestingOrganization ||
-          s.initiatorOrg === project.requestingOrganization)
-      ) {
-        candidatesMap.set(s.id, s);
-      }
-    });
-
-    return Array.from(candidatesMap.values());
-  }, [project, selectedAsset, assuranceSets]);
-
-  // Selected Active Assurance Set for comparison matrix
   const activeAssuranceSet = useMemo(() => {
-    if (selectedAssuranceSetId === 'AUTO_GEN' || !selectedAssuranceSetId) return null;
+    if (!selectedAssuranceSetId) return null;
     return (
-      applicableProjectAssuranceSets.find((s) => s.id === selectedAssuranceSetId) ||
+      assetEligibleAssuranceSets.find((s) => s.id === selectedAssuranceSetId) ||
       assuranceSets.find((s) => s.id === selectedAssuranceSetId) ||
       null
     );
-  }, [selectedAssuranceSetId, applicableProjectAssuranceSets, assuranceSets]);
+  }, [selectedAssuranceSetId, assetEligibleAssuranceSets, assuranceSets]);
 
   // 5. Comparison Matrix Calculation (Project Assurance Requirements vs Pre-Assurance Vault)
   const comparisonResults = useMemo<RequirementMatchComparison[]>(() => {
@@ -541,93 +462,9 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
     let requirementsToCompare: any[] = [];
 
     if (activeAssuranceSet) {
-      let reqs = activeAssuranceSet.requirements || [];
-      if (activeAssuranceSet.isProjectMaster && activeAssuranceSet.aggregatedFromSetIds) {
-        const childReqs = assuranceSets
-          .filter((cs) => activeAssuranceSet.aggregatedFromSetIds?.includes(cs.id))
-          .flatMap((cs) => cs.requirements || []);
-        if (childReqs.length > 0) reqs = childReqs;
-      }
+      const reqs = activeAssuranceSet.requirements || [];
       const directReqs = reqs.filter((r) => r.fulfillmentType !== 'assurance_set');
       requirementsToCompare = directReqs.length > 0 ? directReqs : reqs;
-    } else {
-      // AUTO_GEN: Check if project has an existing assurance set matching asset type
-      const existingMatchingSet = applicableProjectAssuranceSets.find(
-        (s) =>
-          s.id !== project.masterAssuranceSetId &&
-          (s.assuranceType === selectedAsset.assetType || s.subtypes?.includes(selectedAsset.assetType as any)) &&
-          s.requirements &&
-          s.requirements.length > 0,
-      );
-
-      if (existingMatchingSet && existingMatchingSet.requirements) {
-        const nonLinks = existingMatchingSet.requirements.filter((r: any) => r.fulfillmentType !== 'assurance_set');
-        if (nonLinks.length > 0) {
-          requirementsToCompare = nonLinks;
-        }
-      }
-
-      // If still empty, use standard campaign scope
-      if (requirementsToCompare.length === 0) {
-        if (selectedAsset.assetType === 'Vessel') {
-          requirementsToCompare = [
-            {
-              id: 'REQ-CLASS-001',
-              category: 'Class Notation Certificate',
-              title: 'Certificate of Class & Hull Survey',
-              isMandatory: true,
-            },
-            {
-              id: 'REQ-SOLAS-002',
-              category: 'Statutory Certificate',
-              title: 'SOLAS Safety Construction & Equipment',
-              isMandatory: true,
-            },
-            {
-              id: 'REQ-REG-003',
-              category: 'Flag Administration Registry',
-              title: 'Flag State Registry & Load Line Certificate',
-              isMandatory: true,
-            },
-            {
-              id: 'REQ-DP-004',
-              category: 'Equipment Register',
-              title: 'Dynamic Positioning / Operations Clearance',
-              isMandatory: false,
-            },
-          ];
-        } else if (selectedAsset.assetType === 'Crew') {
-          requirementsToCompare = [
-            {
-              id: 'REQ-STCW-001',
-              category: 'Crew Credential',
-              title: 'CrewCert1 — STCW Master CoC Endorsement',
-              isMandatory: true,
-            },
-            {
-              id: 'REQ-MED-002',
-              category: 'Medical Fitness Certificate',
-              title: 'ENG1 Medical Fitness Certification',
-              isMandatory: true,
-            },
-          ];
-        } else if (selectedAsset.assetType === 'Equipment') {
-          requirementsToCompare = [
-            {
-              id: 'REQ-EQP-001',
-              category: 'Statutory Certificate',
-              title: 'Class Survey & Proof Load Test',
-              isMandatory: true,
-            },
-            {
-              id: 'REQ-EQP-002',
-              category: 'Equipment Register',
-              title: 'Manufacturer Factory Acceptance Certificate (FAC)',
-              isMandatory: true,
-            },
-          ];
-        }
-      }
     }
 
     return requirementsToCompare.map((req) => {
@@ -658,7 +495,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
         matchScore,
       };
     });
-  }, [selectedAsset, activeAssuranceSet, applicableProjectAssuranceSets, project, assuranceSets, vaultDocuments]);
+  }, [selectedAsset, activeAssuranceSet, vaultDocuments]);
 
   // Match Summary Metrics
   const matchSummary = useMemo(() => {
@@ -678,34 +515,34 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
   const handleConfirmAddAsset = () => {
     if (!selectedAsset) return;
 
+    if (!selectedAssuranceSetId) {
+      setErrorMessage('Select an assurance set for this asset.');
+      return;
+    }
+
+    const assuranceSetExists = selectedAsset.eligibleAssuranceSets.some(
+      (s) => s.id === selectedAssuranceSetId,
+    );
+    if (!assuranceSetExists) {
+      setErrorMessage('Selected assurance set is not eligible for this asset.');
+      return;
+    }
+
     setErrorMessage('');
     setIsSubmitting(true);
-
-    const needsAssurance = requiresAssuranceSetForAssetLink(
-      project.requestingOrganization,
-      selectedAsset.providerOrganization,
-    );
-
-    let finalAssuranceSetId = selectedAssuranceSetId;
-
-    if (finalAssuranceSetId === 'AUTO_GEN' || !finalAssuranceSetId) {
-      const generatedSetId = `AS-PRJ-${Date.now().toString().slice(-4)}`;
-      finalAssuranceSetId = generatedSetId;
-    }
 
     const payload: Omit<ProjectAssetLink, 'id' | 'projectId' | 'addedAt' | 'addedByPersona'> = {
       assetType: selectedAsset.assetType,
       assetId: selectedAsset.assetId,
       assetName: selectedAsset.assetName,
       providerOrganization: selectedAsset.providerOrganization,
-      assuranceSetId: finalAssuranceSetId,
+      assuranceSetId: selectedAssuranceSetId,
       roleInProject: selectedAsset.subtypeOrRole,
     };
 
     const result = addAssetToProject(project.id, payload);
 
     if (result.success) {
-      syncProjectMasterAssurance(project.id);
       setSuccessToast(true);
       setTimeout(() => {
         setIsSubmitting(false);
@@ -867,10 +704,11 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                   {filteredAssets.length === 0 ? (
                     <div className="card p-5 text-center bg-white border" style={{ borderColor: '#E2E8F0' }}>
                       <Layers size={36} className="text-muted mx-auto mb-2 opacity-50" />
-                      <h6 className="fw-semibold text-dark mb-1">No External Assets Available</h6>
-                      <p className="text-muted small mb-0">
-                        All available assets are either already linked to this project or owned by your organization ({currentUserOrg}).
+                      <h6 className="fw-semibold text-dark mb-1">No Linkable Assets Available</h6>
+                      <p className="text-muted small mb-1">
+                        Only chartered or rented external assets with eligible assurance sets appear here.
                       </p>
+                      <p className="text-muted small mb-0 fst-italic">{PROJECT_ASSET_LINK_HINT}</p>
                     </div>
                   ) : (
                     filteredAssets.map((asset) => (
@@ -1034,9 +872,9 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                       Select Target Project <span className="text-danger">*</span>
                     </label>
                     <span className="text-secondary small" style={{ fontSize: '0.8rem' }}>
-                      {applicableProjectAssuranceSets.length > 0
-                        ? `${applicableProjectAssuranceSets.length} Applicable Sets Available`
-                        : 'Project Campaign Mode'}
+                      {assetEligibleAssuranceSets.length > 0
+                        ? `${assetEligibleAssuranceSets.length} Eligible Set${assetEligibleAssuranceSets.length !== 1 ? 's' : ''}`
+                        : 'No eligible assurance sets'}
                     </span>
                   </div>
 
@@ -1085,6 +923,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                           className="form-select"
                           value={selectedAssuranceSetId}
                           onChange={(e) => setSelectedAssuranceSetId(e.target.value)}
+                          disabled={assetEligibleAssuranceSets.length === 0}
                           style={{
                             fontSize: '0.85rem',
                             minHeight: '42px',
@@ -1096,14 +935,15 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                             overflow: 'hidden',
                           }}
                         >
-                          <option value="AUTO_GEN">
-                            Auto-Attach Campaign Set (Recommended)
-                          </option>
-                          {applicableProjectAssuranceSets.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.id} — {s.title} ({s.stage || 'Validation'})
-                            </option>
-                          ))}
+                          {assetEligibleAssuranceSets.length === 0 ? (
+                            <option value="">No eligible assurance sets</option>
+                          ) : (
+                            assetEligibleAssuranceSets.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.id} — {s.title} ({s.stage || 'Validation'})
+                              </option>
+                            ))
+                          )}
                         </select>
                         <div
                           className="position-absolute pe-none"
@@ -1319,7 +1159,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                                         fontWeight: 600,
                                       }}
                                     >
-                                      Auto-Attached
+                                      Matched
                                     </span>
                                   )}
                                   {comp.matchStatus === 'matched_expiring' && (
@@ -1452,7 +1292,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                     borderColor: '#0B1B2B',
                   }}
                   onClick={handleConfirmAddAsset}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !selectedAssuranceSetId}
                 >
                   <Plus size={16} />
                   <span>{isSubmitting ? 'Linking to Charter...' : 'Add Asset to Project'}</span>

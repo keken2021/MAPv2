@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { UserRolePersona } from '../../types/audit';
 import { getBackButtonInfo } from '../../utils/rbacHelpers';
+import { NotificationPanel } from './NotificationPanel';
 
 /**
   what: renders top header bar with breadcrumb page title, scenario toggle, and viewing as persona pills matching the mockup design.
@@ -211,8 +212,9 @@ export const HeaderBanner: React.FC = () => {
         )}
       </div>
 
-      {/* right side: viewing as persona pills */}
+      {/* right side: notifications + viewing as persona pills */}
       <div className="d-flex align-items-center gap-4">
+        <NotificationPanel />
         {/* viewing as persona selector pills */}
         <div className="d-flex align-items-center gap-2">
           <span className="text-uppercase fw-bold me-1" style={{ fontSize: '0.625rem', color: 'var(--map-text-muted)', letterSpacing: '0.08em' }}>

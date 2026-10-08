@@ -26,9 +26,9 @@ export const ProjectView: React.FC = () => {
   );
 
   const projectTypes = useMemo(() => {
-    const set = new Set(projects.map((p) => p.projectType).filter(Boolean));
+    const set = new Set(visibleProjects.map((p) => p.projectType).filter(Boolean));
     return Array.from(set).sort();
-  }, [projects]);
+  }, [visibleProjects]);
 
   const filtered = useMemo(() => {
     return visibleProjects.filter((p) => {
@@ -40,8 +40,7 @@ export const ProjectView: React.FC = () => {
         p.projectType.toLowerCase().includes(q) ||
         p.requestingOrganization.toLowerCase().includes(q) ||
         (p.charterer && p.charterer.toLowerCase().includes(q)) ||
-        (p.serviceProvider && p.serviceProvider.toLowerCase().includes(q)) ||
-        p.masterAssuranceSetId.toLowerCase().includes(q);
+        (p.serviceProvider && p.serviceProvider.toLowerCase().includes(q));
       const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
       const matchesType = typeFilter === 'ALL' || p.projectType === typeFilter;
       return matchesSearch && matchesStatus && matchesType;
@@ -121,7 +120,6 @@ export const ProjectView: React.FC = () => {
                 </tr>
               ) : (
                 filtered.map((p) => {
-                  const master = assuranceSets.find((s) => s.id === p.masterAssuranceSetId);
                   return (
                     <tr
                       key={p.id}
@@ -132,7 +130,7 @@ export const ProjectView: React.FC = () => {
                       <td>
                         <div className="fw-semibold text-dark">{p.name}</div>
                         <div className="small text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
-                          {countProjectAssets(p.assetLinks)} linked · {p.masterAssuranceSetId}
+                          {countProjectAssets(p.assetLinks)} linked
                         </div>
                       </td>
                       <td className="small">
@@ -145,7 +143,7 @@ export const ProjectView: React.FC = () => {
                         {p.charterWindowStart} → {p.charterWindowEnd}
                       </td>
                       <td>
-                        <ReadinessGauge score={p.readinessScore ?? master?.readinessScore ?? 0} size="sm" />
+                        <ReadinessGauge score={p.readinessScore ?? 0} size="sm" />
                       </td>
                       <td>
                         <span className="badge bg-secondary">{p.status}</span>

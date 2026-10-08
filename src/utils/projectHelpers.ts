@@ -198,6 +198,19 @@ export type DraftProjectAssetLink = {
   notes?: string;
 };
 
+/** Shown when no assets qualify for project linking (no charter assurance set yet). */
+export const PROJECT_ASSET_LINK_HINT =
+  'Charter it from the Marketplace first, or use Add Assurance Set.';
+
+/** External asset eligible for project linking — chartered/rented with at least one eligible assurance set. */
+export type LinkableProjectAsset = {
+  assetType: ProjectAssetLink['assetType'];
+  assetId: string;
+  assetName: string;
+  providerOrganization: string;
+  eligibleAssuranceSets: AssuranceSet[];
+};
+
 /** Resolve the primary asset represented by a standalone assurance set. */
 export function buildDraftAssetLinkFromAssuranceSet(
   set: AssuranceSet,
@@ -288,6 +301,96 @@ export function buildDraftAssetLinksFromAssuranceSets(
   });
 
   return { links, unresolvedSetIds };
+}
+
+/** Assurance sets linked to an asset from the Charter / rental flow (excludes project master rollups). */
+export function getCharterAssuranceSetsForAsset(
+  assetType: ProjectAssetLink['assetType'],
+  assetId: string,
+  assuranceSets: AssuranceSet[],
+): AssuranceSet[] {
+  return assuranceSets.filter((set) => {
+    if (set.isProjectMaster) return false;
+    if (assetType === 'Vessel') return set.vesselId === assetId;
+    if (assetType === 'Crew') return set.crewId === assetId;
+    if (assetType === 'Equipment') return set.equipmentId === assetId;
+    return false;
+  });
+}
+
+export function isAssetCharteredOrRented(
+  assetType: ProjectAssetLink['assetType'],
+  assetId: string,
+  assuranceSets: AssuranceSet[],
+): boolean {
+  return getCharterAssuranceSetsForAsset(assetType, assetId, assuranceSets).length > 0;
+}
+
+/**
+ * Shared picker list for Create Project step 3 and ProjectAddAssetModal.
+ * An asset appears only when it is chartered/rented (charter-flow assurance set exists)
+ * and has at least one eligible assurance set for the requesting organization.
+ */
+export function getLinkableProjectAssets(input: {
+  vessels: VesselInformation[];
+  crew: CrewMember[];
+  equipment: EquipmentAsset[];
+  assuranceSets: AssuranceSet[];
+  requestingOrganization: string;
+  excludeAssetKeys?: Iterable<string>;
+}): LinkableProjectAsset[] {
+  const exclude = new Set(input.excludeAssetKeys ?? []);
+  const list: LinkableProjectAsset[] = [];
+
+  const pushIfLinkable = (
+    assetType: ProjectAssetLink['assetType'],
+    assetId: string,
+    assetName: string,
+    providerOrganization: string,
+  ) => {
+    const key = `${assetType}:${assetId}`;
+    if (exclude.has(key)) return;
+    if (!isAssetCharteredOrRented(assetType, assetId, input.assuranceSets)) return;
+
+    const eligibleAssuranceSets = getEligibleAssuranceSetsForAsset(
+      assetType,
+      assetId,
+      input.assuranceSets,
+      { requestingOrganization: input.requestingOrganization, providerOrganization },
+    );
+    if (eligibleAssuranceSets.length === 0) return;
+
+    list.push({
+      assetType,
+      assetId,
+      assetName,
+      providerOrganization,
+      eligibleAssuranceSets,
+    });
+  };
+
+  filterExternalVesselsForProjectComposition(
+    input.vessels,
+    input.requestingOrganization,
+  ).forEach((v) => {
+    pushIfLinkable('Vessel', v.id, v.name, v.registeredOwner);
+  });
+
+  filterExternalCrewForProjectComposition(
+    input.crew,
+    input.requestingOrganization,
+  ).forEach((c) => {
+    pushIfLinkable('Crew', c.id, c.fullName, c.organization || '');
+  });
+
+  filterExternalEquipmentForProjectComposition(
+    input.equipment,
+    input.requestingOrganization,
+  ).forEach((e) => {
+    pushIfLinkable('Equipment', e.id, e.name, e.owningOrganization);
+  });
+
+  return list;
 }
 
 export function getEligibleAssuranceSetsForAsset(
@@ -425,22 +528,63 @@ export function getStandaloneAssuranceSetsForAttach(
   });
 }
 
+/** Assurance sets belonging to a project (by projectId or asset link), excluding master rollups. */
+export function getProjectAssuranceSets(
+  project: Project,
+  assuranceSets: AssuranceSet[],
+): AssuranceSet[] {
+  const linkedIds = new Set(
+    project.assetLinks.map((l) => l.assuranceSetId).filter(Boolean),
+  );
+  const seen = new Set<string>();
+  const result: AssuranceSet[] = [];
+
+  assuranceSets.forEach((set) => {
+    if (set.isProjectMaster) return;
+    const belongs =
+      set.projectId === project.id || linkedIds.has(set.id);
+    if (!belongs || seen.has(set.id)) return;
+    seen.add(set.id);
+    result.push(set);
+  });
+
+  return result;
+}
+
 export function calculateProjectReadiness(
   project: Project,
   assuranceSets: AssuranceSet[],
 ): number {
-  const childSetIds = project.assetLinks.map((l) => l.assuranceSetId).filter(Boolean);
-  if (childSetIds.length === 0) {
-    const master = assuranceSets.find((s) => s.id === project.masterAssuranceSetId);
-    return master ? calculateAssuranceSetReadiness(master) : 0;
+  const sets = getProjectAssuranceSets(project, assuranceSets);
+  if (sets.length === 0) return 0;
+
+  const scores = sets.map((s) => calculateAssuranceSetReadiness(s));
+  return Math.min(...scores);
+}
+
+export function deriveProjectStatus(
+  project: Project,
+  assuranceSets: AssuranceSet[],
+): Project['status'] {
+  const sets = getProjectAssuranceSets(project, assuranceSets);
+  if (sets.length === 0 && project.assetLinks.length === 0) {
+    return 'Composing';
   }
 
-  const scores = childSetIds
-    .map((id) => assuranceSets.find((s) => s.id === id))
-    .filter((s): s is AssuranceSet => Boolean(s))
-    .map((s) => calculateAssuranceSetReadiness(s));
+  const allApproved =
+    sets.length > 0 &&
+    sets.every(
+      (s) =>
+        s.stage === 'Approved' ||
+        s.stage === 'Certified' ||
+        s.approverDecision === 'Approved',
+    );
 
-  return scores.length > 0 ? Math.min(...scores) : 0;
+  if (allApproved) return 'Ready for Charter';
+  if (sets.length > 0 || project.assetLinks.length > 0) {
+    return 'Assurance In Progress';
+  }
+  return 'Composing';
 }
 
 function projectOrgMatchesClient(
@@ -465,22 +609,47 @@ export function filterProjectsForPersona(
   assuranceSets: AssuranceSet[] = [],
 ): Project[] {
   if (persona === 'Administrator') return projects;
+
   if (persona === 'C Admin') {
     const clientOrg = getClientAdminOrganization(users);
     return projects.filter((p) => {
       if (projectOrgMatchesClient(p, clientOrg)) return true;
       if (assuranceSets.length === 0) return false;
-
-      const master = assuranceSets.find((s) => s.id === p.masterAssuranceSetId);
-      if (master && isAssuranceSetAssignedToPersona(master, persona)) return true;
-
-      return p.assetLinks.some((link) => {
-        const child = assuranceSets.find((s) => s.id === link.assuranceSetId);
-        return child && isAssuranceSetAssignedToPersona(child, persona);
-      });
+      return getProjectAssuranceSets(p, assuranceSets).some((set) =>
+        isAssuranceSetAssignedToPersona(set, persona),
+      );
     });
   }
+
+  const operationalPersonas: UserRolePersona[] = [
+    'Submitter',
+    'Verifier',
+    'Inspector',
+    'Approver',
+  ];
+  if (operationalPersonas.includes(persona)) {
+    return projects.filter((p) =>
+      getProjectAssuranceSets(p, assuranceSets).some((set) =>
+        isAssuranceSetAssignedToPersona(set, persona),
+      ),
+    );
+  }
+
   return [];
+}
+
+/** Users in the sender's org who may create assurance sets (Vessel Admin / Submitter / C Admin). */
+export function getAssuranceSetCreatorsInOrganization(
+  users: UserProfile[],
+  organization: string,
+): UserProfile[] {
+  const creatorRoles = new Set(['Administrator', 'Submitter', 'C Admin']);
+  return users.filter(
+    (u) =>
+      u.status === 'Active' &&
+      u.roles.some((role) => creatorRoles.has(role as UserRolePersona)) &&
+      orgFieldMatches(organization, u.organization),
+  );
 }
 
 /** Resolve primary sub-asset ids from explicit project fields or first matching asset link. */
@@ -608,111 +777,60 @@ export function recalculateSetReadiness(
 }
 
 /**
- * Trigger 2: Auto-Sync Project Master Rollup
- * Replicates database trigger trg_fn_sync_project_master_rollup
+ * Recompute project readiness (min of project sets) and status from linked assurance sets.
  */
+export function syncProjectFromAssuranceSets(
+  projectId: string,
+  projects: Project[],
+  assuranceSets: AssuranceSet[],
+): Project[] {
+  const targetProject = projects.find((p) => p.id === projectId);
+  if (!targetProject) return projects;
+
+  const readinessScore = calculateProjectReadiness(targetProject, assuranceSets);
+  const status = deriveProjectStatus(targetProject, assuranceSets);
+
+  return projects.map((p) =>
+    p.id === projectId ? { ...p, readinessScore, status } : p,
+  );
+}
+
+/** @deprecated Use syncProjectFromAssuranceSets — master rollup sets removed. */
 export function syncProjectMasterRollup(
   projectId: string,
   projects: Project[],
   assuranceSets: AssuranceSet[],
 ): { updatedProjects: Project[]; updatedAssuranceSets: AssuranceSet[] } {
-  const targetProject = projects.find((p) => p.id === projectId);
-  if (!targetProject) return { updatedProjects: projects, updatedAssuranceSets: assuranceSets };
-
-  // 1. Gather all child sets linked via assetLinks
-  const childSetIds = targetProject.assetLinks.map((l) => l.assuranceSetId).filter(Boolean);
-  const childSets = assuranceSets.filter((s) => childSetIds.includes(s.id));
-
-  // 2. Compute project readiness and approval states
-  const childScores = childSets.map((s) => s.readinessScore ?? calculateAssuranceSetReadiness(s));
-  const minReadiness = childScores.length > 0 ? Math.min(...childScores) : 0;
-  const allChildSetsApproved =
-    childSets.length > 0 &&
-    childSets.every(
-      (s) => s.stage === 'Approved' || s.stage === 'Certified' || s.approverDecision === 'Approved',
-    );
-
-  const clientOwner =
-    targetProject.ownerOrganization || getProjectEffectiveCharterer(targetProject);
-  const primaryProvider = targetProject.assetLinks[0]?.providerOrganization;
-
-  // 3. Update Master Assurance Set requirements (pointer requirements linking child sets)
-  const masterRequirements = buildMasterAssuranceRequirements(
-    childSets,
-    targetProject.name,
-    targetProject.assetLinks,
-  );
-
-  const updatedAssuranceSets = assuranceSets.map((s) => {
-    if (s.id !== targetProject.masterAssuranceSetId) return s;
-
-    const updatedSet: AssuranceSet = {
-      ...s,
-      projectId: targetProject.id,
-      projectName: targetProject.name,
-      aggregatedFromSetIds: childSetIds,
-      requirements: masterRequirements,
-      charterWindowStart: targetProject.charterWindowStart,
-      charterWindowEnd: targetProject.charterWindowEnd,
-      charterer: getProjectEffectiveCharterer(targetProject),
-      initiatorOrg: clientOwner,
-      clientOrg: clientOwner,
-      serviceProviderOrg: primaryProvider || s.serviceProviderOrg,
-      stage: allChildSetsApproved
-        ? ('Approved' as const)
-        : minReadiness > 0
-          ? ('Verification' as const)
-          : s.stage,
-      approverDecision: allChildSetsApproved ? ('Approved' as const) : s.approverDecision,
-    };
-
-    return recalculateSetReadiness(updatedSet, (id) => assuranceSets.find((item) => item.id === id));
-  });
-
-  // 4. Update Project Header
-  const updatedProjects = projects.map((p) => {
-    if (p.id !== projectId) return p;
-    return {
-      ...p,
-      readinessScore: minReadiness,
-      status: allChildSetsApproved
-        ? ('Ready for Charter' as const)
-        : p.assetLinks.length > 0
-          ? ('Assurance In Progress' as const)
-          : ('Composing' as const),
-    };
-  });
-
-  return { updatedProjects, updatedAssuranceSets };
+  return {
+    updatedProjects: syncProjectFromAssuranceSets(projectId, projects, assuranceSets),
+    updatedAssuranceSets: assuranceSets,
+  };
 }
 
-/**
- * Trigger Helper: Sync Master Rollups across all projects affected by changed assurance sets
- */
+/** Sync project headers for all projects affected by changed assurance sets. */
 export function syncAllAffectedProjectRollups(
   projects: Project[],
   assuranceSets: AssuranceSet[],
   affectedSetIds?: string[],
 ): { updatedProjects: Project[]; updatedAssuranceSets: AssuranceSet[] } {
   let curProjects = projects;
-  let curSets = assuranceSets;
 
   const targetProjects =
     affectedSetIds && affectedSetIds.length > 0
-      ? projects.filter(
-          (p) =>
+      ? projects.filter((p) => {
+          const projectSets = getProjectAssuranceSets(p, assuranceSets);
+          return (
             p.assetLinks.some((l) => affectedSetIds.includes(l.assuranceSetId)) ||
-            affectedSetIds.includes(p.masterAssuranceSetId),
-        )
+            projectSets.some((s) => affectedSetIds.includes(s.id))
+          );
+        })
       : projects;
 
   for (const proj of targetProjects) {
-    const res = syncProjectMasterRollup(proj.id, curProjects, curSets);
-    curProjects = res.updatedProjects;
-    curSets = res.updatedAssuranceSets;
+    curProjects = syncProjectFromAssuranceSets(proj.id, curProjects, assuranceSets);
   }
 
-  return { updatedProjects: curProjects, updatedAssuranceSets: curSets };
+  return { updatedProjects: curProjects, updatedAssuranceSets: assuranceSets };
 }
 
 /* label shown wherever a set has no project */

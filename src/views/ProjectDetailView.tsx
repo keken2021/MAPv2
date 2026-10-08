@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Eye, Trash2, Plus } from "lucide-react";
+import { Eye, Trash2, Plus, FolderPlus, Send } from "lucide-react";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { useMapStore } from "../store/useMapStore";
-import { ProjectAssetLink, ProjectAssetType } from "../types/project";
+import { ProjectAssetType } from "../types/project";
 import { AssuranceSet } from "../types/assurance";
 import {
   filterProjectsForPersona,
+  getProjectAssuranceSets,
   getStandaloneAssuranceSetsForAttach,
 } from "../utils/projectHelpers";
+import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
 import { ProjectAddAssetModal } from "../components/drawers/ProjectAddAssetModal";
 import { AttachAssuranceSetPreviewModal } from "../components/drawers/AttachAssuranceSetPreviewModal";
+import { RequestAssuranceSetModal } from "../components/drawers/RequestAssuranceSetModal";
 
 interface ProjectDetailViewProps {
   projectId: string;
@@ -21,19 +24,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const {
     projects,
     assuranceSets,
-    vessels,
-    crew,
-    equipment,
     activePersona,
     users,
     setCurrentHashView,
-    previousHashView,
-    previousEntityId,
+    setReturnToProjectId,
+    setLockedProjectId,
     removeAssetFromProject,
     addAssetToProject,
     updateAssuranceSet,
-    syncProjectMasterAssurance,
-    setReturnToProjectId,
   } = useMapStore();
 
   const [activeTab, setActiveTab] = useState<"roster" | "assurance">("roster");
@@ -41,6 +39,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     "All",
   );
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [attachSetId, setAttachSetId] = useState("");
   const [previewAssuranceSet, setPreviewAssuranceSet] =
     useState<AssuranceSet | null>(null);
@@ -53,8 +52,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   );
 
   const project = visibleProjects.find((p) => p.id === projectId);
-  const masterSet = assuranceSets.find(
-    (s) => s.id === project?.masterAssuranceSetId,
+
+  const projectAssuranceSets = useMemo(
+    () => (project ? getProjectAssuranceSets(project, assuranceSets) : []),
+    [project, assuranceSets],
   );
 
   const filteredLinks = useMemo(() => {
@@ -65,7 +66,16 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
   const canManage =
     activePersona === "Administrator" || activePersona === "C Admin";
+  const isReadOnly = !canManage;
   const isCAdmin = activePersona === "C Admin";
+
+  const standaloneSetsForAttach = useMemo(
+    () =>
+      project
+        ? getStandaloneAssuranceSetsForAttach(assuranceSets, project, projects)
+        : [],
+    [assuranceSets, project, projects],
+  );
 
   useEffect(() => {
     setActiveTab("roster");
@@ -86,25 +96,30 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     );
   }
 
-  const handleRefreshMaster = () => {
-    syncProjectMasterAssurance(project.id);
-    setToast("Project master assurance set refreshed.");
-    setTimeout(() => setToast(null), 3000);
+  const openCreateAssuranceSet = () => {
+    setReturnToProjectId(project.id);
+    setLockedProjectId(project.id);
+    setCurrentHashView("create-assurance-set");
   };
 
-  const standaloneSetsForAttach = useMemo(
-    () => getStandaloneAssuranceSetsForAttach(assuranceSets, project, projects),
-    [assuranceSets, project, projects],
-  );
+  const canOpenSet = (set: AssuranceSet) =>
+    canManage || isAssuranceSetAssignedToPersona(set, activePersona);
 
   return (
     <div className="d-flex flex-column gap-3">
       {toast && <div className="alert alert-success py-2 mb-0">{toast}</div>}
 
-      {isCAdmin && project && (
+      {isReadOnly && (
         <div className="alert alert-info py-2 mb-0 small">
-          Client-owned project — open a linked sub-set from the Assurance Sets
-          tab to review documents (read-only).
+          Read-only project view — you can open assurance sets assigned to you
+          for work.
+        </div>
+      )}
+
+      {isCAdmin && (
+        <div className="alert alert-info py-2 mb-0 small">
+          Client-owned project — open linked assurance sets to review documents
+          (read-only).
         </div>
       )}
 
@@ -134,7 +149,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </div>
             <h2 className="h4 fw-bold text-dark mb-1">{project.name}</h2>
             <div className="text-muted small">
-              Client:{" "}
+              Client owner:{" "}
               {project.ownerOrganization ||
                 project.charterer ||
                 project.requestingOrganization}
@@ -173,11 +188,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </div>
           </div>
           <div className="text-end">
-            <div className="small text-secondary mb-1">
-              Master AS: {project.masterAssuranceSetId}
-            </div>
             <ReadinessGauge
-              score={project.readinessScore ?? masterSet?.readinessScore ?? 0}
+              score={project.readinessScore ?? 0}
               size="md"
             />
             {canManage && (
@@ -192,33 +204,19 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => {
-                    /* opens the wizard with this project preselected and locked */
-                    setReturnToProjectId(project.id);
-                    setCurrentHashView("create-assurance-set");
-                  }}
+                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                  onClick={openCreateAssuranceSet}
                 >
-                  Create Assurance Set
+                  <FolderPlus size={15} />
+                  <span>Add Assurance Set</span>
                 </button>
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={handleRefreshMaster}
+                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5"
+                  onClick={() => setIsRequestModalOpen(true)}
                 >
-                  Refresh Project Assurance
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={() =>
-                    setCurrentHashView(
-                      "assurance-sets",
-                      project.masterAssuranceSetId,
-                    )
-                  }
-                >
-                  Open Master Set
+                  <Send size={15} />
+                  <span>Request Assurance Set</span>
                 </button>
               </div>
             )}
@@ -270,8 +268,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 {filteredLinks.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-4 text-muted">
-                      No assets linked yet. Use Add Asset to compose this
-                      charter.
+                      No assets linked yet.
+                      {canManage && " Use Add Asset to compose this charter."}
                     </td>
                   </tr>
                 ) : (
@@ -366,59 +364,50 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {[
-                  masterSet,
-                  ...project.assetLinks
-                    .map((l) =>
-                      assuranceSets.find((s) => s.id === l.assuranceSetId),
-                    )
-                    .filter(Boolean),
-                ]
-                  .filter(
-                    (s, i, arr) =>
-                      s && arr.findIndex((x) => x?.id === s.id) === i,
-                  )
-                  .map(
-                    (s) =>
-                      s && (
-                        <tr key={s.id}>
-                          <td className="font-mono-code text-primary">
-                            {s.id}
-                          </td>
-                          <td>{s.title}</td>
-                          <td>
-                            {s.isProjectMaster
-                              ? "Project Master"
-                              : s.assuranceType || "Asset"}
-                          </td>
-                          <td>
-                            <span className="badge bg-secondary">
-                              {s.stage}
-                            </span>
-                          </td>
-                          <td>
-                            <ReadinessGauge
-                              score={s.readinessScore}
-                              size="sm"
-                            />
-                          </td>
-                          <td className="text-end">
+                {projectAssuranceSets.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-4 text-muted">
+                      No assurance sets linked to this project yet.
+                    </td>
+                  </tr>
+                ) : (
+                  projectAssuranceSets.map((s) => {
+                    const openable = canOpenSet(s);
+                    return (
+                      <tr key={s.id}>
+                        <td className="font-mono-code text-primary">{s.id}</td>
+                        <td>{s.title}</td>
+                        <td>{s.assuranceType || "Asset"}</td>
+                        <td>
+                          <span className="badge bg-secondary">{s.stage}</span>
+                        </td>
+                        <td>
+                          <ReadinessGauge score={s.readinessScore} size="sm" />
+                        </td>
+                        <td className="text-end">
+                          {openable ? (
                             <button
                               type="button"
-                              className={`btn btn-sm ${isCAdmin && !s.isProjectMaster ? "btn-primary text-white" : "btn-outline-primary"} d-inline-flex align-items-center justify-content-center p-0`}
+                              className={`btn btn-sm ${isCAdmin ? "btn-primary text-white" : "btn-outline-primary"} d-inline-flex align-items-center justify-content-center p-0`}
                               style={{ width: "32px", height: "32px" }}
                               onClick={() =>
                                 setCurrentHashView("assurance-sets", s.id)
                               }
-                              title={isCAdmin && !s.isProjectMaster ? "Review Assurance Set" : "Open Assurance Set"}
-                              aria-label={isCAdmin && !s.isProjectMaster ? "Review Assurance Set" : "Open Assurance Set"}
+                              title="Open Assurance Set"
+                              aria-label="Open Assurance Set"
                             >
                               <Eye size={16} />
                             </button>
-                          </td>
-                        </tr>
-                      ),
-                  )}
+                          ) : (
+                            <span className="badge bg-light text-muted border">
+                              Read-only
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -480,6 +469,16 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         project={project}
       />
 
+      <RequestAssuranceSetModal
+        isOpen={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+        project={project}
+        onSuccess={(message) => {
+          setToast(message);
+          setTimeout(() => setToast(null), 3500);
+        }}
+      />
+
       <AttachAssuranceSetPreviewModal
         isOpen={Boolean(previewAssuranceSet)}
         onClose={() => setPreviewAssuranceSet(null)}
@@ -494,6 +493,15 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               : selected.assuranceType === "Equipment"
                 ? "Equipment"
                 : "Vessel";
+
+          updateAssuranceSet({
+            ...selected,
+            charterWindowStart: charterStart,
+            charterWindowEnd: charterEnd,
+            projectId: project.id,
+            projectName: project.name,
+            charterer: project.clientOperator || project.requestingOrganization,
+          });
 
           const result = addAssetToProject(project.id, {
             assetType,
@@ -514,22 +522,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             notes: notes || undefined,
           });
           if (result.success) {
-            /* apply the configured charter period only once the set has joined the project */
-            const attached = useMapStore.getState().assuranceSets.find((s) => s.id === selected.id);
-            if (attached) {
-              updateAssuranceSet({
-                ...attached,
-                charterWindowStart: charterStart,
-                charterWindowEnd: charterEnd,
-                /* client and charterer are the same organization on a set */
-                charterer: project.clientOperator || project.requestingOrganization,
-                clientOrg: project.clientOperator || project.requestingOrganization,
-              });
-            }
-            setToast(`Attached ${selected.id} with configured charter period (${charterStart} to ${charterEnd}).`);
+            setToast(
+              `Attached ${selected.id} with configured charter period (${charterStart} to ${charterEnd}).`,
+            );
             setAttachSetId("");
             setPreviewAssuranceSet(null);
-            handleRefreshMaster();
           } else {
             setToast(result.message || "Could not attach set.");
           }

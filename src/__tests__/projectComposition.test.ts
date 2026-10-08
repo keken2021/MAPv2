@@ -8,6 +8,8 @@ import {
   filterEquipmentForProjectComposition,
   filterVesselsForProjectComposition,
   getEligibleAssuranceSetsForAsset,
+  getLinkableProjectAssets,
+  isAssetCharteredOrRented,
   isCrewOwnedByOrganization,
   isVesselOwnedByOrganization,
   requiresAssuranceSetForAssetLink,
@@ -121,5 +123,39 @@ describe('project composition org scoping', () => {
     });
 
     expect(eligible.map((s) => s.id)).toEqual(['AS-OWN']);
+  });
+
+  it('lists linkable assets only when chartered and eligible assurance sets exist', () => {
+    const assuranceSets = [
+      {
+        id: 'AS-EXT-CHARTER',
+        vesselId: 'V-EXT',
+        initiatorOrg: 'AquaClean Marine Services Pty Ltd',
+        visibility: 'public',
+        requirements: [],
+      },
+      {
+        id: 'AS-EXT-DRAFT',
+        vesselId: 'V-UNCHARTERED',
+        initiatorOrg: 'AquaClean Marine Services Pty Ltd',
+        visibility: 'draft',
+        requirements: [],
+      },
+    ] as unknown as AssuranceSet[];
+
+    expect(isAssetCharteredOrRented('Vessel', 'V-EXT', assuranceSets)).toBe(true);
+    expect(isAssetCharteredOrRented('Vessel', 'V-UNCHARTERED', assuranceSets)).toBe(true);
+
+    const linkable = getLinkableProjectAssets({
+      vessels: [externalVessel, { ...externalVessel, id: 'V-UNCHARTERED', name: 'Unchartered External' }],
+      crew: [],
+      equipment: [],
+      assuranceSets,
+      requestingOrganization: 'Northwind Marine Pty Ltd',
+    });
+
+    expect(linkable).toHaveLength(1);
+    expect(linkable[0].assetId).toBe('V-EXT');
+    expect(linkable[0].eligibleAssuranceSets.map((s) => s.id)).toEqual(['AS-EXT-CHARTER']);
   });
 });

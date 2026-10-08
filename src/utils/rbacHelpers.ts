@@ -745,14 +745,6 @@ export function isViewAccessibleToPersona(
     return false;
   }
 
-  /* projects shares the assurance_sets scope; keep it closed to roles that only gained the assurance sets page */
-  if (
-    view === "project" &&
-    (persona === "Verifier" || persona === "Inspector" || persona === "Approver")
-  ) {
-    return false;
-  }
-
   /* baseline initial persona route checks (matrix overrides when supplied) */
   const getInitialAllowed = (): boolean => {
     if (view === "users") {
@@ -795,7 +787,6 @@ export function isViewAccessibleToPersona(
         [
           "inspector",
           "inspection",
-          "create-assurance-set",
           "approver",
           "users",
           "crew",

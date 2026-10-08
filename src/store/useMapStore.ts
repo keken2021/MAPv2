@@ -66,23 +66,22 @@ import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import {
   Project,
   ProjectAssetLink,
+  ProjectAssetType,
   ProjectRiskProfile,
   ProjectType,
   WorkLocationType,
 } from "../types/project";
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from "./projectMockData";
+import { AssuranceSetRequestNotification } from "../types/notification";
 import {
-  buildMasterAssuranceRequirements,
-  calculateProjectReadiness,
-  generateMasterAssuranceSetId,
+  buildDraftAssetLinkFromAssuranceSet,
   generateUniqueProjectId,
   getProjectEffectiveCharterer,
+  getProjectForAssuranceSet,
   recalculateSetReadiness,
   requiresAssuranceSetForAssetLink,
   syncAllAffectedProjectRollups,
-  syncProjectMasterRollup,
-  getProjectForAssuranceSet,
-  buildDraftAssetLinkFromAssuranceSet,
+  syncProjectFromAssuranceSets,
 } from "../utils/projectHelpers";
 import { MOCK_VESSEL_STATUS_HISTORY } from "./vesselStatusHistoryMockData";
 import {
@@ -119,7 +118,10 @@ export interface MapStoreState {
   setCreateAssuranceForVesselId: (vesselId?: string) => void;
 
   /** When set by a charter action, Create Assurance Set opens with this scope and asset preselected and locked */
-  createAssuranceForAsset?: { scope: "Vessel" | "Crew" | "Equipment"; assetId: string };
+  createAssuranceForAsset?: {
+    scope: "Vessel" | "Crew" | "Equipment";
+    assetId: string;
+  };
   setCreateAssuranceForAsset: (
     target?: { scope: "Vessel" | "Crew" | "Equipment"; assetId: string },
   ) => void;
@@ -127,6 +129,28 @@ export interface MapStoreState {
   /** When set, returning navigation targets this project after add-to-project flows */
   returnToProjectId?: string;
   setReturnToProjectId: (projectId?: string) => void;
+
+  /** When set, Create Assurance Set wizard locks project selection to this project */
+  lockedProjectId?: string;
+  setLockedProjectId: (projectId?: string) => void;
+
+  /** Notification id to mark actioned when the next assurance set is created for its project */
+  pendingAssuranceRequestNotificationId?: string;
+  setPendingAssuranceRequestNotificationId: (id?: string) => void;
+
+  notifications: AssuranceSetRequestNotification[];
+  requestAssuranceSet: (input: {
+    projectId: string;
+    recipientUserId: string;
+    suggestedScope?: ProjectAssetType;
+    message?: string;
+    senderUserId: string;
+    senderName: string;
+  }) => { success: boolean; message?: string };
+  markNotificationActioned: (
+    notificationId: string,
+    assuranceSetId: string,
+  ) => void;
 
   // Project Charter State
   projects: Project[];
@@ -171,7 +195,7 @@ export interface MapStoreState {
     linkId: string,
     assuranceSetId: string,
   ) => void;
-  syncProjectMasterAssurance: (projectId: string) => void;
+  syncProjectFromSets: (projectId: string) => void;
 
   // Vessel Fleet State
   vessels: VesselInformation[];
@@ -445,19 +469,76 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     set({ createAssuranceForVesselId: vesselId }),
 
   createAssuranceForAsset: undefined,
-  setCreateAssuranceForAsset: (target) => set({ createAssuranceForAsset: target }),
+  setCreateAssuranceForAsset: (target) =>
+    set({ createAssuranceForAsset: target }),
 
   returnToProjectId: undefined,
   setReturnToProjectId: (projectId) => set({ returnToProjectId: projectId }),
+
+  lockedProjectId: undefined,
+  setLockedProjectId: (projectId) => set({ lockedProjectId: projectId }),
+
+  pendingAssuranceRequestNotificationId: undefined,
+  setPendingAssuranceRequestNotificationId: (id) =>
+    set({ pendingAssuranceRequestNotificationId: id }),
+
+  notifications: [],
+
+  requestAssuranceSet: (input) => {
+    const project = get().projects.find((p) => p.id === input.projectId);
+    if (!project) {
+      return { success: false, message: "Project not found." };
+    }
+
+    const notification: AssuranceSetRequestNotification = {
+      id: `NTF-${Date.now()}`,
+      type: "assurance_set_request",
+      recipientUserId: input.recipientUserId,
+      senderUserId: input.senderUserId,
+      senderName: input.senderName,
+      projectId: input.projectId,
+      projectName: project.name,
+      suggestedScope: input.suggestedScope,
+      message: input.message?.trim() || undefined,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+
+    set((state) => ({
+      notifications: [notification, ...state.notifications],
+    }));
+
+    get().logAuditEvent({
+      userId: input.senderUserId,
+      userRole: get().activePersona,
+      organization: project.requestingOrganization,
+      action: "Requested Assurance Set",
+      targetAsset: `${input.projectId} → ${input.recipientUserId}`,
+      justificationNotes: input.message || "Assurance set request sent.",
+    });
+
+    return { success: true };
+  },
+
+  markNotificationActioned: (notificationId, assuranceSetId) => {
+    set((state) => ({
+      notifications: state.notifications.map((n) =>
+        n.id === notificationId
+          ? {
+              ...n,
+              status: "actioned" as const,
+              actionedAt: new Date().toISOString(),
+              createdAssuranceSetId: assuranceSetId,
+            }
+          : n,
+      ),
+    }));
+  },
 
   projects: MOCK_PROJECTS,
   addProject: (input) => {
     const existing = get().projects;
     const projectId = generateUniqueProjectId(existing);
-    const masterId = generateMasterAssuranceSetId(
-      projectId,
-      get().assuranceSets,
-    );
     const persona = get().activePersona;
     const effectiveCharterer =
       input.charterer?.trim() || input.requestingOrganization;
@@ -477,9 +558,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     }
 
-    /* a set belongs to at most one project */
     for (const link of input.assetLinks ?? []) {
-      const linkedSet = get().assuranceSets.find((s) => s.id === link.assuranceSetId);
+      const linkedSet = get().assuranceSets.find(
+        (s) => s.id === link.assuranceSetId,
+      );
       const owner = linkedSet && getProjectForAssuranceSet(linkedSet, existing);
       if (owner) {
         return {
@@ -499,53 +581,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       }),
     );
 
-    const childSets = assetLinks
-      .map((l) => get().assuranceSets.find((s) => s.id === l.assuranceSetId))
-      .filter((s): s is AssuranceSet => Boolean(s));
-
-    const masterRequirements = buildMasterAssuranceRequirements(
-      childSets,
-      input.name,
-      assetLinks,
-    );
     const clientOwnerOrg = effectiveCharterer;
-    const primaryProviderOrg =
-      assetLinks[0]?.providerOrganization ||
-      (persona === "C Admin" ? undefined : input.requestingOrganization);
-
-    const masterSet: AssuranceSet = {
-      id: masterId,
-      title: `${input.name} — Project Master Assurance`,
-      assuranceType: "Project",
-      subtypes: ["Vessel", "Crew", "Activity", "Equipment"],
-      projectId,
-      projectName: input.name,
-      vesselId: childSets[0]?.vesselId || get().vessels[0]?.id || "",
-      vesselName:
-        childSets[0]?.vesselName || get().vessels[0]?.name || "Project Asset",
-      imoNumber:
-        childSets[0]?.imoNumber || get().vessels[0]?.imoNumber || "0000000",
-      initiatorOrg: clientOwnerOrg,
-      initiatorRole:
-        persona === "C Admin"
-          ? "C Admin · Client Created"
-          : "Vessel Provider Admin",
-      charterer: effectiveCharterer,
-      clientOrg: clientOwnerOrg,
-      serviceProviderOrg: primaryProviderOrg,
-      charterWindowStart: input.charterWindowStart,
-      charterWindowEnd: input.charterWindowEnd,
-      stage: "Initiated",
-      readinessScore: 0,
-      mandatoryInspectionRequired: true,
-      inspectionCompleted: false,
-      isProjectMaster: true,
-      parentProjectId: projectId,
-      aggregatedFromSetIds: assetLinks.map((l) => l.assuranceSetId),
-      requirements: masterRequirements,
-      createdByPersona: persona,
-      clientWorkflowStage: persona === "C Admin" ? "draft" : undefined,
-    };
 
     const projectDraft: Project = {
       id: projectId,
@@ -561,9 +597,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       riskProfile: input.riskProfile ?? null,
       charterWindowStart: input.charterWindowStart,
       charterWindowEnd: input.charterWindowEnd,
-      status: assetLinks.length > 0 ? "Assurance In Progress" : "Composing",
+      status: "Composing",
       operatorOrganization: input.operatorOrganization,
-      masterAssuranceSetId: masterId,
       assetLinks,
       serviceProvider: input.serviceProvider,
       workOrderRef: input.workOrderRef,
@@ -572,21 +607,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     };
 
     const initialProjects = [...get().projects, projectDraft];
-    /* stamp the project on every child set so the set side of the relationship is explicit */
     const childSetIds = new Set(assetLinks.map((l) => l.assuranceSetId));
-    const initialSets = [
-      ...get().assuranceSets.map((s) =>
-        childSetIds.has(s.id) ? { ...s, projectId, projectName: input.name } : s,
-      ),
-      masterSet,
-    ];
-    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
-      syncProjectMasterRollup(projectId, initialProjects, initialSets);
+    const stampedSets = get().assuranceSets.map((s) =>
+      childSetIds.has(s.id)
+        ? { ...s, projectId, projectName: input.name }
+        : s,
+    );
+    const syncedProjects = syncProjectFromAssuranceSets(
+      projectId,
+      initialProjects,
+      stampedSets,
+    );
 
-    set({
-      projects: syncedProjects,
-      assuranceSets: syncedSets,
-    });
+    set({ projects: syncedProjects, assuranceSets: stampedSets });
 
     get().logAuditEvent({
       userId: "USR-CURRENT",
@@ -594,7 +627,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       organization: input.operatorOrganization,
       action: "Created Project Charter",
       targetAsset: `${projectId} (${input.name})`,
-      justificationNotes: `Master assurance set ${masterId} auto-created.`,
+      justificationNotes: "Project charter created.",
     });
 
     return { success: true, projectId };
@@ -623,9 +656,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     }
 
-    /* a set belongs to at most one project */
-    const linkedSet = get().assuranceSets.find((s) => s.id === linkInput.assuranceSetId);
-    const owner = linkedSet && getProjectForAssuranceSet(linkedSet, get().projects);
+    const linkedSet = get().assuranceSets.find(
+      (s) => s.id === linkInput.assuranceSetId,
+    );
+    const owner =
+      linkedSet && getProjectForAssuranceSet(linkedSet, get().projects);
     if (owner && owner.id !== projectId) {
       return {
         success: false,
@@ -656,13 +691,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         : s,
     );
 
-    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
-      syncProjectMasterRollup(projectId, updatedProjects, stampedSets);
+    const syncedProjects = syncProjectFromAssuranceSets(
+      projectId,
+      updatedProjects,
+      stampedSets,
+    );
 
-    set({
-      projects: syncedProjects,
-      assuranceSets: syncedSets,
-    });
+    set({ projects: syncedProjects, assuranceSets: stampedSets });
 
     get().logAuditEvent({
       userId: "USR-CURRENT",
@@ -680,7 +715,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const target = get().assuranceSets.find((s) => s.id === assuranceSetId);
     if (!target) return { success: false, message: "Assurance set not found." };
     if (target.isProjectMaster) {
-      return { success: false, message: "A project master set cannot be added to another project." };
+      return {
+        success: false,
+        message: "A project master set cannot be added to another project.",
+      };
     }
 
     const project = get().projects.find((p) => p.id === projectId);
@@ -697,7 +735,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       get().equipment,
     );
     if (!draftLink) {
-      return { success: false, message: "This assurance set has no asset to add to the project." };
+      return {
+        success: false,
+        message: "This assurance set has no asset to add to the project.",
+      };
     }
 
     return get().addAssetToProject(projectId, draftLink);
@@ -707,7 +748,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const project = get().projects.find((p) => p.id === projectId);
     if (!project) return;
 
-    const removedSetId = project.assetLinks.find((l) => l.id === linkId)?.assuranceSetId;
+    const removedSetId = project.assetLinks.find(
+      (l) => l.id === linkId,
+    )?.assuranceSetId;
 
     const updatedProject: Project = {
       ...project,
@@ -718,32 +761,33 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       p.id === projectId ? updatedProject : p,
     );
 
-    /* the removed set becomes orphaned again */
     const releasedSets = get().assuranceSets.map((s) =>
       s.id === removedSetId && s.projectId === projectId
         ? { ...s, projectId: undefined, projectName: undefined }
         : s,
     );
 
-    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
-      syncProjectMasterRollup(projectId, updatedProjects, releasedSets);
+    const syncedProjects = syncProjectFromAssuranceSets(
+      projectId,
+      updatedProjects,
+      releasedSets,
+    );
 
-    set({
-      projects: syncedProjects,
-      assuranceSets: syncedSets,
-    });
+    set({ projects: syncedProjects, assuranceSets: releasedSets });
   },
 
   linkAssuranceSetToProjectAsset: (projectId, linkId, assuranceSetId) => {
     const project = get().projects.find((p) => p.id === projectId);
     if (!project) return;
 
-    /* a set belongs to at most one project */
     const linkedSet = get().assuranceSets.find((s) => s.id === assuranceSetId);
-    const owner = linkedSet && getProjectForAssuranceSet(linkedSet, get().projects);
+    const owner =
+      linkedSet && getProjectForAssuranceSet(linkedSet, get().projects);
     if (owner && owner.id !== projectId) return;
 
-    const replacedSetId = project.assetLinks.find((l) => l.id === linkId)?.assuranceSetId;
+    const replacedSetId = project.assetLinks.find(
+      (l) => l.id === linkId,
+    )?.assuranceSetId;
 
     const updatedProject: Project = {
       ...project,
@@ -756,33 +800,32 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       p.id === projectId ? updatedProject : p,
     );
 
-    /* move the project stamp from the replaced set to the newly linked one */
     const restampedSets = get().assuranceSets.map((s) => {
-      if (s.id === assuranceSetId) return { ...s, projectId, projectName: project.name };
+      if (s.id === assuranceSetId) {
+        return { ...s, projectId, projectName: project.name };
+      }
       if (s.id === replacedSetId && s.projectId === projectId) {
         return { ...s, projectId: undefined, projectName: undefined };
       }
       return s;
     });
 
-    const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
-      syncProjectMasterRollup(projectId, updatedProjects, restampedSets);
+    const syncedProjects = syncProjectFromAssuranceSets(
+      projectId,
+      updatedProjects,
+      restampedSets,
+    );
 
-    set({
-      projects: syncedProjects,
-      assuranceSets: syncedSets,
-    });
+    set({ projects: syncedProjects, assuranceSets: restampedSets });
   },
 
-  syncProjectMasterAssurance: (projectId) => {
-    const { updatedProjects, updatedAssuranceSets } = syncProjectMasterRollup(
-      projectId,
-      get().projects,
-      get().assuranceSets,
-    );
+  syncProjectFromSets: (projectId) => {
     set({
-      projects: updatedProjects,
-      assuranceSets: updatedAssuranceSets,
+      projects: syncProjectFromAssuranceSets(
+        projectId,
+        get().projects,
+        get().assuranceSets,
+      ),
     });
   },
 
@@ -1065,6 +1108,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const allSets = [...get().assuranceSets, computedSet];
     const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
       syncAllAffectedProjectRollups(get().projects, allSets, [computedSet.id]);
+
+    const pendingNotificationId =
+      get().pendingAssuranceRequestNotificationId;
+    if (
+      pendingNotificationId &&
+      computedSet.projectId &&
+      get().notifications.some(
+        (n) =>
+          n.id === pendingNotificationId &&
+          n.projectId === computedSet.projectId &&
+          n.status === "pending",
+      )
+    ) {
+      get().markNotificationActioned(pendingNotificationId, computedSet.id);
+      set({ pendingAssuranceRequestNotificationId: undefined });
+    }
 
     set({
       assuranceSets: syncedSets,
