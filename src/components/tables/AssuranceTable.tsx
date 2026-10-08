@@ -15,14 +15,20 @@ import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 
-import { isAssuranceSetAssignedToPersona } from '../../utils/rbacHelpers';
+import {
+  getAssuranceSetCreatedByLabel,
+  isAssuranceSetAssignedToPersona,
+  isAssuranceSetOwnedOrInitiatedByOrganization,
+  isAssuranceSetsReadOnlyPersona,
+} from '../../utils/rbacHelpers';
+import { getProjectForAssuranceSet, ORPHANED_ASSURANCE_SET_LABEL as ORPHANED_LABEL } from '../../utils/projectHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 
 type AssuranceSortField =
   | 'id'
   | 'title'
-  | 'vesselName'
+  | 'project'
   | 'initiatorOrg'
   | 'stage'
   | 'readinessScore';
@@ -49,19 +55,24 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     userPermissionOverrides,
     customScopes,
     users,
+    projects,
   } = useMapStore();
   const [activeTab, setActiveTab] = useState<AssuranceViewTab>(defaultTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [scopeFilter, setScopeFilter] = useState<string>('ALL');
+  const [projectFilter, setProjectFilter] = useState<string>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<AssuranceSortField>('id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
 
   const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
+  /* workflow roles get the list read-only: no create, template, or draft editing */
+  const isReadOnly = isAssuranceSetsReadOnlyPersona(activePersona);
   const canInitiate =
-    activePersona === 'Administrator' ||
+    !isReadOnly &&
+    (activePersona === 'Administrator' ||
     canPerform(
       rolePermissionDefaults,
       userPermissionOverrides,
@@ -70,9 +81,13 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
       'assurance_sets',
       'create',
       customScopes,
-    );
+    ));
 
-  const accessibleSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, activePersona));
+  const accessibleSets = assuranceSets.filter(
+    (s) =>
+      isAssuranceSetAssignedToPersona(s, activePersona) &&
+      !(isReadOnly && s.visibility === 'draft'),
+  );
 
   const isPublicSet = (s: AssuranceSet) =>
     s.visibility === 'public' || s.templateSource === 'public' || s.stage === 'Approved' || s.stage === 'Certified';
@@ -80,8 +95,14 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const isDraftSet = (s: AssuranceSet) =>
     s.visibility === 'draft' || s.stage === 'Initiated';
 
+  /* organization tab: only sets owned or initiated by the current user organization */
+  const viewerOrg = matchingUser?.organization;
   const isOrgSet = (s: AssuranceSet) =>
-    s.visibility === 'organization' || (!isDraftSet(s) && !isPublicSet(s)) || (s.stage !== 'Initiated' && s.visibility !== 'public');
+    isAssuranceSetOwnedOrInitiatedByOrganization(s, viewerOrg) &&
+    (s.visibility === 'organization' || (!isDraftSet(s) && !isPublicSet(s)) || (s.stage !== 'Initiated' && s.visibility !== 'public'));
+
+  /* project id shown in the project column; empty for an orphaned set */
+  const getProjectId = (s: AssuranceSet) => getProjectForAssuranceSet(s, projects)?.id ?? '';
 
   const publicCount = accessibleSets.filter(isPublicSet).length;
   const orgCount = accessibleSets.filter(isOrgSet).length;
@@ -100,25 +121,44 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     const matchesSearch =
       s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.vesselName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (getProjectId(s) || ORPHANED_LABEL).toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.initiatorOrg && s.initiatorOrg.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStage = stageFilter === 'ALL' || s.stage === stageFilter;
     const matchesScope = scopeFilter === 'ALL' || s.assuranceType === scopeFilter || (s.subtypes && s.subtypes.includes(scopeFilter as any));
-    return matchesTab && matchesSearch && matchesStage && matchesScope;
+    const setProjectId = getProjectId(s);
+    const matchesProject =
+      projectFilter === 'ALL' ||
+      (projectFilter === 'ORPHANED' ? !setProjectId : setProjectId === projectFilter);
+    return matchesTab && matchesSearch && matchesStage && matchesScope && matchesProject;
   });
+
+  /* projects that at least one listed set belongs to, offered in the project filter */
+  const projectFilterOptions = projects.filter((p) =>
+    accessibleSets.some((s) => getProjectId(s) === p.id),
+  );
 
   const activeFilterCount =
     (stageFilter !== 'ALL' ? 1 : 0) +
-    (scopeFilter !== 'ALL' ? 1 : 0);
+    (scopeFilter !== 'ALL' ? 1 : 0) +
+    (projectFilter !== 'ALL' ? 1 : 0);
 
   const activeChips: FilterChip[] = [
     ...(stageFilter !== 'ALL' ? [{ id: 'stage', label: 'Stage', value: stageFilter, onRemove: () => setStageFilter('ALL') }] : []),
     ...(scopeFilter !== 'ALL' ? [{ id: 'scope', label: 'Scope', value: scopeFilter, onRemove: () => setScopeFilter('ALL') }] : []),
+    ...(projectFilter !== 'ALL'
+      ? [{
+          id: 'project',
+          label: 'Project',
+          value: projectFilter === 'ORPHANED' ? ORPHANED_LABEL : projectFilter,
+          onRemove: () => setProjectFilter('ALL'),
+        }]
+      : []),
   ];
 
   const handleResetFilters = () => {
     setStageFilter('ALL');
     setScopeFilter('ALL');
+    setProjectFilter('ALL');
   };
 
   const handleSort = (field: AssuranceSortField) => {
@@ -142,8 +182,14 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   };
 
   const sortedSets = [...filteredSets].sort((a, b) => {
-    let valA: any = a[sortField] ?? '';
-    let valB: any = b[sortField] ?? '';
+    let valA: any = sortField === 'project' ? getProjectId(a) || ORPHANED_LABEL : a[sortField] ?? '';
+    let valB: any = sortField === 'project' ? getProjectId(b) || ORPHANED_LABEL : b[sortField] ?? '';
+
+    /* sort the created-by column by what it displays */
+    if (sortField === 'initiatorOrg') {
+      valA = getAssuranceSetCreatedByLabel(a, users, activePersona);
+      valB = getAssuranceSetCreatedByLabel(b, users, activePersona);
+    }
 
     if (sortField === 'readinessScore') {
       valA = calculateAssuranceSetReadiness(a);
@@ -174,8 +220,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     const exportData = sortedSets.map((s) => ({
       SetID: s.id,
       CampaignTitle: s.title,
-      VesselName: s.vesselName,
-      ImoNumber: s.imoNumber,
+      Project: getProjectId(s) || ORPHANED_LABEL,
+      CreatedBy: getAssuranceSetCreatedByLabel(s, users, activePersona),
       InitiatorOrg: s.initiatorOrg,
       Stage: s.stage,
       ReadinessScore: `${calculateAssuranceSetReadiness(s)}%`,
@@ -187,11 +233,11 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   };
 
   const handleExportPdf = () => {
-    const headers = ['Set ID', 'Campaign Title', 'Vessel Name', 'Initiator Org', 'Stage', 'Readiness'];
+    const headers = ['Set ID', 'Campaign Title', 'Project', 'Initiator Org', 'Stage', 'Readiness'];
     const rows = sortedSets.map((s) => [
       s.id,
       s.title,
-      s.vesselName,
+      getProjectId(s) || ORPHANED_LABEL,
       s.initiatorOrg,
       s.stage,
       `${calculateAssuranceSetReadiness(s)}%`,
@@ -245,7 +291,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
             <input
               type="text"
               className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search Set ID, Title, Vessel..."
+              placeholder="Search Set ID, Title, Project..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ width: '260px' }}
@@ -312,11 +358,11 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
               <th onClick={() => handleSort('title')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Campaign / Set Title {renderSortIndicator('title')}
               </th>
-              <th onClick={() => handleSort('vesselName')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Vessel Name {renderSortIndicator('vesselName')}
+              <th onClick={() => handleSort('project')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                Project {renderSortIndicator('project')}
               </th>
               <th onClick={() => handleSort('initiatorOrg')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Initiating Organization {renderSortIndicator('initiatorOrg')}
+                Created By {renderSortIndicator('initiatorOrg')}
               </th>
               <th onClick={() => handleSort('stage')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Stage {renderSortIndicator('stage')}
@@ -329,7 +375,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
           </thead>
           <tbody>
             {sortedSets.map((s) => {
-              const isDraft = isDraftSet(s);
+              /* only roles that can edit a draft are routed to the wizard */
+              const isDraft = canInitiate && isDraftSet(s);
               return (
                 <tr
                   key={s.id}
@@ -353,11 +400,16 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                       )}
                     </div>
                   </td>
-                  <td>{s.vesselName}</td>
                   <td>
-                    <span className="badge bg-light text-dark border" style={{ fontSize: '0.75rem' }}>
-                      {s.initiatorOrg}
-                    </span>
+                    {getProjectId(s) ? (
+                      <span className="font-mono-code">{getProjectId(s)}</span>
+                    ) : (
+                      <span className="text-secondary">{ORPHANED_LABEL}</span>
+                    )}
+                  </td>
+                  <td>
+                    {/* creator name for sets made inside the viewer organization, otherwise the initiating organization */}
+                    <span title={s.initiatorOrg}>{getAssuranceSetCreatedByLabel(s, users, activePersona)}</span>
                   </td>
                   <td>
                     <span className={`badge ${getStageBadgeClass(s.stage)}`}>{s.stage}</span>
@@ -416,6 +468,17 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                 </tr>
               );
             })}
+            {sortedSets.length === 0 && (
+              <tr>
+                <td colSpan={7} className="text-center text-secondary py-4">
+                  {accessibleSets.length > 0
+                    ? 'No assurance sets match the current tab, search, or filters.'
+                    : isReadOnly
+                      ? 'No assurance sets are assigned to you yet.'
+                      : 'No assurance sets yet. Use Create Assurance Set to start the first one.'}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -426,7 +489,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
         title="Assurance Set Filters"
-        subtitle="Filter assurance campaigns by workflow stage and scope taxonomy"
+        subtitle="Filter assurance campaigns by workflow stage, scope and project"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
@@ -461,6 +524,24 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                 <option value="Crew">Crew</option>
                 <option value="Activity">Activity</option>
                 <option value="Equipment">Equipment</option>
+              </select>
+            </div>
+
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="assurance-filter-project">Project</label>
+              <select
+                id="assurance-filter-project"
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={projectFilter}
+                onChange={(e) => setProjectFilter(e.target.value)}
+              >
+                <option value="ALL">All Projects</option>
+                <option value="ORPHANED">{ORPHANED_LABEL}</option>
+                {projectFilterOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id} &mdash; {p.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

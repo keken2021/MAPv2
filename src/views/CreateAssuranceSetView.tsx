@@ -1,6 +1,6 @@
 /* 
   file summary: segmented assurance set creation wizard matching enterprise design standards (similar to VesselModal).
-  responsibilities: captures campaign scope (Project vs Subtypes: Vessel, Crew, Activity, Equipment), general information, subtype statutory & operational documents with descriptions, public/organization templates, specialized custom requirements, workflow policies, and role assignments.
+  responsibilities: captures campaign scope (Vessel, Crew, Activity, Equipment), optional project link, general information, subtype statutory & operational documents with descriptions, public/organization templates, specialized custom requirements, workflow policies, and role assignments.
   role in system: rendered by App.tsx when currentHashView is 'create-assurance-set'.
 */
 
@@ -9,7 +9,6 @@ import { useMapStore } from '../store/useMapStore';
 import {
   AssuranceSet,
   AssuranceRequirement,
-  AssuranceScopeType,
   AssuranceSubtype,
   ReviewMode,
   ReviewChannel,
@@ -22,7 +21,6 @@ import {
   filterCAdminAvailableToCharter,
   filterVesselAdminAvailableToCharter,
   getClientAdminOrganization,
-  isChartererMatchingVesselOwner,
 } from '../utils/rbacHelpers';
 import {
   usersWithRole,
@@ -51,8 +49,8 @@ import {
   findMatchingDocumentForRequirement,
   getAssetAutoAttachSummary,
 } from '../utils/documentMatchingHelpers';
-import { getAssuranceWizardProjectOptions } from '../utils/projectHelpers';
-import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Layers, Sparkles, CheckCircle2, Trash2 } from 'lucide-react';
+import { filterProjectsForPersona, projectToAssuranceProjectScope } from '../utils/projectHelpers';
+import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2 } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 
 interface SpecializedDoc {
@@ -83,18 +81,60 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     previousHashView,
     createAssuranceForVesselId,
     setCreateAssuranceForVesselId,
+    createAssuranceForAsset,
+    setCreateAssuranceForAsset,
+    attachAssuranceSetToProject,
     projects,
     returnToProjectId,
     setReturnToProjectId,
     users,
   } = useMapStore();
 
+  /* projects the active persona can see, offered as an optional link for any scope */
   const availableProjectOptions = useMemo(
-    () => getAssuranceWizardProjectOptions(projects, activePersona, users, assuranceSets),
+    () =>
+      filterProjectsForPersona(projects, activePersona, users, assuranceSets).map(
+        projectToAssuranceProjectScope,
+      ),
     [projects, activePersona, users, assuranceSets],
   );
 
+  /* project the wizard was opened from; captured once so the store value can be cleared */
+  const [lockedProjectId] = useState<string | undefined>(() =>
+    returnToProjectId && projects.some((p) => p.id === returnToProjectId)
+      ? returnToProjectId
+      : undefined,
+  );
+  const isProjectLocked = Boolean(lockedProjectId);
+
+  /* scope and asset handed over by a charter action; captured once so the store value can be cleared */
+  const [lockedAsset] = useState(() => {
+    if (!createAssuranceForAsset) return undefined;
+    const { scope, assetId } = createAssuranceForAsset;
+    const exists =
+      scope === 'Vessel'
+        ? vessels.some((v) => v.id === assetId)
+        : scope === 'Crew'
+          ? crew.some((c) => c.id === assetId)
+          : equipment.some((e) => e.id === assetId);
+    return exists ? createAssuranceForAsset : undefined;
+  });
+
+  useEffect(() => {
+    if (createAssuranceForAsset) {
+      setCreateAssuranceForAsset(undefined);
+    }
+  }, [createAssuranceForAsset, setCreateAssuranceForAsset]);
+
+  useEffect(() => {
+    if (returnToProjectId) {
+      setReturnToProjectId(undefined);
+    }
+  }, [returnToProjectId, setReturnToProjectId]);
+
   const isClientAdmin = activePersona === 'C Admin';
+  /* user recorded as the creator of sets made in this session */
+  const creatorName = users.find((u) => u.roles.includes(activePersona))?.name;
   const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
   const clientOrg = getClientAdminOrganization(users);
 
@@ -110,6 +150,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     : undefined;
   const initialVesselId = lockedVessel?.id || availableVessels[0]?.id || '';
   const initialVesselName = lockedVessel?.name || availableVessels[0]?.name || 'Vessel';
+  /* a vessel hand-off only locks when that vessel is one this persona may charter */
+  const isScopeLocked = Boolean(lockedAsset) && (lockedAsset?.scope !== 'Vessel' || Boolean(lockedVessel));
+  const initialSubjectName =
+    lockedAsset?.scope === 'Crew'
+      ? crew.find((c) => c.id === lockedAsset.assetId)?.fullName || initialVesselName
+      : lockedAsset?.scope === 'Equipment'
+        ? equipment.find((e) => e.id === lockedAsset.assetId)?.name || initialVesselName
+        : initialVesselName;
 
   /* Wizard Step State */
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -119,19 +167,20 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Step 1: Scope & General Information */
   const [title, setTitle] = useState(
-    () => `${defaultCharterer} - ${initialVesselName} Charter Vetting`
+    () => `${defaultCharterer} - ${initialSubjectName} Charter Vetting`
   );
-  const [assuranceType, setAssuranceType] = useState<AssuranceScopeType>('Project');
+  const [assuranceType, setAssuranceType] = useState<AssuranceSubtype>(lockedAsset?.scope || 'Vessel');
   const [includedPhysicalAssetTypes, setIncludedPhysicalAssetTypes] = useState<AssuranceSubtype[]>(['Vessel', 'Equipment']);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || '');
   const [vesselId, setVesselId] = useState(initialVesselId);
-  const [selectedCrewId, setSelectedCrewId] = useState<string>(() => crew[0]?.id || '');
-  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(() => equipment[0]?.id || '');
+  const [selectedCrewId, setSelectedCrewId] = useState<string>(() => (lockedAsset?.scope === 'Crew' ? lockedAsset.assetId : crew[0]?.id || ''));
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(() => (lockedAsset?.scope === 'Equipment' ? lockedAsset.assetId : equipment[0]?.id || ''));
   const [selectedActivityId, setSelectedActivityId] = useState<string>(() => EXISTING_ACTIVITIES[0]?.id || '');
   const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
   const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
   const [isGeneralInfoExpanded, setIsGeneralInfoExpanded] = useState<boolean>(true);
-  const [charterer, setCharterer] = useState(defaultCharterer);
+  /* the client is always the organization of the user creating the set */
+  const charterer = defaultCharterer;
   const [startDate, setStartDate] = useState('2026-11-01');
   const [endDate, setEndDate] = useState('2027-11-01');
   const isVesselLocked = Boolean(lockedVessel);
@@ -174,7 +223,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Global template selector from existing assurance sets (optional) */
   const [selectedGlobalTemplateId, setSelectedGlobalTemplateId] = useState<string>(templateSetId || '');
-  const [selectedProjectTemplateId, setSelectedProjectTemplateId] = useState<string>('tmpl-pub-imca-unified-project');
 
   /* Workflow requirements state */
   const [verificationRequired, setVerificationRequired] = useState(true);
@@ -205,12 +253,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             : (selectedVesselForScope?.registeredOwner || 'Northwind Marine Pty Ltd');
 
   const vesselOwnerOrg = serviceProviderOrg;
-  const isCharteringOtherServices =
-    !isClientAdmin ||
-    Boolean(selectedVesselForScope && !isChartererMatchingVesselOwner(clientOrg, selectedVesselForScope));
 
-  /* When scope is not Project (Vessel, Crew, Equipment, Activity), it is an internal deployment/self-assurance by the asset provider */
-  const isInternalDeployment = assuranceType !== 'Project' || !isCharteringOtherServices;
+  /* every wizard scope (Vessel, Crew, Equipment, Activity) is an internal deployment/self-assurance by the asset provider */
+  const isInternalDeployment = true;
 
   /* Dynamic Stakeholder candidate lists strictly enforcing Review Channel Governance & Segregation of Duties */
   const verifierCandidates = filterCandidatesByReviewMode(users, reviewMode, 'Verifier', {
@@ -269,14 +314,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     return list;
   }, [approverCandidates, users, assignedVerifier, reviewMode, serviceProviderOrg, isInternalDeployment]);
 
-  const handleScopeChange = (newScope: AssuranceScopeType) => {
+  const handleScopeChange = (newScope: AssuranceSubtype) => {
+    if (isScopeLocked) return;
     setAssuranceType(newScope);
     setFieldErrors({});
 
-    if (newScope === 'Project') {
-      const proj = availableProjectOptions.find((p) => p.id === selectedProjectId) || availableProjectOptions[0];
-      setTitle(`${defaultCharterer} - ${proj ? proj.name : 'Offshore Project'} Campaign`);
-    } else if (newScope === 'Vessel') {
+    if (newScope === 'Vessel') {
       const v = availableVessels.find((item) => item.id === vesselId) || availableVessels[0];
       setTitle(`${defaultCharterer} - ${v ? v.name : 'MV Pacific Endeavour'} Vetting`);
     } else if (newScope === 'Crew') {
@@ -402,22 +445,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Calculate active wizard steps depending on selected assuranceType */
   const getWizardSteps = (): Array<{ id: string; label: string; pillar?: ThreePillarsCategory; subtype?: AssuranceSubtype }> => {
-    if (assuranceType === 'Project') {
-      return [
-        { id: 'step-scope', label: 'Identification & Scope' },
-        { id: 'step-plant', label: 'Plant', pillar: 'Plant' },
-        { id: 'step-people', label: 'People', pillar: 'People', subtype: 'Crew' },
-        { id: 'step-process', label: 'Process', pillar: 'Process', subtype: 'Activity' },
-        { id: 'step-review', label: 'Review & Initiate' },
-      ];
-    } else {
-      const pillar = getThreePillarsCategory(assuranceType);
-      return [
-        { id: 'step-scope', label: 'Identification & Scope' },
-        { id: `step-${pillar.toLowerCase()}`, label: 'Documents', pillar, subtype: assuranceType as AssuranceSubtype },
-        { id: 'step-review', label: 'Review & Initiate' },
-      ];
-    }
+    const pillar = getThreePillarsCategory(assuranceType);
+    return [
+      { id: 'step-scope', label: 'Identification & Scope' },
+      { id: `step-${pillar.toLowerCase()}`, label: 'Documents', pillar, subtype: assuranceType },
+      { id: 'step-review', label: 'Review & Initiate' },
+    ];
   };
 
   const steps = getWizardSteps();
@@ -444,10 +477,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setInspectionRequired(targetSet.mandatoryInspectionRequired);
     setApprovalRequired(targetSet.formalApprovalRequired !== undefined ? targetSet.formalApprovalRequired : Boolean(targetSet.assignedApprover));
 
-    const templateCharterer = isClientAdmin
-      ? clientOrg
-      : (targetSet.charterer || targetSet.initiatorOrg || 'Northwind Marine Pty Ltd');
-    setCharterer(templateCharterer);
+    const templateCharterer = defaultCharterer;
 
     const targetVesselObj = lockedVessel
       || availableVessels.find((v) => v.id === targetSet.vesselId)
@@ -465,7 +495,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const cleanSubject = baseSubject || `${vesselDisplayName} Charter Vetting`;
     setTitle(`${templateCharterer} - ${cleanSubject}`);
 
-    if (targetSet.assuranceType) {
+    /* legacy project-scoped sets fall back to the default vessel scope */
+    if (!lockedAsset && targetSet.assuranceType && targetSet.assuranceType !== 'Project') {
       setAssuranceType(targetSet.assuranceType);
     }
 
@@ -495,16 +526,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           // Resume draft editing in-place
           setEditingDraftId(target.id);
           setTitle(target.title);
-          if (target.assuranceType) setAssuranceType(target.assuranceType);
+          if (!lockedAsset && target.assuranceType && target.assuranceType !== 'Project') setAssuranceType(target.assuranceType);
           if (target.subtypes && target.subtypes.length > 0) {
             const physicalTypes = target.subtypes.filter((s) => s === 'Vessel' || s === 'Equipment') as AssuranceSubtype[];
             if (physicalTypes.length > 0) {
               setIncludedPhysicalAssetTypes(physicalTypes);
             }
           }
-          if (target.projectId) setSelectedProjectId(target.projectId);
-          if (target.crewId) setSelectedCrewId(target.crewId);
-          if (target.equipmentId) setSelectedEquipmentId(target.equipmentId);
+          if (target.projectId && !lockedProjectId) setSelectedProjectId(target.projectId);
+          if (target.crewId && !lockedAsset) setSelectedCrewId(target.crewId);
+          if (target.equipmentId && !lockedAsset) setSelectedEquipmentId(target.equipmentId);
           if (target.activityId) setSelectedActivityId(target.activityId);
           if (target.templateSource === 'public' || target.visibility === 'draft') {
             setTemplatePrivacy('public');
@@ -518,7 +549,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 : availableVessels[0]?.id || '',
             );
           }
-          if (target.charterer) setCharterer(target.charterer);
           if (target.charterWindowStart) setStartDate(target.charterWindowStart);
           if (target.charterWindowEnd) setEndDate(target.charterWindowEnd);
           setVerificationRequired(target.verificationRequired ?? true);
@@ -594,109 +624,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     triggerAutofillAnimation([`subtype-docs-container-${subtype}`]);
   };
 
-  /* Handle Full Project Scope Template Selection (Spanning all 4 Sub-Assets) */
-  const handleSelectProjectTemplate = (templateId: string) => {
-    setSelectedProjectTemplateId(templateId);
-
-    if (!templateId) return;
-
-    const tmpl = SUBTYPE_TEMPLATES.find((t) => t.id === templateId && t.subtype === 'All');
-    if (!tmpl) return;
-
-    setSelectedSubtypeTemplates({
-      Vessel: templateId,
-      Crew: templateId,
-      Activity: templateId,
-      Equipment: templateId,
-    });
-
-    setDocToggles((prev) => {
-      const updated = { ...prev };
-      Object.values(SUBTYPE_STANDARD_DOCS).forEach((list) => {
-        list.forEach((d) => {
-          updated[d.id] = tmpl.recommendedDocIds.includes(d.id);
-        });
-      });
-      return updated;
-    });
-
-    triggerAutofillAnimation([
-      'grid-campaign-title',
-      'project-template-card',
-      'subtype-docs-container-Vessel',
-      'subtype-docs-container-Crew',
-      'subtype-docs-container-Activity',
-      'subtype-docs-container-Equipment',
-    ]);
-  };
-
-  /* Handle Project Selection and auto-link its 4 sub-assets */
+  /* link or unlink the optional project; ignored while the project is locked by the entry point */
   const handleProjectChange = (projId: string) => {
+    if (isProjectLocked) return;
     setSelectedProjectId(projId);
-    setFieldErrors((prev) => {
-      const u = { ...prev };
-      delete u.projectId;
-      return u;
-    });
-
-    const proj = availableProjectOptions.find((p) => p.id === projId);
-    const storeProject = projects.find((p) => p.id === projId);
-    if (proj) {
-      if (proj.primaryVesselId && availableVessels.some((v) => v.id === proj.primaryVesselId)) {
-        setVesselId(proj.primaryVesselId);
-      }
-      if (proj.primaryCrewId && crew.some((c) => c.id === proj.primaryCrewId)) {
-        setSelectedCrewId(proj.primaryCrewId);
-      }
-      if (proj.primaryEquipmentId && equipment.some((e) => e.id === proj.primaryEquipmentId)) {
-        setSelectedEquipmentId(proj.primaryEquipmentId);
-      }
-      if (proj.primaryActivityId && EXISTING_ACTIVITIES.some((a) => a.id === proj.primaryActivityId)) {
-        setSelectedActivityId(proj.primaryActivityId);
-      }
-      if (proj.defaultTemplateId) {
-        handleSelectProjectTemplate(proj.defaultTemplateId);
-      }
-      if (storeProject?.charterWindowStart) {
-        setStartDate(storeProject.charterWindowStart);
-      }
-      if (storeProject?.charterWindowEnd) {
-        setEndDate(storeProject.charterWindowEnd);
-      }
-      const chartererName = isClientAdmin
-        ? clientOrg
-        : (storeProject?.charterer || storeProject?.clientOperator || proj.clientOperator);
-      setCharterer(chartererName);
-      setTitle(`${chartererName} - ${proj.name} Integrated Assurance Campaign`);
-      triggerAutofillAnimation([
-        'grid-campaign-title',
-        'grid-target-asset-project',
-        'project-subasset-vessel',
-        'project-subasset-crew',
-        'project-subasset-equipment',
-        'project-subasset-activity',
-      ]);
-    }
   };
-
-  useEffect(() => {
-    if (availableProjectOptions.length === 0) return;
-
-    const nextProjectId =
-      returnToProjectId && availableProjectOptions.some((p) => p.id === returnToProjectId)
-        ? returnToProjectId
-        : selectedProjectId && availableProjectOptions.some((p) => p.id === selectedProjectId)
-          ? selectedProjectId
-          : availableProjectOptions[0].id;
-
-    if (returnToProjectId) {
-      setReturnToProjectId(undefined);
-    }
-
-    if (nextProjectId && nextProjectId !== selectedProjectId) {
-      handleProjectChange(nextProjectId);
-    }
-  }, [availableProjectOptions, returnToProjectId, selectedProjectId, setReturnToProjectId]);
 
   /* Toggle individual standard document */
   const handleToggleStandardDoc = (docId: string) => {
@@ -770,10 +702,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         }
       }
 
-      if (assuranceType === 'Project' && !selectedProjectId) {
-        newErrors.projectId = 'Project selection is required.';
-      }
-      if ((assuranceType === 'Vessel' || assuranceType === 'Project') && !availableVessels.some((v) => v.id === vesselId)) {
+      if (assuranceType === 'Vessel' && !availableVessels.some((v) => v.id === vesselId)) {
         newErrors.vesselId = 'Select a vessel from another organization. You cannot assign your own vessel to this assurance set.';
       }
       if (assuranceType === 'Crew' && !selectedCrewId) {
@@ -784,9 +713,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       }
       if (assuranceType === 'Activity' && !selectedActivityId) {
         newErrors.activityId = 'Operational activity selection is required.';
-      }
-      if (!isClientAdmin && !charterer.trim()) {
-        newErrors.charterer = 'Charterer organization name is required.';
       }
       if (!startDate) {
         newErrors.startDate = 'Charter window start date is required.';
@@ -848,8 +774,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const selectedProject =
-    availableProjectOptions.find((p) => p.id === selectedProjectId) || availableProjectOptions[0];
+  const selectedProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) : undefined;
+  /* keep a locked or draft-restored project selectable even when it is outside the persona's visible list */
+  const projectOptions =
+    selectedProject && !availableProjectOptions.some((p) => p.id === selectedProject.id)
+      ? [projectToAssuranceProjectScope(selectedProject), ...availableProjectOptions]
+      : availableProjectOptions;
   const selectedVessel = availableVessels.find((v) => v.id === vesselId) || availableVessels[0];
   const selectedCrew = crew.find((c) => c.id === selectedCrewId) || crew[0];
   const selectedEquipment = equipment.find((e) => e.id === selectedEquipmentId) || equipment[0];
@@ -862,7 +792,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const assignmentWarnings = getAssuranceAssignmentWarnings({
     verifierId: verificationRequired && reviewMode !== 'issuing_authority' ? assignedVerifier : undefined,
     approverId: approvalRequired ? assignedApprover : undefined,
-    subtypeStakeholders: assuranceType === 'Project' ? assignedSubtypeStakeholders : undefined,
+    subtypeStakeholders: undefined,
     vesselOwnerOrg: serviceProviderOrg,
     serviceProviderOrg,
     isCharteringOtherServices: !isInternalDeployment,
@@ -884,10 +814,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const uniqueSetId = generateUniqueAssuranceSetId(assuranceSets);
 
     /* Determine which subtypes are active */
-    const activeSubtypes: AssuranceSubtype[] =
-      assuranceType === 'Project'
-        ? ['Vessel', 'Crew', 'Activity', 'Equipment']
-        : [assuranceType as AssuranceSubtype];
+    const activeSubtypes: AssuranceSubtype[] = [assuranceType];
 
     /* Build combined requirements list from standard subtype docs and specialized docs */
     const finalRequirements: AssuranceRequirement[] = [];
@@ -960,12 +887,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       selectedEquipmentId,
       selectedVesselId: vesselId,
       selectedActivityId,
-      targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
+      targetSubtype: assuranceType,
     });
 
     const effectiveAssetName =
-      assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
-        assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
+      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
           assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
             assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
               (selectedActivity?.name || 'Activity Asset');
@@ -977,8 +903,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       id: targetSetId,
       title: title.trim(),
       assuranceType,
-      projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
-      projectName: assuranceType === 'Project' ? (selectedProject?.name || selectedProjectId) : undefined,
+      projectId: selectedProject?.id,
+      projectName: selectedProject?.name,
       crewId: assuranceType === 'Crew' ? selectedCrewId : undefined,
       crewName: assuranceType === 'Crew' ? (selectedCrew?.fullName || selectedCrewId) : undefined,
       equipmentId: assuranceType === 'Equipment' ? selectedEquipmentId : undefined,
@@ -1060,6 +986,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       stakeholders: undefined,
       assignedStakeholders: undefined,
       createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
+      createdByName: creatorName,
       clientWorkflowStage: isClientAdmin ? 'draft' : undefined,
     };
 
@@ -1071,10 +998,24 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       addAssuranceSet(newSet);
     }
 
+    /* an initiated set with a project joins that project roster; the set keeps a single project */
+    if (newSet.projectId) {
+      const attachResult = attachAssuranceSetToProject(newSet.id, newSet.projectId);
+      if (!attachResult.success) {
+        /* keep both sides consistent: a set the project roster rejected stays orphaned */
+        updateAssuranceSet({ ...newSet, projectId: undefined, projectName: undefined });
+      }
+    }
+
     if (createAssuranceForVesselId) {
       const returnVesselId = createAssuranceForVesselId;
       setCreateAssuranceForVesselId(undefined);
       setCurrentHashView('vessels', returnVesselId);
+      return;
+    }
+
+    if (lockedProjectId) {
+      setCurrentHashView('project', lockedProjectId);
       return;
     }
 
@@ -1084,10 +1025,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   /* Save current configuration as Draft */
   const handleSaveDraft = () => {
     const targetSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
-    const activeSubtypes: AssuranceSubtype[] =
-      assuranceType === 'Project'
-        ? ['Vessel', 'Crew', 'Activity', 'Equipment']
-        : [assuranceType as AssuranceSubtype];
+    const activeSubtypes: AssuranceSubtype[] = [assuranceType];
 
     const finalRequirements: AssuranceRequirement[] = [];
     let reqIndex = 0;
@@ -1155,12 +1093,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       selectedEquipmentId,
       selectedVesselId: vesselId,
       selectedActivityId,
-      targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
+      targetSubtype: assuranceType,
     });
 
     const effectiveAssetName =
-      assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
-        assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
+      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
           assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
             assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
               (selectedActivity?.name || 'Activity Asset');
@@ -1172,8 +1109,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       id: targetSetId,
       title: title.trim() || `${defaultCharterer} - Draft Campaign`,
       assuranceType,
-      projectId: assuranceType === 'Project' ? selectedProjectId : undefined,
-      projectName: assuranceType === 'Project' ? (selectedProject?.name || selectedProjectId) : undefined,
+      projectId: selectedProject?.id,
+      projectName: selectedProject?.name,
       crewId: assuranceType === 'Crew' ? selectedCrewId : undefined,
       crewName: assuranceType === 'Crew' ? (selectedCrew?.fullName || selectedCrewId) : undefined,
       equipmentId: assuranceType === 'Equipment' ? selectedEquipmentId : undefined,
@@ -1255,6 +1192,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       stakeholders: undefined,
       assignedStakeholders: undefined,
       createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
+      createdByName: creatorName,
       clientWorkflowStage: isClientAdmin ? 'draft' : undefined,
       internalDeployment: isInternalDeployment,
     };
@@ -1275,6 +1213,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       return;
     }
 
+    if (lockedProjectId) {
+      setCurrentHashView('project', lockedProjectId);
+      return;
+    }
+
     setCurrentHashView('assurance-sets', draftSet.id);
   };
 
@@ -1290,11 +1233,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       setCurrentHashView('vessels', returnVesselId);
       return;
     }
+    if (lockedProjectId) {
+      setCurrentHashView('project', lockedProjectId);
+      return;
+    }
     setCurrentHashView(isClientAdmin || previousHashView === 'dashboard' ? 'dashboard' : 'assurance-sets');
   };
 
   /* Render reusable Subtype Document Section */
-  const renderSubtypeSection = (subtype: AssuranceSubtype, isProjectScope: boolean = true) => {
+  const renderSubtypeSection = (subtype: AssuranceSubtype) => {
     const standardDocs = SUBTYPE_STANDARD_DOCS[subtype] || [];
     const publicTemplates = SUBTYPE_TEMPLATES.filter((t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'public');
     const orgTemplates = SUBTYPE_TEMPLATES.filter((t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'organization');
@@ -1302,7 +1249,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const specializedList = specializedDocs.filter((d: { subtype: string; }) => d.subtype === subtype);
     const specInput = specializedInputs[subtype];
     /* Section label: for standalone (non-project) scopes use neutral 'Documents' label */
-    const sectionLabel = isProjectScope ? subtype : 'Documents';
+    const sectionLabel = 'Documents';
 
     return (
       <div className="d-flex flex-column gap-4" id={`subtype-docs-container-${subtype}`}>
@@ -1314,7 +1261,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 {sectionLabel} Assurance Templates (Optional)
               </h5>
               <div className="text-muted small mt-0.5">
-                Apply a public standard or organizational baseline to automatically configure required {isProjectScope ? subtype.toLowerCase() : ''} documents.
+                Apply a public standard or organizational baseline to automatically configure required documents.
               </div>
             </div>
             {activeTemplateId && (
@@ -1386,10 +1333,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         <div className="card border shadow-sm rounded-3 bg-white">
           <div className="card-header bg-light border-bottom px-4 py-3">
             <h5 className="fw-bold text-slate-900 m-0 fs-6">
-              Required {isProjectScope ? `${subtype} ` : ''}Documents &amp; Information
+              Required Documents &amp; Information
             </h5>
             <p className="text-muted small m-0 mt-1">
-              Toggle mandatory and statutory compliance requirements for this {isProjectScope ? `${subtype.toLowerCase()} ` : ''}section. All documents include verified descriptions.
+              Toggle mandatory and statutory compliance requirements for this section. All documents include verified descriptions.
             </p>
           </div>
           <div className="card-body p-4">
@@ -1496,7 +1443,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
               <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                Add Specialized {isProjectScope ? `${subtype} ` : ''}Document <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                Add Specialized Document <span className="text-secondary fw-normal fs-7">(Optional)</span>
               </h5>
               <p className="text-muted small m-0 mt-1">
                 Optional: Specify any custom or project-specific document requirements needed for this campaign.
@@ -1609,7 +1556,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             {specializedList.length > 0 && (
               <div className="mt-4 border-top pt-3">
                 <h6 className="fw-bold text-dark small mb-2">
-                  Added Specialized {isProjectScope ? `${subtype} ` : ''}Requirements ({specializedList.length})
+                  Added Specialized Requirements ({specializedList.length})
                 </h6>
                 <div className="d-flex flex-column gap-2">
                   {specializedList.map((spec: SpecializedDoc) => (
@@ -1664,7 +1611,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const currentStepData = steps[currentStep - 1] || steps[0];
 
   return (
-    <div className="container-fluid px-4 py-4" style={{ maxWidth: '1280px' }}>
+    <div className="container-fluid px-4 py-4 map-assurance-wizard" style={{ maxWidth: '1280px' }}>
       {/* Top Breadcrumb & Title */}
       <div className="d-flex flex-wrap align-items-center justify-between gap-3 mb-3">
         <div>
@@ -1785,176 +1732,124 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         id="grid-assurance-type"
                         className="form-select bg-white text-dark border-secondary-subtle fw-semibold"
                         value={assuranceType}
-                        onChange={(e) => handleScopeChange(e.target.value as AssuranceScopeType)}
+                        onChange={(e) => handleScopeChange(e.target.value as AssuranceSubtype)}
+                        disabled={isScopeLocked}
+                        aria-describedby={isScopeLocked ? 'grid-assurance-type-help' : undefined}
                       >
-                        <option value="Project">Project</option>
                         <option value="Vessel">Vessel</option>
                         <option value="Crew">Crew</option>
                         <option value="Activity">Activity</option>
                         <option value="Equipment">Equipment</option>
                       </select>
+                      {isScopeLocked && (
+                        <div id="grid-assurance-type-help" className="form-text small">
+                          Scope and asset are set by the listing this was opened from.
+                        </div>
+                      )}
                     </div>
 
-                    <div className="col-12">
-                      <div className="p-3 bg-primary-subtle border border-primary-subtle rounded-2 small text-primary d-flex align-items-center justify-content-between flex-wrap gap-2">
-                        <div>
-                          <strong>Selected Scope: {assuranceType} Assurance</strong>
-                          <div className="text-secondary mt-0.5">
-                            {assuranceType === 'Project'
-                              ? 'Project scope mandates individual sections and requirement verification for all 4 operational subtypes (Vessel, Crew, Activity, and Equipment) attached to the selected offshore project.'
-                              : `Standalone assurance set focused strictly on the ${assuranceType} subtype statutory requirements and operational documents.`}
-                          </div>
+                    {/* optional project link, locked when the wizard is opened from a project */}
+                    <div className="col-12 col-md-6">
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-linked-project">
+                        Project <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                      </label>
+                      <select
+                        id="grid-linked-project"
+                        className="form-select bg-white text-dark border-secondary-subtle"
+                        value={selectedProjectId}
+                        onChange={(e) => handleProjectChange(e.target.value)}
+                        disabled={isProjectLocked}
+                        aria-describedby={isProjectLocked ? 'grid-linked-project-help' : undefined}
+                      >
+                        <option value="">No project</option>
+                        {projectOptions.map((proj) => (
+                          <option key={proj.id} value={proj.id}>
+                            {proj.id} &mdash; {proj.name}
+                          </option>
+                        ))}
+                      </select>
+                      {isProjectLocked && (
+                        <div id="grid-linked-project-help" className="form-text small">
+                          Set by the project this was opened from.
                         </div>
-                        <span className="badge bg-primary text-white font-mono-code">
-                          {assuranceType === 'Project' ? '4 Subtypes Required' : '1 Subtype Required'}
-                        </span>
-                      </div>
+                      )}
+                    </div>
+
+                    {/* Charter Window Dates */}
+                    <div className="col-12 col-md-3">
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-start">
+                        Charter Start Date <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        id="grid-charter-start"
+                        type="date"
+                        className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.startDate ? ' is-invalid border-danger' : ''}`}
+                        value={startDate}
+                        onChange={(e) => {
+                          setStartDate(e.target.value);
+                          setFieldErrors((prev) => {
+                            const u = { ...prev };
+                            delete u.startDate;
+                            delete u.endDate;
+                            return u;
+                          });
+                        }}
+                        required
+                      />
+                      {fieldErrors.startDate && (
+                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                          {fieldErrors.startDate}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="col-12 col-md-3">
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-end">
+                        Charter End Date <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        id="grid-charter-end"
+                        type="date"
+                        className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.endDate ? ' is-invalid border-danger' : ''}`}
+                        value={endDate}
+                        onChange={(e) => {
+                          setEndDate(e.target.value);
+                          setFieldErrors((prev) => {
+                            const u = { ...prev };
+                            delete u.endDate;
+                            return u;
+                          });
+                        }}
+                        required
+                      />
+                      {fieldErrors.endDate && (
+                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                          {fieldErrors.endDate}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Dynamic Primary Asset Selection Card */}
+              {/* Dynamic Designation of Asset Card */}
               <div className="card border shadow-2xs rounded-3 bg-white">
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      2. Primary Asset Selection
+                      2. Designation of Asset
                     </h5>
                     <div className="text-muted small">
-                      {assuranceType === 'Project'
-                        ? 'Select the offshore project to which this multi-subtype assurance campaign is attached.'
-                        : `Select the target ${assuranceType.toLowerCase()} asset undergoing assurance vetting.`}
+                      {`Select ${assuranceType.toLowerCase()} to assign this assurance set.`}
                     </div>
                   </div>
 
                 </div>
                 <div className="card-body p-4">
-                  {assuranceType === 'Project' && (
-                    <div className="d-flex flex-column gap-4">
-                      {/* Project Scope Unified Template Selector Banner */}
-                      <div className="p-3 bg-light border border-secondary-subtle rounded-3" id="project-template-card">
-                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                          <div className="d-flex align-items-center gap-2">
-                            <Layers className="w-4 h-4 text-primary" />
-                            <span className="fw-bold text-dark small">Project Assurance Template Package</span>
-                          </div>
-                        </div>
-                        <div className="text-secondary small mb-3" style={{ fontSize: '0.8rem' }}>
-                          Select an industry standard baseline or client project specification. Applying a project template pre-configures statutory, crew, activity, and equipment requirements across all operational sections.
-                        </div>
-                        <div className="row g-2">
-                          <div className="col-12 col-md-6">
-                            <label className="form-label text-secondary small fw-semibold" htmlFor="grid-project-template-public" style={{ fontSize: '0.75rem' }}>
-                              Public Industry Project Standards
-                            </label>
-                            <select
-                              id="grid-project-template-public"
-                              className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
-                              value={SUBTYPE_TEMPLATES.filter((t) => t.subtype === 'All' && t.source === 'public').some((t) => t.id === selectedProjectTemplateId) ? selectedProjectTemplateId : ''}
-                              onChange={(e) => handleSelectProjectTemplate(e.target.value)}
-                            >
-                              <option value="">-- Choose Public Project Standard --</option>
-                              {SUBTYPE_TEMPLATES.filter((t) => t.subtype === 'All' && t.source === 'public').map((tmpl) => (
-                                <option key={tmpl.id} value={tmpl.id}>
-                                  {tmpl.name}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="col-12 col-md-6">
-                            <label className="form-label text-secondary small fw-semibold" htmlFor="grid-project-template-org" style={{ fontSize: '0.75rem' }}>
-                              Within Organization Project Packages
-                            </label>
-                            <select
-                              id="grid-project-template-org"
-                              className="form-select form-select-sm bg-white text-dark border-secondary-subtle fw-semibold"
-                              value={SUBTYPE_TEMPLATES.filter((t) => t.subtype === 'All' && t.source === 'organization').some((t) => t.id === selectedProjectTemplateId) ? selectedProjectTemplateId : ''}
-                              onChange={(e) => handleSelectProjectTemplate(e.target.value)}
-                            >
-                              <option value="">-- Choose Organization Project Standard --</option>
-                              {SUBTYPE_TEMPLATES.filter((t) => t.subtype === 'All' && t.source === 'organization').map((tmpl) => (
-                                <option key={tmpl.id} value={tmpl.id}>
-                                  {tmpl.name} ({tmpl.organizationName || 'Corporate'})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        {selectedProjectTemplateId && (
-                          <div className="mt-2 p-2 bg-white border border-primary-subtle rounded-2 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                            <div className="small text-secondary" style={{ fontSize: '0.78rem' }}>
-                              <strong className="text-primary d-block">
-                                Applied: {SUBTYPE_TEMPLATES.find((t) => t.id === selectedProjectTemplateId)?.name}
-                              </strong>
-                              <span>{SUBTYPE_TEMPLATES.find((t) => t.id === selectedProjectTemplateId)?.description}</span>
-                            </div>
-                            <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                              All 4 Subtypes Configured
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Primary Offshore Project Selection */}
-                      <div>
-                        <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-project">
-                          Target Offshore Project Scope <span className="text-danger">*</span>
-                        </label>
-                        <select
-                          id="grid-target-asset-project"
-                          className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.projectId ? ' is-invalid border-danger' : ''}`}
-                          value={selectedProjectId}
-                          onChange={(e) => handleProjectChange(e.target.value)}
-                          required
-                        >
-                          {availableProjectOptions.length === 0 ? (
-                            <option value="">No projects available — create a project first</option>
-                          ) : (
-                            availableProjectOptions.map((proj) => (
-                              <option key={proj.id} value={proj.id}>
-                                {proj.id} &mdash; {proj.name} ({proj.clientOperator})
-                              </option>
-                            ))
-                          )}
-                        </select>
-                        {fieldErrors.projectId && (
-                          <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                            {fieldErrors.projectId}
-                          </div>
-                        )}
-
-                        {selectedProject && (
-                          <div className="mt-3 p-3 bg-light border rounded-3 small">
-                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                              <span className="fw-bold text-dark fs-6">{selectedProject.name}</span>
-                              <span className="badge bg-primary text-white font-mono-code">{selectedProject.id}</span>
-                            </div>
-                            <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
-                              <div className="col-12 col-md-4">
-                                <strong>Client / Operator:</strong> {selectedProject.clientOperator}
-                              </div>
-                              <div className="col-12 col-md-4">
-                                <strong>Basin / Location:</strong> {selectedProject.location}
-                              </div>
-                              <div className="col-12 col-md-4">
-                                <strong>Assurance Coverage:</strong> Multi-Asset (Vessel, Crew, Equipment, Activity)
-                              </div>
-                              <div className="col-12">
-                                <strong>Scope Summary:</strong> {selectedProject.description}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
                   {assuranceType === 'Vessel' && (
                     <div>
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-vessel">
-                        Target Vessel Asset <span className="text-danger">*</span>
+                        Assign Vessel <span className="text-danger">*</span>
                       </label>
                       <select
                         id="grid-target-asset-vessel"
@@ -1968,7 +1863,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             return u;
                           });
                         }}
-                        disabled={availableVessels.length === 0 || isVesselLocked}
+                        disabled={availableVessels.length === 0 || isVesselLocked || isScopeLocked}
                       >
                         {availableVessels.length === 0 ? (
                           <option value="">No vessels from another organization</option>
@@ -2028,6 +1923,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             return u;
                           });
                         }}
+                        disabled={isScopeLocked}
                       >
                         {crew.map((c) => (
                           <option key={c.id} value={c.id}>
@@ -2080,6 +1976,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             return u;
                           });
                         }}
+                        disabled={isScopeLocked}
                       >
                         {equipment.map((e) => (
                           <option key={e.id} value={e.id}>
@@ -2260,10 +2157,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      4. Charter Parameters, Governance &amp; Stakeholder Assignments
+                      4. Governance &amp; Stakeholder Assignments
                     </h5>
                     <div className="text-muted small">
-                      Configure charter window, workflow governance, and stakeholder assignments.
+                      Configure workflow governance and stakeholder assignments.
                     </div>
                   </div>
                   <button
@@ -2281,117 +2178,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 {isGeneralInfoExpanded && (
                   <div className="card-body p-4">
                     <div className="row g-4">
-                      {/* Charterer & Client Row (1.4 Whoever starts the process is the client) */}
-                      <div className="col-12 col-md-6">
-                        <div className="d-flex align-items-center justify-content-between mb-1">
-                          <label className="form-label text-secondary small fw-semibold m-0" htmlFor="grid-charterer-org">
-                            Initiating Client Organization (Charterer / Requester) <span className="text-danger">*</span>
-                          </label>
-                          <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
-                            {isClientAdmin ? 'Client Admin Initiated' : 'Initiating Entity Acting as Client'}
-                          </span>
-                        </div>
-                        <input
-                          id="grid-charterer-org"
-                          type="text"
-                          className={`form-control bg-white text-dark border-secondary-subtle${fieldErrors.charterer ? ' is-invalid border-danger' : ''}`}
-                          placeholder="e.g. Chevron Australia Pty Ltd / Northwind Marine Pty Ltd"
-                          value={charterer}
-                          onChange={(e) => {
-                            setCharterer(e.target.value);
-                            setFieldErrors((prev) => {
-                              const u = { ...prev };
-                              delete u.charterer;
-                              return u;
-                            });
-                          }}
-                          required
-                        />
-                        {fieldErrors.charterer && (
-                          <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                            {fieldErrors.charterer}
-                          </div>
-                        )}
-                        <div className="text-secondary small mt-1" style={{ fontSize: '0.78rem' }}>
-                          Whoever starts the assurance process is the Client / Requester. The assurance set belongs to this client.
-                        </div>
-                      </div>
-
-                      {/* Service Provider Identification & Segregation Indicator */}
-                      <div className="col-12 col-md-6">
-                        <div className="d-flex align-items-center justify-content-between mb-1">
-                          <label className="form-label text-secondary small fw-semibold m-0">
-                            Asset Service Provider / Submitter Organization
-                          </label>
-                          <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
-                            Service Provider (Self-Approval Prohibited)
-                          </span>
-                        </div>
-                        <input
-                          type="text"
-                          className="form-control bg-light text-secondary border-secondary-subtle font-mono-code"
-                          value={serviceProviderOrg}
-                          disabled
-                        />
-                        <div className="text-secondary small mt-1" style={{ fontSize: '0.78rem' }}>
-                          <span className="text-danger fw-semibold">Segregation Enforced:</span> Staff from {serviceProviderOrg} cannot verify or approve their own documents.
-                        </div>
-                      </div>
-
-                      {/* Charter Window Dates */}
-                      <div className="col-12 col-md-3">
-                        <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-start">
-                          Charter Start Date <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          id="grid-charter-start"
-                          type="date"
-                          className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.startDate ? ' is-invalid border-danger' : ''}`}
-                          value={startDate}
-                          onChange={(e) => {
-                            setStartDate(e.target.value);
-                            setFieldErrors((prev) => {
-                              const u = { ...prev };
-                              delete u.startDate;
-                              delete u.endDate;
-                              return u;
-                            });
-                          }}
-                          required
-                        />
-                        {fieldErrors.startDate && (
-                          <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                            {fieldErrors.startDate}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="col-12 col-md-3">
-                        <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-end">
-                          Charter End Date <span className="text-danger">*</span>
-                        </label>
-                        <input
-                          id="grid-charter-end"
-                          type="date"
-                          className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.endDate ? ' is-invalid border-danger' : ''}`}
-                          value={endDate}
-                          onChange={(e) => {
-                            setEndDate(e.target.value);
-                            setFieldErrors((prev) => {
-                              const u = { ...prev };
-                              delete u.endDate;
-                              return u;
-                            });
-                          }}
-                          required
-                        />
-                        {fieldErrors.endDate && (
-                          <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                            {fieldErrors.endDate}
-                          </div>
-                        )}
-                      </div>
-
                       {/* Workflow & Review Policies (MVP 1.5 - Review Channels & Validity/Suitability) */}
                       <div className="col-12">
                         <div className="p-4 bg-light border rounded-3 d-flex flex-column gap-3.5">
@@ -2741,47 +2527,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
                     <div>
                       <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        {assuranceType === 'Project' ? 'Plant' : 'Documents'}
+                        Documents
                       </h5>
                       <div className="text-muted small mt-0.5">
-                        {assuranceType === 'Project'
-                          ? 'Statutory and specialized requirements for all physical assets (Vessels, Equipment) under this campaign.'
-                          : `Statutory and specialized requirements for ${assuranceType === 'Vessel' ? 'marine vessels' : 'deck equipment and machinery'}.`}
+                        {`Statutory and specialized requirements for ${assuranceType === 'Vessel' ? 'marine vessels' : 'deck equipment and machinery'}.`}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {assuranceType === 'Project' ? (
-                <div className="d-flex flex-column gap-4">
-                  {/* Vessels */}
-                  <div className="p-3 bg-light-subtle border rounded-3 border-secondary-subtle">
-                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 pb-2 border-bottom">
-                      <div className="d-flex align-items-center gap-2">
-                        <Ship className="w-4 h-4 text-primary" />
-                        <h5 className="fw-bold text-slate-900 m-0 fs-6">Vessels</h5>
-                        <span className="text-muted small font-mono-code">({selectedVessel?.name || 'Selected Vessel'} &mdash; IMO: {selectedVessel?.imoNumber || 'N/A'})</span>
-                      </div>
-                    </div>
-                    {renderSubtypeSection('Vessel')}
-                  </div>
-
-                  {/* Equipments */}
-                  <div className="p-3 bg-light-subtle border rounded-3 border-secondary-subtle">
-                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 pb-2 border-bottom">
-                      <div className="d-flex align-items-center gap-2">
-                        <Wrench className="w-4 h-4 text-primary" />
-                        <h5 className="fw-bold text-slate-900 m-0 fs-6">Equipments</h5>
-                        <span className="text-muted small font-mono-code">({selectedEquipment?.name || 'Selected Equipment'} &mdash; Tag: {selectedEquipment?.equipmentIdentifier || 'N/A'})</span>
-                      </div>
-                    </div>
-                    {renderSubtypeSection('Equipment')}
-                  </div>
-                </div>
-              ) : (
-                renderSubtypeSection((assuranceType === 'Equipment' ? 'Equipment' : 'Vessel') as AssuranceSubtype, false)
-              )}
+              {renderSubtypeSection(assuranceType === 'Equipment' ? 'Equipment' : 'Vessel')}
             </div>
           )}
 
@@ -2796,7 +2552,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
                     <div>
                       <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        {assuranceType === 'Project' ? 'People' : 'Documents'}
+                        Documents
                       </h5>
                       <div className="text-muted small mt-0.5">
                         Seafarer qualifications, STCW certificates, BOSIET inductions, and medical fitness for {selectedCrew?.fullName || 'assigned crew'}.
@@ -2805,7 +2561,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   </div>
                 </div>
               </div>
-              {renderSubtypeSection('Crew', assuranceType === 'Project')}
+              {renderSubtypeSection('Crew')}
             </div>
           )}
 
@@ -2820,7 +2576,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
                     <div>
                       <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        {assuranceType === 'Project' ? 'Process' : 'Documents'}
+                        Documents
                       </h5>
                       <div className="text-muted small mt-0.5">
                         HSE plans, Method Statements (MOP), HAZID/HAZOP, SIMOPS protocols, and insurances for {selectedActivity?.name || 'operational scope'}.
@@ -2829,7 +2585,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   </div>
                 </div>
               </div>
-              {renderSubtypeSection('Activity', assuranceType === 'Project')}
+              {renderSubtypeSection('Activity')}
             </div>
           )}
 
@@ -2851,9 +2607,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <div className="fw-bold text-primary fs-6">{title}</div>
                           <div className="text-secondary small mt-2">
                             <strong>Scope:</strong> {assuranceType} Assurance &nbsp;|&nbsp; <strong>Target Asset:</strong>{' '}
-                            {assuranceType === 'Project' && (
-                              <span className="text-dark fw-semibold">{selectedProject?.name} ({selectedProject?.id})</span>
-                            )}
                             {assuranceType === 'Vessel' && (
                               <span className="text-dark fw-semibold">{selectedVessel?.name} (IMO: {selectedVessel?.imoNumber})</span>
                             )}
@@ -2868,11 +2621,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             )}
                           </div>
                           <div className="text-secondary small mt-1">
-                            <strong>Client / Requester (Owner):</strong> {charterer} &nbsp;|&nbsp; <strong>Service Provider:</strong> {serviceProviderOrg}
-                          </div>
-                          <div className="text-secondary small mt-1">
                             <strong>Charter Window:</strong> {startDate} to {endDate}
                           </div>
+                          {selectedProject && (
+                            <div className="text-secondary small mt-1">
+                              <strong>Project:</strong> {selectedProject.name}{' '}
+                              <span className="font-mono-code">({selectedProject.id})</span>
+                            </div>
+                          )}
                           <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
                             <strong>Template Privacy:</strong>
                             <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>
@@ -2885,7 +2641,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <div className="col-12 col-md-6">
                         <div className="p-3 bg-light rounded-3 border h-100">
                           <strong className="text-dark small d-block mb-1">Assigned Assurance Set Stakeholders (1:1 Mapping)</strong>
-                          <div className="text-secondary small"><strong>Submitter:</strong> Designated by Chartered Asset Owner ({serviceProviderOrg})</div>
+                          <div className="text-secondary small"><strong>Submitter:</strong> Designated by Chartered Asset Owner</div>
                           <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (selectedVerifier ? `${selectedVerifier.name} (${selectedVerifier.organization})` : 'Pending') : 'N/A'}</div>
                           <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (selectedInspector ? `${selectedInspector.name} (${selectedInspector.organization})` : 'Pending') : 'N/A'}</div>
                           <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (selectedApprover ? `${selectedApprover.name} (${selectedApprover.organization})` : 'Pending') : 'N/A'}</div>
@@ -3006,10 +2762,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
                       {/* Auto-Attached Documents from Asset Vault */}
                       {(() => {
-                        const activeSubtypes: AssuranceSubtype[] =
-                          assuranceType === 'Project'
-                            ? ['Vessel', 'Crew', 'Activity', 'Equipment']
-                            : [assuranceType as AssuranceSubtype];
+                        const activeSubtypes: AssuranceSubtype[] = [assuranceType];
 
                         const currentReqs: AssuranceRequirement[] = [];
                         let reqIndex = 0;
@@ -3052,7 +2805,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           equipment,
                           selectedEquipmentId,
                           selectedVesselId: vesselId,
-                          targetSubtype: assuranceType === 'Project' ? undefined : (assuranceType as AssuranceSubtype),
+                          targetSubtype: assuranceType,
                         });
 
                         return (
@@ -3173,8 +2926,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   <div className="fw-semibold text-dark">{title || 'Untitled Campaign'}</div>
                   <div className="text-muted mt-0.5">
                     Scope: {assuranceType} &nbsp;|&nbsp; Target:{' '}
-                    {assuranceType === 'Project' ? (selectedProject?.name || 'Project Asset') :
-                      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
+                    {assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
                         assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
                           assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
                             (selectedActivity?.name || 'Activity Asset')}

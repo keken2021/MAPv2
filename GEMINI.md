@@ -26,6 +26,7 @@ description: Single consolidated operational directives, business rules, and UI/
 7. **Concise Naming Convention**: All UI labels, button text, column headers, step names, card titles, and modal headings must be short and direct. Avoid filler words (e.g. "Section", "Pillar", "Please", "Click to"). Prefer: "Plant" over "Plant Section", "Vessels" over "Chartered Vessels", "Documents" over "Required Documents & Information (Statutory)".
 8. **Badge Minimalism**: Badges are reserved exclusively for: (a) status indicators with semantic color meaning, (b) numeric counts, (c) short codes or IDs (e.g. IMO numbers, MAP IDs). Do not use badges to repeat text that is already visible in a nearby heading, label, or title on the same screen.
 9. **Mandatory & Required Indicators (*)**: All mandatory field indicators, asterisks (`*`), mandatory requirement tags/badges, and warning indicators signifying required inputs or required assurance items MUST strictly be colored in high-contrast semantic red (`text-danger` / `#DC2626` / `rgb(220, 38, 38)`). Never use muted, gray, or neutral colors for required or mandatory indicators.
+10. **Initial Project Folder Scanning**: Before planning or implementing changes, always scan the whole folder structure of the project first and systematically take note of all top-level folders, nested subfolders, and what they contain for faster lookup, effortless navigation, and complete structural awareness.
 
 ---
 

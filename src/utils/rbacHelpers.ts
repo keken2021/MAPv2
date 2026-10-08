@@ -93,6 +93,54 @@ export function isAssuranceSetAssignedToPersona(
   return true;
 }
 
+/* workflow roles that get the assurance sets page read-only, with role actions on assigned sets only */
+export const ASSURANCE_SETS_READ_ONLY_ROLES: UserRolePersona[] = [
+  "Submitter",
+  "Verifier",
+  "Inspector",
+  "Approver",
+];
+
+export interface AssuranceSetRoleActions {
+  canManage: boolean;
+  canUpload: boolean;
+  canVerify: boolean;
+  canInspect: boolean;
+  canApprove: boolean;
+}
+
+/**
+  what: true when the persona may only read the assurance sets page (no create, template, or draft editing).
+  how: checks the persona against ASSURANCE_SETS_READ_ONLY_ROLES.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx and AssuranceDetailView.tsx.
+*/
+export function isAssuranceSetsReadOnlyPersona(persona: UserRolePersona): boolean {
+  return ASSURANCE_SETS_READ_ONLY_ROLES.includes(persona);
+}
+
+/**
+  what: resolves which actions the persona may take on one assurance set; input is the set and the active persona.
+  how: administrator and c admin keep manage rights; each workflow role gets only its own action and only when isAssuranceSetAssignedToPersona is true.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceDetailView.tsx; segregation checks stay in DocumentReviewDrawer.tsx and ApproverDashboardView.tsx.
+*/
+export function getAssuranceSetRoleActions(
+  set: AssuranceSet,
+  persona: UserRolePersona,
+): AssuranceSetRoleActions {
+  const isAdmin = persona === "Administrator";
+  const isAssigned =
+    isAssuranceSetsReadOnlyPersona(persona) &&
+    isAssuranceSetAssignedToPersona(set, persona);
+
+  return {
+    canManage: isAdmin || persona === "C Admin",
+    canUpload: isAdmin || (persona === "Submitter" && isAssigned),
+    canVerify: isAdmin || (persona === "Verifier" && isAssigned),
+    canInspect: persona === "Inspector" && isAssigned,
+    canApprove: persona === "Approver" && isAssigned,
+  };
+}
+
 /**
   what: collects document IDs linked to assurance requirements on sets assigned to the persona.
   how: filters assurance sets by stakeholder assignment and gathers requirement documentId values.
@@ -541,6 +589,9 @@ export function getBackButtonInfo(
       "Administrator",
       "C Admin",
       "Submitter",
+      "Verifier",
+      "Inspector",
+      "Approver",
     ].includes(activePersona);
   } else if (parentView === "documents") {
     isParentAllowedInSidepanel = ["Administrator", "Submitter"].includes(
@@ -689,6 +740,19 @@ export function isViewAccessibleToPersona(
     return persona === "Administrator";
   }
 
+  /* workflow roles never reach the creation wizard, whatever the matrix grants */
+  if (view === "create-assurance-set" && isAssuranceSetsReadOnlyPersona(persona)) {
+    return false;
+  }
+
+  /* projects shares the assurance_sets scope; keep it closed to roles that only gained the assurance sets page */
+  if (
+    view === "project" &&
+    (persona === "Verifier" || persona === "Inspector" || persona === "Approver")
+  ) {
+    return false;
+  }
+
   /* baseline initial persona route checks (matrix overrides when supplied) */
   const getInitialAllowed = (): boolean => {
     if (view === "users") {
@@ -749,7 +813,6 @@ export function isViewAccessibleToPersona(
         [
           "vessels",
           "equipment",
-          "assurance-sets",
           "create-assurance-set",
           "inspector",
           "inspection",
@@ -772,7 +835,8 @@ export function isViewAccessibleToPersona(
         view === "capa" ||
         view === "capas" ||
         view === "inspector" ||
-        view === "inspection"
+        view === "inspection" ||
+        view === "assurance-sets"
       );
     }
 
@@ -780,7 +844,8 @@ export function isViewAccessibleToPersona(
       return (
         view === "dashboard" ||
         view === "audit" ||
-        view === "approver"
+        view === "approver" ||
+        view === "assurance-sets"
       );
     }
 
@@ -956,3 +1021,70 @@ export function matchesVesselSearch(
   return false;
 }
 
+/**
+  what: resolves the user who created an assurance set; inputs are the set and the user registry.
+  how: uses createdByName when stored, otherwise matches the creating role (createdByPersona or initiatorRole) to a user in the initiating organization; name is undefined when no user matches.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx and AssuranceDetailView.tsx.
+*/
+export function getAssuranceSetCreator(
+  set: Pick<AssuranceSet, 'createdByName' | 'createdByPersona' | 'initiatorRole' | 'initiatorOrg'>,
+  users: Pick<UserProfile, 'name' | 'roles' | 'organization'>[],
+): { name?: string; organization: string } {
+  const organization = set.initiatorOrg || '';
+  if (set.createdByName) return { name: set.createdByName, organization };
+
+  const role: UserRolePersona | undefined =
+    set.createdByPersona === 'Administrator' || set.createdByPersona === 'C Admin'
+      ? set.createdByPersona
+      : set.initiatorRole === 'C Admin · Client Created' || set.initiatorRole === 'Client Admin'
+        ? 'C Admin'
+        : set.initiatorRole === 'Vessel Provider Admin' || set.initiatorRole === 'Vessel Provider'
+          ? 'Administrator'
+          : undefined;
+
+  const creator = role
+    ? users.find(
+        (u) =>
+          u.roles.includes(role) &&
+          Boolean(u.organization) &&
+          Boolean(organization) &&
+          orgFieldMatches(u.organization as string, organization),
+      )
+    : undefined;
+
+  return { name: creator?.name, organization };
+}
+
+/**
+  what: label for the created-by column; inputs are the set, the user registry and the active persona.
+  how: shows the creator name when the set was created inside the viewer organization and the creator is known, otherwise the initiating organization.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx.
+*/
+export function getAssuranceSetCreatedByLabel(
+  set: Pick<AssuranceSet, 'createdByName' | 'createdByPersona' | 'initiatorRole' | 'initiatorOrg'>,
+  users: Pick<UserProfile, 'name' | 'roles' | 'organization'>[],
+  persona: UserRolePersona,
+): string {
+  const creator = getAssuranceSetCreator(set, users);
+  const viewerOrg = users.find((u) => u.roles.includes(persona))?.organization;
+  const isWithinOrganization = Boolean(
+    viewerOrg && creator.organization && orgFieldMatches(viewerOrg, creator.organization),
+  );
+  return isWithinOrganization && creator.name ? creator.name : creator.organization;
+}
+
+/**
+  what: true when an assurance set is owned or was initiated by the given organization; inputs are the set and the organization name.
+  how: matches the organization against initiatorOrg and clientOrg, using charterer as the owner when clientOrg is not recorded.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx for the organization tab.
+*/
+export function isAssuranceSetOwnedOrInitiatedByOrganization(
+  set: Pick<AssuranceSet, 'initiatorOrg' | 'clientOrg' | 'charterer'>,
+  organization: string | undefined,
+): boolean {
+  if (!organization || !organization.trim()) return false;
+  const ownerOrg = set.clientOrg || set.charterer;
+  return [set.initiatorOrg, ownerOrg].some(
+    (field) => Boolean(field) && orgFieldMatches(organization, field as string),
+  );
+}

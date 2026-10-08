@@ -34,7 +34,6 @@ import {
   getCurrentStatusByDimension,
   statusHistoryBadgeClass,
 } from '../utils/vesselStatusHistoryHelpers';
-import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
 import { getFallbackPhysicalInspections } from '../store/inspectionMockData';
 import {
   MapPin,
@@ -87,6 +86,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     updateVessel,
     updateVesselAvailability,
     setCreateAssuranceForVesselId,
+    setCreateAssuranceForAsset,
     setCurrentHashView,
     previousHashView,
     previousEntityId,
@@ -120,7 +120,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<VesselInformation | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [showAddToProjectModal, setShowAddToProjectModal] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedCapaForDrawer, setSelectedCapaForDrawer] = useState<CapaItem | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -387,6 +386,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const handleCreateAssuranceForVessel = (templateSetId?: string) => {
     if (!vessel || !canCreateAssuranceForThisVessel) return;
     setCreateAssuranceForVesselId(vessel.id);
+    /* charter hand-off: lock the wizard to vessel scope and this vessel */
+    setCreateAssuranceForAsset({ scope: 'Vessel', assetId: vessel.id });
     setCurrentHashView('create-assurance-set', templateSetId);
   };
   const linkedCrew = useMemo(() => {
@@ -2624,27 +2625,15 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </button>
             </div>
 
-            {(canCreateAssurance || canCreateAssuranceForThisVessel) && (
-              <div className="d-flex align-items-center gap-2">
-                {canCreateAssurance && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary fw-semibold"
-                    onClick={() => setShowAddToProjectModal(true)}
-                  >
-                    Add to Project
-                  </button>
-                )}
-                {canCreateAssuranceForThisVessel && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-primary fw-semibold"
-                    onClick={() => handleCreateAssuranceForVessel()}
-                  >
-                    Create Assurance Set
-                  </button>
-                )}
-              </div>
+            {/* charter is offered only for vessels from other organizations that are free to charter */}
+            {canCreateAssuranceForThisVessel && (
+              <button
+                type="button"
+                className="btn btn-sm btn-primary fw-semibold"
+                onClick={() => handleCreateAssuranceForVessel()}
+              >
+                Charter Vessel
+              </button>
             )}
           </div>
 
@@ -2652,18 +2641,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             {filteredAssuranceSets.length === 0 ? (
               <div className="p-4 text-center text-muted">
                 {linkedSets.length === 0 ? (
-                  <>
-                    <div className="mb-3">No assurance sets linked to this vessel yet.</div>
-                    {canCreateAssuranceForThisVessel && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-primary fw-semibold"
-                        onClick={() => handleCreateAssuranceForVessel()}
-                      >
-                        Create Assurance Set for this Vessel
-                      </button>
-                    )}
-                  </>
+                  canCreateAssuranceForThisVessel
+                    ? 'No assurance sets linked to this vessel yet. Use Charter Vessel above to start one.'
+                    : 'No assurance sets linked to this vessel yet.'
                 ) : (
                   'No assurance sets match the search and filter criteria.'
                 )}
@@ -5140,16 +5120,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         />
       )}
 
-      {vessel && (
-        <AddToProjectModal
-          isOpen={showAddToProjectModal}
-          onClose={() => setShowAddToProjectModal(false)}
-          assetType="Vessel"
-          assetId={vessel.id}
-          assetName={vessel.name}
-          providerOrganization={vessel.registeredOwner}
-        />
-      )}
     </div>
   );
 };

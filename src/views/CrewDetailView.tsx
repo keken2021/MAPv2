@@ -26,7 +26,7 @@ import { formatMaritimeDate } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CrewDocumentUploadModal } from '../components/drawers/CrewDocumentUploadModal';
 import { CrewDocumentViewerModal } from '../components/drawers/CrewDocumentViewerModal';
-import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
+import { getProjectOrganizationForPersona, isCrewOwnedByOrganization } from '../utils/projectHelpers';
 import { ImageCropModal } from '../components/drawers/VesselImageCropModal';
 import { CURATED_CREW_PHOTOS, getCrewStockPhoto } from '../utils/vesselImageHelpers';
 
@@ -43,6 +43,8 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
     previousEntityId,
     deleteCrewDocument,
     updateCrewMember,
+    users,
+    setCreateAssuranceForAsset,
   } = useMapStore();
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -53,7 +55,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const [viewingDoc, setViewingDoc] = useState<STCWDocumentItem | null>(null);
 
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [showAddToProjectModal, setShowAddToProjectModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   /* Photo gallery & cropping modal states */
@@ -73,7 +74,12 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const crewMember = crew.find((c) => c.id === crewId) || crew[0];
   const canManageDocuments = activePersona === 'Administrator' || activePersona === 'Submitter';
   const canManagePhotos = activePersona === 'Administrator' || activePersona === 'Submitter';
-  const canAddToProject = activePersona === 'Administrator' || activePersona === 'C Admin';
+  /* hire is offered to admins for crew from other organizations only */
+  const canHireCrew = Boolean(
+    crewMember &&
+    (activePersona === 'Administrator' || activePersona === 'C Admin') &&
+    !isCrewOwnedByOrganization(crewMember, getProjectOrganizationForPersona(activePersona, users)),
+  );
 
   useEffect(() => {
     if (crewMember) {
@@ -292,13 +298,17 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
 
           {/* Opposite Corner Controls: STCW Score Gauge + Export Data Button + Close Button */}
           <div className="d-flex align-items-center gap-3 ms-auto">
-            {canAddToProject && (
+            {canHireCrew && (
               <button
                 type="button"
-                className="btn btn-sm btn-outline-primary fw-semibold"
-                onClick={() => setShowAddToProjectModal(true)}
+                className="btn btn-sm btn-primary fw-semibold"
+                onClick={() => {
+                  /* charter hand-off: lock the wizard to crew scope and this seafarer */
+                  setCreateAssuranceForAsset({ scope: 'Crew', assetId: crewMember.id });
+                  setCurrentHashView('create-assurance-set');
+                }}
               >
-                Add to Project
+                Hire Crew
               </button>
             )}
             <div className="d-flex flex-column align-items-center">
@@ -1380,14 +1390,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         />
       )}
 
-      <AddToProjectModal
-        isOpen={showAddToProjectModal}
-        onClose={() => setShowAddToProjectModal(false)}
-        assetType="Crew"
-        assetId={crewMember.id}
-        assetName={crewMember.fullName}
-        providerOrganization={crewMember.organization || 'Northwind Marine Pty Ltd'}
-      />
     </div>
   );
 };

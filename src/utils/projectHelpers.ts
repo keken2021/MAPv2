@@ -413,13 +413,15 @@ export function buildMasterAssuranceRequirements(
 export function getStandaloneAssuranceSetsForAttach(
   assuranceSets: AssuranceSet[],
   project: Project,
+  allProjects: Project[] = [project],
 ): AssuranceSet[] {
   const linkedIds = new Set(project.assetLinks.map((l) => l.assuranceSetId));
   return assuranceSets.filter((s) => {
     if (s.isProjectMaster || linkedIds.has(s.id) || s.visibility === 'draft' || (s.visibility as string) === 'private') {
       return false;
     }
-    return true;
+    /* a set belongs to at most one project, so sets already in another project are not offered */
+    return !getProjectForAssuranceSet(s, allProjects);
   });
 }
 
@@ -713,3 +715,31 @@ export function syncAllAffectedProjectRollups(
   return { updatedProjects: curProjects, updatedAssuranceSets: curSets };
 }
 
+/* label shown wherever a set has no project */
+export const ORPHANED_ASSURANCE_SET_LABEL = 'Orphaned';
+
+/**
+  what: finds the single project an assurance set belongs to; inputs are the set and all projects.
+  how: a master set resolves through masterAssuranceSetId, a child set through the project roster link or its projectId; returns undefined for an orphaned set.
+  with what file: src/utils/projectHelpers.ts used by useMapStore.ts, AssuranceDetailView.tsx and ProjectDetailView.tsx.
+*/
+export function getProjectForAssuranceSet(
+  set: Pick<AssuranceSet, 'id' | 'projectId' | 'parentProjectId'>,
+  projects: Project[],
+): Project | undefined {
+  return (
+    projects.find((p) => p.masterAssuranceSetId === set.id) ||
+    projects.find((p) => p.assetLinks.some((l) => l.assuranceSetId === set.id)) ||
+    projects.find((p) => p.id === (set.projectId || set.parentProjectId))
+  );
+}
+
+/**
+  what: true when an assurance set has no project and can be added to one; inputs are the set and all projects.
+  how: excludes project master sets and unfinished drafts, then checks getProjectForAssuranceSet.
+  with what file: src/utils/projectHelpers.ts used by AssuranceDetailView.tsx.
+*/
+export function isAssuranceSetOrphaned(set: AssuranceSet, projects: Project[]): boolean {
+  if (set.isProjectMaster || set.visibility === 'draft') return false;
+  return !getProjectForAssuranceSet(set, projects);
+}

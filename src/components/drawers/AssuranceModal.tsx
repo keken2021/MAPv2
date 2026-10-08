@@ -891,10 +891,10 @@ export const AssuranceModal: React.FC<AssuranceModalProps> = ({ isOpen, onClose,
                   </div>
                 </div>
 
-                {/* Dynamic Primary Asset Selection Box */}
+                {/* Dynamic Designation of Asset Box */}
                 <div className="border rounded-3 p-3 bg-light-subtle">
                   <div className="d-flex align-items-center justify-content-between mb-2">
-                    <strong className="text-dark small">Primary Asset Selection ({assuranceType} Scope)</strong>
+                    <strong className="text-dark small">Designation of Asset ({assuranceType} Scope)</strong>
                     <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.65rem' }}>
                       Scope: {assuranceType}
                     </span>

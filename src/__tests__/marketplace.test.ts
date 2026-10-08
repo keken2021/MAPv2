@@ -5,10 +5,17 @@
 */
 
 import { describe, it, expect } from 'vitest';
-import { getMarketplaceItems, filterMarketplaceItems, isItemOwnedByCurrentOrganization } from '../utils/marketplaceHelpers';
+import {
+  getMarketplaceItems,
+  filterMarketplaceItems,
+  isItemOwnedByCurrentOrganization,
+  getMarketplaceCharterLabel,
+  resolveMarketplaceCharterTarget,
+} from '../utils/marketplaceHelpers';
 import { isViewAccessibleToPersona } from '../utils/rbacHelpers';
 import { MOCK_VESSELS } from '../store/mockData';
 import { MOCK_EQUIPMENT } from '../store/equipmentMockData';
+import { MOCK_CREW } from '../store/crewMockData';
 import { UserProfile } from '../types/user';
 
 describe('Marketplace Module & Segregation', () => {
@@ -127,5 +134,36 @@ describe('Marketplace Module & Segregation', () => {
     expect(vesselOffering).toBeDefined();
     expect(vesselOffering.certifications.length).toBeGreaterThan(0);
     expect(vesselOffering.complianceReadinessScore).toBeGreaterThanOrEqual(80);
+  });
+
+  it('labels the charter action by listing category', () => {
+    expect(getMarketplaceCharterLabel({ category: 'vessel' })).toBe('Charter Vessel');
+    expect(getMarketplaceCharterLabel({ category: 'equipment' })).toBe('Rent Equipment');
+    expect(getMarketplaceCharterLabel({ category: 'crew' })).toBe('Hire Crew');
+  });
+
+  it('resolves a linked listing to the registered asset and its assurance scope', () => {
+    const registries = { vessels: MOCK_VESSELS, equipment: MOCK_EQUIPMENT, crew: MOCK_CREW };
+
+    expect(
+      resolveMarketplaceCharterTarget({ category: 'vessel', linkedEntityId: 'VESSEL-008', linkedEntityType: 'vessel' }, registries),
+    ).toEqual({ scope: 'Vessel', assetId: 'VESSEL-008' });
+    expect(
+      resolveMarketplaceCharterTarget({ category: 'equipment', linkedEntityId: 'EQ-007', linkedEntityType: 'equipment' }, registries),
+    ).toEqual({ scope: 'Equipment', assetId: 'EQ-007' });
+    /* linkedEntityType is optional; the listing category is used when it is missing */
+    expect(
+      resolveMarketplaceCharterTarget({ category: 'crew', linkedEntityId: 'CREW-101' }, registries),
+    ).toEqual({ scope: 'Crew', assetId: 'CREW-101' });
+  });
+
+  it('returns no charter target when the listing is not linked to a registered asset', () => {
+    const registries = { vessels: MOCK_VESSELS, equipment: MOCK_EQUIPMENT, crew: MOCK_CREW };
+
+    expect(resolveMarketplaceCharterTarget({ category: 'vessel' }, registries)).toBeNull();
+    expect(
+      resolveMarketplaceCharterTarget({ category: 'vessel', linkedEntityId: 'VESSEL-UNREGISTERED', linkedEntityType: 'vessel' }, registries),
+    ).toBeNull();
+    expect(resolveMarketplaceCharterTarget({ category: 'service', linkedEntityId: 'VESSEL-008' }, registries)).toBeNull();
   });
 });

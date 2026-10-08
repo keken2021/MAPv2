@@ -12,6 +12,8 @@ import {
   isDuplicateCampaignTitle,
   generateUniqueAssuranceSetId,
   generateUniqueRequirementId,
+  toIsoLocalDate,
+  validateCharterWindow,
 } from '../utils/validation';
 import { VesselInformation } from '../types/vessel';
 import { AssuranceSet } from '../types/assurance';
@@ -112,3 +114,35 @@ describe('Maritime Validation Utilities', () => {
   });
 });
 
+describe('charter window validation', () => {
+  /* fixed reference day so the rule does not depend on the machine clock */
+  const today = new Date(2026, 9, 8);
+
+  it('formats a local date as iso yyyy-mm-dd', () => {
+    expect(toIsoLocalDate(today)).toBe('2026-10-08');
+  });
+
+  it('accepts a window that starts tomorrow or later', () => {
+    expect(validateCharterWindow('2026-10-09', '2026-10-09', today)).toEqual({});
+    expect(validateCharterWindow('2026-11-01', '2027-02-28', today)).toEqual({});
+  });
+
+  it('rejects today and earlier days for the start and the end', () => {
+    expect(validateCharterWindow('2026-10-08', '2026-11-01', today).start).toBe('Start date must be after today.');
+    expect(validateCharterWindow('2026-10-07', '2026-11-01', today).start).toBe('Start date must be after today.');
+    expect(validateCharterWindow('2026-10-07', '2026-10-08', today).end).toBe('End date must be after today.');
+  });
+
+  it('rejects an end date before the start date', () => {
+    expect(validateCharterWindow('2026-12-01', '2026-11-01', today)).toEqual({
+      end: 'End date cannot be before the start date.',
+    });
+  });
+
+  it('requires both dates', () => {
+    expect(validateCharterWindow('', '', today)).toEqual({
+      start: 'Start date is required.',
+      end: 'End date is required.',
+    });
+  });
+});

@@ -271,7 +271,7 @@ function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
     case 'assurance_sets':
       if (role === 'Administrator') return createReadUpdate();
       if (role === 'C Admin') return createReadUpdate();
-      if (role === 'Submitter') return readOnly();
+      if (role === 'Submitter' || role === 'Verifier' || role === 'Inspector' || role === 'Approver') return readOnly();
       return emptyCrud();
 
     case 'assurance_requirements':

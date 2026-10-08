@@ -143,9 +143,12 @@ export interface AssuranceSet {
   subtypeStakeholders?: Partial<Record<AssuranceSubtype, SubtypeStakeholderMapping>>;
   categoryStakeholders?: Record<string, SubtypeStakeholderMapping>;
   createdByPersona?: string;
+  /** display name of the user who created the set */
+  createdByName?: string;
   id: string; // e.g. AS-2026-001
   title: string; // e.g. Chevron Gorgon Charter Vetting
   assuranceType?: AssuranceScopeType;
+  /** nullable foreign key: a set belongs to at most one project; a project has zero or many sets */
   projectId?: string;
   projectName?: string;
   crewId?: string;

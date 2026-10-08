@@ -15,6 +15,10 @@ interface DocumentReviewDrawerProps {
   document: MasterDocument | null;
   requirementNotes?: string;
   onClose: () => void;
+  /* false when the caller's assurance set does not grant the active persona submit actions */
+  allowSubmit?: boolean;
+  /* false when the caller's assurance set does not grant the active persona verify actions */
+  allowVerify?: boolean;
 }
 
 interface ExtractedAttribute {
@@ -30,7 +34,7 @@ interface ExtractedAttribute {
   how: displays document metadata header, scanned page preview box with quality checks, OCR extracted attributes with progress bars, and exception action banner.
   with what file: src/components/drawers/DocumentReviewDrawer.tsx loaded by VerifierWorkspaceView.tsx and AssuranceDetailView.tsx.
 */
-export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose }) => {
+export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose, allowSubmit = true, allowVerify = true }) => {
   const { verifyDocument, activePersona, assuranceSets } = useMapStore();
   const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState('');
@@ -90,8 +94,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     linkedSet
   );
 
-  const canSubmit = activePersona === 'Submitter' || activePersona === 'Administrator';
-  const canVerify = !isSubmitter && (activePersona === 'Verifier' || activePersona === 'Administrator');
+  const canSubmit = allowSubmit && (activePersona === 'Submitter' || activePersona === 'Administrator');
+  const canVerify = allowVerify && !isSubmitter && (activePersona === 'Verifier' || activePersona === 'Administrator');
 
   const requireComment = () => {
     if (!comment.trim()) {

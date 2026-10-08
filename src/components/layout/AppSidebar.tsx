@@ -130,7 +130,13 @@ export const AppSidebar: React.FC = () => {
     {
       key: "assurance-sets",
       label: "Assurance Sets",
-      allowedRoles: ["Administrator", "Submitter"],
+      allowedRoles: [
+        "Administrator",
+        "Submitter",
+        "Verifier",
+        "Inspector",
+        "Approver",
+      ],
     },
     {
       key: "documents",
@@ -206,9 +212,14 @@ export const AppSidebar: React.FC = () => {
       return false;
     if (activePersona === "Inspector" && item.key === "inspector") return false;
     if (activePersona === "Approver" && item.key === "approver") return false;
+    if (activePersona === "C Admin" && item.key === "assurance-sets")
+      return false;
+    /* projects shares the assurance_sets scope; keep it hidden for roles that only gained the assurance sets page */
     if (
-      (activePersona === "C Admin" || activePersona === "Submitter") &&
-      item.key === "assurance-sets"
+      (activePersona === "Verifier" ||
+        activePersona === "Inspector" ||
+        activePersona === "Approver") &&
+      item.key === "project"
     )
       return false;
     if (

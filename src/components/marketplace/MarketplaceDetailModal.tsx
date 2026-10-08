@@ -18,7 +18,6 @@ import {
   DollarSign,
   Phone,
   Mail,
-  FolderPlus,
   ExternalLink,
   Download,
   Camera,
@@ -26,14 +25,17 @@ import {
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 import { exportToPdf } from '../../utils/exportHelpers';
+import { getMarketplaceCharterLabel } from '../../utils/marketplaceHelpers';
 
 interface MarketplaceDetailModalProps {
   item: MarketplaceItem | null;
   isOpen: boolean;
   onClose: () => void;
   onNavigateToEntity?: (view: string, entityId: string) => void;
-  onAddToProject?: (item: MarketplaceItem) => void;
-  onInitiateAssurance?: (item: MarketplaceItem) => void;
+  /* opens create assurance set for the asset behind the listing */
+  onCharter?: (item: MarketplaceItem) => void;
+  /* when set, the charter action is disabled and this text explains why */
+  charterDisabledReason?: string;
 }
 
 export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
@@ -41,8 +43,8 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
   isOpen,
   onClose,
   onNavigateToEntity,
-  onAddToProject,
-  onInitiateAssurance,
+  onCharter,
+  charterDisabledReason,
 }) => {
   const [activeTab, setActiveTab] = useState<'specs' | 'capabilities' | 'compliance' | 'provider'>('specs');
   const [inquirySent, setInquirySent] = useState(false);
@@ -800,35 +802,48 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
               >
                 Close
               </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary px-3.5 py-1.5 fw-medium d-flex align-items-center gap-1.5 text-white"
-                onClick={() => {
-                  const handler = onAddToProject || onInitiateAssurance;
-                  if (handler) {
-                    handler(item);
-                  } else {
-                    handleSendInquiry();
-                  }
-                }}
-                style={{
-                  backgroundColor: '#0B1B2B',
-                  borderColor: '#0B1B2B',
-                  fontSize: '0.82rem',
-                  height: '34px',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#1E3A5F';
-                  e.currentTarget.style.borderColor = '#1E3A5F';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#0B1B2B';
-                  e.currentTarget.style.borderColor = '#0B1B2B';
-                }}
+              {/* wrapper carries the tooltip because a disabled button does not fire hover events */}
+              <span
+                className="d-inline-flex"
+                title={charterDisabledReason}
+                tabIndex={charterDisabledReason ? 0 : undefined}
               >
-                <FolderPlus size={14} />
-                <span>Add to a Project</span>
-              </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary px-3.5 py-1.5 fw-medium text-white"
+                  disabled={Boolean(charterDisabledReason)}
+                  aria-describedby={charterDisabledReason ? 'marketplace-charter-reason' : undefined}
+                  onClick={() => {
+                    if (onCharter) {
+                      onCharter(item);
+                    } else {
+                      handleSendInquiry();
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#0B1B2B',
+                    borderColor: '#0B1B2B',
+                    fontSize: '0.82rem',
+                    height: '34px',
+                    pointerEvents: charterDisabledReason ? 'none' : undefined,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#1E3A5F';
+                    e.currentTarget.style.borderColor = '#1E3A5F';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#0B1B2B';
+                    e.currentTarget.style.borderColor = '#0B1B2B';
+                  }}
+                >
+                  {getMarketplaceCharterLabel(item)}
+                </button>
+                {charterDisabledReason && (
+                  <span id="marketplace-charter-reason" className="visually-hidden">
+                    {charterDisabledReason}
+                  </span>
+                )}
+              </span>
             </div>
           </div>
         </div>

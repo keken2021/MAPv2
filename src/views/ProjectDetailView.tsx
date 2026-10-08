@@ -33,6 +33,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     addAssetToProject,
     updateAssuranceSet,
     syncProjectMasterAssurance,
+    setReturnToProjectId,
   } = useMapStore();
 
   const [activeTab, setActiveTab] = useState<"roster" | "assurance">("roster");
@@ -92,8 +93,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   };
 
   const standaloneSetsForAttach = useMemo(
-    () => getStandaloneAssuranceSetsForAttach(assuranceSets, project),
-    [assuranceSets, project],
+    () => getStandaloneAssuranceSetsForAttach(assuranceSets, project, projects),
+    [assuranceSets, project, projects],
   );
 
   return (
@@ -133,7 +134,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </div>
             <h2 className="h4 fw-bold text-dark mb-1">{project.name}</h2>
             <div className="text-muted small">
-              Client owner:{" "}
+              Client:{" "}
               {project.ownerOrganization ||
                 project.charterer ||
                 project.requestingOrganization}
@@ -188,6 +189,17 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 >
                   <Plus size={15} />
                   <span>Add Asset</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => {
+                    /* opens the wizard with this project preselected and locked */
+                    setReturnToProjectId(project.id);
+                    setCurrentHashView("create-assurance-set");
+                  }}
+                >
+                  Create Assurance Set
                 </button>
                 <button
                   type="button"
@@ -483,16 +495,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 ? "Equipment"
                 : "Vessel";
 
-          // Update template instance with configured charter period and project linkage
-          updateAssuranceSet({
-            ...selected,
-            charterWindowStart: charterStart,
-            charterWindowEnd: charterEnd,
-            projectId: project.id,
-            projectName: project.name,
-            charterer: project.clientOperator || project.requestingOrganization,
-          });
-
           const result = addAssetToProject(project.id, {
             assetType,
             assetId:
@@ -512,6 +514,18 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             notes: notes || undefined,
           });
           if (result.success) {
+            /* apply the configured charter period only once the set has joined the project */
+            const attached = useMapStore.getState().assuranceSets.find((s) => s.id === selected.id);
+            if (attached) {
+              updateAssuranceSet({
+                ...attached,
+                charterWindowStart: charterStart,
+                charterWindowEnd: charterEnd,
+                /* client and charterer are the same organization on a set */
+                charterer: project.clientOperator || project.requestingOrganization,
+                clientOrg: project.clientOperator || project.requestingOrganization,
+              });
+            }
             setToast(`Attached ${selected.id} with configured charter period (${charterStart} to ${charterEnd}).`);
             setAttachSetId("");
             setPreviewAssuranceSet(null);

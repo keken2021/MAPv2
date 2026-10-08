@@ -298,3 +298,54 @@ export function filterMarketplaceItems(
     return 0;
   });
 }
+
+export interface MarketplaceCharterTarget {
+  scope: 'Vessel' | 'Crew' | 'Equipment';
+  assetId: string;
+}
+
+/* charter action wording per listing category */
+const MARKETPLACE_CHARTER_LABELS: Record<MarketplaceItem['category'], string> = {
+  vessel: 'Charter Vessel',
+  equipment: 'Rent Equipment',
+  crew: 'Hire Crew',
+  service: 'Engage Service',
+};
+
+/**
+  what: returns the charter action label for a marketplace listing; input is the listing.
+  how: looks up the listing category in MARKETPLACE_CHARTER_LABELS.
+  with what file: src/utils/marketplaceHelpers.ts used by MarketplaceDetailModal.tsx.
+*/
+export function getMarketplaceCharterLabel(item: Pick<MarketplaceItem, 'category'>): string {
+  return MARKETPLACE_CHARTER_LABELS[item.category];
+}
+
+/**
+  what: resolves the registered asset a listing charters; inputs are the listing and the vessel, equipment and crew registries.
+  how: reads linkedEntityId and linkedEntityType (falling back to category) and confirms the asset exists in the matching registry; returns null when the listing is not linked to a registered asset.
+  with what file: src/utils/marketplaceHelpers.ts used by MarketplaceView.tsx to hand the scope and asset to CreateAssuranceSetView.tsx.
+*/
+export function resolveMarketplaceCharterTarget(
+  item: Pick<MarketplaceItem, 'category' | 'linkedEntityId' | 'linkedEntityType'>,
+  registries: {
+    vessels: Pick<VesselInformation, 'id'>[];
+    equipment: Pick<EquipmentAsset, 'id'>[];
+    crew: Pick<CrewMember, 'id'>[];
+  },
+): MarketplaceCharterTarget | null {
+  const assetId = item.linkedEntityId;
+  if (!assetId) return null;
+
+  const entityType = item.linkedEntityType || item.category;
+  if (entityType === 'vessel' && registries.vessels.some((v) => v.id === assetId)) {
+    return { scope: 'Vessel', assetId };
+  }
+  if (entityType === 'equipment' && registries.equipment.some((e) => e.id === assetId)) {
+    return { scope: 'Equipment', assetId };
+  }
+  if (entityType === 'crew' && registries.crew.some((c) => c.id === assetId)) {
+    return { scope: 'Crew', assetId };
+  }
+  return null;
+}

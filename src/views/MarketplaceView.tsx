@@ -24,10 +24,10 @@ import {
 } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { MarketplaceCategory, MarketplaceItem } from '../types/marketplace';
-import { getMarketplaceItems, filterMarketplaceItems } from '../utils/marketplaceHelpers';
+import { getMarketplaceItems, filterMarketplaceItems, resolveMarketplaceCharterTarget } from '../utils/marketplaceHelpers';
+import { filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, getClientAdminOrganization } from '../utils/rbacHelpers';
 import { MarketplaceCard } from '../components/marketplace/MarketplaceCard';
 import { MarketplaceDetailModal } from '../components/marketplace/MarketplaceDetailModal';
-import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
 import { getOrganizationLogo } from '../utils/vesselImageHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
@@ -35,7 +35,17 @@ import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 
 export const MarketplaceView: React.FC = () => {
-  const { vessels, equipment, crew, activePersona, users, setCurrentHashView } = useMapStore();
+  const {
+    vessels,
+    equipment,
+    crew,
+    assuranceSets,
+    activePersona,
+    users,
+    setCurrentHashView,
+    setCreateAssuranceForVesselId,
+    setCreateAssuranceForAsset,
+  } = useMapStore();
   const [activeCategory, setActiveCategory] = useState<MarketplaceCategory>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [providerFilter, setProviderFilter] = useState('ALL');
@@ -48,8 +58,44 @@ export const MarketplaceView: React.FC = () => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [selectedItemForProject, setSelectedItemForProject] = useState<MarketplaceItem | null>(null);
-  const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
+
+  /* registered asset behind the open listing, or null when the listing is not linked to one */
+  const charterTarget = selectedItem
+    ? resolveMarketplaceCharterTarget(selectedItem, { vessels, equipment, crew })
+    : null;
+
+  /* reason the charter action is unavailable for the open listing; undefined when it can proceed */
+  const charterDisabledReason = ((): string | undefined => {
+    if (activePersona !== 'Administrator' && activePersona !== 'C Admin') {
+      return 'Only Vessel Admin and Client Admin can start a charter.';
+    }
+    if (!charterTarget) {
+      return 'This listing is not linked to a registered asset.';
+    }
+    if (charterTarget.scope === 'Vessel') {
+      const vessel = vessels.filter((v) => v.id === charterTarget.assetId);
+      const available =
+        activePersona === 'C Admin'
+          ? filterCAdminAvailableToCharter(vessel, assuranceSets, getClientAdminOrganization(users))
+          : filterVesselAdminAvailableToCharter(vessel);
+      if (available.length === 0) {
+        return 'This vessel is not available to charter.';
+      }
+    }
+    return undefined;
+  })();
+
+  /* opens create assurance set with the scope and asset of the listing preselected and locked */
+  const handleCharter = () => {
+    if (!charterTarget || charterDisabledReason) return;
+    if (charterTarget.scope === 'Vessel') {
+      setCreateAssuranceForVesselId(charterTarget.assetId);
+    }
+    setCreateAssuranceForAsset(charterTarget);
+    setIsDetailOpen(false);
+    setSelectedItem(null);
+    setCurrentHashView('create-assurance-set');
+  };
 
   // 1. Resolve all marketplace items strictly excluding current user's organization
   const allMarketplaceItems = useMemo(() => {
@@ -623,34 +669,9 @@ export const MarketplaceView: React.FC = () => {
         onNavigateToEntity={(view, entityId) => {
           setCurrentHashView(view, entityId);
         }}
-        onAddToProject={(item) => {
-          setSelectedItemForProject(item);
-          setIsAddToProjectOpen(true);
-          setIsDetailOpen(false);
-        }}
+        onCharter={handleCharter}
+        charterDisabledReason={charterDisabledReason}
       />
-
-      {/* Add Asset to Project Modal (with Pre-Assurance Vault & Comparison) */}
-      {selectedItemForProject && (
-        <AddToProjectModal
-          isOpen={isAddToProjectOpen}
-          onClose={() => {
-            setIsAddToProjectOpen(false);
-            setSelectedItemForProject(null);
-          }}
-          assetType={
-            selectedItemForProject.category === 'crew'
-              ? 'Crew'
-              : selectedItemForProject.category === 'equipment'
-                ? 'Equipment'
-                : 'Vessel'
-          }
-          assetId={selectedItemForProject.linkedEntityId || selectedItemForProject.id}
-          assetName={selectedItemForProject.name}
-          providerOrganization={selectedItemForProject.providerOrg}
-          marketplaceItem={selectedItemForProject}
-        />
-      )}
 
       {/* Dedicated Filter Modal */}
       <FilterModal

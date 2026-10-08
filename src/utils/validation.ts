@@ -184,3 +184,43 @@ export function validatePhoneNumber(phone: string): boolean {
   return phoneRegex.test(phone.replace(/[\s-]/g, ''));
 }
 
+/**
+  what: returns the local calendar date as an iso yyyy-mm-dd string; input is the date, defaulting to now.
+  how: reads the local year, month and day so the result does not shift across time zones.
+  with what file: src/utils/validation.ts used by validateCharterWindow and AssuranceDetailView.tsx.
+*/
+export function toIsoLocalDate(date: Date = new Date()): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
+  what: validates an edited charter window; inputs are the iso start and end dates and the current date.
+  how: both dates are required and must fall after today, and the end may not precede the start; returns one message per invalid field, empty when valid.
+  with what file: src/utils/validation.ts used by AssuranceDetailView.tsx.
+*/
+export function validateCharterWindow(
+  start: string,
+  end: string,
+  today: Date = new Date(),
+): { start?: string; end?: string } {
+  const errors: { start?: string; end?: string } = {};
+  const todayIso = toIsoLocalDate(today);
+
+  if (!start) {
+    errors.start = 'Start date is required.';
+  } else if (start <= todayIso) {
+    errors.start = 'Start date must be after today.';
+  }
+
+  if (!end) {
+    errors.end = 'End date is required.';
+  } else if (end <= todayIso) {
+    errors.end = 'End date must be after today.';
+  } else if (start && end < start) {
+    errors.end = 'End date cannot be before the start date.';
+  }
+
+  return errors;
+}

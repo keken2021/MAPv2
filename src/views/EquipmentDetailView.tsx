@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
-import { AddToProjectModal } from '../components/drawers/AddToProjectModal';
+import { getProjectOrganizationForPersona, isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
 import { getEquipmentAssetStatus, EquipmentAsset } from '../types/equipment';
 import { useMapStore } from '../store/useMapStore';
 import {
@@ -46,6 +46,8 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
     previousEntityId,
     updateEquipment,
     updateEquipmentAvailability,
+    users,
+    setCreateAssuranceForAsset,
   } = useMapStore();
 
   const item = equipment.find((e) => e.id === equipmentId);
@@ -60,9 +62,13 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
   const isSubmitter = activePersona === 'Submitter';
   const canEditAvailability = isAdmin || isSubmitter;
   const canManagePhotos = isAdmin || isSubmitter;
-  const canAddToProject = isAdmin || isCAdmin;
+  /* rent is offered to admins for equipment from other organizations only */
+  const canRentEquipment = Boolean(
+    item &&
+    (isAdmin || isCAdmin) &&
+    !isEquipmentOwnedByOrganization(item, getProjectOrganizationForPersona(activePersona, users)),
+  );
 
-  const [showAddToProjectModal, setShowAddToProjectModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   /* Photo gallery & cropping modal states */
@@ -144,14 +150,17 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                 Parent Vessel: {parentVessel.name}
               </button>
             )}
-            {canAddToProject && (
+            {canRentEquipment && (
               <button
                 type="button"
-                className="btn btn-sm btn-primary fw-semibold d-inline-flex align-items-center gap-1.5"
-                onClick={() => setShowAddToProjectModal(true)}
+                className="btn btn-sm btn-primary fw-semibold"
+                onClick={() => {
+                  /* charter hand-off: lock the wizard to equipment scope and this item */
+                  setCreateAssuranceForAsset({ scope: 'Equipment', assetId: item.id });
+                  setCurrentHashView('create-assurance-set');
+                }}
               >
-                <Plus size={15} />
-                <span>Add to Project</span>
+                Rent Equipment
               </button>
             )}
             <button
@@ -783,14 +792,6 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         />
       )}
 
-      <AddToProjectModal
-        isOpen={showAddToProjectModal}
-        onClose={() => setShowAddToProjectModal(false)}
-        assetType="Equipment"
-        assetId={item.id}
-        assetName={item.name}
-        providerOrganization={item.owningOrganization}
-      />
     </div>
   );
 };

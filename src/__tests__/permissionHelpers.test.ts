@@ -152,8 +152,11 @@ describe('permissionDefaults and helpers', () => {
   });
 
   it('limits Verifier / Inspector / Approver sidebar-facing reads', () => {
-    expect(getRoleScopeFlags(matrix, 'Verifier', 'assurance_sets').read).toBe(false);
-    expect(getRoleScopeFlags(matrix, 'Inspector', 'assurance_sets').read).toBe(false);
+    /* workflow roles read the assurance sets page but cannot create or update from it */
+    expect(getRoleScopeFlags(matrix, 'Verifier', 'assurance_sets').read).toBe(true);
+    expect(getRoleScopeFlags(matrix, 'Verifier', 'assurance_sets').create).toBe(false);
+    expect(getRoleScopeFlags(matrix, 'Inspector', 'assurance_sets').read).toBe(true);
+    expect(getRoleScopeFlags(matrix, 'Inspector', 'assurance_sets').update).toBe(false);
     expect(getRoleScopeFlags(matrix, 'Inspector', 'documents').read).toBe(false);
     expect(getRoleScopeFlags(matrix, 'Inspector', 'capa').read).toBe(true);
     expect(getRoleScopeFlags(matrix, 'Approver', 'approval_gate').read).toBe(true);
