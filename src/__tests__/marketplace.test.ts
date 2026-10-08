@@ -12,7 +12,12 @@ import {
   getMarketplaceCharterLabel,
   resolveMarketplaceCharterTarget,
 } from '../utils/marketplaceHelpers';
-import { isViewAccessibleToPersona } from '../utils/rbacHelpers';
+import {
+  ASSURANCE_SETS_READ_ONLY_ROLES,
+  isMarketplacePersona,
+  isViewAccessibleToPersona,
+} from '../utils/rbacHelpers';
+import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
 import { MOCK_VESSELS } from '../store/mockData';
 import { MOCK_EQUIPMENT } from '../store/equipmentMockData';
 import { MOCK_CREW } from '../store/crewMockData';
@@ -118,13 +123,21 @@ describe('Marketplace Module & Segregation', () => {
     expect(imcaMatch.length).toBeGreaterThan(0);
   });
 
-  it('verifies route accessibility for marketplace across personas', () => {
+  it('opens the marketplace route to vessel admin and client admin only', () => {
     expect(isViewAccessibleToPersona('marketplace', undefined, 'Administrator')).toBe(true);
     expect(isViewAccessibleToPersona('marketplace', undefined, 'C Admin')).toBe(true);
-    expect(isViewAccessibleToPersona('marketplace', undefined, 'Submitter')).toBe(true);
-    expect(isViewAccessibleToPersona('marketplace', undefined, 'Verifier')).toBe(true);
-    expect(isViewAccessibleToPersona('marketplace', undefined, 'Inspector')).toBe(true);
-    expect(isViewAccessibleToPersona('marketplace', undefined, 'Approver')).toBe(true);
+    expect(isViewAccessibleToPersona('marketplace', undefined, 'Submitter')).toBe(false);
+    expect(isViewAccessibleToPersona('marketplace', undefined, 'Verifier')).toBe(false);
+    expect(isViewAccessibleToPersona('marketplace', undefined, 'Inspector')).toBe(false);
+    expect(isViewAccessibleToPersona('marketplace', undefined, 'Approver')).toBe(false);
+  });
+
+  it('keeps the marketplace closed to workflow roles even when the permission matrix is supplied', () => {
+    const matrix = buildBrdRolePermissionDefaults();
+    ASSURANCE_SETS_READ_ONLY_ROLES.forEach((role) => {
+      expect(isMarketplacePersona(role)).toBe(false);
+      expect(isViewAccessibleToPersona('marketplace', undefined, role, matrix)).toBe(false);
+    });
   });
 
   it('verifies existing projects are available for asset nomination', () => {

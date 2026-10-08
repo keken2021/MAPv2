@@ -101,6 +101,18 @@ export const ASSURANCE_SETS_READ_ONLY_ROLES: UserRolePersona[] = [
   "Approver",
 ];
 
+/* admin roles that may open the marketplace: vessel admin (administrator) and client admin (c admin) */
+export const MARKETPLACE_ROLES: UserRolePersona[] = ["Administrator", "C Admin"];
+
+/**
+  what: true when the persona may see and open the marketplace; input is the active persona.
+  how: checks the persona against MARKETPLACE_ROLES.
+  with what file: src/utils/rbacHelpers.ts used by isViewAccessibleToPersona here and AppSidebar.tsx.
+*/
+export function isMarketplacePersona(persona: UserRolePersona): boolean {
+  return MARKETPLACE_ROLES.includes(persona);
+}
+
 export interface AssuranceSetRoleActions {
   canManage: boolean;
   canUpload: boolean;
@@ -742,6 +754,11 @@ export function isViewAccessibleToPersona(
 
   /* workflow roles never reach the creation wizard, whatever the matrix grants */
   if (view === "create-assurance-set" && isAssuranceSetsReadOnlyPersona(persona)) {
+    return false;
+  }
+
+  /* marketplace is for vessel admin and client admin only, whatever the matrix grants */
+  if (view === "marketplace" && !isMarketplacePersona(persona)) {
     return false;
   }
 

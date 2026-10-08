@@ -15,6 +15,10 @@ import {
   getRoleScopeFlags,
   isUserOverride,
 } from "../../utils/permissionHelpers";
+import {
+  MARKETPLACE_ROLES,
+  isMarketplacePersona,
+} from "../../utils/rbacHelpers";
 
 interface NavItem {
   key: string;
@@ -102,14 +106,7 @@ export const AppSidebar: React.FC = () => {
     {
       key: "marketplace",
       label: "Marketplace",
-      allowedRoles: [
-        "Administrator",
-        "C Admin",
-        "Submitter",
-        "Verifier",
-        "Inspector",
-        "Approver",
-      ],
+      allowedRoles: MARKETPLACE_ROLES,
     },
     {
       key: "assets",
@@ -230,6 +227,10 @@ export const AppSidebar: React.FC = () => {
     if (item.key === "roles-permissions") {
       return activePersona === "Administrator";
     }
+
+    /* marketplace stays hidden from workflow roles, whatever the matrix grants */
+    if (item.key === "marketplace" && !isMarketplacePersona(activePersona))
+      return false;
 
     const initialAllowed = item.allowedRoles.includes(activePersona);
 
