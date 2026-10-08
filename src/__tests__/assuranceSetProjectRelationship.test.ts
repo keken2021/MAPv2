@@ -52,7 +52,7 @@ describe('project to assurance set relationship', () => {
     const owners = new Map<string, string[]>();
     MOCK_PROJECTS.forEach((project) => {
       [project.masterAssuranceSetId, ...project.assetLinks.map((l) => l.assuranceSetId)]
-        .filter(Boolean)
+        .filter((id): id is string => Boolean(id))
         .forEach((setId) => owners.set(setId, [...(owners.get(setId) ?? []), project.id]));
     });
 
