@@ -10,9 +10,7 @@ import { VesselTable } from '../components/tables/VesselTable';
 import { VesselModal } from '../components/drawers/VesselModal';
 import { AssetHierarchyView } from '../components/assets/AssetHierarchyView';
 import {
-  filterCAdminActiveCharters,
-  filterCAdminAvailableToCharter,
-  getClientAdminOrganization,
+  filterVesselAdminChartered,
   isVesselOwnedByAdmin,
 } from '../utils/rbacHelpers';
 
@@ -31,7 +29,7 @@ export const FleetRegistryView: React.FC = () => {
       return 'owned';
     }
     if (activePersona === 'C Admin') {
-      return 'available';
+      return 'chartered';
     }
     return 'all';
   });
@@ -40,26 +38,19 @@ export const FleetRegistryView: React.FC = () => {
     if (activePersona === 'Administrator' || activePersona === 'Submitter') {
       setActiveTab('owned');
     } else if (activePersona === 'C Admin') {
-      setActiveTab('available');
+      setActiveTab('chartered');
     } else {
       setActiveTab('all');
     }
   }, [activePersona]);
 
-  const clientOrg = getClientAdminOrganization(users);
+  const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
+  const isClientAdmin = activePersona === 'C Admin';
 
-  const availableToCharterCount = filterCAdminAvailableToCharter(
-    vessels,
-    assuranceSets,
-    clientOrg,
-  ).length;
-  const activeChartersCount = filterCAdminActiveCharters(vessels, assuranceSets).length;
-
-  const isVesselOwned = isVesselOwnedByAdmin;
-  const ownedVessels = vessels.filter(isVesselOwned);
-  const externalUncharteredVessels = vessels.filter((v) => !isVesselOwned(v) && v.status !== 'Under Charter');
-  const ownedCount = ownedVessels.length;
-  const externalUncharteredCount = externalUncharteredVessels.length;
+  /* vessel admin tab counts: own fleet, and other organizations' vessels chartered with this organization as client */
+  const viewerOrg = users.find((u) => u.roles.includes(activePersona))?.organization;
+  const ownedCount = vessels.filter(isVesselOwnedByAdmin).length;
+  const charteredCount = filterVesselAdminChartered(vessels, assuranceSets, viewerOrg).length;
 
   const handleVesselRegistered = (vesselId: string) => {
     setActiveVesselId(vesselId);
@@ -88,23 +79,35 @@ export const FleetRegistryView: React.FC = () => {
           </button>
         </div> */}
 
-        {viewMode === 'list' && activePersona === 'C Admin' && (
-          <div className="nav nav-pills bg-light p-1 rounded-3 border">
+        {/* client admin: chartered vessels only, under a plain heading with no tab bar */}
+        {viewMode === 'list' && isClientAdmin && (
+          <h2 className="fw-semibold m-0" style={{ fontSize: '18px', lineHeight: '26px', color: '#334155' }}>
+            Chartered
+          </h2>
+        )}
+
+        {/* vessel admin: own fleet and chartered vessels */}
+        {viewMode === 'list' && isVesselAdmin && (
+          <div className="nav nav-pills bg-light p-1 rounded-3 border" role="tablist">
             <button
               type="button"
-              className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${activeTab === 'available' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
+              role="tab"
+              aria-selected={activeTab === 'owned'}
+              className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${activeTab === 'owned' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
               style={{ fontSize: '0.8rem' }}
-              onClick={() => setActiveTab('available')}
+              onClick={() => setActiveTab('owned')}
             >
-              Available to Charter ({availableToCharterCount})
+              Own ({ownedCount})
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === 'chartered'}
               className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${activeTab === 'chartered' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'}`}
               style={{ fontSize: '0.8rem' }}
               onClick={() => setActiveTab('chartered')}
             >
-              Active Charters ({activeChartersCount})
+              Chartered ({charteredCount})
             </button>
           </div>
         )}

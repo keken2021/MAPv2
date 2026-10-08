@@ -1079,3 +1079,30 @@ export function isAssuranceSetOwnedOrInitiatedByOrganization(
     (field) => Boolean(field) && orgFieldMatches(organization, field as string),
   );
 }
+
+/**
+  what: vessels a vessel admin organization has chartered; inputs are the fleet, all assurance sets and the organization name.
+  how: keeps vessels the organization does not own that have a vessel assurance set whose client (clientOrg, or charterer when no client is recorded) is that organization; project master sets are ignored.
+  with what file: src/utils/rbacHelpers.ts used by FleetRegistryView.tsx and VesselTable.tsx for the chartered tab.
+*/
+export function filterVesselAdminChartered(
+  vessels: VesselInformation[],
+  assuranceSets: AssuranceSet[],
+  organization: string | undefined,
+): VesselInformation[] {
+  if (!organization || !organization.trim()) return [];
+  return vessels.filter(
+    (vessel) =>
+      !isVesselOwnedByAdmin(vessel) &&
+      assuranceSets.some((set) => {
+        const client = set.clientOrg || set.charterer;
+        return (
+          set.vesselId === vessel.id &&
+          !set.isProjectMaster &&
+          (!set.assuranceType || set.assuranceType === 'Vessel') &&
+          Boolean(client) &&
+          orgFieldMatches(organization, client as string)
+        );
+      }),
+  );
+}

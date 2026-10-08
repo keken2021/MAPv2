@@ -23,9 +23,8 @@ import {
 
 import {
   filterCAdminActiveCharters,
-  filterCAdminAvailableToCharter,
+  filterVesselAdminChartered,
   filterVesselsForPersona,
-  getClientAdminOrganization,
   isAssuranceSetAssignedToPersona,
   isVesselOwnedByAdmin,
   matchesVesselSearch,
@@ -102,20 +101,27 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
     );
 
   const isVesselOwned = isVesselOwnedByAdmin;
-  const clientOrg = getClientAdminOrganization(users);
 
   const baseVessels =
     activePersona === 'C Admin'
-      ? filterMode === 'chartered'
-        ? filterCAdminActiveCharters(vessels, assuranceSets)
-        : filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg)
+      ? /* client admin sees only the vessels it has chartered */
+        filterCAdminActiveCharters(vessels, assuranceSets)
       : activePersona === 'Administrator' || activePersona === 'Submitter'
-        ? filterMode === 'all'
+        ? filterMode === 'chartered'
+          ? filterVesselAdminChartered(vessels, assuranceSets, matchingUser?.organization)
+          : filterMode === 'all'
           ? vessels.filter((v) => !isVesselOwned(v) && v.status !== 'Under Charter')
           : filterMode === 'owned'
             ? vessels.filter(isVesselOwned)
             : filterVesselsForPersona(vessels, assuranceSets, activePersona)
         : filterVesselsForPersona(vessels, assuranceSets, activePersona);
+
+  /* empty-state copy: an empty chartered list is explained, a filtered-out list points at the filters */
+  const isCharteredEmpty = filterMode === 'chartered' && baseVessels.length === 0;
+  const emptyTitle = isCharteredEmpty ? 'No chartered vessels yet' : 'No vessels match your search';
+  const emptyHint = isCharteredEmpty
+    ? 'Vessels from other organizations appear here once an assurance set names your organization as the client. Start one from a Marketplace listing.'
+    : 'Try adjusting filters or search terms.';
 
   const filteredVessels = baseVessels.filter((v) => {
     if (activePersona === 'C Admin' && v.status === 'Under Charter') {
@@ -368,10 +374,8 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
         <div className="p-3 bg-light border-top">
           {sortedVessels.length === 0 ? (
             <div className="text-center py-5 bg-white rounded-3 border">
-              <div className="map-vessel-empty-title fw-semibold text-dark mb-1">No vessels match your search</div>
-              <div className="map-vessel-empty-hint text-muted small">
-                Try adjusting filters or search terms.
-              </div>
+              <div className="map-vessel-empty-title fw-semibold text-dark mb-1">{emptyTitle}</div>
+              <div className="map-vessel-empty-hint text-muted small">{emptyHint}</div>
             </div>
           ) : (
             <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
@@ -506,10 +510,8 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                 <tr>
                   <td colSpan={8} className="text-center py-5">
                     <div className="map-vessel-empty-state">
-                      <div className="map-vessel-empty-title">No vessels match your search</div>
-                      <div className="map-vessel-empty-hint text-muted small">
-                        Try adjusting filters or register a new OSV vessel.
-                      </div>
+                      <div className="map-vessel-empty-title">{emptyTitle}</div>
+                      <div className="map-vessel-empty-hint text-muted small">{emptyHint}</div>
                     </div>
                   </td>
                 </tr>
