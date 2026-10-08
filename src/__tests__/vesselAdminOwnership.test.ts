@@ -17,6 +17,7 @@ import {
   isVesselOwnedByAdmin,
   isVesselOwnedByClientOrg,
   orgFieldMatches,
+  filterVesselAdminChartered,
 } from '../utils/rbacHelpers';
 import { MOCK_USERS } from '../store/mockData';
 import { MOCK_VESSELS, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS } from '../store/mockData';
@@ -591,5 +592,44 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     expect(getPhotoManagementPermission(ownedVessel, 'Inspector')).toBe(false);
     expect(getPhotoManagementPermission(ownedVessel, 'Approver')).toBe(false);
   });
-});
 
+  it('lists vessel admin chartered vessels: other organizations vessels with a vessel set where the organization is client', () => {
+    const org = 'Northwind Marine Pty Ltd';
+    const external = MOCK_VESSELS.find((v) => !isVesselOwnedByAdmin(v)) as VesselInformation;
+    const owned = MOCK_VESSELS.find((v) => isVesselOwnedByAdmin(v)) as VesselInformation;
+    const baseSet = MOCK_ASSURANCE_SETS[0];
+
+    const sets = [
+      /* chartered: external vessel, vessel scope, northwind is the client */
+      { ...baseSet, id: 'AS-CHARTER-001', assuranceType: 'Vessel' as const, vesselId: external.id, clientOrg: org, charterer: org, isProjectMaster: false },
+      /* not chartered: own vessel, even with northwind as client */
+      { ...baseSet, id: 'AS-CHARTER-002', assuranceType: 'Vessel' as const, vesselId: owned.id, clientOrg: org, charterer: org, isProjectMaster: false },
+    ];
+
+    const chartered = filterVesselAdminChartered(MOCK_VESSELS, sets, org);
+    expect(chartered.map((v) => v.id)).toEqual([external.id]);
+  });
+
+  it('does not count a vessel as chartered when another organization is the client or the set is not a vessel set', () => {
+    const org = 'Northwind Marine Pty Ltd';
+    const external = MOCK_VESSELS.find((v) => !isVesselOwnedByAdmin(v)) as VesselInformation;
+    const baseSet = MOCK_ASSURANCE_SETS[0];
+
+    const otherClient = [
+      { ...baseSet, id: 'AS-CHARTER-003', assuranceType: 'Vessel' as const, vesselId: external.id, clientOrg: 'Woodside Energy Ltd', charterer: 'Woodside Energy Ltd', isProjectMaster: false },
+    ];
+    const crewSet = [
+      { ...baseSet, id: 'AS-CHARTER-004', assuranceType: 'Crew' as const, vesselId: external.id, clientOrg: org, charterer: org, isProjectMaster: false },
+    ];
+
+    expect(filterVesselAdminChartered(MOCK_VESSELS, otherClient, org)).toEqual([]);
+    expect(filterVesselAdminChartered(MOCK_VESSELS, crewSet, org)).toEqual([]);
+    expect(filterVesselAdminChartered(MOCK_VESSELS, otherClient, undefined)).toEqual([]);
+  });
+
+  it('reports the seed chartered count for the vessel admin organization', () => {
+    const { vessels, assuranceSets } = useMapStore.getState();
+    const chartered = filterVesselAdminChartered(vessels, assuranceSets, 'Northwind Marine Pty Ltd');
+    chartered.forEach((v) => expect(isVesselOwnedByAdmin(v)).toBe(false));
+  });
+});
