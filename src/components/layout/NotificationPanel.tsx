@@ -66,7 +66,7 @@ export const NotificationPanel: React.FC = () => {
         onClick={() => setOpen((v) => !v)}
         aria-label="Notifications"
       >
-        <Bell size={18} />
+        <Bell size={18} color="Blue" />
         {myNotifications.length > 0 && (
           <span
             className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
