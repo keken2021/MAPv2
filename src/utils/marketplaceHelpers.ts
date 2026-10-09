@@ -281,6 +281,33 @@ export function getMarketplaceItems(
 }
 
 /**
+ * An asset is free on the charter end date. It stays busy from the start date up to, but not including, the end date.
+ */
+export function isMarketplaceItemAvailableOnDate(
+  item: Pick<MarketplaceItem, 'category' | 'linkedEntityId' | 'linkedEntityType'>,
+  date: string,
+  assuranceSets: AssuranceSet[],
+): boolean {
+  if (!date) return true;
+  const assetId = item.linkedEntityId;
+  const kind = item.linkedEntityType;
+  if (!assetId || !kind) return true;
+
+  return !assuranceSets.some((set) => {
+    if (set.visibility === 'draft') return false;
+    if (!set.charterWindowStart || !set.charterWindowEnd) return false;
+    const occupies =
+      kind === 'vessel'
+        ? set.vesselId === assetId && set.assuranceType !== 'Crew' && set.assuranceType !== 'Equipment'
+        : kind === 'crew'
+          ? set.crewId === assetId
+          : set.equipmentId === assetId;
+    if (!occupies) return false;
+    return set.charterWindowStart <= date && date < set.charterWindowEnd;
+  });
+}
+
+/**
   what: filters and sorts marketplace items according to search query, category, provider, location, and sort criteria.
 */
 export function filterMarketplaceItems(
@@ -291,6 +318,8 @@ export function filterMarketplaceItems(
     providerFilter?: string;
     locationFilter?: string;
     statusFilter?: string;
+    availableOn?: string;
+    assuranceSets?: AssuranceSet[];
     sortBy?: 'name' | 'readiness' | 'provider' | 'category';
     sortOrder?: 'asc' | 'desc';
   },
@@ -301,6 +330,8 @@ export function filterMarketplaceItems(
     providerFilter = 'ALL',
     locationFilter = 'ALL',
     statusFilter = 'ALL',
+    availableOn = '',
+    assuranceSets = [],
     sortBy = 'name',
     sortOrder = 'asc',
   } = options;
@@ -328,7 +359,12 @@ export function filterMarketplaceItems(
       return false;
     }
 
-    // 5. Search Text Filter
+    // 5. Date the asset must be free to charter, including a charter end date
+    if (availableOn && !isMarketplaceItemAvailableOnDate(item, availableOn, assuranceSets)) {
+      return false;
+    }
+
+    // 6. Search Text Filter
     if (searchNormalized) {
       const matchName = item.name.toLowerCase().includes(searchNormalized);
       const matchSubcategory = item.subcategory.toLowerCase().includes(searchNormalized);

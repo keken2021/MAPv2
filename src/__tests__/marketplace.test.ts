@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getMarketplaceItems,
   filterMarketplaceItems,
+  isMarketplaceItemAvailableOnDate,
   isItemOwnedByCurrentOrganization,
   getMarketplaceCharterLabel,
   resolveMarketplaceCharterTarget,
@@ -23,6 +24,8 @@ import { calculateVesselReadiness } from '../utils/readinessHelpers';
 import { MOCK_EQUIPMENT } from '../store/equipmentMockData';
 import { MOCK_CREW } from '../store/crewMockData';
 import { UserProfile } from '../types/user';
+import { MarketplaceItem } from '../types/marketplace';
+import { AssuranceSet } from '../types/assurance';
 
 describe('Marketplace Module & Segregation', () => {
   const mockUsers: Pick<UserProfile, 'roles' | 'organization'>[] = [
@@ -160,6 +163,53 @@ describe('Marketplace Module & Segregation', () => {
     expect(vesselOffering.complianceReadinessScore).toBe(
       calculateVesselReadiness(linkedVessel, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS),
     );
+  });
+
+  it('shows a chartered vessel on its charter end date and hides it while the charter is open', () => {
+    const vessel = {
+      id: 'listing-1',
+      name: 'Chartered Vessel',
+      category: 'vessel',
+      subcategory: 'OSV',
+      providerOrg: 'AquaClean Marine Services Pty Ltd',
+      location: 'Dampier',
+      availabilityStatus: 'Under Charter',
+      availabilityTagColor: '#3b82f6',
+      imageUrl: '',
+      shortDescription: '',
+      metrics: [],
+      complianceReadinessScore: null,
+      certifications: [],
+      operationalCapabilities: [],
+      detailedSpecs: [],
+      contact: { name: 'Desk', role: 'Charter', avatarUrl: '' },
+      linkedEntityId: 'VESSEL-EXT',
+      linkedEntityType: 'vessel',
+    } as MarketplaceItem;
+    const charter = [
+      {
+        id: 'AS-DATE',
+        vesselId: 'VESSEL-EXT',
+        assuranceType: 'Vessel',
+        charterWindowStart: '2026-11-01',
+        charterWindowEnd: '2026-12-15',
+        visibility: 'organization',
+        requirements: [],
+      },
+    ] as unknown as AssuranceSet[];
+
+    expect(isMarketplaceItemAvailableOnDate(vessel, '2026-11-15', charter)).toBe(false);
+    expect(isMarketplaceItemAvailableOnDate(vessel, '2026-12-15', charter)).toBe(true);
+    expect(isMarketplaceItemAvailableOnDate(vessel, '2026-10-01', charter)).toBe(true);
+
+    const listed = filterMarketplaceItems([vessel], {
+      availableOn: '2026-12-15',
+      assuranceSets: charter,
+    });
+    expect(listed).toHaveLength(1);
+    expect(
+      filterMarketplaceItems([vessel], { availableOn: '2026-12-01', assuranceSets: charter }),
+    ).toHaveLength(0);
   });
 
   it('labels the charter action by listing category', () => {

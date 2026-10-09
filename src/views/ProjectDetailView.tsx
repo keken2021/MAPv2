@@ -36,7 +36,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     updateAssuranceSet,
   } = useMapStore();
 
-  const [activeTab, setActiveTab] = useState<"roster" | "assurance">("roster");
+  const [activeTab, setActiveTab] = useState<"roster" | "assurance">("assurance");
   const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
     "All",
   );
@@ -80,7 +80,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   );
 
   useEffect(() => {
-    setActiveTab("roster");
+    setActiveTab("assurance");
   }, [projectId]);
 
   if (!project) {
@@ -227,7 +227,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       </div>
 
       <ul className="nav nav-tabs">
-        {(["roster", "assurance"] as const).map((tab) => (
+        {(["assurance", "roster"] as const).map((tab) => (
           <li className="nav-item" key={tab}>
             <button
               type="button"

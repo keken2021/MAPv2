@@ -55,6 +55,8 @@ export interface MarketplaceFilterState {
   providerFilter: string;
   locationFilter: string;
   statusFilter: string;
+  /** ISO date; listings busy on this date are hidden, and a charter end date stays available */
+  availableOn?: string;
   sortBy: 'name' | 'readiness' | 'provider' | 'category';
   sortOrder: 'asc' | 'desc';
 }

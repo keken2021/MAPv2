@@ -53,6 +53,7 @@ export const MarketplaceView: React.FC = () => {
   const [providerFilter, setProviderFilter] = useState('ALL');
   const [locationFilter, setLocationFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [availableOn, setAvailableOn] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'readiness' | 'provider' | 'category'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -139,10 +140,12 @@ export const MarketplaceView: React.FC = () => {
       providerFilter,
       locationFilter,
       statusFilter,
+      availableOn,
+      assuranceSets,
       sortBy,
       sortOrder,
     });
-  }, [allMarketplaceItems, activeCategory, searchTerm, providerFilter, locationFilter, statusFilter, sortBy, sortOrder]);
+  }, [allMarketplaceItems, activeCategory, searchTerm, providerFilter, locationFilter, statusFilter, availableOn, assuranceSets, sortBy, sortOrder]);
 
   const handleSelectItem = (item: MarketplaceItem) => {
     setSelectedItem(item);
@@ -155,6 +158,7 @@ export const MarketplaceView: React.FC = () => {
     setProviderFilter('ALL');
     setLocationFilter('ALL');
     setStatusFilter('ALL');
+    setAvailableOn('');
     setSortBy('name');
     setSortOrder('asc');
   };
@@ -164,6 +168,7 @@ export const MarketplaceView: React.FC = () => {
     providerFilter !== 'ALL' ||
     locationFilter !== 'ALL' ||
     statusFilter !== 'ALL' ||
+    availableOn !== '' ||
     activeCategory !== 'all';
 
   const activeChips = useMemo<FilterChip[]>(() => {
@@ -192,6 +197,14 @@ export const MarketplaceView: React.FC = () => {
         onRemove: () => setStatusFilter('ALL'),
       });
     }
+    if (availableOn) {
+      chips.push({
+        id: 'availableOn',
+        label: 'Available on',
+        value: availableOn,
+        onRemove: () => setAvailableOn(''),
+      });
+    }
     if (activeCategory !== 'all') {
       chips.push({
         id: 'category',
@@ -201,7 +214,7 @@ export const MarketplaceView: React.FC = () => {
       });
     }
     return chips;
-  }, [providerFilter, locationFilter, statusFilter, activeCategory]);
+  }, [providerFilter, locationFilter, statusFilter, availableOn, activeCategory]);
 
   const activeFilterCount = activeChips.length;
 
@@ -684,7 +697,7 @@ export const MarketplaceView: React.FC = () => {
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
         title="Marketplace Filters"
-        subtitle="Filter offerings by category, provider organization, location base, and operational availability"
+        subtitle="Filter offerings by category, provider organization, location base, charter date, and operational availability"
         activeCount={activeFilterCount}
       >
         <div className="d-flex flex-column gap-3">
@@ -745,6 +758,23 @@ export const MarketplaceView: React.FC = () => {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" htmlFor="marketplace-available-on" style={{ fontSize: '0.8rem' }}>
+              Available on
+            </label>
+            <input
+              id="marketplace-available-on"
+              type="date"
+              className="form-control form-control-sm bg-white text-dark font-sans"
+              style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+              value={availableOn}
+              onChange={(e) => setAvailableOn(e.target.value)}
+            />
+            <div className="text-muted small mt-1">
+              A chartered asset appears on its charter end date.
+            </div>
           </div>
 
           {/* Availability Status Filter */}

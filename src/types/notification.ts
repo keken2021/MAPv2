@@ -34,8 +34,19 @@ export interface AssuranceSetRequestPayload {
   assigneeName: string;
   /** client of the project at the time of the request; the created set takes this client */
   clientOrganization: string;
+  /** legacy single scope hint; set when exactly one scope is suggested */
   suggestedScope?: ProjectAssetType;
+  /** optional scope hints; empty means no preference */
+  suggestedScopes?: ProjectAssetType[];
+  /** project assets the requester suggested; each assurance set still belongs to one asset */
+  suggestedAssets?: SuggestedAssuranceAsset[];
   createdAssuranceSetId?: string;
+}
+
+export interface SuggestedAssuranceAsset {
+  assetId: string;
+  assetType: ProjectAssetType;
+  assetName: string;
 }
 
 export interface AppNotification {

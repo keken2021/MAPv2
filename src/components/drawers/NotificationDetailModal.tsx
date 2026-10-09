@@ -89,7 +89,19 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
       value: assignee?.name || notification.request.assigneeName,
       note: assignee ? `${assignee.organization} · ${formatUserRoles(assignee.roles)}` : undefined,
     });
-    if (notification.request.suggestedScope) {
+    if (notification.request.suggestedAssets && notification.request.suggestedAssets.length > 0) {
+      details.push({
+        label: 'Suggested Assets',
+        value: notification.request.suggestedAssets
+          .map((asset) => `${asset.assetName} (${asset.assetType})`)
+          .join(', '),
+      });
+    } else if (notification.request.suggestedScopes && notification.request.suggestedScopes.length > 0) {
+      details.push({
+        label: 'Suggested Scope',
+        value: notification.request.suggestedScopes.join(', '),
+      });
+    } else if (notification.request.suggestedScope) {
       details.push({ label: 'Suggested Scope', value: notification.request.suggestedScope });
     }
     if (notification.request.createdAssuranceSetId) {

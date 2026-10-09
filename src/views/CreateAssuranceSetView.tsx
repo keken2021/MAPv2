@@ -123,7 +123,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       users,
     ),
   );
-  const requestedScope = requestContext?.notification.request?.suggestedScope;
+  const requestedScopes = requestContext?.notification.request?.suggestedScopes;
+  const requestedScope =
+    requestedScopes?.length === 1
+      ? requestedScopes[0]
+      : requestContext?.notification.request?.suggestedScope;
+  const suggestedAsset =
+    requestContext?.notification.request?.suggestedAssets?.length === 1
+      ? requestContext.notification.request.suggestedAssets[0]
+      : undefined;
 
   /* scope and asset handed over by a charter action; captured once so the store value can be cleared */
   const [lockedAsset] = useState(() => {
@@ -177,7 +185,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const lockedVessel = createAssuranceForVesselId
     ? availableVessels.find((v) => v.id === createAssuranceForVesselId)
     : undefined;
-  const initialVesselId = lockedVessel?.id || availableVessels[0]?.id || '';
+  const suggestedVessel =
+    suggestedAsset?.assetType === 'Vessel'
+      ? availableVessels.find((v) => v.id === suggestedAsset.assetId)
+      : undefined;
+  const initialVesselId = lockedVessel?.id || suggestedVessel?.id || availableVessels[0]?.id || '';
   const initialVesselName = lockedVessel?.name || availableVessels[0]?.name || 'Vessel';
   /* a vessel hand-off only locks when that vessel is one this persona may charter */
   const isScopeLocked = Boolean(lockedAsset) && (lockedAsset?.scope !== 'Vessel' || Boolean(lockedVessel));
@@ -186,11 +198,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       ? crew.find((c) => c.id === lockedAsset.assetId)?.fullName || initialVesselName
       : lockedAsset?.scope === 'Equipment'
         ? equipment.find((e) => e.id === lockedAsset.assetId)?.name || initialVesselName
-        : !lockedAsset && requestedScope === 'Crew'
-          ? crew[0]?.fullName || initialVesselName
-          : !lockedAsset && requestedScope === 'Equipment'
-            ? equipment[0]?.name || initialVesselName
-            : initialVesselName;
+        : suggestedAsset?.assetType === 'Crew'
+          ? crew.find((c) => c.id === suggestedAsset.assetId)?.fullName || initialVesselName
+          : suggestedAsset?.assetType === 'Equipment'
+            ? equipment.find((e) => e.id === suggestedAsset.assetId)?.name || initialVesselName
+            : !lockedAsset && requestedScope === 'Crew'
+              ? crew[0]?.fullName || initialVesselName
+              : !lockedAsset && requestedScope === 'Equipment'
+                ? equipment[0]?.name || initialVesselName
+                : initialVesselName;
 
   /* Wizard Step State */
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -202,12 +218,26 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [title, setTitle] = useState(
     () => `${titleOrg} - ${initialSubjectName} Charter Vetting`
   );
-  const [assuranceType, setAssuranceType] = useState<AssuranceSubtype>(lockedAsset?.scope || requestedScope || 'Vessel');
+  const [assuranceType, setAssuranceType] = useState<AssuranceSubtype>(
+    lockedAsset?.scope || suggestedAsset?.assetType || requestedScope || 'Vessel',
+  );
   const [includedPhysicalAssetTypes, setIncludedPhysicalAssetTypes] = useState<AssuranceSubtype[]>(['Vessel', 'Equipment']);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || '');
   const [vesselId, setVesselId] = useState(initialVesselId);
-  const [selectedCrewId, setSelectedCrewId] = useState<string>(() => (lockedAsset?.scope === 'Crew' ? lockedAsset.assetId : crew[0]?.id || ''));
-  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(() => (lockedAsset?.scope === 'Equipment' ? lockedAsset.assetId : equipment[0]?.id || ''));
+  const [selectedCrewId, setSelectedCrewId] = useState<string>(() =>
+    lockedAsset?.scope === 'Crew'
+      ? lockedAsset.assetId
+      : suggestedAsset?.assetType === 'Crew'
+        ? suggestedAsset.assetId
+        : crew[0]?.id || '',
+  );
+  const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(() =>
+    lockedAsset?.scope === 'Equipment'
+      ? lockedAsset.assetId
+      : suggestedAsset?.assetType === 'Equipment'
+        ? suggestedAsset.assetId
+        : equipment[0]?.id || '',
+  );
   const [selectedActivityId, setSelectedActivityId] = useState<string>(() => EXISTING_ACTIVITIES[0]?.id || '');
   const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
   const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);

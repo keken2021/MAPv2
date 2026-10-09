@@ -1,11 +1,11 @@
 /*
   file summary: modal for Client/Vessel Admin to request a colleague create an assurance set for a project.
-  responsibilities: recipient picker, optional scope and message, dispatches in-app notification.
+  responsibilities: recipient picker, optional multi-select suggested scope, optional message, dispatches in-app notification.
   role in system: opened from ProjectDetailView.
 */
 
-import React, { useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { Project, ProjectAssetType } from '../../types/project';
 import {
@@ -13,6 +13,13 @@ import {
   getProjectOrganizationForPersona,
 } from '../../utils/projectHelpers';
 import { getSessionUserForPersona } from '../../utils/userRoleHelpers';
+
+const SCOPE_OPTIONS: ProjectAssetType[] = ['Vessel', 'Equipment', 'Crew'];
+
+const formatSuggestedScopeLabel = (selected: ProjectAssetType[]) => {
+  if (selected.length === 0) return 'No preference';
+  return SCOPE_OPTIONS.filter((scope) => selected.includes(scope)).join(', ');
+};
 
 interface RequestAssuranceSetModalProps {
   isOpen: boolean;
@@ -43,9 +50,28 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
   );
 
   const [recipientUserId, setRecipientUserId] = useState('');
-  const [suggestedScope, setSuggestedScope] = useState<'' | ProjectAssetType>('');
+  const [selectedScopes, setSelectedScopes] = useState<ProjectAssetType[]>([]);
+  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const scopeMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!scopeMenuOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (scopeMenuRef.current && !scopeMenuRef.current.contains(event.target as Node)) {
+        setScopeMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [scopeMenuOpen]);
+
+  const toggleScope = (scope: ProjectAssetType) => {
+    setSelectedScopes((current) =>
+      current.includes(scope) ? current.filter((item) => item !== scope) : [...current, scope],
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -62,7 +88,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
     const result = requestAssuranceSet({
       projectId: project.id,
       recipientUserId,
-      suggestedScope: suggestedScope || undefined,
+      suggestedScopes: selectedScopes.length > 0 ? selectedScopes : undefined,
       message: message.trim() || undefined,
       senderUserId: senderUser.id,
       senderName: senderUser.name,
@@ -71,7 +97,8 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
     if (result.success) {
       onSuccess(`Assurance set request sent to ${recipients.find((r) => r.id === recipientUserId)?.name || 'recipient'}.`);
       setRecipientUserId('');
-      setSuggestedScope('');
+      setSelectedScopes([]);
+      setScopeMenuOpen(false);
       setMessage('');
       setError('');
       onClose();
@@ -125,17 +152,48 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
               )}
             </div>
             <div className="mb-3">
-              <label className="form-label small fw-semibold">Suggested scope (optional)</label>
-              <select
-                className="form-select form-select-sm"
-                value={suggestedScope}
-                onChange={(e) => setSuggestedScope(e.target.value as '' | ProjectAssetType)}
-              >
-                <option value="">No preference</option>
-                <option value="Vessel">Vessel</option>
-                <option value="Equipment">Equipment</option>
-                <option value="Crew">Crew</option>
-              </select>
+              <label className="form-label small fw-semibold" id="request-suggested-scope-label">
+                Suggested scope (optional)
+              </label>
+              <div className="position-relative" ref={scopeMenuRef}>
+                <button
+                  type="button"
+                  id="request-suggested-scope"
+                  className="form-select form-select-sm text-start d-flex align-items-center justify-content-between"
+                  aria-haspopup="listbox"
+                  aria-expanded={scopeMenuOpen}
+                  aria-labelledby="request-suggested-scope-label request-suggested-scope"
+                  onClick={() => setScopeMenuOpen((open) => !open)}
+                >
+                  <span className="text-truncate">{formatSuggestedScopeLabel(selectedScopes)}</span>
+                  {/* <ChevronDown size={14} className="text-muted flex-shrink-0 ms-2" /> */}
+                </button>
+                {scopeMenuOpen && (
+                  <ul
+                    className="dropdown-menu show w-100 shadow-sm border py-2"
+                    style={{ maxHeight: '200px', overflowY: 'auto' }}
+                    role="listbox"
+                    aria-multiselectable="true"
+                  >
+                    {SCOPE_OPTIONS.map((scope) => (
+                      <li key={scope}>
+                        <label className="dropdown-item d-flex align-items-center gap-2 mb-0 small cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="form-check-input mt-0 flex-shrink-0"
+                            checked={selectedScopes.includes(scope)}
+                            onChange={() => toggleScope(scope)}
+                          />
+                          <span>{scope}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="text-muted small mt-1">
+                Choose one or more types, or leave as no preference.
+              </div>
             </div>
             <div className="mb-0">
               <label className="form-label small fw-semibold">Message (optional)</label>

@@ -75,7 +75,7 @@ import {
   WorkLocationType,
 } from "../types/project";
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from "./projectMockData";
-import { AppNotification, NotificationDraft } from "../types/notification";
+import { AppNotification, NotificationDraft, SuggestedAssuranceAsset } from "../types/notification";
 import { MOCK_NOTIFICATIONS } from "./notificationMockData";
 import {
   generateNotificationId,
@@ -159,6 +159,8 @@ export interface MapStoreState {
     projectId: string;
     recipientUserId: string;
     suggestedScope?: ProjectAssetType;
+    suggestedScopes?: ProjectAssetType[];
+    suggestedAssets?: SuggestedAssuranceAsset[];
     message?: string;
     senderUserId: string;
     senderName: string;
@@ -632,6 +634,26 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       return { success: false, message: "Recipient not found." };
     }
 
+    const scopeOptions: ProjectAssetType[] = ['Vessel', 'Crew', 'Equipment'];
+    const suggestedScopes = [
+      ...new Set(
+        (input.suggestedScopes ?? []).filter((scope): scope is ProjectAssetType =>
+          scopeOptions.includes(scope),
+        ),
+      ),
+    ];
+    const suggestedAssets = (input.suggestedAssets ?? []).filter((asset) =>
+      project.assetLinks.some(
+        (link) => link.assetId === asset.assetId && link.assetType === asset.assetType,
+      ),
+    );
+    const assetScopeTypes = [...new Set(suggestedAssets.map((asset) => asset.assetType))];
+    const suggestedScope =
+      suggestedScopes.length === 1
+        ? suggestedScopes[0]
+        : input.suggestedScope ||
+          (assetScopeTypes.length === 1 ? assetScopeTypes[0] : undefined);
+
     const notificationId = get().pushNotification({
       type: "assurance_set_request",
       subject: "Assurance set creation requested",
@@ -645,7 +667,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         assigneeUserId: assignee.id,
         assigneeName: assignee.name,
         clientOrganization: getProjectClientOrganization(project),
-        suggestedScope: input.suggestedScope,
+        suggestedScope,
+        suggestedScopes: suggestedScopes.length > 0 ? suggestedScopes : undefined,
+        suggestedAssets: suggestedAssets.length > 0 ? suggestedAssets : undefined,
       },
     });
     if (!notificationId) {
