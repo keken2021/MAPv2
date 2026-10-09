@@ -8,6 +8,7 @@ import React from 'react';
 import { Camera, MoreHorizontal } from 'lucide-react';
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
+import { formatReadinessScore } from '../../utils/formatters';
 
 interface MarketplaceCardProps {
   item: MarketplaceItem;
@@ -22,7 +23,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
   const metric1Value = item.metrics?.[0]?.value || (item.category === 'vessel' ? '4,400 MT' : item.category === 'crew' ? '12+ Years' : 'Standard');
 
   const metric2Label = item.metrics?.[1]?.label || (item.category === 'vessel' ? 'Assurance / Class' : 'Assurance / Readiness');
-  const metric2Value = item.metrics?.[1]?.value || `ABS · ${item.complianceReadinessScore}%`;
+  const metric2Value = item.metrics?.[1]?.value || formatReadinessScore(item.complianceReadinessScore);
 
   return (
     <div

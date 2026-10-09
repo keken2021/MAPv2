@@ -9,6 +9,8 @@ import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { getProjectOrganizationForPersona, isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
 import { getEquipmentAssetStatus, EquipmentAsset } from '../types/equipment';
 import { useMapStore } from '../store/useMapStore';
+import { calculateEquipmentReadiness } from '../utils/readinessHelpers';
+import { formatReadinessScore } from '../utils/formatters';
 import {
   CURATED_EQUIPMENT_PHOTOS,
   getEquipmentStockPhoto,
@@ -299,7 +301,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
             <div className="card-header fw-bold bg-white d-flex align-items-center justify-between">
               <span>Equipment Particulars</span>
               <span className="badge bg-light text-primary border font-mono-code">
-                Score: {item.complianceReadinessScore}%
+                Score: {formatReadinessScore(calculateEquipmentReadiness(item, assuranceSets))}
               </span>
             </div>
             <div className="card-body">

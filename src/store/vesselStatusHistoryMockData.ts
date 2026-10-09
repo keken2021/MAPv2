@@ -243,4 +243,17 @@ export const MOCK_VESSEL_STATUS_HISTORY: VesselStatusHistoryEntry[] = [
     changedByRole: 'Administrator',
     source: 'system',
   },
+  {
+    id: 'VSH-30005',
+    vesselId: 'VESSEL-003',
+    dimension: 'availability',
+    previousValue: 'On Charter',
+    newValue: 'Available',
+    effectiveFrom: '2026-09-28T02:00:00.000Z',
+    changedAt: '2026-09-28T02:00:00.000Z',
+    changedBy: 'K. Osei',
+    changedByRole: 'Administrator',
+    notes: 'Alongside at port. Inpex Ichthys assurance set is at Initiated, so the vessel is not cleared to transit.',
+    source: 'system',
+  },
 ];

@@ -25,7 +25,7 @@ export const MOCK_CREW: CrewMember[] = [
       'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=800&q=80',
     ],
     complianceStatus: 'Fully Compliant',
-    overallComplianceScore: 96,
+    overallComplianceScore: 100,
     lastAuditedDate: '2026-09-15',
     assignments: [
       {
@@ -204,6 +204,7 @@ export const MOCK_CREW: CrewMember[] = [
     fullName: 'Chief Eng. Marcus Sterling',
     rank: 'Chief Engineer',
     nationality: 'Australian',
+    organization: 'Northwind Marine Pty Ltd',
     seamansBookNo: 'SB-AU-883491',
     passportNo: 'PA-AU-6612984',
     dateOfBirth: '1982-09-24',
@@ -216,7 +217,7 @@ export const MOCK_CREW: CrewMember[] = [
       'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=800&q=80',
     ],
     complianceStatus: 'Fully Compliant',
-    overallComplianceScore: 92,
+    overallComplianceScore: 100,
     lastAuditedDate: '2026-09-12',
     assignments: [
       {
@@ -356,6 +357,7 @@ export const MOCK_CREW: CrewMember[] = [
     fullName: 'Chief Off. Sarah Jenkins',
     rank: 'Chief Officer',
     nationality: 'Australian',
+    organization: 'Northwind Marine Pty Ltd',
     seamansBookNo: 'SB-AU-771204',
     passportNo: 'PA-AU-5590412',
     dateOfBirth: '1987-11-05',
@@ -368,7 +370,7 @@ export const MOCK_CREW: CrewMember[] = [
       'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=800&q=80',
     ],
     complianceStatus: 'Expiring < 60 Days',
-    overallComplianceScore: 78,
+    overallComplianceScore: 83,
     lastAuditedDate: '2026-09-18',
     assignments: [
       {
@@ -573,6 +575,7 @@ export const MOCK_CREW: CrewMember[] = [
     fullName: 'Second Eng. Liam O\'Connor',
     rank: 'Second Engineer',
     nationality: 'Australian',
+    organization: 'Northwind Marine Pty Ltd',
     seamansBookNo: 'SB-AU-440192',
     passportNo: 'PA-AU-2201948',
     dateOfBirth: '1990-06-18',
@@ -585,7 +588,7 @@ export const MOCK_CREW: CrewMember[] = [
       'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&w=800&q=80',
     ],
     complianceStatus: 'Document Deficient',
-    overallComplianceScore: 55,
+    overallComplianceScore: 75,
     lastAuditedDate: '2026-09-01',
     assignments: [
       {

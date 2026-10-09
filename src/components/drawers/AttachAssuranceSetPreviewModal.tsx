@@ -28,6 +28,7 @@ import { AssuranceRequirement, AssuranceSet } from '../../types/assurance';
 import { Project, ProjectAssetType } from '../../types/project';
 import { MasterDocument } from '../../types/document';
 import { normalizeText } from '../../utils/documentMatchingHelpers';
+import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 
 export interface AttachAssuranceSetPreviewModalProps {
   isOpen: boolean;
@@ -49,7 +50,9 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
   project,
   onConfirm,
 }) => {
-  const { vessels, crew, equipment, documents } = useMapStore();
+  const { vessels, crew, equipment, documents, assuranceSets } = useMapStore();
+  /* the previewed set shows the same calculated index as every other screen */
+  const readiness = assuranceSet ? calculateAssuranceSetReadiness(assuranceSet, assuranceSets) : 0;
 
   const [roleInProject, setRoleInProject] = useState('');
   const [charterWindowStart, setCharterWindowStart] = useState('');
@@ -279,21 +282,21 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                         <div className="progress flex-grow-1" style={{ height: '8px' }}>
                           <div
                             className={`progress-bar ${
-                              assuranceSet.readinessScore >= 80
+                              readiness >= 80
                                 ? 'bg-success'
-                                : assuranceSet.readinessScore >= 50
+                                : readiness >= 50
                                 ? 'bg-warning'
                                 : 'bg-danger'
                             }`}
                             role="progressbar"
-                            style={{ width: `${assuranceSet.readinessScore || 0}%` }}
-                            aria-valuenow={assuranceSet.readinessScore || 0}
+                            style={{ width: `${readiness}%` }}
+                            aria-valuenow={readiness}
                             aria-valuemin={0}
                             aria-valuemax={100}
                           />
                         </div>
                         <span className="fw-bold font-mono-code text-dark" style={{ fontSize: '0.85rem' }}>
-                          {assuranceSet.readinessScore || 0}%
+                          {readiness}%
                         </span>
                       </div>
                     </div>

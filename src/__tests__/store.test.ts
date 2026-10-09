@@ -257,6 +257,7 @@ describe('Map Store State Management', () => {
       })),
       stage: 'Approval' as const,
       approverDecision: 'Pending' as const,
+      inspectionCompleted: true,
     };
 
     useMapStore.setState({
@@ -504,7 +505,3 @@ describe('Map Store State Management', () => {
     });
   });
 });
-
-
-
-

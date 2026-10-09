@@ -1,10 +1,11 @@
 /* 
   file summary: pipeline stepper component presenting assurance set lifecycle stage progression.
-  responsibilities: renders visual steppers for stages: initiated, validation, verification, inspection, approval, certified.
+  responsibilities: renders visual steppers for stages: initiated, validation, verification, inspection, approval, certified, with the cleared / total requirement count behind each stage.
   role in system: header stepper for assurance detail view and command center.
 */
 
 import { AssuranceSet, AssuranceStage } from '../../types/assurance';
+import { getPipelineStageBasis } from '../../utils/readinessHelpers';
 import { Check } from 'lucide-react';
 
 interface PipelineStepperProps {
@@ -100,6 +101,20 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
     });
   }
 
+  /* cleared / total requirement count per stage; absent when the caller passes no requirements */
+  const stageBasis =
+    assuranceSet?.requirements && assuranceSet.requirements.length > 0
+      ? getPipelineStageBasis({
+          requirements: assuranceSet.requirements,
+          verificationRequired: isVerificationRequired,
+          mandatoryInspectionRequired: isInspectionRequired,
+          formalApprovalRequired: isApprovalRequired,
+          inspectionCompleted: Boolean(assuranceSet.inspectionCompleted),
+          approverDecision: assuranceSet.approverDecision,
+        })
+      : [];
+  const getStageCount = (stage: AssuranceStage) => stageBasis.find((b) => b.stage === stage);
+
   const getStageIndex = (stage: AssuranceStage): number => {
     if (isFullyApproved) return stages.length;
 
@@ -137,6 +152,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
         {stages.map((s, idx) => {
           const isCompleted = isFullyApproved || idx < currentIdx;
           const isActive = !isFullyApproved && idx === currentIdx;
+          const count = getStageCount(s.stage);
 
           return (
             <div
@@ -164,6 +180,16 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
               <span className="font-mono-code ms-1.5" style={{ fontSize: '0.775rem' }}>
                 {s.label}
               </span>
+              {count && (
+                <span
+                  className="font-mono-code ms-auto"
+                  style={{ fontSize: '0.75rem', fontVariantNumeric: 'tabular-nums' }}
+                  title={`${count.cleared} of ${count.total} requirements: ${count.criterion}`}
+                  aria-label={`${count.cleared} of ${count.total} requirements ${count.criterion}`}
+                >
+                  {count.cleared}/{count.total}
+                </span>
+              )}
             </div>
           );
         })}
@@ -176,6 +202,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
       {stages.map((s, idx) => {
         const isCompleted = isFullyApproved || idx < currentIdx;
         const isActive = !isFullyApproved && idx === currentIdx;
+        const count = getStageCount(s.stage);
 
         return (
           <div
@@ -188,6 +215,16 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
               {isCompleted ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : s.num}
             </div>
             <span className="d-none d-md-inline">{s.label}</span>
+            {count && (
+              <span
+                className="d-none d-md-inline font-mono-code"
+                style={{ fontVariantNumeric: 'tabular-nums' }}
+                title={`${count.cleared} of ${count.total} requirements: ${count.criterion}`}
+                aria-label={`${count.cleared} of ${count.total} requirements ${count.criterion}`}
+              >
+                {count.cleared}/{count.total}
+              </span>
+            )}
           </div>
         );
       })}

@@ -29,6 +29,7 @@ import {
   projectTypeRequiresRoute,
   projectTypeShowsServiceFields,
 } from "../utils/projectHelpers";
+import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 
 const DEFAULT_ROLES: Partial<Record<ProjectAssetType, string>> = {
   Vessel: "Subject vessel",
@@ -625,7 +626,7 @@ export const CreateProjectView: React.FC = () => {
                       <span
                         className={`badge ${isSelected ? "bg-light text-dark" : "bg-secondary"}`}
                       >
-                        {s.readinessScore}% ready
+                        {calculateAssuranceSetReadiness(s, assuranceSets)}% ready
                       </span>
                     </div>
                   );

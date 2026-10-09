@@ -11,7 +11,7 @@ import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { useMapStore } from '../store/useMapStore';
-import { countProjectAssets, filterProjectsForPersona } from '../utils/projectHelpers';
+import { calculateProjectReadiness, countProjectAssets, filterProjectsForPersona } from '../utils/projectHelpers';
 
 export const ProjectView: React.FC = () => {
   const { projects, assuranceSets, activePersona, users, setCurrentHashView } = useMapStore();
@@ -143,7 +143,7 @@ export const ProjectView: React.FC = () => {
                         {p.charterWindowStart} → {p.charterWindowEnd}
                       </td>
                       <td>
-                        <ReadinessGauge score={p.readinessScore ?? 0} size="sm" />
+                        <ReadinessGauge score={calculateProjectReadiness(p, assuranceSets)} size="sm" />
                       </td>
                       <td>
                         <span className="badge bg-secondary">{p.status}</span>

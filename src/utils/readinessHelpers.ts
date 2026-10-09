@@ -4,8 +4,10 @@
   role in system: consumed by useMapStore, VesselTable, AssuranceTable, DashboardView, VesselDetailView, and AssuranceDetailView.
 */
 
-import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
+import { AssuranceRequirement, AssuranceSet, AssuranceStage } from '../types/assurance';
+import { CrewComplianceStatus, CrewMember } from '../types/crew';
 import { MasterDocument } from '../types/document';
+import { EquipmentAsset } from '../types/equipment';
 import { VesselInformation } from '../types/vessel';
 
 /**
@@ -278,4 +280,147 @@ export function isVesselStatusPermitted(
   }
 
   return { isPermitted: true };
+}
+
+/** cleared / total count behind one pipeline stage */
+export interface PipelineStageBasis {
+  stage: AssuranceStage;
+  cleared: number;
+  total: number;
+  /* what a requirement must show to count as cleared at this stage */
+  criterion: string;
+}
+
+type PipelineInput = Pick<
+  AssuranceSet,
+  | 'requirements'
+  | 'verificationRequired'
+  | 'mandatoryInspectionRequired'
+  | 'formalApprovalRequired'
+  | 'inspectionCompleted'
+  | 'approverDecision'
+>;
+
+/**
+  what: tells whether a requirement has evidence recorded on it; input is the requirement.
+  how: true when a document id, linked document id or linked assurance set id is present.
+  with what file: src/utils/readinessHelpers.ts used by the pipeline derivation and the mock data audit.
+*/
+export function requirementHasDocument(req: AssuranceRequirement): boolean {
+  return Boolean(req.documentId || req.linkedDocumentId || req.linkedAssuranceSetId);
+}
+
+/* mandatory requirements gate the pipeline; a set with none falls back to all of its requirements */
+function getPipelineScope(set: PipelineInput): AssuranceRequirement[] {
+  const requirements = set.requirements ?? [];
+  const mandatory = requirements.filter((r) => r.isMandatory !== false);
+  return mandatory.length > 0 ? mandatory : requirements;
+}
+
+/* a verified requirement counts as submitted so a missing document reference is one defect, not two */
+function countSubmitted(scope: AssuranceRequirement[]): number {
+  return scope.filter((r) => requirementHasDocument(r) || r.verifierStatus === 'Verified').length;
+}
+
+function countVerified(scope: AssuranceRequirement[]): number {
+  return scope.filter(
+    (r) => r.verifierStatus === 'Verified' || (r.fulfillmentType === 'assurance_set' && r.isFulfilled),
+  ).length;
+}
+
+/**
+  what: returns the cleared / total count of every pipeline stage that applies to a set; input is the set.
+  how: builds the stage list from the workflow flags (verification, inspection, formal approval) and counts the mandatory requirements that cleared each one.
+  with what file: src/utils/readinessHelpers.ts consumed by PipelineStepper.tsx and the mock data audit.
+*/
+export function getPipelineStageBasis(set: PipelineInput): PipelineStageBasis[] {
+  const scope = getPipelineScope(set);
+  const total = scope.length;
+  const approved = set.approverDecision === 'Approved';
+
+  const basis: PipelineStageBasis[] = [
+    { stage: 'Initiated', cleared: total, total, criterion: 'requirement defined' },
+    { stage: 'Validation', cleared: countSubmitted(scope), total, criterion: 'document attached' },
+  ];
+  if (set.verificationRequired !== false) {
+    basis.push({ stage: 'Verification', cleared: countVerified(scope), total, criterion: 'verified' });
+  }
+  if (set.mandatoryInspectionRequired) {
+    basis.push({
+      stage: 'Inspection',
+      cleared: set.inspectionCompleted ? total : 0,
+      total,
+      criterion: 'inspection completed',
+    });
+  }
+  if (set.formalApprovalRequired !== false) {
+    basis.push({ stage: 'Approval', cleared: approved ? total : 0, total, criterion: 'approved' });
+  }
+  return basis;
+}
+
+/**
+  what: derives the pipeline stage of a set from its requirement statuses; input is the set.
+  how: returns the first stage not cleared by every mandatory requirement: initiated while nothing is submitted, then validation, verification, inspection and approval, ending at approved or certified.
+  with what file: src/utils/readinessHelpers.ts consumed by projectHelpers.ts (recalculateSetReadiness) and the mock data audit.
+*/
+export function derivePipelineStage(set: PipelineInput): AssuranceStage {
+  const scope = getPipelineScope(set);
+  const total = scope.length;
+  const submitted = countSubmitted(scope);
+
+  if (total === 0 || submitted === 0) return 'Initiated';
+  if (submitted < total) return 'Validation';
+  if (set.verificationRequired !== false && countVerified(scope) < total) return 'Verification';
+  if (set.mandatoryInspectionRequired && !set.inspectionCompleted) return 'Inspection';
+  if (set.formalApprovalRequired !== false) {
+    return set.approverDecision === 'Approved' ? 'Approved' : 'Approval';
+  }
+  return 'Certified';
+}
+
+/**
+  what: calculates a crew member's stcw compliance score (0-100%); input is the crew member.
+  how: takes the share of the crew member's own layer 1 and layer 2 documents whose status is verified, rounded to a whole number; a crew member with no documents scores 0.
+  with what file: src/utils/readinessHelpers.ts consumed by crew views, marketplace helpers and the mock data audit.
+*/
+export function calculateCrewComplianceScore(
+  crew: Pick<CrewMember, 'layer1CoreDocuments' | 'layer2Endorsements'>,
+): number {
+  const documents = [...(crew.layer1CoreDocuments ?? []), ...(crew.layer2Endorsements ?? [])];
+  if (documents.length === 0) return 0;
+  const verified = documents.filter((d) => d.verificationStatus === 'Verified').length;
+  return Math.round((verified / documents.length) * 100);
+}
+
+/**
+  what: derives a crew member's compliance label from the same documents as the score; input is the crew member.
+  how: any expired or pending document makes the crew member document deficient, otherwise any expiring document flags the 60 day window, otherwise fully compliant.
+  with what file: src/utils/readinessHelpers.ts consumed by crew views and the mock data audit.
+*/
+export function deriveCrewComplianceStatus(
+  crew: Pick<CrewMember, 'layer1CoreDocuments' | 'layer2Endorsements'>,
+): CrewComplianceStatus {
+  const documents = [...(crew.layer1CoreDocuments ?? []), ...(crew.layer2Endorsements ?? [])];
+  if (documents.length === 0) return 'Document Deficient';
+  if (documents.some((d) => d.verificationStatus === 'Expired' || d.verificationStatus === 'Pending')) {
+    return 'Document Deficient';
+  }
+  if (documents.some((d) => d.verificationStatus === 'Expiring')) return 'Expiring < 60 Days';
+  return 'Fully Compliant';
+}
+
+/**
+  what: calculates an equipment item's assurance readiness; inputs are the equipment and all assurance sets.
+  how: averages the readiness of every set that names the equipment; returns null when no set covers it, which the ui shows as not assessed.
+  with what file: src/utils/readinessHelpers.ts consumed by equipment views, marketplace helpers and the mock data audit.
+*/
+export function calculateEquipmentReadiness(
+  equipment: Pick<EquipmentAsset, 'id'>,
+  assuranceSets: AssuranceSet[] = [],
+): number | null {
+  const linkedSets = assuranceSets.filter((s) => s.equipmentId === equipment.id);
+  if (linkedSets.length === 0) return null;
+  const total = linkedSets.reduce((sum, s) => sum + calculateAssuranceSetReadiness(s, assuranceSets), 0);
+  return Math.round(total / linkedSets.length);
 }

@@ -18,7 +18,8 @@ import {
   isViewAccessibleToPersona,
 } from '../utils/rbacHelpers';
 import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
-import { MOCK_VESSELS } from '../store/mockData';
+import { MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS, MOCK_VESSELS } from '../store/mockData';
+import { calculateVesselReadiness } from '../utils/readinessHelpers';
 import { MOCK_EQUIPMENT } from '../store/equipmentMockData';
 import { MOCK_CREW } from '../store/crewMockData';
 import { UserProfile } from '../types/user';
@@ -141,12 +142,24 @@ describe('Marketplace Module & Segregation', () => {
   });
 
   it('verifies existing projects are available for asset nomination', () => {
-    const items = getMarketplaceItems(MOCK_VESSELS, MOCK_EQUIPMENT, 'Administrator', mockUsers);
+    const items = getMarketplaceItems(
+      MOCK_VESSELS,
+      MOCK_EQUIPMENT,
+      'Administrator',
+      mockUsers,
+      MOCK_CREW,
+      MOCK_ASSURANCE_SETS,
+      MOCK_DOCUMENTS,
+    );
     const vesselOffering = items.find((i) => i.category === 'vessel')!;
+    const linkedVessel = MOCK_VESSELS.find((v) => v.id === vesselOffering.linkedEntityId)!;
 
     expect(vesselOffering).toBeDefined();
     expect(vesselOffering.certifications.length).toBeGreaterThan(0);
-    expect(vesselOffering.complianceReadinessScore).toBeGreaterThanOrEqual(80);
+    /* an offering repeats the calculated readiness of the vessel it links to */
+    expect(vesselOffering.complianceReadinessScore).toBe(
+      calculateVesselReadiness(linkedVessel, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS),
+    );
   });
 
   it('labels the charter action by listing category', () => {

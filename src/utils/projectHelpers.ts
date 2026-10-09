@@ -17,7 +17,7 @@ import {
 } from '../types/project';
 import { UserProfile } from '../types/user';
 import { VesselInformation } from '../types/vessel';
-import { calculateAssuranceSetReadiness } from './readinessHelpers';
+import { calculateAssuranceSetReadiness, derivePipelineStage } from './readinessHelpers';
 import {
   filterVesselsForPersona,
   getClientAdminOrganization,
@@ -475,6 +475,11 @@ export function getProjectAssuranceSets(
   return result;
 }
 
+/**
+  what: calculates a project's readiness (0-100%); inputs are the project and all assurance sets.
+  how: averages the readiness of every set that belongs to the project, the same rollup rule used for vessels and dashboards; a project with no sets scores 0.
+  with what file: src/utils/projectHelpers.ts consumed by the store rollups, ProjectView.tsx, ProjectDetailView.tsx and DashboardView.tsx.
+*/
 export function calculateProjectReadiness(
   project: Project,
   assuranceSets: AssuranceSet[],
@@ -482,8 +487,8 @@ export function calculateProjectReadiness(
   const sets = getProjectAssuranceSets(project, assuranceSets);
   if (sets.length === 0) return 0;
 
-  const scores = sets.map((s) => calculateAssuranceSetReadiness(s));
-  return Math.min(...scores);
+  const total = sets.reduce((sum, s) => sum + calculateAssuranceSetReadiness(s, assuranceSets), 0);
+  return Math.round(total / sets.length);
 }
 
 export function deriveProjectStatus(
@@ -645,48 +650,32 @@ export function countProjectAssets(links: ProjectAssetLink[]): string {
   return parts.length > 0 ? parts.join(', ') : '0 assets';
 }
 
+/* approved and certified are the same terminal position on the pipeline */
+function isTerminalStage(stage: AssuranceSet['stage']): boolean {
+  return stage === 'Approved' || stage === 'Certified';
+}
+
 /**
- * Trigger 1: Auto-Recalculate Assurance Set Readiness & Auto-Advance Stage
- * Replicates database trigger trg_fn_recalc_assurance_set_readiness
- */
+  what: recalculates the pipeline stage and readiness index of a set after any change; inputs are the set and an optional resolver for linked sets.
+  how: derives the stage from the requirement statuses (the first stage not cleared by every mandatory requirement), then computes the readiness index at that stage. a set with no requirements keeps its recorded stage because there is nothing to derive from, and a terminal stage keeps the label the record already uses.
+  with what file: src/utils/projectHelpers.ts called by every assurance set action in src/store/useMapStore.ts; replicates database trigger trg_fn_recalc_assurance_set_readiness.
+*/
 export function recalculateSetReadiness(
   set: AssuranceSet,
   linkedSetResolver?: (setId: string) => AssuranceSet | undefined,
 ): AssuranceSet {
-  const score = calculateAssuranceSetReadiness(set, linkedSetResolver);
-
-  // Auto-advance stage when 100% verified and currently in Initiated/Verification
-  let nextStage = set.stage;
-  const mandatoryReqs = set.requirements.filter((r) => r.isMandatory !== false);
-  const allMandatoryVerified =
-    mandatoryReqs.length > 0 &&
-    mandatoryReqs.every(
-      (r) =>
-        (r.isFulfilled && (r.verifierStatus === 'Verified' || set.verificationRequired === false)) ||
-        (r.fulfillmentType === 'assurance_set' && r.isFulfilled),
-    );
-
-  if (score === 100 && (set.stage === 'Initiated' || set.stage === 'Verification')) {
-    if (set.mandatoryInspectionRequired && !set.inspectionCompleted) {
-      nextStage = 'Inspection';
-    } else if (set.formalApprovalRequired !== false) {
-      nextStage = 'Approval';
-    } else {
-      nextStage = 'Approved';
-    }
-  } else if (allMandatoryVerified && set.stage === 'Initiated') {
-    nextStage = 'Verification';
-  }
+  const derivedStage = set.requirements.length > 0 ? derivePipelineStage(set) : set.stage;
+  const stage = isTerminalStage(derivedStage) && isTerminalStage(set.stage) ? set.stage : derivedStage;
+  const staged: AssuranceSet = { ...set, stage };
 
   return {
-    ...set,
-    readinessScore: score,
-    stage: nextStage,
+    ...staged,
+    readinessScore: calculateAssuranceSetReadiness(staged, linkedSetResolver),
   };
 }
 
 /**
- * Recompute project readiness (min of project sets) and status from linked assurance sets.
+ * Recompute project readiness (average of project sets) and status from linked assurance sets.
  */
 export function syncProjectFromAssuranceSets(
   projectId: string,

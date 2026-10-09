@@ -134,7 +134,7 @@ describe('row actions', () => {
     expect(getNotificationAction(byId('MAP-NTF-2026-ASGN-00004'), ctx)).toMatchObject({
       label: 'Review Documents',
       view: 'assurance-sets',
-      entityId: 'AS-2026-006',
+      entityId: 'AS-SBE-010-V001',
     });
     expect(getNotificationAction(byId('MAP-NTF-2026-ASGN-00008'), ctx)).toMatchObject({
       label: 'Upload Documents',

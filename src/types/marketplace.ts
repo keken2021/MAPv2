@@ -37,7 +37,8 @@ export interface MarketplaceItem {
   photos?: string[];
   shortDescription: string;
   metrics: MarketplaceMetric[];
-  complianceReadinessScore: number;
+  /** calculated score of the linked registry asset; null when the offering has no assurance basis (not assessed) */
+  complianceReadinessScore: number | null;
   rateEstimate?: string;
   mobilizationLeadTime?: string;
   certifications: string[];

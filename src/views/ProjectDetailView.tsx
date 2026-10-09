@@ -5,11 +5,13 @@ import { useMapStore } from "../store/useMapStore";
 import { ProjectAssetType } from "../types/project";
 import { AssuranceSet } from "../types/assurance";
 import {
+  calculateProjectReadiness,
   filterProjectsForPersona,
   getProjectAssuranceSets,
   getStandaloneAssuranceSetsForAttach,
 } from "../utils/projectHelpers";
 import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
+import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import { ProjectAddAssetModal } from "../components/drawers/ProjectAddAssetModal";
 import { AttachAssuranceSetPreviewModal } from "../components/drawers/AttachAssuranceSetPreviewModal";
 import { RequestAssuranceSetModal } from "../components/drawers/RequestAssuranceSetModal";
@@ -189,7 +191,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           </div>
           <div className="text-end">
             <ReadinessGauge
-              score={project.readinessScore ?? 0}
+              score={calculateProjectReadiness(project, assuranceSets)}
               size="md"
             />
             {canManage && (
@@ -382,7 +384,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                           <span className="badge bg-secondary">{s.stage}</span>
                         </td>
                         <td>
-                          <ReadinessGauge score={s.readinessScore} size="sm" />
+                          <ReadinessGauge score={calculateAssuranceSetReadiness(s, assuranceSets)} size="sm" />
                         </td>
                         <td className="text-end">
                           {openable ? (

@@ -328,7 +328,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       { Category: 'Insurance & Crew', Field: 'Safe Manning Complement', Value: vessel.safeManningComplement },
       { Category: 'Insurance & Crew', Field: 'Lifeboat Capacity', Value: vessel.lifeboatCapacity },
       { Category: 'Status', Field: 'Operating Status', Value: vessel.status },
-      { Category: 'Compliance', Field: 'Readiness Score', Value: `${vessel.complianceReadinessScore}%` },
+      { Category: 'Compliance', Field: 'Readiness Score', Value: `${calculateVesselReadiness(vessel, assuranceSets, documents)}%` },
     ];
 
     exportToCsv(`${vessel.name.replace(/\s+/g, '_')}_Information`, vesselDetails);
@@ -362,7 +362,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       ['Insurance & Crew', 'P&I Club & Policy #', `${vessel.piClubName} (#${vessel.policyNumber})`],
       ['Insurance & Crew', 'Master & Manning', `${vessel.masterName} (${vessel.safeManningComplement} Crew / Cap: ${vessel.lifeboatCapacity})`],
       ['Operating Status', 'Current Status', vessel.status],
-      ['Compliance', 'Readiness Score', `${vessel.complianceReadinessScore}%`],
+      ['Compliance', 'Readiness Score', `${calculateVesselReadiness(vessel, assuranceSets, documents)}%`],
     ];
 
     exportToPdf(`${vessel.name} Technical Dossier`, headers, rows);

@@ -55,9 +55,9 @@ export const InspectorWorkspaceView: React.FC = () => {
   const assignedCount = assignedVessels.length;
   const pendingCount = assuranceSets.filter(
     (s) => s.mandatoryInspectionRequired && s.stage !== 'Certified'
-  ).length || 1;
-  const openCapaCount = capaItems ? capaItems.filter((c) => c.status !== 'Verified & Closed').length : 1;
-  const completedCount = assuranceSets.filter((s) => s.stage === 'Certified').length || 2;
+  ).length;
+  const openCapaCount = capaItems ? capaItems.filter((c) => c.status !== 'Verified & Closed').length : 0;
+  const completedCount = assuranceSets.filter((s) => s.stage === 'Certified').length;
 
   const handleSort = (field: InspectorSortField) => {
     if (sortField === field) {

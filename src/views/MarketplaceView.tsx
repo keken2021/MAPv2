@@ -30,6 +30,7 @@ import { MarketplaceCard } from '../components/marketplace/MarketplaceCard';
 import { MarketplaceDetailModal } from '../components/marketplace/MarketplaceDetailModal';
 import { getOrganizationLogo } from '../utils/vesselImageHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { formatReadinessScore } from '../utils/formatters';
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
@@ -40,6 +41,7 @@ export const MarketplaceView: React.FC = () => {
     equipment,
     crew,
     assuranceSets,
+    documents,
     activePersona,
     users,
     setCurrentHashView,
@@ -99,8 +101,8 @@ export const MarketplaceView: React.FC = () => {
 
   // 1. Resolve all marketplace items strictly excluding current user's organization
   const allMarketplaceItems = useMemo(() => {
-    return getMarketplaceItems(vessels, equipment, activePersona, users, crew);
-  }, [vessels, equipment, crew, activePersona, users]);
+    return getMarketplaceItems(vessels, equipment, activePersona, users, crew, assuranceSets, documents);
+  }, [vessels, equipment, crew, activePersona, users, assuranceSets, documents]);
 
   // 2. Count statistics per category
   const counts = useMemo(() => {
@@ -212,7 +214,7 @@ export const MarketplaceView: React.FC = () => {
       Provider: item.providerOrg,
       Location: item.location,
       Status: item.availabilityStatus,
-      ComplianceScore: `${item.complianceReadinessScore}%`,
+      ComplianceScore: formatReadinessScore(item.complianceReadinessScore),
       RateEstimate: item.rateEstimate || 'N/A',
       MobilizationLeadTime: item.mobilizationLeadTime || 'Standard',
     }));
@@ -228,7 +230,7 @@ export const MarketplaceView: React.FC = () => {
       item.providerOrg,
       item.location,
       item.availabilityStatus,
-      `${item.complianceReadinessScore}%`,
+      formatReadinessScore(item.complianceReadinessScore),
     ]);
     exportToPdf('Maritime Marketplace Offerings', headers, rows);
     setIsExportOpen(false);
@@ -625,9 +627,12 @@ export const MarketplaceView: React.FC = () => {
                         {/* Column 5: Tabular Readiness Score in Mono */}
                         <td style={{ padding: '12px 16px' }}>
                           <div className="d-flex align-items-center gap-1.5">
-                            <ShieldCheck size={14} className="text-primary" />
-                            <span className="fw-semibold text-dark font-mono-code" style={{ fontSize: '0.88rem' }}>
-                              {item.complianceReadinessScore}%
+                            <ShieldCheck size={14} className={item.complianceReadinessScore === null ? 'text-secondary' : 'text-primary'} />
+                            <span
+                              className={`font-mono-code ${item.complianceReadinessScore === null ? 'text-secondary' : 'fw-semibold text-dark'}`}
+                              style={{ fontSize: '0.88rem' }}
+                            >
+                              {formatReadinessScore(item.complianceReadinessScore)}
                             </span>
                           </div>
                         </td>

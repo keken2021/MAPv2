@@ -1332,9 +1332,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
   },
   updateAssuranceStage: (setId, stage) => {
+    /* explicit manual override: the chosen stage is kept and only the readiness index is recalculated */
     const updatedSets = get().assuranceSets.map((s) => {
       if (s.id !== setId) return s;
-      return recalculateSetReadiness({ ...s, stage });
+      const staged: AssuranceSet = { ...s, stage };
+      return { ...staged, readinessScore: calculateAssuranceSetReadiness(staged) };
     });
 
     const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
@@ -1451,26 +1453,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                 r.isFulfilled),
           );
 
-        let nextStage = s.stage;
-        if (allVerified) {
-          const routesToInspector =
-            updatedReqs.some((r) => r.verificationRoute === "Inspector") ||
-            (s.mandatoryInspectionRequired && !s.inspectionCompleted);
-          if (routesToInspector) {
-            nextStage = "Inspection";
-          } else if (s.formalApprovalRequired !== false) {
-            nextStage = "Approval";
-          } else {
-            nextStage = "Approved";
-          }
-        } else if (status === "Correction Requested" || status === "Rejected") {
-          nextStage = "Verification";
-        }
+        /* a verifier routing a requirement to the inspector makes the inspection mandatory; the stage itself is derived */
+        const routedToInspector = updatedReqs.some((r) => r.verificationRoute === "Inspector");
 
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
-          stage: nextStage,
+          mandatoryInspectionRequired: s.mandatoryInspectionRequired || routedToInspector,
+          inspectionCompleted: routedToInspector ? false : s.inspectionCompleted,
           approverDecision: allVerified
             ? s.formalApprovalRequired !== false
               ? "Pending"
@@ -1546,7 +1536,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
-          stage: "Verification",
           approverDecision:
             decision === "Correction Requested"
               ? "Returned for Correction"
@@ -1612,8 +1601,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
       const updatedSets = state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
-        const newStage = decision === "Approved" ? "Approved" : "Verification";
-
         const updatedReqs: AssuranceRequirement[] = isDenial
           ? s.requirements.map((r) => {
               if (r.documentId) affectedDocIds.add(r.documentId);
@@ -1632,7 +1619,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
-          stage: newStage,
           approverDecision: decision,
           approverNotes: notes,
         };
@@ -1700,15 +1686,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
-        const nextStage =
-          s.stage === "Initiated" || s.stage === "Validation"
-            ? "Verification"
-            : s.stage;
+        /* sending for review records the client workflow state; the pipeline stage follows the evidence */
         return recalculateSetReadiness({
           ...s,
           clientWorkflowStage: "in_review" as const,
           sentForReviewAt: now,
-          stage: nextStage,
         });
       });
 
@@ -1848,33 +1830,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           updatedReqs.push(newReq);
         }
 
-        const hasLinkedDocuments = updatedReqs.some((r) => r.documentId);
-        let nextStage = s.stage;
-        if (
-          hasLinkedDocuments &&
-          (s.stage === "Initiated" || s.stage === "Validation")
-        ) {
-          if (s.verificationRequired !== false) {
-            nextStage = "Verification";
-          } else {
-            const allUploaded = updatedReqs.every((r) => r.documentId);
-            if (allUploaded) {
-              nextStage =
-                s.mandatoryInspectionRequired && !s.inspectionCompleted
-                  ? "Inspection"
-                  : s.formalApprovalRequired !== false
-                    ? "Approval"
-                    : "Approved";
-            } else {
-              nextStage = "Validation";
-            }
-          }
-        }
-
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
-          stage: nextStage,
         };
 
         return recalculateSetReadiness(candidateSet);
@@ -1960,13 +1918,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
-          stage: "Verification" as const,
         };
 
-        return {
-          ...candidateSet,
-          readinessScore: calculateAssuranceSetReadiness(candidateSet),
-        };
+        return recalculateSetReadiness(candidateSet);
       });
 
       return {
@@ -2039,26 +1993,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               s.verificationRequired === false,
           );
 
-        let nextStage = s.stage;
-        if (allVerified) {
-          const routesToInspector =
-            updatedReqs.some((r) => r.verificationRoute === "Inspector") ||
-            (s.mandatoryInspectionRequired && !s.inspectionCompleted);
-          if (routesToInspector) {
-            nextStage = "Inspection";
-          } else if (s.formalApprovalRequired !== false) {
-            nextStage = "Approval";
-          } else {
-            nextStage = "Approved";
-          }
-        } else if (status === "Correction Requested" || status === "Rejected") {
-          nextStage = "Verification";
-        }
+        /* a verifier routing a requirement to the inspector makes the inspection mandatory; the stage itself is derived */
+        const routedToInspector = updatedReqs.some((r) => r.verificationRoute === "Inspector");
 
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
-          stage: nextStage,
+          mandatoryInspectionRequired: s.mandatoryInspectionRequired || routedToInspector,
+          inspectionCompleted: routedToInspector ? false : s.inspectionCompleted,
           approverDecision: allVerified
             ? s.formalApprovalRequired !== false
               ? "Pending"
@@ -2070,10 +2012,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                 : "Rejected",
         };
 
-        return {
-          ...candidateSet,
-          readinessScore: calculateAssuranceSetReadiness(candidateSet),
-        };
+        return recalculateSetReadiness(candidateSet);
       });
 
       return {

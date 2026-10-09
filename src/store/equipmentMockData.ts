@@ -18,7 +18,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'MX-240 CO2 Bank',
     parentVesselId: 'VESSEL-001',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 85,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=1000&q=80',
@@ -42,7 +42,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'K-Bridge ECDIS',
     parentVesselId: 'VESSEL-001',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 100,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1000&q=80',
@@ -66,7 +66,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'FF 6.5',
     parentVesselId: 'VESSEL-002',
     owningOrganization: 'Pacific Ocean Logistics Pty Ltd',
-    complianceReadinessScore: 70,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80',
@@ -90,7 +90,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: '6L26',
     parentVesselId: 'VESSEL-002',
     owningOrganization: 'Pacific Ocean Logistics Pty Ltd',
-    complianceReadinessScore: 90,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=1000&q=80',
@@ -114,7 +114,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'RL-K 4200 Heavy Lift',
     parentVesselId: 'VESSEL-001',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 98,
+    complianceReadinessScore: 100,
     imageUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=1000&q=80',
@@ -138,7 +138,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'K-Pos DP-22 Dual Redundant',
     parentVesselId: 'VESSEL-001',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 100,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1000&q=80',
@@ -162,7 +162,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'HD 150HP Deepwater SURF',
     parentVesselId: 'VESSEL-001',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 95,
+    complianceReadinessScore: 85,
     imageUrl: 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1000&q=80',
@@ -174,7 +174,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     registrationUpdatedAt: NOW,
     classStatus: 'Surveyed',
     classStatusUpdatedAt: NOW,
-    complianceStatus: 'Compliant',
+    complianceStatus: 'Partially Compliant',
     complianceUpdatedAt: NOW,
   },
   {
@@ -186,7 +186,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'CAP 437 / D-Value 21.0m',
     parentVesselId: 'VESSEL-001',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 100,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1519074069444-1ba4ea16e91f?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1519074069444-1ba4ea16e91f?auto=format&fit=crop&w=1000&q=80',
@@ -210,7 +210,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'DNV-ST-N001 Certified 250T Pad-Eyes',
     parentVesselId: 'VESSEL-002',
     owningOrganization: 'Woodside Energy Ltd',
-    complianceReadinessScore: 94,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1000&q=80',
@@ -234,7 +234,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'Twin-Lock 1800 Hyperbaric Chamber',
     parentVesselId: 'VESSEL-004',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 50,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1000&q=80',
@@ -258,7 +258,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'Magnum 850 Twin Inboard',
     parentVesselId: 'VESSEL-006',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 25,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1000&q=80',
@@ -282,7 +282,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'Karm Fork 350T SWL',
     parentVesselId: 'VESSEL-005',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 65,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1581092162384-8987c1d64718?auto=format&fit=crop&w=1000&q=80',
@@ -306,7 +306,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'Compatt 6+ USBL Transceiver',
     parentVesselId: 'VESSEL-004',
     owningOrganization: 'Northwind Marine Pty Ltd',
-    complianceReadinessScore: 15,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1000&q=80',

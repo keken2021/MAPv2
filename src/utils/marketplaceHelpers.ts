@@ -10,9 +10,13 @@ import { EquipmentAsset } from '../types/equipment';
 import { CrewMember } from '../types/crew';
 import { UserRolePersona } from '../types/audit';
 import { UserProfile } from '../types/user';
+import { AssuranceSet } from '../types/assurance';
+import { MasterDocument } from '../types/document';
 import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
 import { getVesselStockPhoto, getEquipmentStockPhoto, getCrewStockPhoto, getOrganizationLogo } from './vesselImageHelpers';
 import { getClientAdminOrganization } from './rbacHelpers';
+import { calculateCrewComplianceScore, calculateEquipmentReadiness, calculateVesselReadiness } from './readinessHelpers';
+import { formatReadinessScore, NOT_ASSESSED_LABEL } from './formatters';
 
 /**
   what: checks if an item or organization belongs to the currently logged in user's organization.
@@ -46,9 +50,20 @@ export function isItemOwnedByCurrentOrganization(
   return false;
 }
 
+/* rewrites the "nn% ready" text of a metric so it repeats the calculated score instead of a typed one */
+function withReadinessMetric(metrics: MarketplaceItem['metrics'], score: number | null): MarketplaceItem['metrics'] {
+  if (score === null) return metrics;
+  return metrics.map((metric) =>
+    /%\s*ready/i.test(metric.value)
+      ? { ...metric, value: metric.value.replace(/\d+\s*%\s*ready/i, `${score}% Ready`) }
+      : metric,
+  );
+}
+
 /**
-  what: builds a unified list of all service provider marketplace offerings from both store assets and dedicated service records.
-  how: extracts non-user-owned vessels, equipment, and crew, synchronizes updated photos and image crops from store, and wraps them into MarketplaceItem format.
+  what: builds a unified list of all service provider marketplace offerings from both store assets and dedicated service records; inputs are the registries, the viewer, and the assurance sets and documents the scores are calculated from.
+  how: extracts non-user-owned vessels, equipment, and crew, synchronizes updated photos and image crops from store, takes every linked offering's score from the readiness helpers, and wraps them into MarketplaceItem format.
+  with what file: src/utils/marketplaceHelpers.ts consumed by MarketplaceView.tsx; scores come from src/utils/readinessHelpers.ts.
 */
 export function getMarketplaceItems(
   vessels: VesselInformation[],
@@ -56,6 +71,8 @@ export function getMarketplaceItems(
   activePersona: UserRolePersona,
   users: Pick<UserProfile, 'roles' | 'organization'>[] = [],
   crew: CrewMember[] = [],
+  assuranceSets: AssuranceSet[] = [],
+  documents: MasterDocument[] = [],
 ): MarketplaceItem[] {
   // 1. Gather all dedicated service provider mock items and synchronize linked entity photos/images
   const baseItems: MarketplaceItem[] = MOCK_MARKETPLACE_ITEMS.map((item) => {
@@ -67,6 +84,8 @@ export function getMarketplaceItems(
           const stockPhoto = getVesselStockPhoto(v.id, v.name, v.vesselType, v.vesselSubtype, v.imageUrl);
           cloned.imageUrl = v.imageUrl || stockPhoto;
           cloned.photos = v.photos && v.photos.length > 0 ? v.photos : cloned.photos || [cloned.imageUrl];
+          cloned.complianceReadinessScore = calculateVesselReadiness(v, assuranceSets, documents);
+          cloned.metrics = withReadinessMetric(cloned.metrics, cloned.complianceReadinessScore);
         }
       } else if (cloned.linkedEntityType === 'equipment') {
         const eq = equipment.find((e) => e.id === cloned.linkedEntityId);
@@ -74,6 +93,8 @@ export function getMarketplaceItems(
           const stockPhoto = getEquipmentStockPhoto(eq.id, eq.name, eq.category, eq.imageUrl);
           cloned.imageUrl = eq.imageUrl || stockPhoto;
           cloned.photos = eq.photos && eq.photos.length > 0 ? eq.photos : cloned.photos || [cloned.imageUrl];
+          cloned.complianceReadinessScore = calculateEquipmentReadiness(eq, assuranceSets);
+          cloned.metrics = withReadinessMetric(cloned.metrics, cloned.complianceReadinessScore);
         }
       } else if (cloned.linkedEntityType === 'crew') {
         const c = crew.find((cr) => cr.id === cloned.linkedEntityId);
@@ -81,6 +102,7 @@ export function getMarketplaceItems(
           const stockPhoto = getCrewStockPhoto(c.id, c.fullName, c.rank, c.imageUrl);
           cloned.imageUrl = c.imageUrl || stockPhoto;
           cloned.photos = c.photos && c.photos.length > 0 ? c.photos : cloned.photos || [cloned.imageUrl];
+          cloned.complianceReadinessScore = calculateCrewComplianceScore(c);
         }
       }
     }
@@ -92,6 +114,7 @@ export function getMarketplaceItems(
     const isBasePresent = baseItems.some((item) => item.linkedEntityId === v.id);
     if (!isBasePresent) {
       const orgInfo = getOrganizationLogo(v.registeredOwner);
+      const vesselReadiness = calculateVesselReadiness(v, assuranceSets, documents);
       const photoUrl = getVesselStockPhoto(v.id, v.name, v.vesselType, v.vesselSubtype, v.imageUrl);
 
       baseItems.push({
@@ -113,10 +136,10 @@ export function getMarketplaceItems(
           },
           {
             label: 'Assurance / Class',
-            value: `${v.classificationSociety || 'DNV'} · ${v.complianceReadinessScore || 80}% Ready`,
+            value: `${v.classificationSociety || 'DNV'} · ${vesselReadiness}% Ready`,
           },
         ],
-        complianceReadinessScore: v.complianceReadinessScore || 80,
+        complianceReadinessScore: vesselReadiness,
         rateEstimate: 'Available on Application',
         mobilizationLeadTime: '48 Hours',
         certifications: [
@@ -157,6 +180,7 @@ export function getMarketplaceItems(
     const isBasePresent = baseItems.some((item) => item.linkedEntityId === eq.id);
     if (!isBasePresent) {
       const photoUrl = eq.imageUrl || getEquipmentStockPhoto(eq.id, eq.name, eq.category);
+      const equipmentReadiness = calculateEquipmentReadiness(eq, assuranceSets);
       baseItems.push({
         id: `MAP-EQP-2026-MKT-${eq.id.replace('EQ-', '')}`,
         name: eq.name,
@@ -171,9 +195,12 @@ export function getMarketplaceItems(
         shortDescription: `${eq.manufacturer || 'Certified'} ${eq.model || eq.category} inspected and ready for marine deployment.`,
         metrics: [
           { label: 'Category', value: eq.category },
-          { label: 'Compliance', value: `${eq.complianceReadinessScore}% Ready` },
+          {
+            label: 'Compliance',
+            value: equipmentReadiness === null ? NOT_ASSESSED_LABEL : `${formatReadinessScore(equipmentReadiness)} Ready`,
+          },
         ],
-        complianceReadinessScore: eq.complianceReadinessScore,
+        complianceReadinessScore: equipmentReadiness,
         rateEstimate: 'Daily / Weekly Rates Available',
         mobilizationLeadTime: '24-48 Hours',
         certifications: [eq.classStatus || 'In Class', eq.complianceStatus || 'Compliant'],
@@ -202,7 +229,54 @@ export function getMarketplaceItems(
     }
   });
 
-  // 4. Strict segregation: filter OUT any item belonging to current user organization
+  // 4. Wrap store crew with a recorded employer if not already present in base items
+  crew.forEach((c) => {
+    const isBasePresent = baseItems.some((item) => item.linkedEntityId === c.id);
+    if (!isBasePresent && c.organization) {
+      const photoUrl = c.imageUrl || getCrewStockPhoto(c.id, c.fullName, c.rank, c.imageUrl);
+      const crewScore = calculateCrewComplianceScore(c);
+      const crewDocuments = [...c.layer1CoreDocuments, ...c.layer2Endorsements];
+      baseItems.push({
+        id: `MAP-CRW-2026-MKT-${c.id.replace('CREW-', '')}`,
+        name: c.fullName,
+        category: 'crew',
+        subcategory: c.rank,
+        providerOrg: c.organization,
+        location: c.currentVesselName || 'Western Australia',
+        availabilityStatus: c.currentVesselId ? 'On Assignment' : 'Available for Hire',
+        availabilityTagColor: c.currentVesselId ? '#3b82f6' : '#059669',
+        imageUrl: photoUrl,
+        photos: c.photos && c.photos.length > 0 ? c.photos : [photoUrl],
+        shortDescription: `${c.rank} holding ${crewDocuments.length} STCW documents on record.`,
+        metrics: [
+          { label: 'Rank / Grade', value: c.rank },
+          { label: 'STCW Compliance', value: formatReadinessScore(crewScore) },
+        ],
+        complianceReadinessScore: crewScore,
+        rateEstimate: 'Day Rate on Application',
+        mobilizationLeadTime: 'On Application',
+        certifications: crewDocuments.slice(0, 4).map((d) => d.title),
+        operationalCapabilities: c.assignments.slice(0, 3).map((a) => `${a.rankHeld} on ${a.vesselName} (${a.vesselType})`),
+        detailedSpecs: [
+          { label: 'Nationality', value: c.nationality },
+          { label: 'Seamans Book', value: c.seamansBookNo },
+          { label: 'Compliance', value: c.complianceStatus },
+          { label: 'Last Audited', value: c.lastAuditedDate },
+        ],
+        contact: {
+          name: c.organization,
+          role: 'Crewing Desk',
+          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+          email: 'crewing@leasingprovider.com',
+          phone: '+61 8 9480 0000',
+        },
+        linkedEntityId: c.id,
+        linkedEntityType: 'crew',
+      });
+    }
+  });
+
+  // 5. Strict segregation: filter OUT any item belonging to current user organization
   return baseItems.filter((item) => !isItemOwnedByCurrentOrganization(item.providerOrg, activePersona, users));
 }
 
@@ -280,8 +354,15 @@ export function filterMarketplaceItems(
     let compB: string | number = '';
 
     if (sortBy === 'readiness') {
-      compA = a.complianceReadinessScore;
-      compB = b.complianceReadinessScore;
+      /* offerings that are not assessed stay after every scored offering in both sort directions */
+      const scoreA = a.complianceReadinessScore;
+      const scoreB = b.complianceReadinessScore;
+      if (scoreA === null || scoreB === null) {
+        if (scoreA === scoreB) return 0;
+        return scoreA === null ? 1 : -1;
+      }
+      compA = scoreA;
+      compB = scoreB;
     } else if (sortBy === 'provider') {
       compA = a.providerOrg.toLowerCase();
       compB = b.providerOrg.toLowerCase();

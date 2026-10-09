@@ -13,7 +13,7 @@ import { isAssuranceSetAssignedToPersona, filterVesselsForPersona } from '../uti
 import { calculateAssuranceSetReadiness, calculateVesselReadiness } from '../utils/readinessHelpers';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
-import { filterProjectsForPersona } from '../utils/projectHelpers';
+import { calculateProjectReadiness, filterProjectsForPersona } from '../utils/projectHelpers';
 
 /**
   what: renders the executive dashboard workspace view in light theme.
@@ -133,7 +133,7 @@ export const DashboardView: React.FC = () => {
     else if (cAdminProjectSortField === 'name') comp = a.name.localeCompare(b.name);
     else if (cAdminProjectSortField === 'status') comp = a.status.localeCompare(b.status);
     else if (cAdminProjectSortField === 'readinessScore') {
-      comp = (a.readinessScore ?? 0) - (b.readinessScore ?? 0);
+      comp = calculateProjectReadiness(a, assuranceSets) - calculateProjectReadiness(b, assuranceSets);
     }
     return cAdminProjectSortDirection === 'asc' ? comp : -comp;
   });
@@ -449,7 +449,7 @@ export const DashboardView: React.FC = () => {
                         </tr>
                       ) : (
                         sortedCAdminProjects.map((p) => {
-                          const readiness = p.readinessScore ?? 0;
+                          const readiness = calculateProjectReadiness(p, assuranceSets);
                           return (
                             <tr
                               key={p.id}

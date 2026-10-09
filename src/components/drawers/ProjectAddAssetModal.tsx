@@ -36,6 +36,12 @@ import {
   PROJECT_ASSET_LINK_HINT,
 } from '../../utils/projectHelpers';
 import { normalizeText, matchesVesselRequirement } from '../../utils/documentMatchingHelpers';
+import {
+  calculateCrewComplianceScore,
+  calculateEquipmentReadiness,
+  calculateVesselReadiness,
+} from '../../utils/readinessHelpers';
+import { formatReadinessScore } from '../../utils/formatters';
 
 export interface VaultCertificateDisplay {
   id: string;
@@ -66,7 +72,8 @@ export interface CandidateAsset {
   location: string;
   subtypeOrRole: string;
   operationalStatus: string;
-  complianceScore: number;
+  /* calculated readiness of the asset; null when no assurance evidence covers it */
+  complianceScore: number | null;
   eligibleAssuranceSets: AssuranceSet[];
   vesselRef?: VesselInformation;
   crewRef?: CrewMember;
@@ -137,7 +144,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
           location: vesselRef?.portOfRegistry || 'Dampier, WA',
           subtypeOrRole: `${vesselRef?.vesselType || 'Vessel'} · ${vesselRef?.vesselSubtype || 'General'}`,
           operationalStatus: vesselRef?.status || 'Available',
-          complianceScore: vesselRef?.complianceReadinessScore ?? 0,
+          complianceScore: vesselRef ? calculateVesselReadiness(vesselRef, assuranceSets, documents) : null,
           vesselRef,
         };
       }
@@ -149,12 +156,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
           location: 'Henderson Marine Base, WA',
           subtypeOrRole: `${equipmentRef?.category || 'Equipment'} · ${equipmentRef?.model || 'Standard'}`,
           operationalStatus: equipmentRef?.availabilityStatus || 'Available',
-          complianceScore:
-            equipmentRef?.complianceStatus === 'Compliant'
-              ? 95
-              : equipmentRef?.complianceStatus === 'Partially Compliant'
-                ? 65
-                : 40,
+          complianceScore: equipmentRef ? calculateEquipmentReadiness(equipmentRef, assuranceSets) : null,
           equipmentRef,
         };
       }
@@ -165,16 +167,11 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
         location: 'Perth, WA (Available Worldwide)',
         subtypeOrRole: `${crewRef?.rank || 'Crew'} · ${crewRef?.nationality || 'STCW Certified'}`,
         operationalStatus: crewRef?.complianceStatus || 'Available',
-        complianceScore:
-          crewRef?.complianceStatus === 'Fully Compliant'
-            ? 98
-            : crewRef?.complianceStatus === 'Expiring < 60 Days'
-              ? 75
-              : 45,
+        complianceScore: crewRef ? calculateCrewComplianceScore(crewRef) : null,
         crewRef,
       };
     });
-  }, [project, vessels, equipment, crew, assuranceSets]);
+  }, [project, vessels, equipment, crew, assuranceSets, documents]);
 
   useEffect(() => {
     if (!selectedAsset) {
@@ -786,7 +783,9 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                                 </span>
                                 <span className="text-muted">·</span>
                                 <span className="font-mono-code text-primary fw-semibold" style={{ fontSize: '0.75rem' }}>
-                                  {asset.complianceScore}% Verified
+                                  {asset.complianceScore === null
+                                    ? formatReadinessScore(null)
+                                    : `${formatReadinessScore(asset.complianceScore)} Verified`}
                                 </span>
                               </div>
                             </div>
@@ -855,7 +854,9 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                           PRE-ASSURANCE SCORE
                         </div>
                         <div className="fw-bold font-mono-code text-primary" style={{ fontSize: '1.05rem' }}>
-                          {selectedAsset.complianceScore || 98}% Verified
+                          {selectedAsset.complianceScore === null
+                            ? formatReadinessScore(null)
+                            : `${formatReadinessScore(selectedAsset.complianceScore)} Verified`}
                         </div>
                       </div>
                     </div>

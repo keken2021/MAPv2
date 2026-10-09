@@ -25,6 +25,7 @@ import {
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 import { exportToPdf } from '../../utils/exportHelpers';
+import { formatReadinessScore } from '../../utils/formatters';
 import { getMarketplaceCharterLabel } from '../../utils/marketplaceHelpers';
 
 interface MarketplaceDetailModalProps {
@@ -97,7 +98,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
       ['Service Provider', item.providerOrg],
       ['Location / Base', item.location],
       ['Availability Status', item.availabilityStatus],
-      ['Compliance Readiness', `${item.complianceReadinessScore}%`],
+      ['Compliance Readiness', formatReadinessScore(item.complianceReadinessScore)],
       ['Rate Estimate', item.rateEstimate || 'Contact for Quote'],
       ['Mobilization Time', item.mobilizationLeadTime || 'Standard Lead'],
       ...item.detailedSpecs.map((s) => [s.label, s.value]),
@@ -278,7 +279,10 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
 
                   <div className="d-flex align-items-center gap-2 mt-1">
                     <span className="badge bg-slate-800 text-slate-200 border border-slate-700 font-mono-code px-2.5 py-1" style={{ fontSize: '0.75rem' }}>
-                      STCW Compliance Readiness: <strong className="text-success">{item.complianceReadinessScore}%</strong>
+                      STCW Compliance Readiness:{' '}
+                      <strong className={item.complianceReadinessScore === null ? 'text-slate-200' : 'text-success'}>
+                        {formatReadinessScore(item.complianceReadinessScore)}
+                      </strong>
                     </span>
                   </div>
                 </div>
@@ -438,7 +442,9 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                       className="fw-bold font-mono-code"
                       style={{ fontSize: '0.95rem', color: '#0B1B2B' }}
                     >
-                      {item.complianceReadinessScore}% Verified
+                      {item.complianceReadinessScore === null
+                        ? formatReadinessScore(null)
+                        : `${formatReadinessScore(item.complianceReadinessScore)} Verified`}
                     </div>
                   </div>
                 </div>

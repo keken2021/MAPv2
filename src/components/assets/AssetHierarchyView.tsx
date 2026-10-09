@@ -8,6 +8,7 @@ import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { filterEquipmentForPersona, filterVesselsForPersona } from '../../utils/rbacHelpers';
 import { deriveComplianceStatus, getVesselAssetStatus } from '../../types/asset';
+import { calculateVesselReadiness } from '../../utils/readinessHelpers';
 import { EquipmentAsset } from '../../types/equipment';
 import { Wrench, Ship, ChevronDown, ChevronRight } from 'lucide-react';
 
@@ -24,7 +25,7 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
   onSelectVessel,
   onSelectEquipment,
 }) => {
-  const { vessels, equipment, assuranceSets, activePersona } = useMapStore();
+  const { vessels, equipment, assuranceSets, documents, activePersona } = useMapStore();
   const [expandedVessels, setExpandedVessels] = useState<Set<string>>(new Set(['VESSEL-001']));
   const [assetTypeFilter, setAssetTypeFilter] = useState<AssetTypeFilter>(defaultAssetTypeFilter);
   const [ownerFilter, setOwnerFilter] = useState('All');
@@ -66,19 +67,23 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
     return true;
   };
 
+  /* compliance label of a vessel: the recorded one, else derived from its calculated readiness */
+  const getVesselCompliance = (vessel: (typeof vessels)[number]): string =>
+    vessel.complianceStatus || deriveComplianceStatus(calculateVesselReadiness(vessel, assuranceSets, documents));
+
   const filteredVessels = useMemo(() => {
     return visibleVessels.filter((vessel) => {
       if (assetTypeFilter === 'equipment') {
         return (equipmentByVessel.get(vessel.id) ?? []).some(equipmentMatchesFilters);
       }
       const status = getVesselAssetStatus(vessel);
-      const compliance = status.complianceStatus;
+      const compliance = getVesselCompliance(vessel);
       if (ownerFilter !== 'All' && vessel.registeredOwner !== ownerFilter) return false;
       if (availabilityFilter !== 'All' && status.availabilityStatus !== availabilityFilter) return false;
       if (complianceFilter !== 'All' && compliance !== complianceFilter) return false;
       return true;
     });
-  }, [visibleVessels, assetTypeFilter, ownerFilter, availabilityFilter, complianceFilter, equipmentByVessel]);
+  }, [visibleVessels, assetTypeFilter, ownerFilter, availabilityFilter, complianceFilter, equipmentByVessel, assuranceSets, documents]);
 
   const filteredStandaloneEquipment = useMemo(() => {
     if (assetTypeFilter === 'vessel') return [];
@@ -196,7 +201,7 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
             return true;
           });
           const isExpanded = expandedVessels.has(vessel.id);
-          const compliance = status.complianceStatus || deriveComplianceStatus(vessel.complianceReadinessScore);
+          const compliance = getVesselCompliance(vessel);
 
           return (
             <div key={vessel.id} className="border-bottom">

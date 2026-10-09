@@ -109,6 +109,18 @@ export function formatDocumentId(
   return `MAP-${entity}-${year}-${category}-${seqStr}`;
 }
 
+/* label shown for an asset or offering that no assurance evidence covers */
+export const NOT_ASSESSED_LABEL = 'Not assessed';
+
+/**
+  what: formats a readiness or compliance score for display; input is the score, or null when the record has no assurance basis.
+  how: returns the whole-number percentage, or the not assessed label for null and undefined.
+  with what file: src/utils/formatters.ts used by equipment and marketplace views, cards, modals, exports and marketplaceHelpers.ts.
+*/
+export function formatReadinessScore(score: number | null | undefined): string {
+  return score === null || score === undefined ? NOT_ASSESSED_LABEL : `${score}%`;
+}
+
 /**
   what: validates whether a string matches the MAP standard document ID format: MAP-[ENTITY]-[YYYY]-[CATEGORY]-[SEQ]
 */

@@ -75,7 +75,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
     expect(currentSet?.stage).toBe('Approved');
   });
 
-  it('Trigger 2: project rollup computes lowest common denominator readiness and updates project status', () => {
+  it('Trigger 2: project rollup computes the average readiness of its sets and updates project status', () => {
     const store = useMapStore.getState();
 
     const childSet1Id = 'AS-CHILD-01';
@@ -186,8 +186,8 @@ describe('Mock State Engine Triggers in useMapStore', () => {
 
     let project = useMapStore.getState().projects.find((p) => p.id === projId);
     expect(project).toBeDefined();
-    // Lowest common denominator readiness is min(100, 40) = 40
-    expect(project?.readinessScore).toBe(40);
+    // project readiness is the average of its sets: (100 + 40) / 2 = 70
+    expect(project?.readinessScore).toBe(70);
     expect(project?.status).toBe('Assurance In Progress');
 
     // Verify childSet2 REQ-C2B and approve childSet2

@@ -12,6 +12,7 @@ import { isDuplicateVessel, validateImoNumber } from '../../utils/validation';
 import { CURATED_VESSEL_PHOTOS } from '../../utils/vesselImageHelpers';
 import { VesselImageCropModal } from './VesselImageCropModal';
 import { formatDocumentId } from '../../utils/formatters';
+import { STAGE_READINESS_WEIGHTS } from '../../utils/readinessHelpers';
 import { Upload, Image, Crop, FileText, Check, X } from 'lucide-react';
 
 interface VesselModalProps {
@@ -252,7 +253,8 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
       flagState,
       portOfRegistry,
       status: vesselRegStatus,
-      complianceReadinessScore: registrationDocName || classCertDocName ? 92 : 85,
+      /* a new vessel has no assurance evidence yet; screens calculate its score from sets, documents and certificates */
+      complianceReadinessScore: STAGE_READINESS_WEIGHTS.initiated,
       imageUrl: imageUrl.trim() ? imageUrl.trim() : (photos.length > 0 ? photos[0] : undefined),
       photos: photos.length > 0 ? photos : (imageUrl.trim() ? [imageUrl.trim()] : undefined),
       vesselType,

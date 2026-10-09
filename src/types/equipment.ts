@@ -23,7 +23,8 @@ export interface EquipmentAsset extends AssetStatusFields {
   serialNumber?: string;
   parentVesselId?: string;
   owningOrganization: string;
-  complianceReadinessScore: number;
+  /** average readiness of the assurance sets naming this equipment; null when none does (not assessed) */
+  complianceReadinessScore: number | null;
   imageUrl?: string;
   photos?: string[];
 }

@@ -37,7 +37,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
-.agents
 docs/
 
 # testing and coverage

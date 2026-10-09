@@ -130,6 +130,11 @@ export function getReviewChannelForUser(
     return 'third_party';
   }
 
+  /* staff of a different organization are outside this client's group, so they are never its internal reviewers */
+  if (clientOrg && orgLower && !orgLower.includes(clientOrg.toLowerCase()) && !clientOrg.toLowerCase().includes(orgLower)) {
+    return 'third_party';
+  }
+
   return 'internal';
 }
 

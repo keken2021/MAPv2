@@ -19,7 +19,7 @@ describe('C Admin exclusive workflow control (Req 5)', () => {
     expect(completion.update).toBe(true);
   });
 
-  it('sendAssuranceForReview marks campaign in_review and advances stage from Initiated', () => {
+  it('sendAssuranceForReview marks campaign in_review and leaves the stage to the evidence', () => {
     const store = useMapStore.getState();
     const setId = 'AS-2026-003';
     const target = store.assuranceSets.find((s) => s.id === setId);
@@ -31,7 +31,8 @@ describe('C Admin exclusive workflow control (Req 5)', () => {
     const updated = useMapStore.getState().assuranceSets.find((s) => s.id === setId);
     expect(updated?.clientWorkflowStage).toBe('in_review');
     expect(updated?.sentForReviewAt).toBeTruthy();
-    expect(updated?.stage).not.toBe('Initiated');
+    /* nothing is submitted yet, so the pipeline stays at the first incomplete stage */
+    expect(updated?.stage).toBe('Initiated');
 
     const audit = useMapStore.getState().auditEvents[0];
     expect(audit.action).toContain('Client Sent Campaign for Review');
