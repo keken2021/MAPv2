@@ -17,7 +17,8 @@ export type InitiatingRoleType =
   | 'Vessel Provider'
   | 'Client Admin'
   | 'C Admin · Client Created'
-  | 'Vessel Provider Admin';
+  | 'Vessel Provider Admin'
+  | 'Service Provider Admin';
 
 export type AssuranceScopeType = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 export type AssuranceSubtype = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';

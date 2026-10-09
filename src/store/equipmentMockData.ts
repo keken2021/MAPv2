@@ -66,7 +66,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'FF 6.5',
     parentVesselId: 'VESSEL-002',
     owningOrganization: 'Pacific Ocean Logistics Pty Ltd',
-    complianceReadinessScore: null,
+    complianceReadinessScore: 70,
     imageUrl: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80',

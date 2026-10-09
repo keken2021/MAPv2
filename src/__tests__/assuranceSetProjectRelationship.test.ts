@@ -199,9 +199,9 @@ describe('assurance set created-by label', () => {
   });
 
   it('falls back to the organization when the creator is unknown', () => {
-    const unknown = { ...northwindSet, initiatorOrg: 'Meridian Marine Services Pty Ltd' };
+    const unknown = { ...northwindSet, initiatorOrg: 'Unknown Maritime Agency Ltd' };
     expect(getAssuranceSetCreator(unknown, MOCK_USERS).name).toBeUndefined();
-    expect(getAssuranceSetCreatedByLabel(unknown, MOCK_USERS, 'Administrator')).toBe('Meridian Marine Services Pty Ltd');
+    expect(getAssuranceSetCreatedByLabel(unknown, MOCK_USERS, 'Administrator')).toBe('Unknown Maritime Agency Ltd');
   });
 });
 

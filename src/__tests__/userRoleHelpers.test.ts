@@ -109,7 +109,9 @@ describe('userRoleHelpers', () => {
     expect(firstCAdminIndex).toBe(0);
 
     /* subsequent users must be verifiers without C Admin role */
-    const otherVerifiers = eligibleVerifiers.slice(1);
+    const cAdminCount = eligibleVerifiers.filter((u) => u.roles.includes('C Admin')).length;
+    const otherVerifiers = eligibleVerifiers.slice(cAdminCount);
+    expect(otherVerifiers.length).toBeGreaterThan(0);
     expect(otherVerifiers.every((u) => u.roles.includes('Verifier'))).toBe(true);
   });
 });

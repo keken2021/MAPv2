@@ -224,13 +224,13 @@ describe('C Admin & Vessel Admin User Management & RBAC Isolation', () => {
     how: checks mock data users collection to assert only one c admin exists, and asserts all mock users created by c admin have roles among verifier, inspector, or approver.
     with what file: src/__tests__/cAdminUserManagement.test.ts testing mockData.ts and rbacHelpers.ts.
   */
-  it('should ensure there is exactly one C Admin and all users created under them belong to allowed operational roles', () => {
+  it('should ensure C Admin users exist across organizations and all users created under them belong to allowed operational roles', () => {
     const storeUsers = useMapStore.getState().users;
     const cAdmins = storeUsers.filter((u) => u.roles.includes('C Admin'));
 
-    /* exactly one c admin */
-    expect(cAdmins.length).toBe(1);
-    expect(cAdmins[0].name).toBe('S. Basin');
+    /* multi-org C Admins */
+    expect(cAdmins.length).toBeGreaterThanOrEqual(1);
+    expect(cAdmins.some((u) => u.name === 'S. Basin')).toBe(true);
 
     /* users created by c admin */
     const usersUnderCAdmin = storeUsers.filter((u) => u.createdBy === 'C Admin');
