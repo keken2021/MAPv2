@@ -20,13 +20,13 @@ import {
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { MOCK_USERS, MOCK_VESSELS } from '../store/mockData';
 
-describe('Project Scope Stakeholders, Segregation of Duties, and Role Boundaries', () => {
+describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', () => {
   beforeEach(() => {
     useMapStore.getState().setActivePersona('Administrator');
   });
 
-  describe('1. Project Scope Category-Level Stakeholder Assignments', () => {
-    it('allows distinct submitters and verifiers for each category in a project scope', () => {
+  describe('1. Category-Level Stakeholder Assignments', () => {
+    it('allows distinct submitters and verifiers for each category in a multi-subtype set', () => {
       const categoryStakeholders = {
         Vessel: {
           assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
@@ -116,7 +116,7 @@ describe('Project Scope Stakeholders, Segregation of Duties, and Role Boundaries
       const newProjectSet: AssuranceSet = {
         id: 'MAP-SET-2026-PRJ-TEST-01',
         title: 'Gorgon Stage 2 Deepwater Installation Assurance Set',
-        assuranceType: 'Project',
+        assuranceType: 'Vessel',
         vesselId: 'VESSEL-001',
         vesselName: 'MV Northern Endeavour',
         imoNumber: '9123456',
@@ -376,7 +376,7 @@ describe('Project Scope Stakeholders, Segregation of Duties, and Role Boundaries
       const assuranceSetWithMixedReview: AssuranceSet = {
         id: 'MAP-SET-2026-MIXED-001',
         title: 'Gorgon Marine Fuel & Vessel Multi-Channel Assurance',
-        assuranceType: 'Project',
+        assuranceType: 'Vessel',
         vesselId: 'VESSEL-001',
         vesselName: 'MV Pacific Endeavour',
         imoNumber: '9123456',

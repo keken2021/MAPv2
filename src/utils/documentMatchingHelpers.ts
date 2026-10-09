@@ -1,7 +1,7 @@
 /* 
   file summary: intelligent document auto-attachment and matching engine for chartered assets and assurance sets.
   responsibilities: automatically matches and attaches existing statutory, crew, and equipment documents linked to chartered assets into newly requested assurance campaign requirements.
-  role in system: consumed by CreateAssuranceSetView, AssuranceModal, useMapStore (addAssuranceSet), and project composition services.
+  role in system: consumed by CreateAssuranceSetView, useMapStore (addAssuranceSet), and project composition services.
 */
 
 import { AssuranceRequirement, AssuranceSubtype } from '../types/assurance';

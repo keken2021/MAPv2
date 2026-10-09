@@ -629,7 +629,7 @@ export function getBackButtonInfo(
   } else if (parentView === "users") {
     isParentAllowedInSidepanel = ["Administrator", "C Admin"].includes(activePersona);
   } else if (parentView === "marketplace") {
-    isParentAllowedInSidepanel = true;
+    isParentAllowedInSidepanel = isMarketplacePersona(activePersona);
   }
 
   if (previousHashView === "dashboard" || !isParentAllowedInSidepanel) {
@@ -1099,7 +1099,7 @@ export function isAssuranceSetOwnedOrInitiatedByOrganization(
 
 /**
   what: vessels a vessel admin organization has chartered; inputs are the fleet, all assurance sets and the organization name.
-  how: keeps vessels the organization does not own that have a vessel assurance set whose client (clientOrg, or charterer when no client is recorded) is that organization; project master sets are ignored.
+  how: keeps vessels the organization does not own that have a vessel assurance set whose client (clientOrg, or charterer when no client is recorded) is that organization.
   with what file: src/utils/rbacHelpers.ts used by FleetRegistryView.tsx and VesselTable.tsx for the chartered tab.
 */
 export function filterVesselAdminChartered(
@@ -1115,7 +1115,6 @@ export function filterVesselAdminChartered(
         const client = set.clientOrg || set.charterer;
         return (
           set.vesselId === vessel.id &&
-          !set.isProjectMaster &&
           (!set.assuranceType || set.assuranceType === 'Vessel') &&
           Boolean(client) &&
           orgFieldMatches(organization, client as string)

@@ -19,7 +19,7 @@ export type InitiatingRoleType =
   | 'C Admin · Client Created'
   | 'Vessel Provider Admin';
 
-export type AssuranceScopeType = 'Project' | 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
+export type AssuranceScopeType = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 export type AssuranceSubtype = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 export type ThreePillarsCategory = 'People' | 'Plant' | 'Process';
 
@@ -27,7 +27,7 @@ export type ReviewMode = 'internal' | 'third_party' | 'issuing_authority' | 'mix
 export type ReviewChannel = 'internal' | 'third_party' | 'issuing_authority';
 export type AuthorityValidationMethod = 'api' | 'direct_link' | 'manual';
 
-/** How a master-project requirement is fulfilled: document upload or link to child assurance set */
+/** How a requirement is fulfilled: document upload or link to another assurance set */
 export type RequirementFulfillmentType = 'document' | 'assurance_set';
 
 /** Client-owned campaign workflow (C Admin controls review & approval) */
@@ -85,7 +85,7 @@ export interface AssuranceRequirement {
   assignedVerifier?: string;
   submitterId?: string;
   verifierId?: string;
-  /** document (default) or pointer to a nested child assurance set */
+  /** document (default) or pointer to a linked assurance set */
   fulfillmentType?: RequirementFulfillmentType;
   linkedAssuranceSetId?: string;
 }
@@ -196,10 +196,6 @@ export interface AssuranceSet {
   clientOrg?: string;
   /** true when C Admin runs assurance on their own fleet (internal deployment, not third-party charter) */
   internalDeployment?: boolean;
-  /** true for project-level master rollup sets (e.g. AS-02-P001) */
-  isProjectMaster?: boolean;
-  parentProjectId?: string;
-  aggregatedFromSetIds?: string[];
   /** C Admin workflow: draft until sent for review; client owns final approval */
   clientWorkflowStage?: ClientWorkflowStage;
   sentForReviewAt?: string;

@@ -75,7 +75,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
     expect(currentSet?.stage).toBe('Approved');
   });
 
-  it('Trigger 2: syncProjectMasterRollup computes lowest common denominator readiness and updates project status', () => {
+  it('Trigger 2: project rollup computes lowest common denominator readiness and updates project status', () => {
     const store = useMapStore.getState();
 
     const childSet1Id = 'AS-CHILD-01';

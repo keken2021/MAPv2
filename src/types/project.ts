@@ -73,10 +73,8 @@ export interface Project extends AssuranceProject {
   charterWindowEnd: string;
   status: ProjectStatus;
   operatorOrganization: string;
-  /** Client organization that owns this project / master assurance (charterer) */
+  /** Client organization that owns this project (charterer) */
   ownerOrganization?: string;
-  /** @deprecated Master rollup sets removed — retained for legacy mock data only */
-  masterAssuranceSetId?: string;
   assetLinks: ProjectAssetLink[];
   readinessScore?: number;
   /** Service / rental projects */

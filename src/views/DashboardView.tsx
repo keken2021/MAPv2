@@ -133,9 +133,7 @@ export const DashboardView: React.FC = () => {
     else if (cAdminProjectSortField === 'name') comp = a.name.localeCompare(b.name);
     else if (cAdminProjectSortField === 'status') comp = a.status.localeCompare(b.status);
     else if (cAdminProjectSortField === 'readinessScore') {
-      const aScore = a.readinessScore ?? assuranceSets.find((s) => s.id === a.masterAssuranceSetId)?.readinessScore ?? 0;
-      const bScore = b.readinessScore ?? assuranceSets.find((s) => s.id === b.masterAssuranceSetId)?.readinessScore ?? 0;
-      comp = aScore - bScore;
+      comp = (a.readinessScore ?? 0) - (b.readinessScore ?? 0);
     }
     return cAdminProjectSortDirection === 'asc' ? comp : -comp;
   });
@@ -451,8 +449,7 @@ export const DashboardView: React.FC = () => {
                         </tr>
                       ) : (
                         sortedCAdminProjects.map((p) => {
-                          const master = assuranceSets.find((s) => s.id === p.masterAssuranceSetId);
-                          const readiness = p.readinessScore ?? master?.readinessScore ?? 0;
+                          const readiness = p.readinessScore ?? 0;
                           return (
                             <tr
                               key={p.id}

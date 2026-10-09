@@ -70,7 +70,6 @@ graph TD
   - Remove all inline color overrides and extract component-scoped styles where necessary.
 - [ ] **4.2 Priority Modals**:
   - `VesselModal.tsx`
-  - `AssuranceModal.tsx`
   - `DocumentUploadModal.tsx` & `CrewDocumentUploadModal.tsx`
   - `InspectionDrawer.tsx`
   - `CapaReinspectionDrawer.tsx`

@@ -601,9 +601,9 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
 
     const sets = [
       /* chartered: external vessel, vessel scope, northwind is the client */
-      { ...baseSet, id: 'AS-CHARTER-001', assuranceType: 'Vessel' as const, vesselId: external.id, clientOrg: org, charterer: org, isProjectMaster: false },
+      { ...baseSet, id: 'AS-CHARTER-001', assuranceType: 'Vessel' as const, vesselId: external.id, clientOrg: org, charterer: org },
       /* not chartered: own vessel, even with northwind as client */
-      { ...baseSet, id: 'AS-CHARTER-002', assuranceType: 'Vessel' as const, vesselId: owned.id, clientOrg: org, charterer: org, isProjectMaster: false },
+      { ...baseSet, id: 'AS-CHARTER-002', assuranceType: 'Vessel' as const, vesselId: owned.id, clientOrg: org, charterer: org },
     ];
 
     const chartered = filterVesselAdminChartered(MOCK_VESSELS, sets, org);
@@ -616,10 +616,10 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const baseSet = MOCK_ASSURANCE_SETS[0];
 
     const otherClient = [
-      { ...baseSet, id: 'AS-CHARTER-003', assuranceType: 'Vessel' as const, vesselId: external.id, clientOrg: 'Woodside Energy Ltd', charterer: 'Woodside Energy Ltd', isProjectMaster: false },
+      { ...baseSet, id: 'AS-CHARTER-003', assuranceType: 'Vessel' as const, vesselId: external.id, clientOrg: 'Woodside Energy Ltd', charterer: 'Woodside Energy Ltd' },
     ];
     const crewSet = [
-      { ...baseSet, id: 'AS-CHARTER-004', assuranceType: 'Crew' as const, vesselId: external.id, clientOrg: org, charterer: org, isProjectMaster: false },
+      { ...baseSet, id: 'AS-CHARTER-004', assuranceType: 'Crew' as const, vesselId: external.id, clientOrg: org, charterer: org },
     ];
 
     expect(filterVesselAdminChartered(MOCK_VESSELS, otherClient, org)).toEqual([]);

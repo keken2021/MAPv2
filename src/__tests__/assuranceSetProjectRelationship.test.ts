@@ -51,7 +51,8 @@ describe('project to assurance set relationship', () => {
   it('seed data links every assurance set to at most one project', () => {
     const owners = new Map<string, string[]>();
     MOCK_PROJECTS.forEach((project) => {
-      [project.masterAssuranceSetId, ...project.assetLinks.map((l) => l.assuranceSetId)]
+      project.assetLinks
+        .map((l) => l.assuranceSetId)
         .filter((id): id is string => Boolean(id))
         .forEach((setId) => owners.set(setId, [...(owners.get(setId) ?? []), project.id]));
     });
@@ -168,9 +169,7 @@ describe('project to assurance set relationship', () => {
     expect(isAssuranceSetOrphaned(released, state.projects)).toBe(true);
   });
 
-  it('never treats a project master set or a draft as orphaned', () => {
-    const master = PROJECT_SEED_ASSURANCE_SETS.find((s) => s.isProjectMaster) as AssuranceSet;
-    expect(isAssuranceSetOrphaned(master, MOCK_PROJECTS)).toBe(false);
+  it('never treats a draft as orphaned', () => {
     expect(
       isAssuranceSetOrphaned({ ...buildOrphanSet('AS-REL-006', 'VESSEL-002', 'Relationship Test Vessel F'), visibility: 'draft' }, MOCK_PROJECTS),
     ).toBe(false);

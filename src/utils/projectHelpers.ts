@@ -1,6 +1,6 @@
 /*
   file summary: project composition helpers — rollup sync, readiness, and asset AS filtering.
-  responsibilities: builds master assurance requirements, filters projects by persona, resolves eligible sets per asset.
+  responsibilities: filters projects by persona, resolves eligible sets per asset.
   role in system: consumed by useMapStore and project views.
 */
 
@@ -168,13 +168,12 @@ export function filterExternalEquipmentForProjectComposition(
   );
 }
 
-/** Non-master assurance sets the requester may seed a new project from (public and organizational). */
+/** Assurance sets the requester may seed a new project from (public and organizational). */
 export function getAssuranceSetsForProjectCreation(
   assuranceSets: AssuranceSet[],
   requestingOrganization: string,
 ): AssuranceSet[] {
   return assuranceSets.filter((s) => {
-    if (s.isProjectMaster) return false;
     if (s.visibility === 'draft' || (s.visibility as string) === 'private') return false;
     const isPublic = s.visibility === 'public';
     const matchesOrg =
@@ -303,14 +302,13 @@ export function buildDraftAssetLinksFromAssuranceSets(
   return { links, unresolvedSetIds };
 }
 
-/** Assurance sets linked to an asset from the Charter / rental flow (excludes project master rollups). */
+/** Assurance sets linked to an asset from the Charter / rental flow. */
 export function getCharterAssuranceSetsForAsset(
   assetType: ProjectAssetLink['assetType'],
   assetId: string,
   assuranceSets: AssuranceSet[],
 ): AssuranceSet[] {
   return assuranceSets.filter((set) => {
-    if (set.isProjectMaster) return false;
     if (assetType === 'Vessel') return set.vesselId === assetId;
     if (assetType === 'Crew') return set.crewId === assetId;
     if (assetType === 'Equipment') return set.equipmentId === assetId;
@@ -403,7 +401,6 @@ export function getEligibleAssuranceSetsForAsset(
   },
 ): AssuranceSet[] {
   const matched = assuranceSets.filter((set) => {
-    if (set.isProjectMaster) return false;
     if (set.visibility === 'draft' || (set.visibility as string) === 'private') return false;
     if (assetType === 'Vessel') return set.vesselId === assetId;
     if (assetType === 'Crew') return set.crewId === assetId;
@@ -431,87 +428,6 @@ export function getEligibleAssuranceSetsForAsset(
   });
 }
 
-function assetTypeToSubtype(assetType: ProjectAssetLink['assetType']): AssuranceSubtype {
-  if (assetType === 'Crew') return 'Crew';
-  if (assetType === 'Equipment') return 'Equipment';
-  return 'Vessel';
-}
-
-function isChildSetComplete(childSet: AssuranceSet): boolean {
-  return (
-    childSet.stage === 'Approved' ||
-    childSet.stage === 'Certified' ||
-    childSet.approverDecision === 'Approved'
-  );
-}
-
-/** Master project requirements that link to child assurance sub-sets (not flattened documents). */
-export function buildMasterAssuranceRequirements(
-  childSets: AssuranceSet[],
-  projectName: string,
-  assetLinks: ProjectAssetLink[] = [],
-): AssuranceRequirement[] {
-  if (assetLinks.length > 0) {
-    const links = assetLinks
-      .map((link): AssuranceRequirement | null => {
-        const childSet = childSets.find((s) => s.id === link.assuranceSetId);
-        if (!childSet) return null;
-        const complete = isChildSetComplete(childSet);
-        return {
-          id: `PROJ-LINK-${link.assuranceSetId}`,
-          category: 'Custom Requirement',
-          title: childSet.title,
-          description: `Linked sub-set for ${link.assetName} (${link.assetType}) · ${link.providerOrganization}`,
-          subtype: assetTypeToSubtype(link.assetType),
-          fulfillmentType: 'assurance_set' as const,
-          linkedAssuranceSetId: childSet.id,
-          isMandatory: true,
-          isFulfilled: complete,
-          ocrConfidence: 0,
-          verifierStatus: complete ? ('Verified' as const) : ('Pending' as const),
-        };
-      })
-      .filter((r): r is AssuranceRequirement => r !== null);
-
-    if (links.length > 0) return links;
-  }
-
-  const merged: AssuranceRequirement[] = [];
-  const seen = new Set<string>();
-
-  childSets.forEach((childSet) => {
-    childSet.requirements.forEach((req) => {
-      const key = `${childSet.id}::${req.id}::${req.title}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      merged.push({
-        ...req,
-        fulfillmentType: 'document',
-        id: `PROJ-REQ-${childSet.id}-${req.id}`,
-        description: req.description
-          ? `${req.description} (from ${childSet.id} · ${childSet.title})`
-          : `Sourced from ${childSet.id} · ${childSet.title}`,
-      });
-    });
-  });
-
-  if (merged.length === 0) {
-    merged.push({
-      id: 'PROJ-REQ-PLACEHOLDER',
-      category: 'Activity Custom Requirement',
-      title: `Project Charter Scope — ${projectName}`,
-      description: 'Placeholder until asset assurance sets are linked and synced.',
-      fulfillmentType: 'document',
-      isMandatory: true,
-      isFulfilled: false,
-      ocrConfidence: 0,
-      verifierStatus: 'Pending',
-    });
-  }
-
-  return merged;
-}
-
 /** Standalone assurance sets eligible to attach to a project roster (public and organizational). */
 export function getStandaloneAssuranceSetsForAttach(
   assuranceSets: AssuranceSet[],
@@ -520,7 +436,7 @@ export function getStandaloneAssuranceSetsForAttach(
 ): AssuranceSet[] {
   const linkedIds = new Set(project.assetLinks.map((l) => l.assuranceSetId));
   return assuranceSets.filter((s) => {
-    if (s.isProjectMaster || linkedIds.has(s.id) || s.visibility === 'draft' || (s.visibility as string) === 'private') {
+    if (linkedIds.has(s.id) || s.visibility === 'draft' || (s.visibility as string) === 'private') {
       return false;
     }
     /* a set belongs to at most one project, so sets already in another project are not offered */
@@ -528,7 +444,7 @@ export function getStandaloneAssuranceSetsForAttach(
   });
 }
 
-/** Assurance sets belonging to a project (by projectId or asset link), excluding master rollups. */
+/** Assurance sets belonging to a project (by projectId or asset link). */
 export function getProjectAssuranceSets(
   project: Project,
   assuranceSets: AssuranceSet[],
@@ -540,7 +456,6 @@ export function getProjectAssuranceSets(
   const result: AssuranceSet[] = [];
 
   assuranceSets.forEach((set) => {
-    if (set.isProjectMaster) return;
     const belongs =
       set.projectId === project.id || linkedIds.has(set.id);
     if (!belongs || seen.has(set.id)) return;
@@ -710,21 +625,6 @@ export function generateUniqueProjectId(existing: Project[]): string {
   return candidate;
 }
 
-export function generateMasterAssuranceSetId(
-  projectId: string,
-  assuranceSets: AssuranceSet[],
-): string {
-  const suffix = projectId.replace(/^MAP-PROJ-/, 'P-');
-  let candidate = `AS-${suffix}-MASTER`;
-  if (!assuranceSets.some((s) => s.id === candidate)) return candidate;
-
-  let seq = 1;
-  while (assuranceSets.some((s) => s.id === `${candidate}-${seq}`)) {
-    seq += 1;
-  }
-  return `${candidate}-${seq}`;
-}
-
 export function countProjectAssets(links: ProjectAssetLink[]): string {
   const vessels = links.filter((l) => l.assetType === 'Vessel').length;
   const crew = links.filter((l) => l.assetType === 'Crew').length;
@@ -795,18 +695,6 @@ export function syncProjectFromAssuranceSets(
   );
 }
 
-/** @deprecated Use syncProjectFromAssuranceSets — master rollup sets removed. */
-export function syncProjectMasterRollup(
-  projectId: string,
-  projects: Project[],
-  assuranceSets: AssuranceSet[],
-): { updatedProjects: Project[]; updatedAssuranceSets: AssuranceSet[] } {
-  return {
-    updatedProjects: syncProjectFromAssuranceSets(projectId, projects, assuranceSets),
-    updatedAssuranceSets: assuranceSets,
-  };
-}
-
 /** Sync project headers for all projects affected by changed assurance sets. */
 export function syncAllAffectedProjectRollups(
   projects: Project[],
@@ -838,26 +726,25 @@ export const ORPHANED_ASSURANCE_SET_LABEL = 'Orphaned';
 
 /**
   what: finds the single project an assurance set belongs to; inputs are the set and all projects.
-  how: a master set resolves through masterAssuranceSetId, a child set through the project roster link or its projectId; returns undefined for an orphaned set.
+  how: resolves through the project roster link, then the set's projectId; returns undefined for an orphaned set.
   with what file: src/utils/projectHelpers.ts used by useMapStore.ts, AssuranceDetailView.tsx and ProjectDetailView.tsx.
 */
 export function getProjectForAssuranceSet(
-  set: Pick<AssuranceSet, 'id' | 'projectId' | 'parentProjectId'>,
+  set: Pick<AssuranceSet, 'id' | 'projectId'>,
   projects: Project[],
 ): Project | undefined {
   return (
-    projects.find((p) => p.masterAssuranceSetId === set.id) ||
     projects.find((p) => p.assetLinks.some((l) => l.assuranceSetId === set.id)) ||
-    projects.find((p) => p.id === (set.projectId || set.parentProjectId))
+    projects.find((p) => p.id === set.projectId)
   );
 }
 
 /**
   what: true when an assurance set has no project and can be added to one; inputs are the set and all projects.
-  how: excludes project master sets and unfinished drafts, then checks getProjectForAssuranceSet.
+  how: excludes unfinished drafts, then checks getProjectForAssuranceSet.
   with what file: src/utils/projectHelpers.ts used by AssuranceDetailView.tsx.
 */
 export function isAssuranceSetOrphaned(set: AssuranceSet, projects: Project[]): boolean {
-  if (set.isProjectMaster || set.visibility === 'draft') return false;
+  if (set.visibility === 'draft') return false;
   return !getProjectForAssuranceSet(set, projects);
 }

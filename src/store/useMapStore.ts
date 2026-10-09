@@ -17,7 +17,6 @@ import {
   AssuranceSet,
   AssuranceStage,
   AssuranceRequirement,
-  AssuranceSubtype,
 } from "../types/assurance";
 import { MasterDocument } from "../types/document";
 import {
@@ -714,12 +713,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   attachAssuranceSetToProject: (assuranceSetId, projectId) => {
     const target = get().assuranceSets.find((s) => s.id === assuranceSetId);
     if (!target) return { success: false, message: "Assurance set not found." };
-    if (target.isProjectMaster) {
-      return {
-        success: false,
-        message: "A project master set cannot be added to another project.",
-      };
-    }
 
     const project = get().projects.find((p) => p.id === projectId);
     if (!project) return { success: false, message: "Project not found." };
@@ -1085,10 +1078,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         selectedEquipmentId: newSet.equipmentId,
         selectedVesselId: newSet.vesselId,
         selectedActivityId: newSet.activityId,
-        targetSubtype:
-          newSet.assuranceType === "Project"
-            ? undefined
-            : (newSet.assuranceType as AssuranceSubtype),
+        targetSubtype: newSet.assuranceType,
       },
     );
 
@@ -1156,10 +1146,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         selectedEquipmentId: updatedSet.equipmentId,
         selectedVesselId: updatedSet.vesselId,
         selectedActivityId: updatedSet.activityId,
-        targetSubtype:
-          updatedSet.assuranceType === "Project"
-            ? undefined
-            : (updatedSet.assuranceType as AssuranceSubtype),
+        targetSubtype: updatedSet.assuranceType,
       },
     );
 

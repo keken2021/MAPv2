@@ -1,6 +1,6 @@
 /* 
   file summary: unit tests verifying the segmented assurance set creation workflow, subtype scoping, template application, and specialized document handling.
-  responsibilities: tests Project scope vs standalone Subtype scope, document description propagation, template recommendation mapping, and specialized document inclusion.
+  responsibilities: tests multi-subtype and single-subtype scope, document description propagation, template recommendation mapping, and specialized document inclusion.
   role in system: executed during vitest test runs.
 */
 
@@ -32,7 +32,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     });
   });
 
-  it('creates a multi-subtype Project campaign with combined requirements and specialized documents', () => {
+  it('creates a multi-subtype campaign with combined requirements and specialized documents', () => {
     const store = useMapStore.getState();
     const uniqueId = generateUniqueAssuranceSetId(store.assuranceSets);
 
@@ -74,7 +74,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     const newProjectSet: AssuranceSet = {
       id: uniqueId,
       title: 'Northwind - Scarborough Subsea Engineering Campaign',
-      assuranceType: 'Project',
+      assuranceType: 'Vessel',
       subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
       vesselId: 'VESSEL-001',
       vesselName: 'MV Pacific Endeavour',
@@ -98,7 +98,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
 
     const retrieved = useMapStore.getState().assuranceSets.find((s) => s.id === uniqueId);
     expect(retrieved).toBeDefined();
-    expect(retrieved?.assuranceType).toBe('Project');
+    expect(retrieved?.assuranceType).toBe('Vessel');
     expect(retrieved?.subtypes).toEqual(['Vessel', 'Crew', 'Activity', 'Equipment']);
     expect(retrieved?.requirements.length).toBeGreaterThan(10);
 
@@ -279,7 +279,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     const draftSet: AssuranceSet = {
       id: draftId,
       title: 'Woodside - Unfinished Scarborough Vetting Draft',
-      assuranceType: 'Project',
+      assuranceType: 'Vessel',
       subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
       visibility: 'draft',
       templateSource: 'organization',
@@ -345,7 +345,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     const initialDraft: AssuranceSet = {
       id: draftId,
       title: 'Northwind - Initial Partial Draft Campaign',
-      assuranceType: 'Project',
+      assuranceType: 'Vessel',
       projectId: 'MAP-PROJ-2026-OFFSHORE-001',
       projectName: 'Gorgon Stage 2 & Jansz-Io Compression',
       subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
@@ -424,14 +424,14 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     });
   });
 
-  it('attaches and persists the selected project for Project-scoped assurance sets and drafts', () => {
+  it('attaches and persists the selected project for project-linked assurance sets and drafts', () => {
     const store = useMapStore.getState();
     const uniqueId = generateUniqueAssuranceSetId(store.assuranceSets);
 
     const projectSetWithAttachment: AssuranceSet = {
       id: uniqueId,
       title: 'Chevron - Gorgon Stage 2 Compression Vetting',
-      assuranceType: 'Project',
+      assuranceType: 'Vessel',
       projectId: 'MAP-PROJ-2026-OFFSHORE-001',
       projectName: 'Gorgon Stage 2 & Jansz-Io Compression',
       subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
@@ -457,7 +457,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
 
     const retrieved = useMapStore.getState().assuranceSets.find((s) => s.id === uniqueId);
     expect(retrieved).toBeDefined();
-    expect(retrieved?.assuranceType).toBe('Project');
+    expect(retrieved?.assuranceType).toBe('Vessel');
   });
 
   it('provides a standardized catalog of existing activities that adhere to the naming format', () => {
@@ -475,7 +475,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     });
   });
 
-  it('dynamically adapts asset association based on assurance scope (Project, Vessel, Crew, Equipment, Activity)', () => {
+  it('dynamically adapts asset association based on assurance scope (Vessel, Crew, Equipment, Activity)', () => {
     const store = useMapStore.getState();
 
     // 1. Crew scope assurance set

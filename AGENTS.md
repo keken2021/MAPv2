@@ -295,7 +295,7 @@ To eliminate data corruption, broken foreign keys, and test suite regressions, a
 
 ### C. Relational Foreign Key Integrity Rules
 1. **Assurance Set -> Vessel Linkage:** Any assurance set defining a `vesselId` MUST link to an existing `vessel.id` in `MOCK_VESSELS`, and MUST synchronize matching `set.vesselName === vessel.name` and `set.imoNumber === vessel.imoNumber`. Never invent orphan vessel IDs in assurance sets.
-2. **Project Master -> Sub-Set Linkage:** Every master assurance set (`isProjectMaster: true`) MUST have a valid `parentProjectId`, and all IDs in `aggregatedFromSetIds` MUST resolve to existing child assurance sets.
+2. **Assurance Set Scope:** `assuranceType` MUST be one of `Vessel`, `Crew`, `Equipment`, or `Activity`. A project groups assurance sets through `assetLinks` and `projectId`; it never has an assurance set of its own.
 3. **Equipment -> Vessel Linkage:** Equipment records with `parentVesselId` MUST reference a valid vessel ID or `null`.
 4. **Crew -> Vessel Linkage:** Crew records with `currentVesselId` MUST reference a valid vessel ID or `null`.
 5. **Document -> Asset Linkage:** Certificates in `MOCK_DOCUMENTS` must match corresponding statutory/STCW certificates defined in parent entities.

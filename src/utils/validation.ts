@@ -53,7 +53,7 @@ export function isDuplicateVessel(
 /**
   what: checks if an assurance campaign title already exists in active assurance sets to prevent duplicate campaigns.
   how: compares normalized, trimmed, case-insensitive campaign titles against existing sets.
-  with what file: src/utils/validation.ts used by CreateAssuranceSetView.tsx, AssuranceModal.tsx, and useMapStore.ts.
+  with what file: src/utils/validation.ts used by CreateAssuranceSetView.tsx and useMapStore.ts.
 */
 export function isDuplicateCampaignTitle(
   title: string,
@@ -123,7 +123,7 @@ export function generateUniqueEquipmentId(existingEquipment: EquipmentAsset[]): 
 /**
   what: generates a guaranteed unique, collision-proof transactional assurance set id.
   how: inspects existing assurance set ids, finds the maximum numeric sequence for the current year, and formats as AS-YYYY-XXX with collision check.
-  with what file: src/utils/validation.ts used by CreateAssuranceSetView.tsx, AssuranceModal.tsx, and useMapStore.ts.
+  with what file: src/utils/validation.ts used by CreateAssuranceSetView.tsx and useMapStore.ts.
 */
 export function generateUniqueAssuranceSetId(existingSets: AssuranceSet[]): string {
   const currentYear = new Date().getFullYear();
@@ -155,7 +155,7 @@ export function generateUniqueAssuranceSetId(existingSets: AssuranceSet[]): stri
 /**
   what: generates a unique transactional requirement identifier scoped to the parent assurance set.
   how: formats requirement code using set numerical suffix and requirement index.
-  with what file: src/utils/validation.ts used by CreateAssuranceSetView.tsx and AssuranceModal.tsx.
+  with what file: src/utils/validation.ts used by CreateAssuranceSetView.tsx.
 */
 export function generateUniqueRequirementId(setId: string, index: number): string {
   const numericSuffix = setId.replace(/^AS-\d{4}-/, '').replace(/^AS-/, '');

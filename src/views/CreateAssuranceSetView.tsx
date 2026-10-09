@@ -506,8 +506,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const cleanSubject = baseSubject || `${vesselDisplayName} Charter Vetting`;
     setTitle(`${templateCharterer} - ${cleanSubject}`);
 
-    /* legacy project-scoped sets fall back to the default vessel scope */
-    if (!lockedAsset && targetSet.assuranceType && targetSet.assuranceType !== 'Project') {
+    if (!lockedAsset && targetSet.assuranceType) {
       setAssuranceType(targetSet.assuranceType);
     }
 
@@ -537,7 +536,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           // Resume draft editing in-place
           setEditingDraftId(target.id);
           setTitle(target.title);
-          if (!lockedAsset && target.assuranceType && target.assuranceType !== 'Project') setAssuranceType(target.assuranceType);
+          if (!lockedAsset && target.assuranceType) setAssuranceType(target.assuranceType);
           if (target.subtypes && target.subtypes.length > 0) {
             const physicalTypes = target.subtypes.filter((s) => s === 'Vessel' || s === 'Equipment') as AssuranceSubtype[];
             if (physicalTypes.length > 0) {

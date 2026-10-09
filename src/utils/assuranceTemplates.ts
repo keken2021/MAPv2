@@ -1,7 +1,7 @@
 /* 
   file summary: predefined subtype document definitions, descriptions, public templates, and organization templates for assurance sets.
   responsibilities: provides maritime-accurate standard requirements for Vessel, Crew, Activity, and Equipment subtypes with complete operational descriptions.
-  role in system: consumed by CreateAssuranceSetView.tsx and AssuranceModal.tsx during segmented assurance set initiation.
+  role in system: consumed by CreateAssuranceSetView.tsx during segmented assurance set initiation.
 */
 
 import { AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory } from '../types/assurance';

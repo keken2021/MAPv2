@@ -2,13 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { AssuranceSet } from '../types/assurance';
 import { Project, ProjectAssetLink } from '../types/project';
 import {
-  buildMasterAssuranceRequirements,
   filterProjectsForPersona,
   getStandaloneAssuranceSetsForAttach,
 } from '../utils/projectHelpers';
 import { MOCK_PROJECTS } from '../store/projectMockData';
 import { MOCK_USERS } from '../store/mockData';
-import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 
 const childVesselSet: AssuranceSet = {
   id: 'AS-CHILD-V',
@@ -83,50 +81,6 @@ const assetLinks: ProjectAssetLink[] = [
 ];
 
 describe('nested project assurance sets (Req 3–4)', () => {
-  it('builds master requirements as links to child sub-sets when asset links are provided', () => {
-    const reqs = buildMasterAssuranceRequirements(
-      [childVesselSet, childCrewSet],
-      'Test Project',
-      assetLinks,
-    );
-
-    expect(reqs).toHaveLength(2);
-    expect(reqs.every((r) => r.fulfillmentType === 'assurance_set')).toBe(true);
-    expect(reqs.map((r) => r.linkedAssuranceSetId)).toEqual(['AS-CHILD-V', 'AS-CHILD-C']);
-    expect(reqs.find((r) => r.linkedAssuranceSetId === 'AS-CHILD-V')?.isFulfilled).toBe(true);
-    expect(reqs.find((r) => r.linkedAssuranceSetId === 'AS-CHILD-C')?.isFulfilled).toBe(false);
-  });
-
-  it('falls back to flattened document rollup when no asset links are passed', () => {
-    const reqs = buildMasterAssuranceRequirements([childVesselSet, childCrewSet], 'Test Project');
-
-    expect(reqs.some((r) => r.fulfillmentType === 'document')).toBe(true);
-    expect(reqs.some((r) => r.id.startsWith('PROJ-REQ-'))).toBe(true);
-  });
-
-  it('resolves master readiness from linked sub-set scores', () => {
-    const master: AssuranceSet = {
-      id: 'AS-MASTER',
-      title: 'Master',
-      assuranceType: 'Project',
-      subtypes: ['Vessel', 'Crew'],
-      stage: 'Verification',
-      readinessScore: 0,
-      mandatoryInspectionRequired: false,
-      inspectionCompleted: false,
-      isProjectMaster: true,
-      requirements: buildMasterAssuranceRequirements(
-        [childVesselSet, childCrewSet],
-        'Test Project',
-        assetLinks,
-      ),
-    } as AssuranceSet;
-
-    const score = calculateAssuranceSetReadiness(master, [childVesselSet, childCrewSet, master]);
-    expect(score).toBeGreaterThan(10);
-    expect(score).toBeLessThan(100);
-  });
-
   it('lists standalone assurance sets eligible for attach', () => {
     const project: Project = {
       id: 'PROJ-1',
@@ -135,7 +89,6 @@ describe('nested project assurance sets (Req 3–4)', () => {
       requestingOrganization: 'Northwind Marine Pty Ltd',
       status: 'Draft',
       assetLinks: [assetLinks[0]],
-      masterAssuranceSetId: 'AS-MASTER',
     } as Project;
 
     const allSets: AssuranceSet[] = [
@@ -148,16 +101,6 @@ describe('nested project assurance sets (Req 3–4)', () => {
         subtypes: ['Vessel'],
         stage: 'Initiated',
         visibility: 'active',
-        isProjectMaster: false,
-        requirements: [],
-      } as unknown as AssuranceSet,
-      {
-        id: 'AS-MASTER',
-        title: 'Master',
-        assuranceType: 'Project',
-        subtypes: ['Vessel'],
-        stage: 'Initiated',
-        isProjectMaster: true,
         requirements: [],
       } as unknown as AssuranceSet,
       {

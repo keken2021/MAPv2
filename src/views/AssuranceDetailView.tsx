@@ -187,9 +187,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   /* asset under assurance: its type, display name and the registry page it opens */
   const assuredAsset = ((): { typeLabel: string; name: string; view?: string; entityId?: string } => {
-    if (assuranceSet.isProjectMaster || assuranceSet.assuranceType === 'Project') {
-      return { typeLabel: 'Project (multiple assets)', name: assuranceSet.projectName || assuranceSet.title };
-    }
     if (assuranceSet.assuranceType === 'Crew') {
       return {
         typeLabel: 'Crew',
