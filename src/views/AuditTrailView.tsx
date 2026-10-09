@@ -9,6 +9,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { formatMaritimeDate } from '../utils/formatters';
 import { filterAuditTrailForPersona } from '../utils/rbacHelpers';
+import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
@@ -87,22 +88,22 @@ export const AuditTrailView: React.FC = () => {
   };
 
   const handleExportPdf = () => {
-    const headers = ['Timestamp (UTC)', 'Action', 'Target Asset', 'User Role & Org', 'Notes'];
+    const headers = ['Timestamp (UTC)', 'Action', 'Asset', 'Role', 'Notes'];
     const rows = sortedEvents.map((ev) => [
       ev.timestampUtc,
       ev.action,
       ev.targetAsset,
-      `${ev.userRole} (${ev.organization})`,
+      `${getRoleDisplayLabel(ev.userRole)} (${ev.organization})`,
       ev.justificationNotes || '-',
     ]);
-    exportToPdf('System Regulatory Audit Trail Log', headers, rows);
+    exportToPdf('Audit Trail', headers, rows);
     setIsExportOpen(false);
   };
 
   const activeFilterCount = (roleFilter !== 'ALL' ? 1 : 0);
 
   const activeChips: FilterChip[] = [
-    ...(roleFilter !== 'ALL' ? [{ id: 'role', label: 'Role', value: roleFilter, onRemove: () => setRoleFilter('ALL') }] : []),
+    ...(roleFilter !== 'ALL' ? [{ id: 'role', label: 'Role', value: getRoleDisplayLabel(roleFilter), onRemove: () => setRoleFilter('ALL') }] : []),
   ];
 
   const handleResetFilters = () => {
@@ -119,7 +120,7 @@ export const AuditTrailView: React.FC = () => {
             <input
               type="text"
               className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search audit trail by action, asset, role, notes..."
+              placeholder="Search audit trail..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ width: '320px' }}
@@ -140,18 +141,18 @@ export const AuditTrailView: React.FC = () => {
                 className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
                 onClick={() => setIsExportOpen(!isExportOpen)}
               >
-                Export Data
+                Export
               </button>
               {isExportOpen && (
                 <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border">
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      Export as CSV (.csv)
+                      CSV
                     </button>
                   </li>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      Export as PDF (.pdf)
+                      PDF
                     </button>
                   </li>
                 </ul>
@@ -181,31 +182,31 @@ export const AuditTrailView: React.FC = () => {
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleSort('action')}
                 >
-                  Action Performed {renderSortIndicator('action')}
+                  Action {renderSortIndicator('action')}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleSort('targetAsset')}
                 >
-                  Target Asset / Identifier {renderSortIndicator('targetAsset')}
+                  Asset {renderSortIndicator('targetAsset')}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleSort('userRole')}
                 >
-                  User Role &amp; Organization {renderSortIndicator('userRole')}
+                  Role {renderSortIndicator('userRole')}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleSort('fieldDelta')}
                 >
-                  Field Delta / State Change {renderSortIndicator('fieldDelta')}
+                  Change {renderSortIndicator('fieldDelta')}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleSort('justificationNotes')}
                 >
-                  Justification Notes {renderSortIndicator('justificationNotes')}
+                  Notes {renderSortIndicator('justificationNotes')}
                 </th>
               </tr>
             </thead>
@@ -222,7 +223,7 @@ export const AuditTrailView: React.FC = () => {
                   <td>
                     <div className="d-flex align-items-center gap-2">
                       <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.75rem' }}>
-                        {ev.userRole}
+                        {getRoleDisplayLabel(ev.userRole)}
                       </span>
                       <span className="text-secondary small">{ev.organization}</span>
                     </div>
@@ -235,7 +236,7 @@ export const AuditTrailView: React.FC = () => {
                         <div className="text-success">New: {ev.fieldDelta.newValue}</div>
                       </div>
                     ) : (
-                      <span className="text-muted small">No Field Delta</span>
+                      <span className="text-muted small">No change</span>
                     )}
                   </td>
                   <td className="small text-secondary fst-italic">
@@ -253,22 +254,21 @@ export const AuditTrailView: React.FC = () => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Audit Trail Filters"
-        subtitle="Filter regulatory audit log records by performer persona role"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
             <div className="col-12">
-              <label className="form-label small fw-semibold text-secondary mb-1">User Role</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Role</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
               >
-                <option value="ALL">All User Roles</option>
-                <option value="Administrator">Administrator</option>
-                <option value="C Admin">C Admin</option>
+                <option value="ALL">All Roles</option>
+                <option value="Administrator">{getRoleDisplayLabel('Administrator')}</option>
+                <option value="C Admin">{getRoleDisplayLabel('C Admin')}</option>
                 <option value="Submitter">Submitter</option>
                 <option value="Verifier">Verifier</option>
                 <option value="Inspector">Inspector</option>

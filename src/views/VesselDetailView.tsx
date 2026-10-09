@@ -15,7 +15,8 @@ import {
   VESSEL_STATUS_DIMENSION_LABELS,
 } from '../types/vessel';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
-import { formatMaritimeDate, getDaysUntilExpiry, getVesselStatusBadgeClass } from '../utils/formatters';
+import { formatMaritimeDate, getDaysUntilExpiry, getStatusDisplayLabel, getVesselStatusBadgeClass } from '../utils/formatters';
+import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 import { filterAuditTrailForPersona, filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, filterVesselsForPersona, getBackButtonInfo, getClientAdminOrganization, isVesselOwnedByAdmin, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateAssuranceSetReadiness, calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
@@ -369,7 +370,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       ['Compliance', 'Readiness Score', `${calculateVesselReadiness(vessel, assuranceSets, documents)}%`],
     ];
 
-    exportToPdf(`${vessel.name} Technical Dossier`, headers, rows);
+    exportToPdf(`${vessel.name} Datasheet`, headers, rows);
   };
 
   const visibleAuditEvents = filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels);
@@ -791,7 +792,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       assuranceSetId: s.id,
       title: `Visual Vessel Inspection & Safety Audit — ${s.title}`,
       inspector: s.assignedInspector || 'N. Technical (AMSA Marine Audit Division)',
-      inspectorRole: 'Lead Marine Vetting Inspector',
+      inspectorRole: 'Inspector',
       date: '14 Oct 2026',
       location: 'Dampier Port Facility, WA',
       client: s.initiatorOrg || 'Southern Basin Energy Pty Ltd',
@@ -915,16 +916,16 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     return (
       <div className="container-fluid px-4 py-5 text-center">
         <div className="card map-card-custom p-5 mx-auto" style={{ maxWidth: '520px' }}>
-          <h4 className="fw-bold text-dark mb-2">Vessel Access Restricted</h4>
+          <h4 className="fw-bold text-dark mb-2">No Access</h4>
           <p className="text-secondary small mb-4">
-            You do not have authorization to view this vessel. Vessel Admins can only view vessels owned or managed by their organization.
+            You cannot view this vessel. Service Providers can only view vessels their organization owns or manages.
           </p>
           <button
             type="button"
             className="btn btn-primary btn-sm mx-auto"
             onClick={() => setCurrentHashView('vessels')}
           >
-            Back to Fleet Registry
+            Back to Vessels
           </button>
         </div>
       </div>
@@ -932,7 +933,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   }
 
   if (!formData) {
-    return <div className="p-4 text-center">Loading vessel dossier...</div>;
+    return <div className="p-4 text-center">Loading vessel...</div>;
   }
 
   const canEditField = (field: keyof VesselInformation): boolean => {
@@ -1018,14 +1019,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   >
                     <option value="Active">Active</option>
                     <option value="In Operations" disabled={!isAssuranceApproved}>
-                      In Operations {!isAssuranceApproved ? '(Requires 100% Approved Assurance)' : ''}
+                      In Operations {!isAssuranceApproved ? '(requires approved assurance)' : ''}
                     </option>
                     <option value="In Transit" disabled={!isAssuranceApproved}>
-                      In Transit {!isAssuranceApproved ? '(Requires 100% Approved Assurance)' : ''}
+                      In Transit {!isAssuranceApproved ? '(requires approved assurance)' : ''}
                     </option>
                     <option value="Port Stay">Port Stay</option>
                     <option value="Under Charter" disabled={!isAssuranceApproved}>
-                      Under Charter {!isAssuranceApproved ? '(Requires 100% Approved Assurance)' : ''}
+                      Under Charter {!isAssuranceApproved ? '(requires approved assurance)' : ''}
                     </option>
                     <option value="Standby">Standby</option>
                     <option value="Maintenance">Maintenance</option>
@@ -1074,7 +1075,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       setIsExportOpen(false);
                     }}
                   >
-                    Export as CSV
+                    CSV
                   </button>
                   <button
                     type="button"
@@ -1084,7 +1085,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       setIsExportOpen(false);
                     }}
                   >
-                    Export as PDF
+                    PDF
                   </button>
                 </div>
               )}
@@ -1128,7 +1129,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             className="btn btn-sm btn-light border d-flex align-items-center justify-content-center ms-1"
             style={{ width: '32px', height: '32px', borderRadius: '50%' }}
             onClick={() => setCurrentHashView(previousHashView || 'vessels', previousEntityId)}
-            title="Close and Return to Fleet Registry"
+            title="Close"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1145,7 +1146,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       {linkedEquipment.length > 0 && (
         <div className="card map-card-custom">
           <div className="card-header fw-bold bg-white d-flex justify-between align-items-center">
-            <span>Linked Equipment ({linkedEquipment.length})</span>
+            <span>Equipment ({linkedEquipment.length})</span>
           </div>
           <div className="list-group list-group-flush">
             {linkedEquipment.map((item) => (
@@ -1174,7 +1175,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             className={`nav-link ${activeTab === 'Information' ? 'active fw-bold text-primary' : 'text-secondary'}`}
             onClick={() => setActiveTab('Information')}
           >
-            Datasheet &amp; Information
+            Datasheet
           </button>
         </li>
         <li className="nav-item">
@@ -1183,7 +1184,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             className={`nav-link ${activeTab === 'vault' ? 'active fw-bold text-primary' : 'text-secondary'}`}
             onClick={() => setActiveTab('vault')}
           >
-            Pre-Assurance Vault ({allVaultCerts.length})
+            Documents ({allVaultCerts.length})
           </button>
         </li>
         <li className="nav-item">
@@ -1201,7 +1202,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             className={`nav-link ${activeTab === 'inspections' ? 'active fw-bold text-primary' : 'text-secondary'}`}
             onClick={() => setActiveTab('inspections')}
           >
-            Physical Inspections ({linkedSets.length})
+            Inspections ({linkedSets.length})
           </button>
         </li>
         <li className="nav-item">
@@ -1231,7 +1232,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               className={`nav-link ${activeTab === 'crew' ? 'active fw-bold text-primary' : 'text-secondary'}`}
               onClick={() => setActiveTab('crew')}
             >
-              Assigned Crew ({linkedCrew.length})
+              Crew ({linkedCrew.length})
             </button>
           </li>
         )}
@@ -1242,7 +1243,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               className={`nav-link ${activeTab === 'audit' ? 'active fw-bold text-primary' : 'text-secondary'}`}
               onClick={() => setActiveTab('audit')}
             >
-              Asset Trail ({linkedAudits.length})
+              Audit Trail ({linkedAudits.length})
             </button>
           </li>
         )}
@@ -1314,7 +1315,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   setToastMessage('Expanded all technical datasheet specifications.');
                   setTimeout(() => setToastMessage(null), 3000);
                 }}
-                title="Expand all technical specification accordions"
+                title="Show all details"
               >
                 <Info className="w-3.5 h-3.5" />
                 <span style={{ fontSize: '0.68rem' }}>Details</span>
@@ -1327,7 +1328,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   setShowArrivalDetails(true);
                   setShowVoyageHistoryModal(true);
                 }}
-                title="View voyage tracking and historical transit logs"
+                title="View voyage"
               >
                 <Navigation className="w-3.5 h-3.5" />
                 <span style={{ fontSize: '0.68rem' }}>Voyage</span>
@@ -1337,7 +1338,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   type="button"
                   className="btn btn-sm btn-outline-secondary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
                   onClick={() => setShowPhotoUploadModal(true)}
-                  title="Update vessel image or choose from fleet photos"
+                  title="Manage photos"
                 >
                   <Camera className="w-3.5 h-3.5" />
                   <span style={{ fontSize: '0.68rem' }}>{vessel.photos && vessel.photos.length > 1 ? 'Photos' : 'Add Photo'}</span>
@@ -1350,10 +1351,10 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   setToastMessage(`${vessel.name} is verified and active in the Master Fleet Registry.`);
                   setTimeout(() => setToastMessage(null), 3500);
                 }}
-                title="Verify vessel registration in master fleet"
+                title="Operating status"
               >
                 <Shield className="w-3.5 h-3.5" />
-                <span style={{ fontSize: '0.68rem' }}>Fleet Status</span>
+                <span style={{ fontSize: '0.68rem' }}>Status</span>
               </button>
             </div>
 
@@ -1411,12 +1412,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               className="card shadow-sm border p-3 mb-3 bg-white rounded-3 map-mgmt-item"
               style={{ cursor: 'pointer' }}
               onClick={() => setShowVoyageHistoryModal(true)}
-              title="Click to view full historical voyage logs"
+              title="View voyage history"
             >
               <div className="d-flex align-items-center justify-content-between fw-bold text-dark mb-2" style={{ fontSize: '0.85rem' }}>
                 <div className="d-flex align-items-center gap-2">
                   <History className="w-3.5 h-3.5 text-primary" />
-                  <span>Historical Voyage Data</span>
+                  <span>Voyage History</span>
                 </div>
                 <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.7rem' }}>
                   4 Logs
@@ -1437,7 +1438,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 }}
               >
                 <Info className="w-3 h-3 text-primary shrink-0" />
-                <span>View historical data</span>
+                <span>View History</span>
               </button>
             </div>
 
@@ -1553,7 +1554,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     )}
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Flag</span>
+                    <span className="map-datasheet-label">Flag State</span>
                     {fieldEditable('flagState') ? (
                       <input
                         type="text"
@@ -1593,7 +1594,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     )}
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Callsign</span>
+                    <span className="map-datasheet-label">Call Sign</span>
                     {fieldEditable('callSign') ? (
                       <input
                         type="text"
@@ -1607,7 +1608,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </div>
 
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Shipyard Built</span>
+                    <span className="map-datasheet-label">Shipyard</span>
                     {fieldEditable('shipyardBuilder') ? (
                       <input
                         type="text"
@@ -1647,7 +1648,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </div>
 
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Lenght</span>
+                    <span className="map-datasheet-label">Length</span>
                     {fieldEditable('lengthOverallMeters') ? (
                       <input
                         type="number"
@@ -1712,7 +1713,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </div>
 
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">GrossTonnage</span>
+                    <span className="map-datasheet-label">Gross Tonnage</span>
                     {fieldEditable('grossTonnageGT') ? (
                       <input
                         type="number"
@@ -1725,7 +1726,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     )}
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Port Of Registry</span>
+                    <span className="map-datasheet-label">Port of Registry</span>
                     {fieldEditable('portOfRegistry') ? (
                       <input
                         type="text"
@@ -1738,7 +1739,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     )}
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Current Status</span>
+                    <span className="map-datasheet-label">Operating Status</span>
                     {fieldEditable('status') ? (
                       <select
                         className="form-select form-select-sm"
@@ -1747,14 +1748,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       >
                         <option value="Active">Active</option>
                         <option value="In Operations" disabled={!isAssuranceApproved}>
-                          In Operations {!isAssuranceApproved ? '(Requires 100% Approved Assurance)' : ''}
+                          In Operations {!isAssuranceApproved ? '(requires approved assurance)' : ''}
                         </option>
                         <option value="In Transit" disabled={!isAssuranceApproved}>
-                          In Transit {!isAssuranceApproved ? '(Requires 100% Approved Assurance)' : ''}
+                          In Transit {!isAssuranceApproved ? '(requires approved assurance)' : ''}
                         </option>
                         <option value="Port Stay">Port Stay</option>
                         <option value="Under Charter" disabled={!isAssuranceApproved}>
-                          Under Charter {!isAssuranceApproved ? '(Requires 100% Approved Assurance)' : ''}
+                          Under Charter {!isAssuranceApproved ? '(requires approved assurance)' : ''}
                         </option>
                         <option value="Standby">Standby</option>
                         <option value="Maintenance">Maintenance</option>
@@ -1778,14 +1779,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <div className="map-datasheet-card-title">
                   <Maximize2 className="w-3.5 h-3.5" />
-                  <span>Dimensions Information</span>
+                  <span>Dimensions</span>
                 </div>
                 <span className="text-muted small">{showDimensionsInfo ? '▲' : '▼'}</span>
               </div>
               {showDimensionsInfo && (
                 <div className="map-datasheet-grid">
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Loa</span>
+                    <span className="map-datasheet-label">LOA</span>
                     {fieldEditable('lengthOverallMeters') ? (
                       <input
                         type="number"
@@ -1799,16 +1800,16 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     )}
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Lbp</span>
+                    <span className="map-datasheet-label">LBP</span>
                     <span className="map-datasheet-val">{(formData.lengthOverallMeters ? formData.lengthOverallMeters * 0.92 : 76.8).toFixed(1)}</span>
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Lload</span>
+                    <span className="map-datasheet-label">Load Line Length</span>
                     <span className="map-datasheet-val">{(formData.lengthOverallMeters ? formData.lengthOverallMeters * 0.96 : 80.0).toFixed(1)}</span>
                   </div>
 
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Bext</span>
+                    <span className="map-datasheet-label">Extreme Breadth</span>
                     {fieldEditable('beamMeters') ? (
                       <input
                         type="number"
@@ -1871,20 +1872,20 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 0.35).toLocaleString()}</span>
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Suez Gross T</span>
+                    <span className="map-datasheet-label">Suez Gross Tonnage</span>
                     <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 1.05).toLocaleString()}</span>
                   </div>
 
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Suez Net T</span>
+                    <span className="map-datasheet-label">Suez Net Tonnage</span>
                     <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 0.38).toLocaleString()}</span>
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Panama Gross T</span>
+                    <span className="map-datasheet-label">Panama Gross Tonnage</span>
                     <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 1.02).toLocaleString()}</span>
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Panama Net T</span>
+                    <span className="map-datasheet-label">Panama Net Tonnage</span>
                     <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 0.36).toLocaleString()}</span>
                   </div>
 
@@ -1921,7 +1922,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <div className="map-datasheet-card-title">
                   <Shield className="w-3.5 h-3.5" />
-                  <span>Classification &amp; Analogous Information</span>
+                  <span>Classification</span>
                 </div>
                 <span className="text-muted small">{showClassificationInfo ? '▲' : '▼'}</span>
               </div>
@@ -2022,7 +2023,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <div className="map-datasheet-card-title">
                   <Settings className="w-3.5 h-3.5" />
-                  <span>Engine Room Information</span>
+                  <span>Engine Room</span>
                 </div>
                 <span className="text-muted small">{showEngineRoomInfo ? '▲' : '▼'}</span>
               </div>
@@ -2082,7 +2083,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <div className="map-datasheet-card-title">
                   <Package className="w-3.5 h-3.5" />
-                  <span>Ship Capacity &amp; Equipment Information</span>
+                  <span>Capacity &amp; Equipment</span>
                 </div>
                 <span className="text-muted small">{showShipCapacityInfo ? '▲' : '▼'}</span>
               </div>
@@ -2125,7 +2126,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               {/* Section Header Divider */}
               <div className="map-section-divider">
                 <Building className="w-4 h-4" />
-                <span>Management Information</span>
+                <span>Management</span>
               </div>
 
               {/* Accordion 1: Registered Owner Information */}
@@ -2147,7 +2148,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 {showRegOwnerInfo && (
                   <div className="p-3 bg-white border-top small">
                     <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Company Name</span>
+                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Company</span>
                       {fieldEditable('registeredOwner') ? (
                         <input
                           type="text"
@@ -2160,11 +2161,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       )}
                     </div>
                     <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Mails</span>
+                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Email</span>
                       <span className="text-primary">{`owner@${formData.registeredOwner.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}</span>
                     </div>
                     <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Phones</span>
+                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Phone</span>
                       {fieldEditable('contact247') ? (
                         <input
                           type="text"
@@ -2203,7 +2204,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 {showIsmManagerInfo && (
                   <div className="p-3 bg-white border-top small">
                     <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Company Name</span>
+                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Company</span>
                       {fieldEditable('ismCompany') ? (
                         <input
                           type="text"
@@ -2216,11 +2217,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       )}
                     </div>
                     <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Mails</span>
+                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Email</span>
                       <span className="text-primary">{`ism@${(formData.ismCompany || formData.registeredOwner).toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}</span>
                     </div>
                     <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Phones</span>
+                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Phone</span>
                       <span className="font-mono-code text-dark">+65 6789 0124</span>
                     </div>
                     <div>
@@ -2251,7 +2252,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <div className="p-3 bg-white border-top small">
                     <div className="row g-2">
                       <div className="col-12">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Company Name</span>
+                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Company</span>
                         {fieldEditable('technicalManager') ? (
                           <input
                             type="text"
@@ -2264,15 +2265,15 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         )}
                       </div>
                       <div className="col-12">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Mails</span>
+                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Email</span>
                         <span className="text-primary d-block text-truncate">{`ops@${(formData.technicalManager || formData.registeredOwner).toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}</span>
                       </div>
                       <div className="col-6">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Phones</span>
+                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Phone</span>
                         <span className="font-mono-code text-dark d-block text-truncate">+65 6789 0125</span>
                       </div>
                       <div className="col-6">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Faxes</span>
+                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Fax</span>
                         <span className="font-mono-code text-dark d-block text-truncate">+65 6789 0126</span>
                       </div>
                       <div className="col-6">
@@ -2296,7 +2297,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             setShowRegOwnerInfo(true);
                             setShowIsmManagerInfo(true);
                             setShowShipManagerInfo(true);
-                            setToastMessage('Expanded all management and company dossiers.');
+                            setToastMessage('All details shown.');
                             setTimeout(() => setToastMessage(null), 3000);
                           }}
                         >
@@ -2311,7 +2312,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               {/* Section Header Divider: Companies Other Vessels */}
               <div className="map-section-divider mt-3">
                 <Anchor className="w-4 h-4" />
-                <span>Companies Other Vessels</span>
+                <span>Other Vessels</span>
               </div>
 
               {/* Company Fleet Card 1 */}
@@ -2319,7 +2320,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 className="card shadow-sm border p-2.5 mb-2 bg-white rounded-3 map-mgmt-item"
                 style={{ cursor: 'pointer' }}
                 onClick={() => setSelectedCompanyForFleetModal(vessel.registeredOwner)}
-                title={`View fleet for ${vessel.registeredOwner}`}
+                title={`View vessels for ${vessel.registeredOwner}`}
               >
                 <div className="d-flex align-items-center gap-1.5 fw-bold text-dark mb-1.5" style={{ fontSize: '0.78rem' }}>
                   <Building2 className="w-3 h-3 text-secondary" />
@@ -2327,7 +2328,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </div>
                 <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
                   <Info className="w-2.5 h-2.5 text-primary shrink-0" />
-                  <span className="text-truncate">View company fleet</span>
+                  <span className="text-truncate">View Vessels</span>
                 </div>
               </div>
 
@@ -2336,7 +2337,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 className="card shadow-sm border p-2.5 mb-2 bg-white rounded-3 map-mgmt-item"
                 style={{ cursor: 'pointer' }}
                 onClick={() => setSelectedCompanyForFleetModal(vessel.technicalManager || vessel.registeredOwner)}
-                title="View fleet for technical manager"
+                title="View vessels for the technical manager"
               >
                 <div className="d-flex align-items-center gap-1.5 fw-bold text-dark mb-1.5" style={{ fontSize: '0.78rem' }}>
                   <Building2 className="w-3 h-3 text-secondary" />
@@ -2344,7 +2345,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </div>
                 <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
                   <Info className="w-2.5 h-2.5 text-primary shrink-0" />
-                  <span className="text-truncate">View company fleet</span>
+                  <span className="text-truncate">View Vessels</span>
                 </div>
               </div>
 
@@ -2353,7 +2354,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 className="card shadow-sm border p-2.5 mb-2 bg-white rounded-3 map-mgmt-item"
                 style={{ cursor: 'pointer' }}
                 onClick={() => setSelectedCompanyForFleetModal(vessel.ismCompany || vessel.registeredOwner)}
-                title="View fleet for ISM company"
+                title="View vessels for the ISM manager"
               >
                 <div className="d-flex align-items-center gap-1.5 fw-bold text-dark mb-1.5" style={{ fontSize: '0.78rem' }}>
                   <Building2 className="w-3 h-3 text-secondary" />
@@ -2361,7 +2362,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </div>
                 <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
                   <Info className="w-2.5 h-2.5 text-primary shrink-0" />
-                  <span className="text-truncate">View company fleet</span>
+                  <span className="text-truncate">View Vessels</span>
                 </div>
               </div>
             </div>
@@ -2378,7 +2379,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <input
                 type="text"
                 className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search Certificate, Number, Body..."
+                placeholder="Search documents..."
                 value={vaultSearch}
                 onChange={(e) => setVaultSearch(e.target.value)}
                 style={{ width: '250px' }}
@@ -2392,8 +2393,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <option value="ALL">All Statuses</option>
                 <option value="Valid">Valid</option>
-                <option value="Expiring">Expiring &lt; 90 Days</option>
-                <option value="EXPIRED">EXPIRED</option>
+                <option value="Expiring">Expiring Soon</option>
+                <option value="EXPIRED">Expired</option>
                 <option value="Verified">Verified</option>
               </select>
 
@@ -2405,7 +2406,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 className="btn btn-sm btn-primary ms-auto"
                 onClick={() => setIsUploadModalOpen(true)}
               >
-                Upload Certificate
+                Upload Document
               </button>
             )}
           </div>
@@ -2421,7 +2422,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       else { setVaultSortField('number'); setVaultSortDirection('asc'); }
                     }}
                   >
-                    Certificate Number {renderSortIndicator(vaultSortField, 'number', vaultSortDirection)}
+                    Certificate No. {renderSortIndicator(vaultSortField, 'number', vaultSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -2430,7 +2431,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       else { setVaultSortField('name'); setVaultSortDirection('asc'); }
                     }}
                   >
-                    Certificate Name {renderSortIndicator(vaultSortField, 'name', vaultSortDirection)}
+                    Title {renderSortIndicator(vaultSortField, 'name', vaultSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -2439,7 +2440,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       else { setVaultSortField('issuingBody'); setVaultSortDirection('asc'); }
                     }}
                   >
-                    Issuing Body {renderSortIndicator(vaultSortField, 'issuingBody', vaultSortDirection)}
+                    Issuing Authority {renderSortIndicator(vaultSortField, 'issuingBody', vaultSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -2448,7 +2449,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       else { setVaultSortField('expiryDate'); setVaultSortDirection('asc'); }
                     }}
                   >
-                    Validity Dates {renderSortIndicator(vaultSortField, 'expiryDate', vaultSortDirection)}
+                    Expiry Date {renderSortIndicator(vaultSortField, 'expiryDate', vaultSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -2457,7 +2458,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       else { setVaultSortField('ocr'); setVaultSortDirection('asc'); }
                     }}
                   >
-                    OCR CONFIDENCE {renderSortIndicator(vaultSortField, 'ocr', vaultSortDirection)}
+                    OCR Confidence {renderSortIndicator(vaultSortField, 'ocr', vaultSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -2468,14 +2469,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   >
                     Status {renderSortIndicator(vaultSortField, 'status', vaultSortDirection)}
                   </th>
-                  <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Action</th>
+                  <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredVaultCerts.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-4 text-muted">
-                      No statutory certificates or documents match the search and filter criteria.
+                      No documents found.
                     </td>
                   </tr>
                 ) : (
@@ -2523,8 +2524,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                               e.stopPropagation();
                               setSelectedVaultCertForModal(cert);
                             }}
-                            title="View Certificate Details"
-                            aria-label="View Certificate Details"
+                            title="View"
+                            aria-label="View"
                           >
                             <Eye size={16} />
                           </button>
@@ -2566,7 +2567,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     disabled={!selectedAssuranceSetId}
                     onClick={() => selectedAssuranceSetId && setCurrentHashView('assurance-sets', selectedAssuranceSetId)}
                   >
-                    Open Selected
+                    View Assurance Set
                   </button>
                   {canCreateAssuranceForThisVessel && (
                     <button
@@ -2584,7 +2585,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <input
                 type="text"
                 className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search Set ID, Title, Initiator..."
+                placeholder="Search assurance sets..."
                 value={assuranceSearch}
                 onChange={(e) => setAssuranceSearch(e.target.value)}
                 style={{ width: '250px' }}
@@ -2599,7 +2600,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 <option value="ALL">All Stages</option>
                 <option value="Drafting">Drafting</option>
                 <option value="Data Gathering">Data Gathering</option>
-                <option value="Physical Inspection">Physical Inspection</option>
+                <option value="Physical Inspection">Inspection</option>
                 <option value="Desktop Assessment">Desktop Assessment</option>
                 <option value="Verification">Verification</option>
                 <option value="Assurance Granted">Assurance Granted</option>
@@ -2613,8 +2614,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <option value="id">Sort: Set ID</option>
                 <option value="title">Sort: Title</option>
-                <option value="initiatorOrg">Sort: Initiator</option>
-                <option value="charterWindow">Sort: Charter Window</option>
+                <option value="initiatorOrg">Sort: Created By</option>
+                <option value="charterWindow">Sort: Charter Period</option>
                 <option value="stage">Sort: Stage</option>
                 <option value="readinessScore">Sort: Readiness</option>
               </select>
@@ -2636,7 +2637,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 className="btn btn-sm btn-primary fw-semibold"
                 onClick={() => handleCreateAssuranceForVessel()}
               >
-                Charter Vessel
+                Create Assurance Set
               </button>
             )}
           </div>
@@ -2673,7 +2674,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setAssuranceSortField('initiatorOrg'); setAssuranceSortDirection('asc'); }
                         }}
                       >
-                        Initiating Organization {renderSortIndicator(assuranceSortField, 'initiatorOrg', assuranceSortDirection)}
+                        Created By {renderSortIndicator(assuranceSortField, 'initiatorOrg', assuranceSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -2682,7 +2683,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setAssuranceSortField('charterWindow'); setAssuranceSortDirection('asc'); }
                         }}
                       >
-                        Charter Window {renderSortIndicator(assuranceSortField, 'charterWindow', assuranceSortDirection)}
+                        Charter Period {renderSortIndicator(assuranceSortField, 'charterWindow', assuranceSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -2702,7 +2703,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       >
                         Readiness {renderSortIndicator(assuranceSortField, 'readinessScore', assuranceSortDirection)}
                       </th>
-                      <th className="text-end">Action</th>
+                      <th className="text-end">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2730,8 +2731,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                             style={{ width: '32px', height: '32px' }}
                             onClick={() => setCurrentHashView('assurance-sets', s.id)}
-                            title="Open Assurance Set"
-                            aria-label="Open Assurance Set"
+                            title="View"
+                            aria-label="View"
                           >
                             <FolderOpen size={16} />
                           </button>
@@ -2784,7 +2785,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <input
                 type="text"
                 className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search status, notes, user..."
+                placeholder="Search status history..."
                 value={statusHistorySearch}
                 onChange={(e) => setStatusHistorySearch(e.target.value)}
                 style={{ width: '220px' }}
@@ -2814,7 +2815,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 }
                 style={{ width: '160px' }}
               >
-                <option value="effectiveFrom">Sort: Effective From</option>
+                <option value="effectiveFrom">Sort: From</option>
                 <option value="dimension">Sort: Dimension</option>
                 <option value="previousValue">Sort: Previous</option>
                 <option value="newValue">Sort: New Status</option>
@@ -2839,7 +2840,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   onChange={(e) => setStatusHistoryCurrentOnly(e.target.checked)}
                 />
                 <label className="form-check-label small text-secondary" htmlFor="statusHistoryCurrentOnly">
-                  Current only
+                  Current Only
                 </label>
               </div>
             </div>
@@ -2923,7 +2924,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 {filteredStatusHistory.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center text-muted py-4">
-                      No status history records match the search and filter criteria.
+                      No status history found.
                     </td>
                   </tr>
                 ) : (
@@ -2979,7 +2980,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <input
                 type="text"
                 className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search Client Org, Charter..."
+                placeholder="Search client history..."
                 value={clientSearch}
                 onChange={(e) => setClientSearch(e.target.value)}
                 style={{ width: '250px' }}
@@ -3005,9 +3006,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 style={{ width: '170px' }}
               >
                 <option value="charterStart">Sort: Charter Period</option>
-                <option value="clientOrganization">Sort: Client Org</option>
-                <option value="charterTitle">Sort: Campaign</option>
-                <option value="assuranceSetId">Sort: Assurance Set</option>
+                <option value="clientOrganization">Sort: Client</option>
+                <option value="charterTitle">Sort: Charter</option>
+                <option value="assuranceSetId">Sort: Set ID</option>
                 <option value="outcome">Sort: Status</option>
                 <option value="notes">Sort: Notes</option>
               </select>
@@ -3025,7 +3026,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
           <div className="card-body p-0">
             {filteredClientHistory.length === 0 ? (
-              <div className="p-4 text-center text-muted">No client or charter history records match the search and filter criteria.</div>
+              <div className="p-4 text-center text-muted">No client history found.</div>
             ) : (
               <div className="table-responsive">
                 <table className="table map-table-custom align-middle mb-0">
@@ -3038,7 +3039,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setClientSortField('clientOrganization'); setClientSortDirection('asc'); }
                         }}
                       >
-                        Client Organization {renderSortIndicator(clientSortField, 'clientOrganization', clientSortDirection)}
+                        Client {renderSortIndicator(clientSortField, 'clientOrganization', clientSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3047,7 +3048,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setClientSortField('charterTitle'); setClientSortDirection('asc'); }
                         }}
                       >
-                        Charter / Campaign {renderSortIndicator(clientSortField, 'charterTitle', clientSortDirection)}
+                        Charter {renderSortIndicator(clientSortField, 'charterTitle', clientSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3065,7 +3066,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setClientSortField('assuranceSetId'); setClientSortDirection('asc'); }
                         }}
                       >
-                        Assurance Set {renderSortIndicator(clientSortField, 'assuranceSetId', clientSortDirection)}
+                        Set ID {renderSortIndicator(clientSortField, 'assuranceSetId', clientSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3130,7 +3131,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <input
                 type="text"
                 className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search Crew ID, Name, Rank..."
+                placeholder="Search crew..."
                 value={crewSearch}
                 onChange={(e) => setCrewSearch(e.target.value)}
                 style={{ width: '250px' }}
@@ -3142,7 +3143,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onChange={(e) => setCrewRankFilter(e.target.value)}
                 style={{ width: '150px' }}
               >
-                <option value="All">All Ranks / Officers</option>
+                <option value="All">All Ranks</option>
                 {crewRanks.map((r) => (
                   <option key={r} value={r}>
                     {r}
@@ -3156,10 +3157,10 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onChange={(e) => setCrewComplianceFilter(e.target.value)}
                 style={{ width: '170px' }}
               >
-                <option value="All">All STCW Statuses</option>
-                <option value="Fully Compliant">Fully Compliant</option>
-                <option value="Expiring < 60 Days">Expiring &lt; 60 Days</option>
-                <option value="Document Deficient">Document Deficient</option>
+                <option value="All">All Statuses</option>
+                <option value="Fully Compliant">Compliant</option>
+                <option value="Expiring < 60 Days">Expiring Soon</option>
+                <option value="Document Deficient">Non-Compliant</option>
               </select>
 
               <select
@@ -3168,11 +3169,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onChange={(e) => setCrewSortField(e.target.value as any)}
                 style={{ width: '170px' }}
               >
-                <option value="fullName">Sort: Full Name</option>
+                <option value="fullName">Sort: Name</option>
                 <option value="id">Sort: Crew ID</option>
                 <option value="nationality">Sort: Nationality</option>
                 <option value="assignmentStatus">Sort: Assignment</option>
-                <option value="overallComplianceScore">Sort: STCW Score</option>
+                <option value="overallComplianceScore">Sort: Readiness</option>
                 <option value="complianceStatus">Sort: Compliance</option>
               </select>
 
@@ -3193,14 +3194,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 className="btn btn-sm btn-outline-primary fw-semibold"
                 onClick={() => setIsAssignExistingOpen(!isAssignExistingOpen)}
               >
-                Assign Existing Seafarer
+                Assign Crew
               </button>
               <button
                 type="button"
                 className="btn btn-sm btn-primary fw-semibold"
                 onClick={() => setIsAddCrewModalOpen(true)}
               >
-                Register New Seafarer
+                Add Crew
               </button>
             </div>
           </div>
@@ -3208,14 +3209,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           {/* Inline Assign Existing Seafarer Toolbar */}
           {isAssignExistingOpen && (
             <div className="p-3 bg-light border-bottom d-flex flex-wrap align-items-center gap-3">
-              <div className="fw-semibold text-dark small">Assign Unassigned Seafarer:</div>
+              <div className="fw-semibold text-dark small">Assign Crew:</div>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 style={{ width: '320px' }}
                 value={selectedCrewToAssign}
                 onChange={(e) => setSelectedCrewToAssign(e.target.value)}
               >
-                <option value="">-- Select Seafarer from Directory --</option>
+                <option value="">Select crew</option>
                 {crew
                   .filter((c) => c.currentVesselId !== vessel.id)
                   .map((c) => (
@@ -3274,7 +3275,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       }
                     }}
                   >
-                    Full Name &amp; Rank {renderSortIndicator(crewSortField, 'fullName', crewSortDirection)}
+                    Name {renderSortIndicator(crewSortField, 'fullName', crewSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3283,7 +3284,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       else { setCrewSortField('nationality'); setCrewSortDirection('asc'); }
                     }}
                   >
-                    Nationality &amp; Seaman Book {renderSortIndicator(crewSortField, 'nationality', crewSortDirection)}
+                    Nationality {renderSortIndicator(crewSortField, 'nationality', crewSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3292,7 +3293,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       else { setCrewSortField('assignmentStatus'); setCrewSortDirection('asc'); }
                     }}
                   >
-                    Assignment Status {renderSortIndicator(crewSortField, 'assignmentStatus', crewSortDirection)}
+                    Assignment {renderSortIndicator(crewSortField, 'assignmentStatus', crewSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3305,7 +3306,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       }
                     }}
                   >
-                    STCW Score {renderSortIndicator(crewSortField, 'overallComplianceScore', crewSortDirection)}
+                    Readiness {renderSortIndicator(crewSortField, 'overallComplianceScore', crewSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3318,7 +3319,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       }
                     }}
                   >
-                    Compliance Status {renderSortIndicator(crewSortField, 'complianceStatus', crewSortDirection)}
+                    Compliance {renderSortIndicator(crewSortField, 'complianceStatus', crewSortDirection)}
                   </th>
                   <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
@@ -3341,7 +3342,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           type="button"
                           className="btn btn-link p-0 text-primary text-start fw-semibold text-decoration-underline border-0 bg-transparent align-baseline"
                           onClick={() => setCurrentHashView('crew', c.id)}
-                          title={`View ${c.fullName} STCW seafarer dossier`}
+                          title={`View ${c.fullName}`}
                         >
                           {c.fullName}
                         </button>
@@ -3359,7 +3360,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       <td className="font-mono-code fw-semibold">{c.overallComplianceScore}%</td>
                       <td>
                         <span className={`badge ${c.complianceStatus === 'Fully Compliant' ? 'bg-success text-white' : c.complianceStatus === 'Expiring < 60 Days' ? 'bg-warning text-dark' : 'bg-danger text-white'}`}>
-                          {c.complianceStatus}
+                          {getStatusDisplayLabel(c.complianceStatus)}
                         </span>
                       </td>
                       <td className="text-end">
@@ -3398,8 +3399,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                             style={{ width: '32px', height: '32px' }}
                             onClick={() => setCurrentHashView('crew', c.id)}
-                            title={`View ${c.fullName} Details`}
-                            aria-label={`View ${c.fullName} Details`}
+                            title={`View ${c.fullName}`}
+                            aria-label={`View ${c.fullName}`}
                           >
                             <Eye size={16} />
                           </button>
@@ -3423,7 +3424,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <input
                 type="text"
                 className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search Action, User, Org, Notes..."
+                placeholder="Search audit trail..."
                 value={auditSearch}
                 onChange={(e) => setAuditSearch(e.target.value)}
                 style={{ width: '250px' }}
@@ -3435,7 +3436,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 onChange={(e) => setAuditActionFilter(e.target.value)}
                 style={{ width: '180px' }}
               >
-                <option value="ALL">All Action Types</option>
+                <option value="ALL">All Actions</option>
                 {auditActions.map((act) => (
                   <option key={act} value={act}>
                     {act}
@@ -3451,9 +3452,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <option value="timestampUtc">Sort: Timestamp</option>
                 <option value="action">Sort: Action</option>
-                <option value="userId">Sort: User ID</option>
+                <option value="userId">Sort: User</option>
                 <option value="organization">Sort: Organization</option>
-                <option value="justificationNotes">Sort: Justification</option>
+                <option value="justificationNotes">Sort: Notes</option>
               </select>
 
               <button
@@ -3496,7 +3497,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       else { setAuditSortField('userId'); setAuditSortDirection('asc'); }
                     }}
                   >
-                    User &amp; Role {renderSortIndicator(auditSortField, 'userId', auditSortDirection)}
+                    User {renderSortIndicator(auditSortField, 'userId', auditSortDirection)}
                   </th>
                   <th
                     style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3514,7 +3515,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       else { setAuditSortField('justificationNotes'); setAuditSortDirection('asc'); }
                     }}
                   >
-                    Justification &amp; Details {renderSortIndicator(auditSortField, 'justificationNotes', auditSortDirection)}
+                    Notes {renderSortIndicator(auditSortField, 'justificationNotes', auditSortDirection)}
                   </th>
                   <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
@@ -3523,7 +3524,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 {filteredAudits.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-4 text-muted">
-                      No tamper-evident audit entries match the search and filter criteria.
+                      No audit entries found.
                     </td>
                   </tr>
                 ) : (
@@ -3540,7 +3541,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       <td>
                         <div className="fw-semibold text-dark small">{event.userId}</div>
                         <span className="badge bg-light text-secondary border" style={{ fontSize: '0.7rem' }}>
-                          {event.userRole}
+                          {getRoleDisplayLabel(event.userRole)}
                         </span>
                       </td>
                       <td className="small text-secondary">{event.organization}</td>
@@ -3551,8 +3552,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                           style={{ width: '32px', height: '32px' }}
                           onClick={() => setSelectedAuditForDetail(event)}
-                          title="View Audit Event Details"
-                          aria-label="View Audit Event Details"
+                          title="View"
+                          aria-label="View"
                         >
                           <Eye size={16} />
                         </button>
@@ -3577,7 +3578,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <input
                     type="text"
                     className="form-control form-control-sm bg-white text-dark border-secondary"
-                    placeholder="Search Inspection ID, Title, Inspector..."
+                    placeholder="Search inspections..."
                     value={inspectionSearch}
                     onChange={(e) => setInspectionSearch(e.target.value)}
                     style={{ width: '250px' }}
@@ -3605,7 +3606,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       onClick={() => setShowInspectionDrawer(true)}
                     >
                       <Plus className="w-4 h-4" />
-                      New Live Inspection Checklist
+                      New Inspection
                     </button>
                   </div>
                 )}
@@ -3622,7 +3623,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setInspectionSortField('id'); setInspectionSortDirection('asc'); }
                         }}
                       >
-                        Inspection Campaign {renderSortIndicator(inspectionSortField, 'id', inspectionSortDirection)}
+                        Inspection {renderSortIndicator(inspectionSortField, 'id', inspectionSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3631,7 +3632,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setInspectionSortField('assuranceSetId'); setInspectionSortDirection('asc'); }
                         }}
                       >
-                        Assigned Assurance Set {renderSortIndicator(inspectionSortField, 'assuranceSetId', inspectionSortDirection)}
+                        Assurance Set {renderSortIndicator(inspectionSortField, 'assuranceSetId', inspectionSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3640,7 +3641,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setInspectionSortField('inspector'); setInspectionSortDirection('asc'); }
                         }}
                       >
-                        Assigned Inspector {renderSortIndicator(inspectionSortField, 'inspector', inspectionSortDirection)}
+                        Inspector {renderSortIndicator(inspectionSortField, 'inspector', inspectionSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3649,7 +3650,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setInspectionSortField('date'); setInspectionSortDirection('asc'); }
                         }}
                       >
-                        Date &amp; Location {renderSortIndicator(inspectionSortField, 'date', inspectionSortDirection)}
+                        Date {renderSortIndicator(inspectionSortField, 'date', inspectionSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3667,7 +3668,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     {filteredInspections.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="text-center py-4 text-muted">
-                          No physical inspection records match the search and filter criteria.
+                          No inspections found.
                         </td>
                       </tr>
                     ) : (
@@ -3698,7 +3699,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                 e.stopPropagation();
                                 setCurrentHashView('assurance-sets', insp.assuranceSetId);
                               }}
-                              title="Open assigned Assurance Set"
+                              title="View assurance set"
                             >
                               {insp.assuranceSetId}
                             </button>
@@ -3726,8 +3727,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                   e.stopPropagation();
                                   setSelectedInspectionForDetail(insp);
                                 }}
-                                title="View Physical Inspection Details"
-                                aria-label="View Physical Inspection Details"
+                                title="View"
+                                aria-label="View"
                               >
                                 <Eye size={16} />
                               </button>
@@ -3789,7 +3790,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       </h5>
                     </div>
                     <div className="text-secondary small mt-0.5">
-                      Physical Vetting Inspection &amp; Audit Log Dossier — {vessel.name} (IMO {vessel.imoNumber})
+                      Inspection — {vessel.name} (IMO {vessel.imoNumber})
                     </div>
                   </div>
                   <button
@@ -3806,14 +3807,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <div className="row g-3 mb-4">
                     <div className="col-md-3">
                       <div className="p-3 bg-light border rounded h-100">
-                        <div className="text-secondary small text-uppercase fw-semibold mb-1">Target Vessel</div>
+                        <div className="text-secondary small text-uppercase fw-semibold mb-1">Vessel</div>
                         <div className="fw-bold text-primary">{vessel.name}</div>
                         <div className="font-mono-code small text-muted">IMO: {vessel.imoNumber}</div>
                       </div>
                     </div>
                     <div className="col-md-3">
                       <div className="p-3 bg-light border rounded h-100">
-                        <div className="text-secondary small text-uppercase fw-semibold mb-1">Assigned Inspector</div>
+                        <div className="text-secondary small text-uppercase fw-semibold mb-1">Inspector</div>
                         <div className="fw-bold text-dark">{selectedInspectionForDetail.inspector}</div>
                         <div className="text-secondary small">{selectedInspectionForDetail.inspectorRole}</div>
                       </div>
@@ -3827,7 +3828,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </div>
                     <div className="col-md-3">
                       <div className="p-3 bg-light border rounded h-100">
-                        <div className="text-secondary small text-uppercase fw-semibold mb-1">Assigned Assurance Set</div>
+                        <div className="text-secondary small text-uppercase fw-semibold mb-1">Assurance Set</div>
                         <button
                           type="button"
                           className="btn btn-link p-0 fw-bold text-primary font-mono-code text-decoration-underline text-start"
@@ -3836,12 +3837,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             setSelectedInspectionForDetail(null);
                             setCurrentHashView('assurance-sets', setCode);
                           }}
-                          title="Open assigned Assurance Set"
+                          title="View assurance set"
                         >
                           {selectedInspectionForDetail.assuranceSetId}
                         </button>
                         <div className="small text-secondary text-truncate" title={selectedInspectionForDetail.assuranceSetTitle}>
-                          {selectedInspectionForDetail.assuranceSetTitle || 'Standard Vetting Audit'}
+                          {selectedInspectionForDetail.assuranceSetTitle || 'Inspection'}
                         </div>
                       </div>
                     </div>
@@ -3850,7 +3851,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   {/* Audit Findings Summary Bar */}
                   <div className="p-3 bg-primary-subtle border border-primary-subtle rounded mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <div className="d-flex align-items-center gap-2">
-                      <span className="fw-bold text-primary small">Audit Findings Summary:</span>
+                      <span className="fw-bold text-primary small">Findings:</span>
                       <span className="badge bg-success text-white font-mono-code">{selectedInspectionForDetail.findingsSummary.satisfactory} Satisfactory</span>
                       <span className="badge bg-info text-white font-mono-code">{selectedInspectionForDetail.findingsSummary.observations} Observations</span>
                       <span className="badge bg-danger text-white font-mono-code">{selectedInspectionForDetail.findingsSummary.deficiencies} Deficiencies</span>
@@ -3859,7 +3860,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
                   {/* Physical Checklist Breakdown Table */}
                   <div className="mb-4">
-                    <h6 className="fw-bold text-dark mb-2">Physical Survey Checklist Items &amp; Observations</h6>
+                    <h6 className="fw-bold text-dark mb-2">Checklist Items</h6>
                     <div className="table-responsive border rounded">
                       <table className="table map-table-custom align-middle mb-0">
                         <thead>
@@ -3880,7 +3881,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                 else { setModalChecklistSortField('category'); setModalChecklistSortDirection('asc'); }
                               }}
                             >
-                              Category &amp; Standard Ref {renderSortIndicator(modalChecklistSortField, 'category', modalChecklistSortDirection)}
+                              Category {renderSortIndicator(modalChecklistSortField, 'category', modalChecklistSortDirection)}
                             </th>
                             <th
                               style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3889,7 +3890,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                 else { setModalChecklistSortField('status'); setModalChecklistSortDirection('asc'); }
                               }}
                             >
-                              Finding Status {renderSortIndicator(modalChecklistSortField, 'status', modalChecklistSortDirection)}
+                              Status {renderSortIndicator(modalChecklistSortField, 'status', modalChecklistSortDirection)}
                             </th>
                             <th
                               style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3898,9 +3899,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                 else { setModalChecklistSortField('notes'); setModalChecklistSortDirection('asc'); }
                               }}
                             >
-                              Inspector Findings &amp; Observations {renderSortIndicator(modalChecklistSortField, 'notes', modalChecklistSortDirection)}
+                              Findings {renderSortIndicator(modalChecklistSortField, 'notes', modalChecklistSortDirection)}
                             </th>
-                            <th style={{ whiteSpace: 'nowrap' }}>Evidence Files</th>
+                            <th style={{ whiteSpace: 'nowrap' }}>Evidence</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3945,7 +3946,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   {/* Linked Corrective Actions (CAPA) Section */}
                   <div className="mb-4">
                     <div className="d-flex align-items-center justify-content-between mb-2">
-                      <h6 className="fw-bold text-dark m-0">Corrective &amp; Preventive Actions (CAPA)</h6>
+                      <h6 className="fw-bold text-dark m-0">CAPAs</h6>
                       <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle font-mono-code">
                         {linkedCapas.length} CAPA Item{linkedCapas.length !== 1 ? 's' : ''} Linked
                       </span>
@@ -3970,7 +3971,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                 else { setModalCapaSortField('title'); setModalCapaSortDirection('asc'); }
                               }}
                             >
-                              Title &amp; Finding {renderSortIndicator(modalCapaSortField, 'title', modalCapaSortDirection)}
+                              Title {renderSortIndicator(modalCapaSortField, 'title', modalCapaSortDirection)}
                             </th>
                             <th
                               style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3979,7 +3980,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                 else { setModalCapaSortField('owner'); setModalCapaSortDirection('asc'); }
                               }}
                             >
-                              Owner / Dept {renderSortIndicator(modalCapaSortField, 'owner', modalCapaSortDirection)}
+                              Owner {renderSortIndicator(modalCapaSortField, 'owner', modalCapaSortDirection)}
                             </th>
                             <th
                               style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3999,14 +4000,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             >
                               Status {renderSortIndicator(modalCapaSortField, 'status', modalCapaSortDirection)}
                             </th>
-                            <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Action</th>
+                            <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
                           {sortedModalCapas.length === 0 ? (
                             <tr>
                               <td colSpan={6} className="text-center py-3 text-muted small">
-                                No corrective actions raised for this inspection campaign.
+                                No CAPAs yet.
                               </td>
                             </tr>
                           ) : (
@@ -4031,7 +4032,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                     style={{ fontSize: '0.75rem' }}
                                     onClick={() => setSelectedCapaForDrawer(capa)}
                                   >
-                                    View / Re-inspect
+                                    View
                                   </button>
                                 </td>
                               </tr>
@@ -4044,7 +4045,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
                   {/* Inspection Campaign Event Log */}
                   <div>
-                    <h6 className="fw-bold text-dark mb-2">Inspection Campaign Activity Log</h6>
+                    <h6 className="fw-bold text-dark mb-2">Inspection Log</h6>
                     <div className="border rounded bg-light p-3">
                       <div className="d-flex flex-column gap-2">
                         {selectedInspectionForDetail.auditTrail.map((log: any, i: number) => (
@@ -4107,11 +4108,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     <div className="d-flex align-items-center gap-2">
                       <span className="badge bg-primary text-white font-mono-code">{selectedAuditForDetail.id}</span>
                       <h5 className="modal-title fw-bold text-dark m-0">
-                        Audit Event Log Detail
+                        Audit Event
                       </h5>
-                    </div>
-                    <div className="text-secondary small mt-0.5">
-                      Tamper-evident cryptographically verified audit log entry
                     </div>
                   </div>
                   <button
@@ -4135,7 +4133,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </div>
                     <div className="col-md-6">
                       <div className="p-3 bg-light border rounded">
-                        <span className="text-secondary small d-block">Action Type:</span>
+                        <span className="text-secondary small d-block">Action:</span>
                         <span className="badge bg-primary text-white font-mono-code mt-1" style={{ fontSize: '0.85rem' }}>
                           {selectedAuditForDetail.action}
                         </span>
@@ -4143,9 +4141,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </div>
                     <div className="col-md-6">
                       <div className="p-3 bg-light border rounded">
-                        <span className="text-secondary small d-block">User &amp; Role:</span>
+                        <span className="text-secondary small d-block">User:</span>
                         <strong className="text-dark d-block mt-0.5">{selectedAuditForDetail.userId}</strong>
-                        <span className="badge bg-secondary text-white font-mono-code mt-1">{selectedAuditForDetail.userRole}</span>
+                        <span className="badge bg-secondary text-white font-mono-code mt-1">{getRoleDisplayLabel(selectedAuditForDetail.userRole)}</span>
                       </div>
                     </div>
                     <div className="col-md-6">
@@ -4157,20 +4155,20 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </div>
 
                   <div className="p-3 bg-light border rounded mb-3">
-                    <span className="text-secondary small d-block fw-semibold mb-1">Target Asset / Vessel:</span>
+                    <span className="text-secondary small d-block fw-semibold mb-1">Asset:</span>
                     <div className="font-mono-code text-primary fw-bold">{selectedAuditForDetail.targetAsset}</div>
                   </div>
 
                   <div className="p-3 bg-light border rounded mb-3">
-                    <span className="text-secondary small d-block fw-semibold mb-1">Justification Notes &amp; Payload Diffs:</span>
+                    <span className="text-secondary small d-block fw-semibold mb-1">Notes:</span>
                     <div className="font-mono-code bg-white p-2.5 border rounded text-dark small" style={{ lineHeight: '1.4' }}>
                       {selectedAuditForDetail.justificationNotes || 'No additional notes recorded for this action.'}
                     </div>
                   </div>
 
                   <div className="p-2.5 bg-success-subtle border border-success-subtle rounded d-flex align-items-center justify-content-between font-mono-code small text-success">
-                    <span>CRYPTO HASH VERIFICATION: SHA256-MATCH</span>
-                    <span className="fw-bold">TAMPER-EVIDENT VERIFIED</span>
+                    <span>Integrity check</span>
+                    <span className="fw-bold">VERIFIED</span>
                   </div>
                 </div>
 
@@ -4181,7 +4179,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     className="btn btn-sm btn-secondary"
                     onClick={() => setSelectedAuditForDetail(null)}
                   >
-                    Close Detail Modal
+                    Close
                   </button>
                 </div>
               </div>
@@ -4206,7 +4204,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           modalTitle="Upload Preassurance Document"
           onUploadComplete={() => {
             setIsUploadModalOpen(false);
-            setToastMessage('Preassurance document uploaded & indexed in vault.');
+            setToastMessage('Document uploaded.');
             setTimeout(() => setToastMessage(null), 3500);
           }}
         />
@@ -4227,8 +4225,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
                 <div>
                   <div className="d-flex align-items-center gap-2">
-                    <span className="badge bg-primary text-white font-mono-code">AIS-TRANSIT</span>
-                    <h5 className="modal-title fw-bold text-dark m-0">Historical Voyage Logs</h5>
+                    <span className="badge bg-primary text-white font-mono-code">AIS</span>
+                    <h5 className="modal-title fw-bold text-dark m-0">Voyage History</h5>
                   </div>
                   <div className="text-secondary small mt-0.5">
                     {vessel.name} (IMO {vessel.imoNumber}) — Real-time &amp; archived AIS voyage history
@@ -4250,7 +4248,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         <th>Origin &rarr; Destination</th>
                         <th>Departure (UTC)</th>
                         <th>Arrival (UTC)</th>
-                        <th>Distance / Speed</th>
+                        <th>Distance</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -4298,10 +4296,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </tbody>
                   </table>
                 </div>
-                <div className="p-2.5 bg-light border rounded text-secondary small d-flex align-items-center gap-2">
-                  <Info className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span>AIS telemetry streams are validated against satellite transponder archives with sub-meter positioning accuracy.</span>
-                </div>
               </div>
               <div className="modal-footer border-top bg-light">
                 <button
@@ -4333,11 +4327,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
                 <div>
                   <div className="d-flex align-items-center gap-2">
-                    <span className="badge bg-primary text-white font-mono-code">FLEET REGISTRY</span>
+                    <span className="badge bg-primary text-white font-mono-code">VESSELS</span>
                     <h5 className="modal-title fw-bold text-dark m-0">{selectedCompanyForFleetModal}</h5>
                   </div>
                   <div className="text-secondary small mt-0.5">
-                    Associated vessels and commercial assets managed by this organization
+                    Other vessels managed by this organization
                   </div>
                 </div>
                 <button
@@ -4353,12 +4347,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     <thead>
                       <tr>
                         <th>IMO Number</th>
-                        <th>Vessel Name</th>
-                        <th>Vessel Type</th>
+                        <th>Name</th>
+                        <th>Type</th>
                         <th>Flag State</th>
                         <th>Operating Status</th>
                         <th>Readiness</th>
-                        <th className="text-end">Action</th>
+                        <th className="text-end">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -4390,8 +4384,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                   setSelectedCompanyForFleetModal(null);
                                   setCurrentHashView('vessels', v.id);
                                 }}
-                                title="View Vessel Details"
-                                aria-label="View Vessel Details"
+                                title="View"
+                                aria-label="View"
                               >
                                 <Eye size={16} />
                               </button>
@@ -4439,7 +4433,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     {selectedVaultCertForModal.name}
                   </h5>
                   <div className="text-secondary small mt-0.5 font-mono-code">
-                    Certificate Number: <span className="fw-semibold text-dark">{selectedVaultCertForModal.number}</span> · Asset: <span className="fw-semibold text-dark">{vessel.name} (IMO {vessel.imoNumber})</span>
+                    Certificate No.: <span className="fw-semibold text-dark">{selectedVaultCertForModal.number}</span> · Asset: <span className="fw-semibold text-dark">{vessel.name} (IMO {vessel.imoNumber})</span>
                   </div>
                 </div>
                 <button
@@ -4458,12 +4452,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     <div className="p-3 bg-light border rounded h-100">
                       <span className="text-secondary small text-uppercase fw-semibold d-block">Issuing Authority</span>
                       <strong className="text-dark d-block mt-1">{selectedVaultCertForModal.issuingBody}</strong>
-                      <span className="text-muted small font-mono-code" style={{ fontSize: '0.72rem' }}>IACS Verified Statutory Authority</span>
                     </div>
                   </div>
                   <div className="col-12 col-md-3">
                     <div className="p-3 bg-light border rounded h-100">
-                      <span className="text-secondary small text-uppercase fw-semibold d-block">Validity Window</span>
+                      <span className="text-secondary small text-uppercase fw-semibold d-block">Expiry Date</span>
                       <strong className="font-mono-code text-dark d-block mt-1">
                         {formatMaritimeDate(selectedVaultCertForModal.expiryDate)}
                       </strong>
@@ -4474,7 +4467,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </div>
                   <div className="col-12 col-md-3">
                     <div className="p-3 bg-light border rounded h-100">
-                      <span className="text-secondary small text-uppercase fw-semibold d-block">File &amp; Version</span>
+                      <span className="text-secondary small text-uppercase fw-semibold d-block">File</span>
                       <strong className="text-dark font-mono-code d-block mt-1 text-truncate" title={selectedVaultCertForModal.fileName}>
                         {selectedVaultCertForModal.fileName}
                       </strong>
@@ -4485,7 +4478,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </div>
                   <div className="col-12 col-md-3">
                     <div className="p-3 bg-light border rounded h-100">
-                      <span className="text-secondary small text-uppercase fw-semibold d-block">Uploader &amp; Audit</span>
+                      <span className="text-secondary small text-uppercase fw-semibold d-block">Uploaded By</span>
                       <strong className="text-dark d-block mt-1 text-truncate">{selectedVaultCertForModal.uploadedBy}</strong>
                       <span className="text-muted small font-mono-code" style={{ fontSize: '0.72rem' }}>
                         {formatMaritimeDate(selectedVaultCertForModal.uploadedAt)}
@@ -4499,7 +4492,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <div className="d-flex align-items-center justify-content-between mb-2">
                     <h6 className="fw-bold text-dark m-0 d-flex align-items-center gap-2">
                       <FileText className="w-4 h-4 text-primary" />
-                      Extracted Document Data &amp; Vessel Specifications
+                      Extracted Fields
                     </h6>
                     <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code">
                       13 Attributes Extracted
@@ -4508,7 +4501,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
                   <div className="map-datasheet-grid border rounded p-2 bg-light">
                     <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Vessel AIS Name</span>
+                      <span className="map-datasheet-label">AIS Name</span>
                       <span className="map-datasheet-val fw-bold text-dark">{selectedVaultCertForModal.extractedAttributes?.vesselName || vessel.name}</span>
                     </div>
                     <div className="map-datasheet-cell bg-white">
@@ -4516,7 +4509,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       <span className="map-datasheet-val font-mono-code fw-bold text-primary">{selectedVaultCertForModal.extractedAttributes?.imoNumber || vessel.imoNumber}</span>
                     </div>
                     <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Official Reg Number</span>
+                      <span className="map-datasheet-label">Official Registration Number</span>
                       <span className="map-datasheet-val font-mono-code">{selectedVaultCertForModal.extractedAttributes?.officialRegNumber || vessel.officialRegNumber || 'OSV-44-2019'}</span>
                     </div>
 
@@ -4529,7 +4522,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       <span className="map-datasheet-val font-mono-code">{selectedVaultCertForModal.extractedAttributes?.callSign || vessel.callSign} / {selectedVaultCertForModal.extractedAttributes?.mmsiNumber || vessel.mmsiNumber}</span>
                     </div>
                     <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Vessel Classification</span>
+                      <span className="map-datasheet-label">Class Society</span>
                       <span className="map-datasheet-val">{selectedVaultCertForModal.extractedAttributes?.classificationSociety || vessel.classificationSociety}</span>
                     </div>
 
@@ -4563,13 +4556,13 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
                 {/* 3. Automated Validation & Rules Verification */}
                 <div className="mb-4">
-                  <h6 className="fw-bold text-dark mb-2">Automated Rules &amp; Compliance Validation</h6>
+                  <h6 className="fw-bold text-dark mb-2">Validation Checks</h6>
                   <div className="row g-2">
                     <div className="col-12 col-md-4">
                       <div className="p-2.5 bg-light border rounded d-flex align-items-center justify-content-between">
                         <div className="small">
-                          <strong className="text-dark d-block">Charter Buffer Rule</strong>
-                          <span className="text-muted" style={{ fontSize: '0.72rem' }}>&ge; 30 Days Expiry Buffer</span>
+                          <strong className="text-dark d-block">Expiry Buffer</strong>
+                          <span className="text-muted" style={{ fontSize: '0.72rem' }}>At least 30 days before expiry</span>
                         </div>
                         <span className="badge bg-success text-white font-mono-code">PASSED</span>
                       </div>
@@ -4577,8 +4570,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     <div className="col-12 col-md-4">
                       <div className="p-2.5 bg-light border rounded d-flex align-items-center justify-content-between">
                         <div className="small">
-                          <strong className="text-dark d-block">Asset Match Integrity</strong>
-                          <span className="text-muted" style={{ fontSize: '0.72rem' }}>IMO &amp; Name 100% Match</span>
+                          <strong className="text-dark d-block">Vessel Match</strong>
+                          <span className="text-muted" style={{ fontSize: '0.72rem' }}>IMO number and name match</span>
                         </div>
                         <span className="badge bg-success text-white font-mono-code">VERIFIED</span>
                       </div>
@@ -4586,7 +4579,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     <div className="col-12 col-md-4">
                       <div className="p-2.5 bg-light border rounded d-flex align-items-center justify-content-between">
                         <div className="small">
-                          <strong className="text-dark d-block">IACS Authority Check</strong>
+                          <strong className="text-dark d-block">Issuing Authority</strong>
                           <span className="text-muted" style={{ fontSize: '0.72rem' }}>Recognized Organization</span>
                         </div>
                         <span className="badge bg-success text-white font-mono-code">AUTHENTIC</span>
@@ -4614,7 +4607,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     setCurrentHashView('documents', docId);
                   }}
                 >
-                  <span>Open Full Document Workspace</span>
+                  <span>View Document</span>
                 </button>
               </div>
             </div>
@@ -4644,7 +4637,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </div>
                   <div>
                     <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
-                      Manage Vessel Profile Image
+                      Manage Photos
                     </h5>
                     <div className="text-secondary small font-mono-code">
                       {vessel.name} (IMO {vessel.imoNumber}) · {vessel.vesselSubtype || vessel.vesselType}
@@ -4665,7 +4658,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 <div className="mb-4">
                   <div className="d-flex align-items-center justify-content-between mb-2">
                     <label className="form-label fw-bold text-dark small mb-0">
-                      Active Cover Photo Preview
+                      Cover Photo
                     </label>
                     <div className="d-flex align-items-center gap-2">
                       <span className="text-secondary fw-normal font-mono-code" style={{ fontSize: '0.75rem' }}>
@@ -4680,7 +4673,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           setCropTargetIdx(modalPhotos.indexOf(photoModalUrl) >= 0 ? modalPhotos.indexOf(photoModalUrl) : null);
                           setIsCropModalOpen(true);
                         }}
-                        title="Crop and resize active cover photo"
+                        title="Crop cover photo"
                       >
                         <Crop className="w-3.5 h-3.5 text-white" strokeWidth={2.2} />
                         <span className="text-white" style={{ fontSize: '0.75rem' }}>Crop</span>
@@ -4715,17 +4708,17 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     <div className="d-flex align-items-center justify-content-between mb-2.5 flex-wrap gap-2">
                       <div>
                         <span className="small fw-bold text-dark d-block">
-                          Vessel Photo Gallery ({modalPhotos.length} image{modalPhotos.length > 1 ? 's' : ''})
+                          Photos ({modalPhotos.length})
                         </span>
                         <span className="text-secondary" style={{ fontSize: '0.7rem' }}>
-                          Drag photos to reorder · Click any photo to set as primary cover
+                          Drag to reorder. Click a photo to set it as the cover.
                         </span>
                       </div>
                       <button
                         type="button"
                         className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold shadow-2xs"
                         onClick={() => setShowAddPhotoModal(true)}
-                        title="Add a new photo to vessel gallery"
+                        title="Add photo"
                       >
                         <Plus className="w-3.5 h-3.5 text-white" strokeWidth={2.5} />
                         <span className="text-white">Add Photo</span>
@@ -4866,7 +4859,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       }}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Reset to Default Stock</span>
+                      <span>Reset to Default</span>
                     </button>
                   )}
                 </div>
@@ -4928,7 +4921,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </div>
                   <div>
                     <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
-                      Add Vessel Photo
+                      Add Photo
                     </h5>
                     <div className="text-secondary small font-mono-code">
                       {vessel.name} · Choose upload, curated stock, or image link
@@ -4948,7 +4941,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 {/* Option A: Upload & Crop */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
                   <div className="d-flex align-items-center justify-content-between mb-2">
-                    <span className="fw-bold text-dark small">Option A: Upload &amp; Crop New Vessel Image</span>
+                    <span className="fw-bold text-dark small">Upload a Photo</span>
                     <span className="text-secondary" style={{ fontSize: '0.75rem' }}>JPEG, PNG, WEBP</span>
                   </div>
 
@@ -5004,14 +4997,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       Drag &amp; drop vessel image here or <span className="text-primary text-decoration-underline">browse files</span>
                     </span>
                     <span className="text-secondary" style={{ fontSize: '0.72rem' }}>
-                      Picks image and opens universal 16:9 sizing &amp; crop tool before adding to gallery.
+                      You can crop the photo before it is added.
                     </span>
                   </div>
                 </div>
 
                 {/* Option B: Curated Stock Presets */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
-                  <div className="fw-bold text-dark small mb-2">Option B: Select &amp; Crop from Maritime Fleet Stock Photos</div>
+                  <div className="fw-bold text-dark small mb-2">Choose a Preset</div>
                   <div className="row g-2">
                     {CURATED_VESSEL_PHOTOS.map((p, idx) => (
                       <div key={idx} className="col-6 col-md-3">
@@ -5024,7 +5017,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             setCropModalImageSrc(p.url);
                             setIsCropModalOpen(true);
                           }}
-                          title={`Crop and add ${p.title}`}
+                          title={`Add ${p.title}`}
                         >
                           <img src={p.url} alt={p.title} className="w-100 h-100" style={{ objectFit: 'cover' }} />
                           <div
@@ -5042,7 +5035,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 {/* Option C: Direct Image URL */}
                 <div className="p-3 bg-light border rounded shadow-2xs">
                   <label className="form-label fw-bold text-dark small mb-1" htmlFor="custom-vessel-image-url">
-                    Option C: Direct Image URL
+                    Image URL
                   </label>
                   <div className="input-group input-group-sm">
                     <input
@@ -5067,7 +5060,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         }
                       }}
                     >
-                      Crop &amp; Add
+                      Add
                     </button>
                   </div>
                 </div>

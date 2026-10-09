@@ -517,9 +517,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const getWizardSteps = (): Array<{ id: string; label: string; pillar?: ThreePillarsCategory; subtype?: AssuranceSubtype }> => {
     const pillar = getThreePillarsCategory(assuranceType);
     return [
-      { id: 'step-scope', label: 'Identification & Scope' },
+      { id: 'step-scope', label: 'Scope' },
       { id: `step-${pillar.toLowerCase()}`, label: 'Documents', pillar, subtype: assuranceType },
-      { id: 'step-review', label: 'Review & Initiate' },
+      { id: 'step-review', label: 'Review' },
     ];
   };
 
@@ -723,7 +723,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       subtype,
       title: input.title.trim(),
       category: input.category,
-      description: input.description.trim() || `Specialized project requirement for ${subtype} assurance.`,
+      description: input.description.trim() || `Custom requirement for ${subtype} assurance.`,
       isMandatory: input.isMandatory,
       isEnabled: true,
     };
@@ -763,45 +763,45 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     if (currentStep === 1) {
       if (!title.trim()) {
-        newErrors.title = 'Assurance set campaign title is mandatory.';
+        newErrors.title = 'Title is required.';
       } else {
         const duplicateCheck = isDuplicateCampaignTitle(title, assuranceSets, editingDraftId);
         if (duplicateCheck.isDuplicate) {
-          newErrors.title = duplicateCheck.reason || 'Campaign title already exists. Choose a unique name.';
+          newErrors.title = duplicateCheck.reason || 'This title is already in use.';
         }
       }
 
       if (assuranceType === 'Vessel' && !availableVessels.some((v) => v.id === vesselId)) {
-        newErrors.vesselId = 'Select a vessel from another organization. You cannot assign your own vessel to this assurance set.';
+        newErrors.vesselId = 'Select a vessel from another organization.';
       }
       if (assuranceType === 'Crew' && !selectedCrewId) {
-        newErrors.crewId = 'Crew member selection is required.';
+        newErrors.crewId = 'Select a crew member.';
       }
       if (assuranceType === 'Equipment' && !selectedEquipmentId) {
-        newErrors.equipmentId = 'Equipment item selection is required.';
+        newErrors.equipmentId = 'Select equipment.';
       }
       if (assuranceType === 'Activity' && !selectedActivityId) {
-        newErrors.activityId = 'Operational activity selection is required.';
+        newErrors.activityId = 'Select an activity.';
       }
       if (!startDate) {
-        newErrors.startDate = 'Charter window start date is required.';
+        newErrors.startDate = 'Start date is required.';
       }
       if (!endDate) {
-        newErrors.endDate = 'Charter window end date is required.';
+        newErrors.endDate = 'End date is required.';
       }
       if (startDate && endDate && startDate > endDate) {
-        newErrors.endDate = 'Charter end date cannot be prior to start date.';
+        newErrors.endDate = 'End date cannot be before the start date.';
       }
 
       /* Verifier, Inspector & Approver Role Validations (MVP 1:1 Mapping) */
       if (verificationRequired && reviewMode !== 'issuing_authority' && !assignedVerifier) {
-        newErrors.verifier = 'Verifier assignment is required.';
+        newErrors.verifier = 'Select a verifier.';
       }
       if (inspectionRequired && !assignedInspector) {
-        newErrors.inspector = 'Visual inspector assignment is required.';
+        newErrors.inspector = 'Select an inspector.';
       }
       if (approvalRequired && !assignedApprover) {
-        newErrors.approver = 'Campaign approver assignment is required.';
+        newErrors.approver = 'Select an approver.';
       }
 
       if (
@@ -961,10 +961,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     });
 
     const effectiveAssetName =
-      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
-          assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
-            assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
-              (selectedActivity?.name || 'Activity Asset');
+      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
+          assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew') :
+            assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment') :
+              (selectedActivity?.name || 'Activity');
 
     const effectiveImo =
       assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
@@ -1168,17 +1168,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     });
 
     const effectiveAssetName =
-      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
-          assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
-            assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
-              (selectedActivity?.name || 'Activity Asset');
+      assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
+          assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew') :
+            assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment') :
+              (selectedActivity?.name || 'Activity');
 
     const effectiveImo =
       assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
 
     const draftSet: AssuranceSet = {
       id: targetSetId,
-      title: title.trim() || `${titleOrg} - Draft Campaign`,
+      title: title.trim() || `${titleOrg} - Draft Assurance Set`,
       assuranceType,
       projectId: selectedProject?.id,
       projectName: selectedProject?.name,
@@ -1332,7 +1332,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 {sectionLabel} Assurance Templates (Optional)
               </h5>
               <div className="text-muted small mt-0.5">
-                Apply a public standard or organizational baseline to automatically configure required documents.
+                Start from a template to fill in the required documents.
               </div>
             </div>
             {activeTemplateId && (
@@ -1345,14 +1345,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             <div className="row g-3">
               <div className="col-12 col-md-6">
                 <label className="form-label text-secondary small fw-semibold">
-                  Public Industry Standard Templates
+                  Public Templates
                 </label>
                 <select
                   className="form-select bg-white text-dark border-secondary-subtle"
                   value={publicTemplates.some((t) => t.id === activeTemplateId) ? activeTemplateId : ''}
                   onChange={(e) => handleSelectSubtypeTemplate(subtype, e.target.value)}
                 >
-                  <option value="">-- Choose from Public {subtype} Standards --</option>
+                  <option value="">Select a public template</option>
                   {publicTemplates.map((tmpl) => (
                     <option key={tmpl.id} value={tmpl.id}>
                       {tmpl.name}
@@ -1363,14 +1363,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
               <div className="col-12 col-md-6">
                 <label className="form-label text-secondary small fw-semibold">
-                  Within Organization Templates
+                  Organization Templates
                 </label>
                 <select
                   className="form-select bg-white text-dark border-secondary-subtle"
                   value={orgTemplates.some((t) => t.id === activeTemplateId) ? activeTemplateId : ''}
                   onChange={(e) => handleSelectSubtypeTemplate(subtype, e.target.value)}
                 >
-                  <option value="">-- Choose from Organization Templates --</option>
+                  <option value="">Select an organization template</option>
                   {orgTemplates.map((tmpl) => (
                     <option key={tmpl.id} value={tmpl.id}>
                       {tmpl.name} ({tmpl.organizationName || 'Corporate'})
@@ -1407,7 +1407,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               Required Documents &amp; Information
             </h5>
             <p className="text-muted small m-0 mt-1">
-              Toggle mandatory and statutory compliance requirements for this section. All documents include verified descriptions.
+              Mark each document as required or not.
             </p>
           </div>
           <div className="card-body p-4">
@@ -1469,12 +1469,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             </span>
                             {doc.isMandatory && (
                               <span className="badge bg-danger-subtle text-danger border border-danger-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                Statutory Mandatory
+                                Statutory
                               </span>
                             )}
                             {matchedAssetDoc && (
                               <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                Vault Linked ({matchedAssetDoc.documentId})
+                                Linked ({matchedAssetDoc.documentId})
                               </span>
                             )}
                           </div>
@@ -1514,26 +1514,23 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
               <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                Add Specialized Document <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                Add Document <span className="text-secondary fw-normal fs-7">(optional)</span>
               </h5>
               <p className="text-muted small m-0 mt-1">
-                Optional: Specify any custom or project-specific document requirements needed for this campaign.
+                Add any other documents this assurance set needs.
               </p>
             </div>
-            <span className="badge bg-secondary-subtle text-secondary border font-mono-code" style={{ fontSize: '0.7rem' }}>
-              Optional Requirement
-            </span>
           </div>
           <div className="card-body p-4">
             <div className="row g-3">
               <div className="col-12 col-md-8">
                 <label className="form-label text-secondary small fw-semibold">
-                  Specialized Document Title <span className="text-muted fw-normal">(Optional unless adding)</span>
+                  Title
                 </label>
                 <input
                   type="text"
                   className={`form-control bg-white text-dark border-secondary-subtle${fieldErrors[`specialized_${subtype}`] ? ' is-invalid border-danger' : ''}`}
-                  placeholder={`e.g. Specialized ${subtype} Operational Verification Report`}
+                  placeholder={`e.g. ${subtype} Verification Report`}
                   value={specInput.title}
                   onChange={(e) => {
                     setSpecializedInputs((prev) => ({
@@ -1583,7 +1580,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <textarea
                   className="form-control bg-white text-dark border-secondary-subtle"
                   rows={2}
-                  placeholder={`Provide detailed maritime/operational context explaining why this specialized ${subtype.toLowerCase()} document is required...`}
+                  placeholder="Why this document is needed"
                   value={specInput.description}
                   onChange={(e) =>
                     setSpecializedInputs((prev) => ({
@@ -1609,7 +1606,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     id={`spec-mand-toggle-${subtype}`}
                   />
                   <label htmlFor={`spec-mand-toggle-${subtype}`} className="form-check-label text-secondary small fw-semibold cursor-pointer">
-                    Mandatory for Campaign Approval
+                    Required for Approval
                   </label>
                 </div>
 
@@ -1618,7 +1615,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   className="btn btn-sm btn-primary text-white fw-semibold d-inline-flex align-items-center gap-1.5"
                   onClick={() => handleAddSpecializedDoc(subtype)}
                 >
-                  Add Specialized Document
+                  Add Document
                 </button>
               </div>
             </div>
@@ -1627,7 +1624,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             {specializedList.length > 0 && (
               <div className="mt-4 border-top pt-3">
                 <h6 className="fw-bold text-dark small mb-2">
-                  Added Specialized Requirements ({specializedList.length})
+                  Added Documents ({specializedList.length})
                 </h6>
                 <div className="d-flex flex-column gap-2">
                   {specializedList.map((spec: SpecializedDoc) => (
@@ -1651,7 +1648,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               {spec.category}
                             </span>
                             <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                              Specialized
+                              Custom
                             </span>
                           </div>
                           <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem' }}>
@@ -1664,7 +1661,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         className="btn btn-sm btn-outline-danger py-0 px-2 text-danger"
                         style={{ fontSize: '0.75rem' }}
                         onClick={() => handleRemoveSpecializedDoc(spec.id)}
-                        title="Remove specialized requirement"
+                        title="Remove"
                       >
                         Remove
                       </button>
@@ -1686,10 +1683,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       {/* Top Breadcrumb & Title */}
       <div className="d-flex flex-wrap align-items-center justify-between gap-3 mb-3">
         <div>
-          <h2 className="fw-bold text-slate-900 m-0 fs-3">Initiate Marine Assurance Set</h2>
-          <p className="text-muted small m-0 mt-1">
-            Segmented assurance wizard configured across asset scopes, operational subtypes, specialized required documents, and role assignments.
-          </p>
+          <h2 className="fw-bold text-slate-900 m-0 fs-3">Create Assurance Set</h2>
         </div>
       </div>
 
@@ -1764,7 +1758,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     {/* Campaign Title */}
                     <div className="col-12 col-md-8">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-campaign-title">
-                        Assurance Set Name / Campaign Title <span className="text-danger">*</span>
+                        Title <span className="text-danger">*</span>
                       </label>
                       <input
                         id="grid-campaign-title"
@@ -1797,7 +1791,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     {/* Scope / Subtype Selector */}
                     <div className="col-12 col-md-4">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-assurance-type">
-                        Assurance Scope <span className="text-danger">*</span>
+                        Scope <span className="text-danger">*</span>
                       </label>
                       <select
                         id="grid-assurance-type"
@@ -1814,7 +1808,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       </select>
                       {isScopeLocked && (
                         <div id="grid-assurance-type-help" className="form-text small">
-                          Scope and asset are set by the listing this was opened from.
+                          Set by the listing you came from.
                         </div>
                       )}
                     </div>
@@ -1846,7 +1840,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       ) : (
                         isProjectLocked && (
                           <div id="grid-linked-project-help" className="form-text small">
-                            Set by the project this was opened from.
+                            Set by the project you came from.
                           </div>
                         )
                       )}
@@ -1855,7 +1849,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     {/* Charter Window Dates */}
                     <div className="col-12 col-md-3">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-start">
-                        Contract Start Date <span className="text-danger">*</span>
+                        Charter Period Start <span className="text-danger">*</span>
                       </label>
                       <input
                         id="grid-charter-start"
@@ -1882,7 +1876,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
                     <div className="col-12 col-md-3">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-end">
-                        Contract End Date <span className="text-danger">*</span>
+                        Charter Period End <span className="text-danger">*</span>
                       </label>
                       <input
                         id="grid-charter-end"
@@ -1926,7 +1920,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   {assuranceType === 'Vessel' && (
                     <div>
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-vessel">
-                        Assign Vessel <span className="text-danger">*</span>
+                        Vessel <span className="text-danger">*</span>
                       </label>
                       <select
                         id="grid-target-asset-vessel"
@@ -1958,7 +1952,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         </div>
                       )}
                       <div className="text-secondary small mt-1" style={{ fontSize: '0.78rem' }}>
-                        Own-organization vessels are excluded. Creating this set makes you the client of the selected vessel.
+                        Your own vessels are not listed. You become the client of the vessel you select.
                       </div>
 
                       {selectedVessel && (
@@ -1986,7 +1980,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   {assuranceType === 'Crew' && (
                     <div>
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-crew">
-                        Target Crew / Seafarer Asset <span className="text-danger">*</span>
+                        Crew Member <span className="text-danger">*</span>
                       </label>
                       <select
                         id="grid-target-asset-crew"
@@ -2028,7 +2022,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <strong>Nationality:</strong> {selectedCrew.nationality}
                             </div>
                             <div className="col-12 col-md-4">
-                              <strong>Assigned Vessel:</strong> {selectedCrew.currentVesselName || 'Unassigned'}
+                              <strong>Vessel:</strong> {selectedCrew.currentVesselName || 'Unassigned'}
                             </div>
                           </div>
                         </div>
@@ -2039,7 +2033,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   {assuranceType === 'Equipment' && (
                     <div>
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-equipment">
-                        Target Equipment Asset <span className="text-danger">*</span>
+                        Equipment <span className="text-danger">*</span>
                       </label>
                       <select
                         id="grid-target-asset-equipment"
@@ -2081,7 +2075,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <strong>Manufacturer:</strong> {selectedEquipment.manufacturer || 'N/A'}
                             </div>
                             <div className="col-12 col-md-4">
-                              <strong>Serial:</strong> {selectedEquipment.serialNumber || 'N/A'}
+                              <strong>Serial Number:</strong> {selectedEquipment.serialNumber || 'N/A'}
                             </div>
                           </div>
                         </div>
@@ -2092,7 +2086,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   {assuranceType === 'Activity' && (
                     <div>
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-activity">
-                        Target Marine Operation / Activity Asset <span className="text-danger">*</span>
+                        Activity <span className="text-danger">*</span>
                       </label>
                       <select
                         id="grid-target-asset-activity"
@@ -2133,7 +2127,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <strong>Category:</strong> {selectedActivity.category}
                             </div>
                             <div className="col-12">
-                              <strong>Operational Description:</strong> {selectedActivity.description}
+                              <strong>Description:</strong> {selectedActivity.description}
                             </div>
                           </div>
                         </div>
@@ -2151,7 +2145,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       3. Template Privacy &amp; Distribution Scope
                     </h5>
                     <div className="text-muted small">
-                      Select whether this assurance set and its document specifications can be used as a template by the public or within your organization only.
+                      Choose who can reuse this assurance set as a template.
                     </div>
                   </div>
                   <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.7rem' }}>
@@ -2180,13 +2174,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           />
                           <div>
                             <div className="d-flex align-items-center gap-2">
-                              <strong className="text-dark small">Organization Only (Private)</strong>
-                              <span className="badge bg-secondary-subtle text-dark border font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                Internal
-                              </span>
+                              <strong className="text-dark small">Organization Only</strong>
                             </div>
                             <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-                              Restricted strictly to your organization. Only verified members of your company can discover, view, or clone this assurance template.
+                              Only your organization can use this template.
                             </p>
                           </div>
                         </div>
@@ -2213,13 +2204,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           />
                           <div>
                             <div className="d-flex align-items-center gap-2">
-                              <strong className="text-dark small">Public Industry Standard (Shared)</strong>
-                              <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                Platform Wide
-                              </span>
+                              <strong className="text-dark small">Public</strong>
                             </div>
                             <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-                              Published to the public template library. Other charterers, operators, and surveyors across the platform can adopt this as a standard baseline.
+                              Any organization on the platform can use this template.
                             </p>
                           </div>
                         </div>
@@ -2237,7 +2225,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       4. Governance &amp; Stakeholder Assignments
                     </h5>
                     <div className="text-muted small">
-                      Configure workflow governance and stakeholder assignments.
+                      Choose who reviews and who is assigned.
                     </div>
                   </div>
                   <button
@@ -2263,16 +2251,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               Review Channel &amp; Authority Governance
                             </strong>
                             <div className="text-muted small" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-                              Who reviews is designated by the client. Review can be conducted internally, by an appointed third party, by the issuing authority, or a mixed combination.
+                              The client chooses who reviews: its own staff, a third party, the issuing authority, or a mix.
                             </div>
                           </div>
 
                           <div className="row g-3">
                             {[
-                              { id: 'internal', label: 'Internal Client Review', desc: 'In-house client assurance & vetting team' },
-                              { id: 'third_party', label: 'Appointed Third Party', desc: 'Independent marine warranty surveyors & auditors' },
-                              { id: 'issuing_authority', label: 'Issuing Authority / Regulatory', desc: 'Direct statutory validation via AMSA / Flag State' },
-                              { id: 'mixed', label: 'Mixed Review (Multi-Channel)', desc: 'Combination of Internal, 3rd-Party & Authority' },
+                              { id: 'internal', label: 'Internal', desc: 'Client staff' },
+                              { id: 'third_party', label: 'Third Party', desc: 'Independent surveyors and auditors' },
+                              { id: 'issuing_authority', label: 'Issuing Authority', desc: 'AMSA or the flag state' },
+                              { id: 'mixed', label: 'Mixed', desc: 'A combination of the above' },
                             ].map((modeOpt) => (
                               <div key={modeOpt.id} className="col-12 col-md-6 col-lg-3">
                                 <button
@@ -2300,10 +2288,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
                                 <div className="pe-2">
                                   <strong className="text-dark small d-block mb-1" style={{ fontSize: '0.825rem' }}>
-                                    Regulatory Authority Validation Gateway
+                                    Authority Validation
                                   </strong>
                                   <div className="text-secondary small" style={{ fontSize: '0.75rem', lineHeight: '1.35' }}>
-                                    Connect digital statutory checks via direct authority API or secure verification link.
+                                    Choose how the authority validates documents.
                                   </div>
                                 </div>
                                 <div className="d-flex align-items-center gap-2">
@@ -2313,9 +2301,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                     onChange={(e) => setAuthorityValidationMethod(e.target.value as AuthorityValidationMethod)}
                                     style={{ fontSize: '0.78rem', minWidth: '290px' }}
                                   >
-                                    <option value="api">AMSA Digital Validation API Gateway</option>
-                                    <option value="direct_link">Flag State Direct Verification Link</option>
-                                    <option value="manual">Classification Society Direct Portal</option>
+                                    <option value="api">AMSA API</option>
+                                    <option value="direct_link">Flag State Link</option>
+                                    <option value="manual">Class Society Portal</option>
                                   </select>
                                 </div>
                               </div>
@@ -2326,10 +2314,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <div className="p-4 px-4 bg-white border rounded-3 d-flex flex-column gap-3 shadow-2xs">
                             <div>
                               <strong className="text-dark small d-block mb-1" style={{ fontSize: '0.825rem' }}>
-                                Separate Assurance Checks &amp; Workflow Gates
+                                Checks &amp; Stages
                               </strong>
                               <div className="text-muted small" style={{ fontSize: '0.76rem', lineHeight: '1.35' }}>
-                                Configure statutory validity vs operational suitability checks alongside mandatory stage workflow gates.
+                                Choose which checks and stages apply.
                               </div>
                             </div>
 
@@ -2351,7 +2339,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                       Statutory Validity Check
                                     </label>
                                     <div className="text-muted small mt-1" style={{ fontSize: '0.75rem', lineHeight: '1.35' }}>
-                                      Checks document authenticity, expiry dates, and regulatory standing (via AMSA API / Link).
+                                      Checks that documents are authentic, in date, and in good standing.
                                     </div>
                                   </div>
                                 </div>
@@ -2374,7 +2362,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                       Operational Suitability Check
                                     </label>
                                     <div className="text-muted small mt-1" style={{ fontSize: '0.75rem', lineHeight: '1.35' }}>
-                                      Assesses operational fitness for purpose, charter specifications, and scope standards.
+                                      Checks that the asset suits the charter and scope.
                                     </div>
                                   </div>
                                 </div>
@@ -2392,7 +2380,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                   id="wf-verify"
                                 />
                                 <label htmlFor="wf-verify" className="form-check-label text-dark small fw-semibold cursor-pointer ps-1">
-                                  Verification Required (Verifier Gate)
+                                  Verification Required
                                 </label>
                               </div>
 
@@ -2405,7 +2393,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                   id="wf-inspect"
                                 />
                                 <label htmlFor="wf-inspect" className="form-check-label text-dark small fw-semibold cursor-pointer ps-1">
-                                  Visual / Vessel Inspection Required
+                                  Inspection Required
                                 </label>
                               </div>
 
@@ -2418,7 +2406,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                   id="wf-approve"
                                 />
                                 <label htmlFor="wf-approve" className="form-check-label text-dark small fw-semibold cursor-pointer ps-1">
-                                  Formal Approver Sign-Off Required
+                                  Approval Required
                                 </label>
                               </div>
                             </div>
@@ -2432,10 +2420,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                             <div>
                               <strong className="text-dark small d-block mb-1" style={{ fontSize: '0.85rem' }}>
-                                Assigned Assurance Set Stakeholders
+                                Stakeholders
                               </strong>
                               <div className="text-muted" style={{ fontSize: '0.78rem' }}>
-                                Designate the single Verifier, Inspector, and Approver for this assurance set. Stakeholder lists dynamically adapt to the selected review governance model.
+                                Select one verifier, inspector, and approver. The lists follow the review option chosen above.
                               </div>
                             </div>
                           </div>
@@ -2445,14 +2433,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="col-12 col-md-6 col-lg-4 d-flex flex-column">
                                 <div className="d-flex align-items-center justify-content-between mb-2" style={{ minHeight: '22px' }}>
                                   <label className="form-label text-secondary small fw-semibold m-0" htmlFor="assign-ver">
-                                    Assurance Set Verifier <span className="text-danger">*</span>
+                                    Verifier <span className="text-danger">*</span>
                                   </label>
                                 </div>
                                 {reviewMode === 'issuing_authority' ? (
                                   <div className="p-2 px-3 bg-light border border-secondary-subtle rounded-2 d-flex align-items-center justify-content-between text-secondary font-mono-code" style={{ minHeight: '34px' }}>
-                                    <span className="fw-semibold text-primary small">Handled via Authority API</span>
+                                    <span className="fw-semibold text-primary small">Handled by the authority</span>
                                     <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-sans" style={{ fontSize: '0.72rem' }}>
-                                      AMSA Gateway
+                                      AMSA
                                     </span>
                                   </div>
                                 ) : (
@@ -2490,7 +2478,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="col-12 col-md-6 col-lg-4 d-flex flex-column">
                                 <div className="d-flex align-items-center justify-content-between mb-2" style={{ minHeight: '22px' }}>
                                   <label className="form-label text-secondary small fw-semibold m-0" htmlFor="assign-ins">
-                                    Visual Inspector <span className="text-danger">*</span>
+                                    Inspector <span className="text-danger">*</span>
                                   </label>
                                 </div>
                                 <select
@@ -2524,7 +2512,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="col-12 col-md-6 col-lg-4 d-flex flex-column">
                                 <div className="d-flex align-items-center justify-content-between mb-2" style={{ minHeight: '22px' }}>
                                   <label className="form-label text-secondary small fw-semibold m-0" htmlFor="assign-app">
-                                    Formal Campaign Approver <span className="text-danger">*</span>
+                                    Approver <span className="text-danger">*</span>
                                   </label>
                                   {verificationRequired && reviewMode !== 'issuing_authority' && (
                                     <div className="form-check form-check-inline m-0 d-flex align-items-center gap-1.5">
@@ -2632,7 +2620,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         Documents
                       </h5>
                       <div className="text-muted small mt-0.5">
-                        Seafarer qualifications, STCW certificates, BOSIET inductions, and medical fitness for {selectedCrew?.fullName || 'assigned crew'}.
+                        Crew qualifications, STCW certificates, BOSIET inductions, and medical fitness for {selectedCrew?.fullName || 'assigned crew'}.
                       </div>
                     </div>
                   </div>
@@ -2673,17 +2661,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <div className="card border shadow-2xs rounded-3 bg-white">
                   <div className="card-header bg-light border-bottom px-4 py-3">
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      Review Assurance Campaign Specifications
+                      Review
                     </h5>
                   </div>
                   <div className="card-body p-4">
                     <div className="row g-4">
                       <div className="col-12 col-md-6">
                         <div className="p-3 bg-light rounded-3 border h-100">
-                          <strong className="text-dark small d-block mb-1">Campaign Title &amp; Governance</strong>
+                          <strong className="text-dark small d-block mb-1">Details</strong>
                           <div className="fw-bold text-primary fs-6">{title}</div>
                           <div className="text-secondary small mt-2">
-                            <strong>Scope:</strong> {assuranceType} Assurance &nbsp;|&nbsp; <strong>Target Asset:</strong>{' '}
+                            <strong>Scope:</strong> {assuranceType} Assurance &nbsp;|&nbsp; <strong>Asset:</strong>{' '}
                             {assuranceType === 'Vessel' && (
                               <span className="text-dark fw-semibold">{selectedVessel?.name} (IMO: {selectedVessel?.imoNumber})</span>
                             )}
@@ -2698,7 +2686,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             )}
                           </div>
                           <div className="text-secondary small mt-1">
-                            <strong>Charter Window:</strong> {startDate} to {endDate}
+                            <strong>Charter Period:</strong> {startDate} to {endDate}
                           </div>
                           {selectedProject && (
                             <div className="text-secondary small mt-1">
@@ -2713,9 +2701,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             </div>
                           )}
                           <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
-                            <strong>Template Privacy:</strong>
+                            <strong>Template:</strong>
                             <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>
-                              {templatePrivacy === 'public' ? 'Public Standard (Shared)' : 'Organization Only (Private)'}
+                              {templatePrivacy === 'public' ? 'Public' : 'Organization Only'}
                             </span>
                           </div>
                         </div>
@@ -2723,21 +2711,21 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
                       <div className="col-12 col-md-6">
                         <div className="p-3 bg-light rounded-3 border h-100">
-                          <strong className="text-dark small d-block mb-1">Assigned Assurance Set Stakeholders (1:1 Mapping)</strong>
+                          <strong className="text-dark small d-block mb-1">Stakeholders</strong>
                           <div className="text-secondary small"><strong>Submitter:</strong> Designated by Chartered Asset Owner</div>
                           <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (selectedVerifier ? `${selectedVerifier.name} (${selectedVerifier.organization})` : 'Pending') : 'N/A'}</div>
                           <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (selectedInspector ? `${selectedInspector.name} (${selectedInspector.organization})` : 'Pending') : 'N/A'}</div>
                           <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (selectedApprover ? `${selectedApprover.name} (${selectedApprover.organization})` : 'Pending') : 'N/A'}</div>
 
                           <div className="pt-2 mt-2 border-top">
-                            <strong className="text-dark small d-block mb-1">Review Governance &amp; Verification Checks</strong>
+                            <strong className="text-dark small d-block mb-1">Review &amp; Checks</strong>
                             <div className="d-flex flex-wrap gap-1.5 mb-1">
                               <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                Channel: {reviewMode === 'internal' ? 'Internal Client' : reviewMode === 'third_party' ? 'Appointed 3rd Party' : reviewMode === 'issuing_authority' ? 'Issuing Authority' : 'Mixed Multi-Channel'}
+                                Review: {reviewMode === 'internal' ? 'Internal' : reviewMode === 'third_party' ? 'Third Party' : reviewMode === 'issuing_authority' ? 'Issuing Authority' : 'Mixed Multi-Channel'}
                               </span>
                               {validityCheckRequired && (
                                 <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                  Statutory Validity Check (AMSA/Class)
+                                  Statutory Validity Check
                                 </span>
                               )}
                               {suitabilityCheckRequired && (
@@ -2748,7 +2736,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             </div>
                             {(reviewMode === 'issuing_authority' || reviewMode === 'mixed') && (
                               <div className="text-muted small" style={{ fontSize: '0.72rem' }}>
-                                Authority Gateway: {authorityValidationMethod === 'api' ? 'AMSA Validation API' : authorityValidationMethod === 'direct_link' ? 'Flag State Link' : 'Classification Society Portal'}
+                                Authority Validation: {authorityValidationMethod === 'api' ? 'AMSA API' : authorityValidationMethod === 'direct_link' ? 'Flag State Link' : 'Class Society Portal'}
                               </div>
                             )}
                           </div>
@@ -2759,11 +2747,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <div className="col-12">
                         <div className="d-flex align-items-center justify-content-between mb-2">
                           <strong className="text-dark small d-block">
-                            Assurance Campaign Scope Breakdown · People, Plant, Process Framework
+                            Requirements
                           </strong>
-                          <span className="badge bg-secondary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
-                            Flattened MVP Structure
-                          </span>
                         </div>
 
                         <div className="row g-3">
@@ -2773,7 +2758,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="d-flex align-items-center justify-content-between mb-2">
                                 <div className="d-flex align-items-center gap-1.5">
                                   <Ship className="w-4 h-4 text-primary" />
-                                  <strong className="text-dark small">Plant (Physical Assets)</strong>
+                                  <strong className="text-dark small">Plant</strong>
                                 </div>
                                 <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
                                   {SUBTYPE_STANDARD_DOCS.Vessel.filter((d) => docToggles[d.id]).length +
@@ -2785,11 +2770,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="d-flex flex-column gap-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
                                 <div className="p-2 bg-light rounded-2">
                                   <div className="fw-semibold text-dark">Asset 1: {selectedVessel?.name || 'Vessel'} (IMO {selectedVessel?.imoNumber || 'N/A'})</div>
-                                  <div>Standard: {SUBTYPE_STANDARD_DOCS.Vessel.filter((d) => docToggles[d.id]).length} · Specialized: {specializedDocs.filter((d) => d.subtype === 'Vessel' && d.isEnabled).length}</div>
+                                  <div>Standard: {SUBTYPE_STANDARD_DOCS.Vessel.filter((d) => docToggles[d.id]).length} · Custom: {specializedDocs.filter((d) => d.subtype === 'Vessel' && d.isEnabled).length}</div>
                                 </div>
                                 <div className="p-2 bg-light rounded-2">
                                   <div className="fw-semibold text-dark">Asset 2: {selectedEquipment?.name || 'Equipment'} ({selectedEquipment?.equipmentIdentifier || 'N/A'})</div>
-                                  <div>Standard: {SUBTYPE_STANDARD_DOCS.Equipment.filter((d) => docToggles[d.id]).length} · Specialized: {specializedDocs.filter((d) => d.subtype === 'Equipment' && d.isEnabled).length}</div>
+                                  <div>Standard: {SUBTYPE_STANDARD_DOCS.Equipment.filter((d) => docToggles[d.id]).length} · Custom: {specializedDocs.filter((d) => d.subtype === 'Equipment' && d.isEnabled).length}</div>
                                 </div>
                               </div>
                             </div>
@@ -2801,7 +2786,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="d-flex align-items-center justify-content-between mb-2">
                                 <div className="d-flex align-items-center gap-1.5">
                                   <Users className="w-4 h-4 text-primary" />
-                                  <strong className="text-dark small">People (Seafarers &amp; Crew)</strong>
+                                  <strong className="text-dark small">People</strong>
                                 </div>
                                 <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
                                   {SUBTYPE_STANDARD_DOCS.Crew.filter((d) => docToggles[d.id]).length +
@@ -2810,9 +2795,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               </div>
                               <div className="d-flex flex-column gap-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
                                 <div className="p-2 bg-light rounded-2">
-                                  <div className="fw-semibold text-dark">{selectedCrew?.fullName || 'Crew Seafarer'}</div>
+                                  <div className="fw-semibold text-dark">{selectedCrew?.fullName || 'Crew'}</div>
                                   <div className="text-muted">{selectedCrew?.rank || 'Master'} · {selectedCrew?.organization || 'Marine'}</div>
-                                  <div className="mt-1">Standard: {SUBTYPE_STANDARD_DOCS.Crew.filter((d) => docToggles[d.id]).length} · Specialized: {specializedDocs.filter((d) => d.subtype === 'Crew' && d.isEnabled).length}</div>
+                                  <div className="mt-1">Standard: {SUBTYPE_STANDARD_DOCS.Crew.filter((d) => docToggles[d.id]).length} · Custom: {specializedDocs.filter((d) => d.subtype === 'Crew' && d.isEnabled).length}</div>
                                 </div>
                               </div>
                             </div>
@@ -2824,7 +2809,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="d-flex align-items-center justify-content-between mb-2">
                                 <div className="d-flex align-items-center gap-1.5">
                                   <Activity className="w-4 h-4 text-primary" />
-                                  <strong className="text-dark small">Process (Operations &amp; HSE)</strong>
+                                  <strong className="text-dark small">Process</strong>
                                 </div>
                                 <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.675rem' }}>
                                   {SUBTYPE_STANDARD_DOCS.Activity.filter((d) => docToggles[d.id]).length +
@@ -2835,7 +2820,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 <div className="p-2 bg-light rounded-2">
                                   <div className="fw-semibold text-dark">{selectedActivity?.name || 'Operations'}</div>
                                   <div className="text-muted">{selectedActivity?.category || 'SURF Activity'}</div>
-                                  <div className="mt-1">Standard: {SUBTYPE_STANDARD_DOCS.Activity.filter((d) => docToggles[d.id]).length} · Specialized: {specializedDocs.filter((d) => d.subtype === 'Activity' && d.isEnabled).length}</div>
+                                  <div className="mt-1">Standard: {SUBTYPE_STANDARD_DOCS.Activity.filter((d) => docToggles[d.id]).length} · Custom: {specializedDocs.filter((d) => d.subtype === 'Activity' && d.isEnabled).length}</div>
                                 </div>
                               </div>
                             </div>
@@ -2897,14 +2882,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                                 <div className="d-flex align-items-center gap-2">
                                   <FileCheck className="text-primary" style={{ width: '18px', height: '18px' }} />
-                                  <strong className="text-dark small">Asset Document Auto-Attachment Status</strong>
+                                  <strong className="text-dark small">Attached Documents</strong>
                                 </div>
                                 <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.75rem' }}>
-                                  {summary.autoAttachedCount} of {summary.totalCount} Documents Pre-Matched
+                                  {summary.autoAttachedCount} of {summary.totalCount} Matched
                                 </span>
                               </div>
                               <p className="text-secondary small mb-2" style={{ fontSize: '0.8125rem' }}>
-                                Existing statutory certificates, STCW credentials, and equipment registers linked to the chartered asset will be automatically attached upon creation.
+                                Existing documents for this asset are attached automatically when the set is created.
                               </p>
                               {summary.attachedDetails.length > 0 && (
                                 <div className="d-flex flex-wrap gap-2 pt-1">
@@ -2953,7 +2938,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 className="btn btn-outline-primary px-3.5 py-1.5 fw-semibold"
                 onClick={handlePrevious}
               >
-                Previous Step
+                Back
               </button>
             )}
 
@@ -2963,7 +2948,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 className="btn btn-primary text-white px-4 py-1.5 fw-semibold"
                 onClick={handleNext}
               >
-                Next Step
+                Next
               </button>
             ) : (
               <button
@@ -2972,7 +2957,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 style={{ backgroundColor: 'rgb(11, 27, 43)', borderColor: 'rgb(11, 27, 43)' }}
                 onClick={handleSubmit}
               >
-                Initiate Assurance Set
+                Create Assurance Set
               </button>
             )}
           </div>
@@ -2990,7 +2975,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             <div className="modal-content shadow-lg border-0 rounded-3">
               <div className="modal-header border-bottom px-4 py-3 bg-light">
                 <h5 className="modal-title fw-bold text-dark fs-6">
-                  {editingDraftId ? 'Exit Draft Setup' : 'Exit Assurance Set Wizard'}
+                  Unsaved Changes
                 </h5>
                 <button
                   type="button"
@@ -3002,17 +2987,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <div className="modal-body px-4 py-4">
                 <p className="text-secondary small mb-3" style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>
                   {editingDraftId
-                    ? 'You are currently continuing setup of an existing draft assurance set. Would you like to save your updated state to this draft, or discard your current session changes?'
-                    : 'You have unsaved changes in this assurance set creation wizard. Would you like to save your configuration as a draft to resume later, or discard your progress?'}
+                    ? 'Save your changes to this draft, or discard them?'
+                    : 'Save this assurance set as a draft, or discard it?'}
                 </p>
                 <div className="p-3 bg-light rounded-3 border small">
-                  <div className="fw-semibold text-dark">{title || 'Untitled Campaign'}</div>
+                  <div className="fw-semibold text-dark">{title || 'Untitled'}</div>
                   <div className="text-muted mt-0.5">
-                    Scope: {assuranceType} &nbsp;|&nbsp; Target:{' '}
-                    {assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel Asset') :
-                        assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew Asset') :
-                          assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment Asset') :
-                            (selectedActivity?.name || 'Activity Asset')}
+                    Scope: {assuranceType} &nbsp;|&nbsp; Asset:{' '}
+                    {assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
+                        assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew') :
+                          assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment') :
+                            (selectedActivity?.name || 'Activity')}
                   </div>
                 </div>
               </div>
@@ -3022,7 +3007,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   className="btn btn-outline-danger btn-sm px-3"
                   onClick={handleConfirmExitWithoutSaving}
                 >
-                  Discard &amp; Exit
+                  Discard
                 </button>
                 <div className="d-flex align-items-center gap-2">
                   <button

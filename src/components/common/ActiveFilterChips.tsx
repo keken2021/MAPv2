@@ -30,7 +30,7 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
   return (
     <div className={`d-flex flex-wrap align-items-center gap-1.5 py-1 ${className}`}>
       <span className="text-muted small fw-medium me-1" style={{ fontSize: '0.78rem' }}>
-        Active filters:
+        Filters:
       </span>
       {chips.map((chip) => (
         <span
@@ -61,7 +61,7 @@ export const ActiveFilterChips: React.FC<ActiveFilterChipsProps> = ({
           style={{ fontSize: '0.76rem', textDecoration: 'none' }}
         >
           <RotateCcw size={11} />
-          <span>Clear all</span>
+          <span>Clear All</span>
         </button>
       )}
     </div>

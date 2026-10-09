@@ -72,7 +72,7 @@ export const EquipmentView: React.FC = () => {
 
   const activeChips: FilterChip[] = [
     ...(categoryFilter !== 'ALL' ? [{ id: 'cat', label: 'Category', value: categoryFilter, onRemove: () => setCategoryFilter('ALL') }] : []),
-    ...(vesselFilter !== 'ALL' ? [{ id: 'vessel', label: 'Parent Vessel', value: vesselFilter === 'UNASSIGNED' ? 'Unassigned' : (vessels.find(v => v.id === vesselFilter)?.name || vesselFilter), onRemove: () => setVesselFilter('ALL') }] : []),
+    ...(vesselFilter !== 'ALL' ? [{ id: 'vessel', label: 'Vessel', value: vesselFilter === 'UNASSIGNED' ? 'Unassigned' : (vessels.find(v => v.id === vesselFilter)?.name || vesselFilter), onRemove: () => setVesselFilter('ALL') }] : []),
     ...(availabilityFilter !== 'ALL' ? [{ id: 'avail', label: 'Availability', value: availabilityFilter, onRemove: () => setAvailabilityFilter('ALL') }] : []),
     ...(complianceFilter !== 'ALL' ? [{ id: 'comp', label: 'Compliance', value: complianceFilter, onRemove: () => setComplianceFilter('ALL') }] : []),
   ];
@@ -98,7 +98,7 @@ export const EquipmentView: React.FC = () => {
           <input
             type="text"
             className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search equipment name, identifier, vessel..."
+            placeholder="Search equipment..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '280px' }}
@@ -116,7 +116,7 @@ export const EquipmentView: React.FC = () => {
               className="btn btn-sm btn-outline-secondary text-dark d-flex align-items-center gap-1.5 px-2.5 py-1"
               onClick={() => setIsViewDropdownOpen(!isViewDropdownOpen)}
               title={viewMode === 'list' ? 'List view' : 'Asset tree'}
-              aria-label="Toggle view mode"
+              aria-label="View mode"
             >
               {viewMode === 'list' ? <TableIcon size={15} /> : <LayoutGrid size={15} />}
             </button>
@@ -150,11 +150,11 @@ export const EquipmentView: React.FC = () => {
                       setViewMode('tree');
                       setIsViewDropdownOpen(false);
                     }}
-                    title="Asset tree"
+                    title="Tree view"
                   >
                     <div className="d-flex align-items-center gap-2">
                       <LayoutGrid size={15} />
-                      <span>Asset Tree</span>
+                      <span>Tree</span>
                     </div>
                     {viewMode === 'tree' && <Check size={14} />}
                   </button>
@@ -169,7 +169,7 @@ export const EquipmentView: React.FC = () => {
               className="btn btn-sm btn-primary fw-semibold"
               onClick={() => setIsModalOpen(true)}
             >
-              Register Equipment
+              Add Equipment
             </button>
           )}
         </div>
@@ -193,10 +193,10 @@ export const EquipmentView: React.FC = () => {
             <table className="table map-table-custom align-middle mb-0">
               <thead>
                 <tr>
-                  <th>Equipment Identifier</th>
-                  <th>Equipment Name</th>
+                  <th>Equipment ID</th>
+                  <th>Name</th>
                   <th>Category</th>
-                  <th>Parent Vessel</th>
+                  <th>Vessel</th>
                   <th>Availability</th>
                   <th>Compliance</th>
                   <th className="text-end">Actions</th>
@@ -206,7 +206,7 @@ export const EquipmentView: React.FC = () => {
                 {filteredEquipment.length === 0 && (
                   <tr>
                     <td colSpan={7} className="text-center text-muted py-4">
-                      No equipment match the search or filter criteria.
+                      No equipment found.
                     </td>
                   </tr>
                 )}
@@ -237,8 +237,8 @@ export const EquipmentView: React.FC = () => {
                             e.stopPropagation();
                             setCurrentHashView('equipment', item.id);
                           }}
-                          title="View Equipment Details"
-                          aria-label="View Equipment Details"
+                          title="View"
+                          aria-label="View"
                         >
                           <Eye size={16} />
                         </button>
@@ -257,14 +257,13 @@ export const EquipmentView: React.FC = () => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Equipment Filters"
-        subtitle="Filter equipment assets by category, parent vessel, availability, and compliance status"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Equipment Category</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Category</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={categoryFilter}
@@ -280,14 +279,14 @@ export const EquipmentView: React.FC = () => {
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Parent Vessel</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Vessel</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={vesselFilter}
                 onChange={(e) => setVesselFilter(e.target.value)}
               >
-                <option value="ALL">All Parent Vessels</option>
-                <option value="UNASSIGNED">Unassigned / Standalone</option>
+                <option value="ALL">All Vessels</option>
+                <option value="UNASSIGNED">Unassigned</option>
                 {vessels.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}
@@ -297,7 +296,7 @@ export const EquipmentView: React.FC = () => {
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Availability Status</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Availability</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={availabilityFilter}
@@ -312,7 +311,7 @@ export const EquipmentView: React.FC = () => {
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Compliance Status</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Compliance</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={complianceFilter}

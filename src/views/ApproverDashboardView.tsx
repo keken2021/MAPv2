@@ -9,6 +9,7 @@ import { useMapStore } from '../store/useMapStore';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { formatMaritimeDate } from '../utils/formatters';
+import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { canPerform } from '../utils/permissionHelpers';
 import { MasterDocument } from '../types/document';
@@ -187,9 +188,9 @@ export const ApproverDashboardView: React.FC = () => {
 
     if (decision === 'Approved' && isApprovalBlocked) {
       if (isInspectionBlocked) {
-        setFeedbackMessage('Approval Blocked: Mandatory physical vessel inspection has not been completed.');
+        setFeedbackMessage('Cannot approve: the mandatory inspection is not complete.');
       } else {
-        setFeedbackMessage('Approval Blocked: Mandatory statutory requirements remain unverified or expired.');
+        setFeedbackMessage('Cannot approve: some mandatory requirements are not verified or have expired.');
       }
       return;
     }
@@ -272,24 +273,24 @@ export const ApproverDashboardView: React.FC = () => {
               {/* Assurance Set Information & stakeholder role assignments card */}
               <div className="card map-card-custom p-4">
                 <div className="text-uppercase font-mono-code fw-bold text-secondary mb-3 small">
-                  Assurance Set Information & Stakeholders — {selectedSet.id}
+                  Details — {selectedSet.id}
                 </div>
                 <div className="row g-3 font-mono-code small mb-3">
                   <div className="col-md-6 border-end pr-3">
-                    <div className="text-secondary mb-1">Initiator Organisation:</div>
+                    <div className="text-secondary mb-1">Created By:</div>
                     <div className="fw-bold text-dark mb-2">{selectedSet.initiatorOrg}</div>
 
-                    <div className="text-secondary mb-1">Initiator Role:</div>
-                    <div className="fw-bold text-dark mb-2">{selectedSet.initiatorRole}</div>
+                    <div className="text-secondary mb-1">Role:</div>
+                    <div className="fw-bold text-dark mb-2">{getRoleDisplayLabel(selectedSet.initiatorRole)}</div>
 
-                    <div className="text-secondary mb-1">Charter Window:</div>
+                    <div className="text-secondary mb-1">Charter Period:</div>
                     <div className="fw-bold text-dark">
                       {formatMaritimeDate(selectedSet.charterWindowStart)} - {formatMaritimeDate(selectedSet.charterWindowEnd)}
                     </div>
                   </div>
 
                   <div className="col-md-6 pl-3">
-                    <div className="text-secondary mb-1">Vessel Type & Classification:</div>
+                    <div className="text-secondary mb-1">Vessel Type &amp; Class Society:</div>
                     <div className="fw-bold text-dark mb-2">
                       {vessel?.vesselType || 'Offshore Support Vessel'} ({vessel?.classificationSociety || 'DNV'})
                     </div>
@@ -297,16 +298,16 @@ export const ApproverDashboardView: React.FC = () => {
                     <div className="text-secondary mb-1">Dynamic Positioning:</div>
                     <div className="fw-bold text-dark mb-2">{vessel?.dynamicPositioningClass || 'DP2'}</div>
 
-                    <div className="text-secondary mb-1">Mandatory Inspection:</div>
+                    <div className="text-secondary mb-1">Inspection:</div>
                     <div className="fw-bold text-dark">
-                      {selectedSet.mandatoryInspectionRequired ? 'Required & Verified' : 'Not Required'}
+                      {selectedSet.mandatoryInspectionRequired ? 'Required' : 'Not Required'}
                     </div>
                   </div>
                 </div>
 
                 <div className="border-top pt-3">
                   <div className="text-uppercase font-mono-code fw-bold text-secondary mb-2 small">
-                    Stakeholder Role Assignments
+                    Stakeholders
                   </div>
                   <div className="row g-2">
                     <div className="col-md-3 col-6">
@@ -381,13 +382,13 @@ export const ApproverDashboardView: React.FC = () => {
                               style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                               onClick={() => handleReqSort('title')}
                             >
-                              Requirement Title {renderSortIndicator(reqSortField, 'title', reqSortDirection)}
+                              Requirement {renderSortIndicator(reqSortField, 'title', reqSortDirection)}
                             </th>
                             <th
                               style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                               onClick={() => handleReqSort('ocrConfidence')}
                             >
-                              OCR Conf {renderSortIndicator(reqSortField, 'ocrConfidence', reqSortDirection)}
+                              OCR Confidence {renderSortIndicator(reqSortField, 'ocrConfidence', reqSortDirection)}
                             </th>
                             <th
                               style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -402,7 +403,7 @@ export const ApproverDashboardView: React.FC = () => {
                           {verifiedRequirements.length === 0 ? (
                             <tr>
                               <td colSpan={5} className="text-center text-secondary py-4 font-mono-code">
-                                No verified documents available for executive approval yet.
+                                No verified documents yet.
                               </td>
                             </tr>
                           ) : (
@@ -435,8 +436,8 @@ export const ApproverDashboardView: React.FC = () => {
                                           className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                           style={{ width: '32px', height: '32px' }}
                                           onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
-                                          title="Review Document"
-                                          aria-label="Review Document"
+                                          title="Review"
+                                          aria-label="Review"
                                         >
                                           <FileCheck size={16} />
                                         </button>
@@ -449,10 +450,10 @@ export const ApproverDashboardView: React.FC = () => {
                                             type="button"
                                             className="btn btn-sm btn-outline-warning text-dark d-inline-flex align-items-center justify-content-center p-0"
                                             style={{ width: '32px', height: '32px' }}
-                                            title="Return for Correction"
-                                            aria-label="Return for Correction"
+                                            title="Return for correction"
+                                            aria-label="Return for correction"
                                             onClick={() => {
-                                              const reason = window.prompt(`Enter return reason for "${req.title}":`, approverNotes || 'Approver requested revision and correction.');
+                                              const reason = window.prompt(`Reason for returning "${req.title}":`, approverNotes || 'Returned for correction by the approver.');
                                               if (reason && reason.trim()) {
                                                 denyRequirementByApprover(selectedSet.id, req.id, 'Correction Requested', reason.trim());
                                                 setFeedbackMessage(`Requirement "${req.title}" returned for correction. Submitter has been pinged.`);
@@ -465,10 +466,10 @@ export const ApproverDashboardView: React.FC = () => {
                                             type="button"
                                             className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
                                             style={{ width: '32px', height: '32px' }}
-                                            title="Reject Document"
-                                            aria-label="Reject Document"
+                                            title="Reject"
+                                            aria-label="Reject"
                                             onClick={() => {
-                                              const reason = window.prompt(`Enter rejection reason for "${req.title}":`, approverNotes || 'Document does not satisfy executive statutory criteria.');
+                                              const reason = window.prompt(`Reason for rejecting "${req.title}":`, approverNotes || 'Document does not meet the requirement.');
                                               if (reason && reason.trim()) {
                                                 denyRequirementByApprover(selectedSet.id, req.id, 'Rejected', reason.trim());
                                                 setFeedbackMessage(`Requirement "${req.title}" rejected. Submitter has been pinged.`);
@@ -499,28 +500,28 @@ export const ApproverDashboardView: React.FC = () => {
             <div className="d-flex flex-column gap-4">
               {/* card 1: executive compliance readiness dial */}
               <div className="card map-card-custom p-4 text-center">
-                <h5 className="fw-semibold mb-3 text-slate-900">Executive Compliance Readiness Dial</h5>
+                <h5 className="fw-semibold mb-3 text-slate-900">Readiness</h5>
                 <ReadinessGauge score={calculateAssuranceSetReadiness(selectedSet)} size="lg" />
 
                 <div className="mt-4 p-3 bg-light border border-secondary rounded text-start small">
                   <h6 className="fw-bold text-uppercase text-secondary mb-2">
-                    Approval Blocking Rule Engine Status
+                    Approval Checks
                   </h6>
                   {isApprovalBlocked ? (
                     <div className="text-danger fw-semibold">
                       {unfulfilledMandatory.length > 0 ? (
-                        <span>{unfulfilledMandatory.length} mandatory requirement(s) pending verification or expired.</span>
+                        <span>{unfulfilledMandatory.length} mandatory requirement(s) not verified or expired.</span>
                       ) : (
-                        <span>Mandatory physical vessel inspection is pending completion.</span>
+                        <span>The mandatory inspection is not complete.</span>
                       )}
                     </div>
                   ) : selectedSet?.verificationRequired === false ? (
                     <div className="text-success fw-semibold">
-                      Mandatory verification bypassed by workflow configuration. Ready for final certification sign-off.
+                      Verification is not required for this set. Ready for approval.
                     </div>
                   ) : (
                     <div className="text-success fw-semibold">
-                      Ready for final certification sign-off.
+                      Ready for approval.
                     </div>
                   )}
                 </div>
@@ -528,7 +529,7 @@ export const ApproverDashboardView: React.FC = () => {
 
               {/* card 2: charter certification controls */}
               <div className="card map-card-custom p-4">
-                <h5 className="fw-semibold mb-3 text-slate-900">Charter Certification Controls</h5>
+                <h5 className="fw-semibold mb-3 text-slate-900">Decision</h5>
 
                 {feedbackMessage && (
                   <div className="alert alert-info py-2 small mb-3">{feedbackMessage}</div>
@@ -545,9 +546,9 @@ export const ApproverDashboardView: React.FC = () => {
                     placeholder={
                       canCertifyAssuranceSet
                         ? isAlreadyApproved
-                          ? 'Assurance set approved. Decision notes locked.'
-                          : 'Enter justification notes or return feedback...'
-                        : 'Read-only view for non-approver personas...'
+                          ? 'Approved. Notes are locked.'
+                          : 'Add notes for your decision'
+                        : 'Read-only'
                     }
                     value={approverNotes}
                     onChange={(e) => setApproverNotes(e.target.value)}
@@ -559,7 +560,7 @@ export const ApproverDashboardView: React.FC = () => {
                   isAlreadyApproved ? (
                     <div className="alert alert-success py-2.5 px-3 small font-mono-code fw-semibold mb-0 d-flex align-items-center gap-2">
                       <span className="badge bg-success text-white font-mono-code">Approved</span>
-                      <span>Assurance set and verified documents have already been approved and certified.</span>
+                      <span>This assurance set is already approved.</span>
                     </div>
                   ) : (
                     <div className="d-flex flex-column gap-2">
@@ -569,7 +570,7 @@ export const ApproverDashboardView: React.FC = () => {
                         onClick={() => handleDecision('Approved')}
                         disabled={isApprovalBlocked}
                       >
-                        Approve Charter Readiness
+                        Approve
                       </button>
                       <button
                         type="button"
@@ -583,7 +584,7 @@ export const ApproverDashboardView: React.FC = () => {
                         className="btn btn-danger text-white py-2 fw-semibold"
                         onClick={() => handleDecision('Rejected')}
                       >
-                        Reject Assurance Set
+                        Reject
                       </button>
                     </div>
                   )
@@ -599,7 +600,7 @@ export const ApproverDashboardView: React.FC = () => {
             <div className="map-photo-lightbox-content" onClick={(e) => e.stopPropagation()}>
               <div className="p-3 border-bottom d-flex align-items-center justify-between">
                 <h6 className="fw-bold mb-0 text-dark">
-                  High-Resolution Reference Photo — {selectedSet.vesselName} ({selectedSet.id})
+                  Photo — {selectedSet.vesselName} ({selectedSet.id})
                 </h6>
                 <button
                   type="button"
@@ -621,20 +622,18 @@ export const ApproverDashboardView: React.FC = () => {
                   <span>IMO {selectedSet.imoNumber}</span>
                   <span>•</span>
                   <span className="inline-flex items-center gap-1 text-emerald-400">
-                    <ShieldCheck className="w-3.5 h-3.5" /> STATUTORY VERIFIED ASSET PHOTO
+                    <ShieldCheck className="w-3.5 h-3.5" /> VERIFIED PHOTO
                   </span>
                 </div>
               </div>
               <div className="p-3 bg-light border-top d-flex align-items-center justify-between">
-                <span className="small text-secondary font-mono-code">
-                  Resolution: 1920x1080 HD · Verification Seal: AMSA Marine Audit Division
-                </span>
+                <span />
                 <button
                   type="button"
                   className="btn btn-sm btn-secondary font-mono-code"
                   onClick={() => setIsLightboxOpen(false)}
                 >
-                  Close Photo Preview
+                  Close
                 </button>
               </div>
             </div>
@@ -659,37 +658,37 @@ export const ApproverDashboardView: React.FC = () => {
         <div className="col-md-3 col-6">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Total Approval Requests
+              Approval Requests
             </div>
             <div className="map-kpi-value text-primary mt-1">{totalCampaigns}</div>
-            <div className="map-kpi-subtitle mt-1">Assigned Campaigns</div>
+            <div className="map-kpi-subtitle mt-1">Assigned to you</div>
           </div>
         </div>
         <div className="col-md-3 col-6">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Pending Sign-off
+              Pending Approval
             </div>
             <div className="map-kpi-value text-warning mt-1">{pendingApprovals}</div>
-            <div className="map-kpi-subtitle mt-1">Awaiting Final Decision</div>
+            <div className="map-kpi-subtitle mt-1">Waiting for your decision</div>
           </div>
         </div>
         <div className="col-md-3 col-6">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Approved &amp; Certified
+              Approved
             </div>
             <div className="map-kpi-value text-success mt-1">{approvedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Issued Assurance Certificates</div>
+            <div className="map-kpi-subtitle mt-1">Approved assurance sets</div>
           </div>
         </div>
         <div className="col-md-3 col-6">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Returned / Rejected
+              Returned or Rejected
             </div>
             <div className="map-kpi-value text-danger mt-1">{returnedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Sent Back for Correction</div>
+            <div className="map-kpi-subtitle mt-1">Returned for correction or rejected</div>
           </div>
         </div>
       </div>
@@ -704,7 +703,7 @@ export const ApproverDashboardView: React.FC = () => {
                   type="text"
                   className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
                   style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                  placeholder="Search ID, Vessel, Submitter..."
+                  placeholder="Search assurance sets..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -731,31 +730,31 @@ export const ApproverDashboardView: React.FC = () => {
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handlePipelineSort('id')}
                 >
-                  Assurance Set ID {renderSortIndicator(pipelineSortField, 'id', pipelineSortDirection)}
+                  Set ID {renderSortIndicator(pipelineSortField, 'id', pipelineSortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handlePipelineSort('title')}
                 >
-                  Campaign Title {renderSortIndicator(pipelineSortField, 'title', pipelineSortDirection)}
+                  Title {renderSortIndicator(pipelineSortField, 'title', pipelineSortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handlePipelineSort('vesselName')}
                 >
-                  Vessel Name & IMO {renderSortIndicator(pipelineSortField, 'vesselName', pipelineSortDirection)}
+                  Vessel {renderSortIndicator(pipelineSortField, 'vesselName', pipelineSortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handlePipelineSort('initiator')}
                 >
-                  Initiator / Submitter {renderSortIndicator(pipelineSortField, 'initiator', pipelineSortDirection)}
+                  Created By {renderSortIndicator(pipelineSortField, 'initiator', pipelineSortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handlePipelineSort('status')}
                 >
-                  Sign-off Status {renderSortIndicator(pipelineSortField, 'status', pipelineSortDirection)}
+                  Decision {renderSortIndicator(pipelineSortField, 'status', pipelineSortDirection)}
                 </th>
                 <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
@@ -764,7 +763,7 @@ export const ApproverDashboardView: React.FC = () => {
               {sortedSets.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-4 text-secondary font-mono-code">
-                    No matching approval requests found.
+                    No approval requests found.
                   </td>
                 </tr>
               ) : (
@@ -790,7 +789,7 @@ export const ApproverDashboardView: React.FC = () => {
                         {set.approverDecision === 'Approved' ? (
                           <span className="badge bg-success text-white font-mono-code">Approved</span>
                         ) : set.approverDecision === 'Returned for Correction' ? (
-                          <span className="badge bg-warning text-dark font-mono-code">Correction</span>
+                          <span className="badge bg-warning text-dark font-mono-code">Returned for Correction</span>
                         ) : set.approverDecision === 'Rejected' ? (
                           <span className="badge bg-danger text-white font-mono-code">Rejected</span>
                         ) : (
@@ -803,8 +802,8 @@ export const ApproverDashboardView: React.FC = () => {
                           className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center p-0 text-white"
                           style={{ width: '32px', height: '32px' }}
                           onClick={() => setCurrentHashView('approver', set.id)}
-                          title="Review Approval Request"
-                          aria-label="Review Approval Request"
+                          title="Review"
+                          aria-label="Review"
                         >
                           <Eye size={16} />
                         </button>
@@ -823,15 +822,14 @@ export const ApproverDashboardView: React.FC = () => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Approval Requests Filters"
-        subtitle="Filter assigned vetting campaigns by lifecycle workflow stage"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="d-flex flex-column gap-3">
           {/* Stage Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Workflow Stage
+              Stage
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"

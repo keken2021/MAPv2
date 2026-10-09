@@ -123,7 +123,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
         {/* Modal Header */}
         <div className="card-header d-flex align-items-center justify-content-between p-3 border-bottom">
           <div className="fw-bold text-dark fs-6">
-            Provision New User / Third-Party Stakeholder
+            Add User
           </div>
           <button
             type="button"
@@ -146,7 +146,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
 
             {/* User Type Selection */}
             <div>
-              <label className="form-label small fw-semibold text-secondary mb-1">User Classification / Type <span className="text-danger">*</span></label>
+              <label className="form-label small fw-semibold text-secondary mb-1">User Type <span className="text-danger">*</span></label>
               <div className="d-flex gap-3">
                 <div className="form-check">
                   <input
@@ -171,7 +171,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
                     onChange={() => handleUserTypeChange('Third-Party')}
                   />
                   <label className="form-check-input-label small text-dark fw-semibold cursor-pointer" htmlFor="userTypeThird">
-                    Third-Party Stakeholder
+                    Third-Party
                   </label>
                 </div>
               </div>
@@ -193,7 +193,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
               </div>
 
               <div className="col-md-6">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="user-email">Email Address <span className="text-danger">*</span></label>
+                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="user-email">Email <span className="text-danger">*</span></label>
                 <input
                   id="user-email"
                   type="email"
@@ -222,7 +222,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
 
               <div className="col-md-6">
                 <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="user-org">
-                  Organization Name <span className="text-danger">*</span>
+                  Organization <span className="text-danger">*</span>
                 </label>
                 <input
                   id="user-org"
@@ -242,12 +242,12 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) =
 
             {/* Department / Scope of Responsibility */}
             <div>
-              <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="user-scope">Department / Operational Scope</label>
+              <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="user-scope">Department</label>
               <input
                 id="user-scope"
                 type="text"
                 className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="e.g. Vetting Compliance & Statutory Verification"
+                placeholder="e.g. Marine Compliance"
                 value={departmentOrScope}
                 onChange={(e) => setDepartmentOrScope(e.target.value)}
               />

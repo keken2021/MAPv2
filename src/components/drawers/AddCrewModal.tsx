@@ -188,7 +188,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
           <div className="modal-content shadow-lg border-0 overflow-hidden">
             <div className="modal-header bg-success text-white p-3 d-flex align-items-center justify-content-between">
               <div className="fw-bold fs-6">
-                Crew Member Registered Successfully
+                Crew Member Added
               </div>
               <button
                 type="button"
@@ -206,7 +206,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
               </div>
 
               <p className="small text-secondary mb-0">
-                The crew profile has been registered in the system. As an Administrator or Submitter, you can now add STCW compliance certificates for this seafarer based on compliance layers below:
+                The crew member is added. You can now upload their documents:
               </p>
 
               <div className="d-flex flex-column gap-2.5">
@@ -223,10 +223,10 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                   }}
                 >
                   <div>
-                    <div className="fw-bold text-dark mb-0.5">Upload Layer 1 — Universal Core Certificate</div>
-                    <div className="small text-secondary">Universal Core (Passport, Seaman's Book, BST, ENG1 Medical, Security Awareness)</div>
+                    <div className="fw-bold text-dark mb-0.5">Upload Core Document</div>
+                    <div className="small text-secondary">Passport, Seaman's Book, BST, ENG1 Medical, Security Awareness</div>
                   </div>
-                  <span className="btn btn-sm btn-primary ms-3 flex-shrink-0">Add Layer 1</span>
+                  <span className="btn btn-sm btn-primary ms-3 flex-shrink-0">Add Core Document</span>
                 </button>
 
                 <button
@@ -242,10 +242,10 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                   }}
                 >
                   <div>
-                    <div className="fw-bold text-dark mb-0.5">Upload Layer 2 — Vessel Specific Endorsement</div>
-                    <div className="small text-secondary">Vessel & Cargo Specific (CoC, Flag Endorsement, Advanced Tanker, IGF, DP Operator)</div>
+                    <div className="fw-bold text-dark mb-0.5">Upload Endorsement</div>
+                    <div className="small text-secondary">CoC, Flag Endorsement, Advanced Tanker, IGF, DP Operator</div>
                   </div>
-                  <span className="btn btn-sm btn-primary ms-3 flex-shrink-0">Add Layer 2</span>
+                  <span className="btn btn-sm btn-primary ms-3 flex-shrink-0">Add Endorsement</span>
                 </button>
               </div>
             </div>
@@ -272,7 +272,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                   onClose();
                 }}
               >
-                Done / Return to Directory
+                Done
               </button>
             </div>
           </div>
@@ -299,10 +299,10 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                 </div>
                 <div>
                   <h5 className="modal-title fw-bold m-0 text-white" style={{ fontSize: '1.05rem' }}>
-                    Register Crew Member Profile
+                    Add Crew
                   </h5>
                   <p className="m-0 text-slate-400 small" style={{ fontSize: '0.78rem', color: '#94A3B8' }}>
-                    Register seafarer identity, rank credentials, and profile photography
+                    Enter the crew member's details and photo.
                   </p>
                 </div>
               </div>
@@ -326,7 +326,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                 {/* SECTION 1: Identity & Credentials */}
                 <div className="card p-3 border rounded-3 bg-white shadow-2xs">
                   <div className="text-uppercase text-primary small fw-bold mb-2 pb-2 border-bottom" style={{ fontSize: '0.72rem', letterSpacing: '0.04em' }}>
-                    Seafarer Identity &amp; Rank
+                    Identity &amp; Rank
                   </div>
 
                   <div className="row g-3">
@@ -348,7 +348,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
 
                     <div className="col-md-5">
                       <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="crew-rank">
-                        Rank / Position <span className="text-danger">*</span>
+                        Rank <span className="text-danger">*</span>
                       </label>
                       <select
                         id="crew-rank"
@@ -356,12 +356,12 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                         value={rank}
                         onChange={(e) => setRank(e.target.value)}
                       >
-                        <option value="Master / Ship Captain">Master / Ship Captain</option>
+                        <option value="Master / Ship Captain">Master</option>
                         <option value="Chief Officer">Chief Officer</option>
                         <option value="Second Officer">Second Officer</option>
                         <option value="Chief Engineer">Chief Engineer</option>
                         <option value="Second Engineer">Second Engineer</option>
-                        <option value="Bosun / Deck Foreman">Bosun / Deck Foreman</option>
+                        <option value="Bosun / Deck Foreman">Bosun</option>
                         <option value="Able Seaman (AB)">Able Seaman (AB)</option>
                       </select>
                     </div>
@@ -384,7 +384,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
 
                     <div className="col-md-6">
                       <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="crew-sb">
-                        Seaman's Discharge Book No <span className="text-danger">*</span>
+                        Seaman's Book No. <span className="text-danger">*</span>
                       </label>
                       <input
                         id="crew-sb"
@@ -400,7 +400,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                     {/* Passport No & Date of Birth */}
                     <div className="col-md-6">
                       <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="crew-passport">
-                        Passport Number <span className="text-danger">*</span>
+                        Passport No. <span className="text-danger">*</span>
                       </label>
                       <input
                         id="crew-passport"
@@ -430,7 +430,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                     {/* Vessel Assignment Dropdown */}
                     <div className="col-md-6">
                       <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="crew-vessel">
-                        Initial Vessel Assignment
+                        Vessel
                       </label>
                       <select
                         id="crew-vessel"
@@ -438,7 +438,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                         value={currentVesselId}
                         onChange={(e) => setCurrentVesselId(e.target.value)}
                       >
-                        <option value="">Ashore / Unassigned</option>
+                        <option value="">Unassigned</option>
                         {availableVessels.map((v) => (
                           <option key={v.id} value={v.id}>
                             {v.name} (IMO {v.imoNumber}) — {v.flagState}
@@ -450,7 +450,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                     {/* Emergency Contact Info */}
                     <div className="col-md-6">
                       <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="crew-emergency">
-                        Emergency Contact Details
+                        Emergency Contact
                       </label>
                       <input
                         id="crew-emergency"
@@ -468,7 +468,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                 <div className="card p-3 border rounded-3 bg-white shadow-2xs">
                   <div className="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
                     <div className="text-uppercase text-primary small fw-bold" style={{ fontSize: '0.72rem', letterSpacing: '0.04em' }}>
-                      Crew Member Photo &amp; Gallery Upload
+                      Photos
                     </div>
                     <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.68rem' }}>
                       {photos.length} {photos.length === 1 ? 'Photo' : 'Photos'} Queued
@@ -502,7 +502,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                   <div className="row g-3">
                     {/* Left Column: Primary Cover Preview (Square 1:1) */}
                     <div className="col-12 col-md-4 d-flex flex-column align-items-center justify-content-start">
-                      <label className="form-label text-secondary small fw-semibold mb-1 align-self-start">Square Profile Preview</label>
+                      <label className="form-label text-secondary small fw-semibold mb-1 align-self-start">Profile Photo</label>
                       <div
                         className="position-relative border rounded-3 overflow-hidden shadow-2xs w-100"
                         style={{ maxWidth: '140px', aspectRatio: '1 / 1', backgroundColor: '#0B1B2B' }}
@@ -539,7 +539,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                             onClick={() => photoFileInputRef.current?.click()}
                           >
                             <Upload className="w-3.5 h-3.5" />
-                            <span>Upload &amp; Crop Image</span>
+                            <span>Upload Photo</span>
                           </button>
                           {(photos.length > 0 || imageUrl) && (
                             <button
@@ -597,7 +597,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                                     } ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-warning ring-2 ring-warning' : ''}`}
                                   style={{ width: '48px', height: '48px', aspectRatio: '1 / 1', backgroundColor: '#0B1B2B' }}
                                   onClick={() => setImageUrl(photo)}
-                                  title="Click to set cover · Drag to reorder"
+                                  title="Click to set as cover. Drag to reorder."
                                 >
                                   <img src={photo} alt="" className="w-100 h-100 object-fit-cover" />
                                   {isCover && (
@@ -649,7 +649,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                         {/* Stock Presets with Instant Crop */}
                         <div className="mb-2">
                           <div className="small text-secondary fw-semibold mb-1" style={{ fontSize: '0.72rem' }}>
-                            Add &amp; Crop Stock Presets:
+                            Presets:
                           </div>
                           <div className="d-flex flex-wrap align-items-center gap-1.5">
                             {CURATED_CREW_PHOTOS.slice(0, 4).map((p, idx) => (
@@ -663,7 +663,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                                   setCropModalImageSrc(p.url);
                                   setIsCropModalOpen(true);
                                 }}
-                                title={`Crop & Add ${p.title}`}
+                                title={`Add ${p.title}`}
                               >
                                 + {p.title.split('/')[0].trim()}
                               </button>
@@ -677,7 +677,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                             <input
                               type="url"
                               className="form-control font-mono-code"
-                              placeholder="Paste photo URL to crop &amp; add..."
+                              placeholder="Paste a photo URL"
                               value={customPhotoInput}
                               onChange={(e) => setCustomPhotoInput(e.target.value)}
                               style={{ fontSize: '0.78rem' }}
@@ -696,7 +696,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                                 }
                               }}
                             >
-                              Crop &amp; Add
+                              Add
                             </button>
                           </div>
                         </div>
@@ -720,7 +720,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
                   className="btn btn-sm btn-primary"
                   disabled={!canManage}
                 >
-                  Register Crew Profile
+                  Add Crew
                 </button>
               </div>
             </form>
@@ -736,7 +736,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
           setCropModalImageSrc('');
           setCropTargetIndex(null);
         }}
-        title="Crop & Align Crew Profile Photo"
+        title="Crop Photo"
         assetName={fullName || rank || 'Crew Member'}
         imageSrc={cropModalImageSrc}
         initialPreset="1:1"

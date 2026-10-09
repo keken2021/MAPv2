@@ -166,7 +166,7 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
           value={availabilityFilter}
           onChange={(e) => setAvailabilityFilter(e.target.value)}
         >
-          <option value="All">All Availability</option>
+          <option value="All">All Statuses</option>
           {['Available', 'On Charter', 'Under Maintenance', 'Unavailable', 'Pending', 'Unknown'].map((s) => (
             <option key={s} value={s}>
               {s}
@@ -179,7 +179,7 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
           value={complianceFilter}
           onChange={(e) => setComplianceFilter(e.target.value)}
         >
-          <option value="All">All Compliance</option>
+          <option value="All">All Statuses</option>
           {['Compliant', 'Partially Compliant', 'In Progress', 'Non-Compliant'].map((s) => (
             <option key={s} value={s}>
               {s}
@@ -190,7 +190,7 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
 
       <div className="card-body p-0">
         {filteredVessels.length === 0 && filteredStandaloneEquipment.length === 0 && (
-          <div className="p-4 text-muted text-center">No assets match the selected filters.</div>
+          <div className="p-4 text-muted text-center">No assets found.</div>
         )}
 
         {filteredVessels.map((vessel) => {

@@ -205,7 +205,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
       MmsiNumber: v.mmsiNumber,
       CallSign: v.callSign,
       FlagState: v.flagState,
-      ClassificationSociety: v.classificationSociety,
+      ClassSociety: v.classificationSociety,
       Status: v.status,
       ReadinessScore: `${calculateVesselReadiness(v, assuranceSets, documents)}%`,
     }));
@@ -214,7 +214,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
   };
 
   const handleExportPdf = () => {
-    const headers = ['Vessel Name', 'Type', 'Organization', 'IMO', 'Flag State', 'Class', 'Status', 'Readiness'];
+    const headers = ['Name', 'Type', 'Organization', 'IMO Number', 'Flag State', 'Class Society', 'Operating Status', 'Readiness'];
     const rows = sortedVessels.map((v) => [
       v.name,
       v.vesselSubtype || v.vesselType,
@@ -236,9 +236,9 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
     (assuranceSetFilter !== 'ALL' ? 1 : 0);
 
   const activeChips: FilterChip[] = [
-    ...(flagFilter !== 'ALL' ? [{ id: 'flag', label: 'Flag', value: flagFilter, onRemove: () => setFlagFilter('ALL') }] : []),
-    ...(classFilter !== 'ALL' ? [{ id: 'class', label: 'Class', value: classFilter, onRemove: () => setClassFilter('ALL') }] : []),
-    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'Status', value: statusFilter, onRemove: () => setStatusFilter('ALL') }] : []),
+    ...(flagFilter !== 'ALL' ? [{ id: 'flag', label: 'Flag State', value: flagFilter, onRemove: () => setFlagFilter('ALL') }] : []),
+    ...(classFilter !== 'ALL' ? [{ id: 'class', label: 'Class Society', value: classFilter, onRemove: () => setClassFilter('ALL') }] : []),
+    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'Operating Status', value: statusFilter, onRemove: () => setStatusFilter('ALL') }] : []),
     ...(assuranceSetFilter !== 'ALL' ? [{ id: 'set', label: 'Assurance Set', value: assuranceSetFilter, onRemove: () => setAssuranceSetFilter('ALL') }] : []),
   ];
 
@@ -258,7 +258,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
           <input
             type="text"
             className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search by Name, Type, Assurance Set, Docs..."
+            placeholder="Search vessels..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '280px' }}
@@ -279,7 +279,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
               className="btn btn-sm btn-outline-secondary text-dark d-flex align-items-center gap-1.5 px-2.5 py-1"
               onClick={() => setIsViewDropdownOpen(!isViewDropdownOpen)}
               title={viewMode === 'grid' ? 'Grid View' : 'Table View'}
-              aria-label="Toggle View Mode"
+              aria-label="View mode"
             >
               {viewMode === 'grid' ? (
                 <LayoutGrid size={15} />
@@ -297,7 +297,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                       setViewMode('grid');
                       setIsViewDropdownOpen(false);
                     }}
-                    title="Grid View"
+                    title="Grid view"
                   >
                     <div className="d-flex align-items-center gap-2">
                       <LayoutGrid size={15} />
@@ -314,7 +314,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                       setViewMode('table');
                       setIsViewDropdownOpen(false);
                     }}
-                    title="Table View"
+                    title="Table view"
                   >
                     <div className="d-flex align-items-center gap-2">
                       <TableIcon size={15} />
@@ -333,18 +333,18 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
               className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
               onClick={() => setIsExportOpen(!isExportOpen)}
             >
-              Export Data
+              Export
             </button>
             {isExportOpen && (
               <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border">
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    Export as CSV (.csv)
+                    CSV
                   </button>
                 </li>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    Export as PDF (.pdf)
+                    PDF
                   </button>
                 </li>
               </ul>
@@ -357,7 +357,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
               className="btn btn-sm btn-primary"
               onClick={onRegisterVessel}
             >
-              Register Vessel
+              Add Vessel
             </button>
           )}
         </div>
@@ -434,7 +434,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                               setActiveVesselId(v.id);
                               onSelectVessel(v);
                             }}
-                            title="View Options"
+                            title="More options"
                           >
                             <MoreHorizontal size={16} />
                           </button>
@@ -460,7 +460,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                           {/* Right Metric: Class / Readiness */}
                           <div className="d-flex flex-column text-end">
                             <span className="text-muted" style={{ fontSize: '0.72rem' }}>
-                              Assurance / Class
+                              Class &amp; Readiness
                             </span>
                             <span className="fw-bold text-dark" style={{ fontSize: '0.95rem' }}>
                               {v.classificationSociety ? `${v.classificationSociety} · ${readinessScore}%` : `${readinessScore}% Ready`}
@@ -485,10 +485,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                   IMO Number {renderSortIndicator('imoNumber')}
                 </th>
                 <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Vessel Name {renderSortIndicator('name')}
+                  Name {renderSortIndicator('name')}
                 </th>
                 <th onClick={() => handleSort('classNotation')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Class Notation / Type {renderSortIndicator('classNotation')}
+                  Type {renderSortIndicator('classNotation')}
                 </th>
                 <th onClick={() => handleSort('flagState')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   Flag &amp; Port {renderSortIndicator('flagState')}
@@ -497,10 +497,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                   Registered Owner {renderSortIndicator('registeredOwner')}
                 </th>
                 <th onClick={() => handleSort('status')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Status {renderSortIndicator('status')}
+                  Operating Status {renderSortIndicator('status')}
                 </th>
                 <th onClick={() => handleSort('complianceReadinessScore')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Assurance Readiness {renderSortIndicator('complianceReadinessScore')}
+                  Readiness {renderSortIndicator('complianceReadinessScore')}
                 </th>
                 <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
@@ -553,8 +553,8 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                         type="button"
                         className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                         style={{ width: '32px', height: '32px' }}
-                        title="View Vessel Details"
-                        aria-label="View Vessel Details"
+                        title="View"
+                        aria-label="View"
                         onClick={() => {
                           setActiveVesselId(v.id);
                           onSelectVessel(v);
@@ -576,8 +576,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Fleet Filters"
-        subtitle="Filter vessels by flag, classification society, operational status, and assurance campaign"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
@@ -589,13 +588,13 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                 value={flagFilter}
                 onChange={(e) => setFlagFilter(e.target.value)}
               >
-                <option value="ALL">All Flags</option>
+                <option value="ALL">All Flag States</option>
                 <option value="Australia">Australia</option>
               </select>
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Classification Society</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Class Society</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={classFilter}
@@ -614,7 +613,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Operational Status</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Operating Status</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={statusFilter}

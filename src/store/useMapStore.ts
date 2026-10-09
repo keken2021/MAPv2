@@ -2386,7 +2386,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   addCustomScope: ({ label, description, category }) => {
     const trimmed = label.trim();
     if (!trimmed)
-      return { success: false, message: "Feature / scope name is required." };
+      return { success: false, message: "Name is required." };
     const categoryName = category.trim();
     if (!categoryName)
       return { success: false, message: "Category is required." };

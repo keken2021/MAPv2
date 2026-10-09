@@ -221,7 +221,7 @@ export const getVesselCharterBadge = (
       return { label: 'Spot Charter', dotColor: '#3b82f6' }; // Blue dot
     case 'In Operations':
     case 'Active':
-      return { label: 'Active Campaign', dotColor: '#10b981' }; // Green dot
+      return { label: 'In Operations', dotColor: '#10b981' }; // Green dot
     case 'Maintenance':
     case 'Dry Docking':
       return { label: 'Maintenance Yard', dotColor: '#f97316' }; // Orange dot

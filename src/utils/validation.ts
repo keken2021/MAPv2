@@ -72,7 +72,7 @@ export function isDuplicateCampaignTitle(
   if (match) {
     return {
       isDuplicate: true,
-      reason: `A campaign with the title "${match.title}" already exists (Assurance Set ID: ${match.id}). Campaign titles must be unique.`,
+      reason: `An assurance set titled "${match.title}" already exists (${match.id}). Titles must be unique.`,
     };
   }
 

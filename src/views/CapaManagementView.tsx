@@ -9,6 +9,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { filterVesselsForPersona } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { getStatusDisplayLabel } from '../utils/formatters';
 import { CapaItem, CapaStatus } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { FilterModal } from '../components/common/FilterModal';
@@ -204,7 +205,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
   };
 
   const handleExportPdf = () => {
-    const headers = ['CAPA ID', 'Vessel', 'Title & Checklist', 'Status', 'Owner', 'Due Date'];
+    const headers = ['CAPA ID', 'Vessel', 'Title', 'Status', 'Owner', 'Due Date'];
     const rows = sortedCapas.map((c) => [
       c.id,
       c.vesselName,
@@ -238,40 +239,40 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Total Vessel CAPAs
+              CAPAs
             </div>
             <div className="map-kpi-value text-primary mt-1">{totalCount}</div>
-            <div className="map-kpi-subtitle mt-1">Total Logged Corrective Actions</div>
+            <div className="map-kpi-subtitle mt-1">All CAPAs</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Open Findings
+              Open
             </div>
             <div className="map-kpi-value text-danger mt-1">{openCount}</div>
-            <div className="map-kpi-subtitle mt-1">Awaiting Rectification</div>
+            <div className="map-kpi-subtitle mt-1">Waiting to be fixed</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Under Re-Inspection
+              Re-Inspection
             </div>
             <div className="map-kpi-value text-warning mt-1">{reInspectionCount}</div>
-            <div className="map-kpi-subtitle mt-1">Inspector Verification Pending</div>
+            <div className="map-kpi-subtitle mt-1">Waiting for the inspector</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Verified & Closed
+              Closed
             </div>
             <div className="map-kpi-value text-success mt-1">{closedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Signed Off & Compliant</div>
+            <div className="map-kpi-subtitle mt-1">Verified by the inspector</div>
           </div>
         </div>
       </div>
@@ -285,7 +286,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
             <input
               type="text"
               className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search CAPA ID, Title, Owner, Finding..."
+              placeholder="Search CAPAs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{ width: '270px' }}
@@ -303,18 +304,18 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
               className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle ms-2"
               onClick={() => setIsExportOpen(!isExportOpen)}
             >
-              Export CAPA Report
+              Export
             </button>
             {isExportOpen && (
               <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    Export as CSV (.csv)
+                    CSV
                   </button>
                 </li>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    Export as PDF (.pdf)
+                    PDF
                   </button>
                 </li>
               </ul>
@@ -353,7 +354,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
                     </div>
                     {capa.flaggedForReinspection && (
                       <span className="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle mt-0.5" style={{ fontSize: '0.65rem' }}>
-                        Flagged for Re-inspection
+                        Flagged for Re-Inspection
                       </span>
                     )}
                   </td>
@@ -364,7 +365,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
                   <td className="font-mono-code small">{capa.dueDate}</td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(capa.status)}`}>
-                      {capa.status}
+                      {getStatusDisplayLabel(capa.status)}
                     </span>
                   </td>
                   <td className="text-end">
@@ -376,8 +377,8 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
                         e.stopPropagation();
                         setActiveCapa(capa);
                       }}
-                      title="View CAPA Details"
-                      aria-label="View CAPA Details"
+                      title="View"
+                      aria-label="View"
                     >
                       <Eye size={16} />
                     </button>
@@ -388,7 +389,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
               {sortedCapas.length === 0 && (
                 <tr>
                   <td colSpan={6} className="text-center text-muted py-4 fst-italic">
-                    No corrective action items match the selected search filters.
+                    No CAPAs found.
                   </td>
                 </tr>
               )}
@@ -402,14 +403,13 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="CAPA Filters"
-        subtitle="Filter corrective actions by vessel scope and remediation status"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Vessel Scope</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Vessel</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={isFleetOverview ? 'ALL_FLEET' : selectedVesselName}
@@ -432,7 +432,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">CAPA Status</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Status</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={activeTab}
@@ -440,9 +440,9 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
               >
                 <option value="All">All Statuses</option>
                 <option value="Open">Open</option>
-                <option value="Under Re-Inspection">Under Re-Inspection</option>
+                <option value="Under Re-Inspection">Re-Inspection</option>
                 <option value="Rectification Required">Rectification Required</option>
-                <option value="Verified & Closed">Verified & Closed</option>
+                <option value="Verified & Closed">Closed</option>
               </select>
             </div>
           </div>

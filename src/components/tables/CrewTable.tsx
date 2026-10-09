@@ -11,7 +11,7 @@ import { CrewMember, CrewComplianceStatus } from '../../types/crew';
 import { FilterModal } from '../common/FilterModal';
 import { FilterButton } from '../common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
-import { formatMaritimeDate } from '../../utils/formatters';
+import { formatMaritimeDate, getStatusDisplayLabel } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { getCrewStockPhoto } from '../../utils/vesselImageHelpers';
@@ -109,7 +109,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
 
   const activeChips: FilterChip[] = [
     ...(rankFilter !== 'ALL' ? [{ id: 'rank', label: 'Rank', value: rankFilter, onRemove: () => setRankFilter('ALL') }] : []),
-    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'Status', value: statusFilter, onRemove: () => setStatusFilter('ALL') }] : []),
+    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'Compliance', value: getStatusDisplayLabel(statusFilter), onRemove: () => setStatusFilter('ALL') }] : []),
     ...(vesselFilter !== 'ALL' ? [{ id: 'vessel', label: 'Vessel', value: vesselFilter === 'UNASSIGNED' ? 'Unassigned' : vesselFilter, onRemove: () => setVesselFilter('ALL') }] : []),
   ];
 
@@ -179,7 +179,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
       Nationality: c.nationality,
       SeamansBookNo: c.seamansBookNo,
       PassportNo: c.passportNo,
-      ComplianceStatus: c.complianceStatus,
+      Compliance: getStatusDisplayLabel(c.complianceStatus),
       ComplianceScore: `${c.overallComplianceScore}%`,
       LastAuditedDate: c.lastAuditedDate,
     }));
@@ -188,16 +188,16 @@ export const CrewTable: React.FC<CrewTableProps> = ({
   };
 
   const handleExportPdf = () => {
-    const headers = ['Crew ID', 'Full Name & Rank', 'Current Vessel', 'Seaman Book', 'Status', 'Score'];
+    const headers = ['Crew ID', 'Name', 'Vessel', 'Seaman Book', 'Compliance', 'Readiness'];
     const rows = sortedCrew.map((c) => [
       c.id,
       `${c.fullName}\n(${c.rank})`,
       c.currentVesselName || 'Unassigned',
       `${c.nationality}\n${c.seamansBookNo}`,
-      c.complianceStatus,
+      getStatusDisplayLabel(c.complianceStatus),
       `${c.overallComplianceScore}%`,
     ]);
-    exportToPdf('Master Crew Directory STCW Report', headers, rows);
+    exportToPdf('Crew Directory', headers, rows);
     setIsExportOpen(false);
   };
 
@@ -210,7 +210,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
           <input
             type="text"
             className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search Crew ID, Name, Rank, Vessel..."
+            placeholder="Search crew..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '270px' }}
@@ -231,18 +231,18 @@ export const CrewTable: React.FC<CrewTableProps> = ({
               className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
               onClick={() => setIsExportOpen(!isExportOpen)}
             >
-              Export Data
+              Export
             </button>
             {isExportOpen && (
               <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    Export as CSV (.csv)
+                    CSV
                   </button>
                 </li>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    Export as PDF (.pdf)
+                    PDF
                   </button>
                 </li>
               </ul>
@@ -256,7 +256,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
               className="btn btn-sm btn-primary"
               onClick={onRegisterCrew}
             >
-              Register Crew Member
+              Add Crew
             </button>
           )}
         </div>
@@ -277,16 +277,16 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                 Crew ID {renderSortIndicator('id')}
               </th>
               <th onClick={() => handleSort('fullName')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Seafarer Profile {renderSortIndicator('fullName')}
+                Name {renderSortIndicator('fullName')}
               </th>
               <th onClick={() => handleSort('currentVesselName')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Current Vessel Assignment {renderSortIndicator('currentVesselName')}
+                Vessel {renderSortIndicator('currentVesselName')}
               </th>
               <th onClick={() => handleSort('nationality')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Nationality &amp; Seaman Book {renderSortIndicator('nationality')}
+                Nationality {renderSortIndicator('nationality')}
               </th>
               <th onClick={() => handleSort('complianceStatus')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                STCW Compliance Status {renderSortIndicator('complianceStatus')}
+                Compliance {renderSortIndicator('complianceStatus')}
               </th>
               <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
             </tr>
@@ -295,7 +295,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
             {sortedCrew.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center py-4 text-muted">
-                  No registered crew members match your search or filter criteria.
+                  No crew found.
                 </td>
               </tr>
             ) : (
@@ -332,7 +332,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                     {c.currentVesselName ? (
                       <div className="fw-semibold text-primary">{c.currentVesselName}</div>
                     ) : (
-                      <span className="badge bg-light text-dark border">Ashore / Unassigned</span>
+                      <span className="badge bg-light text-dark border">Unassigned</span>
                     )}
                   </td>
                   <td>
@@ -341,7 +341,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                   </td>
                   <td>
                     <span className={`badge ${getComplianceBadgeClass(c.complianceStatus)}`}>
-                      {c.complianceStatus}
+                      {getStatusDisplayLabel(c.complianceStatus)}
                     </span>
                   </td>
                   <td className="text-end">
@@ -355,8 +355,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                             e.stopPropagation();
                             onAddDocumentCrew(c);
                           }}
-                          title="Upload STCW Document"
-                          aria-label="Upload STCW Document"
+                          title="Upload document"
+                          aria-label="Upload document"
                         >
                           <FilePlus size={16} />
                         </button>
@@ -369,8 +369,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                           e.stopPropagation();
                           onSelectCrew(c);
                         }}
-                        title="View Crew Details"
-                        aria-label="View Crew Details"
+                        title="View"
+                        aria-label="View"
                       >
                         <Eye size={16} />
                       </button>
@@ -388,50 +388,49 @@ export const CrewTable: React.FC<CrewTableProps> = ({
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Crew Directory Filters"
-        subtitle="Filter crew seafarers by rank position, STCW compliance status, and vessel assignment"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Rank / Position</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Rank</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={rankFilter}
                 onChange={(e) => setRankFilter(e.target.value)}
               >
-                <option value="ALL">All Ranks / Officers</option>
-                <option value="Master">Master / Captain</option>
+                <option value="ALL">All Ranks</option>
+                <option value="Master">Master</option>
                 <option value="Chief Officer">Chief Officer</option>
                 <option value="Engineer">Engine Officers</option>
-                <option value="Bosun">Ratings & Deck Crew</option>
+                <option value="Bosun">Deck Crew</option>
               </select>
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">STCW Compliance Status</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Compliance</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <option value="ALL">All STCW Statuses</option>
-                <option value="Fully Compliant">Fully Compliant</option>
-                <option value="Expiring < 60 Days">Expiring &lt; 60 Days</option>
-                <option value="Document Deficient">Document Deficient</option>
+                <option value="ALL">All Statuses</option>
+                <option value="Fully Compliant">Compliant</option>
+                <option value="Expiring < 60 Days">Expiring Soon</option>
+                <option value="Document Deficient">Non-Compliant</option>
               </select>
             </div>
 
             <div className="col-12">
-              <label className="form-label small fw-semibold text-secondary mb-1">Assigned Vessel</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Vessel</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={vesselFilter}
                 onChange={(e) => setVesselFilter(e.target.value)}
               >
                 <option value="ALL">All Vessels</option>
-                <option value="UNASSIGNED">Unassigned / Ashore</option>
+                <option value="UNASSIGNED">Unassigned</option>
                 {vessels.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name} ({v.flagState})

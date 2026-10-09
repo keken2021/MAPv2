@@ -25,7 +25,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   onReset,
   onApply,
   title,
-  subtitle = 'Refine criteria and filter visible dataset',
+  subtitle,
   activeCount = 0,
   maxWidth = '560px',
   children,
@@ -119,10 +119,10 @@ export const FilterModal: React.FC<FilterModalProps> = ({
               type="button"
               className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5 px-3 py-1.5"
               onClick={onReset}
-              title="Reset all filters to default"
+              title="Clear all filters"
             >
               <RotateCcw size={14} />
-              <span>Reset All</span>
+              <span>Clear All</span>
             </button>
 
             <div className="d-flex align-items-center gap-2">
@@ -139,7 +139,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                 onClick={handleApply}
               >
                 <Check size={14} />
-                <span>Apply Filters</span>
+                <span>Apply</span>
               </button>
             </div>
           </div>

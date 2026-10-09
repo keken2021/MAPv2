@@ -338,7 +338,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
     } else {
       setClassCertDocName(file.name);
     }
-    setUploadNotice(`${file.name} queued for Pre-Assurance Vault (mock upload).`);
+    setUploadNotice(`${file.name} added to the vessel's documents.`);
   };
 
   /*
@@ -647,10 +647,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
       <div className="p-3 bg-light border rounded shadow-2xs mb-3 overflow-hidden">
         <div className="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
           <span className="fw-bold text-dark small d-flex align-items-center gap-2">
-            <span>AI Document Intake &amp; Auto-Fill — {sectionTitle}</span>
-            <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.7rem' }}>
-              Automated OCR
-            </span>
+            <span>Fill from a Document — {sectionTitle}</span>
           </span>
         </div>
 
@@ -659,7 +656,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
           <div className="p-3 bg-success-subtle border border-success-subtle rounded mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div className="d-flex align-items-center gap-2.5">
               <div>
-                <strong className="text-dark small d-block">Active Extracted &amp; Verified Document</strong>
+                <strong className="text-dark small d-block">Document in Use</strong>
                 <div className="text-success-emphasis small font-mono-code fw-bold">
                   "{activeDoc.title}" ({activeDoc.certNo || 'VERIFIED'})
                 </div>
@@ -682,9 +679,9 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     return next;
                   });
                 }}
-                title="Clear active document for this section and re-upload or select a different file"
+                title="Choose a different file"
               >
-                Re-upload / Change File
+                Change File
               </button>
             </div>
           </div>
@@ -696,7 +693,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
             {/* Option A: Auto-fill from Existing Document Library */}
             <div className="col-md-6 d-flex flex-column">
               <label className="form-label text-secondary small fw-semibold mb-1 text-truncate" htmlFor={`existing-doc-select-${stepNumber}`}>
-                Option A: Auto-Fill from the Document Library
+                Fill from Document Library
               </label>
               <select
                 id={`existing-doc-select-${stepNumber}`}
@@ -722,7 +719,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
             {/* Option B: Drag & Drop / Clickable File Upload for AI Extraction */}
             <div className="col-md-6 d-flex flex-column">
               <label className="form-label text-secondary small fw-semibold mb-1 text-truncate">
-                Option B: Drag &amp; Drop / Click File
+                Upload a File
               </label>
               <div
                 className="border border-dashed border-primary rounded bg-white p-2 text-center cursor-pointer hover-bg-light transition-all d-flex align-items-center justify-content-center gap-2 w-100"
@@ -750,14 +747,14 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
             <div className="d-flex align-items-center justify-content-between">
               <span className="d-flex align-items-center gap-2 fw-bold">
                 <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                AI is scanning OCR bytes, extracting vessel specs for {sectionTitle}...
+                Reading {sectionTitle}...
               </span>
-              <span className="badge bg-primary text-white font-mono-code">AI Processing</span>
+              <span className="badge bg-primary text-white font-mono-code">Processing</span>
             </div>
             {/* animated scan sweep bar */}
             <div className="ai-scan-bar mt-2" />
             <div className="font-mono-code text-muted mt-2" style={{ fontSize: '0.7rem' }}>
-              Extracting Vessel Name, IMO Number, Flag State, Classification Society and Ownership details...
+              Reading vessel details...
             </div>
           </div>
         )}
@@ -792,10 +789,10 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
           <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
             <div>
               <h5 className="modal-title fw-bold text-dark m-0">
-                Register Vessel
+                Add Vessel
               </h5>
               <div className="text-secondary small">
-                Complete all 11 statutory categories for offshore compliance onboarding
+                Complete each section to add the vessel.
               </div>
             </div>
             <button
@@ -852,7 +849,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   {renderAiDocumentIntakeCard('Identification & Classification', 1)}
 
                   <div className="text-uppercase text-primary small fw-bold">
-                    Section 1: Vessel Identification
+                    Vessel Identification
                   </div>
 
                   <div className="row g-2">
@@ -888,7 +885,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     </div>
 
                     <div className={`col-md-3 ${revealedVesselFields.imoNumber ? 'ai-field-reveal ai-field-highlight' : ''}`}>
-                      <label className="form-label text-secondary small fw-semibold">IMO Number (7 Digits) <span className="text-danger">*</span></label>
+                      <label className="form-label text-secondary small fw-semibold">IMO Number <span className="text-danger">*</span></label>
                       <input
                         type="text"
                         className={`form-control form-control-sm font-mono-code ${errorMessage && (!imoNumber.trim() || !validateImoNumber(imoNumber)) ? 'is-invalid' : ''}${animatingFields.has('imo-number') ? ' map-autofill-animate' : ''}`}
@@ -910,7 +907,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       />
                     </div>
                     <div className="col-md-3">
-                      <label className="form-label text-secondary small fw-semibold">MMSI Number (9 Digits)</label>
+                      <label className="form-label text-secondary small fw-semibold">MMSI Number</label>
                       <input
                         type="text"
                         className="form-control form-control-sm font-mono-code"
@@ -920,7 +917,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       />
                     </div>
                     <div className="col-md-3">
-                      <label className="form-label text-secondary small fw-semibold">Radio Call Sign</label>
+                      <label className="form-label text-secondary small fw-semibold">Call Sign</label>
                       <input
                         type="text"
                         className="form-control form-control-sm font-mono-code"
@@ -931,7 +928,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     </div>
 
                     <div className={`col-md-4 ${revealedVesselFields.flagState ? 'ai-field-reveal ai-field-highlight' : ''}`}>
-                      <label className="form-label text-secondary small fw-semibold">Flag State / Country</label>
+                      <label className="form-label text-secondary small fw-semibold">Flag State</label>
                       <input
                         type="text"
                         className={`form-control form-control-sm${animatingFields.has('flag-state') ? ' map-autofill-animate' : ''}`}
@@ -949,15 +946,15 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       />
                     </div>
                     <div className="col-md-4">
-                      <label className="form-label text-secondary small fw-semibold">Registration Status</label>
+                      <label className="form-label text-secondary small fw-semibold">Operating Status</label>
                       <select
                         className="form-select form-select-sm"
                         value={vesselRegStatus}
                         onChange={(e) => setVesselRegStatus(e.target.value as VesselInformation['status'])}
                       >
-                        <option value="In Operations" disabled>In Operations (Requires 100% Approved Assurance)</option>
-                        <option value="Under Charter" disabled>Under Charter (Requires 100% Approved Assurance)</option>
-                        <option value="In Transit" disabled>In Transit (Requires 100% Approved Assurance)</option>
+                        <option value="In Operations" disabled>In Operations (requires approved assurance)</option>
+                        <option value="Under Charter" disabled>Under Charter (requires approved assurance)</option>
+                        <option value="In Transit" disabled>In Transit (requires approved assurance)</option>
                         <option value="Port Stay">Port Stay</option>
                         <option value="Dry Docking">Dry Docking</option>
                         <option value="Lay-up">Lay-up</option>
@@ -970,7 +967,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     <div className="d-flex align-items-center justify-content-between mb-2">
                       <span className="fw-bold text-dark small d-flex align-items-center gap-2">
                         <Image className="w-4 h-4 text-primary" />
-                        <span>Vessel Photography &amp; Gallery ({photos.length || (imageUrl ? 1 : 0)} photo{photos.length === 1 || (!photos.length && imageUrl) ? '' : 's'})</span>
+                        <span>Photos ({photos.length || (imageUrl ? 1 : 0)} photo{photos.length === 1 || (!photos.length && imageUrl) ? '' : 's'})</span>
                       </span>
                       {(imageUrl || photos.length > 0) && (
                         <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.7rem' }}>
@@ -994,7 +991,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                 className="position-absolute bottom-0 start-0 w-100 px-2 py-0.5 text-white fw-bold text-start d-flex align-items-center justify-content-between"
                                 style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)', fontSize: '0.68rem' }}
                               >
-                                <span>Primary Cover (16:9)</span>
+                                <span>Cover Photo</span>
                                 <button
                                   type="button"
                                   className="btn btn-xs btn-light p-1 text-dark rounded-circle d-inline-flex align-items-center justify-content-center shadow-2xs"
@@ -1017,7 +1014,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                               onClick={() => imageFileInputRef.current?.click()}
                             >
                               <Upload className="w-6 h-6 text-slate-500" />
-                              <span className="text-secondary fw-semibold" style={{ fontSize: '0.75rem' }}>No Photo Uploaded</span>
+                              <span className="text-secondary fw-semibold" style={{ fontSize: '0.75rem' }}>No photo yet</span>
                               <span className="text-primary text-decoration-underline" style={{ fontSize: '0.7rem' }}>Upload multiple photos</span>
                             </div>
                           )}
@@ -1058,7 +1055,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                             onClick={() => imageFileInputRef.current?.click()}
                           >
                             <Upload className="w-3.5 h-3.5" />
-                            <span>Upload &amp; Crop Photo</span>
+                            <span>Upload Photo</span>
                           </button>
                           {(photos.length > 0 || imageUrl) && (
                             <button
@@ -1070,7 +1067,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                 setPhotos([]);
                               }}
                             >
-                              Clear All Photos
+                              Clear Photos
                             </button>
                           )}
                         </div>
@@ -1180,7 +1177,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
 
                         {/* Curated Presets with Instant Crop */}
                         <div className="d-flex flex-wrap align-items-center gap-1.5">
-                          <span className="small text-secondary fw-semibold" style={{ fontSize: '0.72rem' }}>Add &amp; Crop Stock Photo:</span>
+                          <span className="small text-secondary fw-semibold" style={{ fontSize: '0.72rem' }}>Presets:</span>
                           {CURATED_VESSEL_PHOTOS.slice(0, 4).map((p, idx) => (
                             <button
                               key={idx}
@@ -1192,7 +1189,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                 setCropModalImageSrc(p.url);
                                 setIsCropModalOpen(true);
                               }}
-                              title={`Crop and add ${p.title}`}
+                              title={`Add ${p.title}`}
                             >
                               + {p.title.split('/')[0].trim()}
                             </button>
@@ -1220,7 +1217,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                                 setIsCropModalOpen(true);
                               }}
                             >
-                              Crop &amp; Add
+                              Add
                             </button>
                           )}
                         </div>
@@ -1229,7 +1226,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   </div>
 
                   <div className="text-uppercase text-primary small fw-bold mt-2">
-                    Section 2: Vessel Classification &amp; Notations
+                    Classification
                   </div>
                   <div className="row g-2">
                     <div className="col-md-4">
@@ -1239,9 +1236,8 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                         className="form-control form-control-sm bg-light"
                         value={vesselType}
                         readOnly
-                        title="MVP scope: Offshore Support Vessel (OSV) only"
                       />
-                      <div className="form-text">MVP scope: OSV only</div>
+                      <div className="form-text">Offshore support vessels only</div>
                     </div>
                     <div className="col-md-4">
                       <label className="form-label text-secondary small fw-semibold">Vessel</label>
@@ -1254,7 +1250,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       />
                     </div>
                     <div className={`col-md-4 ${revealedVesselFields.classificationSociety ? 'ai-field-reveal ai-field-highlight' : ''}`}>
-                      <label className="form-label text-secondary small fw-semibold">Classification Society</label>
+                      <label className="form-label text-secondary small fw-semibold">Class Society</label>
                       <select
                         className={`form-select form-select-sm${animatingFields.has('classification-society') ? ' map-autofill-animate' : ''}`}
                         value={classificationSociety}
@@ -1309,11 +1305,11 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                 <div className="d-flex flex-column gap-3">
                   {renderAiDocumentIntakeCard('Construction, Ownership & Title', 2)}
                   <div className="text-uppercase text-primary small fw-bold">
-                    Section 3: Construction & Dimensions
+                    Construction & Dimensions
                   </div>
                   <div className="row g-2">
                     <div className="col-md-4">
-                      <label className="form-label text-secondary small fw-semibold">Shipyard / Builder</label>
+                      <label className="form-label text-secondary small fw-semibold">Shipyard</label>
                       <input
                         type="text"
                         className="form-control form-control-sm"
@@ -1332,7 +1328,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       />
                     </div>
                     <div className={`col-md-4 ${revealedVesselFields.yearBuilt ? 'ai-field-reveal ai-field-highlight' : ''}`}>
-                      <label className="form-label text-secondary small fw-semibold">Year Built / Completed</label>
+                      <label className="form-label text-secondary small fw-semibold">Year Built</label>
                       <input
                         type="number"
                         className={`form-control form-control-sm${animatingFields.has('year-built') ? ' map-autofill-animate' : ''}`}
@@ -1342,7 +1338,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     </div>
 
                     <div className="col-md-3">
-                      <label className="form-label text-secondary small fw-semibold">LOA (Meters)</label>
+                      <label className="form-label text-secondary small fw-semibold">LOA (m)</label>
                       <input
                         type="number"
                         step="0.1"
@@ -1352,7 +1348,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       />
                     </div>
                     <div className="col-md-3">
-                      <label className="form-label text-secondary small fw-semibold">Beam (Meters)</label>
+                      <label className="form-label text-secondary small fw-semibold">Beam (m)</label>
                       <input
                         type="number"
                         step="0.1"
@@ -1382,11 +1378,11 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   </div>
 
                   <div className="text-uppercase text-primary small fw-bold mt-3">
-                    Section 4 & 5: Ownership, ISM & Operating Management
+                    Ownership & Management
                   </div>
                   <div className="row g-2">
                     <div className={`col-md-6 ${revealedVesselFields.registeredOwner ? 'ai-field-reveal ai-field-highlight' : ''}`}>
-                      <label className="form-label text-secondary small fw-semibold">Registered Owner Name <span className="text-danger">*</span></label>
+                      <label className="form-label text-secondary small fw-semibold">Registered Owner <span className="text-danger">*</span></label>
                       <input
                         type="text"
                         className={`form-control form-control-sm ${errorMessage && !registeredOwner.trim() ? 'is-invalid' : ''}${animatingFields.has('registered-owner') ? ' map-autofill-animate' : ''}`}
@@ -1403,13 +1399,13 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                         value={ownerType}
                         onChange={(e) => setOwnerType(e.target.value)}
                       >
-                        <option value="Corporate Entity">Company / Corporate</option>
+                        <option value="Corporate Entity">Company</option>
                         <option value="Individual">Individual</option>
-                        <option value="Government">Government / State</option>
+                        <option value="Government">Government</option>
                       </select>
                     </div>
                     <div className="col-md-3">
-                      <label className="form-label text-secondary small fw-semibold">Company Reg / ACN</label>
+                      <label className="form-label text-secondary small fw-semibold">Company Registration (ACN)</label>
                       <input
                         type="text"
                         className="form-control form-control-sm font-mono-code"
@@ -1420,7 +1416,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     </div>
 
                     <div className="col-md-4">
-                      <label className="form-label text-secondary small fw-semibold">ISM Management Company</label>
+                      <label className="form-label text-secondary small fw-semibold">ISM Manager</label>
                       <input
                         type="text"
                         className="form-control form-control-sm"
@@ -1452,7 +1448,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   </div>
 
                   <div className="text-uppercase text-primary small fw-bold mt-3">
-                    Section 6: Purchase & Title Encumbrance
+                    Purchase & Title
                   </div>
                   <div className="row g-2">
                     <div className="col-md-6">
@@ -1464,7 +1460,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       >
                         <option value="Outright Purchase">Outright Purchase</option>
                         <option value="New Build Delivery">New Build Delivery</option>
-                        <option value="Bareboat Charter with Purchase Option">Bareboat Charter / Lease</option>
+                        <option value="Bareboat Charter with Purchase Option">Bareboat Charter</option>
                       </select>
                     </div>
                     <div className="col-md-6">
@@ -1474,8 +1470,8 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                         value={mortgageStatus}
                         onChange={(e) => setMortgageStatus(e.target.value)}
                       >
-                        <option value="Free from Encumbrance">Free from Encumbrance (Clean Title)</option>
-                        <option value="Mortgaged to Commercial Bank">Mortgaged / Bank Financing</option>
+                        <option value="Free from Encumbrance">Free from Encumbrance</option>
+                        <option value="Mortgaged to Commercial Bank">Mortgaged</option>
                       </select>
                     </div>
                   </div>
@@ -1487,11 +1483,11 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                 <div className="d-flex flex-column gap-3">
                   {renderAiDocumentIntakeCard('Safety, Crew, Insurance & Environment', 3)}
                   <div className="text-uppercase text-primary small fw-bold">
-                    Section 8: Insurance & Financial Security
+                    Insurance
                   </div>
                   <div className="row g-2">
                     <div className="col-md-4">
-                      <label className="form-label text-secondary small fw-semibold">Protection & Indemnity (P&I) Club</label>
+                      <label className="form-label text-secondary small fw-semibold">P&I Club</label>
                       <input
                         type="text"
                         className="form-control form-control-sm"
@@ -1520,7 +1516,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   </div>
 
                   <div className="text-uppercase text-primary small fw-bold mt-3">
-                    Section 9: Crew & Safety Information
+                    Crew & Safety
                   </div>
                   <div className="row g-2">
                     <div className="col-md-3">
@@ -1533,7 +1529,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       />
                     </div>
                     <div className="col-md-3">
-                      <label className="form-label text-secondary small fw-semibold">Max Crew / Berth Capacity</label>
+                      <label className="form-label text-secondary small fw-semibold">Max Crew</label>
                       <input
                         type="number"
                         className="form-control form-control-sm"
@@ -1551,7 +1547,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       />
                     </div>
                     <div className="col-md-3">
-                      <label className="form-label text-secondary small fw-semibold">Master's Full Name</label>
+                      <label className="form-label text-secondary small fw-semibold">Master</label>
                       <input
                         type="text"
                         className="form-control form-control-sm"
@@ -1563,7 +1559,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   </div>
 
                   <div className="text-uppercase text-primary small fw-bold mt-3">
-                    Section 10: Environmental Information
+                    Environmental Information
                   </div>
                   <div className="row g-2">
                     <div className="col-md-6">
@@ -1593,14 +1589,14 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                 <div className="d-flex flex-column gap-3">
                   {renderAiDocumentIntakeCard('Statutory Certificates & Master Documents', 4)}
                   <div className="text-uppercase text-primary small fw-bold">
-                    Section 7 & 11: Statutory Certificates & Master Documents
+                    Certificates & Documents
                   </div>
                   <p className="text-secondary small mb-2">
-                    Pre-attached foundational statutory certificates and extracted specifications are automatically linked to the Pre-Assurance Vault and fleet compliance readiness score.
+                    The certificates you attached are saved to the vessel's documents and count toward its readiness.
                   </p>
 
                   <div className="alert alert-info py-2 small mt-2">
-                    <strong>Note:</strong> Additional statutory certificates (Safety Equipment, Load Line, IOPP) can be uploaded at any time in the <strong>Pre-Assurance Vault</strong> inside the vessel detail page.
+                    You can upload more certificates later from the <strong>Documents</strong> tab on the vessel page.
                   </div>
                 </div>
               )}
@@ -1622,7 +1618,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                 )}
                 {currentStep < 4 ? (
                   <button type="button" className="btn btn-sm btn-primary" onClick={handleNext}>
-                    Next Step
+                    Next
                   </button>
                 ) : (
                   <button
@@ -1630,7 +1626,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                     className="btn btn-sm btn-success"
                     onClick={() => handleSubmit()}
                   >
-                    Confirm & Complete Registration
+                    Add Vessel
                   </button>
                 )}
               </div>
@@ -1659,10 +1655,10 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   </div>
                   <div>
                     <h5 className="modal-title fw-bold text-dark m-0">
-                      Document Preview &amp; Verification Gate
+                      Check Document
                     </h5>
                     <div className="text-secondary small mt-0.5">
-                      Review document clarity before authorizing AI OCR metadata extraction for Stage {pendingVerificationState.stepNumber}
+                      Check the scan is clear before reading it.
                     </div>
                   </div>
                 </div>
@@ -1684,7 +1680,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       <span className="badge bg-danger text-white font-mono-code" style={{ fontSize: '0.7rem' }}>PDF SCAN</span>
                       <span className="fw-bold text-dark font-mono-code">{pendingVerificationState.fileName}</span>
                     </div>
-                    <span className="badge bg-success text-white font-mono-code" style={{ fontSize: '0.7rem' }}>OCR LEGIBILITY: 100% CLEAR</span>
+                    <span className="badge bg-success text-white font-mono-code" style={{ fontSize: '0.7rem' }}>CLEAR</span>
                   </div>
 
                   {/* Document Scan Wireframe Graphic */}
@@ -1694,8 +1690,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       <span className="text-muted">PAGE 1 OF 1</span>
                     </div>
 
-                    <div className="text-secondary mt-1">TARGET STAGE: Registration Stage {pendingVerificationState.stepNumber}</div>
-                    <div className="text-secondary">EXTRACTABLE FIELDS: Vessel Name, IMO Number, Flag State, Classification Society, Year Built, GT/DWT</div>
+                    <div className="text-secondary mt-1">FIELDS: Vessel Name, IMO Number, Flag State, Class Society, Year Built, GT/DWT</div>
 
                     {/* OCR Criteria with universal staggered animation */}
                     <div className="d-flex flex-column gap-2 mt-2.5 p-2 bg-light rounded border font-sans">
@@ -1715,7 +1710,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                         <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
                           <Check className="w-3 h-3 text-white" strokeWidth={3} />
                         </span>
-                        <span className="ps-0.5 text-dark fw-medium">Signature / stamp present</span>
+                        <span className="ps-0.5 text-dark fw-medium">Signature or stamp present</span>
                       </div>
                     </div>
 
@@ -1740,7 +1735,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   className="btn btn-sm btn-success fw-bold px-3 d-inline-flex align-items-center gap-1.5"
                   onClick={handleConfirmVesselFileVerification}
                 >
-                  Extract Document
+                  Read Document
                 </button>
               </div>
             </div>

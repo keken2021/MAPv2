@@ -25,7 +25,7 @@ import {
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 import { exportToPdf } from '../../utils/exportHelpers';
-import { formatReadinessScore } from '../../utils/formatters';
+import { formatReadinessScore, getFieldDisplayLabel } from '../../utils/formatters';
 import { getMarketplaceCharterLabel } from '../../utils/marketplaceHelpers';
 
 interface MarketplaceDetailModalProps {
@@ -101,9 +101,9 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
       ['Compliance Readiness', formatReadinessScore(item.complianceReadinessScore)],
       ['Rate Estimate', item.rateEstimate || 'Contact for Quote'],
       ['Mobilization Time', item.mobilizationLeadTime || 'Standard Lead'],
-      ...item.detailedSpecs.map((s) => [s.label, s.value]),
+      ...item.detailedSpecs.map((s) => [getFieldDisplayLabel(s.label), s.value]),
     ];
-    exportToPdf(`Marketplace_Dossier_${item.name.replace(/\s+/g, '_')}`, headers, rows);
+    exportToPdf(`Marketplace_Offering_${item.name.replace(/\s+/g, '_')}`, headers, rows);
   };
 
   const handleSendInquiry = () => {
@@ -176,7 +176,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
               type="button"
               className="btn btn-sm text-white p-2 rounded-2 border-0 bg-transparent opacity-75 hover-opacity-100 ms-3 flex-shrink-0"
               onClick={onClose}
-              aria-label="Close modal"
+              aria-label="Close"
               style={{ cursor: 'pointer' }}
             >
               <X size={20} />
@@ -279,7 +279,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
 
                   <div className="d-flex align-items-center gap-2 mt-1">
                     <span className="badge bg-slate-800 text-slate-200 border border-slate-700 font-mono-code px-2.5 py-1" style={{ fontSize: '0.75rem' }}>
-                      STCW Compliance Readiness:{' '}
+                      Readiness:{' '}
                       <strong className={item.complianceReadinessScore === null ? 'text-slate-200' : 'text-success'}>
                         {formatReadinessScore(item.complianceReadinessScore)}
                       </strong>
@@ -459,7 +459,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                         className="text-secondary text-uppercase fw-semibold mb-1"
                         style={{ fontSize: '0.68rem', color: '#64748B', letterSpacing: '0.04em' }}
                       >
-                        {m.label}
+                        {getFieldDisplayLabel(m.label)}
                       </div>
                       <div
                         className="fw-bold font-mono-code"
@@ -544,7 +544,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                     }}
                     onClick={() => setActiveTab('provider')}
                   >
-                    Provider
+                    Service Provider
                   </button>
                 </li>
               </ul>
@@ -556,7 +556,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                 <div>
                   <div className="d-flex align-items-center justify-content-between mb-3">
                     <h6 className="fw-bold mb-0" style={{ fontSize: '0.92rem', color: '#0B1B2B' }}>
-                      Technical Specifications
+                      Specifications
                     </h6>
                     <span className="text-muted small" style={{ fontSize: '0.78rem' }}>
                       {item.detailedSpecs.length} Verified Parameters
@@ -577,7 +577,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                             className="text-secondary small fw-medium mb-1"
                             style={{ fontSize: '0.78rem', color: '#64748B' }}
                           >
-                            {spec.label}
+                            {getFieldDisplayLabel(spec.label)}
                           </div>
                           <div
                             className="fw-semibold font-mono-code"
@@ -595,7 +595,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
               {activeTab === 'capabilities' && (
                 <div>
                   <h6 className="fw-bold mb-3" style={{ fontSize: '0.92rem', color: '#0B1B2B' }}>
-                    Operational Capabilities & Scope
+                    Capabilities
                   </h6>
                   <div className="d-flex flex-column gap-3">
                     {item.operationalCapabilities.map((cap, i) => (
@@ -621,7 +621,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
               {activeTab === 'compliance' && (
                 <div>
                   <h6 className="fw-bold mb-3" style={{ fontSize: '0.92rem', color: '#0B1B2B' }}>
-                    Statutory & Class Compliance Accreditations
+                    Certificates
                   </h6>
                   <div className="d-flex flex-column gap-3 mb-3.5">
                     {item.certifications.map((cert, i) => (
@@ -663,7 +663,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                       color: '#64748B',
                     }}
                   >
-                    All listed certificates and documentation are subject to MAP automated verification against IACS standards.
+                    MAP checks all listed certificates automatically.
                   </div>
                 </div>
               )}
@@ -671,7 +671,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
               {activeTab === 'provider' && (
                 <div>
                   <h6 className="fw-bold mb-3" style={{ fontSize: '0.92rem', color: '#0B1B2B' }}>
-                    Service Provider Organization & Operations Desk
+                    Service Provider
                   </h6>
                   <div
                     className="card p-4 border mb-3 rounded-2 shadow-2xs"
@@ -707,7 +707,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                           {item.providerOrg}
                         </span>
                         <span className="text-secondary small mt-0.5" style={{ color: '#64748B', fontSize: '0.8rem' }}>
-                          Verified Regional Marine Services Provider
+                          Verified Service Provider
                         </span>
                       </div>
                     </div>
@@ -773,7 +773,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                 }}
               >
                 <CheckCircle2 size={16} className="flex-shrink-0" />
-                <span>Your request has been dispatched to {item.providerOrg}. They will contact you shortly.</span>
+                <span>Your request was sent to {item.providerOrg}. They will contact you shortly.</span>
               </div>
             )}
           </div>
@@ -791,11 +791,11 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                 type="button"
                 className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5 px-3 py-1.5"
                 onClick={handleExportDossierPdf}
-                title="Download technical asset dossier as PDF"
+                title="Export as PDF"
                 style={{ fontSize: '0.82rem', height: '34px' }}
               >
                 <Download size={14} />
-                <span>Export Dossier</span>
+                <span>Export</span>
               </button>
             </div>
 

@@ -38,20 +38,20 @@ export const UserManagementView: React.FC = () => {
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Visible Personnel
+              Users
             </div>
             <div className="map-kpi-value text-primary mt-1">{visibleUsers.length}</div>
-            <div className="map-kpi-subtitle mt-1">Authorized Organization & Auditor Accounts</div>
+            <div className="map-kpi-subtitle mt-1">All accounts you can see</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Organization Members
+              Organization
             </div>
             <div className="map-kpi-value text-primary mt-1">{orgUsersCount}</div>
-            <div className="map-kpi-subtitle mt-1">Internal Team Accounts</div>
+            <div className="map-kpi-subtitle mt-1">Your own staff</div>
           </div>
         </div>
 
@@ -61,17 +61,17 @@ export const UserManagementView: React.FC = () => {
               Inspectors & Verifiers
             </div>
             <div className="map-kpi-value text-primary mt-1">{inspectorsCount + verifiersCount}</div>
-            <div className="map-kpi-subtitle mt-1">Assigned Auditors & Compliance Verification</div>
+            <div className="map-kpi-subtitle mt-1">Users holding either role</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Third-Party Stakeholders
+              Third-Party
             </div>
             <div className="map-kpi-value text-warning mt-1">{thirdPartyUsersCount}</div>
-            <div className="map-kpi-subtitle mt-1">External Audit & Survey Entities</div>
+            <div className="map-kpi-subtitle mt-1">Users from other organizations</div>
           </div>
         </div>
       </div>

@@ -20,7 +20,7 @@ export const FilterButton: React.FC<FilterButtonProps> = ({
   activeCount = 0,
   label = 'Filters',
   className = '',
-  title = 'Open filters modal',
+  title = 'Filters',
 }) => {
   const hasActive = activeCount > 0;
   return (

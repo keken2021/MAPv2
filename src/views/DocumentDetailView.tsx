@@ -8,7 +8,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
-import { formatMaritimeDate } from '../utils/formatters';
+import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
 import { DocumentVersion } from '../types/document';
@@ -115,7 +115,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
     }
 
     const versionRows = doc.versions.map((v) => ({
-      Section: 'FILE REVISION HISTORY',
+      Section: 'VERSION HISTORY',
       AttributeOrFile: v.fileName,
       ValueOrTimestamp: v.uploadedAt,
       AuthorityOrUploader: v.uploadedBy,
@@ -151,7 +151,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
     }
 
     const versionRows: (string | number)[][] = doc.versions.map((v) => [
-      'FILE REVISION HISTORY',
+      'VERSION HISTORY',
       v.fileName,
       v.uploadedAt,
       v.uploadedBy,
@@ -182,7 +182,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 }`}
               style={{ fontSize: '0.825rem' }}
             >
-              {doc.verificationStatus}
+              {getStatusDisplayLabel(doc.verificationStatus)}
             </span>
           </div>
 
@@ -193,18 +193,18 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
               className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
               onClick={() => setIsExportOpen(!isExportOpen)}
             >
-              Export Data
+              Export
             </button>
             {isExportOpen && (
               <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    Export as CSV (.csv)
+                    CSV
                   </button>
                 </li>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    Export as PDF (.pdf)
+                    PDF
                   </button>
                 </li>
               </ul>
@@ -217,7 +217,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
           {/* Validation exception alert if any */}
           {!doc.validationRules.overallValid && (
             <div className="alert alert-warning p-3 mb-3 border-warning">
-              <h6 className="fw-bold mb-1">Validation Exception / Charter Buffer Alert</h6>
+              <h6 className="fw-bold mb-1">Validation Exception</h6>
               <div>{doc.validationRules.exceptionDetails || 'Document requires attention prior to charter verification.'}</div>
             </div>
           )}
@@ -225,13 +225,13 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
           {doc.vesselAttributes && (
             <div className="row g-3 small">
               <div className="col-md-4">
-                <span className="text-secondary">Certificate Number:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.certificateNumber}</strong></div>
+                <span className="text-secondary">Certificate No.:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.certificateNumber}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">Cert Type:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.certType}</strong></div>
+                <span className="text-secondary">Type:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.certType}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">Issuing Body:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.issuingBody}</strong></div>
+                <span className="text-secondary">Issuing Authority:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.issuingBody}</strong></div>
               </div>
               <div className="col-md-4">
                 <span className="text-secondary">Issue Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.vesselAttributes.issueDate)}</strong></div>
@@ -240,7 +240,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 <span className="text-secondary">Expiry Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.vesselAttributes.expiryDate)}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">Vessel Name:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.vesselName}</strong></div>
+                <span className="text-secondary">Vessel:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.vesselName}</strong></div>
               </div>
               <div className="col-md-4">
                 <span className="text-secondary">IMO Number:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.imoNumber}</strong></div>
@@ -249,13 +249,13 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 <span className="text-secondary">Flag State:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.flagState}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">100% Asset Match:</span> <div><span className="badge bg-success text-white">MATCH Verified</span></div>
+                <span className="text-secondary">100% Asset Match:</span> <div><span className="badge bg-success text-white">Match Verified</span></div>
               </div>
               <div className="col-md-4">
                 <span className="text-secondary">Last Survey Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.vesselAttributes.lastSurveyDate)}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">OCR Score:</span> <div><ConfidenceBadge score={doc.vesselAttributes.ocrConfidence} /></div>
+                <span className="text-secondary">OCR Confidence:</span> <div><ConfidenceBadge score={doc.vesselAttributes.ocrConfidence} /></div>
               </div>
             </div>
           )}
@@ -263,19 +263,19 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
           {doc.crewAttributes && (
             <div className="row g-3 small">
               <div className="col-md-4">
-                <span className="text-secondary">Crew Name:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.crewName}</strong></div>
+                <span className="text-secondary">Crew:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.crewName}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">Passport / ID:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.passportId}</strong></div>
+                <span className="text-secondary">Passport No.:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.passportId}</strong></div>
               </div>
               <div className="col-md-4">
                 <span className="text-secondary">Rank:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.rank}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">Cert Type:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.certType}</strong></div>
+                <span className="text-secondary">Type:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.certType}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">Issuing Center:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.issuingCenter}</strong></div>
+                <span className="text-secondary">Issuing Authority:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.issuingCenter}</strong></div>
               </div>
               <div className="col-md-4">
                 <span className="text-secondary">Issue Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.crewAttributes.issueDate)}</strong></div>
@@ -284,7 +284,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 <span className="text-secondary">Expiry Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.crewAttributes.expiryDate)}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">Assigned Vessel:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.assignedVessel}</strong></div>
+                <span className="text-secondary">Vessel:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.assignedVessel}</strong></div>
               </div>
               <div className="col-md-4">
                 <span className="text-secondary">Nationality:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.nationality}</strong></div>
@@ -298,7 +298,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
       <div className="card map-card-custom">
         <div className="card-header p-3 d-flex align-items-center justify-between fw-bold text-dark">
           <div>
-            File Revision History ({doc.versions.length} Versions)
+            Version History ({doc.versions.length})
           </div>
           {canUpload && (
             <button
@@ -330,13 +330,13 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleVersionSort('uploadedAt')}
                 >
-                  Upload Timestamp (UTC) {renderSortIndicator(versionSortField, 'uploadedAt', versionSortDirection)}
+                  Uploaded (UTC) {renderSortIndicator(versionSortField, 'uploadedAt', versionSortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleVersionSort('uploadedBy')}
                 >
-                  Uploader {renderSortIndicator(versionSortField, 'uploadedBy', versionSortDirection)}
+                  Uploaded By {renderSortIndicator(versionSortField, 'uploadedBy', versionSortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}

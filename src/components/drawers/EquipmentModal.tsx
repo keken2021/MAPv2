@@ -139,7 +139,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                   <Camera size={18} />
                 </div>
                 <h5 className="modal-title fw-bold m-0 text-white" style={{ fontSize: '1.05rem' }}>
-                  Register Equipment Asset
+                  Add Equipment
                 </h5>
               </div>
               <button
@@ -163,11 +163,11 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
               {/* SECTION 1: Asset Core Details */}
               <div className="card p-3 border rounded-3 mb-3 bg-white shadow-2xs">
                 <div className="text-uppercase text-primary small fw-bold mb-2.5" style={{ fontSize: '0.72rem', letterSpacing: '0.04em' }}>
-                  Core Identification &amp; Classification
+                  Details
                 </div>
                 <div className="row g-3">
                   <div className="col-md-6">
-                    <label className="form-label small fw-semibold text-dark">Equipment Name <span className="text-danger">*</span></label>
+                    <label className="form-label small fw-semibold text-dark">Name <span className="text-danger">*</span></label>
                     <input
                       type="text"
                       className="form-control form-control-sm"
@@ -177,7 +177,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                     />
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label small fw-semibold text-dark">Equipment Identifier <span className="text-danger">*</span></label>
+                    <label className="form-label small fw-semibold text-dark">Equipment ID <span className="text-danger">*</span></label>
                     <input
                       type="text"
                       className="form-control form-control-sm font-mono-code"
@@ -205,7 +205,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                     </select>
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label small fw-semibold text-dark">Parent Vessel (optional)</label>
+                    <label className="form-label small fw-semibold text-dark">Vessel (optional)</label>
                     <select
                       className="form-select form-select-sm"
                       value={parentVesselId}
@@ -256,7 +256,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
               <div className="card p-3 border rounded-3 bg-white shadow-2xs">
                 <div className="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
                   <div className="text-uppercase text-primary small fw-bold" style={{ fontSize: '0.72rem', letterSpacing: '0.04em' }}>
-                    Equipment Photo &amp; Gallery Upload
+                    Photos
                   </div>
                   <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.68rem' }}>
                     {photos.length} {photos.length === 1 ? 'Photo' : 'Photos'} Queued
@@ -290,7 +290,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                 <div className="row g-3">
                   {/* Left Column: Primary Cover Preview */}
                   <div className="col-12 col-md-5">
-                    <label className="form-label text-secondary small fw-semibold mb-1">Cover Preview</label>
+                    <label className="form-label text-secondary small fw-semibold mb-1">Cover Photo</label>
                     <div
                       className="position-relative border rounded-3 overflow-hidden shadow-2xs"
                       style={{ width: '100%', aspectRatio: '16 / 9', backgroundColor: '#0B1B2B' }}
@@ -327,7 +327,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                           onClick={() => photoFileInputRef.current?.click()}
                         >
                           <Upload className="w-3.5 h-3.5" />
-                          <span>Upload &amp; Crop Image</span>
+                          <span>Upload Photo</span>
                         </button>
                         {(photos.length > 0 || imageUrl) && (
                           <button
@@ -385,7 +385,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                                   } ${isDragging ? 'opacity-40' : ''} ${isDragOver ? 'border-warning ring-2 ring-warning' : ''}`}
                                 style={{ width: '64px', height: '40px', backgroundColor: '#0B1B2B' }}
                                 onClick={() => setImageUrl(photo)}
-                                title="Click to set cover · Drag to reorder"
+                                title="Click to set as cover. Drag to reorder."
                               >
                                 <img src={photo} alt="" className="w-100 h-100 object-fit-cover" />
                                 {isCover && (
@@ -437,7 +437,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                       {/* Stock Presets with Instant Crop */}
                       <div className="mb-2">
                         <div className="small text-secondary fw-semibold mb-1" style={{ fontSize: '0.72rem' }}>
-                          Add &amp; Crop Stock Presets:
+                          Presets:
                         </div>
                         <div className="d-flex flex-wrap align-items-center gap-1.5">
                           {CURATED_EQUIPMENT_PHOTOS.slice(0, 4).map((p, idx) => (
@@ -451,7 +451,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                                 setCropModalImageSrc(p.url);
                                 setIsCropModalOpen(true);
                               }}
-                              title={`Crop and add ${p.title}`}
+                              title={`Add ${p.title}`}
                             >
                               + {p.title}
                             </button>
@@ -465,7 +465,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                           type="url"
                           className="form-control form-control-sm font-mono-code flex-grow-1"
                           style={{ fontSize: '0.75rem' }}
-                          placeholder="Or paste image URL (https://...)"
+                          placeholder="Paste a photo URL"
                           value={customPhotoInput}
                           onChange={(e) => setCustomPhotoInput(e.target.value)}
                         />
@@ -484,7 +484,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                               }
                             }}
                           >
-                            Crop &amp; Add
+                            Add
                           </button>
                         )}
                       </div>
@@ -512,7 +512,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
                 onClick={handleSubmit}
                 style={{ backgroundColor: '#0B1B2B', borderColor: '#0B1B2B' }}
               >
-                Confirm Registration
+                Add Equipment
               </button>
             </div>
           </div>
@@ -524,7 +524,7 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
         <ImageCropModal
           isOpen={isCropModalOpen}
           imageSrc={cropModalImageSrc}
-          title="Equipment Photo Framing & Sizing"
+          title="Crop Photo"
           assetName={name.trim() || 'New Equipment Asset'}
           initialPreset="16:9"
           onSave={(croppedUrl) => {

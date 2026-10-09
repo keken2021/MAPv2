@@ -204,14 +204,14 @@ export function getAssuranceSetStakeholderLockReason(
     return null;
   }
   if (assuranceSet.stage === 'Approved' || assuranceSet.stage === 'Certified') {
-    return 'Stakeholder assignments are locked once the campaign is approved or certified.';
+    return 'Stakeholders are locked once the assurance set is approved or certified.';
   }
   if (assuranceSet.approverDecision === 'Approved') {
     return 'Stakeholder assignments are locked after formal approval.';
   }
   const clientStage = assuranceSet.clientWorkflowStage;
   if (clientStage === 'in_review') {
-    return 'Stakeholder assignments are locked while the campaign is under review.';
+    return 'Stakeholders are locked while the assurance set is under review.';
   }
   if (clientStage === 'pending_approval') {
     return 'Stakeholder assignments are locked while awaiting client approval.';

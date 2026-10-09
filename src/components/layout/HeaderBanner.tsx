@@ -8,6 +8,7 @@ import React, { useMemo } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { getBackButtonInfo } from '../../utils/rbacHelpers';
 import { getPersonaOptionsForOrganization } from '../../utils/demoSessionHelpers';
+import { getRoleDisplayLabel } from '../../utils/userRoleHelpers';
 import { NotificationPanel } from './NotificationPanel';
 
 /**
@@ -38,9 +39,9 @@ export const HeaderBanner: React.FC = () => {
   const getHeaderBackInfo = () => {
     switch (currentHashView) {
       case 'vessels':
-        return getBackButtonInfo('vessels', 'Fleet Registry', previousHashView, activePersona, previousEntityId);
+        return getBackButtonInfo('vessels', 'Vessels', previousHashView, activePersona, previousEntityId);
       case 'equipment':
-        return getBackButtonInfo('equipment', 'Equipment Registry', previousHashView, activePersona, previousEntityId);
+        return getBackButtonInfo('equipment', 'Equipment', previousHashView, activePersona, previousEntityId);
       case 'project':
         return getBackButtonInfo('project', 'Projects', previousHashView, activePersona, previousEntityId);
       case 'documents':
@@ -234,7 +235,7 @@ export const HeaderBanner: React.FC = () => {
                   style={{ fontSize: '0.75rem', transition: 'all 0.15s ease-in-out' }}
                   onClick={() => setActivePersona(r.role)}
                 >
-                  {r.label}
+                  {getRoleDisplayLabel(r.role)}
                 </button>
               );
             })}

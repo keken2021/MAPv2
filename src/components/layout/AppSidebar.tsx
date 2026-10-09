@@ -27,6 +27,7 @@ import {
 } from "../../utils/demoSessionHelpers";
 import {
   getDemoSessionContext,
+  getRoleDisplayLabel,
   getSessionUserForPersona,
 } from "../../utils/userRoleHelpers";
 
@@ -509,7 +510,7 @@ export const AppSidebar: React.FC = () => {
               color: "#64748b",
             }}
           >
-            Organisation
+            Organization
           </label>
           <select
             id="demo-organization-select"
@@ -560,7 +561,7 @@ export const AppSidebar: React.FC = () => {
                 className="text-truncate"
                 style={{ fontSize: "0.7rem", color: "#38bdf8" }}
               >
-                {activePersona}
+                {getRoleDisplayLabel(activePersona)}
               </span>
             </div>
           </div>
@@ -615,14 +616,14 @@ export const AppSidebar: React.FC = () => {
                 }}
               >
                 <div>
-                  <div className="fw-semibold">{personaUser?.name ?? role}</div>
+                  <div className="fw-semibold">{personaUser?.name ?? getRoleDisplayLabel(role)}</div>
                   <div
                     style={{
                       fontSize: "0.65rem",
                       color: activePersona === role ? "#e0f2fe" : "#94a3b8",
                     }}
                   >
-                    {role}
+                    {getRoleDisplayLabel(role)}
                   </div>
                 </div>
                 {activePersona === role && (

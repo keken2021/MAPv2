@@ -8,7 +8,7 @@ import React from 'react';
 import { Camera, MoreHorizontal } from 'lucide-react';
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
-import { formatReadinessScore } from '../../utils/formatters';
+import { formatReadinessScore, getFieldDisplayLabel } from '../../utils/formatters';
 
 interface MarketplaceCardProps {
   item: MarketplaceItem;
@@ -19,10 +19,10 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
   const orgInfo = getOrganizationLogo(item.providerOrg);
 
   // Derive metric values with fallbacks
-  const metric1Label = item.metrics?.[0]?.label || (item.category === 'vessel' ? 'Capacity (DWT)' : item.category === 'crew' ? 'Experience' : 'Capacity / Output');
+  const metric1Label = getFieldDisplayLabel(item.metrics?.[0]?.label || (item.category === 'vessel' ? 'Capacity (DWT)' : item.category === 'crew' ? 'Experience' : 'Capacity'));
   const metric1Value = item.metrics?.[0]?.value || (item.category === 'vessel' ? '4,400 MT' : item.category === 'crew' ? '12+ Years' : 'Standard');
 
-  const metric2Label = item.metrics?.[1]?.label || (item.category === 'vessel' ? 'Assurance / Class' : 'Assurance / Readiness');
+  const metric2Label = getFieldDisplayLabel(item.metrics?.[1]?.label || (item.category === 'vessel' ? 'Assurance / Class' : 'Assurance / Readiness'));
   const metric2Value = item.metrics?.[1]?.value || formatReadinessScore(item.complianceReadinessScore);
 
   return (
@@ -37,7 +37,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
           onSelect(item);
         }
       }}
-      aria-label={`View details for ${item.name}`}
+      aria-label={`View ${item.name}`}
       style={{
         borderRadius: '16px',
         borderColor: '#E2E8F0',
@@ -243,7 +243,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
               color: '#8E9BAE',
             }}
           >
-            Listing Organization
+            Service Provider
           </div>
           <div className="d-flex align-items-center gap-2.5 min-w-0">
             {orgInfo.logoUrl ? (
@@ -287,7 +287,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
                 className="text-secondary text-truncate"
                 style={{ fontSize: '0.76rem', color: '#64748B' }}
               >
-                Verified Maritime Provider
+                Verified Service Provider
               </span>
             </div>
           </div>

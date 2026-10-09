@@ -10,7 +10,7 @@ import { useMapStore } from '../store/useMapStore';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { MasterDocument } from '../types/document';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
-import { formatMaritimeDate } from '../utils/formatters';
+import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
@@ -66,8 +66,8 @@ export const VerifierWorkspaceView: React.FC = () => {
     if (statusFilter !== 'ALL') {
       chips.push({
         id: 'status',
-        label: 'Status',
-        value: statusFilter,
+        label: 'Verification',
+        value: statusFilter === 'Pending' ? 'Submitted' : getStatusDisplayLabel(statusFilter),
         onRemove: () => setStatusFilter('ALL'),
       });
     }
@@ -169,21 +169,21 @@ export const VerifierWorkspaceView: React.FC = () => {
     const exportData = sortedDocs.map((d) => {
       const info = getAssuranceSetInfo(d.id);
       return {
-        AssuranceSet: info ? info.setId : 'N/A',
-        VesselName: info ? info.vesselName : 'N/A',
+        SetID: info ? info.setId : 'N/A',
+        Vessel: info ? info.vesselName : 'N/A',
         Title: d.title,
         IssuingAuthority: d.issuingAuthority,
         ExpiryDate: d.expiryDate,
         OcrConfidence: `${d.ocrConfidence}%`,
-        Status: d.verificationStatus,
+        Status: getStatusDisplayLabel(d.verificationStatus),
       };
     });
-    exportToCsv('Master_Verification_Queue', exportData);
+    exportToCsv('Verification_Queue', exportData);
     setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
-    const headers = ['Assurance Set', 'Vessel Name', 'Title', 'Authority', 'Expiry Date', 'OCR Conf', 'Status'];
+    const headers = ['Set ID', 'Vessel', 'Title', 'Issuing Authority', 'Expiry Date', 'OCR Confidence', 'Status'];
     const rows = sortedDocs.map((d) => {
       const info = getAssuranceSetInfo(d.id);
       return [
@@ -193,10 +193,10 @@ export const VerifierWorkspaceView: React.FC = () => {
         d.issuingAuthority,
         d.expiryDate,
         `${d.ocrConfidence}%`,
-        d.verificationStatus,
+        getStatusDisplayLabel(d.verificationStatus),
       ];
     });
-    exportToPdf('Master Verification Queue', headers, rows);
+    exportToPdf('Verification Queue', headers, rows);
     setIsExportOpen(false);
   };
 
@@ -227,7 +227,7 @@ export const VerifierWorkspaceView: React.FC = () => {
                   type="text"
                   className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
                   style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                  placeholder="Search Cert #, Title, Set, Vessel..."
+                  placeholder="Search documents..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -247,18 +247,18 @@ export const VerifierWorkspaceView: React.FC = () => {
                 style={{ fontSize: '0.82rem', height: '34px', borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}
                 onClick={() => setIsExportOpen(!isExportOpen)}
               >
-                Export Data
+                Export
               </button>
               {isExportOpen && (
                 <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      Export as CSV (.csv)
+                      CSV
                     </button>
                   </li>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      Export as PDF (.pdf)
+                      PDF
                     </button>
                   </li>
                 </ul>
@@ -275,11 +275,11 @@ export const VerifierWorkspaceView: React.FC = () => {
           <table className="table map-table-custom align-middle mb-0">
             <thead>
               <tr>
-                {renderSortHeader('Set ID / Cert #', 'assuranceSet')}
-                {renderSortHeader('Certificate Title', 'title')}
-                {renderSortHeader('Vessel & Authority', 'issuingAuthority')}
+                {renderSortHeader('Set ID', 'assuranceSet')}
+                {renderSortHeader('Title', 'title')}
+                {renderSortHeader('Vessel', 'issuingAuthority')}
                 {renderSortHeader('Expiry Date', 'expiryDate')}
-                {renderSortHeader('Status', 'verificationStatus')}
+                {renderSortHeader('Verification', 'verificationStatus')}
                 <th className="text-end">Actions</th>
               </tr>
             </thead>
@@ -320,7 +320,7 @@ export const VerifierWorkspaceView: React.FC = () => {
                           return <span className="badge bg-info text-dark">Verified</span>;
                         }
                         if (doc.verificationStatus === 'Correction Requested') {
-                          return <span className="badge bg-warning text-dark">Correction Requested</span>;
+                          return <span className="badge bg-warning text-dark">Returned for Correction</span>;
                         }
                         if (doc.verificationStatus === 'Rejected') {
                           return <span className="badge bg-danger text-white">Rejected</span>;
@@ -337,8 +337,8 @@ export const VerifierWorkspaceView: React.FC = () => {
                           e.stopPropagation();
                           setSelectedDoc(doc);
                         }}
-                        title="Review Document"
-                        aria-label="Review Document"
+                        title="Review"
+                        aria-label="Review"
                       >
                         <FileCheck size={16} />
                       </button>
@@ -350,7 +350,7 @@ export const VerifierWorkspaceView: React.FC = () => {
               {sortedDocs.length === 0 && (
                 <tr>
                   <td colSpan={6} className="text-center text-muted py-4 fst-italic">
-                    No documents match the selected search terms or filters.
+                    No documents found.
                   </td>
                 </tr>
               )}
@@ -367,15 +367,14 @@ export const VerifierWorkspaceView: React.FC = () => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Verifier Queue Filters"
-        subtitle="Filter statutory documents by entity type and verification audit status"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="d-flex flex-column gap-3">
           {/* Entity Type Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Entity Type
+              Type
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
@@ -383,7 +382,7 @@ export const VerifierWorkspaceView: React.FC = () => {
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
             >
-              <option value="ALL">All Entity Types</option>
+              <option value="ALL">All Types</option>
               <option value="Vessel Certificate">Vessel Certificate</option>
               <option value="Crew Certificate">Crew Certificate</option>
             </select>
@@ -392,7 +391,7 @@ export const VerifierWorkspaceView: React.FC = () => {
           {/* Verification Status Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Verification Status
+              Verification
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
@@ -402,7 +401,7 @@ export const VerifierWorkspaceView: React.FC = () => {
             >
               <option value="ALL">All Statuses</option>
               <option value="Pending">Submitted</option>
-              <option value="Correction Requested">Correction Requested</option>
+              <option value="Correction Requested">Returned for Correction</option>
               <option value="Rejected">Rejected</option>
               <option value="Verified">Verified</option>
             </select>

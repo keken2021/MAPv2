@@ -22,7 +22,7 @@ import {
 import { useMapStore } from '../store/useMapStore';
 import { STCWDocumentItem, CrewVesselAssignment, CrewMember } from '../types/crew';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
-import { formatMaritimeDate } from '../utils/formatters';
+import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CrewDocumentUploadModal } from '../components/drawers/CrewDocumentUploadModal';
 import { CrewDocumentViewerModal } from '../components/drawers/CrewDocumentViewerModal';
@@ -226,7 +226,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
       d.verificationStatus,
     ]);
 
-    exportToPdf(`${crewMember.fullName} STCW Layered Compliance Dossier`, headers, [...coreRows, ...endorsementRows]);
+    exportToPdf(`${crewMember.fullName} Crew Documents`, headers, [...coreRows, ...endorsementRows]);
     setIsExportOpen(false);
   };
 
@@ -279,13 +279,13 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
             <div>
               <h3 className="fw-bold mb-0.5 text-primary">{crewMember.fullName}</h3>
               <div className="text-secondary small font-mono-code d-flex align-items-center gap-2 flex-wrap">
-                <span>Current Vessel:</span>
+                <span>Vessel:</span>
                 {crewMember.currentVesselId ? (
                   <button
                     type="button"
                     className="btn btn-link p-0 text-primary fw-bold border-0 bg-transparent text-decoration-underline font-mono-code align-baseline"
                     onClick={() => setCurrentHashView('vessels', crewMember.currentVesselId)}
-                    title={`View ${crewMember.currentVesselName} details`}
+                    title={`View ${crewMember.currentVesselName}`}
                   >
                     {crewMember.currentVesselName}
                   </button>
@@ -313,7 +313,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
             )}
             <div className="d-flex flex-column align-items-center">
               <div className="text-secondary small fw-bold text-uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>
-                STCW Readiness Score
+                Readiness
               </div>
               <ReadinessGauge score={crewMember.overallComplianceScore} size="sm" />
             </div>
@@ -324,18 +324,18 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                 className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
                 onClick={() => setIsExportOpen(!isExportOpen)}
               >
-                Export Data
+                Export
               </button>
               {isExportOpen && (
                 <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      Export as CSV (.csv)
+                      CSV
                     </button>
                   </li>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      Export as PDF (.pdf)
+                      PDF
                     </button>
                   </li>
                 </ul>
@@ -347,7 +347,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               className="btn btn-sm btn-light border d-flex align-items-center justify-content-center"
               style={{ width: '32px', height: '32px', borderRadius: '50%' }}
               onClick={() => setCurrentHashView(previousHashView || 'crew', previousEntityId)}
-              title="Close and Return"
+              title="Close"
             >
               <X className="w-4 h-4" />
             </button>
@@ -407,7 +407,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     fontSize: '0.72rem',
                   }}
                 >
-                  Click to manage photos &amp; crop
+                  Manage photos
                 </div>
               )}
             </div>
@@ -459,9 +459,9 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.rank}</strong>
                 </div>
                 <div className="col-md-4 col-6">
-                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Compliance Status</span>
+                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Compliance</span>
                   <span className={`badge ${crewMember.complianceStatus === 'Fully Compliant' ? 'bg-success text-white' : crewMember.complianceStatus === 'Expiring < 60 Days' ? 'bg-warning text-dark' : 'bg-danger text-white'}`}>
-                    {crewMember.complianceStatus}
+                    {getStatusDisplayLabel(crewMember.complianceStatus)}
                   </span>
                 </div>
                 <div className="col-md-4 col-6">
@@ -473,11 +473,11 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.nationality}</strong>
                 </div>
                 <div className="col-md-4 col-6">
-                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Seaman's Book No</span>
+                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Seaman's Book No.</span>
                   <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.seamansBookNo}</strong>
                 </div>
                 <div className="col-md-4 col-6">
-                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Passport No</span>
+                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Passport No.</span>
                   <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.passportNo}</strong>
                 </div>
                 <div className="col-md-4 col-6">
@@ -489,11 +489,11 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   <strong className={`text-dark text-truncate d-block${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.emergencyContact}</strong>
                 </div>
                 <div className="col-md-4 col-6">
-                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Last Compliance Audit</span>
+                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Last Audit</span>
                   <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(crewMember.lastAuditedDate)}</strong>
                 </div>
                 <div className="col-md-4 col-6">
-                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Management Permissions</span>
+                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Permissions</span>
                   <span className={`badge ${canManageDocuments ? 'bg-info text-dark' : 'bg-secondary text-white'}`}>
                     {canManageDocuments ? 'Admin / Submitter Full Access' : 'Read-Only Mode'}
                   </span>
@@ -508,7 +508,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
       <div className="card map-card-custom">
         <div className="card-header p-3 border-bottom d-flex align-items-center justify-between">
           <div className="fw-bold text-dark fs-6">
-            Assigned Vessels and Roles History
+            Assignment History
           </div>
         </div>
         <div className="table-responsive">
@@ -531,7 +531,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setAssignmentSortField('vesselName'); setAssignmentSortDirection('asc'); }
                   }}
                 >
-                  Vessel Name {renderSortIndicator(assignmentSortField, 'vesselName', assignmentSortDirection)}
+                  Vessel {renderSortIndicator(assignmentSortField, 'vesselName', assignmentSortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -540,7 +540,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setAssignmentSortField('rankHeld'); setAssignmentSortDirection('asc'); }
                   }}
                 >
-                  Rank &amp; Type {renderSortIndicator(assignmentSortField, 'rankHeld', assignmentSortDirection)}
+                  Rank {renderSortIndicator(assignmentSortField, 'rankHeld', assignmentSortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -567,7 +567,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               {sortedAssignments.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-4 text-muted">
-                    No historical assignments recorded.
+                    No assignments yet.
                   </td>
                 </tr>
               ) : (
@@ -588,7 +588,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     </td>
                     <td>
                       {asg.isCurrent ? (
-                        <span className="badge bg-success text-white">Active On Board</span>
+                        <span className="badge bg-success text-white">On Board</span>
                       ) : (
                         <span className="badge bg-light text-dark border">Completed</span>
                       )}
@@ -599,8 +599,8 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                         className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                         style={{ width: '32px', height: '32px' }}
                         onClick={() => setCurrentHashView('vessels', asg.vesselId)}
-                        title={`View ${asg.vesselName} Vessel Details`}
-                        aria-label={`View ${asg.vesselName} Vessel Details`}
+                        title={`View ${asg.vesselName}`}
+                        aria-label={`View ${asg.vesselName}`}
                       >
                         <ExternalLink size={16} />
                       </button>
@@ -618,10 +618,10 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         <div className="card-header p-3 border-bottom d-flex align-items-center justify-between">
           <div>
             <div className="fw-bold text-dark fs-6">
-              Layer 1 — Universal STCW Core Documents Register
+              Core Documents
             </div>
             <div className="text-secondary small">
-              Mandatory universal credentials required for all crew members (Passport, Seaman's Book, BST, ENG1 Medical, Security Awareness)
+              Required for all crew: Passport, Seaman's Book, BST, ENG1 Medical, Security Awareness.
             </div>
           </div>
           {canManageDocuments && (
@@ -630,7 +630,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               className="btn btn-sm btn-primary ms-auto"
               onClick={() => handleOpenUploadNew('Layer 1 - Universal Core')}
             >
-              Upload Core Certificate
+              Upload Core Document
             </button>
           )}
         </div>
@@ -645,7 +645,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setLayer1SortField('certificateNo'); setLayer1SortDirection('asc'); }
                   }}
                 >
-                  Certificate No / ID {renderSortIndicator(layer1SortField, 'certificateNo', layer1SortDirection)}
+                  Certificate No. {renderSortIndicator(layer1SortField, 'certificateNo', layer1SortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -654,7 +654,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setLayer1SortField('title'); setLayer1SortDirection('asc'); }
                   }}
                 >
-                  Document Title {renderSortIndicator(layer1SortField, 'title', layer1SortDirection)}
+                  Title {renderSortIndicator(layer1SortField, 'title', layer1SortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -663,7 +663,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setLayer1SortField('issuingAuthority'); setLayer1SortDirection('asc'); }
                   }}
                 >
-                  Issuing Authority &amp; Flag {renderSortIndicator(layer1SortField, 'issuingAuthority', layer1SortDirection)}
+                  Issuing Authority {renderSortIndicator(layer1SortField, 'issuingAuthority', layer1SortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -681,7 +681,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setLayer1SortField('verificationStatus'); setLayer1SortDirection('asc'); }
                   }}
                 >
-                  Status {renderSortIndicator(layer1SortField, 'verificationStatus', layer1SortDirection)}
+                  Verification {renderSortIndicator(layer1SortField, 'verificationStatus', layer1SortDirection)}
                 </th>
                 <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
@@ -698,7 +698,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   </td>
                   <td className="small">
                     <div className="fw-medium text-dark">{doc.issuingAuthority}</div>
-                    {doc.flagState && <span className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>Flag: {doc.flagState}</span>}
+                    {doc.flagState && <span className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>Flag State: {doc.flagState}</span>}
                   </td>
                   <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
                   <td>{renderStatusBadge(doc.verificationStatus)}</td>
@@ -709,7 +709,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                         className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                         style={{ width: '32px', height: '32px' }}
                         onClick={() => handleOpenViewDoc(doc)}
-                        title="View Certificate Details"
+                        title="View"
                         aria-label={`View details for ${doc.title}`}
                       >
                         <Eye size={16} />
@@ -720,7 +720,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                           className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
                           style={{ width: '32px', height: '32px' }}
                           onClick={() => handleDeleteDoc(doc.id)}
-                          title="Delete Certificate"
+                          title="Delete"
                           aria-label={`Delete ${doc.title}`}
                         >
                           <Trash2 size={16} />
@@ -740,10 +740,10 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         <div className="card-header p-3 border-bottom d-flex align-items-center justify-between">
           <div>
             <div className="fw-bold text-dark fs-6">
-              Layer 2 — Vessel-Specific Certificates &amp; Advanced Endorsements Register
+              Vessel-Specific Endorsements
             </div>
             <div className="text-secondary small">
-              Vessel, propulsion &amp; cargo-specific credentials (CoC, Flag Endorsement, Advanced Tanker, IGF Code, DP Operator, Crowd Management)
+              CoC, Flag Endorsement, Advanced Tanker, IGF Code, DP Operator, Crowd Management.
             </div>
           </div>
           {canManageDocuments && (
@@ -752,7 +752,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               className="btn btn-sm btn-primary ms-auto"
               onClick={() => handleOpenUploadNew('Layer 2 - Vessel Specific & Endorsements')}
             >
-              Add Layer 2 Endorsement
+              Add Endorsement
             </button>
           )}
         </div>
@@ -767,7 +767,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setLayer2SortField('certificateNo'); setLayer2SortDirection('asc'); }
                   }}
                 >
-                  Certificate No / ID {renderSortIndicator(layer2SortField, 'certificateNo', layer2SortDirection)}
+                  Certificate No. {renderSortIndicator(layer2SortField, 'certificateNo', layer2SortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -776,7 +776,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setLayer2SortField('title'); setLayer2SortDirection('asc'); }
                   }}
                 >
-                  Endorsement Title {renderSortIndicator(layer2SortField, 'title', layer2SortDirection)}
+                  Title {renderSortIndicator(layer2SortField, 'title', layer2SortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -785,7 +785,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setLayer2SortField('issuingAuthority'); setLayer2SortDirection('asc'); }
                   }}
                 >
-                  Issuing Body &amp; Flag {renderSortIndicator(layer2SortField, 'issuingAuthority', layer2SortDirection)}
+                  Issuing Authority {renderSortIndicator(layer2SortField, 'issuingAuthority', layer2SortDirection)}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -803,7 +803,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     else { setLayer2SortField('verificationStatus'); setLayer2SortDirection('asc'); }
                   }}
                 >
-                  Status {renderSortIndicator(layer2SortField, 'verificationStatus', layer2SortDirection)}
+                  Verification {renderSortIndicator(layer2SortField, 'verificationStatus', layer2SortDirection)}
                 </th>
                 <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
@@ -812,7 +812,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               {sortedLayer2Docs.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-4 text-muted">
-                    No Layer 2 vessel-specific endorsements uploaded.
+                    No endorsements yet.
                   </td>
                 </tr>
               ) : (
@@ -840,7 +840,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                           className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                           style={{ width: '32px', height: '32px' }}
                           onClick={() => handleOpenViewDoc(doc)}
-                          title="View Endorsement Details"
+                          title="View"
                           aria-label={`View details for ${doc.title}`}
                         >
                           <Eye size={16} />
@@ -851,7 +851,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                             className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
                             style={{ width: '32px', height: '32px' }}
                             onClick={() => handleDeleteDoc(doc.id)}
-                            title="Delete Endorsement"
+                            title="Delete"
                             aria-label={`Delete ${doc.title}`}
                           >
                             <Trash2 size={16} />
@@ -913,10 +913,10 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   </div>
                   <div>
                     <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
-                      Manage Crew Photos &amp; Gallery
+                      Manage Photos
                     </h5>
                     <div className="text-secondary small font-mono-code">
-                      {crewMember.fullName} · Rank: {crewMember.rank} · STCW Compliant Seafarer
+                      {crewMember.fullName} · Rank: {crewMember.rank}
                     </div>
                   </div>
                 </div>
@@ -934,7 +934,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                 <div className="row g-3 mb-4">
                   <div className="col-12 col-md-5">
                     <label className="form-label fw-bold text-dark small mb-1">
-                      Primary Cover Photo
+                      Cover Photo
                     </label>
                     <div
                       className="position-relative border rounded-3 overflow-hidden shadow-xs"
@@ -956,7 +956,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                           fontSize: '0.72rem',
                         }}
                       >
-                        Displayed as main hero image &amp; marketplace card preview
+                        Shown on the crew page and marketplace card.
                       </div>
                     </div>
                   </div>
@@ -964,10 +964,10 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   <div className="col-12 col-md-7 d-flex flex-column justify-content-between">
                     <div>
                       <label className="form-label fw-bold text-dark small mb-1">
-                        Cover Photo Sizing &amp; Framing
+                        Crop Cover Photo
                       </label>
                       <p className="text-secondary small mb-3">
-                        Re-frame or crop the cover photo using the universal 16:9 canvas tool. Pan, zoom, rotate, and flip to achieve optimal display across all devices.
+                        Crop, rotate, or flip the cover photo.
                       </p>
                     </div>
 
@@ -984,7 +984,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                         }}
                       >
                         <Crop className="w-3.5 h-3.5" />
-                        <span>Crop &amp; Frame Current Cover</span>
+                        <span>Crop Cover Photo</span>
                       </button>
 
                       <button
@@ -993,7 +993,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                         onClick={() => setShowAddPhotoModal(true)}
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>Add New Photo to Gallery</span>
+                        <span>Add Photo</span>
                       </button>
                     </div>
                   </div>
@@ -1003,9 +1003,9 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                 <div className="border-top pt-3">
                   <div className="d-flex align-items-center justify-content-between mb-2">
                     <div>
-                      <span className="fw-bold text-dark small">Crew Photo Gallery ({modalPhotos.length})</span>
+                      <span className="fw-bold text-dark small">Photos ({modalPhotos.length})</span>
                       <div className="text-secondary" style={{ fontSize: '0.72rem' }}>
-                        Click a photo to set as cover. Use crop or delete buttons on each image.
+                        Click a photo to set it as the cover.
                       </div>
                     </div>
                     <button
@@ -1014,7 +1014,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                       onClick={() => setShowAddPhotoModal(true)}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Add / Upload Photo</span>
+                      <span>Add Photo</span>
                     </button>
                   </div>
 
@@ -1051,7 +1051,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                               } ${isDragged ? 'opacity-50' : ''} ${isDragOver ? 'border-warning ring-2 ring-warning' : ''}`}
                             style={{ height: '95px', backgroundColor: '#0B1B2B' }}
                             onClick={() => setPhotoModalUrl(pUrl)}
-                            title="Click to select as primary cover photo"
+                            title="Set as cover photo"
                           >
                             <img src={pUrl} alt="" className="w-100 h-100 object-fit-cover" />
 
@@ -1140,7 +1140,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                       }}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Reset to Default Stock</span>
+                      <span>Reset to Default</span>
                     </button>
                   )}
                 </div>
@@ -1201,7 +1201,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   </div>
                   <div>
                     <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
-                      Add Crew Photo
+                      Add Photo
                     </h5>
                     <div className="text-secondary small font-mono-code">
                       {crewMember.fullName} · Choose upload, curated stock, or image link
@@ -1220,7 +1220,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                 {/* Option A: Upload & Crop */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
                   <div className="d-flex align-items-center justify-content-between mb-2">
-                    <span className="fw-bold text-dark small">Option A: Upload &amp; Crop New Crew Photo</span>
+                    <span className="fw-bold text-dark small">Upload a Photo</span>
                     <span className="text-secondary" style={{ fontSize: '0.75rem' }}>JPEG, PNG, WEBP</span>
                   </div>
 
@@ -1276,14 +1276,14 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                       Drag &amp; drop crew photo here or <span className="text-primary text-decoration-underline">browse files</span>
                     </span>
                     <span className="text-secondary" style={{ fontSize: '0.72rem' }}>
-                      Picks photo and opens universal square portrait sizing &amp; crop tool before adding to gallery.
+                      You can crop the photo before it is added.
                     </span>
                   </div>
                 </div>
 
                 {/* Option B: Curated Crew Stock */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
-                  <div className="fw-bold text-dark small mb-2">Option B: Select &amp; Crop from Crew Photo Presets</div>
+                  <div className="fw-bold text-dark small mb-2">Choose a Preset</div>
                   <div className="row g-2">
                     {CURATED_CREW_PHOTOS.map((p, idx) => (
                       <div key={idx} className="col-6 col-md-3">
@@ -1296,7 +1296,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                             setCropModalImageSrc(p.url);
                             setIsCropModalOpen(true);
                           }}
-                          title={`Crop and add ${p.title}`}
+                          title={`Add ${p.title}`}
                         >
                           <img src={p.url} alt={p.title} className="w-100 h-100 object-fit-cover" />
                           <div
@@ -1314,7 +1314,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                 {/* Option C: Direct URL */}
                 <div className="p-3 bg-light border rounded shadow-2xs">
                   <label className="form-label fw-bold text-dark small mb-1" htmlFor="custom-crew-image-url">
-                    Option C: Direct Image URL
+                    Image URL
                   </label>
                   <div className="input-group input-group-sm">
                     <input
@@ -1339,7 +1339,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                         }
                       }}
                     >
-                      Crop &amp; Add
+                      Add
                     </button>
                   </div>
                 </div>
@@ -1364,7 +1364,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         <ImageCropModal
           isOpen={isCropModalOpen}
           imageSrc={cropModalImageSrc}
-          title="Crew Member Photo Framing & Sizing"
+          title="Crop Photo"
           assetName={crewMember.fullName}
           initialPreset="1:1"
           onSave={(croppedUrl) => {

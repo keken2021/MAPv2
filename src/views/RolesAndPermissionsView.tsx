@@ -25,7 +25,7 @@ import {
   getEffectiveUserScopeFlags,
   getRoleScopeFlags,
 } from '../utils/permissionHelpers';
-import { formatUserRoles } from '../utils/userRoleHelpers';
+import { formatUserRoles, getRoleDisplayLabel } from '../utils/userRoleHelpers';
 import { filterUsersForPersona } from '../utils/rbacHelpers';
 import { UserProfile } from '../types/user';
 
@@ -226,7 +226,7 @@ export const RolesAndPermissionsView: React.FC = () => {
     <div className="d-flex flex-column gap-4 pb-5">
       {!canEdit && (
         <div className="alert alert-info py-2 small mb-0">
-          Read-only mode. Only Administrators can save role matrix changes.
+          Read-only. Only the Service Provider role can save changes.
         </div>
       )}
       {saveMessage && (
@@ -274,7 +274,7 @@ export const RolesAndPermissionsView: React.FC = () => {
                 setShowAddRole(true);
               }}
             >
-              New role
+              New Role
             </button>
           )}
           {canEdit && activeTab === 'role-defaults' && (
@@ -284,15 +284,15 @@ export const RolesAndPermissionsView: React.FC = () => {
               onClick={() => {
                 if (
                   window.confirm(
-                    'Reset all role defaults to BRD values and clear custom roles, scopes, categories, and user overrides?',
+                    'Reset all roles to their defaults? Custom roles, scopes, categories, and user overrides will be removed.',
                   )
                 ) {
                   resetRolePermissionsToBrd();
-                  setSaveMessage('Reset to BRD defaults.');
+                  setSaveMessage('Reset to defaults.');
                 }
               }}
             >
-              Reset default
+              Reset to Default
             </button>
           )}
         </div>
@@ -310,7 +310,7 @@ export const RolesAndPermissionsView: React.FC = () => {
                 className={`map-perm-role-chip ${selectedRole === role ? 'is-active' : ''}`}
                 onClick={() => setSelectedRole(role)}
               >
-                <span className="map-perm-role-chip-name">{role}</span>
+                <span className="map-perm-role-chip-name">{getRoleDisplayLabel(role)}</span>
                 <span className="map-perm-role-chip-count">
                   {roleRightCounts[role] ?? 0} rights
                   {!ALL_ROLE_PERSONAS.includes(role as (typeof ALL_ROLE_PERSONAS)[number]) &&
@@ -340,14 +340,14 @@ export const RolesAndPermissionsView: React.FC = () => {
             <div className="row g-3 align-items-end">
               <div className="col-md-7">
                 <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="perm-user-search">
-                  Registered user
+                  User
                 </label>
                 <div className="map-user-search-wrap position-relative">
                   <input
                     id="perm-user-search"
                     type="search"
                     className="form-control"
-                    placeholder="Search by name, email, organization, or role…"
+                    placeholder="Search users..."
                     value={
                       userPickerOpen || userSearchQuery
                         ? userSearchQuery
@@ -421,7 +421,7 @@ export const RolesAndPermissionsView: React.FC = () => {
                           setSaveMessage(`${selectedUser.name} reset to role defaults.`);
                         }}
                       >
-                        Reset to role defaults
+                        Reset to Role Defaults
                       </button>
                     )}
                   </div>
@@ -429,8 +429,8 @@ export const RolesAndPermissionsView: React.FC = () => {
               </div>
             </div>
             <div className="form-text mt-2">
-              Personal Create / View / Update / Delete for this user on top of their role defaults.
-              Save to apply. Use Reset to role defaults to clear personal changes.
+              Rights for this user only, on top of their role defaults.
+              Save to apply. Reset to Role Defaults clears them.
             </div>
           </div>
 
@@ -459,7 +459,7 @@ export const RolesAndPermissionsView: React.FC = () => {
               onToggle={toggleUserDraft}
             />
           ) : (
-            <div className="alert alert-secondary mb-0">No users available for this persona.</div>
+            <div className="alert alert-secondary mb-0">No users hold this role.</div>
           )}
         </div>
       )}
@@ -470,7 +470,7 @@ export const RolesAndPermissionsView: React.FC = () => {
             {isDirty ? (
               <span className="text-warning-emphasis fw-semibold">You have unsaved changes</span>
             ) : (
-              <span className="text-secondary">All changes saved for this session</span>
+              <span className="text-secondary">All changes saved</span>
             )}
           </div>
           <div className="d-flex gap-2">
@@ -488,7 +488,7 @@ export const RolesAndPermissionsView: React.FC = () => {
               disabled={!isDirty}
               onClick={handleSave}
             >
-              Save changes
+              Save
             </button>
           </div>
         </div>
@@ -499,12 +499,12 @@ export const RolesAndPermissionsView: React.FC = () => {
           <div className="modal-dialog modal-dialog-centered">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Create new role</h5>
+                <h5 className="modal-title">Create Role</h5>
                 <button type="button" className="btn-close" aria-label="Close" onClick={() => setShowAddRole(false)} />
               </div>
               <div className="modal-body">
                 <label className="form-label" htmlFor="new-role-name">
-                  Role name
+                  Role Name
                 </label>
                 <input
                   id="new-role-name"
@@ -524,7 +524,7 @@ export const RolesAndPermissionsView: React.FC = () => {
                   Cancel
                 </button>
                 <button type="button" className="btn btn-primary" onClick={handleAddRole}>
-                  Create role
+                  Create Role
                 </button>
               </div>
             </div>

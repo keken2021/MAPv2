@@ -17,7 +17,7 @@ import { EditUserModal } from '../drawers/EditUserModal';
 import { canPerform } from '../../utils/permissionHelpers';
 
 import { filterUsersForPersona } from '../../utils/rbacHelpers';
-import { formatUserRoles, userHasRole, userMatchesAnyRole } from '../../utils/userRoleHelpers';
+import { formatUserRoles, getRoleDisplayLabel, userHasRole, userMatchesAnyRole } from '../../utils/userRoleHelpers';
 
 type UserSortField =
   | 'id'
@@ -171,8 +171,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
     const exportData = sortedUsers.map((u) => ({
       Name: u.name,
       Email: u.email,
-      AssignedRole: formatUserRoles(u.roles),
-      Classification: u.userType,
+      Role: u.roles.map(getRoleDisplayLabel).join(', '),
+      UserType: u.userType,
       Organization: u.organization,
       Scope: u.departmentOrScope,
       Status: u.status,
@@ -183,7 +183,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
   };
 
   const handleExportPdf = () => {
-    const headers = ['Name & Email', 'Role', 'Classification', 'Organization & Scope', 'Status'];
+    const headers = ['Name', 'Role', 'User Type', 'Organization', 'Status'];
     const rows = sortedUsers.map((u) => [
       `${u.name}\n(${u.email})`,
       formatUserRoles(u.roles),
@@ -201,8 +201,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
     (statusFilter !== 'ALL' ? 1 : 0);
 
   const activeChips: FilterChip[] = [
-    ...(roleFilter !== 'ALL' ? [{ id: 'role', label: 'Role', value: roleFilter, onRemove: () => setRoleFilter('ALL') }] : []),
-    ...(typeFilter !== 'ALL' ? [{ id: 'type', label: 'Classification', value: typeFilter, onRemove: () => setTypeFilter('ALL') }] : []),
+    ...(roleFilter !== 'ALL' ? [{ id: 'role', label: 'Role', value: getRoleDisplayLabel(roleFilter), onRemove: () => setRoleFilter('ALL') }] : []),
+    ...(typeFilter !== 'ALL' ? [{ id: 'type', label: 'User Type', value: typeFilter, onRemove: () => setTypeFilter('ALL') }] : []),
     ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'Status', value: statusFilter, onRemove: () => setStatusFilter('ALL') }] : []),
   ];
 
@@ -221,7 +221,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
           <input
             type="text"
             className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search Name, Email, Org..."
+            placeholder="Search users..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '260px' }}
@@ -242,18 +242,18 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
               className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
               onClick={() => setIsExportOpen(!isExportOpen)}
             >
-              Export Data
+              Export
             </button>
             {isExportOpen && (
               <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    Export as CSV (.csv)
+                    CSV
                   </button>
                 </li>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    Export as PDF (.pdf)
+                    PDF
                   </button>
                 </li>
               </ul>
@@ -267,7 +267,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
               className="btn btn-sm btn-primary"
               onClick={onAddUser}
             >
-              Add / Invite User
+              Add User
             </button>
           )}
         </div>
@@ -288,13 +288,13 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
                 User ID {renderSortIndicator('id')}
               </th>
               <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                User Name &amp; Email {renderSortIndicator('name')}
+                Name {renderSortIndicator('name')}
               </th>
               <th onClick={() => handleSort('roles')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Assigned Role &amp; Type {renderSortIndicator('roles')}
+                Role {renderSortIndicator('roles')}
               </th>
               <th onClick={() => handleSort('organization')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Organization &amp; Scope {renderSortIndicator('organization')}
+                Organization {renderSortIndicator('organization')}
               </th>
               <th onClick={() => handleSort('status')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Status {renderSortIndicator('status')}
@@ -306,7 +306,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
             {sortedUsers.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center py-4 text-muted">
-                  No user accounts match your search or filter criteria.
+                  No users found.
                 </td>
               </tr>
             ) : (
@@ -321,7 +321,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
                     <div className="d-flex flex-wrap align-items-center gap-1">
                       {u.roles.map((role) => (
                         <span key={role} className={`badge ${getRoleBadgeClass(role)}`}>
-                          {role}
+                          {getRoleDisplayLabel(role)}
                         </span>
                       ))}
                       <span className={`badge ${u.userType === 'Organization' ? 'bg-light text-secondary border' : 'bg-info-subtle text-info-emphasis border border-info-subtle'}`} style={{ fontSize: '0.7rem' }}>
@@ -346,8 +346,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
                           className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                           style={{ width: '32px', height: '32px' }}
                           onClick={() => setEditingUser(u)}
-                          title="Edit User Profile"
-                          aria-label="Edit User Profile"
+                          title="Edit"
+                          aria-label="Edit"
                         >
                           <Pencil size={16} />
                         </button>
@@ -357,8 +357,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
                             className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
                             style={{ width: '32px', height: '32px' }}
                             onClick={() => updateUserStatus(u.id, 'Inactive')}
-                            title="Deactivate User"
-                            aria-label="Deactivate User"
+                            title="Deactivate"
+                            aria-label="Deactivate"
                           >
                             <UserX size={16} />
                           </button>
@@ -368,8 +368,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
                             className="btn btn-sm btn-outline-success d-inline-flex align-items-center justify-content-center p-0"
                             style={{ width: '32px', height: '32px' }}
                             onClick={() => updateUserStatus(u.id, 'Active')}
-                            title="Activate User"
-                            aria-label="Activate User"
+                            title="Activate"
+                            aria-label="Activate"
                           >
                             <UserCheck size={16} />
                           </button>
@@ -389,49 +389,48 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="User Directory Filters"
-        subtitle="Filter platform members and stakeholders by persona role, classification, and status"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Persona Role</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Role</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
               >
-                <option value="ALL">All Persona Roles</option>
-                {activePersona !== 'C Admin' && <option value="Administrator">Administrator</option>}
+                <option value="ALL">All Roles</option>
+                {activePersona !== 'C Admin' && <option value="Administrator">{getRoleDisplayLabel('Administrator')}</option>}
                 <option value="Submitter">Submitter</option>
                 <option value="Verifier">Verifier</option>
                 <option value="Inspector">Inspector</option>
                 <option value="Approver">Approver</option>
-                <option value="C Admin">C Admin</option>
+                <option value="C Admin">{getRoleDisplayLabel('C Admin')}</option>
                 {customRoles.map((role) => (
                   <option key={role} value={role}>
-                    {role}
+                    {getRoleDisplayLabel(role)}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Classification</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">User Type</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
               >
-                <option value="ALL">All Classifications</option>
+                <option value="ALL">All Types</option>
                 <option value="Organization">Organization</option>
                 <option value="Third-Party">Third-Party</option>
               </select>
             </div>
 
             <div className="col-12">
-              <label className="form-label small fw-semibold text-secondary mb-1">Account Status</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Status</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={statusFilter}

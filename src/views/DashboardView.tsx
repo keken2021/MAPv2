@@ -248,40 +248,40 @@ export const DashboardView: React.FC = () => {
           <div className="col-md-3">
             <div className="card map-kpi-card shadow-2xs">
               <div className="map-kpi-label">
-                Assigned Submissions
+                Assurance Sets
               </div>
               <div className="map-kpi-value text-primary mt-1">{assignedSets.length}</div>
-              <div className="map-kpi-subtitle mt-1">Active Vetting Campaigns</div>
+              <div className="map-kpi-subtitle mt-1">Assigned to you</div>
             </div>
           </div>
 
           <div className="col-md-3">
             <div className="card map-kpi-card shadow-2xs">
               <div className="map-kpi-label">
-                Pending Document Uploads
+                Awaiting Upload
               </div>
               <div className="map-kpi-value text-warning mt-1">{pendingUploads}</div>
-              <div className="map-kpi-subtitle mt-1">Statutory Evidence Required</div>
+              <div className="map-kpi-subtitle mt-1">Documents still to upload</div>
             </div>
           </div>
 
           <div className="col-md-3">
             <div className="card map-kpi-card shadow-2xs">
               <div className="map-kpi-label">
-                Revisions Requested
+                Returned for Correction
               </div>
               <div className="map-kpi-value text-danger mt-1">{revisionsRequested}</div>
-              <div className="map-kpi-subtitle mt-1">Returned for Resubmission</div>
+              <div className="map-kpi-subtitle mt-1">Documents to fix and upload again</div>
             </div>
           </div>
 
           <div className="col-md-3">
             <div className="card map-kpi-card shadow-2xs">
               <div className="map-kpi-label">
-                Verified Certificates
+                Verified
               </div>
               <div className="map-kpi-value text-success mt-1">{verifiedCerts}</div>
-              <div className="map-kpi-subtitle mt-1">Approved Statutory Evidence</div>
+              <div className="map-kpi-subtitle mt-1">Verified documents</div>
             </div>
           </div>
         </div>
@@ -301,30 +301,30 @@ export const DashboardView: React.FC = () => {
           <div className="col-md-3">
             <div className="card map-kpi-card shadow-2xs">
               <div className="map-kpi-label">
-                Created Assurance Sets
+                Assurance Sets
               </div>
               <div className="map-kpi-value text-primary mt-1">{totalCreated}</div>
-              <div className="map-kpi-subtitle mt-1">Client Initiated Campaigns</div>
+              <div className="map-kpi-subtitle mt-1">Created by your organization</div>
             </div>
           </div>
 
           <div className="col-md-3">
             <div className="card map-kpi-card shadow-2xs">
               <div className="map-kpi-label">
-                Average Campaign Readiness
+                Average Readiness
               </div>
               <div className="map-kpi-value text-success mt-1">{avgCampaignReadiness}%</div>
-              <div className="map-kpi-subtitle mt-1">Vetting Compliance Index</div>
+              <div className="map-kpi-subtitle mt-1">Across your assurance sets</div>
             </div>
           </div>
 
           <div className="col-md-3">
             <div className="card map-kpi-card shadow-2xs">
               <div className="map-kpi-label">
-                Active Vetting Campaigns
+                In Progress
               </div>
               <div className="map-kpi-value text-warning mt-1">{activeCampaigns}</div>
-              <div className="map-kpi-subtitle mt-1">In Verification / Review</div>
+              <div className="map-kpi-subtitle mt-1">Being verified or reviewed</div>
             </div>
           </div>
 
@@ -334,7 +334,7 @@ export const DashboardView: React.FC = () => {
                 Approved
               </div>
               <div className="map-kpi-value text-primary mt-1">{certifiedCampaigns}</div>
-              <div className="map-kpi-subtitle mt-1">Completed Client Sign-offs</div>
+              <div className="map-kpi-subtitle mt-1">Approved assurance sets</div>
             </div>
           </div>
         </div>
@@ -346,40 +346,40 @@ export const DashboardView: React.FC = () => {
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Active Fleet Vessels
+              Vessels
             </div>
             <div className="map-kpi-value text-primary mt-1">{totalVessels}</div>
-            <div className="map-kpi-subtitle mt-1">OSVs Registered in MAP</div>
+            <div className="map-kpi-subtitle mt-1">In your fleet</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Average Fleet Readiness
+              Average Readiness
             </div>
             <div className="map-kpi-value text-success mt-1">{avgReadiness}%</div>
-            <div className="map-kpi-subtitle mt-1">IMO / Statutory Compliant</div>
+            <div className="map-kpi-subtitle mt-1">Across your fleet</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Active Assurance Sets
+              Assurance Sets
             </div>
             <div className="map-kpi-value text-warning mt-1">{activeAssurances}</div>
-            <div className="map-kpi-subtitle mt-1">Ongoing Vetting Campaigns</div>
+            <div className="map-kpi-subtitle mt-1">In progress</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Expiring ≤ 90 Days
+              Expiring Soon
             </div>
             <div className="map-kpi-value text-danger mt-1">4</div>
-            <div className="map-kpi-subtitle mt-1">Certificates Requiring Renewal</div>
+            <div className="map-kpi-subtitle mt-1">Documents expiring within 90 days</div>
           </div>
         </div>
       </div>
@@ -453,14 +453,14 @@ export const DashboardView: React.FC = () => {
                         >
                           Readiness {renderSortIndicator(cAdminProjectSortField, 'readinessScore', cAdminProjectSortDirection)}
                         </th>
-                        <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Action</th>
+                        <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedCAdminProjects.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="text-center py-4 text-muted">
-                            No projects found matching your search.
+                            No projects found.
                           </td>
                         </tr>
                       ) : (
@@ -489,8 +489,8 @@ export const DashboardView: React.FC = () => {
                                   className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                   style={{ width: '32px', height: '32px' }}
                                   onClick={() => setCurrentHashView('project', p.id)}
-                                  title="Open Project"
-                                  aria-label="Open Project"
+                                  title="View"
+                                  aria-label="View"
                                 >
                                   <Eye size={16} />
                                 </button>
@@ -515,7 +515,7 @@ export const DashboardView: React.FC = () => {
                   <input
                     type="text"
                     className="form-control form-control-sm"
-                    placeholder="Search campaigns..."
+                    placeholder="Search assurance sets..."
                     value={cAdminSearchTerm}
                     onChange={(e) => setCAdminSearchTerm(e.target.value)}
                     style={{ width: '160px' }}
@@ -544,7 +544,7 @@ export const DashboardView: React.FC = () => {
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleCAdminSort('title')}
                         >
-                          Campaign {renderSortIndicator(cAdminSortField, 'title', cAdminSortDirection)}
+                          Title {renderSortIndicator(cAdminSortField, 'title', cAdminSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -564,14 +564,14 @@ export const DashboardView: React.FC = () => {
                         >
                           Readiness {renderSortIndicator(cAdminSortField, 'readinessScore', cAdminSortDirection)}
                         </th>
-                        <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Action</th>
+                        <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedCAdminSets.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="text-center py-4 text-muted">
-                            No assurance sets found matching your search.
+                            No assurance sets found.
                           </td>
                         </tr>
                       ) : (
@@ -604,8 +604,8 @@ export const DashboardView: React.FC = () => {
                                 className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                 style={{ width: '32px', height: '32px' }}
                                 onClick={() => setCurrentHashView('assurance-sets', s.id)}
-                                title="View Assurance Set"
-                                aria-label="View Assurance Set"
+                                title="View"
+                                aria-label="View"
                               >
                                 <Eye size={16} />
                               </button>
@@ -632,7 +632,7 @@ export const DashboardView: React.FC = () => {
                   <input
                     type="text"
                     className="form-control form-control-sm bg-white text-dark border-secondary"
-                    placeholder="Search campaigns, vessels..."
+                    placeholder="Search assurance sets..."
                     value={submitterSearchTerm}
                     onChange={(e) => setSubmitterSearchTerm(e.target.value)}
                     style={{ width: '240px' }}
@@ -654,13 +654,13 @@ export const DashboardView: React.FC = () => {
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleSubmitterSort('title')}
                         >
-                          Campaign Title {renderSortIndicator(submitterSortField, 'title', submitterSortDirection)}
+                          Title {renderSortIndicator(submitterSortField, 'title', submitterSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleSubmitterSort('vesselName')}
                         >
-                          Target Vessel {renderSortIndicator(submitterSortField, 'vesselName', submitterSortDirection)}
+                          Vessel {renderSortIndicator(submitterSortField, 'vesselName', submitterSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -678,16 +678,16 @@ export const DashboardView: React.FC = () => {
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleSubmitterSort('readinessScore')}
                         >
-                          Readiness Index {renderSortIndicator(submitterSortField, 'readinessScore', submitterSortDirection)}
+                          Readiness {renderSortIndicator(submitterSortField, 'readinessScore', submitterSortDirection)}
                         </th>
-                        <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Action</th>
+                        <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedSubmitterSets.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="text-center py-4 text-muted">
-                            No assurance sets found matching your search.
+                            No assurance sets found.
                           </td>
                         </tr>
                       ) : (
@@ -739,7 +739,7 @@ export const DashboardView: React.FC = () => {
                                       className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
                                       style={{ width: '32px', height: '32px' }}
                                       onClick={() => setSelectedReturnedSet(s)}
-                                      title={`View ${returnedCount} returned or rejected document(s) requiring revision`}
+                                      title={`View ${returnedCount} returned or rejected document(s)`}
                                       aria-label={`View ${returnedCount} returned or rejected document(s)`}
                                     >
                                       <AlertTriangle size={16} />
@@ -750,8 +750,8 @@ export const DashboardView: React.FC = () => {
                                     className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                     style={{ width: '32px', height: '32px' }}
                                     onClick={() => setCurrentHashView('assurance-sets', s.id)}
-                                    title="Open Assurance Set"
-                                    aria-label="Open Assurance Set"
+                                    title="View"
+                                    aria-label="View"
                                   >
                                     <Eye size={16} />
                                   </button>
@@ -773,13 +773,13 @@ export const DashboardView: React.FC = () => {
           <div className="col-12">
             <div className="card map-card-custom">
               <div className="card-header d-flex align-items-center justify-between">
-                <span>Fleet Assurance Overview</span>
+                <span>Vessels</span>
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-primary"
                   onClick={() => setCurrentHashView('vessels')}
                 >
-                  View Details
+                  View All
                 </button>
               </div>
               <div className="card-body p-0">
@@ -797,7 +797,7 @@ export const DashboardView: React.FC = () => {
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleFleetSort('name')}
                         >
-                          Vessel Name {renderSortIndicator(fleetSortField, 'name', fleetSortDirection)}
+                          Name {renderSortIndicator(fleetSortField, 'name', fleetSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -809,19 +809,19 @@ export const DashboardView: React.FC = () => {
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleFleetSort('classificationSociety')}
                         >
-                          Class {renderSortIndicator(fleetSortField, 'classificationSociety', fleetSortDirection)}
+                          Class Society {renderSortIndicator(fleetSortField, 'classificationSociety', fleetSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleFleetSort('status')}
                         >
-                          Status {renderSortIndicator(fleetSortField, 'status', fleetSortDirection)}
+                          Operating Status {renderSortIndicator(fleetSortField, 'status', fleetSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleFleetSort('readiness')}
                         >
-                          Readiness Index {renderSortIndicator(fleetSortField, 'readiness', fleetSortDirection)}
+                          Readiness {renderSortIndicator(fleetSortField, 'readiness', fleetSortDirection)}
                         </th>
                       </tr>
                     </thead>
@@ -865,7 +865,7 @@ export const DashboardView: React.FC = () => {
           <div className="offcanvas-header border-bottom p-3 bg-light d-flex align-items-center justify-content-between">
             <div>
               <h5 className="offcanvas-title fw-bold text-slate-900 m-0 d-flex align-items-center gap-2">
-                <span>Returned Documents Queue</span>
+                <span>Returned Documents</span>
               </h5>
               <div className="text-secondary small font-mono-code mt-0.5">
                 {selectedReturnedSet.id} · {selectedReturnedSet.title}
@@ -881,9 +881,9 @@ export const DashboardView: React.FC = () => {
 
           <div className="offcanvas-body p-3 d-flex flex-column gap-3">
             <div className="alert alert-warning border-warning py-2.5 px-3 mb-0 small">
-              <div className="fw-semibold text-dark">Submitter Action Required</div>
+              <div className="fw-semibold text-dark">Action Required</div>
               <div className="text-secondary">
-                The Verifier or Approver flagged the following document(s) for correction or replacement. Review reviewer notes and upload updated revisions.
+                These documents were returned or rejected. Read the notes and upload a new version.
               </div>
             </div>
 
@@ -900,7 +900,7 @@ export const DashboardView: React.FC = () => {
               .map((req) => {
                 const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
                 const status = req.verifierStatus === 'Rejected' || linkedDoc?.verificationStatus === 'Rejected' ? 'Rejected' : 'Correction Requested';
-                const defectNote = req.notes || linkedDoc?.verificationNotes || 'Defect identified during compliance check. Replacement revision required.';
+                const defectNote = req.notes || linkedDoc?.verificationNotes || 'Returned for correction. Upload a new version.';
 
                 return (
                   <div key={req.id} className="p-3 bg-light border rounded shadow-2xs">
@@ -918,7 +918,7 @@ export const DashboardView: React.FC = () => {
 
                     <div className="p-2.5 bg-white border rounded small mb-3">
                       <div className="text-secondary fw-semibold mb-1" style={{ fontSize: '0.75rem' }}>
-                        Reviewer Defect Notes:
+                        Notes:
                       </div>
                       <div className="text-dark font-mono-code" style={{ fontSize: '0.8rem' }}>
                         {defectNote}
@@ -932,7 +932,7 @@ export const DashboardView: React.FC = () => {
                           className="btn btn-sm btn-outline-secondary font-mono-code"
                           onClick={() => setReviewDrawerDoc({ doc: linkedDoc, notes: defectNote })}
                         >
-                          Review Document
+                          Review
                         </button>
                       )}
                       <button
@@ -940,7 +940,7 @@ export const DashboardView: React.FC = () => {
                         className="btn btn-sm btn-primary text-white font-mono-code"
                         onClick={() => setUploadDrawerTarget({ req, doc: linkedDoc })}
                       >
-                        Replace Revision
+                        Upload New Version
                       </button>
                     </div>
                   </div>
@@ -965,7 +965,7 @@ export const DashboardView: React.FC = () => {
                 setCurrentHashView('assurance-sets', setId);
               }}
             >
-              Open Full Campaign Workspace
+              View Assurance Set
             </button>
           </div>
         </div>

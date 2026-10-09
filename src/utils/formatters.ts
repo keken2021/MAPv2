@@ -121,6 +121,54 @@ export function formatReadinessScore(score: number | null | undefined): string {
   return score === null || score === undefined ? NOT_ASSESSED_LABEL : `${score}%`;
 }
 
+/* on-screen names for stored status values; stored values are never renamed */
+export const STATUS_DISPLAY_LABELS: Record<string, string> = {
+  'Fully Compliant': 'Compliant',
+  'Document Deficient': 'Non-Compliant',
+  'Expiring < 60 Days': 'Expiring Soon',
+  'Expiring < 6 Mos': 'Expiring Soon',
+  'Mismatch/Exception': 'Mismatch',
+  'Correction Requested': 'Returned for Correction',
+  'Verified & Closed': 'Closed',
+  'Under Re-Inspection': 'Re-Inspection',
+  'Layer 1 - Universal Core': 'Core Documents',
+  'Layer 2 - Vessel Specific & Endorsements': 'Vessel-Specific Endorsements',
+};
+
+/**
+  what: returns the on-screen name for a stored status value.
+  how: looks the value up in STATUS_DISPLAY_LABELS and returns it unchanged when there is no entry.
+  with what file: src/utils/formatters.ts used by tables, detail views, filters and exports.
+*/
+export function getStatusDisplayLabel(value: string): string {
+  return STATUS_DISPLAY_LABELS[value] ?? value;
+}
+
+/* on-screen names for field labels stored in mock data; stored labels are never renamed */
+export const FIELD_DISPLAY_LABELS: Record<string, string> = {
+  'Assurance / Class': 'Class & Readiness',
+  'Assurance / Readiness': 'Readiness',
+  'Official Reg': 'Official Registration Number',
+  Classification: 'Class Society',
+  'Length Overall (LOA)': 'LOA',
+  'Beam / Draft': 'Beam & Draft',
+  'Deadweight Tonnage': 'Deadweight',
+  Identifier: 'Equipment ID',
+  'Rank / Grade': 'Rank',
+  'STCW Compliance': 'Readiness',
+  'Seamans Book': "Seaman's Book No.",
+  'Last Audited': 'Last Audit',
+};
+
+/**
+  what: returns the on-screen name for a stored field label.
+  how: looks the label up in FIELD_DISPLAY_LABELS and returns it unchanged when there is no entry.
+  with what file: src/utils/formatters.ts used by marketplace cards, the offering modal and its export.
+*/
+export function getFieldDisplayLabel(label: string): string {
+  return FIELD_DISPLAY_LABELS[label] ?? label;
+}
+
 /**
   what: validates whether a string matches the MAP standard document ID format: MAP-[ENTITY]-[YYYY]-[CATEGORY]-[SEQ]
 */

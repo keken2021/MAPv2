@@ -9,6 +9,7 @@ import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { filterAuditTrailForPersona } from '../../utils/rbacHelpers';
+import { getRoleDisplayLabel } from '../../utils/userRoleHelpers';
 
 /**
   what: renders the offcanvas audit trail drawer in clean light theme.
@@ -58,7 +59,7 @@ export const AuditTrailDrawer: React.FC = () => {
           <input
             type="text"
             className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search audit trail by action, asset, role..."
+            placeholder="Search audit trail..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -80,14 +81,14 @@ export const AuditTrailDrawer: React.FC = () => {
 
               <div className="d-flex align-items-center gap-2 mb-2">
                 <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.7rem' }}>
-                  {ev.userRole}
+                  {getRoleDisplayLabel(ev.userRole)}
                 </span>
                 <span className="text-secondary small">{ev.organization}</span>
               </div>
 
               {ev.fieldDelta && (
                 <div className="p-2 mb-2 bg-white rounded font-mono-code small text-warning border border-secondary">
-                  <div>Delta: {ev.fieldDelta.fieldName}</div>
+                  <div>Change: {ev.fieldDelta.fieldName}</div>
                   <div>Old: {ev.fieldDelta.oldValue}</div>
                   <div>New: {ev.fieldDelta.newValue}</div>
                 </div>

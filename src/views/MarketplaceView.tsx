@@ -71,7 +71,7 @@ export const MarketplaceView: React.FC = () => {
   /* reason the charter action is unavailable for the open listing; undefined when it can proceed */
   const charterDisabledReason = ((): string | undefined => {
     if (activePersona !== 'Administrator' && activePersona !== 'C Admin') {
-      return 'Only Vessel Admin and Client Admin can start a charter.';
+      return 'Only Service Provider and Client Admin roles can start a charter.';
     }
     if (!charterTarget) {
       return 'This listing is not linked to a registered asset.';
@@ -181,7 +181,7 @@ export const MarketplaceView: React.FC = () => {
     if (providerFilter !== 'ALL') {
       chips.push({
         id: 'provider',
-        label: 'Provider',
+        label: 'Service Provider',
         value: providerFilter,
         onRemove: () => setProviderFilter('ALL'),
       });
@@ -197,7 +197,7 @@ export const MarketplaceView: React.FC = () => {
     if (statusFilter !== 'ALL') {
       chips.push({
         id: 'status',
-        label: 'Status',
+        label: 'Availability',
         value: statusFilter,
         onRemove: () => setStatusFilter('ALL'),
       });
@@ -241,7 +241,7 @@ export const MarketplaceView: React.FC = () => {
   };
 
   const handleExportPdf = () => {
-    const headers = ['Offering', 'Category', 'Provider', 'Location', 'Status', 'Readiness'];
+    const headers = ['Title', 'Category', 'Service Provider', 'Location', 'Availability', 'Readiness'];
     const rows = filteredItems.map((item) => [
       item.name,
       item.subcategory,
@@ -336,8 +336,8 @@ export const MarketplaceView: React.FC = () => {
                 fontSize: '0.8rem',
               }}
               onClick={() => setViewMode('grid')}
-              title="Grid Cards View"
-              aria-label="Grid Cards View"
+              title="Grid view"
+              aria-label="Grid view"
             >
               <LayoutGrid size={15} />
             </button>
@@ -351,8 +351,8 @@ export const MarketplaceView: React.FC = () => {
                 fontSize: '0.8rem',
               }}
               onClick={() => setViewMode('table')}
-              title="Data-Dense Table View"
-              aria-label="Data-Dense Table View"
+              title="Table view"
+              aria-label="Table view"
             >
               <TableIcon size={15} />
             </button>
@@ -377,12 +377,12 @@ export const MarketplaceView: React.FC = () => {
               >
                 <li>
                   <button type="button" className="dropdown-item small py-1.5" onClick={handleExportCsv}>
-                    Export as CSV
+                    CSV
                   </button>
                 </li>
                 <li>
                   <button type="button" className="dropdown-item small py-1.5" onClick={handleExportPdf}>
-                    Export as PDF
+                    PDF
                   </button>
                 </li>
               </ul>
@@ -409,7 +409,7 @@ export const MarketplaceView: React.FC = () => {
                   type="text"
                   className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
                   style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                  placeholder="Search offerings, providers, specs..."
+                  placeholder="Search offerings..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -428,11 +428,11 @@ export const MarketplaceView: React.FC = () => {
                 style={{ width: '160px', borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                title="Sort By"
+                title="Sort"
               >
                 <option value="name">Sort: Name</option>
                 <option value="readiness">Sort: Readiness</option>
-                <option value="provider">Sort: Provider</option>
+                <option value="provider">Sort: Service Provider</option>
                 <option value="category">Sort: Category</option>
               </select>
 
@@ -442,7 +442,7 @@ export const MarketplaceView: React.FC = () => {
                 className="btn btn-sm btn-outline-secondary text-dark px-2.5 d-flex align-items-center justify-content-center"
                 style={{ borderColor: '#E2E8F0', height: '34px', backgroundColor: '#FFFFFF' }}
                 onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                title={`Toggle Sort Order (Currently ${sortOrder.toUpperCase()})`}
+                title={`Sort direction: ${sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
               >
                 <ArrowUpDown size={14} />
               </button>
@@ -457,7 +457,7 @@ export const MarketplaceView: React.FC = () => {
                 style={{ fontSize: '0.8rem', color: '#64748B' }}
               >
                 <RotateCcw size={13} />
-                <span>Reset All</span>
+                <span>Clear All</span>
               </button>
             )}
           </div>
@@ -477,10 +477,10 @@ export const MarketplaceView: React.FC = () => {
                 style={{ borderColor: '#E2E8F0' }}
               >
                 <div className="fw-semibold text-dark mb-1" style={{ fontSize: '1rem', color: '#0B1B2B' }}>
-                  No marketplace offerings match your criteria
+                  No offerings found
                 </div>
                 <div className="text-muted small mb-3" style={{ fontSize: '0.82rem' }}>
-                  Try adjusting search keywords or selecting a different category filter.
+                  Try a different search or filter.
                 </div>
                 <button
                   type="button"
@@ -488,7 +488,7 @@ export const MarketplaceView: React.FC = () => {
                   onClick={handleResetFilters}
                   style={{ fontSize: '0.8rem' }}
                 >
-                  Clear All Filters
+                  Clear All
                 </button>
               </div>
             ) : (
@@ -511,13 +511,13 @@ export const MarketplaceView: React.FC = () => {
                     Offering ID
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
-                    Offering Title
+                    Title
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
                     Category
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
-                    Service Provider & Location
+                    Service Provider
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
                     Availability
@@ -534,7 +534,7 @@ export const MarketplaceView: React.FC = () => {
                 {filteredItems.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center text-muted py-5" style={{ fontSize: '0.85rem' }}>
-                      No offerings found matching your search.
+                      No offerings found.
                     </td>
                   </tr>
                 ) : (
@@ -661,8 +661,8 @@ export const MarketplaceView: React.FC = () => {
                             type="button"
                             className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                             style={{ width: '32px', height: '32px' }}
-                            title="View Offering Dossier"
-                            aria-label="View Offering Dossier"
+                            title="View"
+                            aria-label="View"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSelectItem(item);
@@ -701,15 +701,14 @@ export const MarketplaceView: React.FC = () => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Marketplace Filters"
-        subtitle="Filter offerings by category, provider organization, location base, charter date, and operational availability"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="d-flex flex-column gap-3">
           {/* Category Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Offering Category
+              Category
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
@@ -728,7 +727,7 @@ export const MarketplaceView: React.FC = () => {
           {/* Provider Organization Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Provider Organization
+              Service Provider
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
@@ -736,7 +735,7 @@ export const MarketplaceView: React.FC = () => {
               value={providerFilter}
               onChange={(e) => setProviderFilter(e.target.value)}
             >
-              <option value="ALL">All Providers ({uniqueProviders.length})</option>
+              <option value="ALL">All Service Providers ({uniqueProviders.length})</option>
               {uniqueProviders.map((p) => (
                 <option key={p} value={p}>
                   {p}
@@ -748,7 +747,7 @@ export const MarketplaceView: React.FC = () => {
           {/* Location Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Location Base
+              Location
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
@@ -785,7 +784,7 @@ export const MarketplaceView: React.FC = () => {
           {/* Availability Status Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Availability Status
+              Availability
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
@@ -793,7 +792,7 @@ export const MarketplaceView: React.FC = () => {
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <option value="ALL">All Availability Statuses</option>
+              <option value="ALL">All Statuses</option>
               <option value="Available Now">Available Now</option>
               <option value="Ready for Mobilization">Ready for Mobilization</option>
               <option value="Under Review">Under Review</option>

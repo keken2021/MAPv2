@@ -11,7 +11,7 @@ import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
-import { formatMaritimeDate } from '../utils/formatters';
+import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { toIsoLocalDate, validateCharterWindow } from '../utils/validation';
 import { MasterDocument } from '../types/document';
 import { AssuranceRequirement } from '../types/assurance';
@@ -154,11 +154,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       <div className="card map-card-custom p-4 text-center my-4">
         <div className="py-4">
           <div className="badge bg-warning-subtle text-dark border border-warning-subtle px-3 py-1.5 mb-3 font-mono-code">
-            Unregistered Campaign Draft
+            Draft
           </div>
           <h4 className="fw-bold text-dark">{assuranceSet.title}</h4>
           <p className="text-secondary mx-auto mb-4" style={{ maxWidth: '550px' }}>
-            This assurance set is currently saved as an uninitiated draft. Complete the segmented wizard setup to configure required documents, templates, and stakeholder assignments before registering it as an active campaign.
+            This assurance set is a draft. Finish setup to create it.
           </p>
           <div className="d-flex align-items-center justify-content-center gap-3">
             <button
@@ -174,7 +174,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 className="btn btn-primary px-4 fw-semibold"
                 onClick={() => setCurrentHashView('create-assurance-set', assuranceSet.id)}
               >
-                Continue Wizard Setup
+                Continue Setup
               </button>
             )}
           </div>
@@ -266,7 +266,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       charterWindowEnd: charterEndDraft,
     });
     setIsEditingCharterWindow(false);
-    setProjectToast('Charter window updated.');
+    setProjectToast('Charter period updated.');
     setTimeout(() => setProjectToast(null), 3500);
   };
 
@@ -299,7 +299,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   ) => {
     const result = updateAssuranceStakeholder(assuranceSet.id, role, assigneeName);
     if (!result.success) {
-      setStakeholderError(result.message || 'Could not assign stakeholder.');
+      setStakeholderError(result.message || 'The stakeholder could not be assigned.');
       return;
     }
     setStakeholderError(null);
@@ -326,7 +326,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       return <span className="badge bg-info text-dark font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Verified</span>;
     }
     if (req.verifierStatus === 'Correction Requested') {
-      return <span className="badge bg-warning text-dark font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Correction Requested</span>;
+      return <span className="badge bg-warning text-dark font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Returned for Correction</span>;
     }
     if (req.verifierStatus === 'Rejected') {
       return <span className="badge bg-danger text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Rejected</span>;
@@ -366,18 +366,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
       const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
       return {
-        RequirementTitle: req.title,
+        Requirement: req.title,
         OcrConfidence: `${effectiveOcr}%`,
-        VerifierStatus: req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending'),
+        Status: getStatusDisplayLabel(req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending')),
         Notes: req.notes || '',
       };
     });
-    exportToCsv(`${assuranceSet.id}_Requirements_Register`, exportData);
+    exportToCsv(`${assuranceSet.id}_Requirements`, exportData);
     setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
-    const headers = ['Requirement Title', 'OCR Conf', 'Status', 'Notes'];
+    const headers = ['Requirement', 'OCR Confidence', 'Status', 'Notes'];
     const rows = assuranceSet.requirements.map((req) => {
       const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
       const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
@@ -385,11 +385,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       return [
         req.title,
         `${effectiveOcr}%`,
-        req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending'),
+        getStatusDisplayLabel(req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending')),
         req.notes || '-',
       ];
     });
-    exportToPdf(`${assuranceSet.id} Statutory Requirements Register`, headers, rows);
+    exportToPdf(`${assuranceSet.id} Requirements`, headers, rows);
     setIsExportOpen(false);
   };
 
@@ -444,18 +444,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
                     onClick={() => setIsExportOpen(!isExportOpen)}
                   >
-                    Export Data
+                    Export
                   </button>
                   {isExportOpen && (
                     <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                       <li>
                         <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                          Export as CSV (.csv)
+                          CSV
                         </button>
                       </li>
                       <li>
                         <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                          Export as PDF (.pdf)
+                          PDF
                         </button>
                       </li>
                     </ul>
@@ -470,7 +470,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 <div className="col-md-6 d-flex flex-column gap-3">
                   <div className="d-flex align-items-center justify-content-between mb-1">
                     <span className="text-uppercase fw-bold text-secondary" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                      Assurance Set Information
+                      Details
                     </span>
                   </div>
                   <div className="map-detail-row border-bottom pb-2">
@@ -501,11 +501,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         {linkedProject.name} ({linkedProject.id})
                       </button>
                     ) : (
-                      <div className="fw-bold text-dark">Not in a project</div>
+                      <div className="fw-bold text-dark">No project</div>
                     )}
                   </div>
                   <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Created by:</div>
+                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Created By:</div>
                     <div className="fw-bold text-dark">
                       {creator.name
                         ? creator.organization && creator.organization !== clientOwnerOrg
@@ -520,12 +520,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </div>
                   {serviceProviderOrg && (
                     <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Service provider:</div>
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Service Provider:</div>
                       <div className="fw-bold text-dark">{serviceProviderOrg}</div>
                     </div>
                   )}
                   <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Asset type:</div>
+                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Scope:</div>
                     <div className="fw-bold text-dark">{assuredAsset.typeLabel}</div>
                   </div>
                   <div className="map-detail-row border-bottom pb-2">
@@ -545,7 +545,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </div>
                   <div className="map-detail-row">
                     <div className="d-flex align-items-center justify-content-between">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Charter Window:</div>
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Charter Period:</div>
                       {canEditCharterWindow && (
                         <button
                           type="button"
@@ -617,7 +617,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 {/* Stakeholder Role Assignments */}
                 <div className="col-md-6 d-flex flex-column gap-3">
                   <div className="text-uppercase fw-bold text-secondary mb-1" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                    Assigned Assurance Set Stakeholders
+                    Stakeholders
                   </div>
                   {stakeholderError && (
                     <div className="alert alert-danger py-2 small mb-0">{stakeholderError}</div>
@@ -653,7 +653,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             if (e.target.value) assignStakeholder('Submitter', e.target.value);
                           }}
                         >
-                          <option value="">Select Submitter...</option>
+                          <option value="">Select submitter</option>
                           {users
                             .filter((u) => userHasRole(u, 'Submitter') || userHasRole(u, 'Administrator'))
                             .map((u) => (
@@ -668,7 +668,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
-                          Invite New Submitter in User Management
+                          Add a submitter in User Management
                         </button>
                       </div>
                     ) : (
@@ -701,7 +701,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             if (e.target.value) assignStakeholder('Verifier', e.target.value);
                           }}
                         >
-                          <option value="">Select Verifier...</option>
+                          <option value="">Select verifier</option>
                           {verifierCandidates.map((u) => (
                             <option key={u.id} value={`${u.name} (${u.organization})`}>
                               {u.name} - {u.organization}
@@ -714,7 +714,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
-                          Invite New Verifier in User Management
+                          Add a verifier in User Management
                         </button>
                       </div>
                     ) : (
@@ -751,7 +751,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             if (e.target.value) assignStakeholder('Inspector', e.target.value);
                           }}
                         >
-                          <option value="">Select Inspector...</option>
+                          <option value="">Select inspector</option>
                           {users
                             .filter((u) => userHasRole(u, 'Inspector'))
                             .map((u) => (
@@ -766,7 +766,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
-                          Invite New Inspector in User Management
+                          Add an inspector in User Management
                         </button>
                       </div>
                     ) : (
@@ -803,7 +803,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             if (e.target.value) assignStakeholder('Approver', e.target.value);
                           }}
                         >
-                          <option value="">Select Approver...</option>
+                          <option value="">Select approver</option>
                           {approverCandidates.map((u) => (
                             <option key={u.id} value={`${u.name} (${u.organization})`}>
                               {u.name} - {u.organization}
@@ -816,7 +816,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
-                          Invite New Approver in User Management
+                          Add an approver in User Management
                         </button>
                       </div>
                     ) : (
@@ -839,7 +839,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             <div className="p-4 bg-light border rounded-3 h-100 d-flex flex-column gap-4">
               <div>
                 <div className="text-uppercase font-mono-code fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                  Assurance Set Stage Pipeline
+                  Stage
                 </div>
                 <PipelineStepper
                   currentStage={assuranceSet.stage}
@@ -852,7 +852,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               {/* readiness index sits inside the pipeline panel, pinned to its bottom edge */}
               <div className="mt-auto pt-3 border-top">
                 <div className="text-secondary text-uppercase font-mono-code fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                  Assurance Readiness Index
+                  Readiness
                 </div>
                 <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
               </div>
@@ -867,7 +867,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div>
               <div className="fw-bold text-dark fs-6">
-                Requirements Register
+                Requirements
               </div>
             </div>
             <div className="d-flex align-items-center gap-2 ms-auto">
@@ -877,18 +877,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
                   onClick={() => setIsExportOpen(!isExportOpen)}
                 >
-                  Export Data
+                  Export
                 </button>
                 {isExportOpen && (
                   <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                     <li>
                       <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                        Export as CSV (.csv)
+                        CSV
                       </button>
                     </li>
                     <li>
                       <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                        Export as PDF (.pdf)
+                        PDF
                       </button>
                     </li>
                   </ul>
@@ -904,7 +904,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     setIsUploadModalOpen(true);
                   }}
                 >
-                  Upload Other Document
+                  Upload Document
                 </button>
               )}
             </div>
@@ -919,7 +919,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleReqSort('title')}
                 >
-                  Requirement Title {renderSortIndicator('title')}
+                  Requirement {renderSortIndicator('title')}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -975,8 +975,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                           style={{ width: '32px', height: '32px' }}
                           onClick={() => setCurrentHashView('assurance-sets', linkedChildSet.id)}
-                          title="Open Sub-Set"
-                          aria-label="Open Sub-Set"
+                          title="View"
+                          aria-label="View"
                         >
                           <FolderOpen size={16} />
                         </button>
@@ -997,7 +997,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         )}
                         {req.isSpecialized && (
                           <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
-                            Specialized
+                            Custom
                           </span>
                         )}
                       </div>
@@ -1033,8 +1033,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                               className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                               style={{ width: '32px', height: '32px' }}
                               onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
-                              title="Review Document"
-                              aria-label="Review Document"
+                              title="Review"
+                              aria-label="Review"
                             >
                               <FileCheck size={16} />
                             </button>
@@ -1044,8 +1044,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
                                 style={{ width: '32px', height: '32px' }}
                                 onClick={() => openRequirementUpload(req, linkedDoc)}
-                                title="Replace Revision"
-                                aria-label="Replace Revision"
+                                title="Upload new version"
+                                aria-label="Upload new version"
                               >
                                 <RefreshCw size={16} />
                               </button>
@@ -1057,8 +1057,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
                             style={{ width: '32px', height: '32px' }}
                             onClick={() => openRequirementUpload(req)}
-                            title="Upload Document"
-                            aria-label="Upload Document"
+                            title="Upload document"
+                            aria-label="Upload document"
                           >
                             <Upload size={16} />
                           </button>
@@ -1114,8 +1114,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                 style={{ width: '32px', height: '32px' }}
                                 onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
-                                title="Review Document"
-                                aria-label="Review Document"
+                                title="Review"
+                                aria-label="Review"
                               >
                                 <FileCheck size={16} />
                               </button>
@@ -1125,8 +1125,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                   className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
                                   style={{ width: '32px', height: '32px' }}
                                   onClick={() => openRequirementUpload(req, linkedDoc)}
-                                  title="Replace Revision"
-                                  aria-label="Replace Revision"
+                                  title="Upload new version"
+                                  aria-label="Upload new version"
                                 >
                                   <RefreshCw size={16} />
                                 </button>
@@ -1138,8 +1138,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                               className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
                               style={{ width: '32px', height: '32px' }}
                               onClick={() => openRequirementUpload(req)}
-                              title="Upload Document"
-                              aria-label="Upload Document"
+                              title="Upload document"
+                              aria-label="Upload document"
                             >
                               <Upload size={16} />
                             </button>
@@ -1154,7 +1154,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               ) : (
                 <tr>
                   <td colSpan={4} className="text-center text-muted py-3 small font-mono-code">
-                    No other documents uploaded. Click 'Upload Document' above to attach additional certificates or reports.
+                    No other documents yet.
                   </td>
                 </tr>
               )}
@@ -1191,7 +1191,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               <div className="modal-body px-4 py-4">
                 {attachableProjects.length === 0 ? (
                   <p className="text-secondary small mb-0">
-                    No projects are available. Create a project first, then add this assurance set to it.
+                    No projects yet. Create a project first.
                   </p>
                 ) : (
                   <>

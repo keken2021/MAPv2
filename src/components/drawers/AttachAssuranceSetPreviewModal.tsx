@@ -76,9 +76,9 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
       const c = crew.find((item) => item.id === assuranceSet.crewId);
       return {
         id: assuranceSet.crewId || 'CREW-N/A',
-        name: assuranceSet.crewName || c?.fullName || 'Assigned Crew Member',
+        name: assuranceSet.crewName || c?.fullName || 'Crew Member',
         org: c?.organization || assuranceSet.initiatorOrg || assuranceSet.serviceProviderOrg || 'Crew Provider',
-        extra: c ? `${c.rank} · ${c.nationality}` : 'Seafarer',
+        extra: c ? `${c.rank} · ${c.nationality}` : 'Crew',
       };
     }
 
@@ -86,7 +86,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
       const eq = equipment.find((item) => item.id === assuranceSet.equipmentId);
       return {
         id: assuranceSet.equipmentId || 'EQ-N/A',
-        name: assuranceSet.equipmentName || eq?.name || 'Assigned Equipment Asset',
+        name: assuranceSet.equipmentName || eq?.name || 'Equipment',
         org: eq?.owningOrganization || assuranceSet.initiatorOrg || assuranceSet.serviceProviderOrg || 'Equipment Owner',
         extra: eq ? `${eq.category} · ${eq.model || eq.equipmentIdentifier}` : 'Equipment Asset',
       };
@@ -212,7 +212,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                   </span>
                 </h5>
                 <div className="small text-white-50" style={{ fontSize: '0.8rem' }}>
-                  Review documents, statutory compliance readiness, and metadata before attaching to {project.name}.
+                  Review before attaching to {project.name}.
                 </div>
               </div>
             </div>
@@ -259,25 +259,25 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                 <div className="col-lg-6">
                   <div className="row g-2 text-sm">
                     <div className="col-sm-6">
-                      <div className="small text-muted">Initiating Organization</div>
+                      <div className="small text-muted">Created By</div>
                       <div className="fw-semibold text-dark text-truncate" title={assuranceSet.initiatorOrg}>
                         {assuranceSet.initiatorOrg || 'N/A'}
                       </div>
                     </div>
                     <div className="col-sm-6">
-                      <div className="small text-muted">Charterer / Client</div>
+                      <div className="small text-muted">Client</div>
                       <div className="fw-semibold text-dark text-truncate" title={assuranceSet.charterer || assuranceSet.clientOrg}>
                         {assuranceSet.charterer || assuranceSet.clientOrg || project.clientOperator}
                       </div>
                     </div>
                     <div className="col-sm-6">
-                      <div className="small text-muted">Charter Window</div>
+                      <div className="small text-muted">Charter Period</div>
                       <div className="fw-semibold text-dark font-mono-code" style={{ fontSize: '0.8rem' }}>
                         {assuranceSet.charterWindowStart || '2026-11-01'} to {assuranceSet.charterWindowEnd || '2027-02-28'}
                       </div>
                     </div>
                     <div className="col-sm-6">
-                      <div className="small text-muted">Readiness Score</div>
+                      <div className="small text-muted">Readiness</div>
                       <div className="d-flex align-items-center gap-2">
                         <div className="progress flex-grow-1" style={{ height: '8px' }}>
                           <div
@@ -318,7 +318,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                   onClick={() => setActiveTab('requirements')}
                 >
                   <FileCheck size={14} className="me-1 inline" />
-                  Assurance Documents & Requirements ({requirementRows.length})
+                  Requirements ({requirementRows.length})
                 </button>
                 <button
                   type="button"
@@ -330,7 +330,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                   onClick={() => setActiveTab('details')}
                 >
                   <Building2 size={14} className="me-1 inline" />
-                  Governance & Stakeholders
+                  Stakeholders
                 </button>
               </div>
 
@@ -355,9 +355,9 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                     <thead className="table-light">
                       <tr>
                         <th style={{ width: '130px', padding: '10px 16px' }}>Requirement ID</th>
-                        <th style={{ minWidth: '220px', padding: '10px 16px' }}>Requirement / Document Title</th>
-                        <th style={{ width: '160px', padding: '10px 16px' }}>Category & Scope</th>
-                        <th style={{ minWidth: '200px', padding: '10px 16px' }}>Matched Document & Expiry</th>
+                        <th style={{ minWidth: '220px', padding: '10px 16px' }}>Requirement</th>
+                        <th style={{ width: '160px', padding: '10px 16px' }}>Category</th>
+                        <th style={{ minWidth: '200px', padding: '10px 16px' }}>Document</th>
                         <th style={{ width: '140px', padding: '10px 16px' }}>Status</th>
                       </tr>
                     </thead>
@@ -365,7 +365,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                       {requirementRows.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="text-center py-4 text-muted">
-                            No requirements registered in this assurance set.
+                            No requirements yet.
                           </td>
                         </tr>
                       ) : (
@@ -389,7 +389,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                                   {isMandatory && (
                                     <span
                                       className="text-danger ms-1 fw-bold"
-                                      title="Mandatory Assurance Requirement"
+                                      title="Mandatory"
                                     >
                                       *
                                     </span>
@@ -408,7 +408,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                                       className="badge bg-light text-muted border"
                                       style={{ fontSize: '0.7rem' }}
                                     >
-                                      Supplementary
+                                      Optional
                                     </span>
                                   )}
                                   {req.subtype && (
@@ -449,7 +449,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                                   </div>
                                 ) : (
                                   <span className="text-muted fst-italic">
-                                    Pending document upload
+                                    Awaiting Upload
                                   </span>
                                 )}
                               </td>
@@ -464,7 +464,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                                 ) : req.verifierStatus === 'Correction Requested' ? (
                                   <span className="badge bg-warning text-dark d-inline-flex align-items-center gap-1">
                                     <AlertTriangle size={12} />
-                                    Correction
+                                    Returned for Correction
                                   </span>
                                 ) : req.verifierStatus === 'Rejected' ? (
                                   <span className="badge bg-danger d-inline-flex align-items-center gap-1">
@@ -493,26 +493,26 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
               <div className="row g-3 mb-3">
                 <div className="col-md-6">
                   <div className="card map-card-custom p-3 h-100 bg-white">
-                    <h6 className="fw-bold text-dark mb-3">Assurance Governance</h6>
+                    <h6 className="fw-bold text-dark mb-3">Details</h6>
                     <div className="d-flex flex-column gap-2 small">
                       <div className="d-flex justify-content-between border-bottom pb-1">
-                        <span className="text-muted">Assurance Set ID:</span>
+                        <span className="text-muted">Set ID:</span>
                         <span className="font-mono-code fw-semibold text-dark">{assuranceSet.id}</span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
-                        <span className="text-muted">Campaign Title:</span>
+                        <span className="text-muted">Title:</span>
                         <span className="fw-semibold text-dark">{assuranceSet.title}</span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
-                        <span className="text-muted">Assurance Scope:</span>
+                        <span className="text-muted">Scope:</span>
                         <span className="fw-semibold text-dark">{assuranceSet.assuranceType || assetType}</span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
-                        <span className="text-muted">Workflow Stage:</span>
+                        <span className="text-muted">Stage:</span>
                         <span className="badge bg-info text-dark">{assuranceSet.stage}</span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
-                        <span className="text-muted">Approver Decision:</span>
+                        <span className="text-muted">Decision:</span>
                         <span className="fw-semibold text-dark">{assuranceSet.approverDecision || 'Pending Review'}</span>
                       </div>
                     </div>
@@ -521,30 +521,30 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
 
                 <div className="col-md-6">
                   <div className="card map-card-custom p-3 h-100 bg-white">
-                    <h6 className="fw-bold text-dark mb-3">Assigned Stakeholders</h6>
+                    <h6 className="fw-bold text-dark mb-3">Stakeholders</h6>
                     <div className="d-flex flex-column gap-2 small">
                       <div className="d-flex justify-content-between border-bottom pb-1">
-                        <span className="text-muted">Assigned Submitter:</span>
+                        <span className="text-muted">Submitter:</span>
                         <span className="fw-semibold text-dark">
                           {assuranceSet.assignedSubmitter || assuranceSet.stakeholders?.submitterName || 'Provider Admin'}
                         </span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
-                        <span className="text-muted">Assigned Verifier:</span>
+                        <span className="text-muted">Verifier:</span>
                         <span className="fw-semibold text-dark">
                           {assuranceSet.assignedVerifier || assuranceSet.stakeholders?.verifierName || 'Assurance Verifier'}
                         </span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
-                        <span className="text-muted">Assigned Inspector:</span>
+                        <span className="text-muted">Inspector:</span>
                         <span className="fw-semibold text-dark">
-                          {assuranceSet.assignedInspector || assuranceSet.stakeholders?.inspectorName || 'Lead Marine Inspector'}
+                          {assuranceSet.assignedInspector || assuranceSet.stakeholders?.inspectorName || 'Not assigned'}
                         </span>
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
-                        <span className="text-muted">Assigned Approver:</span>
+                        <span className="text-muted">Approver:</span>
                         <span className="fw-semibold text-dark">
-                          {assuranceSet.assignedApprover || assuranceSet.stakeholders?.approverName || 'Client Assurance Lead'}
+                          {assuranceSet.assignedApprover || assuranceSet.stakeholders?.approverName || 'Not assigned'}
                         </span>
                       </div>
                     </div>
@@ -557,19 +557,19 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
             <div className="card map-card-custom p-3 bg-white">
               <div className="d-flex align-items-center justify-content-between mb-2">
                 <h6 className="fw-bold text-dark mb-0">
-                  Template Instance & Charter Period Configuration
+                  Charter Period &amp; Role
                 </h6>
                 <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.75rem' }}>
-                  Source: {assuranceSet.visibility === 'public' ? 'Public Template' : 'Organizational Template'}
+                  {assuranceSet.visibility === 'public' ? 'Public Template' : 'Organization Template'}
                 </span>
               </div>
               <p className="text-muted small mb-3">
-                This existing assurance set serves as an assurance template baseline. Configure the operational charter window and project role for this attachment instance.
+                Set the charter period and this set's role in the project.
               </p>
               <div className="row g-3">
                 <div className="col-md-6">
                   <label className="form-label small fw-semibold text-muted">
-                    Charter Window Start <span className="text-danger">*</span>
+                    Charter Period Start <span className="text-danger">*</span>
                   </label>
                   <input
                     type="date"
@@ -580,7 +580,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                 </div>
                 <div className="col-md-6">
                   <label className="form-label small fw-semibold text-muted">
-                    Charter Window End <span className="text-danger">*</span>
+                    Charter Period End <span className="text-danger">*</span>
                   </label>
                   <input
                     type="date"
@@ -591,7 +591,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                 </div>
                 <div className="col-md-6">
                   <label className="form-label small fw-semibold text-muted">
-                    Assigned Role in Project <span className="text-danger">*</span>
+                    Role in Project <span className="text-danger">*</span>
                   </label>
                   <input
                     type="text"
@@ -603,14 +603,14 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                 </div>
                 <div className="col-md-6">
                   <label className="form-label small fw-semibold text-muted">
-                    Attachment Notes / Reference (Optional)
+                    Notes (optional)
                   </label>
                   <input
                     type="text"
                     className="form-control form-control-sm"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="e.g. Attached from pre-existing vetting campaign"
+                    placeholder="e.g. Reused from an earlier charter"
                   />
                 </div>
               </div>
@@ -637,7 +637,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
               disabled={isSubmitting || !roleInProject.trim()}
             >
               <Plus size={16} />
-              Confirm & Attach Assurance Set
+              Attach Assurance Set
             </button>
           </div>
         </div>

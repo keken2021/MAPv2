@@ -324,7 +324,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
 
     setTimeout(() => {
       setUploadProgress(45);
-      setStatusMessage('Uploading certificate bytes to seafarer compliance vault...');
+      setStatusMessage('Uploading document...');
     }, 350);
 
     setTimeout(() => {
@@ -402,11 +402,11 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
               <div>
                 <h5 className="modal-title fw-bold text-slate-900 m-0">
                   {existingDocument
-                    ? `Upload Replacement Revision — ${existingDocument.title}`
-                    : `Upload STCW Certificate — ${crewName}`}
+                    ? `Upload New Version — ${existingDocument.title}`
+                    : `Upload Document — ${crewName}`}
                 </h5>
                 <div className="text-secondary small font-mono-code">
-                  Seafarer: <strong>{crewName}</strong> ({crewId})
+                  Crew: <strong>{crewName}</strong> ({crewId})
                 </div>
               </div>
               <button
@@ -432,7 +432,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                     <div className="d-flex align-items-center justify-content-between mb-1.5">
                       <span className="fw-bold text-primary small d-flex align-items-center gap-2">
                         <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
-                        Simulating STCW Certificate Upload &amp; Re-upload...
+                        Uploading...
                       </span>
                       <span className="font-mono-code fw-bold text-primary small">{uploadProgress}%</span>
                     </div>
@@ -460,7 +460,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                           <div className="d-flex flex-wrap align-items-start justify-content-between mb-3 border-bottom pb-3">
                             <div>
                               <div className="font-mono-code text-uppercase text-muted small fw-bold mb-0.5" style={{ fontSize: '0.675rem', letterSpacing: '0.08em' }}>
-                                EXTRACTION REVIEW
+                                REVIEW
                               </div>
                               <h5 className="fw-bold text-dark m-0 mb-1" style={{ fontSize: '1.15rem' }}>
                                 {title || existingDocument?.title || 'Master Unlimited Certificate of Competency (CoC)'}
@@ -533,7 +533,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                                   >
                                     {isSignaturePresent ? <Check className="w-3 h-3 text-white" strokeWidth={3} /> : <AlertCircle className="w-3 h-3 text-white" />}
                                   </span>
-                                  <span className="ps-0.5 text-dark fw-medium">Signature / stamp present</span>
+                                  <span className="ps-0.5 text-dark fw-medium">Signature or stamp present</span>
                                 </div>
                               </div>
                             </div>
@@ -544,7 +544,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                               <div className="map-extraction-field-row py-1">
                                 <div className="d-flex flex-column flex-grow-1 me-2">
                                   <div className="font-mono-code text-uppercase small fw-bold mb-0.5" style={{ fontSize: '0.6rem', color: '#64748b' }}>
-                                    CREW MEMBER NAME
+                                    CREW NAME
                                   </div>
                                   <div className="font-mono-code fw-bold text-dark small">
                                     {crewName}
@@ -559,7 +559,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                               <div className="map-extraction-field-row py-1">
                                 <div className="d-flex flex-column flex-grow-1 me-2">
                                   <div className="font-mono-code text-uppercase small fw-bold mb-0.5" style={{ fontSize: '0.6rem', color: '#64748b' }}>
-                                    CERTIFICATE / DOCUMENT NUMBER
+                                    CERTIFICATE NO.
                                   </div>
                                   {isManualEditActive ? (
                                     <input
@@ -578,7 +578,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                                   )}
                                   {certNoScore < 90 ? (
                                     <div className="small mt-0.5" style={{ fontSize: '0.675rem', color: '#b45309' }}>
-                                      Below 90% threshold — human review required
+                                      Below 90%. Check this field.
                                     </div>
                                   ) : (
                                     <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
@@ -614,7 +614,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                                   )}
                                   {authorityScore < 90 ? (
                                     <div className="small mt-0.5" style={{ fontSize: '0.675rem', color: '#b45309' }}>
-                                      Below 90% threshold — human review required
+                                      Below 90%. Check this field.
                                     </div>
                                   ) : (
                                     <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
@@ -650,7 +650,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                                   )}
                                   {expiryScore < 90 ? (
                                     <div className="small mt-0.5" style={{ fontSize: '0.675rem', color: '#b45309' }}>
-                                      Below 90% threshold — human review required
+                                      Below 90%. Check this field.
                                     </div>
                                   ) : (
                                     <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
@@ -671,10 +671,10 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                           <div className="map-exception-banner mt-3">
                             <div>
                               <div className="fw-bold text-dark mb-0.5" style={{ fontSize: '0.825rem', color: '#92400e' }}>
-                                Exception identified — Submitter action required
+                                Submitter action required
                               </div>
                               <div className="small" style={{ fontSize: '0.725rem', color: '#b45309' }}>
-                                Issuing authority illegible, certificate number partially legible. Replace with a clearer scan or provide a renewed certificate.
+                                The issuing authority and certificate number are hard to read. Upload a clearer scan or a renewed certificate.
                               </div>
                             </div>
 
@@ -700,7 +700,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                     <div className="row g-2">
                       <div className="col-md-6">
                         <label className="form-label text-secondary small fw-semibold" htmlFor="doc-title">
-                          Document Title <span className="text-danger">*</span>
+                          Title <span className="text-danger">*</span>
                         </label>
                         <input
                           id="doc-title"
@@ -715,7 +715,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                       </div>
                       <div className="col-md-6">
                         <label className="form-label text-secondary small fw-semibold" htmlFor="doc-layer">
-                          Entity Type <span className="text-danger">*</span>
+                          Type <span className="text-danger">*</span>
                         </label>
                         <select
                           id="doc-layer"
@@ -735,7 +735,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                       <div className="p-2.5 bg-light border rounded-3 d-flex flex-column gap-2 mb-1">
                         <div className="d-flex flex-column">
                           <label className="form-label text-secondary small fw-semibold mb-1 text-truncate" htmlFor="crew-unassigned-doc-select">
-                            Option A: Auto-Fill from Document Library
+                            Fill from Document Library
                           </label>
                           <select
                             id="crew-unassigned-doc-select"
@@ -764,7 +764,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                         {selectedLibraryDocId && (
                           <div className="d-flex align-items-center justify-content-between p-2 bg-white border border-success rounded small font-mono-code">
                             <div className="d-flex align-items-center gap-2 text-truncate">
-                              <span className="badge bg-success text-white flex-shrink-0">Document Library Entity</span>
+                              <span className="badge bg-success text-white flex-shrink-0">Document</span>
                               <span className="fw-bold text-dark text-truncate">{selectedLibraryDocId}</span>
                             </div>
                             <button
@@ -790,7 +790,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                     {/* Option B: Drag & Drop / Clickable File Upload for AI Extraction */}
                     <div className="w-100 d-flex flex-column">
                       <label className="form-label text-secondary small fw-semibold mb-1 text-truncate">
-                        Option B: Drag &amp; Drop / Click File
+                        Upload a File
                       </label>
                       <div
                         className="border border-dashed border-primary rounded bg-white p-2 text-center cursor-pointer hover-bg-light transition-all d-flex align-items-center justify-content-center gap-2 w-100"
@@ -814,7 +814,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                     <div className="row g-2">
                       <div className="col-md-5">
                         <label className="form-label text-secondary small fw-semibold" htmlFor="stcw-reg">
-                          STCW Reg Ref
+                          STCW Regulation
                         </label>
                         <input
                           id="stcw-reg"
@@ -828,7 +828,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                       </div>
                       <div className="col-md-7">
                         <label className="form-label text-secondary small fw-semibold" htmlFor="cert-no">
-                          Certificate No <span className="text-danger">*</span>
+                          Certificate No. <span className="text-danger">*</span>
                         </label>
                         <input
                           id="cert-no"
@@ -846,7 +846,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                     <div className="row g-2">
                       <div className="col-md-6">
                         <label className="form-label text-secondary small fw-semibold" htmlFor="issuing-auth">
-                          Issuing Body <span className="text-danger">*</span>
+                          Issuing Authority <span className="text-danger">*</span>
                         </label>
                         <input
                           id="issuing-auth"
@@ -860,7 +860,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                       </div>
                       <div className="col-md-6">
                         <label className="form-label text-secondary small fw-semibold" htmlFor="flag-state">
-                          Flag State Authority
+                          Flag State
                         </label>
                         <input
                           id="flag-state"
@@ -894,13 +894,13 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                     {existingDocument && (
                       <div>
                         <label className="form-label text-dark fw-semibold small mb-1" htmlFor="revision-summary">
-                          Reason for Revision / Change Summary
+                          Change Summary
                         </label>
                         <textarea
                           id="revision-summary"
                           className="form-control form-control-sm bg-white text-dark border-secondary"
                           rows={3}
-                          placeholder="e.g. Uploading renewed STCW master certificate scan with updated AMSA seal..."
+                          placeholder="e.g. Renewed certificate"
                           value={changeSummary}
                           onChange={(e) => setChangeSummary(e.target.value)}
                           disabled={isUploading || isExtractingAi}
@@ -914,13 +914,13 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                         <div className="d-flex align-items-center justify-content-between mb-1">
                           <span className="fw-bold text-primary small d-flex align-items-center gap-2">
                             <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true" />
-                            AI OCR Scanning in Progress...
+                            Reading document...
                           </span>
-                          <span className="badge bg-primary text-white font-mono-code">AI Processing</span>
+                          <span className="badge bg-primary text-white font-mono-code">Processing</span>
                         </div>
                         <div className="ai-scan-bar" />
                         <div className="font-mono-code text-muted small mt-2" style={{ fontSize: '0.725rem' }}>
-                          Extracting Certificate Attributes from <strong>{fileName}</strong>...
+                          Reading <strong>{fileName}</strong>...
                         </div>
                       </div>
                     )}
@@ -978,7 +978,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                     Document Preview
                   </h5>
                   <div className="text-secondary small mt-0.5">
-                    Verify seafarer certificate scan clarity before authorizing AI metadata extraction
+                    Check the scan is clear before reading it.
                   </div>
                 </div>
                 <button
@@ -994,7 +994,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
               {/* Body */}
               <div className="modal-body p-4">
                 <div className="alert alert-info py-2 px-3 small font-mono-code mb-3">
-                  <strong>File Staged:</strong> {fileName} (Ready for automated AI spec extraction)
+                  <strong>File:</strong> {fileName} (Ready for automated AI spec extraction)
                 </div>
 
                 {/* Simulated Document Preview Box */}
@@ -1022,7 +1022,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                   className="btn btn-sm btn-primary fw-bold px-3 d-inline-flex align-items-center gap-1.5"
                   onClick={handleConfirmVerifyAndExtract}
                 >
-                  Confirm Document &amp; Extract Specs
+                  Read Document
                 </button>
               </div>
             </div>

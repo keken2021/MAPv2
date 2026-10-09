@@ -53,7 +53,7 @@ export const LoginView: React.FC = () => {
               Marine Assurance Platform
             </span>
             <span className="font-mono-code text-uppercase" style={{ fontSize: '0.675rem', color: '#64748b', letterSpacing: '0.08em' }}>
-              MVP · OSV COMPLIANCE
+              OSV COMPLIANCE
             </span>
           </div>
         </div>
@@ -67,7 +67,7 @@ export const LoginView: React.FC = () => {
             Vessel and crew certification, verified end to end.
           </h1>
           <p className="lh-lg mb-0" style={{ color: '#94a3b8', fontSize: '0.95rem' }}>
-            Statutory, class and crew certificates in one auditable workflow — extraction, validation, verification, inspection and approval across the Client, Vessel Provider and appointed third parties.
+            Statutory, class and crew certificates in one auditable workflow — extraction, validation, verification, inspection and approval across the Client, Service Provider and appointed third parties.
           </p>
         </div>
 
@@ -97,10 +97,10 @@ export const LoginView: React.FC = () => {
           {/* header text */}
           <div className="mb-4">
             <h2 className="fw-bold text-dark mb-1" style={{ fontSize: '2rem', color: '#0f172a' }}>
-              Sign in
+              Sign In
             </h2>
             <div className="font-mono-code small" style={{ fontSize: '0.8rem', color: '#64748b' }}>
-              Authenticated role- and permission-based access
+              Access is based on your role.
             </div>
           </div>
 
@@ -160,7 +160,7 @@ export const LoginView: React.FC = () => {
               className="btn w-100 py-2 fw-semibold text-white border-0"
               style={{ backgroundColor: 'rgb(11, 27, 43)', borderRadius: '6px', fontSize: '0.95rem' }}
             >
-              Login
+              Sign In
             </button>
           
           </form>

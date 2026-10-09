@@ -17,6 +17,25 @@ export const OPERATIONAL_ROLE_OPTIONS: { role: UserRolePersona; label: string }[
   { role: 'Approver', label: 'Approver' },
 ];
 
+/* on-screen names for stored role values; stored values are never renamed */
+export const ROLE_DISPLAY_LABELS: Record<string, string> = {
+  Administrator: 'Service Provider',
+  'C Admin': 'Client Admin',
+  'C Admin · Client Created': 'Client Admin',
+  'Vessel Provider': 'Service Provider',
+  'Vessel Provider Admin': 'Service Provider',
+  'Service Provider Admin': 'Service Provider',
+};
+
+/**
+  what: returns the on-screen name for a stored role value.
+  how: looks the role up in ROLE_DISPLAY_LABELS and falls back to the role itself, so custom roles show their own name.
+  with what file: src/utils/userRoleHelpers.ts used by HeaderBanner, AppSidebar, UserTable, audit trail views and exports.
+*/
+export function getRoleDisplayLabel(role: string): string {
+  return ROLE_DISPLAY_LABELS[role] ?? role;
+}
+
 /** Roles that may be assigned when provisioning Organization or Third-Party stakeholders (BRD 4.3). */
 export const STAKEHOLDER_OPERATIONAL_ROLES: UserRolePersona[] = [
   'Submitter',
@@ -308,7 +327,7 @@ export function filterCandidatesByReviewMode(
 }
 
 export function formatUserRoles(roles: RoleName[]): string {
-  return roles.join(', ');
+  return roles.map(getRoleDisplayLabel).join(', ');
 }
 
 export function splitRolesForForm(roles: RoleName[]): {

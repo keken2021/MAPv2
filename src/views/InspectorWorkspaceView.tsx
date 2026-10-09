@@ -129,17 +129,17 @@ export const InspectorWorkspaceView: React.FC = () => {
         ImoNumber: v.imoNumber,
         FlagState: v.flagState,
         AssuranceCampaign: linkedSet ? linkedSet.title : 'N/A',
-        CampaignStage: linkedSet ? linkedSet.stage : 'N/A',
+        Stage: linkedSet ? linkedSet.stage : 'N/A',
         Inspector: linkedSet?.assignedInspector || 'Unassigned',
         Status: v.status,
       };
     });
-    exportToCsv('Inspector_Survey_Schedule', exportData);
+    exportToCsv('Inspections', exportData);
     setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
-    const headers = ['Vessel Name', 'IMO Number', 'Flag State', 'Assurance Campaign', 'Stage', 'Status'];
+    const headers = ['Vessel', 'IMO Number', 'Flag State', 'Assurance Set', 'Stage', 'Operating Status'];
     const rows = sortedAssignedVessels.map((v) => {
       const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
       return [
@@ -151,7 +151,7 @@ export const InspectorWorkspaceView: React.FC = () => {
         v.status,
       ];
     });
-    exportToPdf('Inspector Physical Survey Schedule', headers, rows);
+    exportToPdf('Inspections', headers, rows);
     setIsExportOpen(false);
   };
 
@@ -162,20 +162,20 @@ export const InspectorWorkspaceView: React.FC = () => {
         <div className="col-md-3 d-flex">
           <div className="card map-kpi-card shadow-2xs w-100">
             <div className="map-kpi-label">
-              Assigned Fleet Surveys
+              Inspections
             </div>
             <div className="map-kpi-value text-primary mt-1">{assignedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Vessels Assigned for Audit</div>
+            <div className="map-kpi-subtitle mt-1">Vessels</div>
           </div>
         </div>
 
         <div className="col-md-3 d-flex">
           <div className="card map-kpi-card shadow-2xs w-100">
             <div className="map-kpi-label">
-              Pending Visual Audits
+              Pending Inspections
             </div>
             <div className="map-kpi-value text-warning mt-1">{pendingCount}</div>
-            <div className="map-kpi-subtitle mt-1">Awaiting On-Site Physical Survey</div>
+            <div className="map-kpi-subtitle mt-1">Awaiting inspection</div>
           </div>
         </div>
 
@@ -184,23 +184,23 @@ export const InspectorWorkspaceView: React.FC = () => {
             className="card map-kpi-card shadow-2xs w-100"
             onClick={() => setCurrentHashView('capa')}
             style={{ cursor: 'pointer' }}
-            title="Open CAPA Tracker"
+            title="View CAPAs"
           >
             <div className="map-kpi-label">
-              Open Corrective Actions
+              Open CAPAs
             </div>
             <div className="map-kpi-value text-danger mt-1">{openCapaCount}</div>
-            <div className="map-kpi-subtitle mt-1">Active CAPA items</div>
+            <div className="map-kpi-subtitle mt-1">Open CAPAs</div>
           </div>
         </div>
 
         <div className="col-md-3 d-flex">
           <div className="card map-kpi-card shadow-2xs w-100">
             <div className="map-kpi-label">
-              Completed Physical Audits
+              Completed Inspections
             </div>
             <div className="map-kpi-value text-success mt-1">{completedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Surveys Audited & Signed Off</div>
+            <div className="map-kpi-subtitle mt-1">Outcome submitted</div>
           </div>
         </div>
       </div>
@@ -217,7 +217,7 @@ export const InspectorWorkspaceView: React.FC = () => {
                   type="text"
                   className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
                   style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                  placeholder="Search vessel, IMO, campaign..."
+                  placeholder="Search vessels..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -248,12 +248,12 @@ export const InspectorWorkspaceView: React.FC = () => {
                 <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      Export as CSV (.csv)
+                      CSV
                     </button>
                   </li>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      Export as PDF (.pdf)
+                      PDF
                     </button>
                   </li>
                 </ul>
@@ -275,13 +275,13 @@ export const InspectorWorkspaceView: React.FC = () => {
                   IMO Number {renderSortIndicator('imoNumber')}
                 </th>
                 <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Vessel Name {renderSortIndicator('name')}
+                  Vessel {renderSortIndicator('name')}
                 </th>
                 <th onClick={() => handleSort('campaignTitle')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Assurance Campaign {renderSortIndicator('campaignTitle')}
+                  Assurance Set {renderSortIndicator('campaignTitle')}
                 </th>
                 <th onClick={() => handleSort('status')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Status {renderSortIndicator('status')}
+                  Operating Status {renderSortIndicator('status')}
                 </th>
                 <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
@@ -312,7 +312,7 @@ export const InspectorWorkspaceView: React.FC = () => {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-secondary small">No active set</span>
+                        <span className="text-secondary small">No assurance set</span>
                       )}
                     </td>
                     <td>
@@ -328,8 +328,8 @@ export const InspectorWorkspaceView: React.FC = () => {
                             e.stopPropagation();
                             setCurrentHashView('capa', v.name);
                           }}
-                          title={`View ${totalCapaCountForVessel} CAPA items for ${v.name}`}
-                          aria-label={`View ${totalCapaCountForVessel} CAPA items for ${v.name}`}
+                          title={`View ${totalCapaCountForVessel} CAPAs for ${v.name}`}
+                          aria-label={`View ${totalCapaCountForVessel} CAPAs for ${v.name}`}
                         >
                           <AlertTriangle size={16} />
                         </button>
@@ -341,8 +341,8 @@ export const InspectorWorkspaceView: React.FC = () => {
                             e.stopPropagation();
                             setCurrentHashView('inspector', v.name);
                           }}
-                          title={`View Physical Survey for ${v.name}`}
-                          aria-label={`View Physical Survey for ${v.name}`}
+                          title={`View inspection for ${v.name}`}
+                          aria-label={`View inspection for ${v.name}`}
                         >
                           <Eye size={16} />
                         </button>
@@ -355,7 +355,7 @@ export const InspectorWorkspaceView: React.FC = () => {
               {sortedAssignedVessels.length === 0 && (
                 <tr>
                   <td colSpan={5} className="text-center text-muted py-4 fst-italic">
-                    No vessels match the selected search or status filter.
+                    No vessels found.
                   </td>
                 </tr>
               )}
@@ -369,15 +369,14 @@ export const InspectorWorkspaceView: React.FC = () => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Inspector Survey Schedule Filters"
-        subtitle="Filter assigned physical surveys by vessel operational status"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="d-flex flex-column gap-3">
           {/* Status Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Vessel Operational Status
+              Operating Status
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"

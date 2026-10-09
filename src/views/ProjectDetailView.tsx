@@ -95,7 +95,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   if (!project) {
     return (
       <div className="alert alert-warning">
-        Project not found or not accessible.
+        Project not found.
         <button
           type="button"
           className="btn btn-sm btn-link"
@@ -122,15 +122,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {isReadOnly && (
         <div className="alert alert-info py-2 mb-0 small">
-          Read-only project view — you can open assurance sets assigned to you
-          for work.
+          Read-only. You can open assurance sets assigned to you.
         </div>
       )}
 
       {isCAdmin && (
         <div className="alert alert-info py-2 mb-0 small">
-          Client-owned project — open linked assurance sets to review documents
-          (read-only).
+          Read-only. Open a linked assurance set to review its documents.
         </div>
       )}
 
@@ -160,7 +158,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </div>
             <h2 className="h4 fw-bold text-dark mb-1">{project.name}</h2>
             <div className="text-muted small">
-              Client owner:{" "}
+              Client:{" "}
               {project.ownerOrganization ||
                 project.charterer ||
                 project.requestingOrganization}
@@ -268,8 +266,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               <thead>
                 <tr>
                   <th>Asset ID</th>
-                  <th>Asset Name</th>
-                  <th>Type & Role</th>
+                  <th>Name</th>
+                  <th>Type</th>
                   <th>Organization</th>
                   <th>Assurance Set</th>
                   <th className="text-end">Actions</th>
@@ -279,7 +277,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 {filteredLinks.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-4 text-muted">
-                      No assets linked yet.
+                      No assets yet.
                       {canManage && " Use Add Asset to compose this charter."}
                     </td>
                   </tr>
@@ -333,8 +331,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                                 else if (link.assetType === "Equipment")
                                   setCurrentHashView("equipment", link.assetId);
                               }}
-                              title="Open Linked Asset"
-                              aria-label="Open Linked Asset"
+                              title="View"
+                              aria-label="View"
                             >
                               <Eye size={16} />
                             </button>
@@ -346,8 +344,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                                 onClick={() =>
                                   removeAssetFromProject(project.id, link.id)
                                 }
-                                title="Remove Asset from Project"
-                                aria-label="Remove Asset from Project"
+                                title="Remove"
+                                aria-label="Remove"
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -375,14 +373,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   <th>Type</th>
                   <th>Stage</th>
                   <th>Readiness</th>
-                  <th className="text-end">Action</th>
+                  <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {projectAssuranceSets.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-4 text-muted">
-                      No assurance sets linked to this project yet.
+                      No assurance sets yet.
                     </td>
                   </tr>
                 ) : (
@@ -414,8 +412,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                               onClick={() =>
                                 setCurrentHashView("assurance-sets", s.id)
                               }
-                              title="Open Assurance Set"
-                              aria-label="Open Assurance Set"
+                              title="View"
+                              aria-label="View"
                             >
                               <Eye size={16} />
                             </button>
@@ -435,7 +433,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           {canManage && standaloneSetsForAttach.length > 0 && (
             <div className="p-3 border-top">
               <div className="fw-semibold small mb-2">
-                Attach existing assurance set
+                Attach Existing Assurance Set
               </div>
               <div className="d-flex flex-wrap gap-2 align-items-center">
                 <select
@@ -455,7 +453,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     }
                   }}
                 >
-                  <option value="">Select standalone set…</option>
+                  <option value="">Select assurance set</option>
                   {standaloneSetsForAttach.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.id} — {s.title}
@@ -476,7 +474,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   }}
                 >
                   <Eye size={14} />
-                  Preview & Attach
+                  Attach
                 </button>
               </div>
             </div>

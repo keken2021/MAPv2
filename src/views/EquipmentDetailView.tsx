@@ -104,7 +104,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
   if (!item) {
     return (
       <div className="alert alert-warning">
-        Equipment record not found.
+        Equipment not found.
         <button
           type="button"
           className="btn btn-sm btn-link"
@@ -134,7 +134,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         <div className="d-flex flex-wrap justify-between align-items-start gap-3">
           <div className="d-flex align-items-center gap-3">
             <div>
-              <div className="text-uppercase text-secondary small fw-bold mb-0.5">Equipment Asset Profile</div>
+              <div className="text-uppercase text-secondary small fw-bold mb-0.5">Equipment</div>
               <h2 className="h4 fw-bold text-dark mb-0.5">{item.name}</h2>
               <div className="text-muted small font-mono-code">
                 {item.category} · ID {item.equipmentIdentifier}
@@ -149,7 +149,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                 className="btn btn-sm btn-outline-primary"
                 onClick={() => setCurrentHashView('vessels', parentVessel.id)}
               >
-                Parent Vessel: {parentVessel.name}
+                Vessel: {parentVessel.name}
               </button>
             )}
             {canRentEquipment && (
@@ -170,7 +170,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
               className="btn btn-sm btn-light border d-flex align-items-center justify-content-center"
               style={{ width: '32px', height: '32px', borderRadius: '50%' }}
               onClick={() => setCurrentHashView(previousHashView || 'equipment', previousEntityId)}
-              title="Close and Return"
+              title="Close"
             >
               <X className="w-4 h-4" />
             </button>
@@ -239,7 +239,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                   fontSize: '0.75rem',
                 }}
               >
-                Click to manage equipment photo gallery &amp; crop
+                Manage photos
               </div>
             )}
           </div>
@@ -274,7 +274,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                 type="button"
                 className="btn btn-sm btn-outline-primary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
                 onClick={() => setShowPhotoUploadModal(true)}
-                title="Manage equipment photo gallery"
+                title="Manage photos"
               >
                 <Camera className="w-3.5 h-3.5" />
                 <span style={{ fontSize: '0.68rem' }}>{modalPhotos.length > 1 ? 'Gallery' : 'Add Photo'}</span>
@@ -287,7 +287,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                 setToastMessage(`${item.name} is verified and certified under ${item.category}.`);
                 setTimeout(() => setToastMessage(null), 3500);
               }}
-              title="Verify equipment status"
+              title="Certified"
             >
               <Shield className="w-3.5 h-3.5" />
               <span style={{ fontSize: '0.68rem' }}>Certified</span>
@@ -299,7 +299,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         <div className="col-12 col-lg-7 col-xl-7 d-flex flex-column gap-3">
           <div className="card map-card-custom">
             <div className="card-header fw-bold bg-white d-flex align-items-center justify-between">
-              <span>Equipment Particulars</span>
+              <span>Details</span>
               <span className="badge bg-light text-primary border font-mono-code">
                 Score: {formatReadinessScore(calculateEquipmentReadiness(item, assuranceSets))}
               </span>
@@ -319,11 +319,11 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                   <div className="fw-semibold font-mono-code">{item.serialNumber || '—'}</div>
                 </div>
                 <div className="col-md-6">
-                  <div className="text-secondary small">Owning Organization</div>
+                  <div className="text-secondary small">Organization</div>
                   <div className="fw-semibold">{item.owningOrganization}</div>
                 </div>
                 <div className="col-md-6">
-                  <div className="text-secondary small">Parent Vessel</div>
+                  <div className="text-secondary small">Vessel</div>
                   <div className="fw-semibold">{parentVessel?.name ?? 'Unassigned'}</div>
                 </div>
                 <div className="col-md-6">
@@ -331,7 +331,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                   <div className="fw-semibold">{item.classStatus || 'In Class'}</div>
                 </div>
                 <div className="col-md-6">
-                  <div className="text-secondary small">Compliance Status</div>
+                  <div className="text-secondary small">Compliance</div>
                   <div className="fw-semibold">{item.complianceStatus || 'Compliant'}</div>
                 </div>
               </div>
@@ -340,7 +340,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
 
           {linkedSets.length > 0 && (
             <div className="card map-card-custom">
-              <div className="card-header fw-bold bg-white">Linked Assurance Sets (via parent vessel)</div>
+              <div className="card-header fw-bold bg-white">Assurance Sets</div>
               <div className="list-group list-group-flush">
                 {linkedSets.map((set) => (
                   <button
@@ -384,7 +384,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                   </div>
                   <div>
                     <h5 className="modal-title fw-bold text-white m-0" style={{ fontSize: '1.05rem' }}>
-                      Manage Equipment Photography
+                      Manage Photos
                     </h5>
                     <div className="small font-mono-code" style={{ color: '#94A3B8' }}>
                       {item.name} · {item.category}
@@ -406,9 +406,9 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                 <div className="card border p-3 shadow-2xs mb-3 bg-white rounded-3">
                   <div className="d-flex align-items-center justify-content-between mb-3">
                     <div>
-                      <div className="fw-bold text-dark small">Equipment Photo Gallery ({modalPhotos.length})</div>
+                      <div className="fw-bold text-dark small">Photos ({modalPhotos.length})</div>
                       <div className="text-secondary" style={{ fontSize: '0.72rem' }}>
-                        Click a photo to set as cover. Use crop or delete buttons on each image.
+                        Click a photo to set it as the cover.
                       </div>
                     </div>
                     <button
@@ -417,7 +417,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                       onClick={() => setShowAddPhotoModal(true)}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Add / Upload Photo</span>
+                      <span>Add Photo</span>
                     </button>
                   </div>
 
@@ -455,7 +455,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                             } ${isDragged ? 'opacity-50' : ''} ${isDragOver ? 'border-warning ring-2 ring-warning' : ''}`}
                             style={{ height: '95px', backgroundColor: '#0B1B2B' }}
                             onClick={() => setPhotoModalUrl(pUrl)}
-                            title="Click to select as primary cover photo"
+                            title="Set as cover photo"
                           >
                             <img src={pUrl} alt="" className="w-100 h-100 object-fit-cover" />
 
@@ -544,7 +544,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                       }}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      <span>Reset to Default Stock</span>
+                      <span>Reset to Default</span>
                     </button>
                   )}
                 </div>
@@ -605,7 +605,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                   </div>
                   <div>
                     <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
-                      Add Equipment Photo
+                      Add Photo
                     </h5>
                     <div className="text-secondary small font-mono-code">
                       {item.name} · Choose upload, curated stock, or image link
@@ -624,7 +624,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                 {/* Option A: Upload & Crop */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
                   <div className="d-flex align-items-center justify-content-between mb-2">
-                    <span className="fw-bold text-dark small">Option A: Upload &amp; Crop New Equipment Image</span>
+                    <span className="fw-bold text-dark small">Upload a Photo</span>
                     <span className="text-secondary" style={{ fontSize: '0.75rem' }}>JPEG, PNG, WEBP</span>
                   </div>
 
@@ -680,14 +680,14 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                       Drag &amp; drop equipment image here or <span className="text-primary text-decoration-underline">browse files</span>
                     </span>
                     <span className="text-secondary" style={{ fontSize: '0.72rem' }}>
-                      Picks image and opens universal 16:9 sizing &amp; crop tool before adding to gallery.
+                      You can crop the photo before it is added.
                     </span>
                   </div>
                 </div>
 
                 {/* Option B: Curated Equipment Stock */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
-                  <div className="fw-bold text-dark small mb-2">Option B: Select &amp; Crop from Equipment Stock Presets</div>
+                  <div className="fw-bold text-dark small mb-2">Choose a Preset</div>
                   <div className="row g-2">
                     {CURATED_EQUIPMENT_PHOTOS.map((p, idx) => (
                       <div key={idx} className="col-6 col-md-3">
@@ -700,7 +700,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                             setCropModalImageSrc(p.url);
                             setIsCropModalOpen(true);
                           }}
-                          title={`Crop and add ${p.title}`}
+                          title={`Add ${p.title}`}
                         >
                           <img src={p.url} alt={p.title} className="w-100 h-100 object-fit-cover" />
                           <div
@@ -718,7 +718,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                 {/* Option C: Direct URL */}
                 <div className="p-3 bg-light border rounded shadow-2xs">
                   <label className="form-label fw-bold text-dark small mb-1" htmlFor="custom-equipment-image-url">
-                    Option C: Direct Image URL
+                    Image URL
                   </label>
                   <div className="input-group input-group-sm">
                     <input
@@ -743,7 +743,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                         }
                       }}
                     >
-                      Crop &amp; Add
+                      Add
                     </button>
                   </div>
                 </div>
@@ -768,7 +768,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         <ImageCropModal
           isOpen={isCropModalOpen}
           imageSrc={cropModalImageSrc}
-          title="Equipment Image Framing & Sizing"
+          title="Crop Photo"
           assetName={item.name}
           initialPreset="16:9"
           onSave={(croppedUrl) => {

@@ -106,7 +106,7 @@ export const NotificationsView: React.FC = () => {
   if (!sessionUser) {
     return (
       <div className="alert alert-warning mb-0">
-        No user profile is linked to this role, so there is no inbox to show. Switch role from the sidebar menu.
+        No user is linked to this role, so there are no notifications. Switch role in the sidebar.
       </div>
     );
   }
@@ -149,7 +149,7 @@ export const NotificationsView: React.FC = () => {
           title={unreadCount === 0 ? 'Nothing is unread.' : undefined}
         >
           <CheckCheck size={18} />
-          <span>Mark all read</span>
+          <span>Mark All Read</span>
         </button>
       </div>
 
@@ -159,8 +159,8 @@ export const NotificationsView: React.FC = () => {
             <input
               type="search"
               className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search project or sender"
-              aria-label="Search project or sender"
+              placeholder="Search notifications..."
+              aria-label="Search notifications"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ width: 'min(280px, 100%)' }}
@@ -197,7 +197,7 @@ export const NotificationsView: React.FC = () => {
                   </button>
                 </th>
                 <th>Status</th>
-                <th className="text-end">Action</th>
+                <th className="text-end">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -207,13 +207,13 @@ export const NotificationsView: React.FC = () => {
                     <Inbox size={32} className="text-muted mb-2" aria-hidden="true" />
                     {hasRefinement && tabItems.length > 0 ? (
                       <>
-                        <div className="text-muted mb-2">No notifications match this search or filter.</div>
+                        <div className="text-muted mb-2">No notifications found.</div>
                         <button
                           type="button"
                           className="btn btn-sm btn-outline-secondary"
                           onClick={handleClearRefinement}
                         >
-                          Clear search
+                          Clear Search
                         </button>
                       </>
                     ) : (
@@ -301,8 +301,7 @@ export const NotificationsView: React.FC = () => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={() => setCategoryFilter('ALL')}
-        title="Notification Filters"
-        subtitle="Filter by the kind of request or workflow update"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">

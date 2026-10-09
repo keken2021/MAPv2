@@ -40,7 +40,7 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
           <div>
             <h5 className="fw-bold text-dark mb-0">{document.title}</h5>
             <div className="text-secondary small font-mono-code">
-              Seafarer: <strong>{crewName}</strong> | Ref: <strong>{document.stcwRegulation}</strong>
+              Crew: <strong>{crewName}</strong> | Ref: <strong>{document.stcwRegulation}</strong>
             </div>
           </div>
           <button
@@ -57,15 +57,15 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
           <div className="p-3 bg-light border rounded-3">
             <div className="row g-3 small">
               <div className="col-md-6">
-                <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Certificate Number</span>
+                <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Certificate No.</span>
                 <strong className="text-dark font-mono-code fs-6">{document.certificateNo}</strong>
               </div>
               <div className="col-md-6">
-                <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Issuing Authority / Body</span>
+                <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Issuing Authority</span>
                 <strong className="text-dark">{document.issuingAuthority}</strong>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Flag State Jurisdiction</span>
+                <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Flag State</span>
                 <strong className="text-dark">{document.flagState || 'Universal'}</strong>
               </div>
               <div className="col-md-4">
@@ -97,7 +97,7 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
                     onOpenReupload(document);
                   }}
                 >
-                  Reupload Now
+                  Upload New Version
                 </button>
               )}
             </div>
@@ -112,7 +112,7 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
                 <span className="text-muted small">({((document.fileSizeBytes || 1500000) / 1024 / 1024).toFixed(2)} MB)</span>
               </div>
               <span className="badge bg-success-subtle text-success border border-success-subtle small">
-                Verified Digital Copy
+                Verified
               </span>
             </div>
 
@@ -127,15 +127,15 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
                 </div>
                 <div className="fw-bold text-dark fs-6 mb-2">{document.title}</div>
                 <div className="badge bg-light text-dark border font-mono-code mb-3" style={{ fontSize: '0.7rem' }}>
-                  STCW Convention Reg {document.stcwRegulation}
+                  STCW Regulation {document.stcwRegulation}
                 </div>
                 <div className="p-2 bg-light rounded text-start font-mono-code text-secondary" style={{ fontSize: '0.7rem' }}>
-                  <div>Cert No: <strong className="text-dark">{document.certificateNo}</strong></div>
+                  <div>Certificate No.: <strong className="text-dark">{document.certificateNo}</strong></div>
                   <div>Issued To: <strong className="text-dark">{crewName}</strong></div>
                   <div>Valid Until: <strong className={document.verificationStatus === 'Expired' ? 'text-danger' : 'text-dark'}>{document.expiryDate}</strong></div>
                 </div>
                 <div className="mt-3 pt-2 border-top text-muted text-uppercase font-mono-code" style={{ fontSize: '0.65rem' }}>
-                  Official Maritime Compliance Seal — Verified Copy
+                  Verified copy
                 </div>
               </div>
             </div>
@@ -149,7 +149,7 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
             className="btn btn-sm btn-outline-secondary"
             onClick={onClose}
           >
-            Close Viewer
+            Close
           </button>
           {canManage && (
             <button
@@ -160,7 +160,7 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
                 onOpenReupload(document);
               }}
             >
-              <span>Reupload / Update Document</span>
+              <span>Upload New Version</span>
             </button>
           )}
         </div>

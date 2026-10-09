@@ -350,8 +350,8 @@ export const CreateProjectView: React.FC = () => {
   };
 
   const stepLabels = [
-    "Project Info",
-    "Assurance Set (optional)",
+    "Details",
+    "Assurance Sets (optional)",
     "Assets (optional)",
   ];
 
@@ -366,15 +366,14 @@ export const CreateProjectView: React.FC = () => {
       <div className="card map-card-custom p-4">
         <h2 className="h4 fw-bold text-dark mb-1">Create Project</h2>
         <p className="text-muted small mb-4">
-          Define project details, optionally attach assurance sets, and
-          optionally add external-provider assets.
+          Enter the project details. Assurance sets and assets are optional.
         </p>
 
         {step === 1 && (
           <div className="row g-3">
             <div className="col-md-8">
               <label className="form-label small fw-semibold">
-                Project Name <span className="text-danger">*</span>
+                Name <span className="text-danger">*</span>
               </label>
               <input
                 className="form-control form-control-sm"
@@ -385,7 +384,7 @@ export const CreateProjectView: React.FC = () => {
             </div>
             <div className="col-md-4">
               <label className="form-label small fw-semibold">
-                Project Type <span className="text-danger">*</span>
+                Type <span className="text-danger">*</span>
               </label>
               <select
                 className="form-select form-select-sm"
@@ -402,7 +401,7 @@ export const CreateProjectView: React.FC = () => {
 
             <div className="col-md-6">
               <label className="form-label small fw-semibold">
-                Requesting Organization <span className="text-danger">*</span>
+                Client <span className="text-danger">*</span>
               </label>
               <input
                 className="form-control form-control-sm"
@@ -412,7 +411,7 @@ export const CreateProjectView: React.FC = () => {
             </div>
             <div className="col-md-6">
               <label className="form-label small fw-semibold">
-                Location / Site <span className="text-danger">*</span>
+                Location <span className="text-danger">*</span>
               </label>
               <input
                 className="form-control form-control-sm"
@@ -424,7 +423,7 @@ export const CreateProjectView: React.FC = () => {
 
             <div className="col-md-6">
               <label className="form-label small fw-semibold">
-                Project Window Start <span className="text-danger">*</span>
+                Project Period Start <span className="text-danger">*</span>
               </label>
               <input
                 type="date"
@@ -435,7 +434,7 @@ export const CreateProjectView: React.FC = () => {
             </div>
             <div className="col-md-6">
               <label className="form-label small fw-semibold">
-                Project Window End <span className="text-danger">*</span>
+                Project Period End <span className="text-danger">*</span>
               </label>
               <input
                 type="date"
@@ -447,21 +446,21 @@ export const CreateProjectView: React.FC = () => {
 
             <div className="col-12">
               <label className="form-label small fw-semibold">
-                Description / Scope of Work
+                Description
               </label>
               <textarea
                 className="form-control form-control-sm"
                 rows={2}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="What needs to happen — cleaning, rental, crew provision, charter scope..."
+                placeholder="What the project covers"
               />
             </div>
 
             {showCharterFields && (
               <div className="col-md-6">
                 <label className="form-label small fw-semibold">
-                  Primary Operator / Charterer
+                  Charterer
                 </label>
                 <input
                   className="form-control form-control-sm"
@@ -474,7 +473,7 @@ export const CreateProjectView: React.FC = () => {
             {showRoute && (
               <div className="col-12">
                 <label className="form-label small fw-semibold">
-                  Route / Transit Description{" "}
+                  Route{" "}
                   <span className="text-danger">*</span>
                 </label>
                 <textarea
@@ -513,7 +512,7 @@ export const CreateProjectView: React.FC = () => {
               <>
                 <div className="col-md-6">
                   <label className="form-label small fw-semibold">
-                    Work Order / PO Reference
+                    PO Reference
                   </label>
                   <input
                     className="form-control form-control-sm"
@@ -523,7 +522,7 @@ export const CreateProjectView: React.FC = () => {
                 </div>
                 <div className="col-md-6">
                   <label className="form-label small fw-semibold">
-                    Work Location Type
+                    Work Location
                   </label>
                   <select
                     className="form-select form-select-sm"
@@ -565,15 +564,14 @@ export const CreateProjectView: React.FC = () => {
         {step === 2 && (
           <>
             <p className="text-muted small mb-3">
-              Select one or more existing assurance sets for{" "}
-              <strong>{requestingOrganization}</strong>. Their linked assets
-              will prefill the project roster in the next step.
+              Select assurance sets for{" "}
+              <strong>{requestingOrganization}</strong>. Their assets are
+              added to the project in the next step.
             </p>
 
             {selectableAssuranceSets.length === 0 ? (
               <div className="alert alert-warning small">
-                No eligible assurance sets found for this organization. Create
-                an assurance set first, then return to compose a project.
+                No assurance sets available. Create one first.
               </div>
             ) : (
               <div className="list-group mb-3">
@@ -613,8 +611,8 @@ export const CreateProjectView: React.FC = () => {
                         type="button"
                         className={`btn btn-sm ${isSelected ? "btn-light text-dark" : "btn-outline-primary"} p-0 d-inline-flex align-items-center justify-content-center`}
                         style={{ width: "32px", height: "32px" }}
-                        title="Preview Documents & Requirements"
-                        aria-label="Preview Documents & Requirements"
+                        title="Preview"
+                        aria-label="Preview"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -690,15 +688,15 @@ export const CreateProjectView: React.FC = () => {
         {step === 3 && (
           <>
             <div className="text-muted small mb-3">
-              Optionally compose external-provider assets for{" "}
-              <strong>{requestingOrganization}</strong>. Assets from selected
-              assurance sets appear on the left; add more from the right panel.
+              Add assets for{" "}
+              <strong>{requestingOrganization}</strong>. Assets from the selected
+              assurance sets are already listed. Add more from the right.
             </div>
 
             <div className="row g-3 mb-4">
               <div className="col-md-6">
                 <h6 className="fw-bold small text-uppercase text-secondary">
-                  Pick Assets
+                  Available Assets
                 </h6>
                 <div className="d-flex flex-wrap gap-2 mb-2">
                   {(["All", "Vessel", "Crew", "Equipment"] as const).map(
@@ -720,7 +718,7 @@ export const CreateProjectView: React.FC = () => {
                 >
                   {filteredAvailable.length === 0 ? (
                     <div className="p-3 text-muted small text-center">
-                      <p className="mb-1">No chartered external assets available to link.</p>
+                      <p className="mb-1">No assets available.</p>
                       <p className="mb-0 fst-italic">{PROJECT_ASSET_LINK_HINT}</p>
                     </div>
                   ) : (
@@ -800,8 +798,7 @@ export const CreateProjectView: React.FC = () => {
                 >
                   {assuranceSetCards.length === 0 ? (
                     <div className="p-4 border rounded text-center text-muted small">
-                      No assurance sets selected. Use Skip on the previous step
-                      or go back to pick sets.
+                      No assurance sets selected.
                     </div>
                   ) : (
                     assuranceSetCards.map(({ set, assets }) => (
@@ -813,7 +810,7 @@ export const CreateProjectView: React.FC = () => {
                         <div className="text-muted small mb-2">{set.stage}</div>
                         {assets.length === 0 ? (
                           <div className="text-muted small fst-italic">
-                            No linked assets yet.
+                            No assets yet.
                           </div>
                         ) : (
                           <div className="d-flex flex-column gap-2 mt-2">
@@ -849,7 +846,7 @@ export const CreateProjectView: React.FC = () => {
                                   </button>
                                 </div>
                                 <label className="form-label small mb-1 mt-2">
-                                  Project Role
+                                  Role in Project
                                 </label>
                                 <input
                                   className="form-control form-control-sm"

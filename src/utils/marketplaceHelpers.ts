@@ -16,7 +16,7 @@ import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
 import { getVesselStockPhoto, getEquipmentStockPhoto, getCrewStockPhoto, getOrganizationLogo } from './vesselImageHelpers';
 import { getClientAdminOrganization } from './rbacHelpers';
 import { calculateCrewComplianceScore, calculateEquipmentReadiness, calculateVesselReadiness } from './readinessHelpers';
-import { formatReadinessScore, NOT_ASSESSED_LABEL } from './formatters';
+import { formatReadinessScore, getStatusDisplayLabel, NOT_ASSESSED_LABEL } from './formatters';
 
 /**
   what: checks if an item or organization belongs to the currently logged in user's organization.
@@ -135,7 +135,7 @@ export function getMarketplaceItems(
             value: v.deadweightTonnageDWT ? `${v.deadweightTonnageDWT.toLocaleString()} MT` : `${v.grossTonnageGT || 3200} GT`,
           },
           {
-            label: 'Assurance / Class',
+            label: 'Class & Readiness',
             value: `${v.classificationSociety || 'DNV'} · ${vesselReadiness}% Ready`,
           },
         ],
@@ -154,13 +154,13 @@ export function getMarketplaceItems(
         ],
         detailedSpecs: [
           { label: 'IMO Number', value: v.imoNumber || '—' },
-          { label: 'Official Reg', value: v.officialRegNumber || '—' },
-          { label: 'Classification', value: v.classificationSociety || 'DNV' },
+          { label: 'Official Registration Number', value: v.officialRegNumber || '—' },
+          { label: 'Class Society', value: v.classificationSociety || 'DNV' },
           { label: 'Year Built', value: `${v.yearBuilt || 2020} (${v.shipyardBuilder || 'Commercial Shipyard'})` },
-          { label: 'Length Overall (LOA)', value: v.lengthOverallMeters ? `${v.lengthOverallMeters} m` : '—' },
-          { label: 'Beam / Draft', value: `${v.beamMeters || '—'} m / ${v.draftMeters || '—'} m` },
+          { label: 'LOA', value: v.lengthOverallMeters ? `${v.lengthOverallMeters} m` : '—' },
+          { label: 'Beam & Draft', value: `${v.beamMeters || '—'} m / ${v.draftMeters || '—'} m` },
           { label: 'Gross Tonnage', value: v.grossTonnageGT ? `${v.grossTonnageGT} GT` : '—' },
-          { label: 'Deadweight Tonnage', value: v.deadweightTonnageDWT ? `${v.deadweightTonnageDWT} MT` : '—' },
+          { label: 'Deadweight', value: v.deadweightTonnageDWT ? `${v.deadweightTonnageDWT} MT` : '—' },
         ],
         contact: {
           name: orgInfo.name,
@@ -210,11 +210,11 @@ export function getMarketplaceItems(
           `Registration: ${eq.equipmentIdentifier}`,
         ],
         detailedSpecs: [
-          { label: 'Identifier', value: eq.equipmentIdentifier },
+          { label: 'Equipment ID', value: eq.equipmentIdentifier },
           { label: 'Manufacturer', value: eq.manufacturer || '—' },
           { label: 'Model', value: eq.model || '—' },
           { label: 'Category', value: eq.category },
-          { label: 'Status', value: eq.availabilityStatus },
+          { label: 'Availability', value: eq.availabilityStatus },
         ],
         contact: {
           name: eq.owningOrganization,
@@ -249,8 +249,8 @@ export function getMarketplaceItems(
         photos: c.photos && c.photos.length > 0 ? c.photos : [photoUrl],
         shortDescription: `${c.rank} holding ${crewDocuments.length} STCW documents on record.`,
         metrics: [
-          { label: 'Rank / Grade', value: c.rank },
-          { label: 'STCW Compliance', value: formatReadinessScore(crewScore) },
+          { label: 'Rank', value: c.rank },
+          { label: 'Readiness', value: formatReadinessScore(crewScore) },
         ],
         complianceReadinessScore: crewScore,
         rateEstimate: 'Day Rate on Application',
@@ -259,9 +259,9 @@ export function getMarketplaceItems(
         operationalCapabilities: c.assignments.slice(0, 3).map((a) => `${a.rankHeld} on ${a.vesselName} (${a.vesselType})`),
         detailedSpecs: [
           { label: 'Nationality', value: c.nationality },
-          { label: 'Seamans Book', value: c.seamansBookNo },
-          { label: 'Compliance', value: c.complianceStatus },
-          { label: 'Last Audited', value: c.lastAuditedDate },
+          { label: "Seaman's Book No.", value: c.seamansBookNo },
+          { label: 'Compliance', value: getStatusDisplayLabel(c.complianceStatus) },
+          { label: 'Last Audit', value: c.lastAuditedDate },
         ],
         contact: {
           name: c.organization,

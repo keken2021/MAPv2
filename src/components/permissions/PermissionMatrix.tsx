@@ -13,6 +13,7 @@ import {
   PermissionScopeDefinition,
 } from '../../types/permissions';
 import { isBrdHardDenied } from '../../utils/permissionDefaults';
+import { getRoleDisplayLabel } from '../../utils/userRoleHelpers';
 
 interface PermissionMatrixProps {
   catalog: PermissionScopeDefinition[];
@@ -40,22 +41,22 @@ function lockReason(
   if (!def) return null;
 
   if (action === 'create' && def.lockCreate) {
-    return 'Create is not applicable for this scope (BRD workflow rule).';
+    return 'Create does not apply here.';
   }
   if (action === 'read' && def.lockRead) {
-    return 'View is locked for this scope.';
+    return 'View is locked here.';
   }
   if (action === 'update' && def.lockUpdate) {
-    return 'Update is locked — BRD immutable or view-only rule.';
+    return 'Update is locked. This item is view-only.';
   }
   if (action === 'delete' && def.lockDelete) {
-    return 'Delete is locked — BRD immutable or N/A for this workflow.';
+    return 'Delete is locked. This item cannot be removed.';
   }
   if (role && def.hardDeny?.[role]?.includes(action)) {
-    return `Locked by BRD hard deny for ${role}.`;
+    return `Not allowed for ${getRoleDisplayLabel(role)}.`;
   }
   if (role && isBrdHardDenied(role, scopeKey, action)) {
-    return `Locked: blank in the Roles & CRUD matrix for ${role}.`;
+    return `Not allowed for ${getRoleDisplayLabel(role)}.`;
   }
   return null;
 }

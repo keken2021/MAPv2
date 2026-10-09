@@ -99,7 +99,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
 
   const requireComment = () => {
     if (!comment.trim()) {
-      setCommentError('Defect comments are required when returning or rejecting a document.');
+      setCommentError('Notes are required to return or reject a document.');
       return false;
     }
     setCommentError('');
@@ -112,19 +112,19 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   /* mock extracted attributes matching design screenshot */
   const extractedAttributes: ExtractedAttribute[] = document.crewAttributes
     ? [
-      { id: '1', label: 'CREW MEMBER NAME', value: document.crewAttributes.crewName || 'A. Mendoza', confidence: isReuploaded ? 98 : 91 },
-      { id: '2', label: 'CREW ID / PASSPORT NUMBER', value: isReuploaded ? (document.crewAttributes.passportId || 'P9912447') : `${document.crewAttributes.passportId || 'P9912447'} (partially legible)`, confidence: isReuploaded ? 98 : 61 },
-      { id: '3', label: 'RANK / ROLE', value: document.crewAttributes.rank || 'Able Seafarer', confidence: isReuploaded ? 97 : 88 },
+      { id: '1', label: 'CREW NAME', value: document.crewAttributes.crewName || 'A. Mendoza', confidence: isReuploaded ? 98 : 91 },
+      { id: '2', label: 'PASSPORT NUMBER', value: isReuploaded ? (document.crewAttributes.passportId || 'P9912447') : `${document.crewAttributes.passportId || 'P9912447'} (partially legible)`, confidence: isReuploaded ? 98 : 61 },
+      { id: '3', label: 'RANK', value: document.crewAttributes.rank || 'Able Seaman', confidence: isReuploaded ? 97 : 88 },
       { id: '4', label: 'CERTIFICATE TYPE', value: document.title || 'Medical Fitness Certificate', confidence: isReuploaded ? 99 : 94 },
       { id: '5', label: 'ISSUING AUTHORITY', value: isReuploaded ? (document.issuingAuthority || 'AMSA (Verified Seal)') : `${document.issuingAuthority || 'illegible stamp'}`, confidence: isReuploaded ? 97 : 44 },
       { id: '6', label: 'ISSUE DATE', value: '2024-11-02', confidence: isReuploaded ? 98 : 79 },
       { id: '7', label: 'EXPIRY DATE', value: '2026-10-29', confidence: isReuploaded ? 99 : 86 },
-      { id: '8', label: 'VESSEL ASSIGNMENT', value: 'MV Torrens Supporter', confidence: isReuploaded ? 98 : 72 },
+      { id: '8', label: 'VESSEL', value: 'MV Torrens Supporter', confidence: isReuploaded ? 98 : 72 },
       { id: '9', label: 'NATIONALITY', value: 'Philippines', confidence: isReuploaded ? 98 : 90 },
       { id: '10', label: 'TRAINING COMPLETION DATE', value: isReuploaded ? '2024-10-15' : 'not present', confidence: isReuploaded ? 96 : 0, isMandatoryMissing: isReuploaded ? false : true },
     ]
     : [
-      { id: '1', label: 'CERTIFICATE NUMBER', value: document.certificateNo || 'CERT-99412', confidence: isReuploaded ? 99 : 94 },
+      { id: '1', label: 'CERTIFICATE NO.', value: document.certificateNo || 'CERT-99412', confidence: isReuploaded ? 99 : 94 },
       { id: '2', label: 'VESSEL NAME', value: document.vesselAttributes?.vesselName || 'MV Torrens Supporter', confidence: isReuploaded ? 98 : 91 },
       { id: '3', label: 'IMO NUMBER', value: document.vesselAttributes?.imoNumber || 'IMO 9840123', confidence: isReuploaded ? 99 : 88 },
       { id: '4', label: 'ISSUING AUTHORITY', value: isReuploaded ? (document.issuingAuthority || 'DNV GL (Verified)') : (document.issuingAuthority || 'DNV GL (partially legible)'), confidence: isReuploaded ? 97 : 65 },
@@ -157,7 +157,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     verifyDocument(
       document.id,
       'Verified',
-      comment.trim() || 'Verified extracted document attributes.',
+      comment.trim() || 'Verified extracted fields.',
     );
     onClose();
   };
@@ -276,7 +276,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                   >
                     {isSignaturePassed ? <Check className="w-3 h-3 text-white" strokeWidth={3} /> : <AlertCircle className="w-3 h-3 text-white" />}
                   </span>
-                  <span className="ps-0.5 text-dark fw-medium">Signature / stamp present</span>
+                  <span className="ps-0.5 text-dark fw-medium">Signature or stamp present</span>
                 </div>
               </div>
             </div>
@@ -287,7 +287,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
               {activeNotes && (
                 <div className="p-3 bg-light border border-info-subtle rounded-3 mb-2.5 font-mono-code small">
                   <div className="fw-bold text-uppercase text-secondary mb-1" style={{ fontSize: '0.675rem', letterSpacing: '0.06em' }}>
-                    Requirement Verification Notes & Feedback
+                    Notes
                   </div>
                   <div className="text-dark fw-semibold" style={{ fontSize: '0.825rem' }}>
                     {activeNotes}
@@ -337,7 +337,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                         </div>
                       ) : isBelowThreshold ? (
                         <div className="small mt-0.5" style={{ fontSize: '0.7rem', color: '#b45309' }}>
-                          Below 90% threshold — human review required
+                          Below 90%. Check this field.
                         </div>
                       ) : isMissing ? (
                         <div className="small mt-0.5 fw-semibold" style={{ fontSize: '0.7rem', color: '#dc2626' }}>
@@ -370,10 +370,10 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                 <div className="map-exception-banner mt-3">
                   <div>
                     <div className="fw-bold text-dark mb-1" style={{ fontSize: '0.875rem', color: '#92400e' }}>
-                      Exception identified — Submitter action required
+                      Submitter action required
                     </div>
                     <div className="small" style={{ fontSize: '0.775rem', color: '#b45309' }}>
-                      Issuing authority illegible, crew ID partially legible, training completion date absent. Replace with a clearer scan or provide a renewed certificate.
+                      The issuing authority and passport number are hard to read, and the training completion date is missing. Upload a clearer scan or a renewed certificate.
                     </div>
                   </div>
 
@@ -383,14 +383,14 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                       className={`btn btn-sm map-btn-outline-manual ${isManualEditActive ? 'is-active' : ''}`}
                       onClick={() => setIsManualEditActive(!isManualEditActive)}
                     >
-                      {isManualEditActive ? 'Done Editing Fields' : 'Correct field manually'}
+                      {isManualEditActive ? 'Done' : 'Edit Fields'}
                     </button>
                     <button
                       type="button"
                       className="btn btn-sm map-btn-orange-action"
                       onClick={() => setIsUploadModalOpen(true)}
                     >
-                      Upload replacement version
+                      Upload New Version
                     </button>
                   </div>
                 </div>
@@ -417,8 +417,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                         style={{ fontSize: '0.95rem' }}
                       >
                         {isSetApproved
-                          ? 'Approvals & Readiness Review'
-                          : 'Document Verification Review'}
+                          ? 'Approved'
+                          : 'Verified'}
                       </div>
                       <div
                         style={{
@@ -428,8 +428,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                         }}
                       >
                         {isSetApproved
-                          ? 'This statutory document has been approved and verified for compliance readiness.'
-                          : 'This statutory document has been verified by the verifier and is awaiting final approver sign-off.'}
+                          ? 'This document is verified and approved.'
+                          : 'This document is verified and waiting for approval.'}
                       </div>
                     </div>
                     <span
@@ -468,14 +468,14 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
               <div className="d-flex align-items-center justify-content-between mb-3">
                 <div>
                   <div className="fw-bold text-dark mb-1" style={{ fontSize: '0.95rem' }}>
-                    Document Verification & Readiness Review
+                    Review
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                    Review extracted attributes and record verification notes before verifying or returning for correction.
+                    Check the extracted fields, then verify, return, or reject.
                   </div>
                 </div>
                 <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
-                  Pending Sign-Off
+                  Pending Approval
                 </span>
               </div>
 
@@ -483,7 +483,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                 <div className="alert alert-warning d-flex align-items-center gap-2 mb-3 py-2 px-3 border border-warning font-mono-code" style={{ fontSize: '0.775rem' }}>
                   <AlertCircle className="w-4 h-4 text-warning flex-shrink-0" />
                   <div>
-                    <strong>Segregation of Duties Enforced:</strong> As the document submitter or vessel owner, you cannot verify or approve your own submission. A designated verifier or client/charterer must review and sign off.
+                    <strong>Segregation of Duties:</strong> You submitted this document, so you cannot verify or approve it. A verifier or the client must review it.
                   </div>
                 </div>
               )}
@@ -492,12 +492,12 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
               {canVerify && (
                 <div className="mb-3.5">
                   <label className="form-label text-dark small fw-semibold mb-1.5" style={{ fontSize: '0.8rem' }}>
-                    Verifier Defect / Justification Notes
+                    Notes
                   </label>
                   <textarea
                     className={`form-control bg-white text-dark border p-3 ${commentError ? 'border-danger' : ''}`}
                     rows={2}
-                    placeholder="Required when returning for correction or rejecting. Optional for verification sign-off."
+                    placeholder="Required to return or reject. Optional to verify."
                     value={comment}
                     onChange={(e) => {
                       setComment(e.target.value);
@@ -519,7 +519,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     style={{ fontSize: '0.8rem' }}
                     onClick={() => setIsUploadModalOpen(true)}
                   >
-                    Upload Replacement Revision
+                    Upload New Version
                   </button>
                 )}
                 {canVerify && (
@@ -530,7 +530,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                       style={{ fontSize: '0.8rem' }}
                       onClick={handleReject}
                     >
-                      Reject Document
+                      Reject
                     </button>
                     <button
                       type="button"
@@ -546,7 +546,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                       style={{ fontSize: '0.8rem', backgroundColor: '#059669', borderColor: '#059669' }}
                       onClick={handleVerify}
                     >
-                      Verify Document
+                      Verify
                     </button>
                   </>
                 )}

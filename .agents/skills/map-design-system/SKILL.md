@@ -139,3 +139,68 @@ The system utilizes **IBM Plex Sans** as the primary font family across all user
 6. **Recognition Rather than Recall:** Make options and filters visible. Use searchable dropdowns and clear helper text instead of expecting users to remember complex identifiers.
 7. **Aesthetic and Minimalist Design:** Eliminate extraneous visual clutter. Prioritize whitespace, clean typography, and legible data density.
 
+---
+
+## 9. UI Terminology
+
+One term per concept. Use the left column in every label, heading, button, tooltip, placeholder, and message. Never introduce a variant from the right column.
+
+### Concepts
+
+| Use | Never |
+| :--- | :--- |
+| Assurance Set ("Set" only in "Set ID") | Campaign, Vetting Campaign, Assurance Campaign, Charter / Campaign |
+| Organization | Organisation, Org |
+| Crew | Seafarer, Personnel, Crew Member Profile |
+| Inspection | Physical Survey, Visual Audit, Physical Audit, Survey |
+| CAPA | Corrective Action (CAPA), Corrective Action Plan, Action Item |
+| Version | Revision |
+| Change Summary | Reason for Revision |
+| Role | Persona, Persona Role, User Role |
+| User Type | Classification (for users) |
+| Class Society | Classification Society |
+| Flag State | Flag, Flag State / Country, Flag State Jurisdiction |
+| Issuing Authority | Issuing Body, Issuing Center |
+| Certificate No. | Cert No, Cert #, Certificate Number |
+| Client | Charterer / Client, Client Organization |
+| Service Provider | Provider, Provider Organization, Listing Organization |
+| Stakeholders | Assigned Assurance Set Stakeholders, Stakeholder Role Assignments |
+| Charter Period (sets), Project Period (projects) | Charter Window, Project Window, Validity Window, Contract Start/End Date |
+| Readiness (the percentage) | Readiness Score, Readiness Index, Compliance Index, STCW Score |
+| Stage (set pipeline) | Workflow Stage, Stage Pipeline |
+| Compliance | Compliance State, Compliance Status |
+| Verification | Verification Status |
+| Availability | Availability Status |
+| Operating Status (vessels) | Operational Status, Fleet Status, Current Status |
+| Pending Approval | Pending Sign-Off, Awaiting Final Decision |
+| Returned for Correction (status), Return for Correction (action) | Correction Requested, Sent Back for Correction, Revisions Requested |
+
+### Actions
+
+| Use | Never |
+| :--- | :--- |
+| Create (sets, projects, roles) | Initiate |
+| Add (vessels, crew, equipment, users, photos) | Register, Provision, Invite, Add / Upload |
+| Upload Document, Upload New Version | Reupload, Re-upload / Change File, Replace Revision |
+| Back, Next | Previous Step, Next Step |
+| Save | Save changes, Save User Changes, Save Action Item |
+| Close (read-only), Cancel (discard a form), Done | Close Viewer, Close modal, Close Detail Modal |
+| Clear All | Reset All, Clear All Filters |
+| Export, with items CSV and PDF | Export Data, Export as CSV (.csv) |
+| View (row action tooltips) | Open, View Details, View Dossier |
+
+### Patterns
+
+1. **Scope inheritance in tables:** inside a table or page about X, columns drop the X prefix (`Name`, `Status`, `Category`, `Title`). ID columns keep it (`Set ID`, `Crew ID`).
+2. **No slash labels:** pick one word (`Rank`, not `Rank / Position`).
+3. **Filter options:** `All Statuses`, `All Roles`, `All Types`. The filter modal title is always `Filters`, with no subtitle.
+4. **Search placeholder:** `Search vessels...`. Never a list of searchable fields.
+5. **Empty states:** `No vessels found.` when filters hide everything, `No assurance sets yet.` when the list is empty.
+6. **Casing:** Title Case for buttons, headings, field labels, and columns. Sentence case for helper text, empty states, and tooltips.
+7. **Qualifiers:** drop `Assigned`, `Target`, `Active`, `Registered`, `Total`, `Overall`, `Formal` where the context already says it.
+8. **No internal wording:** never show build or spec references (`MVP`, `BRD`, `UC-04`, `Option A`, `Sidepanel`) or decorative claims.
+
+### Stored values
+
+Role and status values in types and mock data are never renamed. Show them through `getRoleDisplayLabel` (`src/utils/userRoleHelpers.ts`) and `getStatusDisplayLabel` (`src/utils/formatters.ts`), which hold the on-screen names (for example `Administrator` shows as `Service Provider`, `C Admin` as `Client Admin`).
+

@@ -7,6 +7,7 @@
 import React, { useState, useRef } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { getStatusDisplayLabel } from '../utils/formatters';
 import { CapaItem } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { Camera, FileText } from 'lucide-react';
@@ -108,7 +109,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const handleExportPdf = () => {
-    const headers = ['Category', 'Item / Action Title', 'Status / Owner', 'Notes & Details'];
+    const headers = ['Category', 'Item', 'Status', 'Notes'];
     const summaryRow = [
       'INSPECTION SUMMARY',
       `Visual Physical Inspection — ${vesselName}\nLocation: Berth 4, Fremantle · Date: 18 Sep 2026`,
@@ -463,7 +464,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
           <div className="d-flex align-items-center gap-3">
             <div>
               <h5 className="fw-bold text-dark m-0" style={{ fontSize: '1.25rem' }}>
-                Visual Vessel Inspection & CAPA Logger
+                Inspection
               </h5>
               <div className="font-mono-code small text-muted" style={{ fontSize: '0.75rem' }}>
                 AS-2041 · {vesselName} · Berth 4, Fremantle · 18 Sep 2026
@@ -474,7 +475,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
           {/* Opposite Corner Controls: Status Badge + CAPA link + Export Data Button */}
           <div className="d-flex align-items-center gap-3 ms-auto">
             <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle font-mono-code px-3 py-2" style={{ fontSize: '0.8rem' }}>
-              Audit In Progress
+              Inspection In Progress
             </span>
 
             {isInspector && (
@@ -483,7 +484,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                 className="btn btn-sm btn-outline-primary fw-bold"
                 onClick={() => setCurrentHashView('capa', vesselName)}
               >
-                Manage & Re-Inspect CAPAs
+                Manage CAPAs
               </button>
             )}
 
@@ -494,18 +495,18 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                 className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
                 onClick={() => setIsExportOpen(!isExportOpen)}
               >
-                Export Data
+                Export
               </button>
               {isExportOpen && (
                 <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      Export as CSV (.csv)
+                      CSV
                     </button>
                   </li>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      Export as PDF (.pdf)
+                      PDF
                     </button>
                   </li>
                 </ul>
@@ -521,7 +522,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
         <div className="col-lg-7 d-flex flex-column gap-3">
           <div className="card map-card-custom map-checklist-card">
             <div className="d-flex align-items-center justify-between mb-3 border-bottom pb-2">
-              <h6 className="fw-bold text-primary m-0">Physical Inspection Checklist</h6>
+              <h6 className="fw-bold text-primary m-0">Inspection Checklist</h6>
               <span className="text-secondary small">5 SOLAS / ISM Verification Points</span>
             </div>
 
@@ -542,7 +543,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                             const matched = capaItems.find((c) => c.id === item.capaCode);
                             if (matched) setSelectedCapaForDrawer(matched);
                           }}
-                          title={`View ${item.capaCode} Details`}
+                          title={`View ${item.capaCode}`}
                         >
                           Linked {item.capaCode}
                         </span>
@@ -648,12 +649,12 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                   {isInspector && editingCommentItemId === item.id && (
                     <div className="p-3 border rounded-2 bg-light mb-3">
                       <div className="fw-bold text-dark small mb-2" style={{ fontSize: '0.8rem' }}>
-                        Finding Note for {item.title}
+                        Note for {item.title}
                       </div>
                       <textarea
                         className="form-control form-control-sm mb-2"
                         rows={2}
-                        placeholder="Enter detailed observation notes..."
+                        placeholder="Notes"
                         value={commentText}
                         onChange={(e) => setCommentText(e.target.value)}
                         style={{ fontSize: '0.775rem' }}
@@ -683,12 +684,12 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                   {isInspector && raisingCapaItemId === item.id && (
                     <div className="p-3 border rounded-2 bg-light mb-3">
                       <div className="fw-bold text-dark small mb-2" style={{ fontSize: '0.8rem' }}>
-                        Raise Corrective Action (CAPA) for {item.title}
+                        Raise CAPA for {item.title}
                       </div>
                       <input
                         type="text"
                         className="form-control form-control-sm mb-2"
-                        placeholder="Action required description..."
+                        placeholder="What needs to be done"
                         value={itemCapaTitle}
                         onChange={(e) => setItemCapaTitle(e.target.value)}
                         style={{ fontSize: '0.775rem' }}
@@ -696,7 +697,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                       <input
                         type="text"
                         className="form-control form-control-sm mb-2"
-                        placeholder="Assigned Owner (e.g. Northwind Marine)..."
+                        placeholder="Owner (e.g. Northwind Marine)"
                         value={itemCapaOwner}
                         onChange={(e) => setItemCapaOwner(e.target.value)}
                         style={{ fontSize: '0.775rem' }}
@@ -725,7 +726,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                   {/* Supporting Evidence List */}
                   <div className="mb-3">
                     <div className="font-mono-code text-uppercase small mb-2" style={{ fontSize: '0.65rem', color: '#64748b', letterSpacing: '0.05em' }}>
-                      Supporting Evidence ({item.evidences.length})
+                      Evidence ({item.evidences.length})
                     </div>
 
                     <div className="d-flex flex-wrap gap-2.5">
@@ -786,7 +787,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                       ))}
                       {item.evidences.length === 0 && (
                         <span className="text-muted small fst-italic" style={{ fontSize: '0.725rem' }}>
-                          No supporting evidence attached.
+                          No evidence attached.
                         </span>
                       )}
                     </div>
@@ -848,13 +849,13 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
           {/* Executive Summary Card */}
           <div className="card map-card-custom map-checklist-card">
             <div className="d-flex align-items-center justify-between mb-3 border-bottom pb-2">
-              <h6 className="fw-bold text-primary m-0">Survey Outcome Summary</h6>
+              <h6 className="fw-bold text-primary m-0">Outcome</h6>
             </div>
 
             <div className="d-flex flex-column gap-3">
               <div className="p-3 rounded-3" style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                 <div className="d-flex justify-between align-items-center mb-1">
-                  <span className="text-secondary small fw-semibold">Auto-Recommended Result:</span>
+                  <span className="text-secondary small fw-semibold">Suggested Result:</span>
                   <span
                     className={`badge ${recommendedOutcome === 'Pass'
                       ? 'bg-success-subtle text-success-emphasis border border-success-subtle'
@@ -874,7 +875,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
               {/* Selector for final outcome */}
               <div>
-                <label className="form-label fw-bold text-dark small mb-1">Final Inspection Outcome</label>
+                <label className="form-label fw-bold text-dark small mb-1">Inspection Outcome</label>
                 {isInspector ? (
                   <select
                     className="form-select form-select-sm fw-semibold"
@@ -882,9 +883,9 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                     onChange={(e) => setSelectedResult(e.target.value as any)}
                     style={{ fontSize: '0.85rem' }}
                   >
-                    <option value="Pass">Pass — Fully Compliant</option>
-                    <option value="Pass with observations">Pass with Observations — CAPA Tracked</option>
-                    <option value="Fail">Fail — Critical Deficiencies</option>
+                    <option value="Pass">Pass</option>
+                    <option value="Pass with observations">Pass with Observations</option>
+                    <option value="Fail">Fail</option>
                   </select>
                 ) : (
                   <div className="p-2 border rounded bg-white fw-bold font-mono-code text-primary small">
@@ -900,7 +901,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                   onClick={handleSubmitOutcome}
                   style={{ fontSize: '0.9rem' }}
                 >
-                  Submit Inspection Outcome & Log CAPA
+                  Submit Outcome
                 </button>
               )}
             </div>
@@ -909,7 +910,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
           {/* CAPA Action Plan Logger */}
           <div className="card map-card-custom map-checklist-card">
             <div className="d-flex align-items-center justify-between mb-3 border-bottom pb-2">
-              <h6 className="fw-bold text-primary m-0">Corrective Action Plan (CAPA)</h6>
+              <h6 className="fw-bold text-primary m-0">CAPA</h6>
               {isInspector && (
                 <button
                   type="button"
@@ -925,11 +926,11 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
             {/* Add CAPA form */}
             {showAddCapa && (
               <div className="p-3 border rounded-3 bg-light mb-3">
-                <div className="fw-bold text-dark small mb-2">Create General CAPA Action</div>
+                <div className="fw-bold text-dark small mb-2">Add CAPA</div>
                 <input
                   type="text"
                   className="form-control form-control-sm mb-2"
-                  placeholder="CAPA Action title..."
+                  placeholder="Title"
                   value={newCapaTitle}
                   onChange={(e) => setNewCapaTitle(e.target.value)}
                   style={{ fontSize: '0.775rem' }}
@@ -937,7 +938,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                 <input
                   type="text"
                   className="form-control form-control-sm mb-2"
-                  placeholder="Responsible Owner..."
+                  placeholder="Owner"
                   value={newCapaOwner}
                   onChange={(e) => setNewCapaOwner(e.target.value)}
                   style={{ fontSize: '0.775rem' }}
@@ -945,7 +946,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                 <input
                   type="text"
                   className="form-control form-control-sm mb-2"
-                  placeholder="Target Completion Date (e.g. 30 Sep 2026)..."
+                  placeholder="Due date (e.g. 30 Sep 2026)"
                   value={newCapaDueDate}
                   onChange={(e) => setNewCapaDueDate(e.target.value)}
                   style={{ fontSize: '0.775rem' }}
@@ -956,7 +957,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                   style={{ fontSize: '0.775rem' }}
                   onClick={handleAddGlobalCapa}
                 >
-                  Save Action Item
+                  Save
                 </button>
               </div>
             )}
@@ -989,7 +990,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                 if (displayList.length === 0) {
                   return (
                     <div className="text-muted small text-center py-3 fst-italic">
-                      No open corrective actions logged for this survey.
+                      No open CAPAs.
                     </div>
                   );
                 }
@@ -1000,7 +1001,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                     className="p-3 border rounded-3 bg-white shadow-2xs cursor-pointer"
                     onClick={() => setSelectedCapaForDrawer(c as CapaItem)}
                     style={{ cursor: 'pointer', transition: 'all 0.15s ease-in-out' }}
-                    title="View CAPA details and evidence"
+                    title="View"
                   >
                     <div className="d-flex align-items-center justify-between mb-1.5 gap-2">
                       <div className="d-flex align-items-center gap-2">
@@ -1033,7 +1034,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                                   : '#854d0e',
                         }}
                       >
-                        {c.status}
+                        {getStatusDisplayLabel(c.status)}
                       </span>
                     </div>
 
@@ -1068,8 +1069,8 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
         <div className="map-modal-backdrop d-flex align-items-center justify-content-center p-3">
           <div className="map-camera-modal-dialog card p-3">
             <div className="d-flex align-items-center justify-content-between pb-2 border-bottom mb-3">
-              <h6 className="fw-bold text-dark m-0">Live Camera Photo Capture</h6>
-              <button type="button" className="btn-close" onClick={closeCameraModal} aria-label="Close modal" />
+              <h6 className="fw-bold text-dark m-0">Take Photo</h6>
+              <button type="button" className="btn-close" onClick={closeCameraModal} aria-label="Close" />
             </div>
 
             <div className="d-flex flex-column align-items-center gap-3">
@@ -1090,10 +1091,10 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                         if (targetId) handleTriggerCameraCapture(targetId);
                       }}
                     >
-                      Use Device Camera
+                      Use Camera
                     </button>
                     <button type="button" className="btn btn-primary btn-sm px-4" onClick={takeCameraSnapshot}>
-                      Snap Photo
+                      Take Photo
                     </button>
                   </div>
                 </>

@@ -477,7 +477,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
         <div className="offcanvas-header border-bottom p-3 bg-white d-flex align-items-center justify-content-between">
           <div>
             <h5 className="offcanvas-title fw-bold text-dark m-0" style={{ fontSize: '1.25rem' }}>
-              Visual vessel inspection
+              Inspection
             </h5>
             <div className="font-mono-code small text-muted" style={{ fontSize: '0.75rem' }}>
               AS-2041 · {vesselName} · Berth 4, Fremantle · 18 Sep 2026
@@ -564,7 +564,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                         <div className="p-3 rounded-2 mb-3" style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a' }}>
                           <div className="d-flex align-items-center justify-content-between mb-1">
                             <span className="fw-bold" style={{ fontSize: '0.8rem', color: '#b45309' }}>
-                              Finding recorded
+                              Finding Recorded
                             </span>
                             <button
                               type="button"
@@ -588,12 +588,12 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                       {editingCommentItemId === item.id && (
                         <div className="p-3 border rounded-2 bg-light mb-3">
                           <div className="fw-bold text-dark small mb-2" style={{ fontSize: '0.8rem' }}>
-                            Finding Note for {item.title}
+                            Note for {item.title}
                           </div>
                           <textarea
                             className="form-control form-control-sm mb-2"
                             rows={2}
-                            placeholder="Enter detailed observation notes..."
+                            placeholder="Notes"
                             value={commentText}
                             onChange={(e) => setCommentText(e.target.value)}
                             style={{ fontSize: '0.775rem' }}
@@ -623,12 +623,12 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                       {raisingCapaItemId === item.id && (
                         <div className="p-3 border rounded-2 bg-light mb-3">
                           <div className="fw-bold text-dark small mb-2" style={{ fontSize: '0.8rem' }}>
-                            Raise Corrective Action (CAPA) for {item.title}
+                            Raise CAPA for {item.title}
                           </div>
                           <input
                             type="text"
                             className="form-control form-control-sm mb-2"
-                            placeholder="Action required description..."
+                            placeholder="What needs to be done"
                             value={itemCapaTitle}
                             onChange={(e) => setItemCapaTitle(e.target.value)}
                             style={{ fontSize: '0.775rem' }}
@@ -636,7 +636,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                           <input
                             type="text"
                             className="form-control form-control-sm mb-2"
-                            placeholder="Assigned Owner (e.g. Northwind Marine)..."
+                            placeholder="Owner (e.g. Northwind Marine)"
                             value={itemCapaOwner}
                             onChange={(e) => setItemCapaOwner(e.target.value)}
                             style={{ fontSize: '0.775rem' }}
@@ -665,7 +665,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                       {/* item evidence list with generous padding and thumbnail rendering */}
                       <div className="mb-3">
                         <div className="font-mono-code text-uppercase small mb-2" style={{ fontSize: '0.65rem', color: '#64748b', letterSpacing: '0.05em' }}>
-                          Supporting Evidence ({item.evidences.length})
+                          Evidence ({item.evidences.length})
                         </div>
 
                         <div className="d-flex flex-wrap gap-2.5">
@@ -724,7 +724,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                           ))}
                           {item.evidences.length === 0 && (
                             <span className="text-muted small fst-italic" style={{ fontSize: '0.725rem' }}>
-                              No supporting evidence attached.
+                              No evidence attached.
                             </span>
                           )}
                         </div>
@@ -787,7 +787,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                 }}
               >
                 <div className="font-mono-code text-uppercase small mb-3" style={{ fontSize: '0.7rem', color: '#94a3b8', letterSpacing: '0.08em' }}>
-                  INSPECTION RESULT
+                  OUTCOME
                 </div>
 
                 <div className="d-flex flex-column gap-2 mb-3">
@@ -803,7 +803,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                   >
                     <div className="fw-bold text-white mb-0.5" style={{ fontSize: '0.875rem' }}>Pass</div>
                     <div style={{ fontSize: '0.725rem', color: '#94a3b8' }}>
-                      No findings. Requirement routes straight to the Approver.
+                      No findings. Goes to the approver.
                     </div>
                   </div>
 
@@ -817,9 +817,9 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                     }}
                     onClick={() => setSelectedResult('Pass with observations')}
                   >
-                    <div className="fw-bold text-white mb-0.5" style={{ fontSize: '0.875rem' }}>Pass with observations</div>
+                    <div className="fw-bold text-white mb-0.5" style={{ fontSize: '0.875rem' }}>Pass with Observations</div>
                     <div style={{ fontSize: '0.725rem', color: '#cbd5e1' }}>
-                      Routes to the Approver with corrective actions tracked.
+                      Goes to the approver with CAPAs tracked.
                     </div>
                   </div>
 
@@ -835,7 +835,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                   >
                     <div className="fw-bold text-white mb-0.5" style={{ fontSize: '0.875rem' }}>Fail</div>
                     <div style={{ fontSize: '0.725rem', color: '#94a3b8' }}>
-                      Returns the requirement for rectification and re-inspection.
+                      Returned for rectification and re-inspection.
                     </div>
                   </div>
                 </div>
@@ -853,12 +853,12 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                     }}
                     onClick={handleSubmitOutcome}
                   >
-                    Submit inspection outcome
+                    Submit Outcome
                   </button>
                 )}
 
                 <div className="small lh-sm" style={{ fontSize: '0.725rem', color: '#64748b' }}>
-                  The Inspector role covers visual and vessel inspection only — it does not replace the Verifier for routine document verification.
+                  Inspectors inspect the vessel. Verifiers check documents.
                 </div>
               </div>
 
@@ -866,7 +866,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
               <div className="card map-card-custom map-checklist-card">
                 <div className="d-flex align-items-center justify-between mb-3">
                   <h6 className="fw-bold text-dark m-0" style={{ fontSize: '1rem' }}>
-                    Corrective actions ({capaActions.length})
+                    CAPAs ({capaActions.length})
                   </h6>
                   {(activePersona === 'Inspector' || activePersona === 'Administrator') && (
                     <button
@@ -884,10 +884,10 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                 {showAddCapa && (
                   <form onSubmit={handleAddCapaItem} className="p-3 border rounded bg-light mb-3">
                     <div className="fw-bold text-dark small mb-2" style={{ fontSize: '0.8rem' }}>
-                      New Corrective Action (CAPA)
+                      New CAPA
                     </div>
                     <div className="mb-2">
-                      <label className="form-label small text-muted m-0" style={{ fontSize: '0.725rem' }}>Action Title</label>
+                      <label className="form-label small text-muted m-0" style={{ fontSize: '0.725rem' }}>Title</label>
                       <input
                         type="text"
                         className="form-control form-control-sm"
@@ -900,7 +900,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                     </div>
                     <div className="row g-2 mb-2">
                       <div className="col-6">
-                        <label className="form-label small text-muted m-0" style={{ fontSize: '0.725rem' }}>Assigned Owner</label>
+                        <label className="form-label small text-muted m-0" style={{ fontSize: '0.725rem' }}>Owner</label>
                         <input
                           type="text"
                           className="form-control form-control-sm"
@@ -927,7 +927,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                       className="btn btn-primary btn-sm w-100 fw-bold mt-1"
                       style={{ backgroundColor: 'rgb(11, 27, 43)', borderColor: 'rgb(11, 27, 43)', fontSize: '0.775rem' }}
                     >
-                      Save Corrective Action
+                      Save
                     </button>
                   </form>
                 )}
@@ -971,12 +971,12 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
         <div className="map-modal-backdrop d-flex align-items-center justify-content-center p-3" style={{ zIndex: 1060 }}>
           <div className="map-camera-modal-dialog card p-3">
             <div className="d-flex align-items-center justify-content-between pb-2 border-bottom mb-3">
-              <h6 className="fw-bold text-dark m-0">Live Camera Photo Capture</h6>
+              <h6 className="fw-bold text-dark m-0">Take Photo</h6>
               <button
                 type="button"
                 className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
                 onClick={closeCameraModal}
-                aria-label="Close modal"
+                aria-label="Close"
               >
                 <X size={18} />
               </button>
@@ -1000,10 +1000,10 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
                         if (targetId) handleTriggerCameraCapture(targetId);
                       }}
                     >
-                      Use Device Camera
+                      Use Camera
                     </button>
                     <button type="button" className="btn btn-primary btn-sm px-4" onClick={takeCameraSnapshot}>
-                      Snap Photo
+                      Take Photo
                     </button>
                   </div>
                 </>

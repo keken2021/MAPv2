@@ -12,7 +12,7 @@ import {
   getAssuranceSetCreatorsInOrganization,
   getProjectOrganizationForPersona,
 } from '../../utils/projectHelpers';
-import { getSessionUserForPersona } from '../../utils/userRoleHelpers';
+import { formatUserRoles, getSessionUserForPersona } from '../../utils/userRoleHelpers';
 
 const SCOPE_OPTIONS: ProjectAssetType[] = ['Vessel', 'Equipment', 'Crew'];
 
@@ -90,7 +90,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
       return;
     }
     if (!senderUser) {
-      setError('Could not resolve sender profile.');
+      setError('Your user profile could not be found.');
       return;
     }
 
@@ -112,7 +112,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
       setError('');
       onClose();
     } else {
-      setError(result.message || 'Failed to send request.');
+      setError(result.message || 'The request could not be sent.');
     }
   };
 
@@ -147,22 +147,22 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
                 value={recipientUserId}
                 onChange={(e) => setRecipientUserId(e.target.value)}
               >
-                <option value="">Select recipient…</option>
+                <option value="">Select recipient</option>
                 {recipients.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} — {u.roles.join(', ')}
+                    {u.name} — {formatUserRoles(u.roles)}
                   </option>
                 ))}
               </select>
               {recipients.length === 0 && (
                 <div className="text-muted small mt-1">
-                  No eligible assurance set creators found in your organization.
+                  No one in your organization can create assurance sets.
                 </div>
               )}
             </div>
             <div className="mb-3">
               <label className="form-label small fw-semibold" id="request-suggested-scope-label">
-                Suggested scope (optional)
+                Scope (optional)
               </label>
               <div className="position-relative" ref={scopeMenuRef}>
                 <button
@@ -201,7 +201,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
                 )}
               </div>
               <div className="text-muted small mt-1">
-                Choose one or more types, or leave as no preference.
+                Choose one or more, or leave as no preference.
               </div>
             </div>
             <div className="mb-0">
@@ -211,7 +211,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
                 rows={3}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="e.g. Please create a vessel assurance set for the platform supply campaign."
+                placeholder="e.g. Please create a vessel assurance set for the platform supply charter."
               />
             </div>
           </div>

@@ -7,6 +7,7 @@
 import React, { useState, useRef } from 'react';
 import { Camera, FileText, Flag, X, Plus } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
+import { getStatusDisplayLabel } from '../../utils/formatters';
 import { CapaItem, CapaStatus, CapaEvidenceItem } from '../../types/capa';
 
 interface CapaReinspectionDrawerProps {
@@ -252,14 +253,14 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
                 <Flag size={18} className="text-red-600 shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <div className="font-sans font-bold text-sm text-red-900">
-                    Flagged for Re-Inspection by C Admin
+                    Flagged for Re-Inspection by Client Admin
                   </div>
                   <div className="text-xs text-red-800 mt-1 leading-relaxed">
                     {capa.cadminFlagReason || 'Re-inspection requested by C Admin charterer.'}
                   </div>
                   {capa.flaggedByCAdminDate && (
                     <div className="font-mono text-xs text-red-600 mt-1.5">
-                      Flagged on: {capa.flaggedByCAdminDate}
+                      Flagged: {capa.flaggedByCAdminDate}
                     </div>
                   )}
                 </div>
@@ -268,13 +269,13 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
 
             {/* Initial Finding Summary Box */}
             <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-xs">
-              <div className="font-sans font-semibold text-sm text-slate-800 mb-1">Original Survey Finding:</div>
+              <div className="font-sans font-semibold text-sm text-slate-800 mb-1">Original Finding:</div>
               <div className="text-sm text-slate-600 mb-3 leading-relaxed">
                 {capa.findingDescription}
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 text-xs text-slate-500">
-                <span>Responsible Owner: <strong className="text-slate-800">{capa.owner}</strong></span>
-                <span>Target Due Date: <span className="font-mono font-bold text-slate-800">{capa.dueDate}</span></span>
+                <span>Owner: <strong className="text-slate-800">{capa.owner}</strong></span>
+                <span>Due Date: <span className="font-mono font-bold text-slate-800">{capa.dueDate}</span></span>
               </div>
             </div>
 
@@ -303,7 +304,7 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
                         }`}
                         onClick={() => setReInspectStatus(statusChoice)}
                       >
-                        {statusChoice}
+                        {getStatusDisplayLabel(statusChoice)}
                       </button>
                     );
                   })}
@@ -319,7 +320,7 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
                         : 'bg-red-100 text-red-800 border border-red-200'
                     }`}
                   >
-                    {capa.status}
+                    {getStatusDisplayLabel(capa.status)}
                   </span>
                 </div>
               )}
@@ -327,13 +328,13 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
               {/* Re-inspection notes text area (Editable for Inspector, Read-only for C Admin) */}
               <div>
                 <label className="block font-sans font-semibold text-xs text-slate-700 mb-1.5">
-                  Inspector Re-Inspection Notes & Finding Verification
+                  Re-Inspection Notes
                 </label>
                 {isInspector ? (
                   <textarea
                     className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[rgb(56,189,248)] focus:border-[rgb(56,189,248)]"
                     rows={3}
-                    placeholder="Enter detailed re-inspection observations, physical condition checks, or reason for closure/rectification..."
+                    placeholder="What you found on re-inspection"
                     value={reInspectNotes}
                     onChange={(e) => setReInspectNotes(e.target.value)}
                   />
@@ -350,7 +351,7 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
               <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
                 <div>
                   <h6 className="font-sans font-bold text-sm text-slate-800">
-                    Re-Inspection Supporting Evidence
+                    Evidence
                   </h6>
                   <div className="text-xs text-slate-500 mt-0.5">
                     {isInspector ? 'Attach real-life photos or documents endorsing CAPA status' : 'Inspect evidence photos and documents uploaded by inspector'}
@@ -433,7 +434,7 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
 
                 {capa.evidences.length === 0 && (
                   <div className="col-span-2 text-slate-400 text-xs italic py-3 text-center">
-                    No supporting evidence files attached to this CAPA yet.
+                    No evidence attached.
                   </div>
                 )}
               </div>
@@ -446,27 +447,27 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
                 className="w-full py-2.5 rounded-md font-sans font-semibold text-sm bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-colors cursor-pointer"
                 onClick={handleSaveReInspection}
               >
-                Endorse &amp; Save CAPA Re-Inspection Status
+                Save
               </button>
             ) : isAdminPersona ? (
               <div className="p-4 bg-white rounded-lg border border-sky-200 shadow-xs">
                 <div className="flex items-center justify-between mb-2">
                   <h6 className="font-sans font-bold text-sm text-[rgb(11,27,43)]">
-                    Admin Governance: Flag CAPA as Addressed
+                    Mark CAPA as Addressed
                   </h6>
                   {flagSuccessToast && (
                     <span className="px-2 py-0.5 bg-emerald-600 text-white text-xs font-mono rounded">
-                      Flagged as Addressed — Inspector Notified
+                      Marked as addressed. Inspector notified.
                     </span>
                   )}
                 </div>
                 <div className="text-xs text-slate-600 mb-3 leading-relaxed">
-                  Flag this CAPA item as addressed by the vessel operator to notify the assigned inspector for re-inspection verification.
+                  Mark this CAPA as addressed to notify the inspector for re-inspection.
                 </div>
                 <textarea
                   className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[rgb(56,189,248)] focus:border-[rgb(56,189,248)] mb-3"
                   rows={2}
-                  placeholder="Enter resolution notes or details on how this finding was addressed for inspector..."
+                  placeholder="How this finding was addressed"
                   value={cAdminReason}
                   onChange={(e) => setCAdminReason(e.target.value)}
                 />
@@ -489,12 +490,12 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-2xl p-4 w-full max-w-lg">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
-              <h6 className="font-sans font-bold text-base text-slate-900">Live Camera Photo Capture</h6>
+              <h6 className="font-sans font-bold text-base text-slate-900">Take Photo</h6>
               <button
                 type="button"
                 className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
                 onClick={closeCameraModal}
-                aria-label="Close modal"
+                aria-label="Close"
               >
                 <X size={18} />
               </button>
@@ -521,14 +522,14 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
                         handleTriggerCameraInput();
                       }}
                     >
-                      Use Device Camera
+                      Use Camera
                     </button>
                     <button
                       type="button"
                       className="px-4 py-2 text-sm font-medium rounded-md text-white bg-[rgb(11,27,43)] hover:bg-[rgb(30,58,95)] transition-colors"
                       onClick={takeCameraSnapshot}
                     >
-                      Snap Photo
+                      Take Photo
                     </button>
                   </div>
                 </>

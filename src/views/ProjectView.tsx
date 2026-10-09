@@ -78,7 +78,7 @@ export const ProjectView: React.FC = () => {
           <input
             type="text"
             className="form-control form-control-sm"
-            placeholder="Search project name, ID, type, org..."
+            placeholder="Search projects..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: '280px' }}
@@ -111,19 +111,19 @@ export const ProjectView: React.FC = () => {
             <thead>
               <tr>
                 <th>Project ID</th>
-                <th>Project Name</th>
-                <th>Type & Organization</th>
-                <th>Project Window</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Project Period</th>
                 <th>Readiness</th>
                 <th>Status</th>
-                <th className="text-end">Action</th>
+                <th className="text-end">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-4 text-muted">
-                    No projects match your search criteria.
+                    No projects found.
                   </td>
                 </tr>
               ) : (
@@ -165,8 +165,8 @@ export const ProjectView: React.FC = () => {
                             e.stopPropagation();
                             setCurrentHashView('project', p.id);
                           }}
-                          title="Open Project"
-                          aria-label="Open Project"
+                          title="View"
+                          aria-label="View"
                         >
                           <Eye size={16} />
                         </button>
@@ -185,14 +185,13 @@ export const ProjectView: React.FC = () => {
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Project Filters"
-        subtitle="Filter project charter packages by lifecycle status and project scope type"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Project Status</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Status</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={statusFilter}
@@ -208,7 +207,7 @@ export const ProjectView: React.FC = () => {
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Project Type</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Type</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={typeFilter}

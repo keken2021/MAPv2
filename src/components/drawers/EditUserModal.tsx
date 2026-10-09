@@ -139,7 +139,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
         {/* Modal Header */}
         <div className="card-header d-flex align-items-center justify-content-between p-3 border-bottom">
           <div className="fw-bold text-dark fs-6">
-            Edit User Profile ({user.id})
+            Edit User ({user.id})
           </div>
           <button
             type="button"
@@ -162,7 +162,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
 
             {/* User Type Selection */}
             <div>
-              <label className="form-label small fw-semibold text-secondary mb-1">User Classification / Type <span className="text-danger">*</span></label>
+              <label className="form-label small fw-semibold text-secondary mb-1">User Type <span className="text-danger">*</span></label>
               <div className="d-flex gap-3">
                 <div className="form-check">
                   <input
@@ -187,7 +187,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                     onChange={() => handleUserTypeChange('Third-Party')}
                   />
                   <label className="form-check-input-label small text-dark fw-semibold cursor-pointer" htmlFor="editUserTypeThird">
-                    Third-Party Stakeholder
+                    Third-Party
                   </label>
                 </div>
               </div>
@@ -209,7 +209,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
               </div>
 
               <div className="col-md-6">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-email">Email Address <span className="text-danger">*</span></label>
+                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-email">Email <span className="text-danger">*</span></label>
                 <input
                   id="edit-user-email"
                   type="email"
@@ -237,7 +237,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
               </div>
 
               <div className="col-md-6">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-org">Organization Name <span className="text-danger">*</span></label>
+                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-org">Organization <span className="text-danger">*</span></label>
                 <input
                   id="edit-user-org"
                   type="text"
@@ -256,19 +256,19 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
             {/* Scope & Status */}
             <div className="row g-3">
               <div className="col-md-7">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-scope">Department / Operational Scope</label>
+                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-scope">Department</label>
                 <input
                   id="edit-user-scope"
                   type="text"
                   className={`form-control form-control-sm bg-white text-dark border-secondary${isJustLoaded ? ' map-autofill-animate' : ''}`}
-                  placeholder="e.g. Vetting Compliance & Statutory Verification"
+                  placeholder="e.g. Marine Compliance"
                   value={departmentOrScope}
                   onChange={(e) => setDepartmentOrScope(e.target.value)}
                 />
               </div>
 
               <div className="col-md-5">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-status">Account Status <span className="text-danger">*</span></label>
+                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-status">Status <span className="text-danger">*</span></label>
                 <select
                   id="edit-user-status"
                   className={`form-select form-select-sm bg-white text-dark border-secondary${isJustLoaded ? ' map-autofill-animate' : ''}`}
@@ -276,7 +276,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                   onChange={(e) => setStatus(e.target.value as UserProfile['status'])}
                 >
                   <option value="Active">Active</option>
-                  <option value="Pending Invitation">Pending Invitation</option>
+                  <option value="Pending Invitation">Pending</option>
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
@@ -296,7 +296,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
               type="submit"
               className="btn btn-sm btn-primary"
             >
-              Save User Changes
+              Save
             </button>
           </div>
         </form>

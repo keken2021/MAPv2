@@ -41,7 +41,7 @@ import {
   calculateEquipmentReadiness,
   calculateVesselReadiness,
 } from '../../utils/readinessHelpers';
-import { formatReadinessScore } from '../../utils/formatters';
+import { formatReadinessScore, getStatusDisplayLabel } from '../../utils/formatters';
 
 export interface VaultCertificateDisplay {
   id: string;
@@ -610,7 +610,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                   Add Asset to Project
                 </h5>
                 <span className="small text-truncate mt-0.5" style={{ fontSize: '0.8rem', color: '#94A3B8' }}>
-                  Pre-Assurance Vault Verification & Project Roster Nomination
+                  Check the asset's documents against the project requirements.
                 </span>
               </div>
             </div>
@@ -620,7 +620,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
               className="btn btn-sm text-white p-2 rounded-2 border-0 bg-transparent opacity-75 hover-opacity-100 ms-3 flex-shrink-0"
               onClick={onClose}
               disabled={isSubmitting}
-              aria-label="Close modal"
+              aria-label="Close"
               style={{ cursor: 'pointer' }}
             >
               <X size={20} />
@@ -687,7 +687,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                       <input
                         type="text"
                         className="form-control form-control-sm ps-5 pe-3"
-                        placeholder="Search asset, ID, provider..."
+                        placeholder="Search assets..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         style={{ borderRadius: '6px', fontSize: '0.85rem' }}
@@ -701,9 +701,9 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                   {filteredAssets.length === 0 ? (
                     <div className="card p-5 text-center bg-white border" style={{ borderColor: '#E2E8F0' }}>
                       <Layers size={36} className="text-muted mx-auto mb-2 opacity-50" />
-                      <h6 className="fw-semibold text-dark mb-1">No Linkable Assets Available</h6>
+                      <h6 className="fw-semibold text-dark mb-1">No Assets Available</h6>
                       <p className="text-muted small mb-1">
-                        Only chartered or rented external assets with eligible assurance sets appear here.
+                        Only chartered or rented assets with an assurance set appear here.
                       </p>
                       <p className="text-muted small mb-0 fst-italic">{PROJECT_ASSET_LINK_HINT}</p>
                     </div>
@@ -798,10 +798,10 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                               className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-medium"
                               style={{ fontSize: '0.82rem', borderRadius: '6px' }}
                               onClick={() => setSelectedAsset(asset)}
-                              title="Inspect Pre-Assurance Vault & Compare Requirements"
+                              title="Check documents against requirements"
                             >
                               <Eye size={15} />
-                              <span>Inspect Asset</span>
+                              <span>Check</span>
                             </button>
 
                             <button
@@ -814,7 +814,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                                 borderColor: '#0B1B2B',
                               }}
                               onClick={() => setSelectedAsset(asset)}
-                              title="Nominate Asset for Project"
+                              title="Select asset"
                             >
                               <Plus size={15} />
                               <span>Select</span>
@@ -851,7 +851,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                     <div className="d-flex align-items-center gap-3 pe-1">
                       <div className="text-end">
                         <div className="text-secondary text-uppercase fw-semibold" style={{ fontSize: '0.68rem', color: '#64748B', letterSpacing: '0.04em' }}>
-                          PRE-ASSURANCE SCORE
+                          READINESS
                         </div>
                         <div className="fw-bold font-mono-code text-primary" style={{ fontSize: '1.05rem' }}>
                           {selectedAsset.complianceScore === null
@@ -870,7 +870,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                 >
                   <div className="d-flex align-items-center justify-content-between mb-3">
                     <label className="form-label fw-bold mb-0 text-dark" style={{ fontSize: '0.9rem', color: '#0B1B2B' }}>
-                      Select Target Project <span className="text-danger">*</span>
+                      Project <span className="text-danger">*</span>
                     </label>
                     <span className="text-secondary small" style={{ fontSize: '0.8rem' }}>
                       {assetEligibleAssuranceSets.length > 0
@@ -937,7 +937,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                           }}
                         >
                           {assetEligibleAssuranceSets.length === 0 ? (
-                            <option value="">No eligible assurance sets</option>
+                            <option value="">No assurance sets</option>
                           ) : (
                             assetEligibleAssuranceSets.map((s) => (
                               <option key={s.id} value={s.id}>
@@ -1024,7 +1024,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                         >
                           <span className="d-flex align-items-center gap-1.5">
                             <Sparkles size={14} className="text-primary" />
-                            <span>Assurance Match Comparison</span>
+                            <span>Requirement Match</span>
                             <span
                               className="badge rounded-pill ms-1 font-mono-code"
                               style={{
@@ -1056,7 +1056,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                         >
                           <span className="d-flex align-items-center gap-1.5">
                             <FileCheck size={14} />
-                            <span>Pre-Assurance Vault Records</span>
+                            <span>Documents</span>
                             <span className="badge bg-secondary text-white rounded-pill ms-1 font-mono-code" style={{ fontSize: '0.7rem' }}>
                               {vaultDocuments.length}
                             </span>
@@ -1108,10 +1108,10 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                           <thead style={{ backgroundColor: '#F8FAFC', color: '#64748B' }}>
                             <tr>
                               <th className="px-3 py-2.5 text-uppercase fw-semibold" style={{ fontSize: '0.7rem' }}>
-                                Project Requirement
+                                Requirement
                               </th>
                               <th className="px-3 py-2.5 text-uppercase fw-semibold" style={{ fontSize: '0.7rem' }}>
-                                Matched Pre-Assurance Document
+                                Matched Document
                               </th>
                               <th className="px-3 py-2.5 text-uppercase fw-semibold text-center" style={{ fontSize: '0.7rem', width: '140px' }}>
                                 Status
@@ -1140,11 +1140,11 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                                         <span>·</span>
                                         <span>{comp.matchedDoc.issuingAuthority}</span>
                                         <span>·</span>
-                                        <span>Exp: {comp.matchedDoc.expiryDate}</span>
+                                        <span>Expires: {comp.matchedDoc.expiryDate}</span>
                                       </div>
                                     </div>
                                   ) : (
-                                    <span className="text-muted fst-italic small">No direct match in vault</span>
+                                    <span className="text-muted fst-italic small">No matching document</span>
                                   )}
                                 </td>
 
@@ -1208,10 +1208,10 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                           <thead style={{ backgroundColor: '#F8FAFC', color: '#64748B' }}>
                             <tr>
                               <th className="px-3 py-2.5 text-uppercase fw-semibold" style={{ fontSize: '0.7rem' }}>
-                                Certificate No / ID
+                                Certificate No.
                               </th>
                               <th className="px-3 py-2.5 text-uppercase fw-semibold" style={{ fontSize: '0.7rem' }}>
-                                Document Title
+                                Title
                               </th>
                               <th className="px-3 py-2.5 text-uppercase fw-semibold" style={{ fontSize: '0.7rem' }}>
                                 Issuing Authority
@@ -1255,7 +1255,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                                       fontWeight: 600,
                                     }}
                                   >
-                                    {doc.complianceState}
+                                    {getStatusDisplayLabel(doc.complianceState)}
                                   </span>
                                 </td>
                               </tr>
@@ -1309,7 +1309,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                   Cancel
                 </button>
                 <div className="text-muted small">
-                  Showing {filteredAssets.length} external provider assets
+                  {filteredAssets.length} assets
                 </div>
               </>
             )}

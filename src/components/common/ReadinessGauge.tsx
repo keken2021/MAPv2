@@ -35,9 +35,6 @@ export const ReadinessGauge: React.FC<ReadinessGaugeProps> = ({ score, size = 'm
         <div className={`display-4 fw-bold ${getTextColorClass(score)} font-mono-code`}>
           {score}%
         </div>
-        <div className="text-secondary small mt-1 text-uppercase fw-semibold" style={{ letterSpacing: '0.05em' }}>
-          Overall Assurance Readiness Index
-        </div>
         <div className="progress mt-3" style={{ height: '8px', backgroundColor: '#e2e8f0' }}>
           <div
             className={`progress-bar ${getScoreColorClass(score)}`}

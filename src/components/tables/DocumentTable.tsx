@@ -12,7 +12,7 @@ import { ConfidenceBadge } from '../common/ConfidenceBadge';
 import { FilterModal } from '../common/FilterModal';
 import { FilterButton } from '../common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
-import { formatMaritimeDate } from '../../utils/formatters';
+import { formatMaritimeDate, getStatusDisplayLabel } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 
@@ -89,9 +89,9 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
     (verificationFilter !== 'ALL' ? 1 : 0);
 
   const activeChips: FilterChip[] = [
-    ...(typeFilter !== 'ALL' ? [{ id: 'type', label: 'Entity Type', value: typeFilter, onRemove: () => setTypeFilter('ALL') }] : []),
-    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'State', value: statusFilter, onRemove: () => setStatusFilter('ALL') }] : []),
-    ...(verificationFilter !== 'ALL' ? [{ id: 'verif', label: 'Verification', value: verificationFilter, onRemove: () => setVerificationFilter('ALL') }] : []),
+    ...(typeFilter !== 'ALL' ? [{ id: 'type', label: 'Type', value: typeFilter, onRemove: () => setTypeFilter('ALL') }] : []),
+    ...(statusFilter !== 'ALL' ? [{ id: 'status', label: 'Compliance', value: getStatusDisplayLabel(statusFilter), onRemove: () => setStatusFilter('ALL') }] : []),
+    ...(verificationFilter !== 'ALL' ? [{ id: 'verif', label: 'Verification', value: getStatusDisplayLabel(verificationFilter), onRemove: () => setVerificationFilter('ALL') }] : []),
   ];
 
   const handleResetFilters = () => {
@@ -146,29 +146,29 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
 
   const handleExportCsv = () => {
     const exportData = sortedDocs.map((d) => ({
-      DocumentTitle: d.title,
-      EntityType: d.entityType,
+      Title: d.title,
+      Type: d.entityType,
       CertificateNo: d.certificateNo,
       IssuingAuthority: d.issuingAuthority,
       ExpiryDate: d.expiryDate,
       OcrConfidence: `${d.ocrConfidence}%`,
-      ComplianceState: d.complianceState,
-      CurrentVersion: d.currentVersion,
-      VerificationStatus: d.verificationStatus,
+      Compliance: getStatusDisplayLabel(d.complianceState),
+      Version: d.currentVersion,
+      Verification: getStatusDisplayLabel(d.verificationStatus),
     }));
-    exportToCsv('Master_Document_Vault', exportData);
+    exportToCsv('Document_Library', exportData);
     setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
-    const headers = ['Document Title', 'Type', 'Issuing Authority', 'Expiry Date', 'OCR Conf', 'State', 'Version'];
+    const headers = ['Title', 'Type', 'Issuing Authority', 'Expiry Date', 'OCR Confidence', 'Compliance', 'Version'];
     const rows = sortedDocs.map((d) => [
       d.title,
       d.entityType,
       d.issuingAuthority,
       d.expiryDate,
       `${d.ocrConfidence}%`,
-      d.complianceState,
+      getStatusDisplayLabel(d.complianceState),
       d.currentVersion,
     ]);
     exportToPdf('Document Library', headers, rows);
@@ -184,7 +184,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           <input
             type="text"
             className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search Cert #, Title, Authority..."
+            placeholder="Search documents..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '240px' }}
@@ -204,18 +204,18 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
               className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
               onClick={() => setIsExportOpen(!isExportOpen)}
             >
-              Export Data
+              Export
             </button>
             {isExportOpen && (
               <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border">
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    Export as CSV (.csv)
+                    CSV
                   </button>
                 </li>
                 <li>
                   <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    Export as PDF (.pdf)
+                    PDF
                   </button>
                 </li>
               </ul>
@@ -246,19 +246,19 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           <thead>
             <tr>
               <th onClick={() => handleSort('certificateNo')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Certificate No / ID {renderSortIndicator('certificateNo')}
+                Certificate No. {renderSortIndicator('certificateNo')}
               </th>
               <th onClick={() => handleSort('title')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Document Title {renderSortIndicator('title')}
+                Title {renderSortIndicator('title')}
               </th>
               <th onClick={() => handleSort('entityType')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Type &amp; Authority {renderSortIndicator('entityType')}
+                Type {renderSortIndicator('entityType')}
               </th>
               <th onClick={() => handleSort('expiryDate')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Expiry Date {renderSortIndicator('expiryDate')}
               </th>
               <th onClick={() => handleSort('complianceState')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Compliance State {renderSortIndicator('complianceState')}
+                Compliance {renderSortIndicator('complianceState')}
               </th>
               <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
             </tr>
@@ -286,7 +286,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                 <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
                 <td>
                   <span className={`badge ${getComplianceBadgeClass(doc.complianceState)}`}>
-                    {doc.complianceState}
+                    {getStatusDisplayLabel(doc.complianceState)}
                   </span>
                 </td>
                 <td className="text-end">
@@ -294,8 +294,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                     type="button"
                     className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                     style={{ width: '32px', height: '32px' }}
-                    title="View Document Details"
-                    aria-label="View Document Details"
+                    title="View"
+                    aria-label="View"
                     onClick={(e) => {
                       e.stopPropagation();
                       onSelectDocument(doc);
@@ -315,53 +315,52 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Document Library Filters"
-        subtitle="Filter documents and certificates by entity type, compliance validity, and verification status"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Entity Type</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Type</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
               >
-                <option value="ALL">All Entity Types</option>
+                <option value="ALL">All Types</option>
                 <option value="Vessel Certificate">Vessel Certificate</option>
                 <option value="Crew Certificate">Crew Certificate</option>
                 <option value="Equipment Certificate">Equipment Certificate</option>
-                <option value="Project Dossier">Project Dossier</option>
+                <option value="Project Dossier">Project Document</option>
               </select>
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Compliance State</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Compliance</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
-                <option value="ALL">All States</option>
+                <option value="ALL">All Statuses</option>
                 <option value="Valid">Valid</option>
-                <option value="Expiring < 6 Mos">Expiring &lt; 6 Mos</option>
-                <option value="Mismatch/Exception">Mismatch/Exception</option>
+                <option value="Expiring < 6 Mos">Expiring Soon</option>
+                <option value="Mismatch/Exception">Mismatch</option>
                 <option value="Expired">Expired</option>
               </select>
             </div>
 
             <div className="col-12">
-              <label className="form-label small fw-semibold text-secondary mb-1">Verification Status</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Verification</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={verificationFilter}
                 onChange={(e) => setVerificationFilter(e.target.value)}
               >
-                <option value="ALL">All Verification Statuses</option>
+                <option value="ALL">All Statuses</option>
                 <option value="Verified">Verified</option>
                 <option value="Pending">Pending</option>
-                <option value="Correction Requested">Correction Requested</option>
+                <option value="Correction Requested">Returned for Correction</option>
                 <option value="Rejected">Rejected</option>
               </select>
             </div>

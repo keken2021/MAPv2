@@ -154,7 +154,7 @@ export const NotificationPanel: React.FC = () => {
                 setOpen(false);
               }}
             >
-              View all
+              View All
             </button>
           </div>
         </div>

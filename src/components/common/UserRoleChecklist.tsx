@@ -72,7 +72,7 @@ export const UserRoleChecklist: React.FC<UserRoleChecklistProps> = ({
       {!shouldHidePlatformAdmin && (
         <div>
           <label className="form-label small fw-semibold text-secondary mb-2">
-            Platform Access Control
+            Platform Access
           </label>
           <div className="form-check">
             <input
@@ -83,7 +83,7 @@ export const UserRoleChecklist: React.FC<UserRoleChecklistProps> = ({
               onChange={(e) => onPlatformAdminChange(e.target.checked)}
             />
             <label className="form-check-label small text-dark fw-semibold" htmlFor="role-platform-admin">
-              Platform Full Access Control
+              Full Access
             </label>
           </div>
         </div>
@@ -91,7 +91,7 @@ export const UserRoleChecklist: React.FC<UserRoleChecklistProps> = ({
 
       <div>
         <label className="form-label small fw-semibold text-secondary mb-2">
-          Operational Roles
+          Roles
         </label>
         <div className="row g-2">
           {roleOptions.map(({ role, label, isCustom }) => (
@@ -119,8 +119,8 @@ export const UserRoleChecklist: React.FC<UserRoleChecklistProps> = ({
         </div>
         {customRoles.length === 0 ? (
           <div className="form-text">
-            A user may hold multiple operational roles where permitted by segregation-of-duty rules.
-            Create extra roles under <strong>Roles &amp; Permissions</strong> → New role.
+            A user can hold more than one role where segregation of duties allows.
+            Add more roles in <strong>Roles &amp; Permissions</strong>.
           </div>
         ) : (
           ""
@@ -129,7 +129,7 @@ export const UserRoleChecklist: React.FC<UserRoleChecklistProps> = ({
 
       {sodWarnings.length > 0 && (
         <div className="alert alert-warning py-2 small mb-0">
-          <div className="fw-semibold mb-1">Segregation-of-Duty Notice</div>
+          <div className="fw-semibold mb-1">Segregation of Duties</div>
           <ul className="mb-0 ps-3">
             {sodWarnings.map((warning) => (
               <li key={warning}>{warning}</li>

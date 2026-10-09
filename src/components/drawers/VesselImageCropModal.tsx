@@ -435,7 +435,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                       type="button"
                       className="crop-insta-btn"
                       onClick={handleRotate}
-                      title="Rotate 90° Clockwise"
+                      title="Rotate"
                     >
                       <RotateCw size={15} strokeWidth={2} />
                     </button>
@@ -445,7 +445,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                       type="button"
                       className={`crop-insta-btn ${flipH ? 'active' : ''}`}
                       onClick={handleFlipHorizontal}
-                      title="Flip Horizontally"
+                      title="Flip"
                     >
                       <FlipHorizontal size={15} strokeWidth={2} />
                     </button>
@@ -455,7 +455,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                       type="button"
                       className="crop-insta-btn"
                       onClick={handleReset}
-                      title="Reset Pan and Zoom"
+                      title="Reset"
                     >
                       <RefreshCw size={15} strokeWidth={2} />
                     </button>
@@ -522,7 +522,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
                   <span>Processing...</span>
                 </>
               ) : (
-                <span>Apply &amp; Save Sized Photo</span>
+                <span>Save</span>
               )}
             </button>
           </div>

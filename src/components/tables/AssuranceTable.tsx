@@ -219,21 +219,21 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const handleExportCsv = () => {
     const exportData = sortedSets.map((s) => ({
       SetID: s.id,
-      CampaignTitle: s.title,
+      Title: s.title,
       Project: getProjectId(s) || ORPHANED_LABEL,
       CreatedBy: getAssuranceSetCreatedByLabel(s, users, activePersona),
-      InitiatorOrg: s.initiatorOrg,
+      Organization: s.initiatorOrg,
       Stage: s.stage,
       ReadinessScore: `${calculateAssuranceSetReadiness(s)}%`,
-      CharterStart: s.charterWindowStart,
-      CharterEnd: s.charterWindowEnd,
+      CharterPeriodStart: s.charterWindowStart,
+      CharterPeriodEnd: s.charterWindowEnd,
     }));
-    exportToCsv('Assurance_Sets_Campaigns', exportData);
+    exportToCsv('Assurance_Sets', exportData);
     setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
-    const headers = ['Set ID', 'Campaign Title', 'Project', 'Initiator Org', 'Stage', 'Readiness'];
+    const headers = ['Set ID', 'Title', 'Project', 'Created By', 'Stage', 'Readiness'];
     const rows = sortedSets.map((s) => [
       s.id,
       s.title,
@@ -242,7 +242,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
       s.stage,
       `${calculateAssuranceSetReadiness(s)}%`,
     ]);
-    exportToPdf('Assurance Sets & Vetting Campaigns', headers, rows);
+    exportToPdf('Assurance Sets', headers, rows);
     setIsExportOpen(false);
   };
 
@@ -291,7 +291,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
             <input
               type="text"
               className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search Set ID, Title, Project..."
+              placeholder="Search assurance sets..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ width: '260px' }}
@@ -311,18 +311,18 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                 className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
                 onClick={() => setIsExportOpen(!isExportOpen)}
               >
-                Export Data
+                Export
               </button>
               {isExportOpen && (
                 <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border">
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      Export as CSV (.csv)
+                      CSV
                     </button>
                   </li>
                   <li>
                     <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      Export as PDF (.pdf)
+                      PDF
                     </button>
                   </li>
                 </ul>
@@ -356,7 +356,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                 Set ID {renderSortIndicator('id')}
               </th>
               <th onClick={() => handleSort('title')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Campaign / Set Title {renderSortIndicator('title')}
+                Title {renderSortIndicator('title')}
               </th>
               <th onClick={() => handleSort('project')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Project {renderSortIndicator('project')}
@@ -368,7 +368,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                 Stage {renderSortIndicator('stage')}
               </th>
               <th onClick={() => handleSort('readinessScore')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Readiness Score {renderSortIndicator('readinessScore')}
+                Readiness {renderSortIndicator('readinessScore')}
               </th>
               <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
             </tr>
@@ -424,8 +424,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                           type="button"
                           className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
                           style={{ width: '32px', height: '32px' }}
-                          title="Use as Template"
-                          aria-label="Use as Template"
+                          title="Use as template"
+                          aria-label="Use as template"
                           onClick={(e) => {
                             e.stopPropagation();
                             setCurrentHashView('create-assurance-set', s.id);
@@ -439,8 +439,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                           type="button"
                           className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center p-0 text-white"
                           style={{ width: '32px', height: '32px' }}
-                          title="Continue Setup"
-                          aria-label="Continue Setup"
+                          title="Continue setup"
+                          aria-label="Continue setup"
                           onClick={(e) => {
                             e.stopPropagation();
                             setCurrentHashView('create-assurance-set', s.id);
@@ -453,8 +453,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                           type="button"
                           className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                           style={{ width: '32px', height: '32px' }}
-                          title="View Campaign Details"
-                          aria-label="View Campaign Details"
+                          title="View"
+                          aria-label="View"
                           onClick={(e) => {
                             e.stopPropagation();
                             onSelectSet(s);
@@ -472,10 +472,10 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
               <tr>
                 <td colSpan={7} className="text-center text-secondary py-4">
                   {accessibleSets.length > 0
-                    ? 'No assurance sets match the current tab, search, or filters.'
+                    ? 'No assurance sets found.'
                     : isReadOnly
-                      ? 'No assurance sets are assigned to you yet.'
-                      : 'No assurance sets yet. Use Create Assurance Set to start the first one.'}
+                      ? 'No assurance sets yet.'
+                      : 'No assurance sets yet.'}
                 </td>
               </tr>
             )}
@@ -488,14 +488,13 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
         onReset={handleResetFilters}
-        title="Assurance Set Filters"
-        subtitle="Filter assurance campaigns by workflow stage, scope and project"
+        title="Filters"
         activeCount={activeFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Workflow Stage</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Stage</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={stageFilter}
@@ -513,7 +512,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
             </div>
 
             <div className="col-md-6">
-              <label className="form-label small fw-semibold text-secondary mb-1">Scope Element</label>
+              <label className="form-label small fw-semibold text-secondary mb-1">Scope</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={scopeFilter}

@@ -38,40 +38,40 @@ export const CrewView: React.FC = () => {
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Registered Fleet Crew
+              Crew
             </div>
             <div className="map-kpi-value text-primary mt-1">{crew.length}</div>
-            <div className="map-kpi-subtitle mt-1">Active Seafarers & Officers</div>
+            <div className="map-kpi-subtitle mt-1">All crew</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Fully Compliant Crew
+              Compliant
             </div>
             <div className="map-kpi-value text-success mt-1">{fullyCompliantCount}</div>
-            <div className="map-kpi-subtitle mt-1">100% Valid STCW Documents</div>
+            <div className="map-kpi-subtitle mt-1">All documents valid</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Expiring &lt; 60 Days
+              Expiring Soon
             </div>
             <div className="map-kpi-value text-warning mt-1">{expiringCount}</div>
-            <div className="map-kpi-subtitle mt-1">Requires Mandatory Renewal</div>
+            <div className="map-kpi-subtitle mt-1">Within 60 days</div>
           </div>
         </div>
 
         <div className="col-md-3">
           <div className="card map-kpi-card shadow-2xs">
             <div className="map-kpi-label">
-              Document Deficient
+              Non-Compliant
             </div>
             <div className="map-kpi-value text-danger mt-1">{deficientCount}</div>
-            <div className="map-kpi-subtitle mt-1">Expired / Missing Certificates</div>
+            <div className="map-kpi-subtitle mt-1">Expired or missing documents</div>
           </div>
         </div>
       </div>

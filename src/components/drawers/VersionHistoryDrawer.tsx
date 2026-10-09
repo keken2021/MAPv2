@@ -38,7 +38,7 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
       newVersionLabel,
       newFileName,
       2500000,
-      changeSummary || 'Document revision upload.'
+      changeSummary || 'New version uploaded.'
     );
 
     setNewFileName('');
@@ -67,7 +67,7 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
           {(activePersona === 'Administrator' || activePersona === 'Submitter') && (
             <form onSubmit={handleUploadRevision} className="p-3 bg-light border border-secondary rounded mb-4 shadow-sm">
               <h6 className="text-uppercase text-primary small fw-bold mb-3" style={{ letterSpacing: '0.05em' }}>
-                Upload New Revision / Corrected File
+                Upload New Version
               </h6>
 
               <div className="row g-2 mb-2">
@@ -97,12 +97,12 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
               </div>
 
               <div className="mb-3">
-                <label className="form-label text-secondary small fw-semibold" htmlFor="ver-summary">Reason for Revision / Change Summary:</label>
+                <label className="form-label text-secondary small fw-semibold" htmlFor="ver-summary">Change Summary:</label>
                 <textarea
                   id="ver-summary"
                   className="form-control form-control-sm bg-white text-dark border-secondary"
                   rows={2}
-                  placeholder="Enter details on what changed..."
+                  placeholder="What changed"
                   value={changeSummary}
                   onChange={(e) => setChangeSummary(e.target.value)}
                   required
@@ -110,14 +110,14 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
               </div>
 
               <button type="submit" className="btn btn-sm btn-primary w-100">
-                Submit Revision
+                Upload New Version
               </button>
             </form>
           )}
 
           {/* Version History Timeline */}
           <h6 className="text-uppercase text-secondary small fw-bold mb-3" style={{ letterSpacing: '0.05em' }}>
-            Revision History Timeline
+            Version History
           </h6>
 
           <div className="d-flex flex-column gap-3">
@@ -134,7 +134,7 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
 
                 <div className="fw-bold text-dark mb-1">{ver.fileName}</div>
                 <div className="text-secondary small mb-2">
-                  Uploaded by: <strong>{ver.uploadedBy}</strong> ({Math.round(ver.fileSizeBytes / 1024 / 1024 * 10) / 10} MB)
+                  Uploaded By: <strong>{ver.uploadedBy}</strong> ({Math.round(ver.fileSizeBytes / 1024 / 1024 * 10) / 10} MB)
                 </div>
                 <div className="p-2 bg-white rounded small text-secondary border fst-italic">
                   "{ver.changeSummary}"
