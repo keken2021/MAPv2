@@ -542,7 +542,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           });
           if (result.success) {
             setToast(
-              `Attached ${selected.id} with configured charter period (${charterStart} to ${charterEnd}).`,
+              `Attached ${selected.id} with configured Contract Period (${charterStart} to ${charterEnd}).`,
             );
             setAttachSetId("");
             setPreviewAssuranceSet(null);

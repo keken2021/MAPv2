@@ -165,7 +165,7 @@ One term per concept. Use the left column in every label, heading, button, toolt
 | Client | Charterer / Client, Client Organization |
 | Service Provider | Provider, Provider Organization, Listing Organization |
 | Stakeholders | Assigned Assurance Set Stakeholders, Stakeholder Role Assignments |
-| Charter Period (sets), Project Period (projects) | Charter Window, Project Window, Validity Window, Contract Start/End Date |
+| Contract Period (sets), Project Period (projects) | Charter Window, Project Window, Validity Window, Contract Start/End Date |
 | Readiness (the percentage) | Readiness Score, Readiness Index, Compliance Index, STCW Score |
 | Stage (set pipeline) | Workflow Stage, Stage Pipeline |
 | Compliance | Compliance State, Compliance Status |

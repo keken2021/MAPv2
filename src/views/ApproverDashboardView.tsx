@@ -283,7 +283,7 @@ export const ApproverDashboardView: React.FC = () => {
                     <div className="text-secondary mb-1">Role:</div>
                     <div className="fw-bold text-dark mb-2">{getRoleDisplayLabel(selectedSet.initiatorRole)}</div>
 
-                    <div className="text-secondary mb-1">Charter Period:</div>
+                    <div className="text-secondary mb-1">Contract Period:</div>
                     <div className="fw-bold text-dark">
                       {formatMaritimeDate(selectedSet.charterWindowStart)} - {formatMaritimeDate(selectedSet.charterWindowEnd)}
                     </div>

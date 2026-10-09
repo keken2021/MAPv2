@@ -6,6 +6,7 @@
 
 import { Vessel } from '../types/vessel';
 import { AssuranceSet } from '../types/assurance';
+import { isAssuranceSetScopeDisabled } from '../utils/assuranceTemplates';
 import { MasterDocument } from '../types/document';
 import { AuditTrailEvent } from '../types/audit';
 
@@ -301,7 +302,7 @@ export const MOCK_VESSELS: Vessel[] = [
     flagState: 'Australia',
     portOfRegistry: 'Fremantle, WA',
     status: 'Under Charter',
-    complianceReadinessScore: 85,
+    complianceReadinessScore: 100,
     vesselType: 'Subsea Support Vessel (SSV)',
     vesselSubtype: 'ROV Support & Construction',
     intendedUse: 'Subsea Inspection & Intervention',
@@ -891,7 +892,7 @@ export const MOCK_VESSELS: Vessel[] = [
   },
 ];
 
-export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
+const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
   {
     id: 'AS-2026-001',
     title: 'Chevron Gorgon Charter Vetting',
@@ -1702,6 +1703,11 @@ export const MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     ],
   },
 ];
+
+/* demo sets seeded into the store; sets filed under a switched-off scope (Activity for now) stay defined above but are left out */
+export const MOCK_ASSURANCE_SETS: AssuranceSet[] = ALL_MOCK_ASSURANCE_SETS.filter(
+  (set) => !isAssuranceSetScopeDisabled(set),
+);
 
 export const MOCK_DOCUMENTS: MasterDocument[] = [
   /* stage 1 unassigned mock certificate: official certificate of registry */

@@ -561,23 +561,23 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
               </div>
             )}
 
-            {/* Template Instance & Charter Period Configuration */}
+            {/* Template Instance & Contract Period Configuration */}
             <div className="card map-card-custom p-3 bg-white">
               <div className="d-flex align-items-center justify-content-between mb-2">
                 <h6 className="fw-bold text-dark mb-0">
-                  Charter Period &amp; Role
+                  Contract Period &amp; Role
                 </h6>
                 <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.75rem' }}>
                   {assuranceSet.visibility === 'public' ? 'Public Template' : 'Organization Template'}
                 </span>
               </div>
               <p className="text-muted small mb-3">
-                Set the charter period and this set's role in the project.
+                Set the Contract Period and this set's role in the project.
               </p>
               <div className="row g-3">
                 <div className="col-md-6">
                   <label className="form-label small fw-semibold text-muted">
-                    Charter Period Start <span className="text-danger">*</span>
+                    Contract Period Start <span className="text-danger">*</span>
                   </label>
                   <input
                     type="date"
@@ -588,7 +588,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                 </div>
                 <div className="col-md-6">
                   <label className="form-label small fw-semibold text-muted">
-                    Charter Period End <span className="text-danger">*</span>
+                    Contract Period End <span className="text-danger">*</span>
                   </label>
                   <input
                     type="date"

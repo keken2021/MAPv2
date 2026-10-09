@@ -2683,7 +2683,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setAssuranceSortField('charterWindow'); setAssuranceSortDirection('asc'); }
                         }}
                       >
-                        Charter Period {renderSortIndicator(assuranceSortField, 'charterWindow', assuranceSortDirection)}
+                        Contract Period {renderSortIndicator(assuranceSortField, 'charterWindow', assuranceSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3057,7 +3057,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           else { setClientSortField('charterStart'); setClientSortDirection('asc'); }
                         }}
                       >
-                        Charter Period {renderSortIndicator(clientSortField, 'charterStart', clientSortDirection)}
+                        Contract Period {renderSortIndicator(clientSortField, 'charterStart', clientSortDirection)}
                       </th>
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}

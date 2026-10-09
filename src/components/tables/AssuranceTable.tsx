@@ -24,6 +24,7 @@ import {
 import { getProjectForAssuranceSet, ORPHANED_ASSURANCE_SET_LABEL as ORPHANED_LABEL } from '../../utils/projectHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
+import { ASSURANCE_SCOPE_OPTIONS } from '../../utils/assuranceTemplates';
 
 type AssuranceSortField =
   | 'id'
@@ -519,10 +520,11 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                 onChange={(e) => setScopeFilter(e.target.value)}
               >
                 <option value="ALL">All Scopes</option>
-                <option value="Vessel">Vessel</option>
-                <option value="Crew">Crew</option>
-                <option value="Activity">Activity</option>
-                <option value="Equipment">Equipment</option>
+                {ASSURANCE_SCOPE_OPTIONS.map((scope) => (
+                  <option key={scope} value={scope}>
+                    {scope}
+                  </option>
+                ))}
               </select>
             </div>
 

@@ -16,7 +16,10 @@ import {
   getPrimaryAssuranceScope,
   getAssuranceSetScopes,
   buildAssuranceWizardSteps,
+  DISABLED_ASSURANCE_SCOPES,
+  isAssuranceSetScopeDisabled,
 } from '../utils/assuranceTemplates';
+import { MOCK_ASSURANCE_SETS } from '../store/mockData';
 import { generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../utils/validation';
 
 describe('Segmented Assurance Set Creation Workflow', () => {
@@ -25,12 +28,12 @@ describe('Segmented Assurance Set Creation Workflow', () => {
   });
 
   it('keeps ticked scopes in checklist order without repeats and files the set under the first one', () => {
-    expect(ASSURANCE_SCOPE_OPTIONS).toEqual(['Vessel', 'Crew', 'Activity', 'Equipment']);
+    expect(ASSURANCE_SCOPE_OPTIONS).toEqual(['Vessel', 'Crew', 'Equipment']);
     expect(orderAssuranceScopes(['Equipment', 'Crew', 'Equipment', 'Vessel'])).toEqual(['Vessel', 'Crew', 'Equipment']);
     expect(orderAssuranceScopes([])).toEqual([]);
 
     expect(getPrimaryAssuranceScope(['Equipment', 'Crew'])).toBe('Crew');
-    expect(getPrimaryAssuranceScope(['Activity'])).toBe('Activity');
+    expect(getPrimaryAssuranceScope(['Equipment'])).toBe('Equipment');
     /* nothing ticked falls back to the default scope */
     expect(getPrimaryAssuranceScope([])).toBe('Vessel');
   });
@@ -40,6 +43,23 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     expect(getAssuranceSetScopes({ assuranceType: 'Equipment' })).toEqual(['Equipment']);
     expect(getAssuranceSetScopes({ assuranceType: 'Crew', subtypes: [] })).toEqual(['Crew']);
     expect(getAssuranceSetScopes({})).toEqual(['Vessel']);
+  });
+
+  it('keeps the activity scope switched off: not offered, no tab, and no seeded activity set', () => {
+    expect(DISABLED_ASSURANCE_SCOPES).toEqual(['Activity']);
+    expect(ASSURANCE_SCOPE_OPTIONS).not.toContain('Activity');
+    expect(orderAssuranceScopes(['Activity', 'Crew'])).toEqual(['Crew']);
+    expect(getPrimaryAssuranceScope(['Activity'])).toBe('Vessel');
+    expect(buildAssuranceWizardSteps(['Activity', 'Crew']).map((s) => s.label)).toEqual(['Scope', 'Crew', 'Review']);
+
+    /* a saved set still reports its real scopes, so an activity set never counts as a vessel contract */
+    expect(getAssuranceSetScopes({ assuranceType: 'Activity', subtypes: ['Activity'] })).toEqual(['Activity']);
+    expect(isAssuranceSetScopeDisabled({ assuranceType: 'Activity' })).toBe(true);
+    expect(isAssuranceSetScopeDisabled({ assuranceType: 'Vessel' })).toBe(false);
+    expect(isAssuranceSetScopeDisabled({})).toBe(false);
+
+    expect(MOCK_ASSURANCE_SETS.some((s) => s.assuranceType === 'Activity')).toBe(false);
+    expect(useMapStore.getState().assuranceSets.some((s) => s.id === 'AS-ACT-2026-SURF-01')).toBe(false);
   });
 
   it('builds one wizard tab per ticked scope, titled with the scope type, between Scope and Review', () => {
@@ -53,7 +73,6 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       'Scope',
       'Vessel',
       'Crew',
-      'Activity',
       'Equipment',
       'Review',
     ]);

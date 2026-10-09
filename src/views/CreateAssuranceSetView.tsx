@@ -1,6 +1,6 @@
 /* 
   file summary: segmented assurance set creation wizard matching enterprise design standards (similar to VesselModal).
-  responsibilities: captures one or more scopes (Vessel, Crew, Activity, Equipment) with a tab per ticked scope, optional project link, general information, subtype statutory & operational documents with descriptions, public/organization templates, specialized custom requirements, workflow policies, and role assignments.
+  responsibilities: captures one or more scopes (Vessel, Crew, Equipment; Activity is switched off for now) with a tab per ticked scope, optional project link, general information, subtype statutory & operational documents with descriptions, public/organization templates, specialized custom requirements, workflow policies, and role assignments.
   role in system: rendered by App.tsx when currentHashView is 'create-assurance-set'.
 */
 
@@ -544,8 +544,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const cleanSubject = baseSubject || `${vesselDisplayName} Charter Vetting`;
     setTitle(`${templateCharterer} - ${cleanSubject}`);
 
-    if (!lockedAsset && targetSet.assuranceType) {
-      setSelectedScopes([targetSet.assuranceType]);
+    /* a template filed under a scope that is no longer offered leaves the current ticks as they are */
+    const templateScopes = orderAssuranceScopes(targetSet.assuranceType ? [targetSet.assuranceType] : []);
+    if (!lockedAsset && templateScopes.length > 0) {
+      setSelectedScopes(templateScopes);
     }
 
     /* match requirements */
@@ -574,7 +576,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           // Resume draft editing in-place
           setEditingDraftId(target.id);
           setTitle(target.title);
-          if (!lockedAsset) setSelectedScopes(getAssuranceSetScopes(target));
+          if (!lockedAsset) setSelectedScopes(orderAssuranceScopes(getAssuranceSetScopes(target)));
           if (target.projectId && !lockedProjectId) setSelectedProjectId(target.projectId);
           if (target.crewId && !lockedAsset) setSelectedCrewId(target.crewId);
           if (target.equipmentId && !lockedAsset) setSelectedEquipmentId(target.equipmentId);
@@ -2101,7 +2103,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     {/* Charter Window Dates */}
                     <div className="col-12 col-md-3">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-start">
-                        Charter Period Start <span className="text-danger">*</span>
+                        Contract Period Start <span className="text-danger">*</span>
                       </label>
                       <input
                         id="grid-charter-start"
@@ -2128,7 +2130,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
                     <div className="col-12 col-md-3">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-end">
-                        Charter Period End <span className="text-danger">*</span>
+                        Contract Period End <span className="text-danger">*</span>
                       </label>
                       <input
                         id="grid-charter-end"
@@ -2632,7 +2634,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             </div>
                           ))}
                           <div className="text-secondary small mt-1">
-                            <strong>Charter Period:</strong> {startDate} to {endDate}
+                            <strong>Contract Period:</strong> {startDate} to {endDate}
                           </div>
                           {selectedProject && (
                             <div className="text-secondary small mt-1">

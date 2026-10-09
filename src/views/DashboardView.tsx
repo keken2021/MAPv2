@@ -666,7 +666,7 @@ export const DashboardView: React.FC = () => {
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleSubmitterSort('charterWindowStart')}
                         >
-                          Charter Period {renderSortIndicator(submitterSortField, 'charterWindowStart', submitterSortDirection)}
+                          Contract Period {renderSortIndicator(submitterSortField, 'charterWindowStart', submitterSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}

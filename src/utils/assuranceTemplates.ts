@@ -6,10 +6,18 @@
 
 import { AssuranceSet, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory } from '../types/assurance';
 
-/* scopes a set can cover, in the order they are offered and shown as wizard tabs */
-export const ASSURANCE_SCOPE_OPTIONS: AssuranceSubtype[] = ['Vessel', 'Crew', 'Activity', 'Equipment'];
+/* every scope the data model knows, in display order */
+const ALL_ASSURANCE_SCOPES: AssuranceSubtype[] = ['Vessel', 'Crew', 'Activity', 'Equipment'];
 
-/* returns the scopes without repeats, in the order of ASSURANCE_SCOPE_OPTIONS */
+/* scopes switched off for now: not offered, not shown as tabs, and their demo sets are not seeded; empty this list to bring them back */
+export const DISABLED_ASSURANCE_SCOPES: AssuranceSubtype[] = ['Activity'];
+
+/* scopes a set can be created or filtered with, in the order they are offered and shown as wizard tabs */
+export const ASSURANCE_SCOPE_OPTIONS: AssuranceSubtype[] = ALL_ASSURANCE_SCOPES.filter(
+  (scope) => !DISABLED_ASSURANCE_SCOPES.includes(scope),
+);
+
+/* returns the offered scopes among the given ones, without repeats, in the order of ASSURANCE_SCOPE_OPTIONS */
 export function orderAssuranceScopes(scopes: readonly AssuranceSubtype[]): AssuranceSubtype[] {
   return ASSURANCE_SCOPE_OPTIONS.filter((scope) => scopes.includes(scope));
 }
@@ -19,10 +27,16 @@ export function getPrimaryAssuranceScope(scopes: readonly AssuranceSubtype[]): A
   return orderAssuranceScopes(scopes)[0] || 'Vessel';
 }
 
-/* every scope a set covers: its subtypes, or its single assuranceType for sets saved without them */
+/* every scope a saved set covers, including scopes no longer offered: its subtypes, or its single assuranceType for sets saved without them */
 export function getAssuranceSetScopes(set: Pick<AssuranceSet, 'assuranceType' | 'subtypes'>): AssuranceSubtype[] {
-  if (set.subtypes && set.subtypes.length > 0) return orderAssuranceScopes(set.subtypes);
+  const subtypes = set.subtypes || [];
+  if (subtypes.length > 0) return ALL_ASSURANCE_SCOPES.filter((scope) => subtypes.includes(scope));
   return [set.assuranceType || 'Vessel'];
+}
+
+/* true when a set is filed under a scope that is switched off */
+export function isAssuranceSetScopeDisabled(set: Pick<AssuranceSet, 'assuranceType'>): boolean {
+  return Boolean(set.assuranceType && DISABLED_ASSURANCE_SCOPES.includes(set.assuranceType));
 }
 
 export interface AssuranceWizardStep {

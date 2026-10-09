@@ -266,7 +266,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       charterWindowEnd: charterEndDraft,
     });
     setIsEditingCharterWindow(false);
-    setProjectToast('Charter period updated.');
+    setProjectToast('Contract Period updated.');
     setTimeout(() => setProjectToast(null), 3500);
   };
 
@@ -545,7 +545,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </div>
                   <div className="map-detail-row">
                     <div className="d-flex align-items-center justify-content-between">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Charter Period:</div>
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Contract Period:</div>
                       {canEditCharterWindow && (
                         <button
                           type="button"
