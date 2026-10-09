@@ -4,7 +4,7 @@
   role in system: sidebar navigation component embedded in app layout shell.
 */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, LogOut } from "lucide-react";
 import { useMapStore } from "../../store/useMapStore";
 import { UserRolePersona } from "../../types/audit";
@@ -19,6 +19,16 @@ import {
   MARKETPLACE_ROLES,
   isMarketplacePersona,
 } from "../../utils/rbacHelpers";
+import {
+  getOrganizationsFromUsers,
+  getPersonasForOrganization,
+  getUserInitials,
+  pickSessionUserForOrgPersona,
+} from "../../utils/demoSessionHelpers";
+import {
+  getDemoSessionContext,
+  getSessionUserForPersona,
+} from "../../utils/userRoleHelpers";
 
 interface NavItem {
   key: string;
@@ -40,6 +50,9 @@ export const AppSidebar: React.FC = () => {
   const {
     activePersona,
     setActivePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
+    setActiveDemoOrganization,
     currentHashView,
     setCurrentHashView,
     logout,
@@ -53,30 +66,34 @@ export const AppSidebar: React.FC = () => {
     new Set(["assets"]),
   );
 
-  /* lookup mock user details based on active persona */
-  const getUserInfo = (
-    role: UserRolePersona,
-  ): { name: string; initials: string } => {
-    switch (role) {
-      case "C Admin":
-        return { name: "S. Basin", initials: "SB" };
-      case "Submitter":
-        return { name: "M. Chen", initials: "MC" };
-      case "Verifier":
-        return { name: "A. Fontaine", initials: "AF" };
-      case "Inspector":
-        return { name: "N. Technical", initials: "NT" };
-      case "Approver":
-        return { name: "P. Nardelli", initials: "PN" };
-      case "Administrator":
-      default:
-        return { name: "K. Osei", initials: "KO" };
-    }
+  const demoSessionContext = useMemo(
+    () => getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+    [activeDemoOrganization, activeSessionUserId],
+  );
+
+  const demoOrganizations = useMemo(
+    () => getOrganizationsFromUsers(users),
+    [users],
+  );
+
+  const personasForOrganization = useMemo(
+    () => getPersonasForOrganization(users, activeDemoOrganization),
+    [users, activeDemoOrganization],
+  );
+
+  const sessionUser = useMemo(
+    () =>
+      getSessionUserForPersona(activePersona, users, demoSessionContext) ??
+      pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona),
+    [activePersona, users, demoSessionContext, activeDemoOrganization],
+  );
+
+  const userInfo = {
+    name: sessionUser?.name ?? activePersona,
+    initials: getUserInitials(sessionUser?.name ?? activePersona),
   };
 
-  const userInfo = getUserInfo(activePersona);
-  const matchingUser =
-    users.find((u) => u.roles.includes(activePersona)) ?? null;
+  const matchingUser = sessionUser;
 
   const navItems: NavItem[] = [
     {
@@ -483,8 +500,9 @@ export const AppSidebar: React.FC = () => {
         }}
       >
         <div className="mb-2">
-          <div
-            className="text-uppercase fw-bold mb-0.5"
+          <label
+            className="text-uppercase fw-bold mb-1 d-block"
+            htmlFor="demo-organization-select"
             style={{
               fontSize: "0.625rem",
               letterSpacing: "0.08em",
@@ -492,15 +510,24 @@ export const AppSidebar: React.FC = () => {
             }}
           >
             Organisation
-          </div>
-          <div
-            className="fw-bold text-white text-truncate"
-            style={{ fontSize: "0.85rem" }}
+          </label>
+          <select
+            id="demo-organization-select"
+            className="form-select form-select-sm bg-dark text-white border-secondary"
+            style={{ fontSize: "0.78rem" }}
+            value={activeDemoOrganization}
+            onChange={(event) => {
+              setActiveDemoOrganization(event.target.value);
+              setIsUserMenuOpen(false);
+            }}
+            onClick={(event) => event.stopPropagation()}
           >
-            {activePersona === "C Admin"
-              ? "Southern Basin Energy"
-              : "Northwind Marine Pty Ltd"}
-          </div>
+            {demoOrganizations.map((organization) => (
+              <option key={organization} value={organization}>
+                {organization}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div
@@ -561,49 +588,49 @@ export const AppSidebar: React.FC = () => {
                 color: "#64748b",
               }}
             >
-              Switch Role / Persona
+              Viewing as
             </div>
-            {([
-              { role: "Administrator" as UserRolePersona, name: "K. Osei" },
-              { role: "C Admin" as UserRolePersona, name: "S. Basin" },
-              { role: "Submitter" as UserRolePersona, name: "M. Chen" },
-              { role: "Verifier" as UserRolePersona, name: "A. Fontaine" },
-              { role: "Inspector" as UserRolePersona, name: "N. Technical" },
-              { role: "Approver" as UserRolePersona, name: "P. Nardelli" },
-            ]).map((p) => (
+            {personasForOrganization.map((role) => {
+              const personaUser = pickSessionUserForOrgPersona(
+                users,
+                activeDemoOrganization,
+                role,
+              );
+              return (
               <button
-                key={p.role}
+                key={role}
                 type="button"
                 className={`btn btn-sm text-start w-100 d-flex align-items-center justify-content-between py-1 px-2 mb-1 rounded border-0 ${
-                  activePersona === p.role
+                  activePersona === role
                     ? "text-white fw-semibold"
                     : "text-light"
                 }`}
                 style={{
                   fontSize: "0.75rem",
-                  backgroundColor: activePersona === p.role ? "#0284c7" : "transparent",
+                  backgroundColor: activePersona === role ? "#0284c7" : "transparent",
                 }}
                 onClick={() => {
-                  setActivePersona(p.role);
+                  setActivePersona(role);
                   setIsUserMenuOpen(false);
                 }}
               >
                 <div>
-                  <div className="fw-semibold">{p.name}</div>
+                  <div className="fw-semibold">{personaUser?.name ?? role}</div>
                   <div
                     style={{
                       fontSize: "0.65rem",
-                      color: activePersona === p.role ? "#e0f2fe" : "#94a3b8",
+                      color: activePersona === role ? "#e0f2fe" : "#94a3b8",
                     }}
                   >
-                    {p.role}
+                    {role}
                   </div>
                 </div>
-                {activePersona === p.role && (
+                {activePersona === role && (
                   <span style={{ fontSize: "0.65rem", color: "#ffffff" }}>Active</span>
                 )}
               </button>
-            ))}
+            );
+            })}
             <div
               className="border-top my-1"
               style={{ borderColor: "rgba(255, 255, 255, 0.08)" }}

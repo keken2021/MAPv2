@@ -91,6 +91,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     previousHashView,
     previousEntityId,
     activePersona,
+    activeDemoOrganization,
     users,
     assuranceSets,
     documents,
@@ -274,7 +275,10 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const showManagementSection = isCAdmin;
 
   const canCreateAssurance = isAdmin || isCAdmin;
-  const clientOrg = getClientAdminOrganization(users);
+  const clientOrg = getClientAdminOrganization(
+    users,
+    isCAdmin ? activeDemoOrganization : undefined,
+  );
   const canCreateAssuranceForThisVessel = Boolean(
     vessel &&
     canCreateAssurance &&

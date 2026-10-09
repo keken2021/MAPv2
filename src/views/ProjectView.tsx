@@ -14,15 +14,23 @@ import { useMapStore } from '../store/useMapStore';
 import { calculateProjectReadiness, countProjectAssets, filterProjectsForPersona } from '../utils/projectHelpers';
 
 export const ProjectView: React.FC = () => {
-  const { projects, assuranceSets, activePersona, users, setCurrentHashView } = useMapStore();
+  const { projects, assuranceSets, activePersona, activeDemoOrganization, users, setCurrentHashView } =
+    useMapStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   const visibleProjects = useMemo(
-    () => filterProjectsForPersona(projects, activePersona, users, assuranceSets),
-    [projects, activePersona, users, assuranceSets],
+    () =>
+      filterProjectsForPersona(
+        projects,
+        activePersona,
+        users,
+        assuranceSets,
+        activePersona === 'C Admin' ? activeDemoOrganization : undefined,
+      ),
+    [projects, activePersona, activeDemoOrganization, users, assuranceSets],
   );
 
   const projectTypes = useMemo(() => {

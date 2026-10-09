@@ -34,11 +34,20 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
   project,
   onSuccess,
 }) => {
-  const { users, activePersona, requestAssuranceSet } = useMapStore();
-  const senderOrg = getProjectOrganizationForPersona(activePersona, users);
+  const { users, activePersona, activeDemoOrganization, activeSessionUserId, requestAssuranceSet } =
+    useMapStore();
+  const senderOrg = getProjectOrganizationForPersona(
+    activePersona,
+    users,
+    activeDemoOrganization,
+  );
   const senderUser = useMemo(
-    () => getSessionUserForPersona(activePersona, users),
-    [users, activePersona],
+    () =>
+      getSessionUserForPersona(activePersona, users, {
+        organization: activeDemoOrganization,
+        sessionUserId: activeSessionUserId,
+      }),
+    [users, activePersona, activeDemoOrganization, activeSessionUserId],
   );
 
   const recipients = useMemo(

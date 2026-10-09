@@ -300,9 +300,11 @@ export function orgFieldMatches(org: string, fieldValue: string): boolean {
 */
 export function getClientAdminOrganization(
   users: Pick<import('../types/user').UserProfile, 'roles' | 'organization'>[],
+  preferredOrganization?: string,
 ): string {
+  if (preferredOrganization?.trim()) return preferredOrganization.trim();
   const cAdmin = users.find((user) => user.roles.includes('C Admin'));
-  return cAdmin?.organization || 'Southern Basin Energy';
+  return cAdmin?.organization || 'Southern Basin Energy Pty Ltd';
 }
 
 /**

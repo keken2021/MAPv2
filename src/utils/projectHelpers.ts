@@ -76,7 +76,9 @@ export function getProjectClientOrganization(project: Project): string {
 export function getProjectOrganizationForPersona(
   persona: UserRolePersona,
   users: Pick<UserProfile, 'roles' | 'organization'>[],
+  sessionOrganization?: string,
 ): string {
+  if (sessionOrganization?.trim()) return sessionOrganization.trim();
   if (persona === 'C Admin') {
     return getClientAdminOrganization(users);
   }
@@ -536,11 +538,12 @@ export function filterProjectsForPersona(
   persona: UserRolePersona,
   users: UserProfile[],
   assuranceSets: AssuranceSet[] = [],
+  sessionOrganization?: string,
 ): Project[] {
   if (persona === 'Administrator') return projects;
 
   if (persona === 'C Admin') {
-    const clientOrg = getClientAdminOrganization(users);
+    const clientOrg = getClientAdminOrganization(users, sessionOrganization);
     return projects.filter((p) => {
       if (projectOrgMatchesClient(p, clientOrg)) return true;
       if (assuranceSets.length === 0) return false;
@@ -618,8 +621,15 @@ export function getAssuranceWizardProjectOptions(
   persona: UserRolePersona,
   users: UserProfile[],
   assuranceSets: AssuranceSet[] = [],
+  sessionOrganization?: string,
 ): AssuranceProject[] {
-  const registryProjects = filterProjectsForPersona(projects, persona, users, assuranceSets).map(
+  const registryProjects = filterProjectsForPersona(
+    projects,
+    persona,
+    users,
+    assuranceSets,
+    sessionOrganization,
+  ).map(
     projectToAssuranceProjectScope,
   );
   const registryIds = new Set(registryProjects.map((project) => project.id));

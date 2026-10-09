@@ -34,9 +34,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     removeAssetFromProject,
     addAssetToProject,
     updateAssuranceSet,
+    activeDemoOrganization,
   } = useMapStore();
 
-  const [activeTab, setActiveTab] = useState<"roster" | "assurance">("assurance");
+  const [activeTab, setActiveTab] = useState<"roster" | "assurance">(
+    "assurance",
+  );
   const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
     "All",
   );
@@ -49,8 +52,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
   const visibleProjects = useMemo(
     () =>
-      filterProjectsForPersona(projects, activePersona, users, assuranceSets),
-    [projects, activePersona, users, assuranceSets],
+      filterProjectsForPersona(
+        projects,
+        activePersona,
+        users,
+        assuranceSets,
+        activePersona === "C Admin" ? activeDemoOrganization : undefined,
+      ),
+    [projects, activePersona, activeDemoOrganization, users, assuranceSets],
   );
 
   const project = visibleProjects.find((p) => p.id === projectId);
@@ -210,7 +219,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   onClick={openCreateAssuranceSet}
                 >
                   <FolderPlus size={15} />
-                  <span>Add Assurance Set</span>
+                  <span>Create Assurance Set</span>
                 </button>
                 <button
                   type="button"
@@ -284,7 +293,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                         <td className="font-mono-code fw-semibold text-primary">
                           {link.assetId}
                         </td>
-                        <td className="fw-semibold text-dark">{link.assetName}</td>
+                        <td className="fw-semibold text-dark">
+                          {link.assetName}
+                        </td>
                         <td>
                           <div className="d-flex align-items-center gap-1.5 flex-wrap">
                             <span className="badge bg-light text-dark border">
@@ -303,7 +314,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                             {link.assuranceSetId}
                           </div>
                           {activeSet && (
-                            <div className="text-muted small">{activeSet.title}</div>
+                            <div className="text-muted small">
+                              {activeSet.title}
+                            </div>
                           )}
                         </td>
                         <td className="text-end">
@@ -384,7 +397,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                           <span className="badge bg-secondary">{s.stage}</span>
                         </td>
                         <td>
-                          <ReadinessGauge score={calculateAssuranceSetReadiness(s, assuranceSets)} size="sm" />
+                          <ReadinessGauge
+                            score={calculateAssuranceSetReadiness(
+                              s,
+                              assuranceSets,
+                            )}
+                            size="sm"
+                          />
                         </td>
                         <td className="text-end">
                           {openable ? (

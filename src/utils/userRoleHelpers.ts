@@ -8,6 +8,7 @@ import { UserRolePersona } from '../types/audit';
 import { RoleName } from '../types/permissions';
 import { UserProfile } from '../types/user';
 import { MOCK_PERSONA_SESSION_USER_IDS } from '../store/mockData';
+import { pickSessionUserForOrgPersona } from './demoSessionHelpers';
 
 export const OPERATIONAL_ROLE_OPTIONS: { role: UserRolePersona; label: string }[] = [
   { role: 'Submitter', label: 'Submitter' },
@@ -62,10 +63,45 @@ export function userHasRole(
   how: looks up the persona in MOCK_PERSONA_SESSION_USER_IDS, then falls back to the first active user holding the role.
   with what file: src/utils/userRoleHelpers.ts used by NotificationPanel.tsx, NotificationsView.tsx, RequestAssuranceSetModal.tsx, CreateAssuranceSetView.tsx and App.tsx.
 */
+export interface DemoSessionContext {
+  organization?: string;
+  sessionUserId?: string;
+}
+
+export function getDemoSessionContext(state: {
+  activeDemoOrganization: string;
+  activeSessionUserId?: string;
+}): DemoSessionContext {
+  return {
+    organization: state.activeDemoOrganization,
+    sessionUserId: state.activeSessionUserId,
+  };
+}
+
 export function getSessionUserForPersona(
   persona: UserRolePersona,
   users: UserProfile[],
+  demoContext?: DemoSessionContext,
 ): UserProfile | undefined {
+  if (demoContext?.sessionUserId) {
+    const byId = users.find(
+      (user) =>
+        user.id === demoContext.sessionUserId &&
+        user.status === 'Active' &&
+        user.roles.includes(persona),
+    );
+    if (byId) return byId;
+  }
+
+  if (demoContext?.organization?.trim()) {
+    const orgUser = pickSessionUserForOrgPersona(
+      users,
+      demoContext.organization.trim(),
+      persona,
+    );
+    if (orgUser) return orgUser;
+  }
+
   const mappedId = MOCK_PERSONA_SESSION_USER_IDS[persona];
   return (
     users.find((u) => u.id === mappedId && u.roles.includes(persona)) ||

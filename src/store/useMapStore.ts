@@ -62,9 +62,16 @@ import {
 } from "../utils/permissionDefaults";
 import { applyPermissionGuards } from "../utils/permissionHelpers";
 import {
+  getDemoSessionContext,
   getSessionUserForPersona,
   validateStakeholderAssignmentForSet,
 } from "../utils/userRoleHelpers";
+import {
+  DEFAULT_DEMO_ORGANIZATION,
+  getPersonasForOrganization,
+  pickSessionUserForOrgPersona,
+  resolveDefaultPersonaForOrganization,
+} from "../utils/demoSessionHelpers";
 import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import {
   Project,
@@ -111,6 +118,11 @@ export interface MapStoreState {
   // Persona & RBAC State
   activePersona: UserRolePersona;
   setActivePersona: (persona: UserRolePersona) => void;
+  /** mock demo tenant selected in the sidebar */
+  activeDemoOrganization: string;
+  /** mock user id for the active org + persona session */
+  activeSessionUserId?: string;
+  setActiveDemoOrganization: (organization: string) => void;
 
   // Hash Navigation State
   currentHashView: string;
@@ -414,7 +426,11 @@ function notifyAssuranceSetUser(
   const recipient = resolveNotificationRecipient(recipientLabel, state.users);
   if (!recipient) return;
 
-  const sender = getSessionUserForPersona(state.activePersona, state.users);
+  const sender = getSessionUserForPersona(
+    state.activePersona,
+    state.users,
+    getDemoSessionContext(state),
+  );
   const project = getProjectForAssuranceSet(assuranceSet, state.projects);
   state.pushNotification({
     vesselName: assuranceSet.vesselName || undefined,
@@ -459,11 +475,13 @@ function notifyAssignedStakeholders(
 export const useMapStore = create<MapStoreState>((set, get) => ({
   isAuthenticated: false,
   login: (role) => {
+    const users = get().users;
+    const sessionUser = getSessionUserForPersona(role, users);
+    const organization = sessionUser?.organization ?? DEFAULT_DEMO_ORGANIZATION;
     get().logAuditEvent({
-      userId: "USR-LOGIN",
+      userId: sessionUser?.id ?? "USR-LOGIN",
       userRole: role,
-      organization:
-        role === "C Admin" ? "Southern Basin Energy" : "Northwind Marine",
+      organization,
       action: "Authenticated User Session",
       targetAsset: "Authentication Gateway",
       justificationNotes: `Logged in as ${role}`,
@@ -478,6 +496,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     set({
       isAuthenticated: true,
       activePersona: role,
+      activeDemoOrganization: organization,
+      activeSessionUserId: sessionUser?.id,
       currentHashView: targetView,
     });
   },
@@ -495,12 +515,51 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   activePersona: "Administrator",
-  setActivePersona: (persona) => {
+  activeDemoOrganization: DEFAULT_DEMO_ORGANIZATION,
+  activeSessionUserId: "USR-101",
+  setActiveDemoOrganization: (organization) => {
+    const users = get().users;
+    const personas = getPersonasForOrganization(users, organization);
+    if (personas.length === 0) return;
+
+    const nextPersona =
+      resolveDefaultPersonaForOrganization(users, organization, get().activePersona) ??
+      personas[0];
+    const sessionUser = pickSessionUserForOrgPersona(users, organization, nextPersona);
+
     get().logAuditEvent({
-      userId: "USR-PERSONA-SWITCH",
+      userId: sessionUser?.id ?? "USR-PERSONA-SWITCH",
+      userRole: nextPersona,
+      organization,
+      action: "Switched Demo Organization",
+      targetAsset: "Global System Context",
+      justificationNotes: `Demo organization set to ${organization}`,
+    });
+
+    const currentView = get().currentHashView;
+    const currentId = get().currentEntityId;
+    if (!isViewAccessibleToPersona(currentView, currentId, nextPersona)) {
+      get().setCurrentHashView("dashboard");
+    }
+
+    set({
+      activeDemoOrganization: organization,
+      activePersona: nextPersona,
+      activeSessionUserId: sessionUser?.id,
+    });
+  },
+  setActivePersona: (persona) => {
+    const organization = get().activeDemoOrganization;
+    const users = get().users;
+    const personas = getPersonasForOrganization(users, organization);
+    if (!personas.includes(persona)) return;
+
+    const sessionUser = pickSessionUserForOrgPersona(users, organization, persona);
+
+    get().logAuditEvent({
+      userId: sessionUser?.id ?? "USR-PERSONA-SWITCH",
       userRole: persona,
-      organization:
-        persona === "C Admin" ? "Southern Basin Energy" : "Northwind Marine",
+      organization,
       action: "Switched Active User Persona",
       targetAsset: "Global System Context",
       justificationNotes: `Persona set to ${persona}`,
@@ -514,7 +573,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       get().setCurrentHashView("dashboard");
     }
 
-    set({ activePersona: persona });
+    set({ activePersona: persona, activeSessionUserId: sessionUser?.id });
   },
 
   currentHashView: "login",

@@ -56,6 +56,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     projects,
     attachAssuranceSetToProject,
     setCurrentHashView,
+    activeDemoOrganization,
   } = useMapStore();
   const [stakeholderError, setStakeholderError] = useState<string | null>(null);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
@@ -221,7 +222,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const linkedProject = getProjectForAssuranceSet(assuranceSet, projects);
   const canAddToProject = roleActions.canManage && isAssuranceSetOrphaned(assuranceSet, projects);
   const attachableProjects = canAddToProject
-    ? filterProjectsForPersona(projects, activePersona, users, assuranceSets)
+    ? filterProjectsForPersona(
+        projects,
+        activePersona,
+        users,
+        assuranceSets,
+        activePersona === 'C Admin' ? activeDemoOrganization : undefined,
+      )
     : [];
   const creator = getAssuranceSetCreator(assuranceSet, users);
 

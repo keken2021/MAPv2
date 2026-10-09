@@ -507,7 +507,11 @@ describe('store: workflow notifications', () => {
       .find(({ set, docId }) => docId && resolveNotificationRecipient(set.assignedSubmitter, users));
     expect(linked).toBeDefined();
 
-    useMapStore.setState({ activePersona: 'Verifier' });
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     useMapStore.getState().verifyDocument(linked!.docId!, 'Correction Requested', 'Expiry falls inside the charter window.');
 
     const submitter = resolveNotificationRecipient(linked!.set.assignedSubmitter, users)!;

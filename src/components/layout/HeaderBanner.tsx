@@ -4,10 +4,10 @@
   role in system: top layout header loaded at the root of the app shell.
 */
 
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { useMapStore } from '../../store/useMapStore';
-import { UserRolePersona } from '../../types/audit';
 import { getBackButtonInfo } from '../../utils/rbacHelpers';
+import { getPersonaOptionsForOrganization } from '../../utils/demoSessionHelpers';
 import { NotificationPanel } from './NotificationPanel';
 
 /**
@@ -19,6 +19,8 @@ export const HeaderBanner: React.FC = () => {
   const {
     activePersona,
     setActivePersona,
+    activeDemoOrganization,
+    users,
     currentHashView,
     previousHashView,
     previousEntityId,
@@ -70,14 +72,10 @@ export const HeaderBanner: React.FC = () => {
     (currentHashView === 'project' && currentEntityId === 'new');
   const headerBackInfo = getHeaderBackInfo();
 
-  const rolesList: { role: UserRolePersona; label: string }[] = [
-    { role: 'Administrator', label: 'Vessel Admin' },
-    { role: 'C Admin', label: 'Client Admin' },
-    { role: 'Submitter', label: 'Submitter' },
-    { role: 'Verifier', label: 'Verifier' },
-    { role: 'Inspector', label: 'Vessel Inspector' },
-    { role: 'Approver', label: 'Approver' },
-  ];
+  const rolesList = useMemo(
+    () => getPersonaOptionsForOrganization(users, activeDemoOrganization),
+    [users, activeDemoOrganization],
+  );
 
   /* compute active page title and breadcrumb text based on current view */
   const getHeaderTitleDetails = (): { breadcrumb: string; title: string } => {

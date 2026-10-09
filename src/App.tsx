@@ -38,7 +38,7 @@ import './App.css';
 
 import { isViewAccessibleToPersona } from './utils/rbacHelpers';
 import { canOpenAssuranceRequestWizard } from './utils/notificationHelpers';
-import { getSessionUserForPersona } from './utils/userRoleHelpers';
+import { getDemoSessionContext, getSessionUserForPersona } from './utils/userRoleHelpers';
 import { ENABLE_ROLES_AND_PERMISSIONS } from './config/featureFlags';
 
 /* route-level view loaded on demand */
@@ -56,6 +56,8 @@ export const App: React.FC = () => {
     setCurrentHashView,
     isAuthenticated,
     activePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
     rolePermissionDefaults,
     userPermissionOverrides,
     users,
@@ -94,8 +96,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
 
+    const demoContext = getDemoSessionContext({
+      activeDemoOrganization,
+      activeSessionUserId,
+    });
     const matchingUser =
-      users.find((u) => u.roles.includes(activePersona)) ?? null;
+      getSessionUserForPersona(activePersona, users, demoContext) ??
+      users.find((u) => u.roles.includes(activePersona)) ??
+      null;
 
     /* roles-permissions is persona-gated (Administrator settings); skip matrix revoke on blank role_rights */
     const allowedByRole =
@@ -115,7 +123,7 @@ export const App: React.FC = () => {
       currentHashView === 'create-assurance-set' &&
       canOpenAssuranceRequestWizard(
         notifications.find((n) => n.id === pendingAssuranceRequestNotificationId),
-        getSessionUserForPersona(activePersona, users),
+        getSessionUserForPersona(activePersona, users, demoContext),
       );
 
     const allowed = allowedByRole || allowedByRequest;
@@ -125,6 +133,8 @@ export const App: React.FC = () => {
     }
   }, [
     activePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
     currentHashView,
     currentEntityId,
     isAuthenticated,

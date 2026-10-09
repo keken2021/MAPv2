@@ -43,6 +43,7 @@ export const MarketplaceView: React.FC = () => {
     assuranceSets,
     documents,
     activePersona,
+    activeDemoOrganization,
     users,
     setCurrentHashView,
     setCreateAssuranceForVesselId,
@@ -79,7 +80,11 @@ export const MarketplaceView: React.FC = () => {
       const vessel = vessels.filter((v) => v.id === charterTarget.assetId);
       const available =
         activePersona === 'C Admin'
-          ? filterCAdminAvailableToCharter(vessel, assuranceSets, getClientAdminOrganization(users))
+          ? filterCAdminAvailableToCharter(
+              vessel,
+              assuranceSets,
+              getClientAdminOrganization(users, activeDemoOrganization),
+            )
           : filterVesselAdminAvailableToCharter(vessel);
       if (available.length === 0) {
         return 'This vessel is not available to charter.';

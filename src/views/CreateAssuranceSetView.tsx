@@ -93,15 +93,22 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     users,
     notifications,
     pendingAssuranceRequestNotificationId,
+    activeDemoOrganization,
   } = useMapStore();
+
+  const clientOrgHint = activePersona === 'C Admin' ? activeDemoOrganization : undefined;
 
   /* projects the active persona can see, offered as an optional link for any scope */
   const availableProjectOptions = useMemo(
     () =>
-      filterProjectsForPersona(projects, activePersona, users, assuranceSets).map(
-        projectToAssuranceProjectScope,
-      ),
-    [projects, activePersona, users, assuranceSets],
+      filterProjectsForPersona(
+        projects,
+        activePersona,
+        users,
+        assuranceSets,
+        clientOrgHint,
+      ).map(projectToAssuranceProjectScope),
+    [projects, activePersona, users, assuranceSets, clientOrgHint],
   );
 
   /* project the wizard was opened from; captured once so the store value can be cleared */
@@ -171,7 +178,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const creatorName =
     requestContext?.assigneeName || users.find((u) => u.roles.includes(activePersona))?.name;
   const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
-  const clientOrg = getClientAdminOrganization(users);
+  const clientOrg = getClientAdminOrganization(users, clientOrgHint);
 
   const availableVessels = isClientAdmin
     ? filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg)

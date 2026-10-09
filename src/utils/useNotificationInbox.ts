@@ -16,7 +16,7 @@ import {
   getNotificationAction,
 } from './notificationHelpers';
 import { isViewAccessibleToPersona } from './rbacHelpers';
-import { getSessionUserForPersona } from './userRoleHelpers';
+import { getDemoSessionContext, getSessionUserForPersona } from './userRoleHelpers';
 
 export interface NotificationInbox {
   sessionUser?: UserProfile;
@@ -37,6 +37,8 @@ export function useNotificationInbox(): NotificationInbox {
     notifications,
     users,
     activePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
     assuranceSets,
     documents,
     capaItems,
@@ -52,8 +54,13 @@ export function useNotificationInbox(): NotificationInbox {
   } = useMapStore();
 
   const sessionUser = useMemo(
-    () => getSessionUserForPersona(activePersona, users),
-    [activePersona, users],
+    () =>
+      getSessionUserForPersona(
+        activePersona,
+        users,
+        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+      ),
+    [activePersona, activeDemoOrganization, activeSessionUserId, users],
   );
 
   const inbox = useMemo(

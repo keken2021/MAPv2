@@ -151,11 +151,20 @@ describe('approver action buttons and sidebar navigation suite', () => {
     how: cycles through each persona and verifies activePersona is set and accessible routes are maintained.
     with what file: src/__tests__/approverAndSidebar.test.ts testing useMapStore.ts.
   */
-  it('switches between all personas seamlessly without errors', () => {
-    const roles = ['Administrator', 'Verifier', 'Inspector', 'Approver', 'Submitter', 'C Admin'] as const;
-    roles.forEach((role) => {
+  it('switches between demo org and persona pairs without errors', () => {
+    const scenarios = [
+      { org: 'Northwind Marine Pty Ltd', role: 'Administrator' as const },
+      { org: 'Northwind Marine Pty Ltd', role: 'Submitter' as const },
+      { org: 'Bureau Veritas Inspectorate', role: 'Verifier' as const },
+      { org: 'Meridian Marine Surveyors', role: 'Inspector' as const },
+      { org: 'Marine Assurance Authority', role: 'Approver' as const },
+      { org: 'Chevron Australia Pty Ltd', role: 'C Admin' as const },
+    ];
+    scenarios.forEach(({ org, role }) => {
+      useMapStore.getState().setActiveDemoOrganization(org);
       useMapStore.getState().setActivePersona(role);
       expect(useMapStore.getState().activePersona).toBe(role);
+      expect(useMapStore.getState().activeDemoOrganization).toBe(org);
     });
   });
 });

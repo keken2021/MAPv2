@@ -21,7 +21,16 @@ import { calculateProjectReadiness, filterProjectsForPersona } from '../utils/pr
   with what file: src/views/DashboardView.tsx loaded by App.tsx.
 */
 export const DashboardView: React.FC = () => {
-  const { vessels, assuranceSets, documents, projects, users, activePersona, setCurrentHashView } = useMapStore();
+  const {
+    vessels,
+    assuranceSets,
+    documents,
+    projects,
+    users,
+    activePersona,
+    activeDemoOrganization,
+    setCurrentHashView,
+  } = useMapStore();
   const [cAdminSearchTerm, setCAdminSearchTerm] = useState('');
   const [cAdminProjectSearchTerm, setCAdminProjectSearchTerm] = useState('');
   const [cAdminSortField, setCAdminSortField] = useState<'id' | 'title' | 'vesselName' | 'charterWindowStart' | 'stage' | 'readinessScore'>('id');
@@ -40,8 +49,15 @@ export const DashboardView: React.FC = () => {
   const [reviewDrawerDoc, setReviewDrawerDoc] = useState<{ doc: MasterDocument; notes?: string } | null>(null);
 
   const cAdminProjects = useMemo(
-    () => filterProjectsForPersona(projects, 'C Admin', users, assuranceSets),
-    [projects, users, assuranceSets],
+    () =>
+      filterProjectsForPersona(
+        projects,
+        'C Admin',
+        users,
+        assuranceSets,
+        activeDemoOrganization,
+      ),
+    [projects, users, assuranceSets, activeDemoOrganization],
   );
 
   if (activePersona === 'Verifier') {
