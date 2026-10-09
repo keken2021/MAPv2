@@ -1043,52 +1043,105 @@ div.map-autofill-animate {
   font-weight: 500;
 }
 
-.map-notif-expand {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
+/* subject opens the detail modal: a button that reads as the cell text */
+.map-notif-subject-link {
+  display: block;
   padding: 0;
   border: 0;
-  border-radius: 6px;
   background: transparent;
-  color: #64748b;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: background-color 0.15s ease;
 }
 
-.map-notif-expand[aria-expanded='true'] {
-  color: #0b1b2b;
+.map-notif-row {
+  cursor: pointer;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .map-notif-expand:hover {
-    background-color: #f1f5f9;
+  .map-notif-subject-link:hover {
+    text-decoration: underline;
   }
 }
 
 .map-notif-bell:focus-visible,
 .map-notif-sort:focus-visible,
-.map-notif-expand:focus-visible {
+.map-notif-subject-link:focus-visible {
   outline: 2px solid var(--map-focus-ring);
   outline-offset: var(--map-focus-ring-offset);
 }
 
-.map-table-custom tr.map-notif-row-expanded td {
-  border-bottom-color: transparent !important;
+/* notification detail modal */
+.map-notif-modal-dialog {
+  max-width: min(560px, calc(100vw - 32px));
+  margin-inline: auto;
 }
 
-.map-table-custom tr.map-notif-detail-row td,
-.map-table-custom tr.map-notif-detail-row:hover td {
-  background-color: #f8fafc !important;
-  padding-top: 0.5rem !important;
+.map-notif-modal {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(11, 27, 43, 0.05);
+}
+
+.map-notif-modal .modal-header,
+.map-notif-modal .modal-footer {
+  padding: 16px 24px;
+  border-color: #e2e8f0;
+}
+
+.map-notif-modal-title {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: #0b1b2b;
+  text-wrap: balance;
+}
+
+.map-notif-modal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: 12px;
+  line-height: 16px;
+  color: #64748b;
+}
+
+.map-notif-modal-body {
+  padding: 24px;
+}
+
+.map-notif-modal-message {
+  margin: 0 0 24px;
+  font-size: 14px;
+  line-height: 20px;
+  color: #334155;
+}
+
+.map-notif-modal-group + .map-notif-modal-group {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.map-notif-modal-group-title {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  color: #0b1b2b;
 }
 
 .map-notif-detail {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px 24px;
+}
+
+@media (max-width: 575px) {
+  .map-notif-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .map-notif-detail dt {
@@ -1106,6 +1159,12 @@ div.map-autofill-animate {
   overflow-wrap: anywhere;
 }
 
+.map-notif-detail-note {
+  font-size: 12px;
+  line-height: 16px;
+  color: #64748b;
+}
+
 /* placeholder shown while a lazily loaded view is fetched; holds the table card footprint */
 .map-view-skeleton {
   min-height: 420px;
@@ -1114,8 +1173,3 @@ div.map-autofill-animate {
   border-radius: 8px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .map-notif-expand {
-    transition: none;
-  }
-}

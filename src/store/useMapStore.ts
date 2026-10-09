@@ -634,7 +634,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const notificationId = get().pushNotification({
       type: "assurance_set_request",
-      subject: "Assurance set requested",
+      subject: "Assurance set creation requested",
       message: input.message?.trim() || undefined,
       recipientUserId: assignee.id,
       senderUserId: input.senderUserId,

@@ -80,7 +80,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
   {
     id: 'MAP-NTF-2026-ASRQ-00001',
     type: 'assurance_set_request',
-    subject: 'Assurance set requested',
+    subject: 'Assurance set creation requested',
     message: 'Escort vessel still needs a vetting set before the transit window opens.',
     recipientUserId: 'USR-101',
     senderUserId: 'USR-104',
@@ -203,7 +203,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
   {
     id: 'MAP-NTF-2026-ASRQ-00009',
     type: 'assurance_set_request',
-    subject: 'Assurance set requested',
+    subject: 'Assurance set creation requested',
     message: 'Create the vessel set for the hull cleaning contractor engagement.',
     recipientUserId: 'USR-102',
     senderUserId: 'USR-101',

@@ -1,11 +1,11 @@
 /*
   file summary: notifications page listing every notification addressed to the signed-in user.
-  responsibilities: tabs for all, unread and actioned, project or sender search, category filter, mark all read, expandable row detail, and a row action that opens the assigned record or task.
+  responsibilities: tabs for all, unread and actioned, project or sender search, category filter, mark all read, a detail modal per row, and a row action that opens the assigned record or task.
   role in system: main view for the #/notifications route, loaded lazily by App.tsx.
 */
 
-import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CheckCheck, ChevronDown, ChevronRight, Inbox } from 'lucide-react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, CheckCheck, Inbox } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import {
   NOTIFICATION_CATEGORIES,
@@ -16,34 +16,31 @@ import { AppNotification, NotificationCategory, NotificationTab } from '../types
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { NotificationDetailModal } from '../components/drawers/NotificationDetailModal';
 import { formatMaritimeDateTime } from '../utils/formatters';
 import {
   filterNotificationsByTab,
   getNotificationCategory,
   matchesNotificationSearch,
-  resolveAssuranceRequestContext,
 } from '../utils/notificationHelpers';
-import { getProjectClientOrganization } from '../utils/projectHelpers';
-import { formatUserRoles } from '../utils/userRoleHelpers';
 import { useNotificationInbox } from '../utils/useNotificationInbox';
 
-const COLUMN_COUNT = 7;
+const COLUMN_COUNT = 6;
 
 /**
   what: renders the notifications page; takes no props.
-  how: reads the session user's inbox from useNotificationInbox, applies tab, search, category and time sort in memory, and delegates the row action to the hook.
-  with what file: src/views/NotificationsView.tsx loaded by App.tsx; uses useNotificationInbox.ts, notificationHelpers.ts and notificationMockData.ts.
+  how: reads the session user's inbox from useNotificationInbox, applies tab, search, category and time sort in memory, opens NotificationDetailModal for the selected row, and delegates the row action to the hook.
+  with what file: src/views/NotificationsView.tsx loaded by App.tsx; uses useNotificationInbox.ts, notificationHelpers.ts, notificationMockData.ts and NotificationDetailModal.tsx.
 */
 export const NotificationsView: React.FC = () => {
-  const { projects, users, assuranceSets, documents, markAllNotificationsRead, markNotificationRead } =
-    useMapStore();
+  const { markAllNotificationsRead, markNotificationRead } = useMapStore();
   const { sessionUser, inbox, unreadCount, getAction, runAction } = useNotificationInbox();
 
   const [activeTab, setActiveTab] = useState<NotificationTab>('all');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | NotificationCategory>('ALL');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<string | null>(null);
 
@@ -85,99 +82,25 @@ export const NotificationsView: React.FC = () => {
     setTimeout(() => setConfirmation(null), 3500);
   };
 
-  const handleToggleExpand = (notification: AppNotification) => {
-    const isOpening = expandedId !== notification.id;
-    setExpandedId(isOpening ? notification.id : null);
-    /* reading the detail counts as reading the notification */
-    if (isOpening) markNotificationRead(notification.id);
+  /* looked up live so the modal reflects status changes made while it is open */
+  const selectedNotification = selectedId ? inbox.find((n) => n.id === selectedId) || null : null;
+
+  const handleOpenDetail = (notification: AppNotification) => {
+    setSelectedId(notification.id);
+    /* opening the detail counts as reading the notification */
+    markNotificationRead(notification.id);
+  };
+
+  const handleCloseDetail = useCallback(() => setSelectedId(null), []);
+
+  const handleRunFromDetail = (notification: AppNotification) => {
+    setSelectedId(null);
+    runAction(notification);
   };
 
   const handleClearRefinement = () => {
     setSearch('');
     setCategoryFilter('ALL');
-  };
-
-  /* detail fields of one notification: the project, and the record or user it concerns */
-  const renderDetail = (notification: AppNotification, disabledReason?: string) => {
-    const project = projects.find((p) => p.id === notification.projectId);
-    const request = resolveAssuranceRequestContext(notification, projects, users);
-    const assignee =
-      request?.assignee || users.find((u) => u.id === notification.request?.assigneeUserId);
-    const set = assuranceSets.find((s) => s.id === notification.assuranceSetId);
-    const doc = documents.find((d) => d.id === notification.documentId);
-
-    const fields: { label: string; value: React.ReactNode }[] = [];
-    if (notification.message) fields.push({ label: 'Message', value: notification.message });
-    if (project) {
-      fields.push({ label: 'Project ID', value: <span className="font-mono-code">{project.id}</span> });
-      fields.push({ label: 'Client', value: getProjectClientOrganization(project) });
-      fields.push({
-        label: 'Project Window',
-        value: (
-          <span className="font-mono-code">
-            {project.charterWindowStart} to {project.charterWindowEnd}
-          </span>
-        ),
-      });
-      fields.push({ label: 'Project Type', value: project.projectType });
-    }
-    if (notification.request) {
-      fields.push({
-        label: 'To Be Created By',
-        value: assignee
-          ? `${assignee.name}, ${assignee.organization} (${formatUserRoles(assignee.roles)})`
-          : notification.request.assigneeName,
-      });
-      if (notification.request.suggestedScope) {
-        fields.push({ label: 'Suggested Scope', value: notification.request.suggestedScope });
-      }
-      if (notification.request.createdAssuranceSetId) {
-        fields.push({
-          label: 'Created Set',
-          value: <span className="font-mono-code">{notification.request.createdAssuranceSetId}</span>,
-        });
-      }
-    }
-    if (set) {
-      fields.push({
-        label: 'Assurance Set',
-        value: (
-          <>
-            {set.title} <span className="font-mono-code text-muted">({set.id})</span>
-          </>
-        ),
-      });
-    }
-    if (doc) {
-      fields.push({
-        label: 'Document',
-        value: (
-          <>
-            {doc.title} <span className="font-mono-code text-muted">({doc.id})</span>
-          </>
-        ),
-      });
-    }
-    if (notification.capaId) {
-      fields.push({ label: 'CAPA', value: <span className="font-mono-code">{notification.capaId}</span> });
-    }
-    if (notification.vesselName) fields.push({ label: 'Vessel', value: notification.vesselName });
-    fields.push({
-      label: 'Notification ID',
-      value: <span className="font-mono-code">{notification.id}</span>,
-    });
-    if (disabledReason) fields.push({ label: 'Action Unavailable', value: disabledReason });
-
-    return (
-      <dl className="map-notif-detail mb-0">
-        {fields.map((field) => (
-          <div key={field.label}>
-            <dt>{field.label}</dt>
-            <dd>{field.value}</dd>
-          </div>
-        ))}
-      </dl>
-    );
   };
 
   if (!sessionUser) {
@@ -210,7 +133,7 @@ export const NotificationsView: React.FC = () => {
               style={{ fontSize: '0.8rem' }}
               onClick={() => {
                 setActiveTab(tab.key);
-                setExpandedId(null);
+                setSelectedId(null);
               }}
             >
               {tab.label} ({tabCounts[tab.key]})
@@ -259,9 +182,6 @@ export const NotificationsView: React.FC = () => {
           <table className="table map-table-custom align-middle mb-0">
             <thead>
               <tr>
-                <th style={{ width: '48px' }}>
-                  <span className="visually-hidden">Details</span>
-                </th>
                 <th>Subject</th>
                 <th>Project</th>
                 <th>Sender</th>
@@ -306,68 +226,62 @@ export const NotificationsView: React.FC = () => {
                   const action = getAction(n);
                   const statusMeta = NOTIFICATION_STATUS_META[n.status];
                   const isUnread = n.status === 'unread';
-                  const isExpanded = expandedId === n.id;
-                  const detailId = `notification-detail-${n.id}`;
                   return (
-                    <React.Fragment key={n.id}>
-                      <tr className={isExpanded ? 'map-notif-row-expanded' : undefined}>
-                        <td>
-                          <button
-                            type="button"
-                            className="map-notif-expand"
-                            onClick={() => handleToggleExpand(n)}
-                            aria-expanded={isExpanded}
-                            aria-controls={detailId}
-                            aria-label={`${isExpanded ? 'Hide' : 'Show'} details for ${n.subject}`}
-                          >
-                            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-                          </button>
-                        </td>
-                        <td>
-                          <div className={`text-dark ${isUnread ? 'fw-semibold' : ''}`}>{n.subject}</div>
-                          <div className="small text-muted">{getNotificationCategory(n)}</div>
-                        </td>
-                        <td>
-                          {n.projectName ? (
-                            <>
-                              <div className="text-dark">{n.projectName}</div>
-                              <div className="font-mono-code small text-muted text-nowrap">{n.projectId}</div>
-                            </>
-                          ) : (
-                            <span className="text-muted">No project</span>
-                          )}
-                        </td>
-                        <td className="text-nowrap">{n.senderName}</td>
-                        <td className="font-mono-code small text-nowrap map-notif-numeric">
-                          {formatMaritimeDateTime(n.createdAt)}
-                        </td>
-                        <td>
-                          <span
-                            className="badge rounded-pill map-notif-status"
-                            style={{ backgroundColor: statusMeta.background, color: statusMeta.text }}
-                          >
-                            {statusMeta.label}
-                          </span>
-                        </td>
-                        <td className="text-end">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary text-nowrap"
-                            onClick={() => runAction(n)}
-                            disabled={Boolean(action.disabledReason)}
-                            title={action.disabledReason}
-                          >
-                            {action.label}
-                          </button>
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr id={detailId} className="map-notif-detail-row">
-                          <td />
-                          <td colSpan={COLUMN_COUNT - 1}>{renderDetail(n, action.disabledReason)}</td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                    <tr
+                      key={n.id}
+                      className="map-notif-row"
+                      onClick={() => handleOpenDetail(n)}
+                    >
+                      <td>
+                        <button
+                          type="button"
+                          className={`map-notif-subject-link text-dark ${isUnread ? 'fw-semibold' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDetail(n);
+                          }}
+                          aria-haspopup="dialog"
+                        >
+                          {n.subject}
+                        </button>
+                      </td>
+                      <td>
+                        {n.projectName ? (
+                          <>
+                            <div className="text-dark">{n.projectName}</div>
+                            <div className="font-mono-code small text-muted text-nowrap">{n.projectId}</div>
+                          </>
+                        ) : (
+                          <span className="text-muted">No project</span>
+                        )}
+                      </td>
+                      <td className="text-nowrap">{n.senderName}</td>
+                      <td className="font-mono-code small text-nowrap map-notif-numeric">
+                        {formatMaritimeDateTime(n.createdAt)}
+                      </td>
+                      <td>
+                        <span
+                          className="badge rounded-pill map-notif-status"
+                          style={{ backgroundColor: statusMeta.background, color: statusMeta.text }}
+                        >
+                          {statusMeta.label}
+                        </span>
+                      </td>
+                      <td className="text-end">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary text-nowrap"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            runAction(n);
+                          }}
+                          disabled={Boolean(action.disabledReason)}
+                          title={action.disabledReason}
+                        >
+                          {action.label}
+                        </button>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -375,6 +289,13 @@ export const NotificationsView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      <NotificationDetailModal
+        notification={selectedNotification}
+        action={selectedNotification ? getAction(selectedNotification) : null}
+        onClose={handleCloseDetail}
+        onRunAction={handleRunFromDetail}
+      />
 
       <FilterModal
         isOpen={isFilterModalOpen}

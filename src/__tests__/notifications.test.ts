@@ -90,7 +90,7 @@ describe('inbox filters', () => {
     expect(matchesNotificationSearch(request, 'MARINE-007')).toBe(true);
     expect(matchesNotificationSearch(request, 'rostova')).toBe(true);
     expect(matchesNotificationSearch(request, '  ')).toBe(true);
-    expect(matchesNotificationSearch(request, 'assurance set requested')).toBe(false);
+    expect(matchesNotificationSearch(request, 'assurance set creation requested')).toBe(false);
   });
 
   it('generates the next id in sequence for the type category', () => {
