@@ -11,9 +11,10 @@ import { AssuranceSet, AssuranceStage, AssuranceRequirement } from '../types/ass
 import { MasterDocument } from '../types/document';
 import { isAssuranceSetAssignedToPersona, filterVesselsForPersona } from '../utils/rbacHelpers';
 import { calculateAssuranceSetReadiness, calculateVesselReadiness } from '../utils/readinessHelpers';
+import { getAssuranceSetScopes } from '../utils/assuranceTemplates';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
-import { calculateProjectReadiness, filterProjectsForPersona } from '../utils/projectHelpers';
+import { filterProjectsForPersona } from '../utils/projectHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -35,9 +36,9 @@ export const DashboardView: React.FC = () => {
   } = useMapStore();
   const [cAdminSearchTerm, setCAdminSearchTerm] = useState('');
   const [cAdminProjectSearchTerm, setCAdminProjectSearchTerm] = useState('');
-  const [cAdminSortField, setCAdminSortField] = useState<'id' | 'title' | 'vesselName' | 'charterWindowStart' | 'stage' | 'readinessScore'>('id');
+  const [cAdminSortField, setCAdminSortField] = useState<'title' | 'scope' | 'charterWindowStart' | 'stage'>('title');
   const [cAdminSortDirection, setCAdminSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [cAdminProjectSortField, setCAdminProjectSortField] = useState<'id' | 'name' | 'status' | 'readinessScore'>('id');
+  const [cAdminProjectSortField, setCAdminProjectSortField] = useState<'name' | 'status'>('name');
   const [cAdminProjectSortDirection, setCAdminProjectSortDirection] = useState<'asc' | 'desc'>('asc');
   const [submitterSearchTerm, setSubmitterSearchTerm] = useState('');
   const [submitterSortField, setSubmitterSortField] = useState<'id' | 'title' | 'vesselName' | 'charterWindowStart' | 'stage' | 'readinessScore'>('id');
@@ -76,6 +77,9 @@ export const DashboardView: React.FC = () => {
   /* c admin specific assurance sets */
   const cAdminAssuranceSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'C Admin'));
 
+  /* every scope a set covers as one label, shared by the c admin scope cell, sort and search */
+  const getScopeLabel = (s: AssuranceSet) => getAssuranceSetScopes(s).join(', ');
+
   /* submitter specific assurance sets */
   const submitterAssuranceSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter'));
   const visibleSubmitterSets = submitterAssuranceSets.length > 0 ? submitterAssuranceSets : assuranceSets;
@@ -96,6 +100,7 @@ export const DashboardView: React.FC = () => {
     return (
       s.id.toLowerCase().includes(term) ||
       s.title.toLowerCase().includes(term) ||
+      getScopeLabel(s).toLowerCase().includes(term) ||
       s.vesselName.toLowerCase().includes(term) ||
       s.imoNumber.includes(term) ||
       (s.initiatorOrg && s.initiatorOrg.toLowerCase().includes(term))
@@ -104,16 +109,14 @@ export const DashboardView: React.FC = () => {
 
   const sortedCAdminSets = [...filteredCAdminSets].sort((a, b) => {
     let comp = 0;
-    if (cAdminSortField === 'id') comp = a.id.localeCompare(b.id);
-    else if (cAdminSortField === 'title') comp = a.title.localeCompare(b.title);
-    else if (cAdminSortField === 'vesselName') comp = a.vesselName.localeCompare(b.vesselName);
+    if (cAdminSortField === 'title') comp = a.title.localeCompare(b.title);
+    else if (cAdminSortField === 'scope') comp = getScopeLabel(a).localeCompare(getScopeLabel(b));
     else if (cAdminSortField === 'charterWindowStart') comp = (a.charterWindowStart || '').localeCompare(b.charterWindowStart || '');
     else if (cAdminSortField === 'stage') comp = a.stage.localeCompare(b.stage);
-    else if (cAdminSortField === 'readinessScore') comp = calculateAssuranceSetReadiness(a) - calculateAssuranceSetReadiness(b);
     return cAdminSortDirection === 'asc' ? comp : -comp;
   });
 
-  const handleCAdminSort = (field: 'id' | 'title' | 'vesselName' | 'charterWindowStart' | 'stage' | 'readinessScore') => {
+  const handleCAdminSort = (field: 'title' | 'scope' | 'charterWindowStart' | 'stage') => {
     if (cAdminSortField === field) {
       setCAdminSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -135,16 +138,12 @@ export const DashboardView: React.FC = () => {
 
   const sortedCAdminProjects = [...filteredCAdminProjects].sort((a, b) => {
     let comp = 0;
-    if (cAdminProjectSortField === 'id') comp = a.id.localeCompare(b.id);
-    else if (cAdminProjectSortField === 'name') comp = a.name.localeCompare(b.name);
+    if (cAdminProjectSortField === 'name') comp = a.name.localeCompare(b.name);
     else if (cAdminProjectSortField === 'status') comp = a.status.localeCompare(b.status);
-    else if (cAdminProjectSortField === 'readinessScore') {
-      comp = calculateProjectReadiness(a, assuranceSets) - calculateProjectReadiness(b, assuranceSets);
-    }
     return cAdminProjectSortDirection === 'asc' ? comp : -comp;
   });
 
-  const handleCAdminProjectSort = (field: 'id' | 'name' | 'status' | 'readinessScore') => {
+  const handleCAdminProjectSort = (field: 'name' | 'status') => {
     if (cAdminProjectSortField === field) {
       setCAdminProjectSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -439,12 +438,6 @@ export const DashboardView: React.FC = () => {
                       <tr>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleCAdminProjectSort('id')}
-                        >
-                          Project ID {renderSortIndicator(cAdminProjectSortField, 'id', cAdminProjectSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleCAdminProjectSort('name')}
                         >
                           Name {renderSortIndicator(cAdminProjectSortField, 'name', cAdminProjectSortDirection)}
@@ -455,57 +448,44 @@ export const DashboardView: React.FC = () => {
                         >
                           Status {renderSortIndicator(cAdminProjectSortField, 'status', cAdminProjectSortDirection)}
                         </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleCAdminProjectSort('readinessScore')}
-                        >
-                          Readiness {renderSortIndicator(cAdminProjectSortField, 'readinessScore', cAdminProjectSortDirection)}
-                        </th>
                         <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedCAdminProjects.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="text-center py-4 text-muted">
+                          <td colSpan={3} className="text-center py-4 text-muted">
                             No projects found.
                           </td>
                         </tr>
                       ) : (
-                        cAdminProjectsPagination.pageItems.map((p) => {
-                          const readiness = calculateProjectReadiness(p, assuranceSets);
-                          return (
-                            <tr
-                              key={p.id}
-                              onClick={() => setCurrentHashView('project', p.id)}
-                              style={{ cursor: 'pointer' }}
-                            >
-                              <td className="fw-semibold text-primary font-mono-code small">{p.id}</td>
-                              <td>
-                                <div className="fw-semibold text-slate-900">{p.name}</div>
-                                <div className="small text-muted">{p.projectType}</div>
-                              </td>
-                              <td>
-                                <span className="badge bg-secondary">{p.status}</span>
-                              </td>
-                              <td>
-                                <ReadinessGauge score={readiness} size="sm" />
-                              </td>
-                              <td className="text-end" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                  style={{ width: '32px', height: '32px' }}
-                                  onClick={() => setCurrentHashView('project', p.id)}
-                                  title="View"
-                                  aria-label="View"
-                                >
-                                  <Eye size={16} />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
+                        cAdminProjectsPagination.pageItems.map((p) => (
+                          <tr
+                            key={p.id}
+                            onClick={() => setCurrentHashView('project', p.id)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <td>
+                              <div className="fw-semibold text-slate-900">{p.name}</div>
+                              <div className="small text-muted">{p.projectType}</div>
+                            </td>
+                            <td>
+                              <span className="badge bg-secondary">{p.status}</span>
+                            </td>
+                            <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
+                                onClick={() => setCurrentHashView('project', p.id)}
+                                title="View"
+                                aria-label="View"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>
@@ -545,21 +525,15 @@ export const DashboardView: React.FC = () => {
                       <tr>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleCAdminSort('id')}
-                        >
-                          Set ID {renderSortIndicator(cAdminSortField, 'id', cAdminSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleCAdminSort('title')}
                         >
                           Title {renderSortIndicator(cAdminSortField, 'title', cAdminSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleCAdminSort('vesselName')}
+                          onClick={() => handleCAdminSort('scope')}
                         >
-                          Vessel {renderSortIndicator(cAdminSortField, 'vesselName', cAdminSortDirection)}
+                          Scope {renderSortIndicator(cAdminSortField, 'scope', cAdminSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -567,19 +541,13 @@ export const DashboardView: React.FC = () => {
                         >
                           Stage {renderSortIndicator(cAdminSortField, 'stage', cAdminSortDirection)}
                         </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleCAdminSort('readinessScore')}
-                        >
-                          Readiness {renderSortIndicator(cAdminSortField, 'readinessScore', cAdminSortDirection)}
-                        </th>
                         <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedCAdminSets.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="text-center py-4 text-muted">
+                          <td colSpan={4} className="text-center py-4 text-muted">
                             No assurance sets found.
                           </td>
                         </tr>
@@ -590,22 +558,15 @@ export const DashboardView: React.FC = () => {
                             onClick={() => setCurrentHashView('assurance-sets', s.id)}
                             style={{ cursor: 'pointer' }}
                           >
-                            <td className="fw-semibold text-primary font-mono-code small">{s.id}</td>
                             <td>
                               <div className="fw-semibold text-slate-900">{s.title}</div>
                               <div className="small text-muted">{s.initiatorOrg}</div>
                             </td>
-                            <td>
-                              <div className="fw-semibold">{s.vesselName}</div>
-                              <div className="font-mono-code small text-muted">IMO {s.imoNumber}</div>
-                            </td>
+                            <td>{getScopeLabel(s)}</td>
                             <td>
                               <span className={`badge ${getStageBadgeClass(s.stage)} font-mono-code`}>
                                 {s.stage}
                               </span>
-                            </td>
-                            <td>
-                              <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />
                             </td>
                             <td className="text-end" onClick={(e) => e.stopPropagation()}>
                               <button
