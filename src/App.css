@@ -973,3 +973,149 @@ div.map-autofill-animate {
     padding: 0.4rem 0.6rem !important;
   }
 }
+
+/* ============================================================
+   notifications: header bell dropdown and notifications page
+   ============================================================ */
+.map-notif-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.map-notif-bell {
+  width: 40px;
+  height: 40px;
+  padding: 0 !important;
+}
+
+.map-notif-count {
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* floats above the page, so it carries the single diffuse overlay shadow */
+.map-notif-panel {
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(11, 27, 43, 0.05);
+  z-index: 1100;
+  overflow: hidden;
+}
+
+.map-notif-panel-list {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.map-notif-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background-color: transparent;
+}
+
+.map-notif-dot.is-unread {
+  background-color: #1f6c9f;
+}
+
+/* column sort control: inherits the table header type */
+.map-notif-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* 40px hit area that does not stretch the header row */
+  min-height: 40px;
+  margin-block: -11px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+/* status pill: tint and text come from the status color pair in notificationMockData */
+.map-notif-status {
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.map-notif-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.map-notif-expand[aria-expanded='true'] {
+  color: #0b1b2b;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .map-notif-expand:hover {
+    background-color: #f1f5f9;
+  }
+}
+
+.map-notif-bell:focus-visible,
+.map-notif-sort:focus-visible,
+.map-notif-expand:focus-visible {
+  outline: 2px solid var(--map-focus-ring);
+  outline-offset: var(--map-focus-ring-offset);
+}
+
+.map-table-custom tr.map-notif-row-expanded td {
+  border-bottom-color: transparent !important;
+}
+
+.map-table-custom tr.map-notif-detail-row td,
+.map-table-custom tr.map-notif-detail-row:hover td {
+  background-color: #f8fafc !important;
+  padding-top: 0.5rem !important;
+}
+
+.map-notif-detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px 24px;
+}
+
+.map-notif-detail dt {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.map-notif-detail dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+
+/* placeholder shown while a lazily loaded view is fetched; holds the table card footprint */
+.map-view-skeleton {
+  min-height: 420px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-notif-expand {
+    transition: none;
+  }
+}

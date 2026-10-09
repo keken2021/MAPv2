@@ -4108,6 +4108,16 @@ export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = [
   },
 ];
 
+/* user each persona is signed in as; matches the identities shown in the sidebar footer */
+export const MOCK_PERSONA_SESSION_USER_IDS: Record<import('../types/audit').UserRolePersona, string> = {
+  Administrator: 'USR-101',
+  'C Admin': 'USR-201',
+  Submitter: 'USR-102',
+  Verifier: 'USR-202',
+  Inspector: 'USR-203',
+  Approver: 'USR-204',
+};
+
 export const MOCK_USERS: import('../types/user').UserProfile[] = [
   {
     id: 'USR-101',

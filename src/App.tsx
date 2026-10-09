@@ -4,7 +4,7 @@
   role in system: primary application shell mounted by main.tsx.
 */
 
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { useMapStore } from './store/useMapStore';
 import { HeaderBanner } from './components/layout/HeaderBanner';
 import { AppSidebar } from './components/layout/AppSidebar';
@@ -37,7 +37,12 @@ import { MarketplaceView } from './views/MarketplaceView';
 import './App.css';
 
 import { isViewAccessibleToPersona } from './utils/rbacHelpers';
+import { canOpenAssuranceRequestWizard } from './utils/notificationHelpers';
+import { getSessionUserForPersona } from './utils/userRoleHelpers';
 import { ENABLE_ROLES_AND_PERMISSIONS } from './config/featureFlags';
+
+/* route-level view loaded on demand */
+const NotificationsView = React.lazy(() => import('./views/NotificationsView'));
 
 /**
   what: renders the root application shell and handles window hash change navigation or login page.
@@ -55,6 +60,9 @@ export const App: React.FC = () => {
     userPermissionOverrides,
     users,
     customScopes,
+    notifications,
+    pendingAssuranceRequestNotificationId,
+    setPendingAssuranceRequestNotificationId,
   } = useMapStore();
 
   useEffect(() => {
@@ -90,7 +98,7 @@ export const App: React.FC = () => {
       users.find((u) => u.roles.includes(activePersona)) ?? null;
 
     /* roles-permissions is persona-gated (Administrator settings); skip matrix revoke on blank role_rights */
-    const allowed =
+    const allowedByRole =
       currentHashView === 'roles-permissions'
         ? isViewAccessibleToPersona(currentHashView, currentEntityId, activePersona)
         : isViewAccessibleToPersona(
@@ -101,6 +109,16 @@ export const App: React.FC = () => {
           ENABLE_ROLES_AND_PERMISSIONS ? userPermissionOverrides : undefined,
           matchingUser,
         );
+
+    /* the user an assurance set request is assigned to may open the wizard for that request only */
+    const allowedByRequest =
+      currentHashView === 'create-assurance-set' &&
+      canOpenAssuranceRequestWizard(
+        notifications.find((n) => n.id === pendingAssuranceRequestNotificationId),
+        getSessionUserForPersona(activePersona, users),
+      );
+
+    const allowed = allowedByRole || allowedByRequest;
 
     if (!allowed) {
       setCurrentHashView('dashboard');
@@ -115,6 +133,19 @@ export const App: React.FC = () => {
     userPermissionOverrides,
     users,
     customScopes,
+    notifications,
+    pendingAssuranceRequestNotificationId,
+  ]);
+
+  /* a request only grants wizard access while the wizard is open; leaving it ends the grant */
+  useEffect(() => {
+    if (currentHashView !== 'create-assurance-set' && pendingAssuranceRequestNotificationId) {
+      setPendingAssuranceRequestNotificationId(undefined);
+    }
+  }, [
+    currentHashView,
+    pendingAssuranceRequestNotificationId,
+    setPendingAssuranceRequestNotificationId,
   ]);
 
   /* render login view if user is unauthenticated or on login view */
@@ -134,6 +165,18 @@ export const App: React.FC = () => {
         return currentEntityId ? <ProjectDetailView projectId={currentEntityId} /> : <ProjectView />;
       case 'marketplace':
         return <MarketplaceView />;
+      case 'notifications':
+        return (
+          <Suspense
+            fallback={
+              <div className="map-view-skeleton" role="status" aria-busy="true">
+                <span className="visually-hidden">Loading notifications</span>
+              </div>
+            }
+          >
+            <NotificationsView />
+          </Suspense>
+        );
       case 'assurance-sets':
         return currentEntityId ? <AssuranceDetailView setId={currentEntityId} /> : <AssuranceSetsView />;
       case 'create-assurance-set':

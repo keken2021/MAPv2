@@ -177,6 +177,8 @@ export const HeaderBanner: React.FC = () => {
         return { breadcrumb: 'NEW ASSURANCE CAMPAIGN · INITIATION', title: 'Create Assurance Set' };
       case 'marketplace':
         return { breadcrumb: 'CHARTER & ASSET PROVISION · THIRD-PARTY MARKETPLACE', title: 'Marketplace' };
+      case 'notifications':
+        return { breadcrumb: 'INBOX · REQUESTS & WORKFLOW UPDATES', title: 'Notifications' };
       case 'dashboard':
       default:
         return { breadcrumb: 'MARINE ASSURANCE PLATFORM · FLEET OVERVIEW', title: 'Dashboard' };

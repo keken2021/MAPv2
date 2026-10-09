@@ -64,6 +64,15 @@ export function getProjectEffectiveCharterer(project: Project): string {
   return project.charterer?.trim() || project.requestingOrganization;
 }
 
+/**
+  what: client organization of a project; input is the project.
+  how: uses ownerOrganization when recorded, otherwise the effective charterer.
+  with what file: src/utils/projectHelpers.ts used by useMapStore.ts, notificationHelpers.ts and NotificationsView.tsx.
+*/
+export function getProjectClientOrganization(project: Project): string {
+  return project.ownerOrganization?.trim() || getProjectEffectiveCharterer(project);
+}
+
 export function getProjectOrganizationForPersona(
   persona: UserRolePersona,
   users: Pick<UserProfile, 'roles' | 'organization'>[],

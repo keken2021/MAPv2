@@ -632,6 +632,15 @@ export function getBackButtonInfo(
     isParentAllowedInSidepanel = isMarketplacePersona(activePersona);
   }
 
+  /* notifications is in every persona's sidepanel, so a record opened from it always returns there */
+  if (previousHashView === "notifications") {
+    return {
+      label: "Back to Notifications",
+      targetView: "notifications",
+      targetEntityId: undefined,
+    };
+  }
+
   if (previousHashView === "dashboard" || !isParentAllowedInSidepanel) {
     return {
       label: "Back to Dashboard",
@@ -646,7 +655,6 @@ export function getBackButtonInfo(
       targetEntityId: undefined,
     };
   }
-
   if (previousHashView === "crew") {
     return {
       label: previousEntityId
@@ -777,7 +785,13 @@ export function isViewAccessibleToPersona(
         persona === "Inspector"
       );
     }
-    if (view === "dashboard" || view === "audit" || view === "marketplace") return true;
+    if (
+      view === "dashboard" ||
+      view === "audit" ||
+      view === "marketplace" ||
+      view === "notifications"
+    )
+      return true;
 
     if (persona === "Administrator") {
       return true;

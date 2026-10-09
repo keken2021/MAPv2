@@ -50,6 +50,7 @@ import {
   getAssetAutoAttachSummary,
 } from '../utils/documentMatchingHelpers';
 import { filterProjectsForPersona, projectToAssuranceProjectScope } from '../utils/projectHelpers';
+import { resolveAssuranceRequestContext } from '../utils/notificationHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2 } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 
@@ -90,6 +91,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     lockedProjectId: storeLockedProjectId,
     setLockedProjectId,
     users,
+    notifications,
+    pendingAssuranceRequestNotificationId,
   } = useMapStore();
 
   /* projects the active persona can see, offered as an optional link for any scope */
@@ -109,6 +112,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       : undefined;
   });
   const isProjectLocked = Boolean(lockedProjectId);
+
+  /* assurance set request the wizard was opened from; captured once so the set keeps its client and assigned creator */
+  const [requestContext] = useState(() =>
+    resolveAssuranceRequestContext(
+      notifications.find(
+        (n) => n.id === pendingAssuranceRequestNotificationId && n.status !== 'actioned',
+      ),
+      projects,
+      users,
+    ),
+  );
+  const requestedScope = requestContext?.notification.request?.suggestedScope;
 
   /* scope and asset handed over by a charter action; captured once so the store value can be cleared */
   const [lockedAsset] = useState(() => {
@@ -144,8 +159,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   ]);
 
   const isClientAdmin = activePersona === 'C Admin';
-  /* user recorded as the creator of sets made in this session */
-  const creatorName = users.find((u) => u.roles.includes(activePersona))?.name;
+  /* user recorded as the creator of sets made in this session; a request names its own creator */
+  const creatorName =
+    requestContext?.assigneeName || users.find((u) => u.roles.includes(activePersona))?.name;
   const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
   const clientOrg = getClientAdminOrganization(users);
 
@@ -156,6 +172,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       : vessels;
 
   const defaultCharterer = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
+  /* organization named in the default title: the project client for a request, otherwise the creating organization */
+  const titleOrg = requestContext?.clientOrganization || defaultCharterer;
   const lockedVessel = createAssuranceForVesselId
     ? availableVessels.find((v) => v.id === createAssuranceForVesselId)
     : undefined;
@@ -168,7 +186,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       ? crew.find((c) => c.id === lockedAsset.assetId)?.fullName || initialVesselName
       : lockedAsset?.scope === 'Equipment'
         ? equipment.find((e) => e.id === lockedAsset.assetId)?.name || initialVesselName
-        : initialVesselName;
+        : !lockedAsset && requestedScope === 'Crew'
+          ? crew[0]?.fullName || initialVesselName
+          : !lockedAsset && requestedScope === 'Equipment'
+            ? equipment[0]?.name || initialVesselName
+            : initialVesselName;
 
   /* Wizard Step State */
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -178,9 +200,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Step 1: Scope & General Information */
   const [title, setTitle] = useState(
-    () => `${defaultCharterer} - ${initialSubjectName} Charter Vetting`
+    () => `${titleOrg} - ${initialSubjectName} Charter Vetting`
   );
-  const [assuranceType, setAssuranceType] = useState<AssuranceSubtype>(lockedAsset?.scope || 'Vessel');
+  const [assuranceType, setAssuranceType] = useState<AssuranceSubtype>(lockedAsset?.scope || requestedScope || 'Vessel');
   const [includedPhysicalAssetTypes, setIncludedPhysicalAssetTypes] = useState<AssuranceSubtype[]>(['Vessel', 'Equipment']);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || '');
   const [vesselId, setVesselId] = useState(initialVesselId);
@@ -190,8 +212,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
   const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
   const [isGeneralInfoExpanded, setIsGeneralInfoExpanded] = useState<boolean>(true);
-  /* the client is always the organization of the user creating the set */
-  const charterer = defaultCharterer;
+  /* the client is the organization of the user creating the set, or the project client when the set answers a request */
+  const charterer = requestContext?.clientOrganization || defaultCharterer;
   const [startDate, setStartDate] = useState('2026-11-01');
   const [endDate, setEndDate] = useState('2027-11-01');
   const isVesselLocked = Boolean(lockedVessel);
@@ -332,16 +354,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     if (newScope === 'Vessel') {
       const v = availableVessels.find((item) => item.id === vesselId) || availableVessels[0];
-      setTitle(`${defaultCharterer} - ${v ? v.name : 'MV Pacific Endeavour'} Vetting`);
+      setTitle(`${titleOrg} - ${v ? v.name : 'MV Pacific Endeavour'} Vetting`);
     } else if (newScope === 'Crew') {
       const c = crew.find((item) => item.id === selectedCrewId) || crew[0];
-      setTitle(`${defaultCharterer} - ${c ? c.fullName : 'Capt. Alexander Wright'} Vetting`);
+      setTitle(`${titleOrg} - ${c ? c.fullName : 'Capt. Alexander Wright'} Vetting`);
     } else if (newScope === 'Equipment') {
       const e = equipment.find((item) => item.id === selectedEquipmentId) || equipment[0];
-      setTitle(`${defaultCharterer} - ${e ? e.name : '150T Traction Winch'} Vetting`);
+      setTitle(`${titleOrg} - ${e ? e.name : '150T Traction Winch'} Vetting`);
     } else if (newScope === 'Activity') {
       const a = EXISTING_ACTIVITIES.find((item) => item.id === selectedActivityId) || EXISTING_ACTIVITIES[0];
-      setTitle(`${defaultCharterer} - ${a ? a.name : 'Operational Procedure'} Vetting`);
+      setTitle(`${titleOrg} - ${a ? a.name : 'Operational Procedure'} Vetting`);
     }
   };
 
@@ -883,7 +905,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     const ownerOrg = charterer.trim() || (isClientAdmin ? clientOrg : defaultCharterer);
     const effectiveCharterer = ownerOrg;
-    const initiatorOrg = ownerOrg;
+    /* a request keeps the creating organization as initiator while the client is the project client */
+    const initiatorOrg = requestContext ? defaultCharterer : ownerOrg;
 
     const targetSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
 
@@ -1091,7 +1114,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     const ownerOrg = charterer.trim() || (isClientAdmin ? clientOrg : defaultCharterer);
     const effectiveCharterer = ownerOrg;
-    const initiatorOrg = ownerOrg;
+    /* a request keeps the creating organization as initiator while the client is the project client */
+    const initiatorOrg = requestContext ? defaultCharterer : ownerOrg;
 
     const effectiveRequirements = autoAttachDocumentsToRequirements(finalRequirements, {
       documents,
@@ -1117,7 +1141,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     const draftSet: AssuranceSet = {
       id: targetSetId,
-      title: title.trim() || `${defaultCharterer} - Draft Campaign`,
+      title: title.trim() || `${titleOrg} - Draft Campaign`,
       assuranceType,
       projectId: selectedProject?.id,
       projectName: selectedProject?.name,
@@ -1778,10 +1802,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           </option>
                         ))}
                       </select>
-                      {isProjectLocked && (
+                      {requestContext ? (
                         <div id="grid-linked-project-help" className="form-text small">
-                          Set by the project this was opened from.
+                          Requested by {requestContext.requestedByName}. Client: {requestContext.clientOrganization}. Created by: {requestContext.assigneeName}.
                         </div>
+                      ) : (
+                        isProjectLocked && (
+                          <div id="grid-linked-project-help" className="form-text small">
+                            Set by the project this was opened from.
+                          </div>
+                        )
                       )}
                     </div>
 
@@ -2637,6 +2667,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             <div className="text-secondary small mt-1">
                               <strong>Project:</strong> {selectedProject.name}{' '}
                               <span className="font-mono-code">({selectedProject.id})</span>
+                            </div>
+                          )}
+                          {requestContext && (
+                            <div className="text-secondary small mt-1">
+                              <strong>Client:</strong> {requestContext.clientOrganization} &middot;{' '}
+                              <strong>Created by:</strong> {requestContext.assigneeName}
                             </div>
                           )}
                           <div className="text-secondary small mt-1 d-flex align-items-center gap-2">

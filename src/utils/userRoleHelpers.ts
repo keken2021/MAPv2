@@ -7,6 +7,7 @@
 import { UserRolePersona } from '../types/audit';
 import { RoleName } from '../types/permissions';
 import { UserProfile } from '../types/user';
+import { MOCK_PERSONA_SESSION_USER_IDS } from '../store/mockData';
 
 export const OPERATIONAL_ROLE_OPTIONS: { role: UserRolePersona; label: string }[] = [
   { role: 'Submitter', label: 'Submitter' },
@@ -54,6 +55,22 @@ export function userHasRole(
   role: RoleName,
 ): boolean {
   return user.roles.includes(role);
+}
+
+/**
+  what: resolves the user the active persona is signed in as; inputs are the persona and the user registry.
+  how: looks up the persona in MOCK_PERSONA_SESSION_USER_IDS, then falls back to the first active user holding the role.
+  with what file: src/utils/userRoleHelpers.ts used by NotificationPanel.tsx, NotificationsView.tsx, RequestAssuranceSetModal.tsx, CreateAssuranceSetView.tsx and App.tsx.
+*/
+export function getSessionUserForPersona(
+  persona: UserRolePersona,
+  users: UserProfile[],
+): UserProfile | undefined {
+  const mappedId = MOCK_PERSONA_SESSION_USER_IDS[persona];
+  return (
+    users.find((u) => u.id === mappedId && u.roles.includes(persona)) ||
+    users.find((u) => u.status === 'Active' && u.roles.includes(persona))
+  );
 }
 
 export function usersWithRole(users: UserProfile[], role: RoleName): UserProfile[] {

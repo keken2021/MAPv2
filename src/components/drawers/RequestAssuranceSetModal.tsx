@@ -12,6 +12,7 @@ import {
   getAssuranceSetCreatorsInOrganization,
   getProjectOrganizationForPersona,
 } from '../../utils/projectHelpers';
+import { getSessionUserForPersona } from '../../utils/userRoleHelpers';
 
 interface RequestAssuranceSetModalProps {
   isOpen: boolean;
@@ -29,14 +30,8 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
   const { users, activePersona, requestAssuranceSet } = useMapStore();
   const senderOrg = getProjectOrganizationForPersona(activePersona, users);
   const senderUser = useMemo(
-    () =>
-      users.find(
-        (u) =>
-          u.status === 'Active' &&
-          u.roles.includes(activePersona) &&
-          u.organization === senderOrg,
-      ) || users.find((u) => u.roles.includes(activePersona)),
-    [users, activePersona, senderOrg],
+    () => getSessionUserForPersona(activePersona, users),
+    [users, activePersona],
   );
 
   const recipients = useMemo(

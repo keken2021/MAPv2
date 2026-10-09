@@ -36,6 +36,7 @@ import {
 } from "../utils/validation";
 import {
   canEditAssuranceSetStakeholders,
+  getAssuranceSetCreator,
   getAssuranceSetStakeholderLockReason,
   isViewAccessibleToPersona,
 } from "../utils/rbacHelpers";
@@ -60,7 +61,10 @@ import {
   buildEmptyFlagsForCatalog,
 } from "../utils/permissionDefaults";
 import { applyPermissionGuards } from "../utils/permissionHelpers";
-import { validateStakeholderAssignmentForSet } from "../utils/userRoleHelpers";
+import {
+  getSessionUserForPersona,
+  validateStakeholderAssignmentForSet,
+} from "../utils/userRoleHelpers";
 import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import {
   Project,
@@ -71,10 +75,17 @@ import {
   WorkLocationType,
 } from "../types/project";
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from "./projectMockData";
-import { AssuranceSetRequestNotification } from "../types/notification";
+import { AppNotification, NotificationDraft } from "../types/notification";
+import { MOCK_NOTIFICATIONS } from "./notificationMockData";
+import {
+  generateNotificationId,
+  isNotificationActionedOnOpen,
+  resolveNotificationRecipient,
+} from "../utils/notificationHelpers";
 import {
   buildDraftAssetLinkFromAssuranceSet,
   generateUniqueProjectId,
+  getProjectClientOrganization,
   getProjectEffectiveCharterer,
   getProjectForAssuranceSet,
   recalculateSetReadiness,
@@ -137,7 +148,13 @@ export interface MapStoreState {
   pendingAssuranceRequestNotificationId?: string;
   setPendingAssuranceRequestNotificationId: (id?: string) => void;
 
-  notifications: AssuranceSetRequestNotification[];
+  notifications: AppNotification[];
+  /** raises a notification; returns its id, or undefined when there is no recipient or the recipient is the sender */
+  pushNotification: (draft: NotificationDraft) => string | undefined;
+  markNotificationRead: (notificationId: string) => void;
+  markAllNotificationsRead: (recipientUserId: string) => void;
+  /** records that the recipient used the row action: read for an open request, actioned for every other type */
+  openNotification: (notificationId: string) => void;
   requestAssuranceSet: (input: {
     projectId: string;
     recipientUserId: string;
@@ -374,6 +391,69 @@ export interface MapStoreState {
 
 const BRD_PERMISSION_DEFAULTS = buildBrdRolePermissionDefaults();
 
+/**
+  what: raises a notification about an assurance set to the user a stakeholder label names; inputs are the store getter, the set, the label and the notification content.
+  how: resolves the label to a user, fills sender from the signed-in persona user and project from the set, then calls pushNotification; does nothing when the label names no user.
+  with what file: src/store/useMapStore.ts, called by the assurance, document and capa actions below.
+*/
+function notifyAssuranceSetUser(
+  get: () => MapStoreState,
+  assuranceSet: AssuranceSet,
+  recipientLabel: string | undefined,
+  content: Pick<NotificationDraft, "type" | "subject"> &
+    Partial<
+      Pick<
+        NotificationDraft,
+        "message" | "assignedRole" | "documentId" | "capaId" | "vesselName"
+      >
+    >,
+): void {
+  const state = get();
+  const recipient = resolveNotificationRecipient(recipientLabel, state.users);
+  if (!recipient) return;
+
+  const sender = getSessionUserForPersona(state.activePersona, state.users);
+  const project = getProjectForAssuranceSet(assuranceSet, state.projects);
+  state.pushNotification({
+    vesselName: assuranceSet.vesselName || undefined,
+    ...content,
+    recipientUserId: recipient.id,
+    senderUserId: sender?.id,
+    senderName: sender?.name || state.activePersona,
+    projectId: project?.id,
+    projectName: project?.name,
+    assuranceSetId: assuranceSet.id,
+  });
+}
+
+/**
+  what: notifies the verifier, inspector and approver named on an assurance set; inputs are the store getter and the set.
+  how: sends one stakeholder_assigned notification per role that is required and names a real user.
+  with what file: src/store/useMapStore.ts, called by addAssuranceSet and updateAssuranceSet.
+*/
+function notifyAssignedStakeholders(
+  get: () => MapStoreState,
+  assuranceSet: AssuranceSet,
+): void {
+  const assignments: { role: UserRolePersona; label?: string }[] = [
+    { role: "Verifier", label: assuranceSet.assignedVerifier },
+    {
+      role: "Inspector",
+      label: assuranceSet.mandatoryInspectionRequired
+        ? assuranceSet.assignedInspector
+        : undefined,
+    },
+    { role: "Approver", label: assuranceSet.assignedApprover },
+  ];
+  assignments.forEach(({ role, label }) => {
+    notifyAssuranceSetUser(get, assuranceSet, label, {
+      type: "stakeholder_assigned",
+      subject: `Assigned as ${role}: ${assuranceSet.title}`,
+      assignedRole: role,
+    });
+  });
+}
+
 export const useMapStore = create<MapStoreState>((set, get) => ({
   isAuthenticated: false,
   login: (role) => {
@@ -481,7 +561,65 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   setPendingAssuranceRequestNotificationId: (id) =>
     set({ pendingAssuranceRequestNotificationId: id }),
 
-  notifications: [],
+  notifications: MOCK_NOTIFICATIONS,
+
+  pushNotification: (draft) => {
+    if (!draft.recipientUserId || draft.recipientUserId === draft.senderUserId) {
+      return undefined;
+    }
+    const notification: AppNotification = {
+      ...draft,
+      id: generateNotificationId(get().notifications, draft.type),
+      status: "unread",
+      createdAt: new Date().toISOString(),
+    };
+    set((state) => ({
+      notifications: [notification, ...state.notifications],
+    }));
+    return notification.id;
+  },
+
+  markNotificationRead: (notificationId) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      notifications: state.notifications.map((n) =>
+        n.id === notificationId && n.status === "unread"
+          ? { ...n, status: "read" as const, readAt: now }
+          : n,
+      ),
+    }));
+  },
+
+  markAllNotificationsRead: (recipientUserId) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      notifications: state.notifications.map((n) =>
+        n.recipientUserId === recipientUserId && n.status === "unread"
+          ? { ...n, status: "read" as const, readAt: now }
+          : n,
+      ),
+    }));
+  },
+
+  openNotification: (notificationId) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      notifications: state.notifications.map((n) => {
+        if (n.id !== notificationId || n.status === "actioned") return n;
+        if (isNotificationActionedOnOpen(n)) {
+          return {
+            ...n,
+            status: "actioned" as const,
+            readAt: n.readAt || now,
+            actionedAt: now,
+          };
+        }
+        return n.status === "unread"
+          ? { ...n, status: "read" as const, readAt: now }
+          : n;
+      }),
+    }));
+  },
 
   requestAssuranceSet: (input) => {
     const project = get().projects.find((p) => p.id === input.projectId);
@@ -489,23 +627,30 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       return { success: false, message: "Project not found." };
     }
 
-    const notification: AssuranceSetRequestNotification = {
-      id: `NTF-${Date.now()}`,
+    const assignee = get().users.find((u) => u.id === input.recipientUserId);
+    if (!assignee) {
+      return { success: false, message: "Recipient not found." };
+    }
+
+    const notificationId = get().pushNotification({
       type: "assurance_set_request",
-      recipientUserId: input.recipientUserId,
+      subject: "Assurance set requested",
+      message: input.message?.trim() || undefined,
+      recipientUserId: assignee.id,
       senderUserId: input.senderUserId,
       senderName: input.senderName,
-      projectId: input.projectId,
+      projectId: project.id,
       projectName: project.name,
-      suggestedScope: input.suggestedScope,
-      message: input.message?.trim() || undefined,
-      status: "pending",
-      createdAt: new Date().toISOString(),
-    };
-
-    set((state) => ({
-      notifications: [notification, ...state.notifications],
-    }));
+      request: {
+        assigneeUserId: assignee.id,
+        assigneeName: assignee.name,
+        clientOrganization: getProjectClientOrganization(project),
+        suggestedScope: input.suggestedScope,
+      },
+    });
+    if (!notificationId) {
+      return { success: false, message: "Select a recipient other than yourself." };
+    }
 
     get().logAuditEvent({
       userId: input.senderUserId,
@@ -526,8 +671,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           ? {
               ...n,
               status: "actioned" as const,
+              readAt: n.readAt || new Date().toISOString(),
               actionedAt: new Date().toISOString(),
-              createdAssuranceSetId: assuranceSetId,
+              request: n.request
+                ? { ...n.request, createdAssuranceSetId: assuranceSetId }
+                : n.request,
             }
           : n,
       ),
@@ -1108,7 +1256,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         (n) =>
           n.id === pendingNotificationId &&
           n.projectId === computedSet.projectId &&
-          n.status === "pending",
+          n.status !== "actioned",
       )
     ) {
       get().markNotificationActioned(pendingNotificationId, computedSet.id);
@@ -1119,6 +1267,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       assuranceSets: syncedSets,
       projects: syncedProjects,
     });
+
+    if (computedSet.visibility !== "draft") {
+      notifyAssignedStakeholders(get, computedSet);
+    }
 
     get().logAuditEvent({
       userId: "USR-CURRENT",
@@ -1172,6 +1324,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       assuranceSets: syncedSets,
       projects: syncedProjects,
     });
+
+    /* a draft that is initiated notifies its stakeholders for the first time */
+    const previousSet = state.assuranceSets.find((s) => s.id === updatedSet.id);
+    if (previousSet?.visibility === "draft" && computedSet.visibility !== "draft") {
+      notifyAssignedStakeholders(get, computedSet);
+    }
   },
   updateAssuranceStage: (setId, stage) => {
     const updatedSets = get().assuranceSets.map((s) => {
@@ -1253,6 +1411,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       action: `Assigned Vessel ${role}`,
       targetAsset: `${setId} · ${assigneeName}`,
       justificationNotes: `Assigned ${role.toLowerCase()} ${assigneeName} to assurance campaign ${setId}`,
+    });
+    notifyAssuranceSetUser(get, assuranceSet, assigneeName, {
+      type: "stakeholder_assigned",
+      subject: `Assigned as ${role}: ${assuranceSet.title}`,
+      assignedRole: role,
     });
     return { success: true };
   },
@@ -1516,6 +1679,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         notes ||
         `Executive decision: ${decision}${isDenial ? " — Submitter revision ping dispatched." : ""}`,
     });
+
+    const decidedSet = get().assuranceSets.find((s) => s.id === setId);
+    if (decidedSet) {
+      notifyAssuranceSetUser(
+        get,
+        decidedSet,
+        getAssuranceSetCreator(decidedSet, get().users).name,
+        {
+          type: "approval_decision",
+          subject: `${decision === "Returned for Correction" ? "Returned for correction" : decision}: ${decidedSet.title}`,
+          message: notes?.trim() || undefined,
+        },
+      );
+    }
   },
 
   sendAssuranceForReview: (setId) => {
@@ -1552,6 +1729,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       justificationNotes:
         "Campaign submitted to verification / review workflow. Documents are read-only for client.",
     });
+
+    const reviewSet = get().assuranceSets.find((s) => s.id === setId);
+    if (reviewSet) {
+      notifyAssuranceSetUser(get, reviewSet, reviewSet.assignedVerifier, {
+        type: "review_requested",
+        subject: `Review requested: ${reviewSet.title}`,
+      });
+    }
   },
 
   setClientApproval: (setId, decision, notes) => {
@@ -1800,6 +1985,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   verifyDocument: (docId, status, notes, routeTarget) => {
+    const setsBeforeVerification = get().assuranceSets;
     set((state) => {
       const updatedDocs = state.documents.map((d) =>
         d.id === docId
@@ -1910,6 +2096,36 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       action: `${activePersona === "Approver" ? "Approver" : "Verifier"} Document Action: ${status}${pingTag}`,
       targetAsset: `Document ${docId}`,
       justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${isDenial ? " — Submitter revision required." : ""}`,
+    });
+
+    const verifiedDoc = get().documents.find((d) => d.id === docId);
+    get().assuranceSets.forEach((s) => {
+      if (!s.requirements.some((r) => r.documentId === docId)) return;
+
+      /* a denied document goes back to the submitter, or to the set creator when no submitter is named */
+      if (isDenial) {
+        const submitter = resolveNotificationRecipient(s.assignedSubmitter, get().users);
+        notifyAssuranceSetUser(
+          get,
+          s,
+          submitter ? s.assignedSubmitter : getAssuranceSetCreator(s, get().users).name,
+          {
+            type: "document_correction",
+            subject: `${status === "Rejected" ? "Rejected" : "Correction requested"}: ${verifiedDoc?.title || docId}`,
+            message: notes?.trim() || undefined,
+            documentId: docId,
+          },
+        );
+      }
+
+      /* a set that has just reached the approval stage goes to its approver */
+      const previousStage = setsBeforeVerification.find((prev) => prev.id === s.id)?.stage;
+      if (s.stage === "Approval" && previousStage !== "Approval") {
+        notifyAssuranceSetUser(get, s, s.assignedApprover, {
+          type: "approval_requested",
+          subject: `Approval requested: ${s.title}`,
+        });
+      }
     });
   },
 
@@ -2707,5 +2923,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       justificationNotes:
         reason || "C Admin requested re-inspection verification by inspector",
     });
+
+    const capa = get().capaItems.find((item) => item.id === capaId);
+    if (capa) {
+      /* the inspector is the one assigned on an assurance set for the same vessel */
+      const inspectedSet = get().assuranceSets.find(
+        (s) =>
+          (s.vesselId === capa.vesselId || s.vesselName === capa.vesselName) &&
+          Boolean(resolveNotificationRecipient(s.assignedInspector, get().users)),
+      );
+      if (inspectedSet) {
+        notifyAssuranceSetUser(get, inspectedSet, inspectedSet.assignedInspector, {
+          type: "capa_reinspection",
+          subject: `Re-inspection requested: ${capa.id}`,
+          message: reason?.trim() || undefined,
+          capaId: capa.id,
+          vesselName: capa.vesselName,
+        });
+      }
+    }
   },
 }));

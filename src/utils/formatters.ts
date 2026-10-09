@@ -21,6 +21,26 @@ export function formatMaritimeDate(dateStr: string): string {
 }
 
 /**
+  what: formats an ISO timestamp as a maritime date with UTC time (e.g. "08 OCT 2026 03:15 UTC").
+  how: reuses formatMaritimeDate for the date part and appends zero-padded UTC hours and minutes.
+  with what file: src/utils/formatters.ts used by NotificationPanel.tsx and NotificationsView.tsx.
+*/
+export function formatMaritimeDateTime(dateStr: string): string {
+  if (!dateStr) return 'N/A';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  const day = date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).toUpperCase();
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+  return `${day} ${hours}:${minutes} UTC`;
+}
+
+/**
   what: returns the css badge class for ocr confidence percentage scores.
   how: evaluates score against >=95% high, >=90% medium, <90% low thresholds.
   with what file: src/utils/formatters.ts used by ConfidenceBadge.tsx and DocumentTable.tsx.

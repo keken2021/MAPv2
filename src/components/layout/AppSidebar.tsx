@@ -92,6 +92,18 @@ export const AppSidebar: React.FC = () => {
       ],
     },
     {
+      key: "notifications",
+      label: "Notifications",
+      allowedRoles: [
+        "Administrator",
+        "C Admin",
+        "Submitter",
+        "Verifier",
+        "Inspector",
+        "Approver",
+      ],
+    },
+    {
       key: "project",
       label: "Projects",
       allowedRoles: [
