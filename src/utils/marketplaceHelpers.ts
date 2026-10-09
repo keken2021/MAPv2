@@ -17,6 +17,8 @@ import { getVesselStockPhoto, getEquipmentStockPhoto, getCrewStockPhoto, getOrga
 import { getClientAdminOrganization } from './rbacHelpers';
 import { calculateCrewComplianceScore, calculateEquipmentReadiness, calculateVesselReadiness } from './readinessHelpers';
 import { formatReadinessScore, getStatusDisplayLabel, NOT_ASSESSED_LABEL } from './formatters';
+import { getAssuranceSetScopes } from './assuranceTemplates';
+import { toIsoLocalDate } from './validation';
 
 /**
   what: checks if an item or organization belongs to the currently logged in user's organization.
@@ -281,7 +283,8 @@ export function getMarketplaceItems(
 }
 
 /**
- * An asset is free on the charter end date. It stays busy from the start date up to, but not including, the end date.
+ * An asset with no contract on the date is available, including an asset with no contract at all.
+ * A contracted asset stays busy from the contract start date up to, but not including, the end date, so it is free on the end date.
  */
 export function isMarketplaceItemAvailableOnDate(
   item: Pick<MarketplaceItem, 'category' | 'linkedEntityId' | 'linkedEntityType'>,
@@ -296,9 +299,10 @@ export function isMarketplaceItemAvailableOnDate(
   return !assuranceSets.some((set) => {
     if (set.visibility === 'draft') return false;
     if (!set.charterWindowStart || !set.charterWindowEnd) return false;
+    /* every set carries a vessel id, so a vessel is only contracted by a set whose scopes include Vessel */
     const occupies =
       kind === 'vessel'
-        ? set.vesselId === assetId && set.assuranceType !== 'Crew' && set.assuranceType !== 'Equipment'
+        ? set.vesselId === assetId && getAssuranceSetScopes(set).includes('Vessel')
         : kind === 'crew'
           ? set.crewId === assetId
           : set.equipmentId === assetId;
@@ -308,7 +312,7 @@ export function isMarketplaceItemAvailableOnDate(
 }
 
 /**
-  what: filters and sorts marketplace items according to search query, category, provider, location, and sort criteria.
+  what: filters and sorts marketplace items according to search query, category, provider, location, contract date, and sort criteria; returns each asset once.
 */
 export function filterMarketplaceItems(
   items: MarketplaceItem[],
@@ -319,6 +323,8 @@ export function filterMarketplaceItems(
     locationFilter?: string;
     statusFilter?: string;
     availableOn?: string;
+    /* iso date the contract date is checked against; defaults to the current date */
+    today?: string;
     assuranceSets?: AssuranceSet[];
     sortBy?: 'name' | 'readiness' | 'provider' | 'category';
     sortOrder?: 'asc' | 'desc';
@@ -331,12 +337,17 @@ export function filterMarketplaceItems(
     locationFilter = 'ALL',
     statusFilter = 'ALL',
     availableOn = '',
+    today = toIsoLocalDate(),
     assuranceSets = [],
     sortBy = 'name',
     sortOrder = 'asc',
   } = options;
 
   const searchNormalized = searchTerm.trim().toLowerCase();
+  /* the contract date never looks at the past: a date before today is not applied */
+  const contractDate = availableOn && availableOn >= today ? availableOn : '';
+  /* one listing per asset, so an asset cannot be returned twice */
+  const listedAssets = new Set<string>();
 
   const filtered = items.filter((item) => {
     // 1. Category Filter
@@ -359,8 +370,8 @@ export function filterMarketplaceItems(
       return false;
     }
 
-    // 5. Date the asset must be free to charter, including a charter end date
-    if (availableOn && !isMarketplaceItemAvailableOnDate(item, availableOn, assuranceSets)) {
+    // 5. Contract date the asset must be free on, including a contract end date
+    if (contractDate && !isMarketplaceItemAvailableOnDate(item, contractDate, assuranceSets)) {
       return false;
     }
 
@@ -380,6 +391,15 @@ export function filterMarketplaceItems(
         return false;
       }
     }
+
+    // 7. Keep the first listing of each asset
+    const assetKey = item.linkedEntityId
+      ? `${item.linkedEntityType || item.category}:${item.linkedEntityId}`
+      : `listing:${item.id}`;
+    if (listedAssets.has(assetKey)) {
+      return false;
+    }
+    listedAssets.add(assetKey);
 
     return true;
   });

@@ -1,6 +1,6 @@
 /* 
   file summary: segmented assurance set creation wizard matching enterprise design standards (similar to VesselModal).
-  responsibilities: captures campaign scope (Vessel, Crew, Activity, Equipment), optional project link, general information, subtype statutory & operational documents with descriptions, public/organization templates, specialized custom requirements, workflow policies, and role assignments.
+  responsibilities: captures one or more scopes (Vessel, Crew, Activity, Equipment) with a tab per ticked scope, optional project link, general information, subtype statutory & operational documents with descriptions, public/organization templates, specialized custom requirements, workflow policies, and role assignments.
   role in system: rendered by App.tsx when currentHashView is 'create-assurance-set'.
 */
 
@@ -14,7 +14,6 @@ import {
   ReviewChannel,
   AuthorityValidationMethod,
   AssuranceRequirementCategory,
-  ThreePillarsCategory,
 } from '../types/assurance';
 import { UserProfile } from '../types/user';
 import {
@@ -41,8 +40,12 @@ import {
   StandardSubtypeDocument,
   SubtypeTemplate,
   EXISTING_ACTIVITIES,
-  getThreePillarsCategory,
   THREE_PILLARS_CONFIG,
+  ASSURANCE_SCOPE_OPTIONS,
+  orderAssuranceScopes,
+  getPrimaryAssuranceScope,
+  getAssuranceSetScopes,
+  buildAssuranceWizardSteps,
 } from '../utils/assuranceTemplates';
 import {
   autoAttachDocumentsToRequirements,
@@ -53,6 +56,7 @@ import { filterProjectsForPersona, projectToAssuranceProjectScope } from '../uti
 import { resolveAssuranceRequestContext } from '../utils/notificationHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2 } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import { ScopeChecklist } from '../components/common/ScopeChecklist';
 
 interface SpecializedDoc {
   id: string;
@@ -225,10 +229,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [title, setTitle] = useState(
     () => `${titleOrg} - ${initialSubjectName} Charter Vetting`
   );
-  const [assuranceType, setAssuranceType] = useState<AssuranceSubtype>(
-    lockedAsset?.scope || suggestedAsset?.assetType || requestedScope || 'Vessel',
-  );
-  const [includedPhysicalAssetTypes, setIncludedPhysicalAssetTypes] = useState<AssuranceSubtype[]>(['Vessel', 'Equipment']);
+  /* scopes ticked in the checklist; each one adds a wizard tab and its requirements to the set */
+  const [selectedScopes, setSelectedScopes] = useState<AssuranceSubtype[]>(() => {
+    if (lockedAsset) return [lockedAsset.scope];
+    if (suggestedAsset) return [suggestedAsset.assetType];
+    if (requestedScopes && requestedScopes.length > 0) return orderAssuranceScopes(requestedScopes);
+    return [requestedScope || 'Vessel'];
+  });
+  /* scope the set is filed under and named after */
+  const assuranceType = getPrimaryAssuranceScope(selectedScopes);
+  /* scope handed over by a listing; it stays ticked while other scopes can still be added */
+  const lockedScopes: AssuranceSubtype[] = isScopeLocked && lockedAsset ? [lockedAsset.scope] : [];
   const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || '');
   const [vesselId, setVesselId] = useState(initialVesselId);
   const [selectedCrewId, setSelectedCrewId] = useState<string>(() =>
@@ -254,36 +265,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [startDate, setStartDate] = useState('2026-11-01');
   const [endDate, setEndDate] = useState('2027-11-01');
   const isVesselLocked = Boolean(lockedVessel);
-
-  const handleAddPhysicalAssetType = (type: AssuranceSubtype) => {
-    if (!includedPhysicalAssetTypes.includes(type)) {
-      setIncludedPhysicalAssetTypes((prev) => [...prev, type]);
-      if (type === 'Vessel' && !vesselId && availableVessels[0]) {
-        setVesselId(availableVessels[0].id);
-      }
-      if (type === 'Equipment' && !selectedEquipmentId && equipment[0]) {
-        setSelectedEquipmentId(equipment[0].id);
-      }
-    }
-  };
-
-  const handleRemovePhysicalAssetType = (type: AssuranceSubtype) => {
-    setIncludedPhysicalAssetTypes((prev) => prev.filter((t) => t !== type));
-    setFieldErrors((prev) => {
-      const u = { ...prev };
-      if (type === 'Vessel') delete u.vesselId;
-      if (type === 'Equipment') delete u.equipmentId;
-      return u;
-    });
-  };
-
-  const handleTogglePhysicalAssetType = (type: AssuranceSubtype) => {
-    if (includedPhysicalAssetTypes.includes(type)) {
-      handleRemovePhysicalAssetType(type);
-    } else {
-      handleAddPhysicalAssetType(type);
-    }
-  };
 
   useEffect(() => {
     if (createAssuranceForVesselId && !lockedVessel) {
@@ -384,10 +365,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     return list;
   }, [approverCandidates, users, assignedVerifier, reviewMode, serviceProviderOrg, isInternalDeployment]);
 
-  const handleScopeChange = (newScope: AssuranceSubtype) => {
-    if (isScopeLocked) return;
-    setAssuranceType(newScope);
+  const handleToggleScope = (scope: AssuranceSubtype) => {
+    if (lockedScopes.includes(scope)) return;
+    const nextScopes = selectedScopes.includes(scope)
+      ? selectedScopes.filter((item) => item !== scope)
+      : orderAssuranceScopes([...selectedScopes, scope]);
+    setSelectedScopes(nextScopes);
     setFieldErrors({});
+
+    /* the suggested title follows the primary scope, so it only changes when that scope does */
+    const newScope = getPrimaryAssuranceScope(nextScopes);
+    if (nextScopes.length === 0 || newScope === assuranceType) return;
 
     if (newScope === 'Vessel') {
       const v = availableVessels.find((item) => item.id === vesselId) || availableVessels[0];
@@ -513,20 +501,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     Equipment: { title: '', description: '', category: SUBTYPE_CATEGORIES.Equipment[0], isMandatory: true },
   });
 
-  /* Calculate active wizard steps depending on selected assuranceType */
-  const getWizardSteps = (): Array<{ id: string; label: string; pillar?: ThreePillarsCategory; subtype?: AssuranceSubtype }> => {
-    const pillar = getThreePillarsCategory(assuranceType);
-    return [
-      { id: 'step-scope', label: 'Scope' },
-      { id: `step-${pillar.toLowerCase()}`, label: 'Documents', pillar, subtype: assuranceType },
-      { id: 'step-review', label: 'Review' },
-    ];
-  };
-
-  const steps = getWizardSteps();
+  /* Wizard tabs: Scope, one tab per ticked scope, Review */
+  const steps = buildAssuranceWizardSteps(selectedScopes);
   const totalSteps = steps.length;
 
-  /* Adjust current step if assuranceType change makes current step out of bounds */
+  /* Adjust current step if a scope change makes current step out of bounds */
   useEffect(() => {
     if (currentStep > totalSteps) {
       setCurrentStep(totalSteps);
@@ -566,7 +545,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setTitle(`${templateCharterer} - ${cleanSubject}`);
 
     if (!lockedAsset && targetSet.assuranceType) {
-      setAssuranceType(targetSet.assuranceType);
+      setSelectedScopes([targetSet.assuranceType]);
     }
 
     /* match requirements */
@@ -595,13 +574,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           // Resume draft editing in-place
           setEditingDraftId(target.id);
           setTitle(target.title);
-          if (!lockedAsset && target.assuranceType) setAssuranceType(target.assuranceType);
-          if (target.subtypes && target.subtypes.length > 0) {
-            const physicalTypes = target.subtypes.filter((s) => s === 'Vessel' || s === 'Equipment') as AssuranceSubtype[];
-            if (physicalTypes.length > 0) {
-              setIncludedPhysicalAssetTypes(physicalTypes);
-            }
-          }
+          if (!lockedAsset) setSelectedScopes(getAssuranceSetScopes(target));
           if (target.projectId && !lockedProjectId) setSelectedProjectId(target.projectId);
           if (target.crewId && !lockedAsset) setSelectedCrewId(target.crewId);
           if (target.equipmentId && !lockedAsset) setSelectedEquipmentId(target.equipmentId);
@@ -756,12 +729,26 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     );
   };
 
-  /* Validation per Step with Field-Specific Mapping */
-  const validateCurrentStep = (): boolean => {
-    setErrorMessage('');
+  /* Errors for one wizard tab: the scope tab covers identification and stakeholders, each scope tab its own asset */
+  const getStepErrors = (stepNumber: number): Record<string, string> => {
     const newErrors: Record<string, string> = {};
+    const step = steps[stepNumber - 1];
+    if (!step) return newErrors;
 
-    if (currentStep === 1) {
+    if (step.subtype === 'Vessel' && !availableVessels.some((v) => v.id === vesselId)) {
+      newErrors.vesselId = 'Select a vessel from another organization.';
+    }
+    if (step.subtype === 'Crew' && !selectedCrewId) {
+      newErrors.crewId = 'Select a crew member.';
+    }
+    if (step.subtype === 'Equipment' && !selectedEquipmentId) {
+      newErrors.equipmentId = 'Select equipment.';
+    }
+    if (step.subtype === 'Activity' && !selectedActivityId) {
+      newErrors.activityId = 'Select an activity.';
+    }
+
+    if (step.id === 'step-scope') {
       if (!title.trim()) {
         newErrors.title = 'Title is required.';
       } else {
@@ -771,17 +758,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         }
       }
 
-      if (assuranceType === 'Vessel' && !availableVessels.some((v) => v.id === vesselId)) {
-        newErrors.vesselId = 'Select a vessel from another organization.';
-      }
-      if (assuranceType === 'Crew' && !selectedCrewId) {
-        newErrors.crewId = 'Select a crew member.';
-      }
-      if (assuranceType === 'Equipment' && !selectedEquipmentId) {
-        newErrors.equipmentId = 'Select equipment.';
-      }
-      if (assuranceType === 'Activity' && !selectedActivityId) {
-        newErrors.activityId = 'Select an activity.';
+      if (selectedScopes.length === 0) {
+        newErrors.scope = 'Select at least one scope.';
       }
       if (!startDate) {
         newErrors.startDate = 'Start date is required.';
@@ -827,6 +805,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       }
     }
 
+    return newErrors;
+  };
+
+  /* Validation per Step with Field-Specific Mapping */
+  const validateCurrentStep = (): boolean => {
+    setErrorMessage('');
+    const newErrors = getStepErrors(currentStep);
     setFieldErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -854,6 +839,20 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const selectedEquipment = equipment.find((e) => e.id === selectedEquipmentId) || equipment[0];
   const selectedActivity = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId) || EXISTING_ACTIVITIES[0];
 
+  /* display name of the asset picked for a scope */
+  const getScopeAssetName = (scope: AssuranceSubtype): string =>
+    scope === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
+      scope === 'Crew' ? (selectedCrew?.fullName || 'Crew') :
+        scope === 'Equipment' ? (selectedEquipment?.name || 'Equipment') :
+          (selectedActivity?.name || 'Activity');
+
+  /* asset name with its identifying detail, as shown on the review tab */
+  const getScopeAssetSummary = (scope: AssuranceSubtype): string =>
+    scope === 'Vessel' ? `${getScopeAssetName(scope)} (IMO: ${selectedVessel?.imoNumber || 'N/A'})` :
+      scope === 'Crew' ? `${getScopeAssetName(scope)} (${selectedCrew?.rank || 'N/A'})` :
+        scope === 'Equipment' ? `${getScopeAssetName(scope)} (Tag: ${selectedEquipment?.equipmentIdentifier || 'N/A'})` :
+          `${getScopeAssetName(scope)} (${selectedActivity?.category || 'N/A'})`;
+
   const selectedVerifier = users.find((u: UserProfile) => u.id === assignedVerifier);
   const selectedInspector = users.find((u: UserProfile) => u.id === assignedInspector);
   const selectedApprover = users.find((u: UserProfile) => u.id === assignedApprover);
@@ -875,15 +874,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     e?.preventDefault();
     setHasAttemptedSubmit(true);
 
-    if (!validateCurrentStep()) {
-      setCurrentStep(1);
+    /* every tab is checked on submit; the wizard returns to the first one that still has an error */
+    setErrorMessage('');
+    const firstInvalidStep = steps.findIndex((_, idx) => Object.keys(getStepErrors(idx + 1)).length > 0);
+    if (firstInvalidStep !== -1) {
+      setFieldErrors(getStepErrors(firstInvalidStep + 1));
+      setCurrentStep(firstInvalidStep + 1);
       return;
     }
 
     const uniqueSetId = generateUniqueAssuranceSetId(assuranceSets);
 
     /* Determine which subtypes are active */
-    const activeSubtypes: AssuranceSubtype[] = [assuranceType];
+    const activeSubtypes = orderAssuranceScopes(selectedScopes);
 
     /* Build combined requirements list from standard subtype docs and specialized docs */
     const finalRequirements: AssuranceRequirement[] = [];
@@ -975,12 +978,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assuranceType,
       projectId: selectedProject?.id,
       projectName: selectedProject?.name,
-      crewId: assuranceType === 'Crew' ? selectedCrewId : undefined,
-      crewName: assuranceType === 'Crew' ? (selectedCrew?.fullName || selectedCrewId) : undefined,
-      equipmentId: assuranceType === 'Equipment' ? selectedEquipmentId : undefined,
-      equipmentName: assuranceType === 'Equipment' ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
-      activityId: assuranceType === 'Activity' ? selectedActivityId : undefined,
-      activityName: assuranceType === 'Activity' ? (selectedActivity?.name || selectedActivityId) : undefined,
+      crewId: selectedScopes.includes('Crew') ? selectedCrewId : undefined,
+      crewName: selectedScopes.includes('Crew') ? (selectedCrew?.fullName || selectedCrewId) : undefined,
+      equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
+      equipmentName: selectedScopes.includes('Equipment') ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
+      activityId: selectedScopes.includes('Activity') ? selectedActivityId : undefined,
+      activityName: selectedScopes.includes('Activity') ? (selectedActivity?.name || selectedActivityId) : undefined,
       subtypes: activeSubtypes,
       subtypeStakeholders: {
         Vessel: {
@@ -1095,7 +1098,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   /* Save current configuration as Draft */
   const handleSaveDraft = () => {
     const targetSetId = editingDraftId || generateUniqueAssuranceSetId(assuranceSets);
-    const activeSubtypes: AssuranceSubtype[] = [assuranceType];
+    const activeSubtypes = orderAssuranceScopes(selectedScopes);
 
     const finalRequirements: AssuranceRequirement[] = [];
     let reqIndex = 0;
@@ -1182,12 +1185,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assuranceType,
       projectId: selectedProject?.id,
       projectName: selectedProject?.name,
-      crewId: assuranceType === 'Crew' ? selectedCrewId : undefined,
-      crewName: assuranceType === 'Crew' ? (selectedCrew?.fullName || selectedCrewId) : undefined,
-      equipmentId: assuranceType === 'Equipment' ? selectedEquipmentId : undefined,
-      equipmentName: assuranceType === 'Equipment' ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
-      activityId: assuranceType === 'Activity' ? selectedActivityId : undefined,
-      activityName: assuranceType === 'Activity' ? (selectedActivity?.name || selectedActivityId) : undefined,
+      crewId: selectedScopes.includes('Crew') ? selectedCrewId : undefined,
+      crewName: selectedScopes.includes('Crew') ? (selectedCrew?.fullName || selectedCrewId) : undefined,
+      equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
+      equipmentName: selectedScopes.includes('Equipment') ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
+      activityId: selectedScopes.includes('Activity') ? selectedActivityId : undefined,
+      activityName: selectedScopes.includes('Activity') ? (selectedActivity?.name || selectedActivityId) : undefined,
       subtypes: activeSubtypes,
       subtypeStakeholders: {
         Vessel: {
@@ -1309,6 +1312,251 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       return;
     }
     setCurrentHashView(isClientAdmin || previousHashView === 'dashboard' ? 'dashboard' : 'assurance-sets');
+  };
+
+  /* Render the header and asset selector of one scope tab */
+  const renderAssetPicker = (subtype: AssuranceSubtype) => {
+    const ScopeIcon = subtype === 'Vessel' ? Ship : subtype === 'Crew' ? Users : subtype === 'Equipment' ? Wrench : Activity;
+    const assetNoun = subtype === 'Crew' ? 'crew member' : subtype.toLowerCase();
+
+    return (
+      <div className="card border shadow-2xs rounded-3 bg-white">
+        <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2.5">
+            <div className="p-2 bg-primary text-white rounded-2 d-flex align-items-center justify-content-center">
+              <ScopeIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                {subtype}
+              </h5>
+              <div className="text-muted small mt-0.5">
+                {`Select the ${assetNoun} this assurance set covers, then its required documents.`}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="card-body p-4">
+          {subtype === 'Vessel' && (
+            <div>
+              <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-vessel">
+                Vessel <span className="text-danger">*</span>
+              </label>
+              <select
+                id="grid-target-asset-vessel"
+                className={`form-select bg-white text-dark border-secondary-subtle${animatingFields.has('grid-target-vessel') ? ' map-autofill-animate' : ''}${fieldErrors.vesselId ? ' is-invalid border-danger' : ''}`}
+                value={vesselId}
+                onChange={(e) => {
+                  setVesselId(e.target.value);
+                  setFieldErrors((prev) => {
+                    const u = { ...prev };
+                    delete u.vesselId;
+                    return u;
+                  });
+                }}
+                disabled={availableVessels.length === 0 || isVesselLocked || lockedScopes.includes('Vessel')}
+              >
+                {availableVessels.length === 0 ? (
+                  <option value="">No vessels from another organization</option>
+                ) : (
+                  availableVessels.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} (IMO: {v.imoNumber} &mdash; Flag: {v.flagState} &mdash; {v.vesselType})
+                    </option>
+                  ))
+                )}
+              </select>
+              {fieldErrors.vesselId && (
+                <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                  {fieldErrors.vesselId}
+                </div>
+              )}
+              <div className="text-secondary small mt-1" style={{ fontSize: '0.78rem' }}>
+                Your own vessels are not listed. You become the client of the vessel you select.
+              </div>
+
+              {selectedVessel && (
+                <div className="mt-3 p-3 bg-light border rounded-3 small">
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                    <span className="fw-bold text-dark fs-6">{selectedVessel.name}</span>
+                    <span className="badge bg-secondary text-white font-mono-code">IMO {selectedVessel.imoNumber}</span>
+                  </div>
+                  <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
+                    <div className="col-12 col-md-4">
+                      <strong>Type:</strong> {selectedVessel.vesselType}
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <strong>Flag State:</strong> {selectedVessel.flagState}
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <strong>Registered Owner:</strong> {selectedVessel.registeredOwner}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {subtype === 'Crew' && (
+            <div>
+              <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-crew">
+                Crew Member <span className="text-danger">*</span>
+              </label>
+              <select
+                id="grid-target-asset-crew"
+                className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.crewId ? ' is-invalid border-danger' : ''}`}
+                value={selectedCrewId}
+                onChange={(e) => {
+                  setSelectedCrewId(e.target.value);
+                  setFieldErrors((prev) => {
+                    const u = { ...prev };
+                    delete u.crewId;
+                    return u;
+                  });
+                }}
+                disabled={lockedScopes.includes('Crew')}
+              >
+                {crew.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.fullName} &mdash; {c.rank} (Seaman's Book: {c.seamansBookNo})
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.crewId && (
+                <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                  {fieldErrors.crewId}
+                </div>
+              )}
+
+              {selectedCrew && (
+                <div className="mt-3 p-3 bg-light border rounded-3 small">
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                    <span className="fw-bold text-dark fs-6">{selectedCrew.fullName}</span>
+                    <span className="badge bg-primary text-white font-mono-code">{selectedCrew.rank}</span>
+                  </div>
+                  <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
+                    <div className="col-12 col-md-4">
+                      <strong>Organization:</strong> {selectedCrew.organization}
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <strong>Nationality:</strong> {selectedCrew.nationality}
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <strong>Vessel:</strong> {selectedCrew.currentVesselName || 'Unassigned'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {subtype === 'Equipment' && (
+            <div>
+              <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-equipment">
+                Equipment <span className="text-danger">*</span>
+              </label>
+              <select
+                id="grid-target-asset-equipment"
+                className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.equipmentId ? ' is-invalid border-danger' : ''}`}
+                value={selectedEquipmentId}
+                onChange={(e) => {
+                  setSelectedEquipmentId(e.target.value);
+                  setFieldErrors((prev) => {
+                    const u = { ...prev };
+                    delete u.equipmentId;
+                    return u;
+                  });
+                }}
+                disabled={lockedScopes.includes('Equipment')}
+              >
+                {equipment.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} (Tag: {e.equipmentIdentifier} &mdash; Category: {e.category})
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.equipmentId && (
+                <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                  {fieldErrors.equipmentId}
+                </div>
+              )}
+
+              {selectedEquipment && (
+                <div className="mt-3 p-3 bg-light border rounded-3 small">
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                    <span className="fw-bold text-dark fs-6">{selectedEquipment.name}</span>
+                    <span className="badge bg-dark text-white font-mono-code">{selectedEquipment.equipmentIdentifier}</span>
+                  </div>
+                  <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
+                    <div className="col-12 col-md-4">
+                      <strong>Category:</strong> {selectedEquipment.category}
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <strong>Manufacturer:</strong> {selectedEquipment.manufacturer || 'N/A'}
+                    </div>
+                    <div className="col-12 col-md-4">
+                      <strong>Serial Number:</strong> {selectedEquipment.serialNumber || 'N/A'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {subtype === 'Activity' && (
+            <div>
+              <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-activity">
+                Activity <span className="text-danger">*</span>
+              </label>
+              <select
+                id="grid-target-asset-activity"
+                className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.activityId ? ' is-invalid border-danger' : ''}`}
+                value={selectedActivityId}
+                onChange={(e) => {
+                  setSelectedActivityId(e.target.value);
+                  setFieldErrors((prev) => {
+                    const u = { ...prev };
+                    delete u.activityId;
+                    return u;
+                  });
+                }}
+              >
+                {EXISTING_ACTIVITIES.map((act) => (
+                  <option key={act.id} value={act.id}>
+                    {act.id} &mdash; {act.name} ({act.category})
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.activityId && (
+                <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                  {fieldErrors.activityId}
+                </div>
+              )}
+
+              {selectedActivity && (
+                <div className="mt-3 p-3 bg-light border rounded-3 small">
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                    <span className="fw-bold text-dark fs-6">{selectedActivity.name}</span>
+                    <span className="badge bg-info text-dark font-mono-code">{selectedActivity.category}</span>
+                  </div>
+                  <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
+                    <div className="col-12 col-md-6">
+                      <strong>Location:</strong> {selectedActivity.location}
+                    </div>
+                    <div className="col-12 col-md-6">
+                      <strong>Category:</strong> {selectedActivity.category}
+                    </div>
+                    <div className="col-12">
+                      <strong>Description:</strong> {selectedActivity.description}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   /* Render reusable Subtype Document Section */
@@ -1790,27 +2038,31 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
                     {/* Scope / Subtype Selector */}
                     <div className="col-12 col-md-4">
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-assurance-type">
+                      <label className="form-label text-secondary small fw-semibold" id="grid-assurance-type-label">
                         Scope <span className="text-danger">*</span>
                       </label>
-                      <select
+                      <ScopeChecklist
                         id="grid-assurance-type"
-                        className="form-select bg-white text-dark border-secondary-subtle fw-semibold"
-                        value={assuranceType}
-                        onChange={(e) => handleScopeChange(e.target.value as AssuranceSubtype)}
-                        disabled={isScopeLocked}
-                        aria-describedby={isScopeLocked ? 'grid-assurance-type-help' : undefined}
-                      >
-                        <option value="Vessel">Vessel</option>
-                        <option value="Crew">Crew</option>
-                        <option value="Activity">Activity</option>
-                        <option value="Equipment">Equipment</option>
-                      </select>
-                      {isScopeLocked && (
-                        <div id="grid-assurance-type-help" className="form-text small">
-                          Set by the listing you came from.
+                        labelId="grid-assurance-type-label"
+                        className="bg-white text-dark border-secondary-subtle fw-semibold"
+                        options={ASSURANCE_SCOPE_OPTIONS}
+                        selected={selectedScopes}
+                        onToggle={handleToggleScope}
+                        emptyLabel="Select scope"
+                        lockedOptions={lockedScopes}
+                        invalid={Boolean(fieldErrors.scope)}
+                        describedBy="grid-assurance-type-help"
+                      />
+                      {fieldErrors.scope && (
+                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                          {fieldErrors.scope}
                         </div>
                       )}
+                      <div id="grid-assurance-type-help" className="form-text small">
+                        {lockedScopes.length > 0
+                          ? `${lockedScopes[0]} is set by the listing you came from. You can add other scopes.`
+                          : 'Choose one or more. Each scope gets its own tab.'}
+                      </div>
                     </div>
 
                     {/* optional project link, locked when the wizard is opened from a project */}
@@ -1903,246 +2155,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 </div>
               </div>
 
-              {/* Dynamic Designation of Asset Card */}
-              <div className="card border shadow-2xs rounded-3 bg-white">
-                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <div>
-                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      2. Designation of Asset
-                    </h5>
-                    <div className="text-muted small">
-                      {`Select ${assuranceType.toLowerCase()} to assign this assurance set.`}
-                    </div>
-                  </div>
-
-                </div>
-                <div className="card-body p-4">
-                  {assuranceType === 'Vessel' && (
-                    <div>
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-vessel">
-                        Vessel <span className="text-danger">*</span>
-                      </label>
-                      <select
-                        id="grid-target-asset-vessel"
-                        className={`form-select bg-white text-dark border-secondary-subtle${animatingFields.has('grid-target-vessel') ? ' map-autofill-animate' : ''}${fieldErrors.vesselId ? ' is-invalid border-danger' : ''}`}
-                        value={vesselId}
-                        onChange={(e) => {
-                          setVesselId(e.target.value);
-                          setFieldErrors((prev) => {
-                            const u = { ...prev };
-                            delete u.vesselId;
-                            return u;
-                          });
-                        }}
-                        disabled={availableVessels.length === 0 || isVesselLocked || isScopeLocked}
-                      >
-                        {availableVessels.length === 0 ? (
-                          <option value="">No vessels from another organization</option>
-                        ) : (
-                          availableVessels.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.name} (IMO: {v.imoNumber} &mdash; Flag: {v.flagState} &mdash; {v.vesselType})
-                            </option>
-                          ))
-                        )}
-                      </select>
-                      {fieldErrors.vesselId && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {fieldErrors.vesselId}
-                        </div>
-                      )}
-                      <div className="text-secondary small mt-1" style={{ fontSize: '0.78rem' }}>
-                        Your own vessels are not listed. You become the client of the vessel you select.
-                      </div>
-
-                      {selectedVessel && (
-                        <div className="mt-3 p-3 bg-light border rounded-3 small">
-                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                            <span className="fw-bold text-dark fs-6">{selectedVessel.name}</span>
-                            <span className="badge bg-secondary text-white font-mono-code">IMO {selectedVessel.imoNumber}</span>
-                          </div>
-                          <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
-                            <div className="col-12 col-md-4">
-                              <strong>Type:</strong> {selectedVessel.vesselType}
-                            </div>
-                            <div className="col-12 col-md-4">
-                              <strong>Flag State:</strong> {selectedVessel.flagState}
-                            </div>
-                            <div className="col-12 col-md-4">
-                              <strong>Registered Owner:</strong> {selectedVessel.registeredOwner}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {assuranceType === 'Crew' && (
-                    <div>
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-crew">
-                        Crew Member <span className="text-danger">*</span>
-                      </label>
-                      <select
-                        id="grid-target-asset-crew"
-                        className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.crewId ? ' is-invalid border-danger' : ''}`}
-                        value={selectedCrewId}
-                        onChange={(e) => {
-                          setSelectedCrewId(e.target.value);
-                          setFieldErrors((prev) => {
-                            const u = { ...prev };
-                            delete u.crewId;
-                            return u;
-                          });
-                        }}
-                        disabled={isScopeLocked}
-                      >
-                        {crew.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.fullName} &mdash; {c.rank} (Seaman's Book: {c.seamansBookNo})
-                          </option>
-                        ))}
-                      </select>
-                      {fieldErrors.crewId && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {fieldErrors.crewId}
-                        </div>
-                      )}
-
-                      {selectedCrew && (
-                        <div className="mt-3 p-3 bg-light border rounded-3 small">
-                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                            <span className="fw-bold text-dark fs-6">{selectedCrew.fullName}</span>
-                            <span className="badge bg-primary text-white font-mono-code">{selectedCrew.rank}</span>
-                          </div>
-                          <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
-                            <div className="col-12 col-md-4">
-                              <strong>Organization:</strong> {selectedCrew.organization}
-                            </div>
-                            <div className="col-12 col-md-4">
-                              <strong>Nationality:</strong> {selectedCrew.nationality}
-                            </div>
-                            <div className="col-12 col-md-4">
-                              <strong>Vessel:</strong> {selectedCrew.currentVesselName || 'Unassigned'}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {assuranceType === 'Equipment' && (
-                    <div>
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-equipment">
-                        Equipment <span className="text-danger">*</span>
-                      </label>
-                      <select
-                        id="grid-target-asset-equipment"
-                        className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.equipmentId ? ' is-invalid border-danger' : ''}`}
-                        value={selectedEquipmentId}
-                        onChange={(e) => {
-                          setSelectedEquipmentId(e.target.value);
-                          setFieldErrors((prev) => {
-                            const u = { ...prev };
-                            delete u.equipmentId;
-                            return u;
-                          });
-                        }}
-                        disabled={isScopeLocked}
-                      >
-                        {equipment.map((e) => (
-                          <option key={e.id} value={e.id}>
-                            {e.name} (Tag: {e.equipmentIdentifier} &mdash; Category: {e.category})
-                          </option>
-                        ))}
-                      </select>
-                      {fieldErrors.equipmentId && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {fieldErrors.equipmentId}
-                        </div>
-                      )}
-
-                      {selectedEquipment && (
-                        <div className="mt-3 p-3 bg-light border rounded-3 small">
-                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                            <span className="fw-bold text-dark fs-6">{selectedEquipment.name}</span>
-                            <span className="badge bg-dark text-white font-mono-code">{selectedEquipment.equipmentIdentifier}</span>
-                          </div>
-                          <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
-                            <div className="col-12 col-md-4">
-                              <strong>Category:</strong> {selectedEquipment.category}
-                            </div>
-                            <div className="col-12 col-md-4">
-                              <strong>Manufacturer:</strong> {selectedEquipment.manufacturer || 'N/A'}
-                            </div>
-                            <div className="col-12 col-md-4">
-                              <strong>Serial Number:</strong> {selectedEquipment.serialNumber || 'N/A'}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {assuranceType === 'Activity' && (
-                    <div>
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-activity">
-                        Activity <span className="text-danger">*</span>
-                      </label>
-                      <select
-                        id="grid-target-asset-activity"
-                        className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.activityId ? ' is-invalid border-danger' : ''}`}
-                        value={selectedActivityId}
-                        onChange={(e) => {
-                          setSelectedActivityId(e.target.value);
-                          setFieldErrors((prev) => {
-                            const u = { ...prev };
-                            delete u.activityId;
-                            return u;
-                          });
-                        }}
-                      >
-                        {EXISTING_ACTIVITIES.map((act) => (
-                          <option key={act.id} value={act.id}>
-                            {act.id} &mdash; {act.name} ({act.category})
-                          </option>
-                        ))}
-                      </select>
-                      {fieldErrors.activityId && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {fieldErrors.activityId}
-                        </div>
-                      )}
-
-                      {selectedActivity && (
-                        <div className="mt-3 p-3 bg-light border rounded-3 small">
-                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                            <span className="fw-bold text-dark fs-6">{selectedActivity.name}</span>
-                            <span className="badge bg-info text-dark font-mono-code">{selectedActivity.category}</span>
-                          </div>
-                          <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
-                            <div className="col-12 col-md-6">
-                              <strong>Location:</strong> {selectedActivity.location}
-                            </div>
-                            <div className="col-12 col-md-6">
-                              <strong>Category:</strong> {selectedActivity.category}
-                            </div>
-                            <div className="col-12">
-                              <strong>Description:</strong> {selectedActivity.description}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Template Privacy & Access Scope Card */}
               <div className="card border shadow-2xs rounded-3 bg-white">
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      3. Template Privacy &amp; Distribution Scope
+                      2. Template Privacy &amp; Distribution Scope
                     </h5>
                     <div className="text-muted small">
                       Choose who can reuse this assurance set as a template.
@@ -2222,7 +2240,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      4. Governance &amp; Stakeholder Assignments
+                      3. Governance &amp; Stakeholder Assignments
                     </h5>
                     <div className="text-muted small">
                       Choose who reviews and who is assigned.
@@ -2580,77 +2598,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             </div >
           )}
 
-          {/* DYNAMIC PILLAR STEPS (SHALLOW MVP HIERARCHY) */}
-          {/* STEP: Plant (Single Screen for All Physical Assets: Vessel & Equipment) */}
-          {currentStepData.id === 'step-plant' && (
+          {/* SCOPE TABS: one per ticked scope, holding its asset and documents */}
+          {currentStepData.subtype && (
             <div className="d-flex flex-column gap-4">
-              <div className="card border shadow-2xs rounded-3 bg-white">
-                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <div className="d-flex align-items-center gap-2.5">
-                    <div className="p-2 bg-primary text-white rounded-2 d-flex align-items-center justify-content-center">
-                      <Ship className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        Documents
-                      </h5>
-                      <div className="text-muted small mt-0.5">
-                        {`Statutory and specialized requirements for ${assuranceType === 'Vessel' ? 'marine vessels' : 'deck equipment and machinery'}.`}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {renderSubtypeSection(assuranceType === 'Equipment' ? 'Equipment' : 'Vessel')}
-            </div>
-          )}
-
-          {/* STEP: People */}
-          {currentStepData.id === 'step-people' && (
-            <div className="d-flex flex-column gap-4">
-              <div className="card border shadow-2xs rounded-3 bg-white">
-                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <div className="d-flex align-items-center gap-2.5">
-                    <div className="p-2 bg-primary text-white rounded-2 d-flex align-items-center justify-content-center">
-                      <Users className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        Documents
-                      </h5>
-                      <div className="text-muted small mt-0.5">
-                        Crew qualifications, STCW certificates, BOSIET inductions, and medical fitness for {selectedCrew?.fullName || 'assigned crew'}.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {renderSubtypeSection('Crew')}
-            </div>
-          )}
-
-          {/* STEP: Process */}
-          {currentStepData.id === 'step-process' && (
-            <div className="d-flex flex-column gap-4">
-              <div className="card border shadow-2xs rounded-3 bg-white">
-                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <div className="d-flex align-items-center gap-2.5">
-                    <div className="p-2 bg-primary text-white rounded-2 d-flex align-items-center justify-content-center">
-                      <Activity className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        Documents
-                      </h5>
-                      <div className="text-muted small mt-0.5">
-                        HSE plans, Method Statements (MOP), HAZID/HAZOP, SIMOPS protocols, and insurances for {selectedActivity?.name || 'operational scope'}.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {renderSubtypeSection('Activity')}
+              {renderAssetPicker(currentStepData.subtype)}
+              {renderSubtypeSection(currentStepData.subtype)}
             </div>
           )}
 
@@ -2671,20 +2623,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <strong className="text-dark small d-block mb-1">Details</strong>
                           <div className="fw-bold text-primary fs-6">{title}</div>
                           <div className="text-secondary small mt-2">
-                            <strong>Scope:</strong> {assuranceType} Assurance &nbsp;|&nbsp; <strong>Asset:</strong>{' '}
-                            {assuranceType === 'Vessel' && (
-                              <span className="text-dark fw-semibold">{selectedVessel?.name} (IMO: {selectedVessel?.imoNumber})</span>
-                            )}
-                            {assuranceType === 'Crew' && (
-                              <span className="text-dark fw-semibold">{selectedCrew?.fullName} ({selectedCrew?.rank})</span>
-                            )}
-                            {assuranceType === 'Equipment' && (
-                              <span className="text-dark fw-semibold">{selectedEquipment?.name} (Tag: {selectedEquipment?.equipmentIdentifier})</span>
-                            )}
-                            {assuranceType === 'Activity' && (
-                              <span className="text-dark fw-semibold">{selectedActivity?.name} ({selectedActivity?.category})</span>
-                            )}
+                            <strong>Scope:</strong> {selectedScopes.join(', ')}
                           </div>
+                          {selectedScopes.map((scope) => (
+                            <div key={scope} className="text-secondary small mt-1">
+                              <strong>{scope}:</strong>{' '}
+                              <span className="text-dark fw-semibold">{getScopeAssetSummary(scope)}</span>
+                            </div>
+                          ))}
                           <div className="text-secondary small mt-1">
                             <strong>Charter Period:</strong> {startDate} to {endDate}
                           </div>
@@ -2743,7 +2689,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         </div>
                       </div>
 
-                      {/* Three Pillars Requirements Summary Breakdown (People, Plant, Process) */}
+                      {/* Requirements summary: one card per ticked scope */}
                       <div className="col-12">
                         <div className="d-flex align-items-center justify-content-between mb-2">
                           <strong className="text-dark small d-block">
@@ -2752,85 +2698,32 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         </div>
 
                         <div className="row g-3">
-                          {/* Pillar 1: Plant (Physical Assets: Vessel & Equipment Side-by-Side) */}
-                          <div className="col-12 col-lg-5">
-                            <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
-                              <div className="d-flex align-items-center justify-content-between mb-2">
-                                <div className="d-flex align-items-center gap-1.5">
-                                  <Ship className="w-4 h-4 text-primary" />
-                                  <strong className="text-dark small">Plant</strong>
-                                </div>
-                                <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                  {SUBTYPE_STANDARD_DOCS.Vessel.filter((d) => docToggles[d.id]).length +
-                                    specializedDocs.filter((d) => d.subtype === 'Vessel' && d.isEnabled).length +
-                                    SUBTYPE_STANDARD_DOCS.Equipment.filter((d) => docToggles[d.id]).length +
-                                    specializedDocs.filter((d) => d.subtype === 'Equipment' && d.isEnabled).length} Docs
-                                </span>
-                              </div>
-                              <div className="d-flex flex-column gap-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
-                                <div className="p-2 bg-light rounded-2">
-                                  <div className="fw-semibold text-dark">Asset 1: {selectedVessel?.name || 'Vessel'} (IMO {selectedVessel?.imoNumber || 'N/A'})</div>
-                                  <div>Standard: {SUBTYPE_STANDARD_DOCS.Vessel.filter((d) => docToggles[d.id]).length} · Custom: {specializedDocs.filter((d) => d.subtype === 'Vessel' && d.isEnabled).length}</div>
-                                </div>
-                                <div className="p-2 bg-light rounded-2">
-                                  <div className="fw-semibold text-dark">Asset 2: {selectedEquipment?.name || 'Equipment'} ({selectedEquipment?.equipmentIdentifier || 'N/A'})</div>
-                                  <div>Standard: {SUBTYPE_STANDARD_DOCS.Equipment.filter((d) => docToggles[d.id]).length} · Custom: {specializedDocs.filter((d) => d.subtype === 'Equipment' && d.isEnabled).length}</div>
+                          {selectedScopes.map((scope) => {
+                            const standardCount = SUBTYPE_STANDARD_DOCS[scope].filter((d) => docToggles[d.id]).length;
+                            const customCount = specializedDocs.filter((d) => d.subtype === scope && d.isEnabled).length;
+                            return (
+                              <div key={scope} className="col-12 col-md-6">
+                                <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <strong className="text-dark small">{scope}</strong>
+                                    <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                      {standardCount + customCount} Docs
+                                    </span>
+                                  </div>
+                                  <div className="p-2 bg-light rounded-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
+                                    <div className="fw-semibold text-dark">{getScopeAssetSummary(scope)}</div>
+                                    <div className="mt-1">Standard: {standardCount} · Custom: {customCount}</div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-
-                          {/* Pillar 2: People (Key Seafarers & Crew) */}
-                          <div className="col-12 col-md-6 col-lg-3.5" style={{ flex: '1 1 28%' }}>
-                            <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
-                              <div className="d-flex align-items-center justify-content-between mb-2">
-                                <div className="d-flex align-items-center gap-1.5">
-                                  <Users className="w-4 h-4 text-primary" />
-                                  <strong className="text-dark small">People</strong>
-                                </div>
-                                <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                  {SUBTYPE_STANDARD_DOCS.Crew.filter((d) => docToggles[d.id]).length +
-                                    specializedDocs.filter((d) => d.subtype === 'Crew' && d.isEnabled).length} Docs
-                                </span>
-                              </div>
-                              <div className="d-flex flex-column gap-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
-                                <div className="p-2 bg-light rounded-2">
-                                  <div className="fw-semibold text-dark">{selectedCrew?.fullName || 'Crew'}</div>
-                                  <div className="text-muted">{selectedCrew?.rank || 'Master'} · {selectedCrew?.organization || 'Marine'}</div>
-                                  <div className="mt-1">Standard: {SUBTYPE_STANDARD_DOCS.Crew.filter((d) => docToggles[d.id]).length} · Custom: {specializedDocs.filter((d) => d.subtype === 'Crew' && d.isEnabled).length}</div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Pillar 3: Process (Operations & HSE Plans) */}
-                          <div className="col-12 col-md-6 col-lg-3.5" style={{ flex: '1 1 28%' }}>
-                            <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
-                              <div className="d-flex align-items-center justify-content-between mb-2">
-                                <div className="d-flex align-items-center gap-1.5">
-                                  <Activity className="w-4 h-4 text-primary" />
-                                  <strong className="text-dark small">Process</strong>
-                                </div>
-                                <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                  {SUBTYPE_STANDARD_DOCS.Activity.filter((d) => docToggles[d.id]).length +
-                                    specializedDocs.filter((d) => d.subtype === 'Activity' && d.isEnabled).length} Docs
-                                </span>
-                              </div>
-                              <div className="d-flex flex-column gap-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
-                                <div className="p-2 bg-light rounded-2">
-                                  <div className="fw-semibold text-dark">{selectedActivity?.name || 'Operations'}</div>
-                                  <div className="text-muted">{selectedActivity?.category || 'SURF Activity'}</div>
-                                  <div className="mt-1">Standard: {SUBTYPE_STANDARD_DOCS.Activity.filter((d) => docToggles[d.id]).length} · Custom: {specializedDocs.filter((d) => d.subtype === 'Activity' && d.isEnabled).length}</div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                            );
+                          })}
                         </div>
                       </div>
 
                       {/* Auto-Attached Documents from Asset Vault */}
                       {(() => {
-                        const activeSubtypes: AssuranceSubtype[] = [assuranceType];
+                        const activeSubtypes = orderAssuranceScopes(selectedScopes);
 
                         const currentReqs: AssuranceRequirement[] = [];
                         let reqIndex = 0;
@@ -2993,11 +2886,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <div className="p-3 bg-light rounded-3 border small">
                   <div className="fw-semibold text-dark">{title || 'Untitled'}</div>
                   <div className="text-muted mt-0.5">
-                    Scope: {assuranceType} &nbsp;|&nbsp; Asset:{' '}
-                    {assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
-                        assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew') :
-                          assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment') :
-                            (selectedActivity?.name || 'Activity')}
+                    Scope: {selectedScopes.join(', ') || 'None'} &nbsp;|&nbsp; Asset:{' '}
+                    {selectedScopes.map(getScopeAssetName).join(', ') || 'None'}
                   </div>
                 </div>
               </div>

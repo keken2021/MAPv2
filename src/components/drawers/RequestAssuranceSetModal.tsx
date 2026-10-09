@@ -4,8 +4,7 @@
   role in system: opened from ProjectDetailView.
 */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { Project, ProjectAssetType } from '../../types/project';
 import {
@@ -13,13 +12,9 @@ import {
   getProjectOrganizationForPersona,
 } from '../../utils/projectHelpers';
 import { formatUserRoles, getSessionUserForPersona } from '../../utils/userRoleHelpers';
+import { ScopeChecklist } from '../common/ScopeChecklist';
 
 const SCOPE_OPTIONS: ProjectAssetType[] = ['Vessel', 'Equipment', 'Crew'];
-
-const formatSuggestedScopeLabel = (selected: ProjectAssetType[]) => {
-  if (selected.length === 0) return 'No preference';
-  return SCOPE_OPTIONS.filter((scope) => selected.includes(scope)).join(', ');
-};
 
 interface RequestAssuranceSetModalProps {
   isOpen: boolean;
@@ -60,21 +55,8 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
 
   const [recipientUserId, setRecipientUserId] = useState('');
   const [selectedScopes, setSelectedScopes] = useState<ProjectAssetType[]>([]);
-  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const scopeMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!scopeMenuOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (scopeMenuRef.current && !scopeMenuRef.current.contains(event.target as Node)) {
-        setScopeMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [scopeMenuOpen]);
 
   const toggleScope = (scope: ProjectAssetType) => {
     setSelectedScopes((current) =>
@@ -107,7 +89,6 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
       onSuccess(`Assurance set request sent to ${recipients.find((r) => r.id === recipientUserId)?.name || 'recipient'}.`);
       setRecipientUserId('');
       setSelectedScopes([]);
-      setScopeMenuOpen(false);
       setMessage('');
       setError('');
       onClose();
@@ -164,42 +145,15 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
               <label className="form-label small fw-semibold" id="request-suggested-scope-label">
                 Scope (optional)
               </label>
-              <div className="position-relative" ref={scopeMenuRef}>
-                <button
-                  type="button"
-                  id="request-suggested-scope"
-                  className="form-select form-select-sm text-start d-flex align-items-center justify-content-between"
-                  aria-haspopup="listbox"
-                  aria-expanded={scopeMenuOpen}
-                  aria-labelledby="request-suggested-scope-label request-suggested-scope"
-                  onClick={() => setScopeMenuOpen((open) => !open)}
-                >
-                  <span className="text-truncate">{formatSuggestedScopeLabel(selectedScopes)}</span>
-                  {/* <ChevronDown size={14} className="text-muted flex-shrink-0 ms-2" /> */}
-                </button>
-                {scopeMenuOpen && (
-                  <ul
-                    className="dropdown-menu show w-100 shadow-sm border py-2"
-                    style={{ maxHeight: '200px', overflowY: 'auto' }}
-                    role="listbox"
-                    aria-multiselectable="true"
-                  >
-                    {SCOPE_OPTIONS.map((scope) => (
-                      <li key={scope}>
-                        <label className="dropdown-item d-flex align-items-center gap-2 mb-0 small cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="form-check-input mt-0 flex-shrink-0"
-                            checked={selectedScopes.includes(scope)}
-                            onChange={() => toggleScope(scope)}
-                          />
-                          <span>{scope}</span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <ScopeChecklist
+                id="request-suggested-scope"
+                labelId="request-suggested-scope-label"
+                className="form-select-sm"
+                options={SCOPE_OPTIONS}
+                selected={selectedScopes}
+                onToggle={toggleScope}
+                emptyLabel="No preference"
+              />
               <div className="text-muted small mt-1">
                 Choose one or more, or leave as no preference.
               </div>

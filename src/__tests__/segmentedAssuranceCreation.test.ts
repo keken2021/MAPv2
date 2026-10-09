@@ -7,12 +7,58 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet, AssuranceRequirement, AssuranceSubtype } from '../types/assurance';
-import { SUBTYPE_STANDARD_DOCS, SUBTYPE_TEMPLATES, EXISTING_PROJECTS } from '../utils/assuranceTemplates';
+import {
+  SUBTYPE_STANDARD_DOCS,
+  SUBTYPE_TEMPLATES,
+  EXISTING_PROJECTS,
+  ASSURANCE_SCOPE_OPTIONS,
+  orderAssuranceScopes,
+  getPrimaryAssuranceScope,
+  getAssuranceSetScopes,
+  buildAssuranceWizardSteps,
+} from '../utils/assuranceTemplates';
 import { generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../utils/validation';
 
 describe('Segmented Assurance Set Creation Workflow', () => {
   beforeEach(() => {
     useMapStore.getState().setActivePersona('Administrator');
+  });
+
+  it('keeps ticked scopes in checklist order without repeats and files the set under the first one', () => {
+    expect(ASSURANCE_SCOPE_OPTIONS).toEqual(['Vessel', 'Crew', 'Activity', 'Equipment']);
+    expect(orderAssuranceScopes(['Equipment', 'Crew', 'Equipment', 'Vessel'])).toEqual(['Vessel', 'Crew', 'Equipment']);
+    expect(orderAssuranceScopes([])).toEqual([]);
+
+    expect(getPrimaryAssuranceScope(['Equipment', 'Crew'])).toBe('Crew');
+    expect(getPrimaryAssuranceScope(['Activity'])).toBe('Activity');
+    /* nothing ticked falls back to the default scope */
+    expect(getPrimaryAssuranceScope([])).toBe('Vessel');
+  });
+
+  it('reads the scopes of a set from its subtypes, or from its type when it has none', () => {
+    expect(getAssuranceSetScopes({ assuranceType: 'Vessel', subtypes: ['Crew', 'Vessel'] })).toEqual(['Vessel', 'Crew']);
+    expect(getAssuranceSetScopes({ assuranceType: 'Equipment' })).toEqual(['Equipment']);
+    expect(getAssuranceSetScopes({ assuranceType: 'Crew', subtypes: [] })).toEqual(['Crew']);
+    expect(getAssuranceSetScopes({})).toEqual(['Vessel']);
+  });
+
+  it('builds one wizard tab per ticked scope, titled with the scope type, between Scope and Review', () => {
+    const steps = buildAssuranceWizardSteps(['Crew', 'Vessel']);
+    expect(steps.map((s) => s.label)).toEqual(['Scope', 'Vessel', 'Crew', 'Review']);
+    expect(steps.map((s) => s.subtype)).toEqual([undefined, 'Vessel', 'Crew', undefined]);
+    expect(new Set(steps.map((s) => s.id)).size).toBe(steps.length);
+
+    expect(buildAssuranceWizardSteps(['Equipment']).map((s) => s.label)).toEqual(['Scope', 'Equipment', 'Review']);
+    expect(buildAssuranceWizardSteps(ASSURANCE_SCOPE_OPTIONS).map((s) => s.label)).toEqual([
+      'Scope',
+      'Vessel',
+      'Crew',
+      'Activity',
+      'Equipment',
+      'Review',
+    ]);
+    /* with nothing ticked only the fixed tabs remain */
+    expect(buildAssuranceWizardSteps([]).map((s) => s.label)).toEqual(['Scope', 'Review']);
   });
 
   it('provides all 4 standard operational subtypes with complete descriptions', () => {

@@ -25,6 +25,7 @@ import {
 import { useMapStore } from '../store/useMapStore';
 import { MarketplaceCategory, MarketplaceItem } from '../types/marketplace';
 import { getMarketplaceItems, filterMarketplaceItems, resolveMarketplaceCharterTarget } from '../utils/marketplaceHelpers';
+import { toIsoLocalDate } from '../utils/validation';
 import { filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, getClientAdminOrganization } from '../utils/rbacHelpers';
 import { MarketplaceCard } from '../components/marketplace/MarketplaceCard';
 import { MarketplaceDetailModal } from '../components/marketplace/MarketplaceDetailModal';
@@ -55,6 +56,8 @@ export const MarketplaceView: React.FC = () => {
   const [locationFilter, setLocationFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [availableOn, setAvailableOn] = useState('');
+  /* earliest contract date the filter accepts */
+  const todayIso = toIsoLocalDate();
   const [sortBy, setSortBy] = useState<'name' | 'readiness' | 'provider' | 'category'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -205,7 +208,7 @@ export const MarketplaceView: React.FC = () => {
     if (availableOn) {
       chips.push({
         id: 'availableOn',
-        label: 'Available on',
+        label: 'Contract date',
         value: availableOn,
         onRemove: () => setAvailableOn(''),
       });
@@ -766,7 +769,7 @@ export const MarketplaceView: React.FC = () => {
 
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" htmlFor="marketplace-available-on" style={{ fontSize: '0.8rem' }}>
-              Available on
+              Contract date
             </label>
             <input
               id="marketplace-available-on"
@@ -774,10 +777,16 @@ export const MarketplaceView: React.FC = () => {
               className="form-control form-control-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
               value={availableOn}
-              onChange={(e) => setAvailableOn(e.target.value)}
+              min={todayIso}
+              onChange={(e) => {
+                /* a typed date can bypass min, so a date before today is not kept */
+                if (!e.target.value || e.target.value >= todayIso) {
+                  setAvailableOn(e.target.value);
+                }
+              }}
             />
             <div className="text-muted small mt-1">
-              A chartered asset appears on its charter end date.
+              Shows assets with no contract on this date. A contracted asset is listed again on its contract end date.
             </div>
           </div>
 

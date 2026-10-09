@@ -4,7 +4,45 @@
   role in system: consumed by CreateAssuranceSetView.tsx during segmented assurance set initiation.
 */
 
-import { AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory } from '../types/assurance';
+import { AssuranceSet, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory } from '../types/assurance';
+
+/* scopes a set can cover, in the order they are offered and shown as wizard tabs */
+export const ASSURANCE_SCOPE_OPTIONS: AssuranceSubtype[] = ['Vessel', 'Crew', 'Activity', 'Equipment'];
+
+/* returns the scopes without repeats, in the order of ASSURANCE_SCOPE_OPTIONS */
+export function orderAssuranceScopes(scopes: readonly AssuranceSubtype[]): AssuranceSubtype[] {
+  return ASSURANCE_SCOPE_OPTIONS.filter((scope) => scopes.includes(scope));
+}
+
+/* the scope a combined set is filed under (its assuranceType); Vessel when nothing is ticked */
+export function getPrimaryAssuranceScope(scopes: readonly AssuranceSubtype[]): AssuranceSubtype {
+  return orderAssuranceScopes(scopes)[0] || 'Vessel';
+}
+
+/* every scope a set covers: its subtypes, or its single assuranceType for sets saved without them */
+export function getAssuranceSetScopes(set: Pick<AssuranceSet, 'assuranceType' | 'subtypes'>): AssuranceSubtype[] {
+  if (set.subtypes && set.subtypes.length > 0) return orderAssuranceScopes(set.subtypes);
+  return [set.assuranceType || 'Vessel'];
+}
+
+export interface AssuranceWizardStep {
+  id: string;
+  label: string;
+  subtype?: AssuranceSubtype;
+}
+
+/* wizard tabs: Scope, then one tab per ticked scope titled with the scope type, then Review */
+export function buildAssuranceWizardSteps(scopes: readonly AssuranceSubtype[]): AssuranceWizardStep[] {
+  return [
+    { id: 'step-scope', label: 'Scope' },
+    ...orderAssuranceScopes(scopes).map((scope) => ({
+      id: `step-${scope.toLowerCase()}`,
+      label: scope,
+      subtype: scope,
+    })),
+    { id: 'step-review', label: 'Review' },
+  ];
+}
 
 export function getThreePillarsCategory(subtype?: AssuranceSubtype | string, category?: string): ThreePillarsCategory {
   if (

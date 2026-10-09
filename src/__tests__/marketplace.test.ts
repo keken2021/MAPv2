@@ -204,12 +204,137 @@ describe('Marketplace Module & Segregation', () => {
 
     const listed = filterMarketplaceItems([vessel], {
       availableOn: '2026-12-15',
+      today: '2026-10-09',
       assuranceSets: charter,
     });
     expect(listed).toHaveLength(1);
     expect(
-      filterMarketplaceItems([vessel], { availableOn: '2026-12-01', assuranceSets: charter }),
+      filterMarketplaceItems([vessel], { availableOn: '2026-12-01', today: '2026-10-09', assuranceSets: charter }),
     ).toHaveLength(0);
+  });
+
+  /* minimal linked listing for the contract date cases */
+  const linkedListing = (
+    id: string,
+    category: 'vessel' | 'crew' | 'equipment',
+    linkedEntityId: string,
+  ): MarketplaceItem =>
+    ({
+      id,
+      name: id,
+      category,
+      subcategory: '',
+      providerOrg: 'AquaClean Marine Services Pty Ltd',
+      location: 'Dampier',
+      availabilityStatus: 'Available',
+      availabilityTagColor: '#059669',
+      imageUrl: '',
+      shortDescription: '',
+      metrics: [],
+      complianceReadinessScore: null,
+      certifications: [],
+      operationalCapabilities: [],
+      detailedSpecs: [],
+      contact: { name: 'Desk', role: 'Contracts', avatarUrl: '' },
+      linkedEntityId,
+      linkedEntityType: category,
+    }) as MarketplaceItem;
+
+  it('does not apply a contract date that is before today', () => {
+    const vessel = linkedListing('listing-past', 'vessel', 'VESSEL-EXT');
+    const contract = [
+      {
+        id: 'AS-PAST',
+        vesselId: 'VESSEL-EXT',
+        assuranceType: 'Vessel',
+        charterWindowStart: '2026-09-01',
+        charterWindowEnd: '2026-12-15',
+        visibility: 'organization',
+        requirements: [],
+      },
+    ] as unknown as AssuranceSet[];
+
+    /* 2026-10-01 falls inside the contract, but it is before today so the date is ignored */
+    expect(
+      filterMarketplaceItems([vessel], { availableOn: '2026-10-01', today: '2026-10-09', assuranceSets: contract }),
+    ).toHaveLength(1);
+    /* today itself is accepted and the contract hides the vessel */
+    expect(
+      filterMarketplaceItems([vessel], { availableOn: '2026-10-09', today: '2026-10-09', assuranceSets: contract }),
+    ).toHaveLength(0);
+  });
+
+  it('lists assets with no contract, or whose contract ended before the contract date', () => {
+    const uncommitted = linkedListing('listing-free', 'vessel', 'VESSEL-FREE');
+    const finished = linkedListing('listing-finished', 'vessel', 'VESSEL-DONE');
+    const contracts = [
+      {
+        id: 'AS-DONE',
+        vesselId: 'VESSEL-DONE',
+        assuranceType: 'Vessel',
+        charterWindowStart: '2026-10-10',
+        charterWindowEnd: '2026-10-31',
+        visibility: 'organization',
+        requirements: [],
+      },
+    ] as unknown as AssuranceSet[];
+
+    const listed = filterMarketplaceItems([uncommitted, finished], {
+      availableOn: '2026-11-15',
+      today: '2026-10-09',
+      assuranceSets: contracts,
+    });
+    expect(listed.map((i) => i.id).sort()).toEqual(['listing-finished', 'listing-free']);
+  });
+
+  it('treats every asset of a combined set as contracted, and ignores the vessel id of a set without vessel scope', () => {
+    const vessel = linkedListing('listing-vessel', 'vessel', 'VESSEL-EXT');
+    const crewMember = linkedListing('listing-crew', 'crew', 'CREW-EXT');
+    const winch = linkedListing('listing-equipment', 'equipment', 'EQ-EXT');
+    const period = { charterWindowStart: '2026-11-01', charterWindowEnd: '2026-12-15', visibility: 'organization', requirements: [] };
+
+    const vesselAndCrew = [
+      { ...period, id: 'AS-COMBINED', vesselId: 'VESSEL-EXT', crewId: 'CREW-EXT', assuranceType: 'Vessel', subtypes: ['Vessel', 'Crew'] },
+    ] as unknown as AssuranceSet[];
+    expect(isMarketplaceItemAvailableOnDate(vessel, '2026-11-15', vesselAndCrew)).toBe(false);
+    expect(isMarketplaceItemAvailableOnDate(crewMember, '2026-11-15', vesselAndCrew)).toBe(false);
+    expect(isMarketplaceItemAvailableOnDate(winch, '2026-11-15', vesselAndCrew)).toBe(true);
+
+    /* the set names a vessel only because every set carries a vessel id; its scopes do not include Vessel */
+    const activityAndEquipment = [
+      { ...period, id: 'AS-NO-VESSEL', vesselId: 'VESSEL-EXT', equipmentId: 'EQ-EXT', assuranceType: 'Activity', subtypes: ['Activity', 'Equipment'] },
+    ] as unknown as AssuranceSet[];
+    expect(isMarketplaceItemAvailableOnDate(vessel, '2026-11-15', activityAndEquipment)).toBe(true);
+    expect(isMarketplaceItemAvailableOnDate(winch, '2026-11-15', activityAndEquipment)).toBe(false);
+  });
+
+  it('never returns the same asset twice', () => {
+    const items = getMarketplaceItems(
+      MOCK_VESSELS,
+      MOCK_EQUIPMENT,
+      'Administrator',
+      mockUsers,
+      MOCK_CREW,
+      MOCK_ASSURANCE_SETS,
+      MOCK_DOCUMENTS,
+    );
+    const filtered = filterMarketplaceItems(items, {
+      availableOn: '2026-12-01',
+      today: '2026-10-09',
+      assuranceSets: MOCK_ASSURANCE_SETS,
+    });
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(new Set(filtered.map((i) => i.id)).size).toBe(filtered.length);
+    const linked = filtered.filter((i) => i.linkedEntityId).map((i) => `${i.linkedEntityType}:${i.linkedEntityId}`);
+    expect(new Set(linked).size).toBe(linked.length);
+
+    /* a second listing of an asset already in the results is dropped */
+    const vessel = linkedListing('listing-a', 'vessel', 'VESSEL-EXT');
+    const repeat = linkedListing('listing-b', 'vessel', 'VESSEL-EXT');
+    expect(filterMarketplaceItems([vessel, repeat], {}).map((i) => i.id)).toEqual(['listing-a']);
+    expect(
+      filterMarketplaceItems([vessel, repeat], { availableOn: '2026-12-01', today: '2026-10-09', assuranceSets: [] }),
+    ).toHaveLength(1);
   });
 
   it('labels the charter action by listing category', () => {

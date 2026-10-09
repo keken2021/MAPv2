@@ -64,8 +64,16 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
   // Determine asset type and target asset details
   const assetType: ProjectAssetType = useMemo(() => {
     if (!assuranceSet) return 'Vessel';
-    if (assuranceSet.assuranceType === 'Crew' || Boolean(assuranceSet.crewId)) return 'Crew';
-    if (assuranceSet.assuranceType === 'Equipment' || Boolean(assuranceSet.equipmentId)) return 'Equipment';
+    /* a combined set is filed under its assuranceType even when it also carries a crew or equipment id */
+    if (
+      assuranceSet.assuranceType === 'Vessel' ||
+      assuranceSet.assuranceType === 'Crew' ||
+      assuranceSet.assuranceType === 'Equipment'
+    ) {
+      return assuranceSet.assuranceType;
+    }
+    if (assuranceSet.crewId) return 'Crew';
+    if (assuranceSet.equipmentId) return 'Equipment';
     return 'Vessel';
   }, [assuranceSet]);
 
