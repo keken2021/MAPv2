@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AssuranceSet } from '../types/assurance';
 import { CrewMember } from '../types/crew';
 import { EquipmentAsset } from '../types/equipment';
+import { Project } from '../types/project';
 import { VesselInformation } from '../types/vessel';
 import {
   filterCrewForProjectComposition,
@@ -157,5 +158,35 @@ describe('project composition org scoping', () => {
     expect(linkable).toHaveLength(1);
     expect(linkable[0].assetId).toBe('V-EXT');
     expect(linkable[0].eligibleAssuranceSets.map((s) => s.id)).toEqual(['AS-EXT-CHARTER']);
+  });
+
+  it('offers only orphaned assurance sets when projects are given', () => {
+    const secondVessel = { ...externalVessel, id: 'V-EXT-2', name: 'External Vessel Two' };
+    const assuranceSets = [
+      { id: 'AS-ORPHAN', vesselId: 'V-EXT', visibility: 'public', requirements: [] },
+      { id: 'AS-ROSTERED', vesselId: 'V-EXT', visibility: 'public', requirements: [] },
+      { id: 'AS-STAMPED', vesselId: 'V-EXT', visibility: 'public', projectId: 'PRJ-B', requirements: [] },
+      { id: 'AS-TAKEN', vesselId: 'V-EXT-2', visibility: 'public', requirements: [] },
+    ] as unknown as AssuranceSet[];
+    const projects = [
+      { id: 'PRJ-A', assetLinks: [{ assetType: 'Vessel', assetId: 'V-OTHER', assuranceSetId: 'AS-ROSTERED' }] },
+      { id: 'PRJ-B', assetLinks: [{ assetType: 'Vessel', assetId: 'V-EXT-2', assuranceSetId: 'AS-TAKEN' }] },
+    ] as unknown as Project[];
+    const input = {
+      vessels: [externalVessel, secondVessel],
+      crew: [],
+      equipment: [],
+      assuranceSets,
+      requestingOrganization: 'Northwind Marine Pty Ltd',
+    };
+
+    const linkable = getLinkableProjectAssets({ ...input, orphanedAmongProjects: projects });
+
+    /* the second vessel has no orphaned set left, so it is not listed */
+    expect(linkable.map((a) => a.assetId)).toEqual(['V-EXT']);
+    expect(linkable[0].eligibleAssuranceSets.map((s) => s.id)).toEqual(['AS-ORPHAN']);
+
+    /* without projects the list is unchanged */
+    expect(getLinkableProjectAssets(input).map((a) => a.assetId)).toEqual(['V-EXT', 'V-EXT-2']);
   });
 });

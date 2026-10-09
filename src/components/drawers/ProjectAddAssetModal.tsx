@@ -99,6 +99,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
     crew,
     equipment,
     documents,
+    projects,
     addAssetToProject,
   } = useMapStore();
 
@@ -136,6 +137,8 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
       assuranceSets,
       requestingOrganization: project.requestingOrganization,
       excludeAssetKeys: project.assetLinks.map((l) => `${l.assetType}:${l.assetId}`),
+      /* a set belongs to at most one project, so only orphaned sets are offered */
+      orphanedAmongProjects: projects,
     });
 
     return linkable.map((asset) => {
@@ -173,7 +176,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
         crewRef,
       };
     });
-  }, [project, vessels, equipment, crew, assuranceSets, documents]);
+  }, [project, projects, vessels, equipment, crew, assuranceSets, documents]);
 
   useEffect(() => {
     if (!selectedAsset) {
@@ -708,7 +711,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                       <Layers size={36} className="text-muted mx-auto mb-2 opacity-50" />
                       <h6 className="fw-semibold text-dark mb-1">No Assets Available</h6>
                       <p className="text-muted small mb-1">
-                        Only chartered or rented assets with an assurance set appear here.
+                        Only chartered or rented assets with an assurance set that is not in a project appear here.
                       </p>
                       <p className="text-muted small mb-0 fst-italic">{PROJECT_ASSET_LINK_HINT}</p>
                     </div>

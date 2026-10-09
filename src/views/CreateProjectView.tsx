@@ -44,12 +44,17 @@ export const CreateProjectView: React.FC = () => {
     equipment,
     assuranceSets,
     activePersona,
+    activeDemoOrganization,
     users,
     addProject,
     setCurrentHashView,
   } = useMapStore();
 
-  const defaultOrg = getProjectOrganizationForPersona(activePersona, users);
+  const defaultOrg = getProjectOrganizationForPersona(
+    activePersona,
+    users,
+    activeDemoOrganization,
+  );
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [projectType, setProjectType] =

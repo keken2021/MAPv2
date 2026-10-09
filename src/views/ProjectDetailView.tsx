@@ -131,12 +131,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       )}
 
-      {isCAdmin && (
-        <div className="alert alert-info py-2 mb-0 small">
-          Read-only. Open a linked assurance set to review its documents.
-        </div>
-      )}
-
       <div className="card map-card-custom p-3">
         <div className="d-flex flex-wrap justify-between align-items-start gap-3">
           <div>
@@ -273,7 +267,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   <th>Asset ID</th>
                   <th>Name</th>
                   <th>Type</th>
-                  <th>Organization</th>
+                  <th>Service Provider</th>
                   <th>Assurance Set</th>
                   <th className="text-end">Actions</th>
                 </tr>

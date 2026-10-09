@@ -339,6 +339,8 @@ export function isAssetCharteredOrRented(
  * Shared picker list for Create Project step 3 and ProjectAddAssetModal.
  * An asset appears only when it is chartered/rented (charter-flow assurance set exists)
  * and has at least one eligible assurance set for the requesting organization.
+ * When orphanedAmongProjects is given, only sets with no project among them are eligible,
+ * so an asset whose sets all belong to a project is not listed.
  */
 export function getLinkableProjectAssets(input: {
   vessels: VesselInformation[];
@@ -347,6 +349,7 @@ export function getLinkableProjectAssets(input: {
   assuranceSets: AssuranceSet[];
   requestingOrganization: string;
   excludeAssetKeys?: Iterable<string>;
+  orphanedAmongProjects?: Project[];
 }): LinkableProjectAsset[] {
   const exclude = new Set(input.excludeAssetKeys ?? []);
   const list: LinkableProjectAsset[] = [];
@@ -361,12 +364,16 @@ export function getLinkableProjectAssets(input: {
     if (exclude.has(key)) return;
     if (!isAssetCharteredOrRented(assetType, assetId, input.assuranceSets)) return;
 
-    const eligibleAssuranceSets = getEligibleAssuranceSetsForAsset(
+    const orgEligibleSets = getEligibleAssuranceSetsForAsset(
       assetType,
       assetId,
       input.assuranceSets,
       { requestingOrganization: input.requestingOrganization, providerOrganization },
     );
+    const projects = input.orphanedAmongProjects;
+    const eligibleAssuranceSets = projects
+      ? orgEligibleSets.filter((s) => isAssuranceSetOrphaned(s, projects))
+      : orgEligibleSets;
     if (eligibleAssuranceSets.length === 0) return;
 
     list.push({
