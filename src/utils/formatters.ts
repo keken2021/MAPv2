@@ -4,6 +4,8 @@
   role in system: used by table cells, details views, header banners, and drawer components.
 */
 
+import type { AssuranceSet, ReviewChannel, ReviewMode } from '../types/assurance';
+
 /**
   what: formats an ISO date string into a standard maritime date format (e.g. "15 SEP 2026").
   how: parses date object and outputs uppercase month abbreviation with day and 4-digit year.
@@ -142,6 +144,30 @@ export const STATUS_DISPLAY_LABELS: Record<string, string> = {
 */
 export function getStatusDisplayLabel(value: string): string {
   return STATUS_DISPLAY_LABELS[value] ?? value;
+}
+
+/* on-screen names for the stored review mode and review channel values */
+export const REVIEW_CHANNEL_LABELS: Record<ReviewMode, string> = {
+  internal: 'Internal',
+  third_party: 'Third Party',
+  issuing_authority: 'Issuing Authority',
+  mixed: 'Mixed',
+};
+
+/* label shown for a set that records no review mode */
+export const REVIEW_CHANNEL_NOT_SET_LABEL = 'Not set';
+
+/**
+  what: formats who reviews an assurance set for display; input is the set's review mode and review channels.
+  how: returns the mode label, adds the channels in brackets for a mixed set, and returns the not set label when no mode is recorded.
+  with what file: src/utils/formatters.ts used by AssuranceDetailView.tsx.
+*/
+export function formatReviewChannel(set: Pick<AssuranceSet, 'reviewMode' | 'reviewChannels'>): string {
+  if (!set.reviewMode) return REVIEW_CHANNEL_NOT_SET_LABEL;
+  const modeLabel = REVIEW_CHANNEL_LABELS[set.reviewMode];
+  if (set.reviewMode !== 'mixed' || !set.reviewChannels?.length) return modeLabel;
+  const channelLabels = set.reviewChannels.map((channel: ReviewChannel) => REVIEW_CHANNEL_LABELS[channel]);
+  return `${modeLabel} (${channelLabels.join(', ')})`;
 }
 
 /* on-screen names for field labels stored in mock data; stored labels are never renamed */

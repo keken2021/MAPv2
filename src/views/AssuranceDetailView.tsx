@@ -11,7 +11,7 @@ import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
-import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
+import { formatMaritimeDate, formatReviewChannel, getStatusDisplayLabel } from '../utils/formatters';
 import { toIsoLocalDate, validateCharterWindow } from '../utils/validation';
 import { MasterDocument } from '../types/document';
 import { AssuranceRequirement } from '../types/assurance';
@@ -641,6 +641,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       {stakeholderLockReason}
                     </div>
                   )}
+
+                  {/* Review Channel: who may verify and approve this set */}
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Review Channel:</div>
+                    <div className="fw-bold text-dark">{formatReviewChannel(assuranceSet)}</div>
+                  </div>
 
                   {/* Submitter */}
                   <div className="map-detail-row border-bottom pb-2">

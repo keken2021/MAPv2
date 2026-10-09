@@ -132,6 +132,23 @@ describe('Seeded assurance sets keep client, service provider and assurance grou
     });
   });
 
+  it('records a review channel on every set that its verifier and approver match', () => {
+    ALL_SETS.forEach((set) => {
+      const client = set.clientOrg ?? '';
+      const channels = set.reviewChannels ?? [];
+      expect(set.reviewMode, `${set.id} reviewMode`).toBeTruthy();
+      expect(channels.length, `${set.id} reviewChannels`).toBeGreaterThan(0);
+      if (set.reviewMode !== 'mixed') expect(channels, `${set.id} reviewChannels`).toEqual([set.reviewMode]);
+
+      getAssignees(set)
+        .filter(({ role }) => role === 'Verifier' || role === 'Approver')
+        .forEach(({ role, label, user }) => {
+          if (!user) return;
+          expect(channels, `${set.id} ${role} ${label}`).toContain(getReviewChannelForUser(user, client));
+        });
+    });
+  });
+
   it('gives one person one role per set', () => {
     ALL_SETS.forEach((set) => {
       const people = getAssignees(set).map((a) => a.user?.id ?? a.label.trim().toLowerCase());

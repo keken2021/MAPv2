@@ -923,6 +923,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-101',
@@ -1004,6 +1006,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedSubmitter: 'J. Vance (Northwind Marine Pty Ltd)',
     assignedVerifier: 'D. Harrison (Harrison Marine Vetting Services)',
     assignedApprover: 'I. Castellan (Shell Australia Pty Ltd)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'third_party'],
     requirements: [
       {
         id: 'REQ-201',
@@ -1042,6 +1046,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'K. Tanabe (Inpex Operations Australia)',
     assignedInspector: 'Capt. Robert Shaw (Meridian Marine Surveyors)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-301',
@@ -1081,6 +1087,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'F. Abernathy (Woodside Energy Ltd)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'third_party'],
     requirements: [
       {
         id: 'REQ-401',
@@ -1135,6 +1143,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'L. Sterling (Global Maritime Audits)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'third_party'],
     requirements: [
       {
         id: 'REQ-501',
@@ -1185,6 +1195,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'L. Sterling (Global Maritime Audits)',
     assignedInspector: 'Capt. Robert Shaw (Meridian Marine Surveyors)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-601',
@@ -1223,6 +1235,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'D. Harrison (Harrison Marine Vetting Services)',
     assignedInspector: 'Capt. Robert Shaw (Meridian Marine Surveyors)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-701',
@@ -1266,6 +1280,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-EQP-007-1',
@@ -1316,6 +1332,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedInspector: 'Capt. Robert Shaw (Meridian Marine Surveyors)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-010-1',
@@ -1366,6 +1384,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-011-1',
@@ -1405,6 +1425,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'R. Whitlock (Chevron Australia Pty Ltd)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'H. Okafor (Chevron Australia Pty Ltd)',
+    reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-ACT-001-1',
@@ -1455,6 +1477,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'R. Whitlock (Chevron Australia Pty Ltd)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'H. Okafor (Chevron Australia Pty Ltd)',
+    reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-EQP-005-1',
@@ -1492,6 +1516,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedSubmitter: 'J. Vance (Northwind Marine Pty Ltd)',
     assignedVerifier: 'T. Marlowe (Shell Australia Pty Ltd)',
     assignedApprover: 'I. Castellan (Shell Australia Pty Ltd)',
+    reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-CRW-102-1',
@@ -1529,6 +1555,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedInspector: "M. O'Connor (Lloyd's Register Surveyors)",
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
     reviewMode: 'mixed',
+    reviewChannels: ['internal', 'third_party'],
     requirements: [
       {
         id: 'REQ-VES-008-1',
@@ -1577,6 +1604,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'R. Whitlock (Chevron Australia Pty Ltd)',
     assignedApprover: 'H. Okafor (Chevron Australia Pty Ltd)',
     reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-VES-009-1',
@@ -1615,6 +1643,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'T. Marlowe (Shell Australia Pty Ltd)',
     assignedApprover: 'I. Castellan (Shell Australia Pty Ltd)',
     reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-CRW-104-1',
@@ -1653,6 +1682,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedInspector: 'Capt. Robert Shaw (Meridian Marine Surveyors)',
     assignedApprover: 'F. Abernathy (Woodside Energy Ltd)',
     reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-EQP-003-1',
@@ -1689,6 +1719,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'K. Tanabe (Inpex Operations Australia)',
     assignedApprover: 'G. Hallworth (Inpex Operations Australia)',
     reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-VES-005-1',

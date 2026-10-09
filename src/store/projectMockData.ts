@@ -33,6 +33,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-V008-1',
@@ -72,6 +74,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'S. Basin (Southern Basin Energy Pty Ltd)',
     assignedInspector: 'Capt. Robert Shaw (Meridian Marine Surveyors)',
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
+    reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-SBE-012-V1',
@@ -123,6 +127,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-V001-1',
@@ -186,6 +192,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedSubmitter: 'E. Rostova (Northwind Marine Pty Ltd)',
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-C001-1',
@@ -236,6 +244,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedSubmitter: 'D. Rahimi (Gulf Security Services Pty Ltd)',
     assignedVerifier: 'M. Chen (Northwind Marine Pty Ltd)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-C002-1',
@@ -273,6 +283,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'S. Basin (Southern Basin Energy Pty Ltd)',
     assignedInspector: 'Capt. Robert Shaw (Meridian Marine Surveyors)',
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
+    reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-SBE-010-1',
@@ -311,6 +323,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'D. Harrison (Harrison Marine Vetting Services)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'third_party'],
     requirements: [
       {
         id: 'REQ-SBE-011-1',
@@ -346,6 +360,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedSubmitter: 'D. Rahimi (Gulf Security Services Pty Ltd)',
     assignedVerifier: 'S. Basin (Southern Basin Energy Pty Ltd)',
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
+    reviewMode: 'internal',
+    reviewChannels: ['internal'],
     requirements: [
       {
         id: 'REQ-SBE-012-1',
@@ -390,6 +406,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
     assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
     requirements: [
       {
         id: 'REQ-EQP-007-SEED-1',
