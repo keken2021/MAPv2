@@ -832,7 +832,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             <div className="p-4 bg-light border rounded-3 h-100 d-flex flex-column gap-4">
               <div>
                 <div className="text-uppercase font-mono-code fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                  Assurance Campaign Stage Pipeline
+                  Assurance Set Stage Pipeline
                 </div>
                 <PipelineStepper
                   currentStage={assuranceSet.stage}
