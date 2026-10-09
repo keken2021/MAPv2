@@ -42,6 +42,8 @@ import {
   calculateVesselReadiness,
 } from '../../utils/readinessHelpers';
 import { formatReadinessScore, getStatusDisplayLabel } from '../../utils/formatters';
+import { usePagination } from '../../utils/usePagination';
+import { TablePagination } from '../common/TablePagination';
 
 export interface VaultCertificateDisplay {
   id: string;
@@ -550,6 +552,9 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
       setErrorMessage(result.message || 'Failed to add asset to project.');
     }
   };
+
+  const comparisonPagination = usePagination(comparisonResults, [selectedAsset?.assetId, selectedAssuranceSetId]);
+  const vaultPagination = usePagination(vaultDocuments, [selectedAsset?.assetId]);
 
   if (!isOpen) return null;
 
@@ -1119,7 +1124,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y">
-                            {comparisonResults.map((comp) => (
+                            {comparisonPagination.pageItems.map((comp) => (
                               <tr key={comp.requirementId}>
                                 <td className="px-3 py-2.5">
                                   <div className="fw-semibold text-dark">{comp.requirementTitle}</div>
@@ -1197,6 +1202,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                           </tbody>
                         </table>
                       </div>
+                      <TablePagination {...comparisonPagination.controls} />
                     </div>
                   )}
 
@@ -1225,7 +1231,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y">
-                            {vaultDocuments.map((doc) => (
+                            {vaultPagination.pageItems.map((doc) => (
                               <tr key={doc.id}>
                                 <td className="px-3 py-2.5">
                                   <span className="font-mono-code fw-semibold text-primary" style={{ fontSize: '0.8rem' }}>
@@ -1263,6 +1269,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                           </tbody>
                         </table>
                       </div>
+                      <TablePagination {...vaultPagination.controls} />
                     </div>
                   )}
                 </div>

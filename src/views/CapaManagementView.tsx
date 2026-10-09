@@ -15,6 +15,8 @@ import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDr
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 interface CapaManagementViewProps {
   vesselName?: string;
@@ -232,6 +234,8 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
     }
   };
 
+  const capasPagination = usePagination(sortedCapas, [activeTab, searchQuery, sortField, sortOrder]);
+
   return (
     <div className="d-flex flex-column gap-4">
       {/* CAPA Metric KPI Cards */}
@@ -343,7 +347,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
               </tr>
             </thead>
             <tbody>
-              {sortedCapas.map((capa) => (
+              {capasPagination.pageItems.map((capa) => (
                 <tr key={capa.id} onClick={() => setActiveCapa(capa)} style={{ cursor: 'pointer' }}>
                   <td>
                     <span className="font-mono-code fw-bold text-primary">{capa.id}</span>
@@ -396,6 +400,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
             </tbody>
           </table>
         </div>
+        <TablePagination {...capasPagination.controls} />
       </div>
 
       {/* CAPA Filter Modal */}

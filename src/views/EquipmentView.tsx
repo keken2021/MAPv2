@@ -13,6 +13,8 @@ import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { filterEquipmentForPersona } from '../utils/rbacHelpers';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 /**
   what: renders the fleet equipment registry page.
@@ -89,6 +91,8 @@ export const EquipmentView: React.FC = () => {
   const handleRegistered = (equipmentId: string) => {
     setCurrentHashView('equipment', equipmentId);
   };
+
+  const equipmentPagination = usePagination(filteredEquipment, [searchTerm, categoryFilter, vesselFilter, availabilityFilter, complianceFilter]);
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -210,7 +214,7 @@ export const EquipmentView: React.FC = () => {
                     </td>
                   </tr>
                 )}
-                {filteredEquipment.map((item) => {
+                {equipmentPagination.pageItems.map((item) => {
                   const parent = vessels.find((v) => v.id === item.parentVesselId);
                   return (
                     <tr
@@ -249,6 +253,7 @@ export const EquipmentView: React.FC = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination {...equipmentPagination.controls} />
         </div>
       )}
 

@@ -32,6 +32,8 @@ import {
 import type { FleetRegistryTab } from '../../utils/rbacHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { calculateVesselReadiness } from '../../utils/readinessHelpers';
+import { usePagination } from '../../utils/usePagination';
+import { TablePagination } from '../common/TablePagination';
 
 type VesselSortField =
   | 'imoNumber'
@@ -248,6 +250,8 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
     setStatusFilter('ALL');
     setAssuranceSetFilter('ALL');
   };
+
+  const vesselsPagination = usePagination(sortedVessels, [searchTerm, flagFilter, classFilter, statusFilter, assuranceSetFilter, sortField, sortDirection]);
 
   return (
     <div className="card map-card-custom">
@@ -516,7 +520,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                   </td>
                 </tr>
               ) : (
-                sortedVessels.map((v) => (
+                vesselsPagination.pageItems.map((v) => (
                   <tr
                     key={v.id}
                     onClick={() => {
@@ -570,6 +574,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
           </table>
         </div>
       )}
+      {viewMode === 'table' && <TablePagination {...vesselsPagination.controls} />}
 
       {/* Vessel Filter Modal */}
       <FilterModal

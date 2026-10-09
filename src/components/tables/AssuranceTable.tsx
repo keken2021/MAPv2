@@ -25,6 +25,8 @@ import { getProjectForAssuranceSet, ORPHANED_ASSURANCE_SET_LABEL as ORPHANED_LAB
 import { canPerform } from '../../utils/permissionHelpers';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { ASSURANCE_SCOPE_OPTIONS } from '../../utils/assuranceTemplates';
+import { usePagination } from '../../utils/usePagination';
+import { TablePagination } from '../common/TablePagination';
 
 type AssuranceSortField =
   | 'id'
@@ -247,6 +249,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     setIsExportOpen(false);
   };
 
+  const setsPagination = usePagination(sortedSets, [activeTab, searchTerm, stageFilter, scopeFilter, projectFilter, sortField, sortDirection]);
+
   return (
     <div className="d-flex flex-column gap-3">
       {/* Universal Design Tabs: Public, Organization, and Drafts (Placed above card, matching Vessels layout) */}
@@ -375,7 +379,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
             </tr>
           </thead>
           <tbody>
-            {sortedSets.map((s) => {
+            {setsPagination.pageItems.map((s) => {
               /* only roles that can edit a draft are routed to the wizard */
               const isDraft = canInitiate && isDraftSet(s);
               return (
@@ -483,6 +487,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
           </tbody>
         </table>
       </div>
+      <TablePagination {...setsPagination.controls} />
 
       {/* Assurance Filter Modal */}
       <FilterModal

@@ -12,6 +12,8 @@ import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { useMapStore } from '../store/useMapStore';
 import { calculateProjectReadiness, countProjectAssets, filterProjectsForPersona } from '../utils/projectHelpers';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 export const ProjectView: React.FC = () => {
   const { projects, assuranceSets, activePersona, activeDemoOrganization, users, setCurrentHashView } =
@@ -71,6 +73,8 @@ export const ProjectView: React.FC = () => {
 
   const canCreate = activePersona === 'Administrator' || activePersona === 'C Admin';
 
+  const projectsPagination = usePagination(filtered, [search, statusFilter, typeFilter]);
+
   return (
     <div className="d-flex flex-column gap-3">
       <div className="d-flex flex-wrap align-items-center justify-between gap-3">
@@ -127,7 +131,7 @@ export const ProjectView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map((p) => {
+                projectsPagination.pageItems.map((p) => {
                   return (
                     <tr
                       key={p.id}
@@ -178,6 +182,7 @@ export const ProjectView: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination {...projectsPagination.controls} />
       </div>
 
       {/* Project Filter Modal */}

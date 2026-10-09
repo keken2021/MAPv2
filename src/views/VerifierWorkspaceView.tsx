@@ -17,6 +17,8 @@ import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilter
 
 import { filterDocumentsForVerifierQueue } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 type SortField =
   | 'assuranceSet'
@@ -214,6 +216,8 @@ export const VerifierWorkspaceView: React.FC = () => {
     }
   };
 
+  const docsPagination = usePagination(sortedDocs, [searchTerm, typeFilter, statusFilter, sortField, sortOrder]);
+
   return (
     <div className="d-flex flex-column gap-4">
       {/* Single Master Verification Table */}
@@ -284,7 +288,7 @@ export const VerifierWorkspaceView: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedDocs.map((doc) => {
+              {docsPagination.pageItems.map((doc) => {
                 const info = getAssuranceSetInfo(doc.id);
                 const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
                 const isSetApproved = linkedSet?.stage === 'Approved' || linkedSet?.approverDecision === 'Approved';
@@ -357,6 +361,7 @@ export const VerifierWorkspaceView: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination {...docsPagination.controls} />
       </div>
 
       {/* Split-Screen Review Drawer */}

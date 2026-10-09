@@ -12,6 +12,8 @@ import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
 import { DocumentVersion } from '../types/document';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 interface DocumentDetailViewProps {
   documentId: string;
@@ -75,6 +77,8 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
       setVersionSortDirection('asc');
     }
   };
+
+  const versionsPagination = usePagination(sortedVersions, [versionSortField, versionSortDirection]);
 
   if (!doc) return <div>Document not found.</div>;
 
@@ -353,7 +357,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
               </tr>
             </thead>
             <tbody>
-              {sortedVersions.map((ver: DocumentVersion) => (
+              {versionsPagination.pageItems.map((ver: DocumentVersion) => (
                 <tr key={ver.versionLabel}>
                   <td>
                     <span className="badge bg-info text-dark font-mono-code">{ver.versionLabel}</span>
@@ -368,6 +372,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
             </tbody>
           </table>
         </div>
+        <TablePagination {...versionsPagination.controls} />
       </div>
 
       {/* Upload New Version Modal */}

@@ -71,6 +71,8 @@ import {
   UserMinus,
   UserPlus,
 } from 'lucide-react';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 
 interface VesselDetailViewProps {
@@ -911,6 +913,26 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       return modalCapaSortDirection === 'asc' ? comp : -comp;
     });
   }, [linkedCapas, modalCapaSortField, modalCapaSortDirection]);
+
+  const vaultPagination = usePagination(filteredVaultCerts, [vaultSearch, vaultStatusFilter, vaultSortField, vaultSortDirection]);
+  const assurancePagination = usePagination(filteredAssuranceSets, [assuranceSearch, assuranceStageFilter, assuranceSortField, assuranceSortDirection]);
+  const statusHistoryPagination = usePagination(filteredStatusHistory, [statusHistorySearch, statusHistoryDimensionFilter, statusHistoryCurrentOnly, statusHistorySortField, statusHistorySortDirection]);
+  const clientPagination = usePagination(filteredClientHistory, [clientSearch, clientOutcomeFilter, clientSortField, clientSortDirection]);
+  const crewPagination = usePagination(filteredCrew, [crewSearch, crewRankFilter, crewComplianceFilter, crewSortField, crewSortDirection]);
+  const auditPagination = usePagination(filteredAudits, [auditSearch, auditActionFilter, auditSortField, auditSortDirection]);
+  const inspectionPagination = usePagination(filteredInspections, [inspectionSearch, inspectionStatusFilter, inspectionSortField, inspectionSortDirection]);
+  const modalChecklistPagination = usePagination(sortedModalChecklists, [selectedInspectionForDetail?.id, modalChecklistSortField, modalChecklistSortDirection]);
+  const modalCapaPagination = usePagination(sortedModalCapas, [selectedInspectionForDetail?.id, modalCapaSortField, modalCapaSortDirection]);
+  /* vessels owned or managed by the company opened in the fleet modal */
+  const companyFleetVessels = selectedCompanyForFleetModal
+    ? vessels.filter(
+        (v) =>
+          v.registeredOwner.toLowerCase().includes(selectedCompanyForFleetModal.toLowerCase()) ||
+          (v.technicalManager && v.technicalManager.toLowerCase().includes(selectedCompanyForFleetModal.toLowerCase())) ||
+          (v.ismCompany && v.ismCompany.toLowerCase().includes(selectedCompanyForFleetModal.toLowerCase())),
+      )
+    : [];
+  const companyFleetPagination = usePagination(companyFleetVessels, [selectedCompanyForFleetModal]);
 
   if (!vessel || !isAccessible) {
     return (
@@ -2480,7 +2502,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </td>
                   </tr>
                 ) : (
-                  filteredVaultCerts.map((cert) => {
+                  vaultPagination.pageItems.map((cert) => {
                     let badgeClass = 'bg-success text-white';
                     if (cert.status === 'EXPIRED') badgeClass = 'bg-danger text-white';
                     else if (cert.status.includes('Expiring')) badgeClass = 'bg-warning text-dark';
@@ -2537,6 +2559,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </tbody>
             </table>
           </div>
+          <TablePagination {...vaultPagination.controls} />
         </div>
       )
       }
@@ -2707,7 +2730,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredAssuranceSets.map((s) => (
+                    {assurancePagination.pageItems.map((s) => (
                       <tr key={s.id}>
                         <td>
                           <div className="fw-semibold font-mono-code text-primary">{s.id}</div>
@@ -2743,6 +2766,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </table>
               </div>
             )}
+            <TablePagination {...assurancePagination.controls} />
           </div>
         </div>
       )}
@@ -2928,7 +2952,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </td>
                   </tr>
                 ) : (
-                  filteredStatusHistory.map((entry) => (
+                  statusHistoryPagination.pageItems.map((entry) => (
                     <tr key={entry.id}>
                       <td>
                         <span className="badge bg-light text-dark border">{dimensionLabel(entry.dimension)}</span>
@@ -2968,6 +2992,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </tbody>
             </table>
           </div>
+          <TablePagination {...statusHistoryPagination.controls} />
         </div>
       )}
 
@@ -3089,7 +3114,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredClientHistory.map((record) => (
+                    {clientPagination.pageItems.map((record) => (
                       <tr key={record.id}>
                         <td className="fw-semibold text-dark">{record.clientOrganization}</td>
                         <td className="small">{record.charterTitle}</td>
@@ -3117,6 +3142,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </table>
               </div>
             )}
+            <TablePagination {...clientPagination.controls} />
           </div>
         </div>
       )}
@@ -3334,7 +3360,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </td>
                   </tr>
                 ) : (
-                  filteredCrew.map((c) => (
+                  crewPagination.pageItems.map((c) => (
                     <tr key={c.id}>
                       <td className="font-mono-code small text-dark fw-semibold">{c.id}</td>
                       <td>
@@ -3412,6 +3438,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </tbody>
             </table>
           </div>
+          <TablePagination {...crewPagination.controls} />
         </div>
       )}
 
@@ -3528,7 +3555,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </td>
                   </tr>
                 ) : (
-                  filteredAudits.map((event) => (
+                  auditPagination.pageItems.map((event) => (
                     <tr key={event.id}>
                       <td className="font-mono-code small text-muted" style={{ fontSize: '0.75rem' }}>
                         {new Date(event.timestampUtc).toLocaleString()}
@@ -3564,6 +3591,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </tbody>
             </table>
           </div>
+          <TablePagination {...auditPagination.controls} />
         </div>
       )}
 
@@ -3672,7 +3700,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         </td>
                       </tr>
                     ) : (
-                      filteredInspections.map((insp) => (
+                      inspectionPagination.pageItems.map((insp) => (
                         <tr
                           key={insp.id}
                           style={{ cursor: 'pointer' }}
@@ -3740,6 +3768,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </tbody>
                 </table>
               </div>
+              <TablePagination {...inspectionPagination.controls} />
             </div>
           </div>
         )
@@ -3905,7 +3934,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                           </tr>
                         </thead>
                         <tbody>
-                          {sortedModalChecklists.map((chk: any) => (
+                          {modalChecklistPagination.pageItems.map((chk: any) => (
                             <tr key={chk.id}>
                               <td className="font-mono-code fw-semibold text-dark">{chk.id}</td>
                               <td>
@@ -3941,6 +3970,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         </tbody>
                       </table>
                     </div>
+                    <TablePagination {...modalChecklistPagination.controls} />
                   </div>
 
                   {/* Linked Corrective Actions (CAPA) Section */}
@@ -4011,7 +4041,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                               </td>
                             </tr>
                           ) : (
-                            sortedModalCapas.map((capa) => (
+                            modalCapaPagination.pageItems.map((capa) => (
                               <tr key={capa.id}>
                                 <td className="font-mono-code fw-semibold text-warning-emphasis">{capa.id}</td>
                                 <td>
@@ -4041,6 +4071,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         </tbody>
                       </table>
                     </div>
+                    <TablePagination {...modalCapaPagination.controls} />
                   </div>
 
                   {/* Inspection Campaign Event Log */}
@@ -4356,45 +4387,39 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       </tr>
                     </thead>
                     <tbody>
-                      {vessels
-                        .filter(
-                          (v) =>
-                            v.registeredOwner.toLowerCase().includes(selectedCompanyForFleetModal.toLowerCase()) ||
-                            (v.technicalManager && v.technicalManager.toLowerCase().includes(selectedCompanyForFleetModal.toLowerCase())) ||
-                            (v.ismCompany && v.ismCompany.toLowerCase().includes(selectedCompanyForFleetModal.toLowerCase()))
-                        )
-                        .map((v) => (
-                          <tr key={v.id}>
-                            <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
-                            <td className="fw-semibold text-dark">{v.name}</td>
-                            <td className="small">{v.vesselSubtype || v.vesselType}</td>
-                            <td>{v.flagState}</td>
-                            <td>
-                              <span className={`badge ${getVesselStatusBadgeClass(v.status)}`}>{v.status}</span>
-                            </td>
-                            <td>
-                              <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
-                            </td>
-                            <td className="text-end">
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                style={{ width: '32px', height: '32px' }}
-                                onClick={() => {
-                                  setSelectedCompanyForFleetModal(null);
-                                  setCurrentHashView('vessels', v.id);
-                                }}
-                                title="View"
-                                aria-label="View"
-                              >
-                                <Eye size={16} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                      {companyFleetPagination.pageItems.map((v) => (
+                        <tr key={v.id}>
+                          <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
+                          <td className="fw-semibold text-dark">{v.name}</td>
+                          <td className="small">{v.vesselSubtype || v.vesselType}</td>
+                          <td>{v.flagState}</td>
+                          <td>
+                            <span className={`badge ${getVesselStatusBadgeClass(v.status)}`}>{v.status}</span>
+                          </td>
+                          <td>
+                            <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
+                          </td>
+                          <td className="text-end">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                              style={{ width: '32px', height: '32px' }}
+                              onClick={() => {
+                                setSelectedCompanyForFleetModal(null);
+                                setCurrentHashView('vessels', v.id);
+                              }}
+                              title="View"
+                              aria-label="View"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
+                <TablePagination {...companyFleetPagination.controls} />
               </div>
               <div className="modal-footer border-top bg-light">
                 <button

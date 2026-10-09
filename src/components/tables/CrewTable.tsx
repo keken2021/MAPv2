@@ -15,6 +15,8 @@ import { formatMaritimeDate, getStatusDisplayLabel } from '../../utils/formatter
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { getCrewStockPhoto } from '../../utils/vesselImageHelpers';
+import { usePagination } from '../../utils/usePagination';
+import { TablePagination } from '../common/TablePagination';
 
 type CrewSortField =
   | 'id'
@@ -201,6 +203,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
     setIsExportOpen(false);
   };
 
+  const crewPagination = usePagination(sortedCrew, [searchTerm, rankFilter, statusFilter, vesselFilter, sortField, sortDirection]);
+
   return (
     <div className="card map-card-custom">
       {/* Table Header Controls Row: Grouped Search/Filters Left, Grouped Export/Register Right */}
@@ -299,7 +303,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                 </td>
               </tr>
             ) : (
-              sortedCrew.map((c) => (
+              crewPagination.pageItems.map((c) => (
                 <tr
                   key={c.id}
                   onClick={() => onSelectCrew(c)}
@@ -382,6 +386,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
           </tbody>
         </table>
       </div>
+      <TablePagination {...crewPagination.controls} />
 
       {/* Crew Filter Modal */}
       <FilterModal

@@ -24,6 +24,8 @@ import {
   matchesNotificationSearch,
 } from '../utils/notificationHelpers';
 import { useNotificationInbox } from '../utils/useNotificationInbox';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 const COLUMN_COUNT = 6;
 
@@ -102,6 +104,8 @@ export const NotificationsView: React.FC = () => {
     setSearch('');
     setCategoryFilter('ALL');
   };
+
+  const notificationsPagination = usePagination(visibleItems, [activeTab, search, categoryFilter, sortDirection]);
 
   if (!sessionUser) {
     return (
@@ -222,7 +226,7 @@ export const NotificationsView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                visibleItems.map((n) => {
+                notificationsPagination.pageItems.map((n) => {
                   const action = getAction(n);
                   const statusMeta = NOTIFICATION_STATUS_META[n.status];
                   const isUnread = n.status === 'unread';
@@ -288,6 +292,7 @@ export const NotificationsView: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination {...notificationsPagination.controls} />
       </div>
 
       <NotificationDetailModal

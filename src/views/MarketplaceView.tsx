@@ -35,6 +35,8 @@ import { formatReadinessScore } from '../utils/formatters';
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 export const MarketplaceView: React.FC = () => {
   const {
@@ -256,6 +258,8 @@ export const MarketplaceView: React.FC = () => {
     exportToPdf('Maritime Marketplace Offerings', headers, rows);
     setIsExportOpen(false);
   };
+
+  const itemsPagination = usePagination(filteredItems, [activeCategory, searchTerm, providerFilter, locationFilter, statusFilter, availableOn, sortBy, sortOrder]);
 
   return (
     <div className="d-flex flex-column gap-3.5">
@@ -541,7 +545,7 @@ export const MarketplaceView: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredItems.map((item) => {
+                  itemsPagination.pageItems.map((item) => {
                     const orgInfo = getOrganizationLogo(item.providerOrg);
                     return (
                       <tr
@@ -682,6 +686,7 @@ export const MarketplaceView: React.FC = () => {
             </table>
           </div>
         )}
+        {viewMode === 'table' && <TablePagination {...itemsPagination.controls} />}
       </div>
 
       {/* Interactive Detail Modal (Progressive Disclosure) */}

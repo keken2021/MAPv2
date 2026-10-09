@@ -15,6 +15,8 @@ import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
+import { usePagination } from '../../utils/usePagination';
+import { TablePagination } from '../common/TablePagination';
 
 type SortField =
   | 'title'
@@ -175,6 +177,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
     setIsExportOpen(false);
   };
 
+  const docsPagination = usePagination(sortedDocs, [searchTerm, typeFilter, statusFilter, verificationFilter, sortField, sortDirection]);
+
   return (
     <div className="card map-card-custom">
       {/* Table Header Controls Row: Grouped Search/Filter/Sort Left, Grouped Export/Upload Right */}
@@ -264,7 +268,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
             </tr>
           </thead>
           <tbody>
-            {sortedDocs.map((doc) => (
+            {docsPagination.pageItems.map((doc) => (
               <tr
                 key={doc.id}
                 onClick={() => onSelectDocument(doc)}
@@ -309,6 +313,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           </tbody>
         </table>
       </div>
+      <TablePagination {...docsPagination.controls} />
 
       {/* Document Filter Modal */}
       <FilterModal

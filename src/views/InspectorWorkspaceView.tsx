@@ -13,6 +13,8 @@ import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 type InspectorSortField = 'name' | 'imoNumber' | 'campaignTitle' | 'status';
 
@@ -155,6 +157,8 @@ export const InspectorWorkspaceView: React.FC = () => {
     setIsExportOpen(false);
   };
 
+  const vesselsPagination = usePagination(sortedAssignedVessels, [searchQuery, statusFilter, sortField, sortDirection]);
+
   return (
     <div className="d-flex flex-column gap-4">
       {/* Inspector Role KPI Summary Cards */}
@@ -287,7 +291,7 @@ export const InspectorWorkspaceView: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedAssignedVessels.map((v: VesselInformation) => {
+              {vesselsPagination.pageItems.map((v: VesselInformation) => {
                 const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
                 const totalCapaCountForVessel = capaItems.filter(
                   (c) => c.vesselName.toLowerCase() === v.name.toLowerCase() || c.vesselId === v.id
@@ -362,6 +366,7 @@ export const InspectorWorkspaceView: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination {...vesselsPagination.controls} />
       </div>
 
       {/* Dedicated Filter Modal */}

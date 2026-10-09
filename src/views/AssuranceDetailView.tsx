@@ -32,6 +32,8 @@ import {
   getAssuranceSetCreator,
   getAssuranceSetStakeholderLockReason,
 } from '../utils/rbacHelpers';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 interface AssuranceDetailViewProps {
   setId: string;
@@ -146,6 +148,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       }),
     [users, serviceProviderOrg, isCAdminPersona],
   );
+
+  const mainRequirements = sortedRequirements.filter((r) => !r.isOtherDocument);
+  const otherRequirements = sortedRequirements.filter((r) => r.isOtherDocument);
+  /* one page sequence for the whole table: requirements first, then other documents */
+  const requirementsPagination = usePagination(
+    [...mainRequirements, ...otherRequirements],
+    [assuranceSet?.id, reqSortField, reqSortDirection],
+  );
+  const pageMainRequirements = requirementsPagination.pageItems.filter((r) => !r.isOtherDocument);
+  const pageOtherRequirements = requirementsPagination.pageItems.filter((r) => r.isOtherDocument);
+  const isLastRequirementsPage =
+    requirementsPagination.controls.page === requirementsPagination.controls.totalPages;
 
   if (!assuranceSet) return <div>Assurance Set not found.</div>;
 
@@ -938,7 +952,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             </thead>
             <tbody>
               {/* Main Files (Toggled Statutory Requirements during campaign creation) */}
-              {sortedRequirements.filter((r) => !r.isOtherDocument).map((req: AssuranceRequirement) => {
+              {pageMainRequirements.map((req: AssuranceRequirement) => {
                 const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
                 const linkedChildSet = req.linkedAssuranceSetId
                   ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
@@ -1071,20 +1085,22 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 );
               })}
 
-              {/* Other Documents Section Title */}
-              <tr className="bg-light border-top border-bottom">
-                <td colSpan={4} className="py-2.5 px-3">
-                  <div className="d-flex align-items-center justify-content-between">
-                    <span className="fw-bold text-secondary text-uppercase font-mono-code" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                      Other Documents
-                    </span>
-                  </div>
-                </td>
-              </tr>
+              {/* Other Documents Section Title: shown on the page that holds other documents, or on the last page */}
+              {(pageOtherRequirements.length > 0 || isLastRequirementsPage) && (
+                <tr className="bg-light border-top border-bottom">
+                  <td colSpan={4} className="py-2.5 px-3">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <span className="fw-bold text-secondary text-uppercase font-mono-code" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                        Other Documents
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              )}
 
               {/* Other Documents Rows */}
-              {sortedRequirements.filter((r) => r.isOtherDocument).length > 0 ? (
-                sortedRequirements.filter((r) => r.isOtherDocument).map((req: AssuranceRequirement) => {
+              {otherRequirements.length > 0 ? (
+                pageOtherRequirements.map((req: AssuranceRequirement) => {
                   const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
                   const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
                   const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
@@ -1152,15 +1168,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   );
                 })
               ) : (
-                <tr>
-                  <td colSpan={4} className="text-center text-muted py-3 small font-mono-code">
-                    No other documents yet.
-                  </td>
-                </tr>
+                isLastRequirementsPage && (
+                  <tr>
+                    <td colSpan={4} className="text-center text-muted py-3 small font-mono-code">
+                      No other documents yet.
+                    </td>
+                  </tr>
+                )
               )}
             </tbody>
           </table>
         </div>
+        <TablePagination {...requirementsPagination.controls} />
       </div>
 
       {/* Document Review Drawer */}

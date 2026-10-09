@@ -14,6 +14,8 @@ import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 /**
   what: renders the full-page Audit Trail view in clean light theme with data export capabilities.
@@ -109,6 +111,8 @@ export const AuditTrailView: React.FC = () => {
   const handleResetFilters = () => {
     setRoleFilter('ALL');
   };
+
+  const eventsPagination = usePagination(sortedEvents, [searchTerm, roleFilter, sortField, sortDirection]);
 
   return (
     <div className="d-flex flex-column gap-4">
@@ -211,7 +215,7 @@ export const AuditTrailView: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {sortedEvents.map((ev) => (
+              {eventsPagination.pageItems.map((ev) => (
                 <tr key={ev.id}>
                   <td className="font-mono-code small text-nowrap">{formatMaritimeDate(ev.timestampUtc)}</td>
                   <td>
@@ -247,6 +251,7 @@ export const AuditTrailView: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination {...eventsPagination.controls} />
       </div>
 
       {/* Audit Trail Filter Modal */}

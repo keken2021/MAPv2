@@ -1,6 +1,6 @@
 ---
 name: map-design-system
-description: UI/UX design tokens, layout rules, typography, color palette, container padding, edge clearance, interactive buttons, modal architecture, dropdown chevron protection, Lucide icons, required field indicators, concise UI copy, and NN/g usability heuristics for MAPv2 workspace. Use whenever designing, creating, editing, or refactoring UI components, cards, modals, forms, and page layouts.
+description: UI/UX design tokens, layout rules, typography, color palette, container padding, edge clearance, interactive buttons, modal architecture, dropdown chevron protection, Lucide icons, required field indicators, concise UI copy, table pagination, and NN/g usability heuristics for MAPv2 workspace. Use whenever designing, creating, editing, or refactoring UI components, cards, modals, forms, tables, and page layouts.
 ---
 
 # MAPv2 UI/UX Design System & Architectural Specification
@@ -204,3 +204,48 @@ One term per concept. Use the left column in every label, heading, button, toolt
 
 Role and status values in types and mock data are never renamed. Show them through `getRoleDisplayLabel` (`src/utils/userRoleHelpers.ts`) and `getStatusDisplayLabel` (`src/utils/formatters.ts`), which hold the on-screen names (for example `Administrator` shows as `Service Provider`, `C Admin` as `Client Admin`).
 
+---
+
+## 10. Table Pagination Standard
+
+Every table that lists records is paginated. A table never renders all of its rows at once, and never scrolls its body inside a fixed-height container (no infinite scroll, no `max-height` with `overflow-y` on a table).
+
+### Behavior
+
+1. **Page size:** 10 rows by default. The user can choose 10, 25, or 50 (`PAGE_SIZE_OPTIONS` in `src/utils/paginationHelpers.ts`). Do not set a different default per table.
+2. **Footer bar:** sits directly under the table, inside the same card. Left: `Showing 11-20 of 34`. Right: `Rows per page` select, Previous button, `Page 2 of 4`, Next button.
+3. **Hidden when not needed:** the bar is not shown when the table has 10 rows or fewer.
+4. **Back to page 1:** changing the search text, any filter, the sort, the tab, or the page size returns the table to page 1.
+5. **Rows removed:** when rows disappear without a filter change (a delete, or an item leaving a work queue) the table stays on its page, or falls back to the last page that still exists.
+6. **Buttons:** Previous and Next are 32px by 32px icon-only buttons (`ChevronLeft`, `ChevronRight`, `size={16}`) with `title` and `aria-label`. Previous is disabled on the first page and Next on the last.
+7. **Full-list features:** export (CSV, PDF), header counts, KPI cards, and empty states always use the full filtered list, never the current page.
+
+### Implementation
+
+Use the shared hook and footer. Never write a one-off pager.
+
+```tsx
+const crewPagination = usePagination(sortedCrew, [searchTerm, rankFilter, statusFilter, sortField, sortDirection]);
+
+<div className="table-responsive">
+  <table className="table map-table-custom align-middle mb-0">
+    ...
+    <tbody>
+      {sortedCrew.length === 0 ? (
+        <tr>...No crew found.</tr>
+      ) : (
+        crewPagination.pageItems.map((c) => <tr key={c.id}>...</tr>)
+      )}
+    </tbody>
+  </table>
+</div>
+<TablePagination {...crewPagination.controls} />
+```
+
+- `usePagination(rows, resetKeys)` is in `src/utils/usePagination.ts`. Pass the filtered and sorted rows, and list every search, filter, sort, and tab value of that table in `resetKeys`.
+- `TablePagination` is in `src/components/common/TablePagination.tsx`. Styles are `.map-table-pagination` in `src/App.css`.
+- Call the hook at the top level of the component, above any early `return`. When the rows only exist inside a conditional part of the view, wrap the table in `<Paginated items={rows} resetKeys={[...]}>` from the same file instead.
+
+### Exceptions
+
+Not paginated, because they are not record lists: the permissions grid (`PermissionMatrix.tsx`), fixed reference tables with hand-written rows, and tables generated for print or PDF export.

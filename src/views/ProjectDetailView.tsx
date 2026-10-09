@@ -15,6 +15,8 @@ import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import { ProjectAddAssetModal } from "../components/drawers/ProjectAddAssetModal";
 import { AttachAssuranceSetPreviewModal } from "../components/drawers/AttachAssuranceSetPreviewModal";
 import { RequestAssuranceSetModal } from "../components/drawers/RequestAssuranceSetModal";
+import { usePagination } from "../utils/usePagination";
+import { TablePagination } from "../components/common/TablePagination";
 
 interface ProjectDetailViewProps {
   projectId: string;
@@ -91,6 +93,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   useEffect(() => {
     setActiveTab("assurance");
   }, [projectId]);
+
+  const assetsPagination = usePagination(filteredLinks, [assetFilter]);
+  const setsPagination = usePagination(projectAssuranceSets, []);
 
   if (!project) {
     return (
@@ -282,7 +287,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  filteredLinks.map((link) => {
+                  assetsPagination.pageItems.map((link) => {
                     const activeSet = assuranceSets.find(
                       (s) => s.id === link.assuranceSetId,
                     );
@@ -359,6 +364,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </tbody>
             </table>
           </div>
+          <TablePagination {...assetsPagination.controls} />
         </div>
       )}
 
@@ -384,7 +390,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  projectAssuranceSets.map((s) => {
+                  setsPagination.pageItems.map((s) => {
                     const openable = canOpenSet(s);
                     return (
                       <tr key={s.id}>
@@ -430,6 +436,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </tbody>
             </table>
           </div>
+          <TablePagination {...setsPagination.controls} />
           {canManage && standaloneSetsForAttach.length > 0 && (
             <div className="p-3 border-top">
               <div className="fw-semibold small mb-2">

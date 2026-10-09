@@ -14,6 +14,8 @@ import { calculateAssuranceSetReadiness, calculateVesselReadiness } from '../uti
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
 import { calculateProjectReadiness, filterProjectsForPersona } from '../utils/projectHelpers';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 /**
   what: renders the executive dashboard workspace view in light theme.
@@ -59,18 +61,6 @@ export const DashboardView: React.FC = () => {
       ),
     [projects, users, assuranceSets, activeDemoOrganization],
   );
-
-  if (activePersona === 'Verifier') {
-    return <VerifierWorkspaceView />;
-  }
-
-  if (activePersona === 'Inspector') {
-    return <InspectorWorkspaceView />;
-  }
-
-  if (activePersona === 'Approver') {
-    return <ApproverDashboardView />;
-  }
 
   const visibleVessels: Vessel[] = filterVesselsForPersona(vessels, assuranceSets, activePersona);
 
@@ -205,6 +195,24 @@ export const DashboardView: React.FC = () => {
     else if (fleetSortField === 'readiness') comp = calculateVesselReadiness(a, assuranceSets, documents) - calculateVesselReadiness(b, assuranceSets, documents);
     return fleetSortDirection === 'asc' ? comp : -comp;
   });
+
+  const cAdminProjectsPagination = usePagination(sortedCAdminProjects, [cAdminProjectSearchTerm, cAdminProjectSortField, cAdminProjectSortDirection]);
+  const cAdminSetsPagination = usePagination(sortedCAdminSets, [cAdminSearchTerm, cAdminSortField, cAdminSortDirection]);
+  const submitterSetsPagination = usePagination(sortedSubmitterSets, [submitterSearchTerm, submitterSortField, submitterSortDirection]);
+  const fleetPagination = usePagination(sortedFleetVessels, [fleetSortField, fleetSortDirection]);
+
+  /* these roles get their own workspace; the check sits below every hook so the hook order never changes */
+  if (activePersona === 'Verifier') {
+    return <VerifierWorkspaceView />;
+  }
+
+  if (activePersona === 'Inspector') {
+    return <InspectorWorkspaceView />;
+  }
+
+  if (activePersona === 'Approver') {
+    return <ApproverDashboardView />;
+  }
 
   const handleFleetSort = (field: 'name' | 'imoNumber' | 'flagState' | 'classificationSociety' | 'status' | 'readiness') => {
     if (fleetSortField === field) {
@@ -464,7 +472,7 @@ export const DashboardView: React.FC = () => {
                           </td>
                         </tr>
                       ) : (
-                        sortedCAdminProjects.map((p) => {
+                        cAdminProjectsPagination.pageItems.map((p) => {
                           const readiness = calculateProjectReadiness(p, assuranceSets);
                           return (
                             <tr
@@ -502,6 +510,7 @@ export const DashboardView: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+                <TablePagination {...cAdminProjectsPagination.controls} />
               </div>
             </div>
           </div>
@@ -575,7 +584,7 @@ export const DashboardView: React.FC = () => {
                           </td>
                         </tr>
                       ) : (
-                        sortedCAdminSets.map((s) => (
+                        cAdminSetsPagination.pageItems.map((s) => (
                           <tr
                             key={s.id}
                             onClick={() => setCurrentHashView('assurance-sets', s.id)}
@@ -616,6 +625,7 @@ export const DashboardView: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+                <TablePagination {...cAdminSetsPagination.controls} />
               </div>
             </div>
           </div>
@@ -691,7 +701,7 @@ export const DashboardView: React.FC = () => {
                           </td>
                         </tr>
                       ) : (
-                        sortedSubmitterSets.map((s) => {
+                        submitterSetsPagination.pageItems.map((s) => {
                           const returnedDocs = s.requirements.filter((r) => {
                             const linkedDoc = documents.find((d) => d.id === r.documentId || (r.linkedDocumentId && d.id === r.linkedDocumentId));
                             return (
@@ -764,6 +774,7 @@ export const DashboardView: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+                <TablePagination {...submitterSetsPagination.controls} />
               </div>
             </div>
           </div>
@@ -826,7 +837,7 @@ export const DashboardView: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedFleetVessels.map((v) => (
+                      {fleetPagination.pageItems.map((v) => (
                         <tr
                           key={v.id}
                           onClick={() => setCurrentHashView('vessels', v.id)}
@@ -849,6 +860,7 @@ export const DashboardView: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+                <TablePagination {...fleetPagination.controls} />
               </div>
             </div>
           </div>

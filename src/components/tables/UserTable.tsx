@@ -18,6 +18,8 @@ import { canPerform } from '../../utils/permissionHelpers';
 
 import { filterUsersForPersona } from '../../utils/rbacHelpers';
 import { formatUserRoles, getRoleDisplayLabel, userHasRole, userMatchesAnyRole } from '../../utils/userRoleHelpers';
+import { usePagination } from '../../utils/usePagination';
+import { TablePagination } from '../common/TablePagination';
 
 type UserSortField =
   | 'id'
@@ -212,6 +214,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
     setStatusFilter('ALL');
   };
 
+  const usersPagination = usePagination(sortedUsers, [searchTerm, roleFilter, typeFilter, statusFilter, sortField, sortDirection]);
+
   return (
     <div className="card map-card-custom">
       {/* Table Header Controls Row: Grouped Search/Filters Left, Grouped Export/Add User Right */}
@@ -310,7 +314,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
                 </td>
               </tr>
             ) : (
-              sortedUsers.map((u) => (
+              usersPagination.pageItems.map((u) => (
                 <tr key={u.id}>
                   <td className="font-mono-code fw-semibold text-primary">{u.id}</td>
                   <td>
@@ -383,6 +387,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
           </tbody>
         </table>
       </div>
+      <TablePagination {...usersPagination.controls} />
 
       {/* User Directory Filter Modal */}
       <FilterModal

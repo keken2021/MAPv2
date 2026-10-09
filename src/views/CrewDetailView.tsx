@@ -29,6 +29,8 @@ import { CrewDocumentViewerModal } from '../components/drawers/CrewDocumentViewe
 import { getProjectOrganizationForPersona, isCrewOwnedByOrganization } from '../utils/projectHelpers';
 import { ImageCropModal } from '../components/drawers/VesselImageCropModal';
 import { CURATED_CREW_PHOTOS, getCrewStockPhoto } from '../utils/vesselImageHelpers';
+import { usePagination } from '../utils/usePagination';
+import { TablePagination } from '../components/common/TablePagination';
 
 interface CrewDetailViewProps {
   crewId: string;
@@ -175,6 +177,10 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
       return layer2SortDirection === 'asc' ? comp : -comp;
     });
   }, [crewMember, layer2SortField, layer2SortDirection]);
+
+  const assignmentsPagination = usePagination(sortedAssignments, [assignmentSortField, assignmentSortDirection]);
+  const layer1Pagination = usePagination(sortedLayer1Docs, [layer1SortField, layer1SortDirection]);
+  const layer2Pagination = usePagination(sortedLayer2Docs, [layer2SortField, layer2SortDirection]);
 
   if (!crewMember) return <div className="p-4">Crew profile not found.</div>;
 
@@ -571,7 +577,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   </td>
                 </tr>
               ) : (
-                sortedAssignments.map((asg: CrewVesselAssignment) => (
+                assignmentsPagination.pageItems.map((asg: CrewVesselAssignment) => (
                   <tr key={asg.id}>
                     <td className="font-mono-code fw-semibold text-primary">{asg.imoNumber}</td>
                     <td>
@@ -611,6 +617,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
             </tbody>
           </table>
         </div>
+        <TablePagination {...assignmentsPagination.controls} />
       </div>
 
       {/* SECTION 2: Layer 1 — Universal STCW Core Documents Register */}
@@ -687,7 +694,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               </tr>
             </thead>
             <tbody>
-              {sortedLayer1Docs.map((doc: STCWDocumentItem) => (
+              {layer1Pagination.pageItems.map((doc: STCWDocumentItem) => (
                 <tr key={doc.id}>
                   <td>
                     <div className="font-mono-code fw-semibold text-primary">{doc.certificateNo}</div>
@@ -733,6 +740,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
             </tbody>
           </table>
         </div>
+        <TablePagination {...layer1Pagination.controls} />
       </div>
 
       {/* SECTION 3: Layer 2 — Vessel-Specific Certificates & Advanced Endorsements Register */}
@@ -816,7 +824,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   </td>
                 </tr>
               ) : (
-                sortedLayer2Docs.map((doc: STCWDocumentItem) => (
+                layer2Pagination.pageItems.map((doc: STCWDocumentItem) => (
                   <tr key={doc.id}>
                     <td>
                       <div className="font-mono-code fw-semibold text-primary">{doc.certificateNo}</div>
@@ -865,6 +873,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
             </tbody>
           </table>
         </div>
+        <TablePagination {...layer2Pagination.controls} />
       </div>
 
       {/* STCW Document Viewer Modal */}

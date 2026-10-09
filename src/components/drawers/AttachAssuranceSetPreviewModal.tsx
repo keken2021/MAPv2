@@ -29,6 +29,8 @@ import { Project, ProjectAssetType } from '../../types/project';
 import { MasterDocument } from '../../types/document';
 import { normalizeText } from '../../utils/documentMatchingHelpers';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
+import { usePagination } from '../../utils/usePagination';
+import { TablePagination } from '../common/TablePagination';
 
 export interface AttachAssuranceSetPreviewModalProps {
   isOpen: boolean;
@@ -170,6 +172,8 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
       (r) => r.verifierStatus === 'Verified' || r.isFulfilled,
     ).length;
   }, [assuranceSet]);
+
+  const requirementsPagination = usePagination(requirementRows, [assuranceSet?.id]);
 
   if (!isOpen || !assuranceSet) return null;
 
@@ -377,7 +381,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                           </td>
                         </tr>
                       ) : (
-                        requirementRows.map(({ requirement: req, matchedDoc }) => {
+                        requirementsPagination.pageItems.map(({ requirement: req, matchedDoc }) => {
                           const isMandatory = req.isMandatory;
                           const isVerified = req.verifierStatus === 'Verified' || req.isFulfilled;
 
@@ -493,6 +497,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                     </tbody>
                   </table>
                 </div>
+                <TablePagination {...requirementsPagination.controls} />
               </div>
             )}
 

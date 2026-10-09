@@ -19,6 +19,8 @@ import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, Search, Fil
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { usePagination } from '../utils/usePagination';
+import { Paginated, TablePagination } from '../components/common/TablePagination';
 
 /**
   what: renders approval requests table list view or approval detail page.
@@ -230,6 +232,8 @@ export const ApproverDashboardView: React.FC = () => {
   const approvedCount = assignedSets.filter((s) => s.approverDecision === 'Approved' || s.stage === 'Approved').length;
   const returnedCount = assignedSets.filter((s) => s.approverDecision === 'Returned for Correction' || s.approverDecision === 'Rejected').length;
 
+  const setsPagination = usePagination(sortedSets, [searchTerm, stageFilter, pipelineSortField, pipelineSortDirection]);
+
   /* render detail page if currentEntityId is present */
   if (selectedSet) {
     const vessel = vessels.find((v) => v.id === selectedSet.vesselId || v.name === selectedSet.vesselName);
@@ -367,129 +371,137 @@ export const ApproverDashboardView: React.FC = () => {
                   });
 
                 return (
-                  <div className="card map-card-custom">
-                    <div className="table-responsive">
-                      <table className="table map-table-custom align-middle mb-0">
-                        <thead>
-                          <tr>
-                            <th
-                              style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                              onClick={() => handleReqSort('category')}
-                            >
-                              Category {renderSortIndicator(reqSortField, 'category', reqSortDirection)}
-                            </th>
-                            <th
-                              style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                              onClick={() => handleReqSort('title')}
-                            >
-                              Requirement {renderSortIndicator(reqSortField, 'title', reqSortDirection)}
-                            </th>
-                            <th
-                              style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                              onClick={() => handleReqSort('ocrConfidence')}
-                            >
-                              OCR Confidence {renderSortIndicator(reqSortField, 'ocrConfidence', reqSortDirection)}
-                            </th>
-                            <th
-                              style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                              onClick={() => handleReqSort('status')}
-                            >
-                              Status {renderSortIndicator(reqSortField, 'status', reqSortDirection)}
-                            </th>
-                            <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {verifiedRequirements.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} className="text-center text-secondary py-4 font-mono-code">
-                                No verified documents yet.
-                              </td>
-                            </tr>
-                          ) : (
-                            verifiedRequirements.map((req) => {
-                              const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
-                              const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
-                              const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
-                              return (
-                                <tr key={req.id}>
-                                  <td>
-                                    <span className="badge bg-light text-dark border small">{req.category}</span>
-                                  </td>
-                                  <td className="fw-semibold text-dark">
-                                    {req.title}
-                                    {req.isMandatory && <span className="text-danger ms-1">*</span>}
-                                  </td>
-                                  <td>
-                                    <ConfidenceBadge score={effectiveOcr} />
-                                  </td>
-                                  <td>
-                                    <span className={`badge font-mono-code ${isAlreadyApproved ? 'bg-success text-white' : 'bg-info text-dark'}`}>
-                                      {isAlreadyApproved ? 'Approved' : 'Verified'}
-                                    </span>
-                                  </td>
-                                  <td className="text-end">
-                                    <div className="d-flex align-items-center justify-content-end gap-1.5 flex-nowrap">
-                                      {linkedDoc ? (
-                                        <button
-                                          type="button"
-                                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                          style={{ width: '32px', height: '32px' }}
-                                          onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
-                                          title="Review"
-                                          aria-label="Review"
-                                        >
-                                          <FileCheck size={16} />
-                                        </button>
-                                      ) : (
-                                        <span className="text-secondary small font-mono-code">No Document</span>
-                                      )}
-                                      {!isAlreadyApproved && canDecideRequirements && (
-                                        <>
-                                          <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-warning text-dark d-inline-flex align-items-center justify-content-center p-0"
-                                            style={{ width: '32px', height: '32px' }}
-                                            title="Return for correction"
-                                            aria-label="Return for correction"
-                                            onClick={() => {
-                                              const reason = window.prompt(`Reason for returning "${req.title}":`, approverNotes || 'Returned for correction by the approver.');
-                                              if (reason && reason.trim()) {
-                                                denyRequirementByApprover(selectedSet.id, req.id, 'Correction Requested', reason.trim());
-                                                setFeedbackMessage(`Requirement "${req.title}" returned for correction. Submitter has been pinged.`);
-                                              }
-                                            }}
-                                          >
-                                            <RotateCcw size={16} />
-                                          </button>
-                                          <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
-                                            style={{ width: '32px', height: '32px' }}
-                                            title="Reject"
-                                            aria-label="Reject"
-                                            onClick={() => {
-                                              const reason = window.prompt(`Reason for rejecting "${req.title}":`, approverNotes || 'Document does not meet the requirement.');
-                                              if (reason && reason.trim()) {
-                                                denyRequirementByApprover(selectedSet.id, req.id, 'Rejected', reason.trim());
-                                                setFeedbackMessage(`Requirement "${req.title}" rejected. Submitter has been pinged.`);
-                                              }
-                                            }}
-                                          >
-                                            <XCircle size={16} />
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
+                  <Paginated
+                    items={verifiedRequirements}
+                    resetKeys={[selectedSet.id, reqSortField, reqSortDirection]}
+                  >
+                    {(pageRequirements, paginationFooter) => (
+                      <div className="card map-card-custom">
+                        <div className="table-responsive">
+                          <table className="table map-table-custom align-middle mb-0">
+                            <thead>
+                              <tr>
+                                <th
+                                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                                  onClick={() => handleReqSort('category')}
+                                >
+                                  Category {renderSortIndicator(reqSortField, 'category', reqSortDirection)}
+                                </th>
+                                <th
+                                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                                  onClick={() => handleReqSort('title')}
+                                >
+                                  Requirement {renderSortIndicator(reqSortField, 'title', reqSortDirection)}
+                                </th>
+                                <th
+                                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                                  onClick={() => handleReqSort('ocrConfidence')}
+                                >
+                                  OCR Confidence {renderSortIndicator(reqSortField, 'ocrConfidence', reqSortDirection)}
+                                </th>
+                                <th
+                                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                                  onClick={() => handleReqSort('status')}
+                                >
+                                  Status {renderSortIndicator(reqSortField, 'status', reqSortDirection)}
+                                </th>
+                                <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {verifiedRequirements.length === 0 ? (
+                                <tr>
+                                  <td colSpan={5} className="text-center text-secondary py-4 font-mono-code">
+                                    No verified documents yet.
                                   </td>
                                 </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                              ) : (
+                                pageRequirements.map((req) => {
+                                  const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+                                  const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
+                                  const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
+                                  return (
+                                    <tr key={req.id}>
+                                      <td>
+                                        <span className="badge bg-light text-dark border small">{req.category}</span>
+                                      </td>
+                                      <td className="fw-semibold text-dark">
+                                        {req.title}
+                                        {req.isMandatory && <span className="text-danger ms-1">*</span>}
+                                      </td>
+                                      <td>
+                                        <ConfidenceBadge score={effectiveOcr} />
+                                      </td>
+                                      <td>
+                                        <span className={`badge font-mono-code ${isAlreadyApproved ? 'bg-success text-white' : 'bg-info text-dark'}`}>
+                                          {isAlreadyApproved ? 'Approved' : 'Verified'}
+                                        </span>
+                                      </td>
+                                      <td className="text-end">
+                                        <div className="d-flex align-items-center justify-content-end gap-1.5 flex-nowrap">
+                                          {linkedDoc ? (
+                                            <button
+                                              type="button"
+                                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                              style={{ width: '32px', height: '32px' }}
+                                              onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
+                                              title="Review"
+                                              aria-label="Review"
+                                            >
+                                              <FileCheck size={16} />
+                                            </button>
+                                          ) : (
+                                            <span className="text-secondary small font-mono-code">No Document</span>
+                                          )}
+                                          {!isAlreadyApproved && canDecideRequirements && (
+                                            <>
+                                              <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-warning text-dark d-inline-flex align-items-center justify-content-center p-0"
+                                                style={{ width: '32px', height: '32px' }}
+                                                title="Return for correction"
+                                                aria-label="Return for correction"
+                                                onClick={() => {
+                                                  const reason = window.prompt(`Reason for returning "${req.title}":`, approverNotes || 'Returned for correction by the approver.');
+                                                  if (reason && reason.trim()) {
+                                                    denyRequirementByApprover(selectedSet.id, req.id, 'Correction Requested', reason.trim());
+                                                    setFeedbackMessage(`Requirement "${req.title}" returned for correction. Submitter has been pinged.`);
+                                                  }
+                                                }}
+                                              >
+                                                <RotateCcw size={16} />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                                style={{ width: '32px', height: '32px' }}
+                                                title="Reject"
+                                                aria-label="Reject"
+                                                onClick={() => {
+                                                  const reason = window.prompt(`Reason for rejecting "${req.title}":`, approverNotes || 'Document does not meet the requirement.');
+                                                  if (reason && reason.trim()) {
+                                                    denyRequirementByApprover(selectedSet.id, req.id, 'Rejected', reason.trim());
+                                                    setFeedbackMessage(`Requirement "${req.title}" rejected. Submitter has been pinged.`);
+                                                  }
+                                                }}
+                                              >
+                                                <XCircle size={16} />
+                                              </button>
+                                            </>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                        {paginationFooter}
+                      </div>
+                    )}
+                  </Paginated>
                 );
               })()}
             </div>
@@ -767,7 +779,7 @@ export const ApproverDashboardView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                sortedSets.map((set) => {
+                setsPagination.pageItems.map((set) => {
                   return (
                     <tr
                       key={set.id}
@@ -815,6 +827,7 @@ export const ApproverDashboardView: React.FC = () => {
             </tbody>
           </table>
         </div>
+        <TablePagination {...setsPagination.controls} />
       </div>
 
       {/* Dedicated Filter Modal */}

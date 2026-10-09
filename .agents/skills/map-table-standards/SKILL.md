@@ -1,6 +1,6 @@
 ---
 name: map-table-standards
-description: Enterprise data table standards for MAPv2: standardized 6-column ID-first column sequence, 32x32px icon-only action buttons with tooltips, table cell breathing room padding, and sort/filter control uniqueness. Use whenever creating, editing, or refactoring data tables, column headers, table actions, or list views.
+description: Enterprise data table standards for MAPv2: standardized 6-column ID-first column sequence, 32x32px icon-only action buttons with tooltips, table cell breathing room padding, sort/filter control uniqueness, and mandatory pagination. Use whenever creating, editing, or refactoring data tables, column headers, table actions, or list views.
 ---
 
 # MAPv2 Enterprise Table Architecture & Standards
@@ -58,3 +58,12 @@ All action buttons inside table rows must adhere strictly to the **Icon-Only Sta
 - If a table column already has a built-in sort control (header click with `<ArrowUpDown size={14} />`, `<ArrowUp size={14} />`, or `<ArrowDown size={14} />`), do not add a separate sort button in the toolbar or filter row for the same column.
 - One control per function per context.
 
+---
+
+## 5. Pagination (Mandatory)
+
+- Every table that lists records is paginated: 10 rows per page by default, with 10, 25, and 50 offered. No infinite scroll and no scrolling table body.
+- Use `usePagination` (`src/utils/usePagination.ts`) for the rows and render `<TablePagination />` (`src/components/common/TablePagination.tsx`) directly under the table. Never build a one-off pager.
+- Pass every search, filter, sort, and tab value of the table as reset keys so a change returns to page 1.
+- Export, counts, and empty states use the full filtered list, not the current page.
+- Full rules, footer layout, and exceptions: `map-design-system`, section 10 (Table Pagination Standard).
