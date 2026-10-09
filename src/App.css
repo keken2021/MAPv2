@@ -102,6 +102,203 @@ div.map-autofill-animate {
   z-index: 105;
 }
 
+/* organization switcher in the sidebar footer: card trigger and searchable popover */
+.map-org-switcher-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px;
+  text-align: left;
+  color: var(--map-sidebar-text);
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.map-org-switcher-trigger.is-open {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: var(--map-sidebar-border);
+}
+
+.map-org-switcher-trigger:focus-visible {
+  outline: 2px solid var(--map-focus-ring);
+  outline-offset: var(--map-focus-ring-offset);
+}
+
+.map-org-switcher-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--map-sidebar-text);
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+/* the organization in use carries the brand teal of the MAP mark */
+.map-org-switcher-badge.is-current {
+  color: #ffffff;
+  background-color: #0d9488;
+  border-color: #0d9488;
+}
+
+.map-org-switcher-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.map-org-switcher-name {
+  overflow: hidden;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #ffffff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-org-switcher-meta {
+  overflow: hidden;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  color: var(--map-sidebar-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-org-switcher-chevron,
+.map-org-switcher-search svg {
+  flex-shrink: 0;
+  color: var(--map-sidebar-muted);
+}
+
+/* anchored to the sidebar footer (the positioned ancestor) so it opens above the whole footer */
+.map-org-switcher-menu {
+  position: absolute;
+  right: 8px;
+  bottom: calc(100% + 8px);
+  left: 8px;
+  z-index: 1100;
+  overflow: hidden;
+  background-color: var(--map-sidebar-bg);
+  border: 1px solid var(--map-sidebar-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.map-org-switcher-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* the search field is focused whenever the list is open, so its focus mark is an underline, not a full ring */
+.map-org-switcher-search:focus-within {
+  box-shadow: inset 0 -2px 0 var(--map-focus-ring);
+}
+
+.map-org-switcher-search input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0;
+  font-size: 0.8rem;
+  color: #ffffff;
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.map-org-switcher-search input::placeholder {
+  color: var(--map-sidebar-muted);
+}
+
+.map-org-switcher-list {
+  max-height: min(320px, calc(100vh - 260px));
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* in the list a long name wraps onto a second line so similar names stay distinguishable */
+.map-org-switcher-option .map-org-switcher-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.8rem;
+  white-space: normal;
+}
+
+.map-org-switcher-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.map-org-switcher-option.is-highlighted {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+.map-org-switcher-option.is-current {
+  background-color: var(--map-sidebar-active-bg);
+}
+
+.map-org-switcher-option.is-current.is-highlighted {
+  background-color: var(--map-sidebar-border);
+}
+
+.map-org-switcher-option.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.map-org-switcher-check {
+  flex-shrink: 0;
+  color: var(--map-focus-ring);
+}
+
+.map-org-switcher-empty {
+  padding: 16px 12px;
+  font-size: 0.8rem;
+  color: var(--map-sidebar-muted);
+  text-align: center;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .map-org-switcher-trigger:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-org-switcher-trigger,
+  .map-org-switcher-option {
+    transition: none;
+  }
+}
+
 .map-right-column {
   flex: 1;
   display: flex;

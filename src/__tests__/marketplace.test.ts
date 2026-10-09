@@ -213,7 +213,7 @@ describe('Marketplace Module & Segregation', () => {
     ).toHaveLength(0);
   });
 
-  /* minimal linked listing for the contract date cases */
+  /* minimal linked listing for the Available date cases */
   const linkedListing = (
     id: string,
     category: 'vessel' | 'crew' | 'equipment',
@@ -240,7 +240,7 @@ describe('Marketplace Module & Segregation', () => {
       linkedEntityType: category,
     }) as MarketplaceItem;
 
-  it('does not apply a contract date that is before today', () => {
+  it('does not apply a Available date that is before today', () => {
     const vessel = linkedListing('listing-past', 'vessel', 'VESSEL-EXT');
     const contract = [
       {
@@ -264,7 +264,7 @@ describe('Marketplace Module & Segregation', () => {
     ).toHaveLength(0);
   });
 
-  it('lists assets with no contract, or whose contract ended before the contract date', () => {
+  it('lists assets with no contract, or whose contract ended before the Available date', () => {
     const uncommitted = linkedListing('listing-free', 'vessel', 'VESSEL-FREE');
     const finished = linkedListing('listing-finished', 'vessel', 'VESSEL-DONE');
     const contracts = [

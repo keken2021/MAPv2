@@ -1,10 +1,10 @@
 /* 
   file summary: sidebar navigation component with role-based access control (rbac) route filtering matching exact mockup styling.
-  responsibilities: renders fixed dark navy sidepanel, organisation card, teal dot nav items, and signed in as user section.
+  responsibilities: renders fixed dark navy sidepanel, organization switcher, teal dot nav items, and signed in as user section.
   role in system: sidebar navigation component embedded in app layout shell.
 */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, LogOut } from "lucide-react";
 import { useMapStore } from "../../store/useMapStore";
 import { UserRolePersona } from "../../types/audit";
@@ -20,7 +20,7 @@ import {
   isMarketplacePersona,
 } from "../../utils/rbacHelpers";
 import {
-  getOrganizationsFromUsers,
+  getOrganizationSwitcherOptions,
   getPersonasForOrganization,
   getUserInitials,
   pickSessionUserForOrgPersona,
@@ -30,6 +30,7 @@ import {
   getRoleDisplayLabel,
   getSessionUserForPersona,
 } from "../../utils/userRoleHelpers";
+import { OrganizationSwitcher } from "./OrganizationSwitcher";
 
 interface NavItem {
   key: string;
@@ -62,7 +63,22 @@ export const AppSidebar: React.FC = () => {
     users,
     customScopes,
   } = useMapStore();
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  /* footer popover that is open; one at a time so the two never overlap */
+  const [openMenu, setOpenMenu] = useState<"organization" | "user" | null>(null);
+  const isUserMenuOpen = openMenu === "user";
+  const footerRef = useRef<HTMLDivElement>(null);
+
+  /* a click anywhere outside the footer closes the open popover */
+  useEffect(() => {
+    if (!openMenu) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (footerRef.current && !footerRef.current.contains(event.target as Node)) {
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [openMenu]);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
     new Set(["assets"]),
   );
@@ -72,8 +88,8 @@ export const AppSidebar: React.FC = () => {
     [activeDemoOrganization, activeSessionUserId],
   );
 
-  const demoOrganizations = useMemo(
-    () => getOrganizationsFromUsers(users),
+  const organizationOptions = useMemo(
+    () => getOrganizationSwitcherOptions(users),
     [users],
   );
 
@@ -494,6 +510,7 @@ export const AppSidebar: React.FC = () => {
 
       {/* organisation & signed-in user footer card */}
       <div
+        ref={footerRef}
         className="mt-auto p-3 border-top position-relative"
         style={{
           borderColor: "rgba(255, 255, 255, 0.08)",
@@ -501,9 +518,9 @@ export const AppSidebar: React.FC = () => {
         }}
       >
         <div className="mb-2">
-          <label
-            className="text-uppercase fw-bold mb-1 d-block"
-            htmlFor="demo-organization-select"
+          <div
+            id="demo-organization-label"
+            className="text-uppercase fw-bold mb-1"
             style={{
               fontSize: "0.625rem",
               letterSpacing: "0.08em",
@@ -511,24 +528,15 @@ export const AppSidebar: React.FC = () => {
             }}
           >
             Organization
-          </label>
-          <select
-            id="demo-organization-select"
-            className="form-select form-select-sm bg-dark text-white border-secondary"
-            style={{ fontSize: "0.78rem" }}
-            value={activeDemoOrganization}
-            onChange={(event) => {
-              setActiveDemoOrganization(event.target.value);
-              setIsUserMenuOpen(false);
-            }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {demoOrganizations.map((organization) => (
-              <option key={organization} value={organization}>
-                {organization}
-              </option>
-            ))}
-          </select>
+          </div>
+          <OrganizationSwitcher
+            options={organizationOptions}
+            activeOrganization={activeDemoOrganization}
+            labelId="demo-organization-label"
+            isOpen={openMenu === "organization"}
+            onOpenChange={(open) => setOpenMenu(open ? "organization" : null)}
+            onSelect={setActiveDemoOrganization}
+          />
         </div>
 
         <div
@@ -541,7 +549,7 @@ export const AppSidebar: React.FC = () => {
             transition: "background-color 0.15s ease",
             cursor: "pointer",
           }}
-          onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+          onClick={() => setOpenMenu(isUserMenuOpen ? null : "user")}
         >
           <div className="d-flex align-items-center gap-2 overflow-hidden">
             <div
@@ -612,7 +620,7 @@ export const AppSidebar: React.FC = () => {
                 }}
                 onClick={() => {
                   setActivePersona(role);
-                  setIsUserMenuOpen(false);
+                  setOpenMenu(null);
                 }}
               >
                 <div>
@@ -641,7 +649,7 @@ export const AppSidebar: React.FC = () => {
               className="btn btn-sm text-start text-danger w-100 d-flex align-items-center gap-2 py-1.5 px-2 border-0 bg-transparent"
               style={{ fontSize: "0.78rem" }}
               onClick={() => {
-                setIsUserMenuOpen(false);
+                setOpenMenu(null);
                 logout();
               }}
             >

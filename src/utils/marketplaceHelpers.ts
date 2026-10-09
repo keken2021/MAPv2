@@ -312,7 +312,7 @@ export function isMarketplaceItemAvailableOnDate(
 }
 
 /**
-  what: filters and sorts marketplace items according to search query, category, provider, location, contract date, and sort criteria; returns each asset once.
+  what: filters and sorts marketplace items according to search query, category, provider, location, Available date, and sort criteria; returns each asset once.
 */
 export function filterMarketplaceItems(
   items: MarketplaceItem[],
@@ -323,7 +323,7 @@ export function filterMarketplaceItems(
     locationFilter?: string;
     statusFilter?: string;
     availableOn?: string;
-    /* iso date the contract date is checked against; defaults to the current date */
+    /* iso date the Available date is checked against; defaults to the current date */
     today?: string;
     assuranceSets?: AssuranceSet[];
     sortBy?: 'name' | 'readiness' | 'provider' | 'category';
@@ -344,7 +344,7 @@ export function filterMarketplaceItems(
   } = options;
 
   const searchNormalized = searchTerm.trim().toLowerCase();
-  /* the contract date never looks at the past: a date before today is not applied */
+  /* the Available date never looks at the past: a date before today is not applied */
   const contractDate = availableOn && availableOn >= today ? availableOn : '';
   /* one listing per asset, so an asset cannot be returned twice */
   const listedAssets = new Set<string>();
@@ -370,7 +370,7 @@ export function filterMarketplaceItems(
       return false;
     }
 
-    // 5. Contract date the asset must be free on, including a contract end date
+    // 5. Available date the asset must be free on, including a contract end date
     if (contractDate && !isMarketplaceItemAvailableOnDate(item, contractDate, assuranceSets)) {
       return false;
     }

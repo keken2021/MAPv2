@@ -7,6 +7,7 @@
 import { UserRolePersona } from '../types/audit';
 import { UserProfile } from '../types/user';
 import { orgFieldMatches } from './rbacHelpers';
+import { getOrganizationLogo } from './vesselImageHelpers';
 
 export const DEFAULT_DEMO_ORGANIZATION = 'Northwind Marine Pty Ltd';
 
@@ -46,6 +47,43 @@ export function getOrganizationsFromUsers(users: UserProfile[]): string[] {
     }
   });
   return [...orgs].sort((a, b) => a.localeCompare(b));
+}
+
+export interface OrganizationSwitcherOption {
+  organization: string;
+  initials: string;
+  userCount: number;
+  roleCount: number;
+}
+
+/* one entry per organization in the sidebar switcher, with the counts shown under its name */
+export function getOrganizationSwitcherOptions(users: UserProfile[]): OrganizationSwitcherOption[] {
+  return getOrganizationsFromUsers(users).map((organization) => ({
+    organization,
+    initials: getOrganizationLogo(organization).initials,
+    userCount: getActiveUsersInOrganization(users, organization).length,
+    roleCount: getPersonasForOrganization(users, organization).length,
+  }));
+}
+
+/* narrows the switcher list to names containing the search text; blank text keeps every organization */
+export function filterOrganizationSwitcherOptions(
+  options: OrganizationSwitcherOption[],
+  term: string,
+): OrganizationSwitcherOption[] {
+  const normalized = term.trim().toLowerCase();
+  if (!normalized) return options;
+  return options.filter((option) => option.organization.toLowerCase().includes(normalized));
+}
+
+/* second line of a switcher entry, e.g. "7 users · 2 roles" */
+export function formatOrganizationSwitcherMeta(
+  option: Pick<OrganizationSwitcherOption, 'userCount' | 'roleCount'>,
+): string {
+  if (option.roleCount === 0) return 'No roles available';
+  const users = `${option.userCount} ${option.userCount === 1 ? 'user' : 'users'}`;
+  const roles = `${option.roleCount} ${option.roleCount === 1 ? 'role' : 'roles'}`;
+  return `${users} · ${roles}`;
 }
 
 export function getActiveUsersInOrganization(

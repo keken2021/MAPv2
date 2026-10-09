@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { MOCK_USERS } from '../store/mockData';
 import {
   getOrganizationsFromUsers,
+  getOrganizationSwitcherOptions,
+  filterOrganizationSwitcherOptions,
+  formatOrganizationSwitcherMeta,
+  getActiveUsersInOrganization,
   getPersonasForOrganization,
   getPersonaOptionsForOrganization,
   pickSessionUserForOrgPersona,
@@ -11,6 +15,44 @@ import {
 describe('demoSessionHelpers', () => {
   it('lists active organizations from mock users (pending users excluded)', () => {
     expect(getOrganizationsFromUsers(MOCK_USERS)).toHaveLength(18);
+  });
+
+  it('builds one switcher option per organization, in the same order, with its initials and counts', () => {
+    const options = getOrganizationSwitcherOptions(MOCK_USERS);
+    expect(options.map((o) => o.organization)).toEqual(getOrganizationsFromUsers(MOCK_USERS));
+    options.forEach((option) => {
+      expect(option.initials, option.organization).toMatch(/^[A-Z0-9]{2}$/);
+      expect(option.userCount, option.organization).toBe(
+        getActiveUsersInOrganization(MOCK_USERS, option.organization).length,
+      );
+      expect(option.userCount, option.organization).toBeGreaterThan(0);
+      expect(option.roleCount, option.organization).toBe(
+        getPersonasForOrganization(MOCK_USERS, option.organization).length,
+      );
+    });
+
+    const pacific = options.find((o) => o.organization === 'Pacific Ocean Logistics Pty Ltd');
+    expect(pacific?.initials).toBe('PO');
+    expect(pacific?.roleCount).toBe(2);
+  });
+
+  it('filters switcher options by name without regard to case', () => {
+    const options = getOrganizationSwitcherOptions(MOCK_USERS);
+    expect(filterOrganizationSwitcherOptions(options, '')).toEqual(options);
+    expect(filterOrganizationSwitcherOptions(options, '   ')).toEqual(options);
+    expect(filterOrganizationSwitcherOptions(options, 'CHEVRON').map((o) => o.organization)).toEqual([
+      'Chevron Australia Pty Ltd',
+    ]);
+    const meridian = filterOrganizationSwitcherOptions(options, ' meridian ');
+    expect(meridian.length).toBeGreaterThan(1);
+    expect(meridian.every((o) => o.organization.includes('Meridian'))).toBe(true);
+    expect(filterOrganizationSwitcherOptions(options, 'no such organization')).toEqual([]);
+  });
+
+  it('describes a switcher option by its user and role counts', () => {
+    expect(formatOrganizationSwitcherMeta({ userCount: 7, roleCount: 2 })).toBe('7 users · 2 roles');
+    expect(formatOrganizationSwitcherMeta({ userCount: 1, roleCount: 1 })).toBe('1 user · 1 role');
+    expect(formatOrganizationSwitcherMeta({ userCount: 3, roleCount: 0 })).toBe('No roles available');
   });
 
   it('offers only administrator and submitter for Pacific Ocean Logistics', () => {

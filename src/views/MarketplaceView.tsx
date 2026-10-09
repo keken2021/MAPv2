@@ -56,7 +56,7 @@ export const MarketplaceView: React.FC = () => {
   const [locationFilter, setLocationFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [availableOn, setAvailableOn] = useState('');
-  /* earliest contract date the filter accepts */
+  /* earliest Available date the filter accepts */
   const todayIso = toIsoLocalDate();
   const [sortBy, setSortBy] = useState<'name' | 'readiness' | 'provider' | 'category'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -208,7 +208,7 @@ export const MarketplaceView: React.FC = () => {
     if (availableOn) {
       chips.push({
         id: 'availableOn',
-        label: 'Contract date',
+        label: 'Available date',
         value: availableOn,
         onRemove: () => setAvailableOn(''),
       });
@@ -769,7 +769,7 @@ export const MarketplaceView: React.FC = () => {
 
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" htmlFor="marketplace-available-on" style={{ fontSize: '0.8rem' }}>
-              Contract date
+              Available date
             </label>
             <input
               id="marketplace-available-on"
