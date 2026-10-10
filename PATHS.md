@@ -4,7 +4,7 @@
 > Paths are relative to the project root unless they start with `~` or a drive letter.
 > NEVER put secret values here, only where they are configured.
 
-Last verified: 2026-10-11 (Projects, User Management and Audit Trail entries; the rest 2026-10-10)
+Last verified: 2026-10-12 (`docs/` sorted into folders and 13 implemented records removed; colleague setup docs split into connection and comments-uploads sets; the rest as verified on 2026-10-10: docs, glossary, ADR, Marketplace and Vessels entries, Task list .docx files, board-comment skill)
 Root: `C:\mapFiles\MAPv2`
 
 ## Start here
@@ -55,52 +55,45 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/layout/HeaderBanner.tsx` : header, with the prototype-only "Viewing as" role buttons
 - `src/components/layout/AppSidebar.tsx`, `src/components/layout/OrganizationSwitcher.tsx` : side panel, with the prototype-only organization and user switchers
 
-## Projects screens
-- `src/views/ProjectView.tsx` : list screen (toolbar, filter modal, chips, table, row action)
-- `src/views/CreateProjectView.tsx` : three-step create wizard (details, assurance sets, assets)
-- `src/views/ProjectDetailView.tsx` : detail screen (header, actions, Assurance Sets and Asset Roster tabs, attach section)
-- `src/components/modals/ProjectAddAssetModal.tsx`, `AttachAssuranceSetPreviewModal.tsx`, `RequestAssuranceSetModal.tsx` : modals opened from the detail screen and the wizard
-- `src/utils/projectHelpers.ts` : which projects each role sees (`filterProjectsForPersona`), offered sets and assets, readiness
-- `src/types/project.ts`, `src/store/projectMockData.ts` : project types and mock projects
-
-## User Management screens
-- `src/views/UserManagementView.tsx` : list screen wrapper (KPI tiles, table, add modal)
-- `src/components/tables/UserTable.tsx` : list screen body (toolbar, filter modal, chips, table, row actions, export, deactivate)
-- `src/components/modals/AddUserModal.tsx`, `EditUserModal.tsx` : add and edit modals
-- `src/components/common/UserRoleChecklist.tsx`, `src/utils/userRoleHelpers.ts` : role checklist and segregation of duties warnings
-- `src/utils/rbacHelpers.ts` : which users each persona sees (`filterUsersForPersona`)
-- `src/__tests__/cAdminUserManagement.test.ts` : user visibility and role rules
-- `src/views/RolesAndPermissionsView.tsx` : Roles & Permissions screen, behind `ENABLE_ROLES_AND_PERMISSIONS`
-
-## Audit Trail screens
-- `src/views/AuditTrailView.tsx` : the Audit Trail page (toolbar, Role filter modal, chips, table, export, pagination)
-- `src/components/drawers/AuditTrailDrawer.tsx` : audit drawer mounted in `App.tsx`; no control opens it
-- `src/views/VesselDetailView.tsx` : holds a separate Audit Trail tab for one vessel
-- `src/utils/rbacHelpers.ts` : `filterAuditTrailForPersona`, which entries each role sees
-- `src/types/audit.ts` : audit entry type and the role names
-- `src/utils/exportHelpers.ts` : CSV and PDF export used by the list screens
+## Vessels screens
+- `src/views/FleetRegistryView.tsx` : list screen wrapper (Own and Chartered pills, register modal trigger)
+- `src/components/tables/VesselTable.tsx` : list screen body (toolbar, filter modal, card grid, table view, role data scope)
+- `src/components/modals/VesselModal.tsx` : 4-step register modal; `VesselImageCropModal.tsx` is its crop dialog
+- `src/views/VesselDetailView.tsx` : detail screen (header, 8 tabs, modals; permission flags by role near L262)
+- `src/components/assets/AssetStatusCard.tsx` : availability, registration, class and compliance card on the detail screen
+- `src/utils/vesselImageHelpers.ts`, `src/utils/vesselStatusHistoryHelpers.ts` : photo and status chip helpers, status history helpers
+- `src/types/vessel.ts`, `src/types/asset.ts` : vessel and asset status types
 
 ## Docs (`docs/` is gitignored, so these are local only)
-- `docs/audit-trail-ui-tasks.md`, `.csv`, `.docx` : 22 Tasks for User Stories 4629 to 4633 under Feature 4627 (3 remove the prototype switchers), with flags and import steps
-- `docs/audit-trail-ui-tasks.build.py` : writes those three files and checks them. Run `python docs/audit-trail-ui-tasks.build.py "<UTC time of board check>" "<docx check note>"`
-- `docs/user-management-ui-tasks.md`, `.csv`, `.docx` : 27 Tasks for User Stories 4634 to 4638 under Feature 4628 (3 remove the prototype switchers), with flags and import steps
-- `docs/user-management-ui-tasks.build.py` : writes those three files from one Task list and checks them. Run `python docs/user-management-ui-tasks.build.py "<UTC time of board check>" "<docx check note>"`. Standard library only
-- `docs/projects-ui-tasks.md`, `.csv`, `.docx` : 42 Tasks for User Stories 4592 to 4596 under Feature 4578 (3 remove the prototype switchers), with flags and import steps
-- `docs/projects-ui-tasks.build.py` : writes those three files from one Task list and checks them. Run `python docs/projects-ui-tasks.build.py "<UTC time of board check>"`. Standard library only: `lxml` is blocked on Kurt's laptop, so `python-docx` does not load there
-- On Kurt's laptop (`C:\Users\Kurt\Documents\MAP-v2\MAPv2`) `docs/` is flat: `assurance-sets-ui-tasks.md` sits in `docs/`, and there is no `work items docs/` folder
-- `docs/work items docs/` : Task lists written for Azure Boards, one `.md` and one import `.csv` per Feature
-- `docs/work items docs/assurance-sets-ui-tasks.md`, `.csv` : 43 Tasks for User Stories 4617 to 4621 under Feature 4583 (3 remove the prototype switchers), with flags and import steps
-- `docs/work items docs/marketplace-ui-tasks.md`, `.csv` : 33 Tasks for User Stories 4612 to 4616 under Feature 4582, with flags and import steps
-- `docs/drawer-modal-audit.md` : audit of drawers and modals, the drawer standard, and the record of the drawer shell change
-- `docs/azure-boards-colleague-setup-guide.md`, `.docx` : step-by-step guide for connecting Claude Code to the AIUN board through the `azure-devops` MCP server
-- `docs/MAP_Assurance_Project_Asset_Architecture.md` : how assurance sets, projects and assets relate
-- `docs/multi-org-multi-user-architecture.md` : multi-organization and multi-user model
-- `docs/MAP_Continuation_Meeting_Highlights_2026-10-05.md` : latest meeting decisions
-- `docs/Tasks.txt`, `docs/Questions.txt`, `docs/Notes.txt` : working notes
-- Other `docs/*.md` : one plan or change summary per feature, named by topic
+- The `docs/` root holds only `GLOSSARY.md` and folders. Do not save a file at the root. Layout set on 2026-10-12; record: `docs/plans/docs-declutter.md`
+- `docs/GLOSSARY.md` : domain terms (Administrator, Client, Service Provider, Availability, Readiness and others). Read it before wording a Task or a doc. It lives here, not at the repo root
+- `docs/adr/` : decision records, numbered `0001-...`. 0001 is the Task list layout, 0002 is the one Administrator role, 0003 limits board writes to discussion comments
+- `docs/plans/` : plans and audits of work not yet done. New plans go here
+- `docs/plans/asset-detail-uniform-layout.md` : shared layout for the vessel, crew and equipment detail screens. Not built (was `docs/plan.md`)
+- `docs/plans/australian-maritime-regulatory-gap-analysis.md` : AMSA, DAFF and research fields missing from the modals. Not built
+- `docs/changes/` : change summaries of work already done. New ones go here; remove one when nobody needs it
+- `docs/changes/EXPLANATION_OF_V3_CHANGES.html` : export that explains the v3 changes (2.9 MB; its `.md` source is gone)
+- `docs/architecture/MAP_Assurance_Project_Asset_Architecture.md` : how assurance sets, projects and assets relate
+- `docs/architecture/multi-org-multi-user-architecture.md` : multi-organization and multi-user model
+- `docs/architecture/drawer-modal-audit.md` : audit of drawers and modals, the drawer standard, and the record of the drawer shell change
+- `docs/meetings/MAP_Continuation_Meeting_Highlights_2026-10-05.md`, `.pdf` : latest meeting decisions
+- `docs/meetings/Tasks.txt`, `Questions.txt`, `Notes.txt` : working notes
+- `docs/work-items/` : Task lists written for Azure Boards, one `.md`, one import `.csv` and one Word `.docx` per Feature (the `.docx` is the Task list in the documentation-docx house style, built from the `.md`; edit the `.md`, then rebuild). Was `docs/work items docs/`
+- `docs/work-items/assurance-sets-ui-tasks.md`, `.csv`, `.docx` : 43 Tasks for User Stories 4617 to 4621 under Feature 4583 (3 remove the prototype switchers), with flags and import steps
+- `docs/work-items/marketplace-ui-tasks.md`, `.csv`, `.docx` : 33 Tasks for User Stories 4612 to 4616 under Feature 4582, with flags and import steps
+- `docs/work-items/vessels-ui-tasks.md`, `.csv`, `.docx` : 44 Tasks for User Stories 4597 to 4601 under Feature 4579 (3 remove the prototype switchers, the same 3 as in the other two files), with flags and import steps
+- `docs/azure-boards/` : everything for the Azure Boards connection and the `board-comment` skill (9 files)
+- `docs/azure-boards/board-comment-skill.md` : plan and build record of the `board-comment` skill
+- `docs/azure-boards/board-comment-skill-spec.docx` : Skill Spec for `board-comment` in the documentation-docx house style. "Created by" on Word documents is Creishen
+- Colleague setup, set 1 (connection, read-only): `docs/azure-boards/azure-boards-connection-setup-guide.docx` (Word guide the person follows) and `docs/azure-boards/azure-boards-connection-runbook.md` (runbook their Claude Code runs: prerequisites, `sprint` skill, `azure-devops` MCP server, 8 deny rules, sign-in, checks)
+- Colleague setup, set 2 (comments and screenshot uploads; needs set 1): `docs/azure-boards/azure-boards-comments-uploads-setup-guide.docx` and `docs/azure-boards/azure-boards-comments-uploads-runbook.md` (`board-comment` skill, 2 write tools opened, screenshot check, optional token)
+- `docs/azure-boards/azure-boards-skills.zip` : the `sprint` and `board-comment` skill folders without `node_modules`. Send it with either set. Rebuild it when a skill file changes
+- `docs/azure-boards/azure-boards-setup-docs.md` : plan and build record of both sets. Rebuild a guide with `docs/azure-boards/azure-boards-setup-guides.build.py` (needs python-docx; arguments: `docs/azure-boards/board-comment-skill-spec.docx` as style base, `connection` or `comments-uploads`, then the output path)
+- Old names, gone since 2026-10-12: `azure-devops-mcp-colleague-setup.md`, `azure-boards-colleague-setup-guide.*`, `azure-boards-claude-code-integration.md`
+- Removed on 2026-10-12 (implemented; in the Recycle Bin until it is emptied): the change records for the organization switcher, table pagination, client dashboard columns, review channel, multi-scope filter, UI terminology, master-set purge, and the two skill and mock data audits
 
 ## Project skills and context
-- `.agents/skills/map-documentation/SKILL.md` : required format for every file written to `docs/`
+- `.agents/skills/map-documentation/SKILL.md` : required format for every plan, audit and change summary, and the `docs/` folder each one goes in (the glossary and the ADRs use the `domain-modeling` skill's formats)
 - `.agents/skills/map-design-system/` : UI tokens and interaction rules
 - `.agents/skills/map-table-standards/` : table layout rules
 - `.agents/skills/map-business-rules/` : segregation of duties and approval gates
@@ -111,15 +104,20 @@ Root: `C:\mapFiles\MAPv2`
 - `package.json` : scripts and dependencies
 - `tsconfig.json`, `vite.config.ts`, `postcss.config.js` : build config
 - `.gitignore` : ignores `docs/`, `dist/`, `node_modules/` and `.env*`
-- `.claude/settings.local.json` : local Claude Code permissions, including the deny rules for Azure Boards write tools
+- `.claude/settings.local.json` : local Claude Code permissions. Allows the Azure Boards comment tool, denies the other 6 write tools (ADR 0003)
 
 ## Credentials & tokens (locations only, never values)
-- Azure DevOps (AIUN) : no token in the repo. The `azure-devops` MCP server signs in through the browser with the Entra work account. Setup: `docs/azure-boards-colleague-setup-guide.md`
+- Azure DevOps (AIUN) : no token in the repo. The `azure-devops` MCP server signs in through the browser with the Entra work account. Setup: `docs/azure-boards/azure-boards-connection-runbook.md`
+- `AZURE_DEVOPS_PAT` : user environment variable (set with `setx`, not in any file) : create and revoke at https://dev.azure.com/AIUN/_usersSettings/tokens, scope Work Items: Read & write : used only by `~/.claude/skills/board-comment/scripts/upload.mjs`. Setup: `docs/azure-boards/azure-boards-comments-uploads-runbook.md`, step 10
 - `.env`, `.env.local` : gitignored. None exists in the repo today.
 
 ## Outside the repo
 - `C:\mapFiles\MAP` : sibling app with the same package name and layout
 - `C:\mapFiles\CoreUI` : CoreUI PRO React admin template (TypeScript)
+- `~/.claude/skills/board-comment/SKILL.md` : skill that posts branch changes to a work item discussion (`/board-comment [id]`, `/board-comment pr [number] [id]`, `dry` posts nothing)
+- `~/.claude/skills/board-comment/scripts/before-after.mjs` : before-and-after screenshots between 2 commits; `shoot.mjs` beside it shoots a running app; `upload.mjs` uploads the PNG files to the board (`--check` tells whether the token is set). First use: `npm install` in that folder
+- `~/.claude/skills/board-comment/projects/MAPv2.json` : screen recipe (serve, login, role, 13 screens and their source files). Add a screen here when a new view is built
+- `~/.claude/skills/sprint/SKILL.md` : read-only sprint status and standup skill
 - `~/.claude/projects/c--mapFiles-MAPv2/memory/` : Claude's project memory
 - `~/.claude/plans/` : Claude plan-mode files
 

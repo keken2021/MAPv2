@@ -11,7 +11,10 @@ This skill establishes the standardized documentation format across MAPv2. Whene
 
 ## 1. Storage Location & File Format
 
-* **Directory:** All generated documentation files must be saved directly inside the `docs/` directory: `docs/<topic-in-kebab-case>.md`.
+* **Directory:** Save every generated documentation file in a folder of `docs/`, never at the `docs/` root:
+  * `docs/plans/<topic-in-kebab-case>.md` for plans and audits of work not yet done.
+  * `docs/changes/<topic-in-kebab-case>.md` for change summaries of work already done.
+  * `docs/architecture/<topic-in-kebab-case>.md` for architecture references and standards that stay true after the change.
 * **File Format:** Markdown (`.md`) only. Use GitHub Flavored Markdown (GFM).
 
 ---
@@ -86,7 +89,7 @@ Explicitly document all system and domain skills activated during the task:
 ## 4. Verification Check Before Saving
 
 Before finalizing any document in `docs/`:
-1. Check that the file is in `docs/` and ends with `.md`.
+1. Check that the file is in `docs/plans/`, `docs/changes/` or `docs/architecture/` and ends with `.md`.
 2. Check that the changed files table contains **only basenames** in the `File Name` column.
 3. Verify that the Mermaid diagram renders valid syntax without HTML tags.
 4. Verify that the activated skills list accurately lists all tools and skills used.
