@@ -4,7 +4,7 @@
 > Paths are relative to the project root unless they start with `~` or a drive letter.
 > NEVER put secret values here, only where they are configured.
 
-Last verified: 2026-10-10
+Last verified: 2026-10-10 (docs and Marketplace entries)
 Root: `C:\mapFiles\MAPv2`
 
 ## Start here
@@ -45,11 +45,22 @@ Root: `C:\mapFiles\MAPv2`
 - `src/types/assurance.ts` : assurance set types
 - `src/__tests__/assuranceSetsRoleAccess.test.ts` : role access rules for these screens
 
+## Marketplace screens
+- `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)
+- `src/components/marketplace/MarketplaceCard.tsx` : listing card
+- `src/components/marketplace/MarketplaceDetailModal.tsx` : offering detail modal (hero, tabs, charter action)
+- `src/utils/marketplaceHelpers.ts` : listing build, filter, sort, charter target
+- `src/store/marketplaceMockData.ts`, `src/types/marketplace.ts` : mock listings and types
+- `src/__tests__/marketplace.test.ts` : listing, filter and role access rules
+- `src/components/layout/HeaderBanner.tsx` : header, with the prototype-only "Viewing as" role buttons
+- `src/components/layout/AppSidebar.tsx`, `src/components/layout/OrganizationSwitcher.tsx` : side panel, with the prototype-only organization and user switchers
+
 ## Docs (`docs/` is gitignored, so these are local only)
-- `docs/assurance-sets-ui-tasks.md` : 40 Tasks for User Stories 4617 to 4621 under Feature 4583, with flags and import steps
-- `docs/assurance-sets-ui-tasks.csv` : the same Tasks as an Azure Boards CSV import
+- `docs/work items docs/` : Task lists written for Azure Boards, one `.md` and one import `.csv` per Feature
+- `docs/work items docs/assurance-sets-ui-tasks.md`, `.csv` : 43 Tasks for User Stories 4617 to 4621 under Feature 4583 (3 remove the prototype switchers), with flags and import steps
+- `docs/work items docs/marketplace-ui-tasks.md`, `.csv` : 33 Tasks for User Stories 4612 to 4616 under Feature 4582, with flags and import steps
 - `docs/drawer-modal-audit.md` : audit of drawers and modals, the drawer standard, and the record of the drawer shell change
-- `docs/azure-boards-claude-code-integration.md` : setup record for the `azure-devops` MCP server and its read-only rules
+- `docs/azure-boards-claude-code-integration.md` : setup record for the `azure-devops` MCP server and its read-only rules (not found in `docs/` on 2026-10-10)
 - `docs/MAP_Assurance_Project_Asset_Architecture.md` : how assurance sets, projects and assets relate
 - `docs/multi-org-multi-user-architecture.md` : multi-organization and multi-user model
 - `docs/MAP_Continuation_Meeting_Highlights_2026-10-05.md` : latest meeting decisions
