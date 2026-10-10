@@ -22,7 +22,7 @@ interface CrewDocumentUploadModalProps {
 /**
   what: renders STCW crew certificate upload / update modal with file picker and simulated AI metadata extraction.
   how: pre-populates metadata if existingDocument is passed, simulates AI extraction upon file attach, and populates extracted certificate attributes into form state.
-  with what file: src/components/drawers/CrewDocumentUploadModal.tsx loaded by CrewDetailView.tsx and CrewView.tsx.
+  with what file: src/components/modals/CrewDocumentUploadModal.tsx loaded by CrewDetailView.tsx and CrewView.tsx.
 */
 export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = ({
   isOpen,
@@ -92,7 +92,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
   /*
     what: triggers map-autofill-animate shimmer on specified form inputs or display values.
     how: adds field keys to animatingFields set and removes them after 750ms.
-    with what file: src/components/drawers/CrewDocumentUploadModal.tsx.
+    with what file: src/components/modals/CrewDocumentUploadModal.tsx.
   */
   const triggerAutofillAnimation = (fieldIds: string[]) => {
     setAnimatingFields((prev) => {
@@ -112,7 +112,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
   /*
     what: handles selecting an unassigned crew certificate from document library (option a).
     how: populates certificate form values, layer, dates, filename, sets extraction review active, and triggers autofill animations.
-    with what file: src/components/drawers/CrewDocumentUploadModal.tsx.
+    with what file: src/components/modals/CrewDocumentUploadModal.tsx.
   */
   const handleSelectLibraryDoc = (docId: string) => {
     setSelectedLibraryDocId(docId);

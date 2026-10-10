@@ -24,10 +24,10 @@ import { STCWDocumentItem, CrewVesselAssignment, CrewMember } from '../types/cre
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
-import { CrewDocumentUploadModal } from '../components/drawers/CrewDocumentUploadModal';
-import { CrewDocumentViewerModal } from '../components/drawers/CrewDocumentViewerModal';
+import { CrewDocumentUploadModal } from '../components/modals/CrewDocumentUploadModal';
+import { CrewDocumentViewerModal } from '../components/modals/CrewDocumentViewerModal';
 import { getProjectOrganizationForPersona, isCrewOwnedByOrganization } from '../utils/projectHelpers';
-import { ImageCropModal } from '../components/drawers/VesselImageCropModal';
+import { ImageCropModal } from '../components/modals/VesselImageCropModal';
 import { CURATED_CREW_PHOTOS, getCrewStockPhoto } from '../utils/vesselImageHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';

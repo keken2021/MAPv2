@@ -21,7 +21,7 @@ interface EditUserModalProps {
 /**
   what: renders modal for editing an existing organization member or third-party user profile.
   how: pre-populates form state with target user data, validates inputs, checks email uniqueness, and dispatches updateUser to zustand store.
-  with what file: src/components/drawers/EditUserModal.tsx loaded by UserTable.tsx.
+  with what file: src/components/modals/EditUserModal.tsx loaded by UserTable.tsx.
 */
 export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user }) => {
   const { users, updateUser, activePersona } = useMapStore();

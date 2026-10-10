@@ -20,7 +20,7 @@ interface AddUserModalProps {
 /**
   what: renders modal for adding organization members or third-party users.
   how: validates user input, checks duplicate email address, adds user profile to zustand store, and logs audit event.
-  with what file: src/components/drawers/AddUserModal.tsx loaded by UserManagementView.tsx.
+  with what file: src/components/modals/AddUserModal.tsx loaded by UserManagementView.tsx.
 */
 export const AddUserModal: React.FC<AddUserModalProps> = ({ isOpen, onClose }) => {
   const { users, addUser, activePersona } = useMapStore();

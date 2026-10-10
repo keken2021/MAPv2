@@ -7,8 +7,8 @@
 import React, { useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { CrewTable } from '../components/tables/CrewTable';
-import { AddCrewModal } from '../components/drawers/AddCrewModal';
-import { CrewDocumentUploadModal } from '../components/drawers/CrewDocumentUploadModal';
+import { AddCrewModal } from '../components/modals/AddCrewModal';
+import { CrewDocumentUploadModal } from '../components/modals/CrewDocumentUploadModal';
 import { CrewMember, STCWLayer } from '../types/crew';
 
 /**

@@ -12,9 +12,9 @@ import {
 } from "../utils/projectHelpers";
 import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
 import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
-import { ProjectAddAssetModal } from "../components/drawers/ProjectAddAssetModal";
-import { AttachAssuranceSetPreviewModal } from "../components/drawers/AttachAssuranceSetPreviewModal";
-import { RequestAssuranceSetModal } from "../components/drawers/RequestAssuranceSetModal";
+import { ProjectAddAssetModal } from "../components/modals/ProjectAddAssetModal";
+import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
+import { RequestAssuranceSetModal } from "../components/modals/RequestAssuranceSetModal";
 import { usePagination } from "../utils/usePagination";
 import { TablePagination } from "../components/common/TablePagination";
 

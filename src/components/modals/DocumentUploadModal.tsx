@@ -26,7 +26,7 @@ interface DocumentUploadModalProps {
 /**
   what: renders document upload / re-upload modal with file picker and simulated AI metadata extraction.
   how: pre-populates metadata if existingDocument is passed, simulates AI extraction upon file attach for new uploads, and populates extracted certificate attributes automatically into the form.
-  with what file: src/components/drawers/DocumentUploadModal.tsx loaded by DocumentLibraryView.tsx and DocumentReviewDrawer.tsx.
+  with what file: src/components/modals/DocumentUploadModal.tsx loaded by DocumentLibraryView.tsx and DocumentReviewDrawer.tsx.
 */
 export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   isOpen,
@@ -93,7 +93,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   /*
     what: triggers brief shimmer sweep across newly extracted or populated form fields.
     how: populates animatingFields set and clears each field after 800ms.
-    with what file: src/components/drawers/DocumentUploadModal.tsx.
+    with what file: src/components/modals/DocumentUploadModal.tsx.
   */
   const triggerAutofillAnimation = (fieldIds: string[]) => {
     fieldIds.forEach((id) => {
@@ -111,7 +111,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   /*
     what: handles selecting an existing unassigned document from the document library.
     how: populates certificate metadata fields and prepares document linking for assurance requirement.
-    with what file: src/components/drawers/DocumentUploadModal.tsx.
+    with what file: src/components/modals/DocumentUploadModal.tsx.
   */
   const handleSelectUnassignedDoc = (docId: string) => {
     setSelectedUnassignedDocId(docId);
@@ -184,7 +184,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   /*
     what: handles file attachment selection and stages document for user verification before AI extraction.
     how: sets fileName state and enables isPendingVerification preview gate.
-    with what file: src/components/drawers/DocumentUploadModal.tsx.
+    with what file: src/components/modals/DocumentUploadModal.tsx.
   */
   const handleSelectFileForPreview = (selectedName: string) => {
     setFileName(selectedName);
@@ -201,7 +201,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   /*
     what: handles drag and drop file interactions.
     how: tracks dragover, dragleave, and drop events to trigger file preview verification.
-    with what file: src/components/drawers/DocumentUploadModal.tsx.
+    with what file: src/components/modals/DocumentUploadModal.tsx.
   */
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -233,7 +233,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   /*
     what: simulates AI information extraction when a file is uploaded or selected.
     how: sets loading state, extracts certificate number, issuing authority, expiry date, and OCR confidence, and automatically populates form state.
-    with what file: src/components/drawers/DocumentUploadModal.tsx.
+    with what file: src/components/modals/DocumentUploadModal.tsx.
   */
   const triggerAiExtraction = (selectedName: string) => {
     setFileName(selectedName);

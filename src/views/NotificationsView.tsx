@@ -16,7 +16,7 @@ import { AppNotification, NotificationCategory, NotificationTab } from '../types
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
-import { NotificationDetailModal } from '../components/drawers/NotificationDetailModal';
+import { NotificationDetailModal } from '../components/modals/NotificationDetailModal';
 import { formatMaritimeDateTime } from '../utils/formatters';
 import {
   filterNotificationsByTab,

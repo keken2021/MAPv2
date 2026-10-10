@@ -7,7 +7,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Trash2, Eye } from "lucide-react";
 import { useMapStore } from "../store/useMapStore";
-import { AttachAssuranceSetPreviewModal } from "../components/drawers/AttachAssuranceSetPreviewModal";
+import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
 import { AssuranceSet } from "../types/assurance";
 import {
   PROJECT_TYPE_OPTIONS,

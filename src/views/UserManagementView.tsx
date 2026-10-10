@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { UserTable } from '../components/tables/UserTable';
-import { AddUserModal } from '../components/drawers/AddUserModal';
+import { AddUserModal } from '../components/modals/AddUserModal';
 import { filterUsersForPersona } from '../utils/rbacHelpers';
 import { userHasRole } from '../utils/userRoleHelpers';
 

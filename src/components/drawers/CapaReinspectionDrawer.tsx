@@ -9,6 +9,8 @@ import { Camera, FileText, Flag, X, Plus } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { getStatusDisplayLabel } from '../../utils/formatters';
 import { CapaItem, CapaStatus, CapaEvidenceItem } from '../../types/capa';
+import { useOverlayBehavior } from '../../utils/useOverlayBehavior';
+import { Drawer } from './Drawer';
 
 interface CapaReinspectionDrawerProps {
   capa: CapaItem;
@@ -198,201 +200,198 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
     setIsCameraModalOpen(false);
   };
 
+  /* the take photo dialog sits on top of the drawer and takes escape and tab while it is open */
+  const cameraDialogRef = useRef<HTMLDivElement | null>(null);
+  useOverlayBehavior(cameraDialogRef, closeCameraModal, { active: isCameraModalOpen });
+
   return (
     <>
       {/* hidden input triggers for file attachments and native camera capture */}
       <input
         type="file"
         ref={fileInputRef}
-        className="hidden"
+        className="d-none"
         onChange={handleDocumentFileChange}
         accept="image/*,.pdf,.doc,.docx"
       />
       <input
         type="file"
         ref={cameraInputRef}
-        className="hidden"
+        className="d-none"
         accept="image/*"
         capture="environment"
         onChange={handleCameraFileChange}
       />
 
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40" onClick={onClose} />
-      <div
-        className="fixed top-0 right-0 h-full w-[92vw] max-w-[850px] bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out"
-        tabIndex={-1}
+      <Drawer
+        title={capa.title}
+        meta={`${capa.id} · ${capa.vesselName} · ${capa.checklistItemTitle}`}
+        size="lg"
+        onClose={onClose}
+        footer={
+          isInspector ? (
+            <>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-primary" onClick={handleSaveReInspection}>
+                Save
+              </button>
+            </>
+          ) : isAdminPersona ? (
+            <>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>
+                Close
+              </button>
+              <button type="button" className="btn btn-primary" onClick={handleFlagForReinspection}>
+                {capa.flaggedForReinspection ? 'Update Notes' : 'Mark as Addressed'}
+              </button>
+            </>
+          ) : undefined
+        }
       >
-        <div className="p-4 bg-white border-b border-slate-200 flex items-center justify-between">
-          <div>
-            <div className="font-mono text-xs uppercase tracking-wider text-slate-400 font-semibold">
-              {isInspector ? 'INSPECTOR RE-INSPECTION WORKFLOW' : 'CAPA MONITORING'} · {capa.id}
+        <div className="map-drawer-stack">
+          {/* Flagged Alert Banner if C Admin requested re-inspection */}
+          {capa.flaggedForReinspection && (
+            <div className="alert alert-danger d-flex align-items-start gap-3 mb-0">
+              <Flag size={18} className="flex-shrink-0 mt-1" />
+              <div>
+                <div className="fw-bold">Flagged for Re-Inspection by Client Admin</div>
+                <div className="small mt-1">
+                  {capa.cadminFlagReason || 'Re-inspection requested by C Admin charterer.'}
+                </div>
+                {capa.flaggedByCAdminDate && (
+                  <div className="font-mono-code small mt-1">Flagged: {capa.flaggedByCAdminDate}</div>
+                )}
+              </div>
             </div>
-            <h5 className="font-sans text-lg font-bold text-slate-900 mt-0.5">
-              {capa.title}
-            </h5>
-            <div className="font-mono text-xs text-slate-500 mt-0.5">
-              Vessel: {capa.vesselName} · Checklist Item: {capa.checklistItemTitle}
+          )}
+
+          {/* Initial Finding Summary Box */}
+          <div className="map-drawer-card">
+            <h3 className="map-drawer-section-title">Original Finding</h3>
+            <div className="mb-3" style={{ fontSize: '0.875rem' }}>
+              {capa.findingDescription}
+            </div>
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-3 border-top small text-secondary">
+              <span>Owner: <strong className="text-dark">{capa.owner}</strong></span>
+              <span>Due Date: <span className="font-mono-code fw-bold text-dark">{capa.dueDate}</span></span>
             </div>
           </div>
-          <button
-            type="button"
-            className="p-1.5 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </div>
 
-        <div className="flex-1 p-5 overflow-y-auto bg-slate-50">
-          <div className="flex flex-col gap-4">
+          {/* Inspector Status Evaluation Selector (Editable for Inspector, Read-only for C Admin) */}
+          <div className="map-drawer-card">
+            <h3 className="map-drawer-section-title">Re-Inspection Status</h3>
 
-            {/* Flagged Alert Banner if C Admin requested re-inspection */}
-            {capa.flaggedForReinspection && (
-              <div className="p-3.5 rounded-lg bg-red-50 border border-red-200 flex items-start gap-3 text-red-900">
-                <Flag size={18} className="text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <div className="font-sans font-bold text-sm text-red-900">
-                    Flagged for Re-Inspection by Client Admin
-                  </div>
-                  <div className="text-xs text-red-800 mt-1 leading-relaxed">
-                    {capa.cadminFlagReason || 'Re-inspection requested by C Admin charterer.'}
-                  </div>
-                  {capa.flaggedByCAdminDate && (
-                    <div className="font-mono text-xs text-red-600 mt-1.5">
-                      Flagged: {capa.flaggedByCAdminDate}
-                    </div>
-                  )}
-                </div>
+            {isInspector ? (
+              <div className="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Re-Inspection Status">
+                {(['Open', 'Under Re-Inspection', 'Verified & Closed', 'Rectification Required'] as CapaStatus[]).map((statusChoice) => {
+                  const isSelected = reInspectStatus === statusChoice;
+                  return (
+                    <button
+                      key={statusChoice}
+                      type="button"
+                      className={`map-drawer-choice ${isSelected ? 'is-selected' : ''}`}
+                      aria-pressed={isSelected}
+                      onClick={() => setReInspectStatus(statusChoice)}
+                    >
+                      {getStatusDisplayLabel(statusChoice)}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mb-3">
+                <span
+                  className={`badge rounded-pill font-mono-code border ${
+                    capa.status === 'Verified & Closed'
+                      ? 'bg-success-subtle text-success-emphasis border-success-subtle'
+                      : capa.status === 'Under Re-Inspection'
+                      ? 'bg-warning-subtle text-warning-emphasis border-warning-subtle'
+                      : 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
+                  }`}
+                  style={{ fontSize: '0.75rem' }}
+                >
+                  {getStatusDisplayLabel(capa.status)}
+                </span>
               </div>
             )}
 
-            {/* Initial Finding Summary Box */}
-            <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-xs">
-              <div className="font-sans font-semibold text-sm text-slate-800 mb-1">Original Finding:</div>
-              <div className="text-sm text-slate-600 mb-3 leading-relaxed">
-                {capa.findingDescription}
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100 text-xs text-slate-500">
-                <span>Owner: <strong className="text-slate-800">{capa.owner}</strong></span>
-                <span>Due Date: <span className="font-mono font-bold text-slate-800">{capa.dueDate}</span></span>
-              </div>
-            </div>
-
-            {/* Inspector Status Evaluation Selector (Editable for Inspector, Read-only for C Admin) */}
-            <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between mb-2.5">
-                <label className="font-sans font-semibold text-sm text-slate-800">
-                  Re-Inspection Status
-                </label>
-              </div>
-
-              {isInspector ? (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {(['Open', 'Under Re-Inspection', 'Verified & Closed', 'Rectification Required'] as CapaStatus[]).map((statusChoice) => {
-                    const isSelected = reInspectStatus === statusChoice;
-                    return (
-                      <button
-                        key={statusChoice}
-                        type="button"
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                          isSelected
-                            ? statusChoice === 'Verified & Closed'
-                              ? 'bg-emerald-600 text-white font-semibold'
-                              : 'bg-[rgb(11,27,43)] text-white font-semibold'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
-                        }`}
-                        onClick={() => setReInspectStatus(statusChoice)}
-                      >
-                        {getStatusDisplayLabel(statusChoice)}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="mb-4">
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full text-xs font-mono font-semibold ${
-                      capa.status === 'Verified & Closed'
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        : capa.status === 'Under Re-Inspection'
-                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                        : 'bg-red-100 text-red-800 border border-red-200'
-                    }`}
-                  >
-                    {getStatusDisplayLabel(capa.status)}
-                  </span>
-                </div>
-              )}
-
-              {/* Re-inspection notes text area (Editable for Inspector, Read-only for C Admin) */}
-              <div>
-                <label className="block font-sans font-semibold text-xs text-slate-700 mb-1.5">
+            {/* Re-inspection notes text area (Editable for Inspector, Read-only for C Admin) */}
+            {isInspector ? (
+              <>
+                <label className="map-drawer-label" htmlFor="capa-reinspection-notes">
                   Re-Inspection Notes
                 </label>
-                {isInspector ? (
-                  <textarea
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[rgb(56,189,248)] focus:border-[rgb(56,189,248)]"
-                    rows={3}
-                    placeholder="What you found on re-inspection"
-                    value={reInspectNotes}
-                    onChange={(e) => setReInspectNotes(e.target.value)}
-                  />
-                ) : (
-                  <div className="p-3 rounded-md bg-slate-50 border border-slate-200 text-slate-600 text-sm leading-relaxed">
-                    {capa.inspectorNotes || 'No inspector verification notes recorded yet.'}
-                  </div>
-                )}
+                <textarea
+                  id="capa-reinspection-notes"
+                  className="form-control bg-white text-dark"
+                  rows={3}
+                  placeholder="What you found on re-inspection"
+                  value={reInspectNotes}
+                  onChange={(e) => setReInspectNotes(e.target.value)}
+                />
+              </>
+            ) : (
+              <>
+                <div className="map-drawer-label">Re-Inspection Notes</div>
+                <div className="map-drawer-inset">
+                  {capa.inspectorNotes || 'No inspector verification notes recorded yet.'}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Supporting Evidence List & Camera Capture Section */}
+          <div className="map-drawer-card">
+            <div className="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+              <div>
+                <h3 className="map-drawer-section-title mb-1">Evidence</h3>
+                <div className="small text-secondary">
+                  {isInspector ? 'Attach real-life photos or documents endorsing CAPA status' : 'Inspect evidence photos and documents uploaded by inspector'}
+                </div>
               </div>
+
+              {/* Hide Upload & Camera buttons for C Admin */}
+              {isInspector && (
+                <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                    onClick={openLiveCameraModal}
+                  >
+                    <Camera size={14} />
+                    <span>Take Photo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                    onClick={handleTriggerFileInput}
+                  >
+                    <Plus size={14} />
+                    <span>Attach File</span>
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Supporting Evidence List & Camera Capture Section */}
-            <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-xs">
-              <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
-                <div>
-                  <h6 className="font-sans font-bold text-sm text-slate-800">
-                    Evidence
-                  </h6>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    {isInspector ? 'Attach real-life photos or documents endorsing CAPA status' : 'Inspect evidence photos and documents uploaded by inspector'}
-                  </div>
-                </div>
-
-                {/* Hide Upload & Camera buttons for C Admin */}
-                {isInspector && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors"
-                      onClick={openLiveCameraModal}
-                    >
-                      <Camera size={14} className="text-slate-600" />
-                      <span>Take Photo</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      className="px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors"
-                      onClick={handleTriggerFileInput}
-                    >
-                      <Plus size={14} className="text-slate-600" />
-                      <span>Attach File</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* List of Evidence Items */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {capa.evidences.map((ev) => (
-                  <div key={ev.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50/50 flex items-start gap-3 relative group">
+            {/* List of Evidence Items */}
+            <div className="row g-3">
+              {capa.evidences.map((ev) => (
+                <div key={ev.id} className="col-sm-6">
+                  <div className="map-drawer-inset d-flex align-items-start gap-3 h-100">
                     {ev.previewUrl ? (
-                      <img src={ev.previewUrl} alt={ev.title} className="w-12 h-12 rounded object-cover border border-slate-200 shrink-0" />
+                      <img
+                        src={ev.previewUrl}
+                        alt={ev.title}
+                        className="rounded border flex-shrink-0"
+                        style={{ width: '48px', height: '48px', objectFit: 'cover' }}
+                      />
                     ) : (
                       <div
-                        className={`w-12 h-12 rounded flex items-center justify-center shrink-0 border ${
-                          ev.type === 'Photo' ? 'bg-sky-50 border-sky-200 text-sky-600' : 'bg-slate-100 border-slate-200 text-slate-600'
-                        }`}
+                        className="rounded border bg-white text-secondary d-flex align-items-center justify-content-center flex-shrink-0"
+                        style={{ width: '48px', height: '48px' }}
                       >
                         {ev.type === 'Photo' ? (
                           <Camera size={20} />
@@ -402,18 +401,17 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
                       </div>
                     )}
 
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-grow-1" style={{ minWidth: 0 }}>
                       <span
-                        className={`inline-block px-1.5 py-0.5 rounded font-mono text-[10px] font-semibold uppercase tracking-wider mb-1 ${
-                          ev.type === 'Photo' ? 'bg-sky-100 text-sky-700' : 'bg-slate-200 text-slate-700'
+                        className={`badge font-mono-code text-uppercase mb-1 ${
+                          ev.type === 'Photo' ? 'bg-info-subtle text-info-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'
                         }`}
+                        style={{ fontSize: '0.75rem' }}
                       >
                         {ev.type}
                       </span>
-                      <div className="font-sans font-medium text-xs text-slate-900 truncate">
-                        {ev.title}
-                      </div>
-                      <div className="font-mono text-[11px] text-slate-500 truncate mt-0.5">
+                      <div className="fw-medium text-dark text-truncate">{ev.title}</div>
+                      <div className="font-mono-code text-secondary text-truncate" style={{ fontSize: '0.75rem' }}>
                         {ev.fileName || ev.title}
                       </div>
                     </div>
@@ -422,101 +420,82 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
                     {isInspector && (
                       <button
                         type="button"
-                        className="text-slate-400 hover:text-red-500 p-1 rounded transition-colors"
+                        className="map-drawer-close"
                         aria-label="Remove"
                         onClick={() => removeCapaEvidence(capa.id, ev.id)}
                       >
-                        <X size={14} />
+                        <X size={16} />
                       </button>
                     )}
                   </div>
-                ))}
+                </div>
+              ))}
 
-                {capa.evidences.length === 0 && (
-                  <div className="col-span-2 text-slate-400 text-xs italic py-3 text-center">
-                    No evidence attached.
-                  </div>
+              {capa.evidences.length === 0 && (
+                <div className="col-12 text-secondary small fst-italic text-center py-3">
+                  No evidence attached.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Client Admin and Administrator: notes for marking the CAPA as addressed; the action is in the drawer footer */}
+          {!isInspector && isAdminPersona && (
+            <div className="map-drawer-card">
+              <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <h3 className="map-drawer-section-title mb-0">Mark CAPA as Addressed</h3>
+                {flagSuccessToast && (
+                  <span className="badge bg-success font-mono-code" style={{ fontSize: '0.75rem' }}>
+                    Marked as addressed. Inspector notified.
+                  </span>
                 )}
               </div>
+              <label className="map-drawer-label" htmlFor="capa-addressed-notes">
+                Mark this CAPA as addressed to notify the inspector for re-inspection.
+              </label>
+              <textarea
+                id="capa-addressed-notes"
+                className="form-control bg-white text-dark"
+                rows={2}
+                placeholder="How this finding was addressed"
+                value={cAdminReason}
+                onChange={(e) => setCAdminReason(e.target.value)}
+              />
             </div>
-
-            {/* Action Footer: Endorse for Inspector vs Flag for Admin */}
-            {isInspector ? (
-              <button
-                type="button"
-                className="w-full py-2.5 rounded-md font-sans font-semibold text-sm bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-colors cursor-pointer"
-                onClick={handleSaveReInspection}
-              >
-                Save
-              </button>
-            ) : isAdminPersona ? (
-              <div className="p-4 bg-white rounded-lg border border-sky-200 shadow-xs">
-                <div className="flex items-center justify-between mb-2">
-                  <h6 className="font-sans font-bold text-sm text-[rgb(11,27,43)]">
-                    Mark CAPA as Addressed
-                  </h6>
-                  {flagSuccessToast && (
-                    <span className="px-2 py-0.5 bg-emerald-600 text-white text-xs font-mono rounded">
-                      Marked as addressed. Inspector notified.
-                    </span>
-                  )}
-                </div>
-                <div className="text-xs text-slate-600 mb-3 leading-relaxed">
-                  Mark this CAPA as addressed to notify the inspector for re-inspection.
-                </div>
-                <textarea
-                  className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[rgb(56,189,248)] focus:border-[rgb(56,189,248)] mb-3"
-                  rows={2}
-                  placeholder="How this finding was addressed"
-                  value={cAdminReason}
-                  onChange={(e) => setCAdminReason(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="w-full py-2 rounded-md font-sans font-semibold text-sm text-white bg-[rgb(2,132,199)] hover:bg-[rgb(3,105,161)] transition-colors cursor-pointer"
-                  onClick={handleFlagForReinspection}
-                >
-                  {capa.flaggedForReinspection ? 'Update Addressed Notes & Notify Inspector' : 'Flag CAPA as Addressed (Notify Inspector)'}
-                </button>
-              </div>
-            ) : null}
-
-          </div>
+          )}
         </div>
-      </div>
+      </Drawer>
 
-      {/* Camera Live Stream Snapshot Modal */}
+      {/* live camera dialog opened from the drawer */}
       {isCameraModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-4 w-full max-w-lg">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
-              <h6 className="font-sans font-bold text-base text-slate-900">Take Photo</h6>
-              <button
-                type="button"
-                className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
-                onClick={closeCameraModal}
-                aria-label="Close"
-              >
+        <div className="map-modal-backdrop d-flex align-items-center justify-content-center p-3" style={{ zIndex: 1060 }}>
+          <div
+            ref={cameraDialogRef}
+            className="map-camera-modal-dialog card p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Take Photo"
+            tabIndex={-1}
+          >
+            <div className="d-flex align-items-center justify-content-between pb-2 border-bottom mb-3">
+              <h6 className="fw-bold text-dark m-0">Take Photo</h6>
+              <button type="button" className="map-drawer-close" onClick={closeCameraModal} aria-label="Close">
                 <X size={18} />
               </button>
             </div>
 
-            <div className="flex flex-col items-center gap-4">
+            <div className="d-flex flex-column align-items-center gap-3">
               {!capturedPhotoDataUrl ? (
                 <>
-                  <video ref={videoRef} autoPlay playsInline className="w-full h-64 bg-black rounded-lg object-cover" />
-                  <canvas ref={canvasRef} className="hidden" />
-                  <div className="flex justify-center flex-wrap gap-2 w-full">
-                    <button
-                      type="button"
-                      className="px-3.5 py-2 text-sm font-medium border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition-colors"
-                      onClick={closeCameraModal}
-                    >
+                  <video ref={videoRef} autoPlay playsInline className="map-camera-video-preview" />
+                  <canvas ref={canvasRef} className="d-none" />
+                  <div className="d-flex justify-content-center flex-wrap gap-2 w-100">
+                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={closeCameraModal}>
                       Cancel
                     </button>
                     <button
                       type="button"
-                      className="px-3.5 py-2 text-sm font-medium border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition-colors"
+                      className="btn btn-outline-secondary btn-sm"
                       onClick={() => {
                         closeCameraModal();
                         handleTriggerCameraInput();
@@ -524,31 +503,19 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
                     >
                       Use Camera
                     </button>
-                    <button
-                      type="button"
-                      className="px-4 py-2 text-sm font-medium rounded-md text-white bg-[rgb(11,27,43)] hover:bg-[rgb(30,58,95)] transition-colors"
-                      onClick={takeCameraSnapshot}
-                    >
+                    <button type="button" className="btn btn-primary btn-sm px-4" onClick={takeCameraSnapshot}>
                       Take Photo
                     </button>
                   </div>
                 </>
               ) : (
                 <>
-                  <img src={capturedPhotoDataUrl} alt="Captured preview" className="w-full h-64 bg-black rounded-lg object-cover" />
-                  <div className="flex justify-center gap-2 w-full">
-                    <button
-                      type="button"
-                      className="px-3.5 py-2 text-sm font-medium border border-slate-300 rounded-md text-slate-700 hover:bg-slate-50 transition-colors"
-                      onClick={() => setCapturedPhotoDataUrl(null)}
-                    >
+                  <img src={capturedPhotoDataUrl} alt="Captured preview" className="map-camera-video-preview" />
+                  <div className="d-flex justify-content-center gap-2 w-100">
+                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setCapturedPhotoDataUrl(null)}>
                       Retake
                     </button>
-                    <button
-                      type="button"
-                      className="px-4 py-2 text-sm font-medium rounded-md text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
-                      onClick={attachLiveSnapshot}
-                    >
+                    <button type="button" className="btn btn-success btn-sm px-4" onClick={attachLiveSnapshot}>
                       Attach Photo
                     </button>
                   </div>

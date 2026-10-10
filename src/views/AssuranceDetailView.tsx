@@ -19,7 +19,7 @@ import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrph
 
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
-import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
+import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import {
   userHasRole,
   filterCandidatesByReviewMode,

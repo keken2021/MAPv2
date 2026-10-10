@@ -1,6 +1,6 @@
 ---
 name: map-design-system
-description: UI/UX design tokens, layout rules, typography, color palette, container padding, edge clearance, interactive buttons, modal architecture, dropdown chevron protection, Lucide icons, required field indicators, concise UI copy, table pagination, and NN/g usability heuristics for MAPv2 workspace. Use whenever designing, creating, editing, or refactoring UI components, cards, modals, forms, tables, and page layouts.
+description: UI/UX design tokens, layout rules, typography, color palette, container padding, edge clearance, interactive buttons, modal architecture, drawer architecture, dropdown chevron protection, Lucide icons, required field indicators, concise UI copy, table pagination, and NN/g usability heuristics for MAPv2 workspace. Use whenever designing, creating, editing, or refactoring UI components, cards, modals, forms, tables, and page layouts.
 ---
 
 # MAPv2 UI/UX Design System & Architectural Specification
@@ -122,6 +122,22 @@ The system utilizes **IBM Plex Sans** as the primary font family across all user
   - **Modal Header:** `#0B1B2B` navy background, white title (`IBM Plex Sans` 700), subtitle (`#94A3B8`), semantic Lucide icon badge, and close button (`<X size={18} />`).
   - **Modal Body:** `#F8FAFC` slate surface background with mandatory **20px to 24px** (`p-4` to `p-5`) internal body padding. All nested cards must maintain minimum **16px to 20px** internal padding.
   - **Modal Footer:** `#FFFFFF` background with `border-top: 1px solid #E2E8F0`, `px-4 py-3`, and **space-between layout** (`justify-content-between`): Secondary / Cancel button pinned to the left, and primary submit / action button on the right.
+
+* **Modal or Drawer:**
+  - A **modal** is centered. Use it for a short, self-contained job: add, edit, upload, crop, confirm. File name `*Modal.tsx`, in `src/components/modals/`.
+  - A **drawer** opens from the right edge at full height. Use it to look at or act on one record from a list, with the list still visible behind. File name `*Drawer.tsx`, in `src/components/drawers/`.
+  - Never call a centered dialog a drawer, or a side panel a modal, in a file name, a state name, a comment, or a label.
+
+* **Unified Drawer Layout Architecture:**
+  - Every drawer is built with the shared shell `Drawer` (`src/components/drawers/Drawer.tsx`). Never write the backdrop, panel, header, or close button by hand, and never use the CoreUI `offcanvas` classes.
+  - **Sizes:** `sm` 520px for lists and logs, `lg` 880px for one record, `xl` 1240px for a two-column review. All are capped at 92vw (`sm` at 100vw).
+  - **Backdrop:** always present, same tint as the modal backdrop with no blur. A click on it closes the drawer.
+  - **Drawer Header:** `#FFFFFF` background with a bottom border, padding 16px 24px, title 16px semi-bold, optional IBM Plex Mono meta line at 12px, optional right slot, and close button (`<X size={18} />`) in a 32px target.
+  - **Drawer Body:** `#F8FAFC` surface, padding **24px**, scrolls on its own. Content blocks use `.map-drawer-card` (16px padding), `.map-drawer-inset` (12px padding), `.map-drawer-section-title`, `.map-drawer-label`, and `.map-drawer-stack`.
+  - **Drawer Footer:** fixed at the bottom, `#FFFFFF` with a top border, padding 12px 24px. Close or Cancel on the left, primary action on the right. Shown only when the drawer has an action. The main action of a drawer always sits here, never at the end of the scrolling body.
+  - **Behavior:** `role="dialog"`, Escape closes the top layer only, focus moves to the close button and returns to the opener, Tab stays inside. A dialog opened from a drawer uses `useOverlayBehavior` (`src/utils/useOverlayBehavior.ts`).
+  - **Layers:** backdrop 1040, drawer 1050, dialog opened from a drawer 1060.
+  - **Spacing classes inside a drawer:** use the `.map-drawer-*` classes or CoreUI utilities (`p-3`, `mb-3`, `gap-2`). Tailwind spacing utilities (`p-3.5`, `px-[12px]`, `mt-0.5`) have no effect in this app, because the global `* { margin: 0; padding: 0 }` reset in `src/index.css` outranks them.
 
 * **Category Navigation Pills:**
   - Filter pills and tab switchers must use **IBM Plex Mono** (`font-mono-code` / `fontSize: 0.8rem`) with numerical counters formatted in parentheses (e.g., `All (13)`, `Vessels (4)`, `Equipment (4)`).

@@ -20,7 +20,7 @@ interface CrewDocumentViewerModalProps {
 /**
   what: renders modal for inspecting stcw certificate details and attachment scan preview.
   how: displays detailed metadata grid, simulated pdf certificate preview, and offers direct reupload button for admin/submitter.
-  with what file: src/components/drawers/CrewDocumentViewerModal.tsx loaded by CrewDetailView.tsx.
+  with what file: src/components/modals/CrewDocumentViewerModal.tsx loaded by CrewDetailView.tsx.
 */
 export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = ({
   isOpen,

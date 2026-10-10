@@ -23,7 +23,9 @@ Root: `C:\mapFiles\MAPv2`
 ## Source map
 - `src/views/` : one file per screen
 - `src/components/tables/` : data tables used by the list screens
-- `src/components/drawers/` : drawers and modals
+- `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
+- `src/components/modals/` : modals (centered)
+- `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
 - `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper)
 - `src/components/layout/` : sidebar, header, notification panel, organization switcher
 - `src/store/useMapStore.ts` : the single app store
@@ -46,6 +48,7 @@ Root: `C:\mapFiles\MAPv2`
 ## Docs (`docs/` is gitignored, so these are local only)
 - `docs/assurance-sets-ui-tasks.md` : 40 Tasks for User Stories 4617 to 4621 under Feature 4583, with flags and import steps
 - `docs/assurance-sets-ui-tasks.csv` : the same Tasks as an Azure Boards CSV import
+- `docs/drawer-modal-audit.md` : audit of drawers and modals, the drawer standard, and the record of the drawer shell change
 - `docs/azure-boards-claude-code-integration.md` : setup record for the `azure-devops` MCP server and its read-only rules
 - `docs/MAP_Assurance_Project_Asset_Architecture.md` : how assurance sets, projects and assets relate
 - `docs/multi-org-multi-user-architecture.md` : multi-organization and multi-user model

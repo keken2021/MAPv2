@@ -13,7 +13,8 @@ import { isAssuranceSetAssignedToPersona, filterVesselsForPersona } from '../uti
 import { calculateAssuranceSetReadiness, calculateVesselReadiness } from '../utils/readinessHelpers';
 import { getAssuranceSetScopes } from '../utils/assuranceTemplates';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
-import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
+import { ReturnedDocumentsDrawer } from '../components/drawers/ReturnedDocumentsDrawer';
+import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { filterProjectsForPersona } from '../utils/projectHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
@@ -48,7 +49,7 @@ export const DashboardView: React.FC = () => {
 
   /* returned documents drawer state for submitter */
   const [selectedReturnedSet, setSelectedReturnedSet] = useState<AssuranceSet | null>(null);
-  const [uploadDrawerTarget, setUploadDrawerTarget] = useState<{ req: AssuranceRequirement; doc?: MasterDocument } | null>(null);
+  const [uploadModalTarget, setUploadModalTarget] = useState<{ req: AssuranceRequirement; doc?: MasterDocument } | null>(null);
   const [reviewDrawerDoc, setReviewDrawerDoc] = useState<{ doc: MasterDocument; notes?: string } | null>(null);
 
   const cAdminProjects = useMemo(
@@ -830,118 +831,17 @@ export const DashboardView: React.FC = () => {
 
       {/* Returned Documents & Resubmission Drawer for Submitter */}
       {selectedReturnedSet && (
-        <div
-          className="offcanvas offcanvas-end show bg-white text-dark border-start shadow-lg"
-          style={{ width: '560px', maxWidth: '95vw', visibility: 'visible', zIndex: 1050 }}
-          tabIndex={-1}
-        >
-          <div className="offcanvas-header border-bottom p-3 bg-light d-flex align-items-center justify-content-between">
-            <div>
-              <h5 className="offcanvas-title fw-bold text-slate-900 m-0 d-flex align-items-center gap-2">
-                <span>Returned Documents</span>
-              </h5>
-              <div className="text-secondary small font-mono-code mt-0.5">
-                {selectedReturnedSet.id} · {selectedReturnedSet.title}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn-close ms-auto"
-              onClick={() => setSelectedReturnedSet(null)}
-              aria-label="Close"
-            />
-          </div>
-
-          <div className="offcanvas-body p-3 d-flex flex-column gap-3">
-            <div className="alert alert-warning border-warning py-2.5 px-3 mb-0 small">
-              <div className="fw-semibold text-dark">Action Required</div>
-              <div className="text-secondary">
-                These documents were returned or rejected. Read the notes and upload a new version.
-              </div>
-            </div>
-
-            {selectedReturnedSet.requirements
-              .filter((r) => {
-                const linkedDoc = documents.find((d) => d.id === r.documentId || (r.linkedDocumentId && d.id === r.linkedDocumentId));
-                return (
-                  r.verifierStatus === 'Correction Requested' ||
-                  r.verifierStatus === 'Rejected' ||
-                  linkedDoc?.verificationStatus === 'Correction Requested' ||
-                  linkedDoc?.verificationStatus === 'Rejected'
-                );
-              })
-              .map((req) => {
-                const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
-                const status = req.verifierStatus === 'Rejected' || linkedDoc?.verificationStatus === 'Rejected' ? 'Rejected' : 'Correction Requested';
-                const defectNote = req.notes || linkedDoc?.verificationNotes || 'Returned for correction. Upload a new version.';
-
-                return (
-                  <div key={req.id} className="p-3 bg-light border rounded shadow-2xs">
-                    <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
-                      <div>
-                        <div className="fw-bold text-dark">{req.title}</div>
-                        <div className="font-mono-code text-secondary small">
-                          {req.category} {linkedDoc?.certificateNo ? `· ${linkedDoc.certificateNo}` : ''}
-                        </div>
-                      </div>
-                      <span className={`badge ${status === 'Rejected' ? 'bg-danger text-white' : 'bg-warning text-dark'} font-mono-code`} style={{ fontSize: '0.75rem' }}>
-                        {status}
-                      </span>
-                    </div>
-
-                    <div className="p-2.5 bg-white border rounded small mb-3">
-                      <div className="text-secondary fw-semibold mb-1" style={{ fontSize: '0.75rem' }}>
-                        Notes:
-                      </div>
-                      <div className="text-dark font-mono-code" style={{ fontSize: '0.8rem' }}>
-                        {defectNote}
-                      </div>
-                    </div>
-
-                    <div className="d-flex align-items-center justify-content-end gap-2">
-                      {linkedDoc && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-secondary font-mono-code"
-                          onClick={() => setReviewDrawerDoc({ doc: linkedDoc, notes: defectNote })}
-                        >
-                          Review
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-primary text-white font-mono-code"
-                        onClick={() => setUploadDrawerTarget({ req, doc: linkedDoc })}
-                      >
-                        Upload New Version
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-
-          <div className="offcanvas-footer border-top p-3 bg-light d-flex align-items-center justify-content-between">
-            <button
-              type="button"
-              className="btn btn-sm btn-secondary"
-              onClick={() => setSelectedReturnedSet(null)}
-            >
-              Close
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-primary fw-semibold"
-              onClick={() => {
-                const setId = selectedReturnedSet.id;
-                setSelectedReturnedSet(null);
-                setCurrentHashView('assurance-sets', setId);
-              }}
-            >
-              View Assurance Set
-            </button>
-          </div>
-        </div>
+        <ReturnedDocumentsDrawer
+          assuranceSet={selectedReturnedSet}
+          onClose={() => setSelectedReturnedSet(null)}
+          onReview={(doc, notes) => setReviewDrawerDoc({ doc, notes })}
+          onUpload={(req, doc) => setUploadModalTarget({ req, doc })}
+          onViewAssuranceSet={(setId) => {
+            setSelectedReturnedSet(null);
+            setCurrentHashView('assurance-sets', setId);
+          }}
+          paused={Boolean(uploadModalTarget)}
+        />
       )}
 
       {/* Review Drawer opened from Returned Queue */}
@@ -952,17 +852,17 @@ export const DashboardView: React.FC = () => {
       />
 
       {/* Upload Modal opened from Returned Queue */}
-      {uploadDrawerTarget && (
+      {uploadModalTarget && (
         <DocumentUploadModal
-          isOpen={Boolean(uploadDrawerTarget)}
-          onClose={() => setUploadDrawerTarget(null)}
-          existingDocument={uploadDrawerTarget.doc || null}
+          isOpen={Boolean(uploadModalTarget)}
+          onClose={() => setUploadModalTarget(null)}
+          existingDocument={uploadModalTarget.doc || null}
           assuranceSetId={selectedReturnedSet?.id}
-          requirementId={uploadDrawerTarget.req.id}
-          requirementTitle={uploadDrawerTarget.req.title}
+          requirementId={uploadModalTarget.req.id}
+          requirementTitle={uploadModalTarget.req.title}
           defaultVesselId={selectedReturnedSet?.vesselId}
           onUploadComplete={() => {
-            setUploadDrawerTarget(null);
+            setUploadModalTarget(null);
           }}
         />
       )}

@@ -15,7 +15,7 @@ import {
   CURATED_EQUIPMENT_PHOTOS,
   getEquipmentStockPhoto,
 } from '../utils/vesselImageHelpers';
-import { ImageCropModal } from '../components/drawers/VesselImageCropModal';
+import { ImageCropModal } from '../components/modals/VesselImageCropModal';
 import {
   Camera,
   Crop,

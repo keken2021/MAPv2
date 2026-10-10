@@ -23,7 +23,7 @@ interface AddCrewModalProps {
 /**
   what: renders modal for registering new organization crew members.
   how: captures crew information, optional photo/s upload with cropping tool, assigns initial stcw core documents, provides post-registration layered document upload options, updates zustand store, and logs audit event.
-  with what file: src/components/drawers/AddCrewModal.tsx loaded by CrewView.tsx.
+  with what file: src/components/modals/AddCrewModal.tsx loaded by CrewView.tsx.
 */
 export const AddCrewModal: React.FC<AddCrewModalProps> = ({
   isOpen,

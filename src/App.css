@@ -616,7 +616,7 @@ div.map-autofill-animate {
   border: 1px solid #fca5a5;
 }
 
-/* Backdrop Blur for Modals & Drawers */
+/* Backdrop Blur for Modals */
 .map-modal-backdrop {
   position: fixed;
   top: 0;
@@ -630,11 +630,320 @@ div.map-autofill-animate {
 }
 
 /* ============================================================
+   drawer shell: a panel that slides in from the right edge.
+   a modal is centered; a drawer keeps the page visible behind it.
+   plain classes on purpose: coreui and tailwind both define p-4,
+   p-5 and gap-4, and the coreui value wins.
+   layers: backdrop 1040, drawer 1050, dialog opened from a drawer 1060.
+   ============================================================ */
+
+/* same tint as the modal backdrop, without the blur, so the list behind stays readable */
+.map-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1040;
+  background-color: rgba(15, 23, 42, 0.4);
+  animation: map-drawer-fade 150ms ease-out;
+}
+
+.map-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  width: min(92vw, var(--map-drawer-width, 520px));
+  color: var(--map-text-secondary);
+  background-color: var(--map-bg-card);
+  box-shadow: -12px 0 32px rgba(15, 23, 42, 0.14);
+  outline: 0;
+  animation: map-drawer-slide 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* sm: lists and logs. lg: one record. xl: a two-column review. */
+.map-drawer-sm {
+  --map-drawer-width: 520px;
+  width: min(100vw, 520px);
+}
+
+.map-drawer-lg {
+  --map-drawer-width: 880px;
+}
+
+.map-drawer-xl {
+  --map-drawer-width: 1240px;
+}
+
+.map-drawer-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  background-color: var(--map-bg-card);
+  border-bottom: 1px solid var(--map-border-color);
+}
+
+.map-drawer-heading {
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.map-drawer-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  color: var(--map-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.map-drawer-meta {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--map-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.map-drawer-aside {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 16px;
+}
+
+.map-drawer-close {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--map-text-muted);
+  background-color: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.map-drawer-close:focus-visible {
+  outline: 2px solid var(--map-focus-ring);
+  outline-offset: var(--map-focus-ring-offset);
+}
+
+.map-drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background-color: var(--map-bg-main);
+}
+
+/* close or cancel on the left, the primary action on the right */
+.map-drawer-footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  background-color: var(--map-bg-card);
+  border-top: 1px solid var(--map-border-color);
+}
+
+.map-drawer-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* content blocks inside a drawer body */
+.map-drawer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.map-drawer-card {
+  padding: 16px;
+  background-color: var(--map-bg-card);
+  border: 1px solid var(--map-border-color);
+  border-radius: 8px;
+}
+
+.map-drawer-section-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--map-text-primary);
+}
+
+/* a box inside a card: notes, a field change, a quoted summary */
+.map-drawer-inset {
+  padding: 12px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--map-text-secondary);
+  background-color: var(--map-bg-main);
+  border-radius: 6px;
+}
+
+.map-drawer-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--map-text-muted);
+}
+
+/* one option of a small set, for example a status; the selected one is filled */
+.map-drawer-choice {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--map-text-secondary);
+  background-color: var(--map-bg-card);
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.map-drawer-choice.is-selected {
+  font-weight: 600;
+  color: #ffffff;
+  background-color: var(--map-primary-blue);
+  border-color: var(--map-primary-blue);
+}
+
+.map-drawer-choice:focus-visible {
+  outline: 2px solid var(--map-focus-ring);
+  outline-offset: var(--map-focus-ring-offset);
+}
+
+/* footer actions follow the design system button size: 14px text, 8px by 14px padding */
+.map-drawer-footer .btn {
+  padding: 8px 14px;
+  font-size: 14px;
+  line-height: 20px;
+  border-radius: 6px;
+}
+
+/* one extracted field in the document review drawer: label and value on the left, confidence bar on the right */
+.map-drawer .map-extraction-field-list {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.map-drawer .map-extraction-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--map-border-color);
+}
+
+.map-drawer .map-extraction-field-row:last-child {
+  border-bottom: 0;
+}
+
+.map-drawer .map-extraction-field-input {
+  width: 100%;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--map-text-primary);
+  background-color: var(--map-bg-card);
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.map-drawer .map-extraction-field-input:focus-visible {
+  outline: 2px solid var(--map-focus-ring);
+  outline-offset: var(--map-focus-ring-offset);
+}
+
+@keyframes map-drawer-slide {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+@keyframes map-drawer-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .map-drawer-close:hover {
+    color: var(--map-text-primary);
+    background-color: #f1f5f9;
+  }
+
+  .map-drawer-choice:not(.is-selected):hover {
+    background-color: #f1f5f9;
+    border-color: #94a3b8;
+  }
+}
+
+@media (pointer: coarse) {
+  .map-drawer-close {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 576px) {
+  .map-drawer-header {
+    padding: 12px 20px;
+  }
+
+  .map-drawer-body {
+    padding: 20px;
+  }
+
+  .map-drawer-footer {
+    padding: 12px 20px;
+  }
+}
+
+/* reduced motion keeps the fade and drops the slide */
+@media (prefers-reduced-motion: reduce) {
+  .map-drawer {
+    animation: map-drawer-fade 150ms ease-out;
+  }
+
+  .map-drawer-close,
+  .map-drawer-choice {
+    transition: none;
+  }
+}
+
+/* ============================================================
    modal and drawer button contrast and visual hierarchy rules
    enforces high contrast, clear state distinctions, and accessible
    colors across all modal dialogs, drawers, and confirmation gates.
    ============================================================ */
 
+.map-drawer .btn,
 .map-modal-backdrop .btn,
 .modal-content .btn,
 .map-card-custom .card-footer .btn,
@@ -645,6 +954,7 @@ div.map-autofill-animate {
 }
 
 /* primary confirm and submit buttons */
+.map-drawer .btn-primary,
 .map-modal-backdrop .btn-primary,
 .modal-content .btn-primary,
 .map-card-custom .card-footer .btn-primary,
@@ -655,6 +965,7 @@ div.map-autofill-animate {
   box-shadow: 0 1px 2px 0 rgba(11, 27, 43, 0.15);
 }
 
+.map-drawer .btn-primary:hover:not(:disabled),
 .map-modal-backdrop .btn-primary:hover:not(:disabled),
 .modal-content .btn-primary:hover:not(:disabled),
 .map-card-custom .card-footer .btn-primary:hover:not(:disabled),
@@ -665,6 +976,7 @@ div.map-autofill-animate {
 }
 
 /* success, verification, and extraction buttons */
+.map-drawer .btn-success,
 .map-modal-backdrop .btn-success,
 .modal-content .btn-success,
 .map-card-custom .card-footer .btn-success,
@@ -675,6 +987,7 @@ div.map-autofill-animate {
   box-shadow: 0 1px 2px 0 rgba(21, 128, 61, 0.2);
 }
 
+.map-drawer .btn-success:hover:not(:disabled),
 .map-modal-backdrop .btn-success:hover:not(:disabled),
 .modal-content .btn-success:hover:not(:disabled),
 .map-card-custom .card-footer .btn-success:hover:not(:disabled),
@@ -685,6 +998,7 @@ div.map-autofill-animate {
 }
 
 /* secondary cancel, dismiss, and outline buttons */
+.map-drawer .btn-secondary,
 .map-modal-backdrop .btn-secondary,
 .modal-content .btn-secondary,
 .map-card-custom .card-footer .btn-secondary,
@@ -695,6 +1009,7 @@ div.map-autofill-animate {
   color: #0f172a !important;
 }
 
+.map-drawer .btn-secondary:hover:not(:disabled),
 .map-modal-backdrop .btn-secondary:hover:not(:disabled),
 .modal-content .btn-secondary:hover:not(:disabled),
 .map-card-custom .card-footer .btn-secondary:hover:not(:disabled),
@@ -705,6 +1020,7 @@ div.map-autofill-animate {
   color: #0f172a !important;
 }
 
+.map-drawer .btn-outline-secondary,
 .map-modal-backdrop .btn-outline-secondary,
 .modal-content .btn-outline-secondary,
 .map-card-custom .card-footer .btn-outline-secondary,
@@ -714,6 +1030,7 @@ div.map-autofill-animate {
   color: #0f172a !important;
 }
 
+.map-drawer .btn-outline-secondary:hover:not(:disabled),
 .map-modal-backdrop .btn-outline-secondary:hover:not(:disabled),
 .modal-content .btn-outline-secondary:hover:not(:disabled),
 .map-card-custom .card-footer .btn-outline-secondary:hover:not(:disabled),
@@ -724,6 +1041,7 @@ div.map-autofill-animate {
 }
 
 /* danger, delete, and reject buttons */
+.map-drawer .btn-danger,
 .map-modal-backdrop .btn-danger,
 .modal-content .btn-danger,
 .map-card-custom .card-footer .btn-danger {
@@ -732,6 +1050,7 @@ div.map-autofill-animate {
   color: #ffffff !important;
 }
 
+.map-drawer .btn-danger:hover:not(:disabled),
 .map-modal-backdrop .btn-danger:hover:not(:disabled),
 .modal-content .btn-danger:hover:not(:disabled),
 .map-card-custom .card-footer .btn-danger:hover:not(:disabled) {

@@ -42,7 +42,7 @@ const REASON_ID = 'notification-detail-action-reason';
 /**
   what: renders the notification detail modal; inputs are the selected notification, its resolved row action, and close and run handlers.
   how: resolves the project, sender, assignee, assurance set and document from the store, groups them into details and project, and closes on escape, backdrop click or either close control; focus moves to the close button on open and returns to the opener on close.
-  with what file: src/components/drawers/NotificationDetailModal.tsx rendered by NotificationsView.tsx; uses notificationHelpers.ts and notificationMockData.ts.
+  with what file: src/components/modals/NotificationDetailModal.tsx rendered by NotificationsView.tsx; uses notificationHelpers.ts and notificationMockData.ts.
 */
 export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
   notification,

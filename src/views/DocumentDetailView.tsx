@@ -10,7 +10,7 @@ import { useMapStore } from '../store/useMapStore';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
-import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
+import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { DocumentVersion } from '../types/document';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';

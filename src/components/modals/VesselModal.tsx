@@ -55,7 +55,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   /*
     what: triggers map-autofill-animate shimmer on specified form inputs.
     how: adds field keys to animatingFields set and removes them after 750ms.
-    with what file: src/components/drawers/VesselModal.tsx.
+    with what file: src/components/modals/VesselModal.tsx.
   */
   const triggerAutofillAnimation = (fieldIds: string[]) => {
     setAnimatingFields((prev) => {
@@ -344,7 +344,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   /*
     what: auto-fills vessel registration fields from an existing document library record for a specific stage.
     how: extracts vessel attributes from MasterDocument model, updates form fields and updates activeVerifiedDocs for that step.
-    with what file: src/components/drawers/VesselModal.tsx.
+    with what file: src/components/modals/VesselModal.tsx.
   */
   const autoFillFromDocument = (doc: MasterDocument, stepNumber: number) => {
     /* reset all reveal flags before staggered fill */
@@ -437,7 +437,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   /*
     what: processes file attachment during vessel registration for AI OCR extraction and document library insertion per stage.
     how: checks if matching document exists in store; if present, auto-fills from it; if missing, extracts details, auto-fills form, and calls addDocument.
-    with what file: src/components/drawers/VesselModal.tsx.
+    with what file: src/components/modals/VesselModal.tsx.
   */
   const handleAiFileUpload = (fileOrName: File | string, stepNumber: number) => {
     const fileNameStr = typeof fileOrName === 'string' ? fileOrName : fileOrName.name;
@@ -594,7 +594,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   /*
     what: checks if a document is already attached or assigned to a registered vessel.
     how: checks document vesselId and vesselAttributes vesselName against registered fleet.
-    with what file: src/components/drawers/VesselModal.tsx.
+    with what file: src/components/modals/VesselModal.tsx.
   */
   const isDocumentAttachedToVessel = (doc: MasterDocument): boolean => {
     if (doc.vesselId && doc.vesselId !== '' && doc.vesselId !== 'UNASSIGNED' && doc.vesselId !== 'UNLINKED' && !doc.vesselId.startsWith('VESSEL-PENDING')) {
@@ -622,7 +622,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   /*
     what: retrieves available unassigned certificates for a specific registration stage.
     how: excludes certificates that are already selected in any other stage of this registration session.
-    with what file: src/components/drawers/VesselModal.tsx.
+    with what file: src/components/modals/VesselModal.tsx.
   */
   const getAvailableDocsForStep = (stepNumber: number) => {
     return unassignedDocuments.filter((doc) => {
@@ -636,7 +636,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   /*
     what: renders the reusable AI Document Intake & Library Auto-Fill card for each section of vessel registration.
     how: combines auto-fill select from unassigned master docs and drag-and-drop / clickable file upload with verification gate.
-    with what file: src/components/drawers/VesselModal.tsx.
+    with what file: src/components/modals/VesselModal.tsx.
   */
   const renderAiDocumentIntakeCard = (sectionTitle: string, stepNumber: number) => {
     const activeDoc = activeVerifiedDocs[stepNumber];

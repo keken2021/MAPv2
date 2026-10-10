@@ -8,7 +8,7 @@ import React, { useMemo, useState } from 'react';
 import { Check, LayoutGrid, Table as TableIcon, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { AssetHierarchyView } from '../components/assets/AssetHierarchyView';
-import { EquipmentModal } from '../components/drawers/EquipmentModal';
+import { EquipmentModal } from '../components/modals/EquipmentModal';
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';

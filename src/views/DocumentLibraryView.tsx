@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { DocumentTable } from '../components/tables/DocumentTable';
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
-import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
+import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { MasterDocument } from '../types/document';
 
 /**

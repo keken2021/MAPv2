@@ -22,11 +22,11 @@ import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateAssuranceSetReadiness, calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { InspectionDrawer } from '../components/drawers/InspectionDrawer';
-import { AddCrewModal } from '../components/drawers/AddCrewModal';
+import { AddCrewModal } from '../components/modals/AddCrewModal';
 import { CapaItem } from '../types/capa';
 import { getVesselStockPhoto, getVesselCharterBadge, CURATED_VESSEL_PHOTOS } from '../utils/vesselImageHelpers';
-import { VesselImageCropModal } from '../components/drawers/VesselImageCropModal';
-import { DocumentUploadModal } from '../components/drawers/DocumentUploadModal';
+import { VesselImageCropModal } from '../components/modals/VesselImageCropModal';
+import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { getVesselAssetStatus } from '../types/asset';
 import {

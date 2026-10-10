@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselTable } from '../components/tables/VesselTable';
-import { VesselModal } from '../components/drawers/VesselModal';
+import { VesselModal } from '../components/modals/VesselModal';
 import { AssetHierarchyView } from '../components/assets/AssetHierarchyView';
 import {
   filterVesselAdminChartered,

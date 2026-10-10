@@ -13,7 +13,7 @@ import { FilterModal } from '../common/FilterModal';
 import { FilterButton } from '../common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
-import { EditUserModal } from '../drawers/EditUserModal';
+import { EditUserModal } from '../modals/EditUserModal';
 import { canPerform } from '../../utils/permissionHelpers';
 
 import { filterUsersForPersona } from '../../utils/rbacHelpers';
