@@ -7,7 +7,7 @@
 import { MarketplaceItem } from '../types/marketplace';
 
 export const MOCK_MARKETPLACE_ITEMS: MarketplaceItem[] = [
-  // 1. Service Provider Vessels
+  // 1. Vessel Provider Vessels
   {
     id: 'MAP-VES-2026-MKT-00008',
     name: 'MV Meridian Pioneer',
@@ -163,7 +163,7 @@ export const MOCK_MARKETPLACE_ITEMS: MarketplaceItem[] = [
     ],
   },
 
-  // 2. Service Provider Equipment
+  // 2. Equipment Provider Equipment
   {
     id: 'MAP-EQP-2026-MKT-00101',
     name: 'Schilling HD 150HP Work-Class ROV System',
@@ -304,7 +304,7 @@ export const MOCK_MARKETPLACE_ITEMS: MarketplaceItem[] = [
     ],
   },
 
-  // 3. Specialized Service Provider Crew
+  // 3. Specialized Crew Provider Crew
   {
     id: 'MAP-CRW-2026-MKT-00201',
     name: 'Capt. Callum Sterling',

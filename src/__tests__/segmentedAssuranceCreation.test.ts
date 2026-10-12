@@ -38,8 +38,10 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     expect(getPrimaryAssuranceScope([])).toBe('Vessel');
   });
 
-  it('reads the scopes of a set from its subtypes, or from its type when it has none', () => {
-    expect(getAssuranceSetScopes({ assuranceType: 'Vessel', subtypes: ['Crew', 'Vessel'] })).toEqual(['Vessel', 'Crew']);
+  it('reads the one scope of a set from its type, or from its first subtype when it has no type', () => {
+    /* a set covers exactly one asset: a legacy set saved with several subtypes reports the scope it is filed under */
+    expect(getAssuranceSetScopes({ assuranceType: 'Vessel', subtypes: ['Crew', 'Vessel'] })).toEqual(['Vessel']);
+    expect(getAssuranceSetScopes({ subtypes: ['Equipment', 'Crew'] })).toEqual(['Crew']);
     expect(getAssuranceSetScopes({ assuranceType: 'Equipment' })).toEqual(['Equipment']);
     expect(getAssuranceSetScopes({ assuranceType: 'Crew', subtypes: [] })).toEqual(['Crew']);
     expect(getAssuranceSetScopes({})).toEqual(['Vessel']);
@@ -62,21 +64,17 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     expect(useMapStore.getState().assuranceSets.some((s) => s.id === 'AS-ACT-2026-SURF-01')).toBe(false);
   });
 
-  it('builds one wizard tab per ticked scope, titled with the scope type, between Scope and Review', () => {
-    const steps = buildAssuranceWizardSteps(['Crew', 'Vessel']);
-    expect(steps.map((s) => s.label)).toEqual(['Scope', 'Vessel', 'Crew', 'Review']);
-    expect(steps.map((s) => s.subtype)).toEqual([undefined, 'Vessel', 'Crew', undefined]);
+  it('builds one wizard tab for the chosen scope, titled with the scope type, between Scope and Review', () => {
+    const steps = buildAssuranceWizardSteps(['Crew']);
+    expect(steps.map((s) => s.label)).toEqual(['Scope', 'Crew', 'Review']);
+    expect(steps.map((s) => s.subtype)).toEqual([undefined, 'Crew', undefined]);
     expect(new Set(steps.map((s) => s.id)).size).toBe(steps.length);
 
     expect(buildAssuranceWizardSteps(['Equipment']).map((s) => s.label)).toEqual(['Scope', 'Equipment', 'Review']);
-    expect(buildAssuranceWizardSteps(ASSURANCE_SCOPE_OPTIONS).map((s) => s.label)).toEqual([
-      'Scope',
-      'Vessel',
-      'Crew',
-      'Equipment',
-      'Review',
-    ]);
-    /* with nothing ticked only the fixed tabs remain */
+    /* a set covers exactly one asset, so several scopes still give one scope tab: the first offered */
+    expect(buildAssuranceWizardSteps(['Crew', 'Vessel']).map((s) => s.label)).toEqual(['Scope', 'Vessel', 'Review']);
+    expect(buildAssuranceWizardSteps(ASSURANCE_SCOPE_OPTIONS).map((s) => s.label)).toEqual(['Scope', 'Vessel', 'Review']);
+    /* with no scope only the fixed tabs remain */
     expect(buildAssuranceWizardSteps([]).map((s) => s.label)).toEqual(['Scope', 'Review']);
   });
 
@@ -97,7 +95,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     });
   });
 
-  it('creates a multi-subtype campaign with combined requirements and specialized documents', () => {
+  it('reduces a set built with several scopes to the one asset it is filed under, with its specialized documents', () => {
     const store = useMapStore.getState();
     const uniqueId = generateUniqueAssuranceSetId(store.assuranceSets);
 
@@ -122,13 +120,25 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       });
     });
 
-    // Add a specialized custom document
+    // Add a specialized custom document for another scope and one for the vessel
     projectRequirements.push({
       id: generateUniqueRequirementId(uniqueId, reqIndex++),
       category: 'Custom Requirement',
       title: 'Subsea Umbilical Insulation Test',
       description: 'Engineering high-voltage insulation test report verifying insulation resistance under operating tension.',
       subtype: 'Equipment',
+      isMandatory: true,
+      isSpecialized: true,
+      isFulfilled: false,
+      ocrConfidence: 0,
+      verifierStatus: 'Pending',
+    });
+    projectRequirements.push({
+      id: generateUniqueRequirementId(uniqueId, reqIndex++),
+      category: 'Vessel Custom Requirement',
+      title: 'DP Annual Trials Report',
+      description: 'Annual dynamic positioning trials report for the charter vessel.',
+      subtype: 'Vessel',
       isMandatory: true,
       isSpecialized: true,
       isFulfilled: false,
@@ -144,6 +154,8 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       vesselId: 'VESSEL-001',
       vesselName: 'MV Pacific Endeavour',
       imoNumber: '9123456',
+      crewId: 'CREW-001',
+      crewName: 'Capt. James Stirling',
       initiatorOrg: 'Northwind Marine Pty Ltd',
       initiatorRole: 'Vessel Provider Admin',
       charterer: 'Woodside Energy Ltd',
@@ -164,13 +176,14 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     const retrieved = useMapStore.getState().assuranceSets.find((s) => s.id === uniqueId);
     expect(retrieved).toBeDefined();
     expect(retrieved?.assuranceType).toBe('Vessel');
-    expect(retrieved?.subtypes).toEqual(['Vessel', 'Crew', 'Activity', 'Equipment']);
-    expect(retrieved?.requirements.length).toBeGreaterThan(10);
+    /* one asset per set: only the vessel scope, its link and its requirements are kept */
+    expect(retrieved?.subtypes).toEqual(['Vessel']);
+    expect(retrieved?.crewId).toBeUndefined();
+    expect(retrieved?.requirements.length).toBeGreaterThan(0);
+    expect(retrieved?.requirements.every((r) => r.subtype === 'Vessel')).toBe(true);
 
-    const specializedReq = retrieved?.requirements.find((r) => r.isSpecialized);
-    expect(specializedReq).toBeDefined();
-    expect(specializedReq?.title).toBe('Subsea Umbilical Insulation Test');
-    expect(specializedReq?.subtype).toBe('Equipment');
+    const specializedReqs = retrieved?.requirements.filter((r) => r.isSpecialized) || [];
+    expect(specializedReqs.map((r) => r.title)).toEqual(['DP Annual Trials Report']);
   });
 
   it('creates a standalone single subtype assurance set (e.g. Crew only)', () => {

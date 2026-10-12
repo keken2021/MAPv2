@@ -343,7 +343,7 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
     });
   });
 
-  describe('7. 1.4 Whoever Starts the Process is the Client (Service Provider Segregation)', () => {
+  describe('7. 1.4 Whoever Starts the Process is the Client (Provider Segregation)', () => {
     it('treats initiator as the client and excludes service provider staff from verifier/approver roles', () => {
       // Scenario: Ship owner (Northwind Marine) acts as client procuring bunker fuel or hiring a third-party vessel
       const serviceProviderOrg = 'Pacific Fuel & Bunkering Pty Ltd';

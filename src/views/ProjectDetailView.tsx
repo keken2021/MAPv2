@@ -168,7 +168,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </div>
             {project.serviceProvider && (
               <div className="text-muted small mt-1">
-                Service Provider: {project.serviceProvider}
+                Provider: {project.serviceProvider}
               </div>
             )}
             {project.description && (
@@ -267,7 +267,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   <th>Asset ID</th>
                   <th>Name</th>
                   <th>Type</th>
-                  <th>Service Provider</th>
+                  <th>Provider</th>
                   <th>Assurance Set</th>
                   <th className="text-end">Actions</th>
                 </tr>

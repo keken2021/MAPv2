@@ -11,7 +11,7 @@ import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
-import { formatMaritimeDate, formatReviewChannel, getStatusDisplayLabel } from '../utils/formatters';
+import { formatMaritimeDate, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
 import { toIsoLocalDate, validateCharterWindow } from '../utils/validation';
 import { MasterDocument } from '../types/document';
 import { AssuranceRequirement } from '../types/assurance';
@@ -534,7 +534,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </div>
                   {serviceProviderOrg && (
                     <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Service Provider:</div>
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>{getProviderLabel(assuranceSet.assuranceType)}:</div>
                       <div className="fw-bold text-dark">{serviceProviderOrg}</div>
                     </div>
                   )}

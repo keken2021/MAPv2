@@ -79,7 +79,7 @@ export const PERMISSION_SCOPE_CATALOG: PermissionScopeDefinition[] = [
     key: 'role_rights',
     label: 'Roles & Permissions',
     description:
-      'The Roles & Permissions page is available to the Service Provider role only. It cannot be granted here.',
+      'The Roles & Permissions page is available to the Provider role only. It cannot be granted here.',
     category: 'Setup & configuration',
   },
   {

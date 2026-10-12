@@ -1,6 +1,6 @@
 /* 
   file summary: segmented assurance set creation wizard matching enterprise design standards (similar to VesselModal).
-  responsibilities: captures one or more scopes (Vessel, Crew, Equipment; Activity is switched off for now) with a tab per ticked scope, optional project link, general information, subtype statutory & operational documents with descriptions, public/organization templates, specialized custom requirements, workflow policies, and role assignments.
+  responsibilities: captures the one scope the set covers (Vessel, Crew or Equipment; Activity is switched off for now) with the tab of that scope, optional project link, general information, subtype statutory & operational documents with descriptions, public/organization templates, specialized custom requirements, workflow policies, and role assignments.
   role in system: rendered by App.tsx when currentHashView is 'create-assurance-set'.
 */
 
@@ -56,7 +56,6 @@ import { filterProjectsForPersona, projectToAssuranceProjectScope } from '../uti
 import { resolveAssuranceRequestContext } from '../utils/notificationHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2 } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
-import { ScopeChecklist } from '../components/common/ScopeChecklist';
 
 interface SpecializedDoc {
   id: string;
@@ -229,16 +228,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [title, setTitle] = useState(
     () => `${titleOrg} - ${initialSubjectName} Charter Vetting`
   );
-  /* scopes ticked in the checklist; each one adds a wizard tab and its requirements to the set */
+  /* the one scope the set covers, kept as a one-entry list; a set covers exactly one asset (ADR 0004). A request that suggests several scopes starts on the first; the others get their own sets */
   const [selectedScopes, setSelectedScopes] = useState<AssuranceSubtype[]>(() => {
     if (lockedAsset) return [lockedAsset.scope];
     if (suggestedAsset) return [suggestedAsset.assetType];
-    if (requestedScopes && requestedScopes.length > 0) return orderAssuranceScopes(requestedScopes);
+    if (requestedScopes && requestedScopes.length > 0) return [getPrimaryAssuranceScope(requestedScopes)];
     return [requestedScope || 'Vessel'];
   });
   /* scope the set is filed under and named after */
   const assuranceType = getPrimaryAssuranceScope(selectedScopes);
-  /* scope handed over by a listing; it stays ticked while other scopes can still be added */
+  /* scope handed over by a listing; it cannot be changed */
   const lockedScopes: AssuranceSubtype[] = isScopeLocked && lockedAsset ? [lockedAsset.scope] : [];
   const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || '');
   const [vesselId, setVesselId] = useState(initialVesselId);
@@ -291,7 +290,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const selectedCrewForScope = crew.find((c) => c.id === selectedCrewId);
   const selectedActivityForScope = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId);
 
-  /* 1.4: Identify the Service Provider / Asset Owner organization */
+  /* 1.4: Identify the provider of the asset the set covers (Vessel, Crew or Equipment Provider) */
   const serviceProviderOrg =
     assuranceType === 'Vessel'
       ? (selectedVesselForScope?.registeredOwner || selectedVesselForScope?.ismCompany || 'Northwind Marine Pty Ltd')
@@ -365,17 +364,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     return list;
   }, [approverCandidates, users, assignedVerifier, reviewMode, serviceProviderOrg, isInternalDeployment]);
 
-  const handleToggleScope = (scope: AssuranceSubtype) => {
-    if (lockedScopes.includes(scope)) return;
-    const nextScopes = selectedScopes.includes(scope)
-      ? selectedScopes.filter((item) => item !== scope)
-      : orderAssuranceScopes([...selectedScopes, scope]);
-    setSelectedScopes(nextScopes);
+  /* choosing a scope replaces the previous one: a set covers exactly one asset */
+  const handleSelectScope = (newScope: AssuranceSubtype) => {
+    if (lockedScopes.length > 0 || newScope === assuranceType) return;
+    setSelectedScopes([newScope]);
     setFieldErrors({});
 
-    /* the suggested title follows the primary scope, so it only changes when that scope does */
-    const newScope = getPrimaryAssuranceScope(nextScopes);
-    if (nextScopes.length === 0 || newScope === assuranceType) return;
+    /* the suggested title follows the scope */
 
     if (newScope === 'Vessel') {
       const v = availableVessels.find((item) => item.id === vesselId) || availableVessels[0];
@@ -501,7 +496,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     Equipment: { title: '', description: '', category: SUBTYPE_CATEGORIES.Equipment[0], isMandatory: true },
   });
 
-  /* Wizard tabs: Scope, one tab per ticked scope, Review */
+  /* Wizard tabs: Scope, the tab of the chosen scope, Review */
   const steps = buildAssuranceWizardSteps(selectedScopes);
   const totalSteps = steps.length;
 
@@ -576,7 +571,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           // Resume draft editing in-place
           setEditingDraftId(target.id);
           setTitle(target.title);
-          if (!lockedAsset) setSelectedScopes(orderAssuranceScopes(getAssuranceSetScopes(target)));
+          if (!lockedAsset) setSelectedScopes([getPrimaryAssuranceScope(getAssuranceSetScopes(target))]);
           if (target.projectId && !lockedProjectId) setSelectedProjectId(target.projectId);
           if (target.crewId && !lockedAsset) setSelectedCrewId(target.crewId);
           if (target.equipmentId && !lockedAsset) setSelectedEquipmentId(target.equipmentId);
@@ -761,7 +756,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       }
 
       if (selectedScopes.length === 0) {
-        newErrors.scope = 'Select at least one scope.';
+        newErrors.scope = 'Select a scope.';
       }
       if (!startDate) {
         newErrors.startDate = 'Start date is required.';
@@ -2040,21 +2035,23 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
                     {/* Scope / Subtype Selector */}
                     <div className="col-12 col-md-4">
-                      <label className="form-label text-secondary small fw-semibold" id="grid-assurance-type-label">
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-assurance-type">
                         Scope <span className="text-danger">*</span>
                       </label>
-                      <ScopeChecklist
+                      <select
                         id="grid-assurance-type"
-                        labelId="grid-assurance-type-label"
-                        className="bg-white text-dark border-secondary-subtle fw-semibold"
-                        options={ASSURANCE_SCOPE_OPTIONS}
-                        selected={selectedScopes}
-                        onToggle={handleToggleScope}
-                        emptyLabel="Select scope"
-                        lockedOptions={lockedScopes}
-                        invalid={Boolean(fieldErrors.scope)}
-                        describedBy="grid-assurance-type-help"
-                      />
+                        className={`form-select bg-white text-dark border-secondary-subtle fw-semibold ${fieldErrors.scope ? 'is-invalid' : ''}`}
+                        value={assuranceType}
+                        onChange={(e) => handleSelectScope(e.target.value as AssuranceSubtype)}
+                        disabled={lockedScopes.length > 0}
+                        aria-describedby="grid-assurance-type-help"
+                      >
+                        {ASSURANCE_SCOPE_OPTIONS.map((scope) => (
+                          <option key={scope} value={scope}>
+                            {scope}
+                          </option>
+                        ))}
+                      </select>
                       {fieldErrors.scope && (
                         <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
                           {fieldErrors.scope}
@@ -2062,8 +2059,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       )}
                       <div id="grid-assurance-type-help" className="form-text small">
                         {lockedScopes.length > 0
-                          ? `${lockedScopes[0]} is set by the listing you came from. You can add other scopes.`
-                          : 'Choose one or more. Each scope gets its own tab.'}
+                          ? `${lockedScopes[0]} is set by the listing you came from.`
+                          : 'A set covers one asset. Create a separate set for each vessel, crew member or equipment item.'}
                       </div>
                     </div>
 

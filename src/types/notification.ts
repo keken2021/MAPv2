@@ -1,5 +1,5 @@
 /*
-  file summary: in-app notification types for requests, assignments, verification, approval and capa events.
+  file summary: in-app notification types for requests, assignments, verification, document renewal, approval and capa events.
   responsibilities: defines the notification record, its type, category and status enums, and the assurance set request payload.
   role in system: consumed by useMapStore, notificationMockData, notificationHelpers, NotificationPanel and NotificationsView.
 */
@@ -14,6 +14,7 @@ export type NotificationType =
   | 'stakeholder_assigned'
   | 'review_requested'
   | 'document_correction'
+  | 'document_renewal'
   | 'approval_requested'
   | 'approval_decision'
   | 'capa_reinspection';
@@ -22,8 +23,16 @@ export type NotificationCategory =
   | 'Assurance Request'
   | 'Assignment'
   | 'Verification'
+  | 'Document Renewal'
   | 'Approval'
   | 'CAPA';
+
+/** why a document on an assurance set must be renewed; present on document_renewal only */
+export type DocumentRenewalReason =
+  | 'expired'
+  | 'charter_window'
+  | 'expiring'
+  | 'reupload_requested';
 
 export type NotificationTab = 'all' | 'unread' | 'actioned';
 
@@ -68,6 +77,8 @@ export interface AppNotification {
   documentId?: string;
   capaId?: string;
   vesselName?: string;
+  /** present on document_renewal only */
+  renewalReason?: DocumentRenewalReason;
   /** workflow role the recipient was assigned, for stakeholder_assigned */
   assignedRole?: UserRolePersona;
   /** present on assurance_set_request only */

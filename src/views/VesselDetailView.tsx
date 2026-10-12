@@ -940,7 +940,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         <div className="card map-card-custom p-5 mx-auto" style={{ maxWidth: '520px' }}>
           <h4 className="fw-bold text-dark mb-2">No Access</h4>
           <p className="text-secondary small mb-4">
-            You cannot view this vessel. Service Providers can only view vessels their organization owns or manages.
+            You cannot view this vessel. Providers can only view vessels their organization owns or manages.
           </p>
           <button
             type="button"

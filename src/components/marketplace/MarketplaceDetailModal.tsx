@@ -25,7 +25,7 @@ import {
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 import { exportToPdf } from '../../utils/exportHelpers';
-import { formatReadinessScore, getFieldDisplayLabel } from '../../utils/formatters';
+import { formatReadinessScore, getFieldDisplayLabel, getProviderLabel } from '../../utils/formatters';
 import { getMarketplaceCharterLabel } from '../../utils/marketplaceHelpers';
 
 interface MarketplaceDetailModalProps {
@@ -95,7 +95,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
       ['Offering Title', item.name],
       ['Category', item.category.toUpperCase()],
       ['Subcategory', item.subcategory],
-      ['Service Provider', item.providerOrg],
+      [getProviderLabel(item.category), item.providerOrg],
       ['Location / Base', item.location],
       ['Availability Status', item.availabilityStatus],
       ['Compliance Readiness', formatReadinessScore(item.complianceReadinessScore)],
@@ -544,7 +544,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                     }}
                     onClick={() => setActiveTab('provider')}
                   >
-                    Service Provider
+                    {getProviderLabel(item.category)}
                   </button>
                 </li>
               </ul>
@@ -671,7 +671,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
               {activeTab === 'provider' && (
                 <div>
                   <h6 className="fw-bold mb-3" style={{ fontSize: '0.92rem', color: '#0B1B2B' }}>
-                    Service Provider
+                    {getProviderLabel(item.category)}
                   </h6>
                   <div
                     className="card p-4 border mb-3 rounded-2 shadow-2xs"
@@ -707,7 +707,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                           {item.providerOrg}
                         </span>
                         <span className="text-secondary small mt-0.5" style={{ color: '#64748B', fontSize: '0.8rem' }}>
-                          Verified Service Provider
+                          Verified {getProviderLabel(item.category)}
                         </span>
                       </div>
                     </div>

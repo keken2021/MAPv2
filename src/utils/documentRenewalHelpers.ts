@@ -1,0 +1,176 @@
+/*
+  file summary: pure helpers for document renewal notifications.
+  responsibilities: decides why a document on an assurance set must be renewed, lists the renewals that still need a notification, and words the notification.
+  role in system: consumed by useMapStore.ts and NotificationDetailModal.tsx.
+*/
+
+import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
+import { MasterDocument } from '../types/document';
+import { AppNotification, DocumentRenewalReason } from '../types/notification';
+import { getAssuranceSetAsset } from './assuranceTemplates';
+import { formatMaritimeDate, getProviderLabel } from './formatters';
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+/* on-screen names for the stored renewal reasons */
+export const DOCUMENT_RENEWAL_REASON_LABELS: Record<DocumentRenewalReason, string> = {
+  expired: 'Expired',
+  charter_window: 'Expires before the charter ends',
+  expiring: 'Expiring soon',
+  reupload_requested: 'Reupload requested by a reviewer',
+};
+
+/* whole days from today to a date; negative once the date has passed, undefined for an unreadable date */
+function getDaysUntil(dateStr: string | undefined, today: Date): number | undefined {
+  if (!dateStr) return undefined;
+  const time = new Date(dateStr).getTime();
+  if (Number.isNaN(time)) return undefined;
+  return Math.ceil((time - today.getTime()) / MS_PER_DAY);
+}
+
+/**
+  what: why a document on an assurance set must be renewed, or undefined when it need not be; inputs are the document, the set and today's date.
+  how: one reason per document per set, the most urgent first: expired, then an expiry date before the end of the set's charter window, then the expiring state.
+  with what file: src/utils/documentRenewalHelpers.ts used by findDocumentRenewalsDue.
+*/
+export function getDocumentRenewalReason(
+  document: Pick<MasterDocument, 'expiryDate' | 'complianceState'>,
+  set: Pick<AssuranceSet, 'charterWindowEnd'>,
+  today: Date = new Date(),
+): Exclude<DocumentRenewalReason, 'reupload_requested'> | undefined {
+  const daysLeft = getDaysUntil(document.expiryDate, today);
+  if (document.complianceState === 'Expired' || (daysLeft !== undefined && daysLeft < 0)) {
+    return 'expired';
+  }
+
+  const expiry = new Date(document.expiryDate).getTime();
+  const charterEnd = new Date(set.charterWindowEnd).getTime();
+  if (!Number.isNaN(expiry) && !Number.isNaN(charterEnd) && expiry < charterEnd) {
+    return 'charter_window';
+  }
+
+  return document.complianceState === 'Expiring < 6 Mos' ? 'expiring' : undefined;
+}
+
+export interface DocumentRenewalDue {
+  set: AssuranceSet;
+  requirement: AssuranceRequirement;
+  document: MasterDocument;
+  reason: Exclude<DocumentRenewalReason, 'reupload_requested'>;
+}
+
+/**
+  what: true when a renewal notification was already raised for this set, document and reason, whatever its status.
+  how: a reason is notified once per document per set; a later, more urgent reason raises a new notification.
+  with what file: src/utils/documentRenewalHelpers.ts used by findDocumentRenewalsDue.
+*/
+export function hasDocumentRenewal(
+  notifications: Pick<AppNotification, 'type' | 'assuranceSetId' | 'documentId' | 'renewalReason'>[],
+  assuranceSetId: string,
+  documentId: string,
+  reason: DocumentRenewalReason,
+): boolean {
+  return notifications.some(
+    (n) =>
+      n.type === 'document_renewal' &&
+      n.assuranceSetId === assuranceSetId &&
+      n.documentId === documentId &&
+      n.renewalReason === reason,
+  );
+}
+
+/**
+  what: renewals that still need a notification; inputs are the assurance sets to check, all documents, all notifications and today's date.
+  how: takes each requirement's document once per set, keeps it when it has a renewal reason, and skips it when a renewal notification was already raised for the same set, document and reason.
+  with what file: src/utils/documentRenewalHelpers.ts used by useMapStore.ts.
+*/
+export function findDocumentRenewalsDue(
+  sets: AssuranceSet[],
+  documents: MasterDocument[],
+  notifications: AppNotification[],
+  today: Date = new Date(),
+): DocumentRenewalDue[] {
+  const due: DocumentRenewalDue[] = [];
+  sets.forEach((set) => {
+    const seenDocumentIds = new Set<string>();
+    set.requirements.forEach((requirement) => {
+      const documentId = requirement.documentId || requirement.linkedDocumentId;
+      if (!documentId || seenDocumentIds.has(documentId)) return;
+      seenDocumentIds.add(documentId);
+
+      const document = documents.find((d) => d.id === documentId);
+      if (!document) return;
+      const reason = getDocumentRenewalReason(document, set, today);
+      if (!reason || hasDocumentRenewal(notifications, set.id, documentId, reason)) return;
+      due.push({ set, requirement, document, reason });
+    });
+  });
+  return due;
+}
+
+/**
+  what: stakeholder label of the submitter a renewal goes to: the requirement's submitter, then the set's submitter.
+  how: returns undefined when neither is named, so the caller falls back to the set creator.
+  with what file: src/utils/documentRenewalHelpers.ts used by useMapStore.ts.
+*/
+export function getRenewalSubmitterLabel(
+  set: Pick<AssuranceSet, 'assignedSubmitter'>,
+  requirement?: Pick<AssuranceRequirement, 'assignedSubmitter'>,
+): string | undefined {
+  return requirement?.assignedSubmitter?.trim() || set.assignedSubmitter?.trim() || undefined;
+}
+
+/**
+  what: subject line of a renewal notification; inputs are the reason, the document, the set and today's date.
+  how: names the reason with its date or day count, then the document and the asset the set covers.
+  with what file: src/utils/documentRenewalHelpers.ts used by useMapStore.ts.
+*/
+export function getRenewalSubject(
+  reason: DocumentRenewalReason,
+  document: Pick<MasterDocument, 'title' | 'expiryDate'>,
+  set: Parameters<typeof getAssuranceSetAsset>[0] & Pick<AssuranceSet, 'charterWindowEnd'>,
+  today: Date = new Date(),
+): string {
+  /* a crew or equipment document title often carries the asset name already */
+  const assetName = getAssuranceSetAsset(set).name;
+  const target = document.title.includes(assetName) ? document.title : `${document.title} (${assetName})`;
+  const daysLeft = getDaysUntil(document.expiryDate, today);
+  switch (reason) {
+    case 'expired':
+      return `Expired ${formatMaritimeDate(document.expiryDate)}: ${target}`;
+    case 'charter_window':
+      return `Expires before charter end ${formatMaritimeDate(set.charterWindowEnd)}: ${target}`;
+    case 'expiring':
+      return daysLeft !== undefined && daysLeft >= 0
+        ? `Expires in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}: ${target}`
+        : `Expiring soon: ${target}`;
+    case 'reupload_requested':
+    default:
+      return `Reupload requested: ${target}`;
+  }
+}
+
+/**
+  what: message of a renewal notification raised by the system; inputs are the reason, the document and the set.
+  how: states the dates behind the reason and what the submitter must upload, and names the provider by the asset type the set covers.
+  with what file: src/utils/documentRenewalHelpers.ts used by useMapStore.ts.
+*/
+export function getRenewalMessage(
+  reason: Exclude<DocumentRenewalReason, 'reupload_requested'>,
+  document: Pick<MasterDocument, 'certificateNo' | 'expiryDate'>,
+  set: Parameters<typeof getAssuranceSetAsset>[0] & Pick<AssuranceSet, 'title' | 'charterWindowEnd'>,
+): string {
+  const asset = getAssuranceSetAsset(set);
+  const certificate = `Certificate ${document.certificateNo}`;
+  const expiry = formatMaritimeDate(document.expiryDate);
+  const upload = `Upload the renewed certificate as the ${getProviderLabel(asset.type)} of ${asset.name} on ${set.title}.`;
+  switch (reason) {
+    case 'expired':
+      return `${certificate} expired on ${expiry}. ${upload}`;
+    case 'charter_window':
+      return `${certificate} expires on ${expiry}, before the charter ends on ${formatMaritimeDate(set.charterWindowEnd)}. ${upload}`;
+    case 'expiring':
+    default:
+      return `${certificate} expires on ${expiry}. ${upload}`;
+  }
+}

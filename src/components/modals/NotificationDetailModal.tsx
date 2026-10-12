@@ -8,7 +8,8 @@ import React, { useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { NOTIFICATION_STATUS_META } from '../../store/notificationMockData';
 import { AppNotification } from '../../types/notification';
-import { formatMaritimeDateTime } from '../../utils/formatters';
+import { DOCUMENT_RENEWAL_REASON_LABELS } from '../../utils/documentRenewalHelpers';
+import { formatMaritimeDate, formatMaritimeDateTime } from '../../utils/formatters';
 import {
   NotificationAction,
   resolveAssuranceRequestContext,
@@ -123,6 +124,13 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
       label: 'Document',
       value: doc.title,
       note: <span className="font-mono-code">{doc.id}</span>,
+    });
+  }
+  if (notification.renewalReason) {
+    details.push({
+      label: 'Renewal Reason',
+      value: DOCUMENT_RENEWAL_REASON_LABELS[notification.renewalReason],
+      note: doc ? <span className="font-mono-code">Expiry {formatMaritimeDate(doc.expiryDate)}</span> : undefined,
     });
   }
   if (notification.capaId) {

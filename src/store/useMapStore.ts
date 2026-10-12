@@ -83,6 +83,13 @@ import {
 } from "../types/project";
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from "./projectMockData";
 import { AppNotification, NotificationDraft, SuggestedAssuranceAsset } from "../types/notification";
+import {
+  findDocumentRenewalsDue,
+  getRenewalMessage,
+  getRenewalSubject,
+  getRenewalSubmitterLabel,
+} from "../utils/documentRenewalHelpers";
+import { toSingleAssetSet } from "../utils/assuranceTemplates";
 import { MOCK_NOTIFICATIONS } from "./notificationMockData";
 import {
   generateNotificationId,
@@ -163,6 +170,10 @@ export interface MapStoreState {
   notifications: AppNotification[];
   /** raises a notification; returns its id, or undefined when there is no recipient or the recipient is the sender */
   pushNotification: (draft: NotificationDraft) => string | undefined;
+  /** raises a document renewal notification for each expired, expiring or charter-short document on the given sets, or on every set; returns how many were raised */
+  raiseDocumentRenewalNotifications: (assuranceSetIds?: string[]) => number;
+  /** a reviewer asks the submitter for a new version of a document; returns how many notifications were raised */
+  requestDocumentReupload: (docId: string, reason: string) => number;
   markNotificationRead: (notificationId: string) => void;
   markAllNotificationsRead: (recipientUserId: string) => void;
   /** records that the recipient used the row action: read for an open request, actioned for every other type */
@@ -423,30 +434,84 @@ function notifyAssuranceSetUser(
     Partial<
       Pick<
         NotificationDraft,
-        "message" | "assignedRole" | "documentId" | "capaId" | "vesselName"
+        "message" | "assignedRole" | "documentId" | "capaId" | "vesselName" | "renewalReason"
       >
     >,
-): void {
+  /* systemSent: raised by the platform, not by the signed-in user, so it also reaches that user */
+  options: { systemSent?: boolean } = {},
+): string | undefined {
   const state = get();
   const recipient = resolveNotificationRecipient(recipientLabel, state.users);
-  if (!recipient) return;
+  if (!recipient) return undefined;
 
-  const sender = getSessionUserForPersona(
-    state.activePersona,
-    state.users,
-    getDemoSessionContext(state),
-  );
+  const sender = options.systemSent
+    ? undefined
+    : getSessionUserForPersona(
+        state.activePersona,
+        state.users,
+        getDemoSessionContext(state),
+      );
   const project = getProjectForAssuranceSet(assuranceSet, state.projects);
-  state.pushNotification({
+  return state.pushNotification({
     vesselName: assuranceSet.vesselName || undefined,
     ...content,
     recipientUserId: recipient.id,
     senderUserId: sender?.id,
-    senderName: sender?.name || state.activePersona,
+    senderName: options.systemSent
+      ? SYSTEM_NOTIFICATION_SENDER
+      : sender?.name || state.activePersona,
     projectId: project?.id,
     projectName: project?.name,
     assuranceSetId: assuranceSet.id,
   });
+}
+
+/* sender name of a notification the platform raises on its own */
+const SYSTEM_NOTIFICATION_SENDER = "MAP System";
+
+/**
+  what: stakeholder label a document renewal goes to; inputs are the store getter, the set and the requirement the document meets.
+  how: the requirement's submitter, then the set's submitter, when the label names a real user; otherwise the set creator.
+  with what file: src/store/useMapStore.ts, called by the document renewal actions below.
+*/
+function resolveRenewalRecipientLabel(
+  get: () => MapStoreState,
+  assuranceSet: AssuranceSet,
+  requirement?: AssuranceRequirement,
+): string | undefined {
+  const users = get().users;
+  const labels = [
+    getRenewalSubmitterLabel({ assignedSubmitter: undefined }, requirement),
+    getRenewalSubmitterLabel(assuranceSet),
+  ];
+  return (
+    labels.find((label) => resolveNotificationRecipient(label, users)) ||
+    getAssuranceSetCreator(assuranceSet, users).name
+  );
+}
+
+/**
+  what: closes the renewal notifications a new upload answers; inputs are the store setter, the document id and, optionally, the one set the upload was made on.
+  how: marks every renewal notification of that document that is not yet actioned as actioned.
+  with what file: src/store/useMapStore.ts, called by uploadDocumentForRequirement and addDocumentVersion.
+*/
+function closeDocumentRenewalNotifications(
+  set: (fn: (state: MapStoreState) => Partial<MapStoreState>) => void,
+  documentId: string | undefined,
+  assuranceSetId?: string,
+): void {
+  if (!documentId) return;
+  const now = new Date().toISOString();
+  set((state) => ({
+    notifications: state.notifications.map((n) =>
+      n.type === "document_renewal" &&
+      n.status !== "actioned" &&
+      n.documentId === documentId &&
+      (!assuranceSetId || n.assuranceSetId === assuranceSetId)
+        ? { ...n, status: "actioned" as const, readAt: n.readAt || now, actionedAt: now }
+        : n,
+    ),
+  }));
 }
 
 /**
@@ -643,6 +708,78 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       notifications: [notification, ...state.notifications],
     }));
     return notification.id;
+  },
+
+  raiseDocumentRenewalNotifications: (assuranceSetIds) => {
+    const state = get();
+    const sets = assuranceSetIds
+      ? state.assuranceSets.filter((s) => assuranceSetIds.includes(s.id))
+      : state.assuranceSets;
+    const today = new Date();
+    let raised = 0;
+    findDocumentRenewalsDue(
+      sets.filter((s) => s.visibility !== "draft"),
+      state.documents,
+      state.notifications,
+      today,
+    ).forEach(({ set: dueSet, requirement, document, reason }) => {
+      const id = notifyAssuranceSetUser(
+        get,
+        dueSet,
+        resolveRenewalRecipientLabel(get, dueSet, requirement),
+        {
+          type: "document_renewal",
+          renewalReason: reason,
+          subject: getRenewalSubject(reason, document, dueSet, today),
+          message: getRenewalMessage(reason, document, dueSet),
+          documentId: document.id,
+        },
+        { systemSent: true },
+      );
+      if (id) raised += 1;
+    });
+    return raised;
+  },
+
+  requestDocumentReupload: (docId, reason) => {
+    const document = get().documents.find((d) => d.id === docId);
+    const note = reason.trim();
+    if (!document || !note) return 0;
+
+    let raised = 0;
+    get().assuranceSets.forEach((s) => {
+      const requirement = s.requirements.find(
+        (r) => r.documentId === docId || r.linkedDocumentId === docId,
+      );
+      if (!requirement) return;
+      const id = notifyAssuranceSetUser(
+        get,
+        s,
+        resolveRenewalRecipientLabel(get, s, requirement),
+        {
+          type: "document_renewal",
+          renewalReason: "reupload_requested",
+          subject: getRenewalSubject("reupload_requested", document, s),
+          message: note,
+          documentId: docId,
+        },
+      );
+      if (id) raised += 1;
+    });
+
+    const activePersona = get().activePersona;
+    get().logAuditEvent({
+      userId: activePersona === "Approver" ? "USR-APPROVE-01" : "USR-VERIFY-01",
+      userRole: activePersona,
+      organization:
+        activePersona === "Approver"
+          ? "Marine Assurance Authority"
+          : "Verifier Inspectorate",
+      action: "Requested Document Reupload [PING: SUBMITTER ACTION REQUIRED]",
+      targetAsset: `Document ${docId}`,
+      justificationNotes: note,
+    });
+    return raised;
   },
 
   markNotificationRead: (notificationId) => {
@@ -1324,12 +1461,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         r.documentId || r.linkedDocumentId ? r.ocrConfidence || 95 : 0,
     }));
 
-    const computedSet = recalculateSetReadiness({
-      ...newSet,
-      id: uniqueId,
-      stage: newSet.stage || "Initiated",
-      requirements: sanitizedRequirements,
-    });
+    /* a set covers exactly one asset: links and requirements of any other scope are dropped here */
+    const computedSet = recalculateSetReadiness(
+      toSingleAssetSet({
+        ...newSet,
+        id: uniqueId,
+        stage: newSet.stage || "Initiated",
+        requirements: sanitizedRequirements,
+      }),
+    );
 
     const allSets = [...get().assuranceSets, computedSet];
     const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
@@ -1358,6 +1498,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     if (computedSet.visibility !== "draft") {
       notifyAssignedStakeholders(get, computedSet);
+      get().raiseDocumentRenewalNotifications([computedSet.id]);
     }
 
     get().logAuditEvent({
@@ -1396,10 +1537,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         r.documentId || r.linkedDocumentId ? r.ocrConfidence || 95 : 0,
     }));
 
-    const computedSet = recalculateSetReadiness({
-      ...updatedSet,
-      requirements: sanitizedRequirements,
-    });
+    const computedSet = recalculateSetReadiness(
+      toSingleAssetSet({
+        ...updatedSet,
+        requirements: sanitizedRequirements,
+      }),
+    );
 
     const updatedSets = state.assuranceSets.map((s) =>
       s.id === updatedSet.id ? computedSet : s,
@@ -1417,6 +1560,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const previousSet = state.assuranceSets.find((s) => s.id === updatedSet.id);
     if (previousSet?.visibility === "draft" && computedSet.visibility !== "draft") {
       notifyAssignedStakeholders(get, computedSet);
+      get().raiseDocumentRenewalNotifications([computedSet.id]);
     }
   },
   updateAssuranceStage: (setId, stage) => {
@@ -1916,6 +2060,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
   },
   uploadDocumentForRequirement: (setId, requirementId, doc) => {
+    /* the document this upload replaces on the requirement, if any */
+    const replacedDocumentId = get()
+      .assuranceSets.find((s) => s.id === setId)
+      ?.requirements.find((r) => r.id === requirementId)?.documentId;
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
@@ -1988,6 +2136,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetAsset: `${doc.id} -> ${setId} / ${requirementId || "Other Documents"}`,
       justificationNotes: `Upload: ${doc.title} (${doc.certificateNo}) queued for verifier review.`,
     });
+
+    /* the upload answers the renewals of the document it replaces; the new document is then checked in turn */
+    closeDocumentRenewalNotifications(set, replacedDocumentId, setId);
+    get().raiseDocumentRenewalNotifications([setId]);
   },
   addDocumentVersion: (
     docId,
@@ -2065,6 +2217,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetAsset: `Document ${docId}`,
       justificationNotes: changeSummary,
     });
+
+    /* a new version answers every open renewal of the document */
+    closeDocumentRenewalNotifications(set, docId);
   },
   verifyDocument: (docId, status, notes, routeTarget) => {
     const setsBeforeVerification = get().assuranceSets;

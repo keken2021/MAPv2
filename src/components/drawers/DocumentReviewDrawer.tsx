@@ -36,7 +36,7 @@ interface ExtractedAttribute {
   with what file: src/components/drawers/DocumentReviewDrawer.tsx loaded by VerifierWorkspaceView.tsx and AssuranceDetailView.tsx.
 */
 export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose, allowSubmit = true, allowVerify = true }) => {
-  const { verifyDocument, activePersona, assuranceSets } = useMapStore();
+  const { verifyDocument, requestDocumentReupload, activePersona, assuranceSets } = useMapStore();
   const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState('');
   /* the notes field takes focus when a footer action needs notes, so the error is in view */
@@ -100,9 +100,9 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   const canSubmit = allowSubmit && (activePersona === 'Submitter' || activePersona === 'Administrator');
   const canVerify = allowVerify && !isSubmitter && (activePersona === 'Verifier' || activePersona === 'Administrator');
 
-  const requireComment = () => {
+  const requireComment = (message = 'Notes are required to return or reject a document.') => {
     if (!comment.trim()) {
-      setCommentError('Notes are required to return or reject a document.');
+      setCommentError(message);
       notesRef.current?.focus();
       return false;
     }
@@ -178,10 +178,45 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     onClose();
   };
 
+  /* asks the submitter for a new version of an outdated document; the verification status does not change */
+  const handleRequestReupload = () => {
+    if (!requireComment('A reason is required to request a reupload.')) return;
+    requestDocumentReupload(document.id, comment.trim());
+    onClose();
+  };
 
 
-  /* review actions sit in the drawer footer so they stay in view while the fields scroll */
-  const showReviewActions = !isVerified && canVerify;
+  /* review actions sit in the drawer footer so they stay in view while the fields scroll; a verified document keeps the reupload request only */
+  const showReviewActions = canVerify;
+
+  /* justification & feedback notes field */
+  const notesField = (
+    <div>
+      <label className="map-drawer-label" htmlFor="review-notes">
+        Notes
+      </label>
+      <textarea
+        id="review-notes"
+        ref={notesRef}
+        className={`form-control bg-white text-dark border p-3 ${commentError ? 'border-danger' : ''}`}
+        rows={2}
+        placeholder={
+          isVerified
+            ? 'Required to request a reupload. Say why the document is outdated.'
+            : 'Required to return, reject or request a reupload. Optional to verify.'
+        }
+        value={comment}
+        onChange={(e) => {
+          setComment(e.target.value);
+          if (commentError && e.target.value.trim()) setCommentError('');
+        }}
+        style={{ fontSize: '0.825rem', borderRadius: '6px' }}
+      />
+      {commentError && (
+        <div className="text-danger small mt-1">{commentError}</div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -213,20 +248,27 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     Upload New Version
                   </button>
                 )}
-                <button type="button" className="btn btn-outline-danger" onClick={handleReject}>
-                  Reject
+                <button type="button" className="btn btn-outline-secondary" onClick={handleRequestReupload}>
+                  Request Reupload
                 </button>
-                <button
-                  type="button"
-                  className="btn text-dark"
-                  style={{ backgroundColor: '#fef3c7', borderColor: '#fde68a' }}
-                  onClick={handleCorrection}
-                >
-                  Return for Correction
-                </button>
-                <button type="button" className="btn btn-success" onClick={handleVerify}>
-                  Verify
-                </button>
+                {!isVerified && (
+                  <>
+                    <button type="button" className="btn btn-outline-danger" onClick={handleReject}>
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      className="btn text-dark"
+                      style={{ backgroundColor: '#fef3c7', borderColor: '#fde68a' }}
+                      onClick={handleCorrection}
+                    >
+                      Return for Correction
+                    </button>
+                    <button type="button" className="btn btn-success" onClick={handleVerify}>
+                      Verify
+                    </button>
+                  </>
+                )}
               </div>
             </>
           ) : undefined
@@ -476,6 +518,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     <div className="text-dark">{document.verificationNotes}</div>
                   </div>
                 )}
+                {canVerify && notesField}
               </div>
             );
           })()
@@ -488,7 +531,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                   Review
                 </div>
                 <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                  Check the extracted fields, then verify, return, or reject.
+                  Check the extracted fields, then verify, return, or reject. Request a reupload when the document is outdated.
                 </div>
               </div>
               <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
@@ -505,30 +548,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
               </div>
             )}
 
-            {/* justification & feedback notes field */}
-            {canVerify && (
-              <div>
-                <label className="map-drawer-label" htmlFor="review-notes">
-                  Notes
-                </label>
-                <textarea
-                  id="review-notes"
-                  ref={notesRef}
-                  className={`form-control bg-white text-dark border p-3 ${commentError ? 'border-danger' : ''}`}
-                  rows={2}
-                  placeholder="Required to return or reject. Optional to verify."
-                  value={comment}
-                  onChange={(e) => {
-                    setComment(e.target.value);
-                    if (commentError && e.target.value.trim()) setCommentError('');
-                  }}
-                  style={{ fontSize: '0.825rem', borderRadius: '6px' }}
-                />
-                {commentError && (
-                  <div className="text-danger small mt-1">{commentError}</div>
-                )}
-              </div>
-            )}
+            {notesField}
 
           </div>
         ) : null}

@@ -191,7 +191,7 @@ export interface AssuranceSet {
   validityCheckRequired?: boolean;
   suitabilityCheckRequired?: boolean;
   authorityValidationMethod?: AuthorityValidationMethod;
-  /** service provider organization delivering the asset or services (cannot verify/approve own documents) */
+  /** organization that provides the one asset the set covers: its Vessel, Crew or Equipment Provider (cannot verify/approve own documents) */
   serviceProviderOrg?: string;
   /** initiating client organization that owns the assurance set */
   clientOrg?: string;

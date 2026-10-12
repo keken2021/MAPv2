@@ -19,12 +19,12 @@ export const OPERATIONAL_ROLE_OPTIONS: { role: UserRolePersona; label: string }[
 
 /* on-screen names for stored role values; stored values are never renamed */
 export const ROLE_DISPLAY_LABELS: Record<string, string> = {
-  Administrator: 'Service Provider',
+  Administrator: 'Provider',
   'C Admin': 'Client Admin',
   'C Admin · Client Created': 'Client Admin',
-  'Vessel Provider': 'Service Provider',
-  'Vessel Provider Admin': 'Service Provider',
-  'Service Provider Admin': 'Service Provider',
+  'Vessel Provider': 'Provider',
+  'Vessel Provider Admin': 'Provider',
+  'Service Provider Admin': 'Provider',
 };
 
 /**
@@ -287,7 +287,7 @@ export function filterCandidatesByReviewMode(
   const isInternal = options?.internalDeployment === true;
 
   return users.filter((u) => {
-    // 1. Absolute Rule: Exclude Service Provider personnel ONLY during third-party charters (not internal self-assurance)
+    // 1. Absolute Rule: Exclude the provider's personnel ONLY during third-party charters (not internal self-assurance)
     if (!isInternal && providerOrgLower && u.organization?.toLowerCase().includes(providerOrgLower)) {
       return false;
     }

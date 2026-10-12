@@ -8,7 +8,7 @@ import React from 'react';
 import { Camera, MoreHorizontal } from 'lucide-react';
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
-import { formatReadinessScore, getFieldDisplayLabel } from '../../utils/formatters';
+import { formatReadinessScore, getFieldDisplayLabel, getProviderLabel } from '../../utils/formatters';
 
 interface MarketplaceCardProps {
   item: MarketplaceItem;
@@ -243,7 +243,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
               color: '#8E9BAE',
             }}
           >
-            Service Provider
+            {getProviderLabel(item.category)}
           </div>
           <div className="d-flex align-items-center gap-2.5 min-w-0">
             {orgInfo.logoUrl ? (
@@ -287,7 +287,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
                 className="text-secondary text-truncate"
                 style={{ fontSize: '0.76rem', color: '#64748B' }}
               >
-                Verified Service Provider
+                Verified {getProviderLabel(item.category)}
               </span>
             </div>
           </div>

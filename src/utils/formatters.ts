@@ -146,6 +146,29 @@ export function getStatusDisplayLabel(value: string): string {
   return STATUS_DISPLAY_LABELS[value] ?? value;
 }
 
+/* name of the part an organization plays when it provides one asset, by the type of that asset */
+export const PROVIDER_LABELS: Record<string, string> = {
+  Vessel: 'Vessel Provider',
+  Crew: 'Crew Provider',
+  Equipment: 'Equipment Provider',
+};
+
+/* label for a list that mixes asset types */
+export const PROVIDER_GENERIC_LABEL = 'Provider';
+
+/**
+  what: returns the provider term for an asset type; input is the type of the asset a set or a listing covers.
+  how: looks the type up in PROVIDER_LABELS, ignoring case and a plural ending, and returns the generic label when no type is given or known.
+  with what file: src/utils/formatters.ts used by assurance, project and marketplace views and documentRenewalHelpers.ts.
+*/
+export function getProviderLabel(assetType?: string | null): string {
+  if (!assetType) return PROVIDER_GENERIC_LABEL;
+  const key = Object.keys(PROVIDER_LABELS).find((type) =>
+    assetType.trim().toLowerCase().startsWith(type.toLowerCase()),
+  );
+  return key ? PROVIDER_LABELS[key] : PROVIDER_GENERIC_LABEL;
+}
+
 /* on-screen names for the stored review mode and review channel values */
 export const REVIEW_CHANNEL_LABELS: Record<ReviewMode, string> = {
   internal: 'Internal',

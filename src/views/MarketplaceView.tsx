@@ -31,7 +31,7 @@ import { MarketplaceCard } from '../components/marketplace/MarketplaceCard';
 import { MarketplaceDetailModal } from '../components/marketplace/MarketplaceDetailModal';
 import { getOrganizationLogo } from '../utils/vesselImageHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
-import { formatReadinessScore } from '../utils/formatters';
+import { formatReadinessScore, PROVIDER_GENERIC_LABEL } from '../utils/formatters';
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
@@ -76,7 +76,7 @@ export const MarketplaceView: React.FC = () => {
   /* reason the charter action is unavailable for the open listing; undefined when it can proceed */
   const charterDisabledReason = ((): string | undefined => {
     if (activePersona !== 'Administrator' && activePersona !== 'C Admin') {
-      return 'Only Service Provider and Client Admin roles can start a charter.';
+      return 'Only Provider and Client Admin roles can start a charter.';
     }
     if (!charterTarget) {
       return 'This listing is not linked to a registered asset.';
@@ -186,7 +186,7 @@ export const MarketplaceView: React.FC = () => {
     if (providerFilter !== 'ALL') {
       chips.push({
         id: 'provider',
-        label: 'Service Provider',
+        label: PROVIDER_GENERIC_LABEL,
         value: providerFilter,
         onRemove: () => setProviderFilter('ALL'),
       });
@@ -246,7 +246,7 @@ export const MarketplaceView: React.FC = () => {
   };
 
   const handleExportPdf = () => {
-    const headers = ['Title', 'Category', 'Service Provider', 'Location', 'Availability', 'Readiness'];
+    const headers = ['Title', 'Category', PROVIDER_GENERIC_LABEL, 'Location', 'Availability', 'Readiness'];
     const rows = filteredItems.map((item) => [
       item.name,
       item.subcategory,
@@ -439,7 +439,7 @@ export const MarketplaceView: React.FC = () => {
               >
                 <option value="name">Sort: Name</option>
                 <option value="readiness">Sort: Readiness</option>
-                <option value="provider">Sort: Service Provider</option>
+                <option value="provider">Sort: {PROVIDER_GENERIC_LABEL}</option>
                 <option value="category">Sort: Category</option>
               </select>
 
@@ -524,7 +524,7 @@ export const MarketplaceView: React.FC = () => {
                     Category
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
-                    Service Provider
+                    {PROVIDER_GENERIC_LABEL}
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500 }}>
                     Availability
@@ -735,7 +735,7 @@ export const MarketplaceView: React.FC = () => {
           {/* Provider Organization Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Service Provider
+              {PROVIDER_GENERIC_LABEL}
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
@@ -743,7 +743,7 @@ export const MarketplaceView: React.FC = () => {
               value={providerFilter}
               onChange={(e) => setProviderFilter(e.target.value)}
             >
-              <option value="ALL">All Service Providers ({uniqueProviders.length})</option>
+              <option value="ALL">All Providers ({uniqueProviders.length})</option>
               {uniqueProviders.map((p) => (
                 <option key={p} value={p}>
                   {p}

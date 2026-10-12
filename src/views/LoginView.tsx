@@ -67,7 +67,7 @@ export const LoginView: React.FC = () => {
             Vessel and crew certification, verified end to end.
           </h1>
           <p className="lh-lg mb-0" style={{ color: '#94a3b8', fontSize: '0.95rem' }}>
-            Statutory, class and crew certificates in one auditable workflow — extraction, validation, verification, inspection and approval across the Client, Service Provider and appointed third parties.
+            Statutory, class and crew certificates in one auditable workflow — extraction, validation, verification, inspection and approval across the Client, the Provider and appointed third parties.
           </p>
         </div>
 

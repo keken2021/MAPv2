@@ -65,7 +65,13 @@ export const App: React.FC = () => {
     notifications,
     pendingAssuranceRequestNotificationId,
     setPendingAssuranceRequestNotificationId,
+    raiseDocumentRenewalNotifications,
   } = useMapStore();
+
+  /* no scheduler in the prototype: documents are checked for renewal once the user is signed in */
+  useEffect(() => {
+    if (isAuthenticated) raiseDocumentRenewalNotifications();
+  }, [isAuthenticated, raiseDocumentRenewalNotifications]);
 
   useEffect(() => {
     /* parse initial hash route on mount or enforce login view on reload */

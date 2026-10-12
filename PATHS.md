@@ -4,7 +4,7 @@
 > Paths are relative to the project root unless they start with `~` or a drive letter.
 > NEVER put secret values here, only where they are configured.
 
-Last verified: 2026-10-12 (`docs/` sorted into folders and 13 implemented records removed; colleague setup docs split into connection and comments-uploads sets; the rest as verified on 2026-10-10: docs, glossary, ADR, Marketplace and Vessels entries, Task list .docx files, board-comment skill)
+Last verified: 2026-10-12 (Document Renewal notifications, one asset per set and provider terms added: plan, ADR 0004, glossary, 3 new source files; before that: `docs/` sorted into folders and 13 implemented records removed; colleague setup docs split into connection and comments-uploads sets; the rest as verified on 2026-10-10: docs, glossary, ADR, Marketplace and Vessels entries, Task list .docx files, board-comment skill)
 Root: `C:\mapFiles\MAPv2`
 
 ## Start here
@@ -34,16 +34,25 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/rbacHelpers.ts` : which role sees which set, asset and action
 - `src/utils/permissionHelpers.ts`, `src/utils/permissionDefaults.ts` : role permission matrix
 - `src/config/featureFlags.ts` : feature flags
+- `src/utils/formatters.ts` : dates, status labels, and `getProviderLabel` (Vessel Provider, Crew Provider, Equipment Provider, or Provider)
+
+## Notifications
+- `src/views/NotificationsView.tsx`, `src/components/layout/NotificationPanel.tsx`, `src/components/modals/NotificationDetailModal.tsx` : inbox page, header bell panel, detail modal
+- `src/types/notification.ts`, `src/store/notificationMockData.ts` : types, categories and their id codes, seeded inbox
+- `src/utils/notificationHelpers.ts` : inbox filters, ids, the row action of each type
+- `src/utils/documentRenewalHelpers.ts` : Document Renewal category: reason of a document on a set, renewals due, wording. Raised by `raiseDocumentRenewalNotifications` and `requestDocumentReupload` in the store
+- `src/__tests__/notifications.test.ts`, `src/__tests__/documentRenewal.test.ts` : notification and renewal rules
 
 ## Assurance Sets screens
 - `src/views/AssuranceSetsView.tsx` : list screen wrapper
 - `src/components/tables/AssuranceTable.tsx` : list screen body (pills, toolbar, filters, table, row actions)
 - `src/views/CreateAssuranceSetView.tsx` : create wizard
-- `src/utils/assuranceTemplates.ts` : wizard steps, scopes and standard documents
+- `src/utils/assuranceTemplates.ts` : wizard steps, scopes and standard documents; `getAssuranceSetAsset` and `toSingleAssetSet` keep a set to one asset (ADR 0004)
 - `src/views/AssuranceDetailView.tsx` : detail screen
 - `src/components/drawers/DocumentReviewDrawer.tsx` : document review drawer opened from the detail screen
 - `src/types/assurance.ts` : assurance set types
 - `src/__tests__/assuranceSetsRoleAccess.test.ts` : role access rules for these screens
+- `src/__tests__/oneAssetPerSet.test.ts` : one scope and one covered asset per set, provider terms
 
 ## Marketplace screens
 - `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)
@@ -66,9 +75,10 @@ Root: `C:\mapFiles\MAPv2`
 
 ## Docs (`docs/` is gitignored, so these are local only)
 - The `docs/` root holds only `GLOSSARY.md` and folders. Do not save a file at the root. Layout set on 2026-10-12; record: `docs/plans/docs-declutter.md`
-- `docs/GLOSSARY.md` : domain terms (Administrator, Client, Service Provider, Availability, Readiness and others). Read it before wording a Task or a doc. It lives here, not at the repo root
-- `docs/adr/` : decision records, numbered `0001-...`. 0001 is the Task list layout, 0002 is the one Administrator role, 0003 limits board writes to discussion comments
+- `docs/GLOSSARY.md` : domain terms (Administrator, Client, Vessel Provider, Crew Provider, Equipment Provider, Asset, Assurance Set, Document Renewal, Readiness and others; "Service Provider" is retired). Read it before wording a Task or a doc. It lives here, not at the repo root
+- `docs/adr/` : decision records, numbered `0001-...`. 0001 is the Task list layout, 0002 is the one Administrator role, 0003 limits board writes to discussion comments, 0004 is one asset per Assurance Set and the provider terms by asset type
 - `docs/plans/` : plans and audits of work not yet done. New plans go here
+- `docs/plans/document-renewal-and-one-asset-sets.md`, `.docx` : Document Renewal notification category, provider terms by asset type, one asset per set. Built on 2026-10-12, not committed; move to `docs/changes/` once merged. Rebuild the `.docx` with `docs/plans/document-renewal-and-one-asset-sets.build.py` (needs python-docx, which no installed Python has: use a venv; arguments: `docs/azure-boards/board-comment-skill-spec.docx` as style base, then the output path)
 - `docs/plans/asset-detail-uniform-layout.md` : shared layout for the vessel, crew and equipment detail screens. Not built (was `docs/plan.md`)
 - `docs/plans/australian-maritime-regulatory-gap-analysis.md` : AMSA, DAFF and research fields missing from the modals. Not built
 - `docs/changes/` : change summaries of work already done. New ones go here; remove one when nobody needs it

@@ -226,7 +226,7 @@ export const RolesAndPermissionsView: React.FC = () => {
     <div className="d-flex flex-column gap-4 pb-5">
       {!canEdit && (
         <div className="alert alert-info py-2 small mb-0">
-          Read-only. Only the Service Provider role can save changes.
+          Read-only. Only the Provider role can save changes.
         </div>
       )}
       {saveMessage && (

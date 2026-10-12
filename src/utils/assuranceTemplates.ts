@@ -1,7 +1,7 @@
 /* 
   file summary: predefined subtype document definitions, descriptions, public templates, and organization templates for assurance sets.
   responsibilities: provides maritime-accurate standard requirements for Vessel, Crew, Activity, and Equipment subtypes with complete operational descriptions.
-  role in system: consumed by CreateAssuranceSetView.tsx during segmented assurance set initiation.
+  role in system: consumed by CreateAssuranceSetView.tsx during assurance set initiation; a set covers exactly one asset (ADR 0004).
 */
 
 import { AssuranceSet, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory } from '../types/assurance';
@@ -22,16 +22,60 @@ export function orderAssuranceScopes(scopes: readonly AssuranceSubtype[]): Assur
   return ASSURANCE_SCOPE_OPTIONS.filter((scope) => scopes.includes(scope));
 }
 
-/* the scope a combined set is filed under (its assuranceType); Vessel when nothing is ticked */
+/* the one scope a set is filed under (its assuranceType): the first offered scope among the given ones; Vessel when none is given */
 export function getPrimaryAssuranceScope(scopes: readonly AssuranceSubtype[]): AssuranceSubtype {
   return orderAssuranceScopes(scopes)[0] || 'Vessel';
 }
 
-/* every scope a saved set covers, including scopes no longer offered: its subtypes, or its single assuranceType for sets saved without them */
+/* the scope of a saved set as a one-entry list, including a scope no longer offered: its assuranceType, or its first subtype for a set saved without one; a set covers exactly one asset (ADR 0004) */
 export function getAssuranceSetScopes(set: Pick<AssuranceSet, 'assuranceType' | 'subtypes'>): AssuranceSubtype[] {
+  if (set.assuranceType) return [set.assuranceType];
   const subtypes = set.subtypes || [];
-  if (subtypes.length > 0) return ALL_ASSURANCE_SCOPES.filter((scope) => subtypes.includes(scope));
-  return [set.assuranceType || 'Vessel'];
+  return [ALL_ASSURANCE_SCOPES.find((scope) => subtypes.includes(scope)) || 'Vessel'];
+}
+
+export interface AssuranceSetAsset {
+  type: AssuranceSubtype;
+  id: string;
+  name: string;
+}
+
+/* the one asset a set covers, from its assuranceType: the vessel, the crew member or the equipment item; on a crew or equipment set the vessel fields name the host vessel only */
+export function getAssuranceSetAsset(
+  set: Pick<
+    AssuranceSet,
+    'assuranceType' | 'subtypes' | 'vesselId' | 'vesselName' | 'crewId' | 'crewName' | 'equipmentId' | 'equipmentName'
+  >,
+): AssuranceSetAsset {
+  const type = getAssuranceSetScopes(set)[0];
+  if (type === 'Crew' && set.crewId) {
+    return { type, id: set.crewId, name: set.crewName || set.crewId };
+  }
+  if (type === 'Equipment' && set.equipmentId) {
+    return { type, id: set.equipmentId, name: set.equipmentName || set.equipmentId };
+  }
+  return { type, id: set.vesselId, name: set.vesselName || set.vesselId };
+}
+
+/**
+  what: a set reduced to the one asset it covers; input is a set as a caller built it.
+  how: keeps the scope the set is filed under as its only subtype, clears the crew and equipment links of other scopes, and drops requirements that belong to another scope; the vessel stays as the covered vessel or the host vessel.
+  with what file: src/utils/assuranceTemplates.ts used by useMapStore.ts when a set is added or updated.
+*/
+export function toSingleAssetSet<T extends AssuranceSet>(set: T): T {
+  const scope = getAssuranceSetScopes(set)[0];
+  return {
+    ...set,
+    assuranceType: scope,
+    subtypes: [scope],
+    crewId: scope === 'Crew' ? set.crewId : undefined,
+    crewName: scope === 'Crew' ? set.crewName : undefined,
+    equipmentId: scope === 'Equipment' ? set.equipmentId : undefined,
+    equipmentName: scope === 'Equipment' ? set.equipmentName : undefined,
+    activityId: scope === 'Activity' ? set.activityId : undefined,
+    activityName: scope === 'Activity' ? set.activityName : undefined,
+    requirements: (set.requirements || []).filter((r) => !r.subtype || r.subtype === scope),
+  };
 }
 
 /* true when a set is filed under a scope that is switched off */
@@ -45,11 +89,11 @@ export interface AssuranceWizardStep {
   subtype?: AssuranceSubtype;
 }
 
-/* wizard tabs: Scope, then one tab per ticked scope titled with the scope type, then Review */
+/* wizard tabs: Scope, then the tab of the one chosen scope titled with the scope type, then Review */
 export function buildAssuranceWizardSteps(scopes: readonly AssuranceSubtype[]): AssuranceWizardStep[] {
   return [
     { id: 'step-scope', label: 'Scope' },
-    ...orderAssuranceScopes(scopes).map((scope) => ({
+    ...orderAssuranceScopes(scopes).slice(0, 1).map((scope) => ({
       id: `step-${scope.toLowerCase()}`,
       label: scope,
       subtype: scope,

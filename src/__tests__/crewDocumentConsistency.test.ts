@@ -70,9 +70,10 @@ describe('crew directory and document library mock data consistency', () => {
     expect(vessel001).toBeDefined();
     expect(vessel001?.masterName).toBe(alexanderWright?.fullName);
 
-    /* verify assurance set req-103 links to alexander wright master coc */
-    const as001 = MOCK_ASSURANCE_SETS.find((a) => a.id === 'AS-2026-001');
-    const req103 = as001?.requirements.find((r) => r.id === 'REQ-103');
+    /* verify the crew set's req-103 links to alexander wright master coc; the crew requirement has its own set, apart from the vessel set AS-2026-001 */
+    const crewSet = MOCK_ASSURANCE_SETS.find((a) => a.id === 'AS-CRW-101-01');
+    expect(crewSet?.crewId).toBe(alexanderWright?.id);
+    const req103 = crewSet?.requirements.find((r) => r.id === 'REQ-103');
     expect(req103).toBeDefined();
     expect(req103?.documentId).toBe('MAP-CRW-2026-STCW-00106');
 

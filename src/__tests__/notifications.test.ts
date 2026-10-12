@@ -424,7 +424,9 @@ describe('store: workflow notifications', () => {
       visibility: 'organization',
     });
 
-    const created = useMapStore.getState().notifications.filter((n) => n.assuranceSetId === 'AS-NTF-TEST-002');
+    const created = useMapStore
+      .getState()
+      .notifications.filter((n) => n.assuranceSetId === 'AS-NTF-TEST-002' && n.type === 'stakeholder_assigned');
     expect(created.map((n) => [n.recipientUserId, n.assignedRole]).sort()).toEqual([
       ['USR-202', 'Verifier'],
       ['USR-203', 'Inspector'],

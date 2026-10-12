@@ -112,11 +112,11 @@ export function resolveNotificationRecipient(
 
 /**
   what: true when opening a notification's row action completes it.
-  how: an assurance set request stays open until its set is created; every other type is actioned once the recipient opens the linked record.
+  how: an assurance set request stays open until its set is created, and a document renewal until a new version is uploaded; every other type is actioned once the recipient opens the linked record.
   with what file: src/utils/notificationHelpers.ts used by useMapStore.ts.
 */
 export function isNotificationActionedOnOpen(notification: AppNotification): boolean {
-  return notification.type !== 'assurance_set_request';
+  return notification.type !== 'assurance_set_request' && notification.type !== 'document_renewal';
 }
 
 export interface NotificationAction {
@@ -204,6 +204,7 @@ export function getNotificationAction(
       return guard({ label, view: 'assurance-sets', entityId: notification.assuranceSetId, disabledReason });
     }
     case 'document_correction':
+    case 'document_renewal':
       return guard({
         label: meta.actionLabel,
         view: 'documents',
