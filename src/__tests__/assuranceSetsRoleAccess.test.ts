@@ -9,6 +9,7 @@ import {
   ASSURANCE_SETS_READ_ONLY_ROLES,
   getAssuranceSetRoleActions,
   isAssuranceSetAssignedToPersona,
+  isAssuranceSetCreatedByCAdmin,
   isViewAccessibleToPersona,
 } from '../utils/rbacHelpers';
 import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
@@ -101,5 +102,27 @@ describe('assurance set role actions', () => {
     });
     expect(getAssuranceSetRoleActions(assignedSet, 'Administrator').canManage).toBe(true);
     expect(getAssuranceSetRoleActions(assignedSet, 'C Admin').canManage).toBe(true);
+  });
+
+  it('lets c admin verify, and never upload, on a set a c admin created', () => {
+    const clientSet: AssuranceSet = {
+      ...assignedSet,
+      initiatorOrg: 'Southern Basin Energy Pty Ltd',
+      initiatorRole: 'C Admin · Client Created',
+      createdByPersona: 'C Admin',
+    };
+    expect(isAssuranceSetCreatedByCAdmin(clientSet)).toBe(true);
+    expect(getAssuranceSetRoleActions(clientSet, 'C Admin')).toEqual({
+      canManage: true, canUpload: false, canVerify: true, canInspect: false, canApprove: false,
+    });
+
+    const providerSet: AssuranceSet = {
+      ...clientSet,
+      initiatorRole: 'Vessel Provider Admin',
+      createdByPersona: 'Administrator',
+    };
+    expect(isAssuranceSetCreatedByCAdmin(providerSet)).toBe(false);
+    expect(getAssuranceSetRoleActions(providerSet, 'C Admin').canVerify).toBe(false);
+    expect(getAssuranceSetRoleActions(providerSet, 'C Admin').canUpload).toBe(false);
   });
 });

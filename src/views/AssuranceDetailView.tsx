@@ -32,6 +32,7 @@ import {
   getAssuranceSetCreator,
   getAssuranceSetStakeholderLockReason,
 } from '../utils/rbacHelpers';
+import { getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -59,6 +60,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     attachAssuranceSetToProject,
     setCurrentHashView,
     activeDemoOrganization,
+    notifications,
   } = useMapStore();
   const [stakeholderError, setStakeholderError] = useState<string | null>(null);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
@@ -1058,13 +1060,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             >
                               <FileCheck size={16} />
                             </button>
-                            {canUpload && linkedDoc.verificationStatus !== 'Verified' && (
+                            {canUpload && (
                               <button
                                 type="button"
                                 className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
                                 style={{ width: '32px', height: '32px' }}
                                 onClick={() => openRequirementUpload(req, linkedDoc)}
-                                title="Upload new version"
+                                disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications))}
+                                title={getDocumentReuploadBlockReason(linkedDoc, notifications) || 'Upload new version'}
                                 aria-label="Upload new version"
                               >
                                 <RefreshCw size={16} />
@@ -1141,13 +1144,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                               >
                                 <FileCheck size={16} />
                               </button>
-                              {canUpload && linkedDoc.verificationStatus !== 'Verified' && (
+                              {canUpload && (
                                 <button
                                   type="button"
                                   className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
                                   style={{ width: '32px', height: '32px' }}
                                   onClick={() => openRequirementUpload(req, linkedDoc)}
-                                  title="Upload new version"
+                                  disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications))}
+                                  title={getDocumentReuploadBlockReason(linkedDoc, notifications) || 'Upload new version'}
                                   aria-label="Upload new version"
                                 >
                                   <RefreshCw size={16} />

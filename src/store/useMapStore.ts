@@ -39,6 +39,7 @@ import {
   getAssuranceSetCreator,
   getAssuranceSetStakeholderLockReason,
   isViewAccessibleToPersona,
+  orgFieldMatches,
 } from "../utils/rbacHelpers";
 import { UserProfile } from "../types/user";
 import { CrewMember, STCWDocumentItem } from "../types/crew";
@@ -85,6 +86,7 @@ import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from "./projectMockData";
 import { AppNotification, NotificationDraft, SuggestedAssuranceAsset } from "../types/notification";
 import {
   findDocumentRenewalsDue,
+  getComplianceStateForExpiry,
   getRenewalMessage,
   getRenewalSubject,
   getRenewalSubmitterLabel,
@@ -342,6 +344,8 @@ export interface MapStoreState {
     fileName: string,
     fileSizeBytes: number,
     changeSummary: string,
+    /* expiry date read from the new version; the compliance state follows it */
+    expiryDate?: string,
   ) => void;
   verifyDocument: (
     docId: string,
@@ -488,6 +492,71 @@ function resolveRenewalRecipientLabel(
     labels.find((label) => resolveNotificationRecipient(label, users)) ||
     getAssuranceSetCreator(assuranceSet, users).name
   );
+}
+
+/**
+  what: stakeholder labels an expired document goes to; inputs are the store getter, the set and the requirement the document meets.
+  how: the recipient of resolveRenewalRecipientLabel, plus every active administrator of the provider organization (the set's provider, otherwise the submitter's organization); each user appears once.
+  with what file: src/store/useMapStore.ts, called by raiseDocumentRenewalNotifications.
+*/
+function resolveExpiredRenewalRecipientLabels(
+  get: () => MapStoreState,
+  assuranceSet: AssuranceSet,
+  requirement?: AssuranceRequirement,
+): string[] {
+  const users = get().users;
+  const labelsByUserId = new Map<string, string>();
+
+  const primaryLabel = resolveRenewalRecipientLabel(get, assuranceSet, requirement);
+  const primary = resolveNotificationRecipient(primaryLabel, users);
+  if (primary && primaryLabel) labelsByUserId.set(primary.id, primaryLabel);
+
+  const submitter = [
+    getRenewalSubmitterLabel({ assignedSubmitter: undefined }, requirement),
+    getRenewalSubmitterLabel(assuranceSet),
+  ]
+    .map((label) => resolveNotificationRecipient(label, users))
+    .find(Boolean);
+  const providerOrg = assuranceSet.serviceProviderOrg || submitter?.organization;
+  if (providerOrg) {
+    users
+      .filter(
+        (u) =>
+          u.status === "Active" &&
+          u.roles.includes("Administrator") &&
+          orgFieldMatches(providerOrg, u.organization),
+      )
+      .forEach((u) => {
+        if (!labelsByUserId.has(u.id)) labelsByUserId.set(u.id, u.name);
+      });
+  }
+
+  return Array.from(labelsByUserId.values());
+}
+
+/**
+  what: user id and organization recorded on the audit event of a review action; input is the store getter.
+  how: the signed-in client admin when the persona is c admin, otherwise the fixed approver or verifier account.
+  with what file: src/store/useMapStore.ts, called by requestDocumentReupload and verifyDocument.
+*/
+function getReviewerAuditIdentity(
+  get: () => MapStoreState,
+): { userId: string; organization: string } {
+  const state = get();
+  if (state.activePersona === "C Admin") {
+    const sessionUser = getSessionUserForPersona(
+      state.activePersona,
+      state.users,
+      getDemoSessionContext(state),
+    );
+    return {
+      userId: sessionUser?.id || "USR-CADMIN-01",
+      organization: sessionUser?.organization || state.activeDemoOrganization,
+    };
+  }
+  return state.activePersona === "Approver"
+    ? { userId: "USR-APPROVE-01", organization: "Marine Assurance Authority" }
+    : { userId: "USR-VERIFY-01", organization: "Verifier Inspectorate" };
 }
 
 /**
@@ -723,20 +792,27 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       state.notifications,
       today,
     ).forEach(({ set: dueSet, requirement, document, reason }) => {
-      const id = notifyAssuranceSetUser(
-        get,
-        dueSet,
-        resolveRenewalRecipientLabel(get, dueSet, requirement),
-        {
-          type: "document_renewal",
-          renewalReason: reason,
-          subject: getRenewalSubject(reason, document, dueSet, today),
-          message: getRenewalMessage(reason, document, dueSet),
-          documentId: document.id,
-        },
-        { systemSent: true },
-      );
-      if (id) raised += 1;
+      /* an expired document goes to the submitter and to the administrators of the provider; every other reason to the submitter only */
+      const recipientLabels =
+        reason === "expired"
+          ? resolveExpiredRenewalRecipientLabels(get, dueSet, requirement)
+          : [resolveRenewalRecipientLabel(get, dueSet, requirement)];
+      recipientLabels.forEach((recipientLabel) => {
+        const id = notifyAssuranceSetUser(
+          get,
+          dueSet,
+          recipientLabel,
+          {
+            type: "document_renewal",
+            renewalReason: reason,
+            subject: getRenewalSubject(reason, document, dueSet, today),
+            message: getRenewalMessage(reason, document, dueSet),
+            documentId: document.id,
+          },
+          { systemSent: true },
+        );
+        if (id) raised += 1;
+      });
     });
     return raised;
   },
@@ -769,12 +845,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const activePersona = get().activePersona;
     get().logAuditEvent({
-      userId: activePersona === "Approver" ? "USR-APPROVE-01" : "USR-VERIFY-01",
+      ...getReviewerAuditIdentity(get),
       userRole: activePersona,
-      organization:
-        activePersona === "Approver"
-          ? "Marine Assurance Authority"
-          : "Verifier Inspectorate",
       action: "Requested Document Reupload [PING: SUBMITTER ACTION REQUIRED]",
       targetAsset: `Document ${docId}`,
       justificationNotes: note,
@@ -2147,6 +2219,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     fileName,
     fileSizeBytes,
     changeSummary,
+    expiryDate,
   ) => {
     set((state) => {
       const updatedDocs = state.documents.map((d) => {
@@ -2161,6 +2234,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         };
         return {
           ...d,
+          ...(expiryDate
+            ? { expiryDate, complianceState: getComplianceStateForExpiry(expiryDate) }
+            : {}),
           currentVersion: newVersionLabel,
           ocrConfidence: 98,
           verificationStatus: "Pending" as const,
@@ -2220,6 +2296,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     /* a new version answers every open renewal of the document */
     closeDocumentRenewalNotifications(set, docId);
+
+    /* a new expiry date is checked in turn on the sets that hold the document */
+    if (expiryDate) {
+      const setIds = get()
+        .assuranceSets.filter((s) =>
+          s.requirements.some((r) => r.documentId === docId || r.linkedDocumentId === docId),
+        )
+        .map((s) => s.id);
+      if (setIds.length > 0) get().raiseDocumentRenewalNotifications(setIds);
+    }
   },
   verifyDocument: (docId, status, notes, routeTarget) => {
     const setsBeforeVerification = get().assuranceSets;
@@ -2309,12 +2395,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const routeNote = routeTarget ? ` | Routed to ${routeTarget}` : "";
     const activePersona = get().activePersona;
     get().logAuditEvent({
-      userId: activePersona === "Approver" ? "USR-APPROVE-01" : "USR-VERIFY-01",
+      ...getReviewerAuditIdentity(get),
       userRole: activePersona,
-      organization:
-        activePersona === "Approver"
-          ? "Marine Assurance Authority"
-          : "Verifier Inspectorate",
       action: `${activePersona === "Approver" ? "Approver" : "Verifier"} Document Action: ${status}${pingTag}`,
       targetAsset: `Document ${docId}`,
       justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${isDenial ? " — Submitter revision required." : ""}`,

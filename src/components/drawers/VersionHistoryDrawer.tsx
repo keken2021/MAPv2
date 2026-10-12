@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument } from '../../types/document';
 import { formatMaritimeDate } from '../../utils/formatters';
+import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Drawer } from './Drawer';
 
 const UPLOAD_FORM_ID = 'version-upload-form';
@@ -23,7 +24,7 @@ interface VersionHistoryDrawerProps {
   with what file: src/components/drawers/VersionHistoryDrawer.tsx loaded by DocumentLibraryView.tsx.
 */
 export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ document, onClose }) => {
-  const { addDocumentVersion, activePersona } = useMapStore();
+  const { addDocumentVersion, activePersona, notifications } = useMapStore();
   const [newVersionLabel, setNewVersionLabel] = useState('v1.2');
   const [newFileName, setNewFileName] = useState('');
   const [changeSummary, setChangeSummary] = useState('');
@@ -34,7 +35,7 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
 
   const handleUploadRevision = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newFileName.trim()) return;
+    if (!newFileName.trim() || reuploadBlockReason) return;
 
     addDocumentVersion(
       document.id,
@@ -50,6 +51,8 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
   };
 
   const canUpload = activePersona === 'Administrator' || activePersona === 'Submitter';
+  /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
+  const reuploadBlockReason = getDocumentReuploadBlockReason(document, notifications);
 
   return (
     <Drawer
@@ -62,7 +65,13 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" form={UPLOAD_FORM_ID} className="btn btn-primary">
+            <button
+              type="submit"
+              form={UPLOAD_FORM_ID}
+              className="btn btn-primary"
+              disabled={Boolean(reuploadBlockReason)}
+              title={reuploadBlockReason}
+            >
               Upload New Version
             </button>
           </>
@@ -73,6 +82,9 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
       {canUpload && (
         <form id={UPLOAD_FORM_ID} onSubmit={handleUploadRevision} className="map-drawer-card mb-4">
           <h3 className="map-drawer-section-title">Upload New Version</h3>
+          {reuploadBlockReason && (
+            <div className="alert alert-secondary py-2 small mb-3">{reuploadBlockReason}</div>
+          )}
 
           <div className="row g-3 mb-3">
             <div className="col-4">

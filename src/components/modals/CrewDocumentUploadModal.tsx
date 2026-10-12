@@ -200,7 +200,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
 
   if (!isOpen) return null;
 
-  const canManage = activePersona === 'Administrator' || activePersona === 'C Admin' || activePersona === 'Submitter';
+  const canManage = activePersona === 'Administrator' || activePersona === 'Submitter';
   const isEditing = Boolean(existingDocument);
 
   /* handles file attachment selection and stages document for user verification before AI extraction */

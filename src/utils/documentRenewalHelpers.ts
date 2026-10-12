@@ -52,6 +52,65 @@ export function getDocumentRenewalReason(
   return document.complianceState === 'Expiring < 6 Mos' ? 'expiring' : undefined;
 }
 
+/* shown on a re-upload control that is not open yet */
+export const DOCUMENT_REUPLOAD_BLOCK_REASON =
+  'Re-upload opens when the document expires or a reviewer sends it back.';
+
+/**
+  what: true when a document's expiry date has passed or its state is expired; inputs are the document and today's date.
+  how: reads complianceState, then compares expiryDate with today.
+  with what file: src/utils/documentRenewalHelpers.ts used by getDocumentReuploadBlockReason here.
+*/
+export function isDocumentExpired(
+  document: Pick<MasterDocument, 'expiryDate' | 'complianceState'>,
+  today: Date = new Date(),
+): boolean {
+  const daysLeft = getDaysUntil(document.expiryDate, today);
+  return document.complianceState === 'Expired' || (daysLeft !== undefined && daysLeft < 0);
+}
+
+/**
+  what: compliance state a document takes from its expiry date; inputs are the expiry date and today's date.
+  how: expired once the date has passed, expiring within six months, otherwise valid.
+  with what file: src/utils/documentRenewalHelpers.ts used by useMapStore.ts when a new version carries a new expiry date.
+*/
+export function getComplianceStateForExpiry(
+  expiryDate: string,
+  today: Date = new Date(),
+): MasterDocument['complianceState'] {
+  const daysLeft = getDaysUntil(expiryDate, today);
+  if (daysLeft === undefined) return 'Valid';
+  if (daysLeft < 0) return 'Expired';
+  return daysLeft < 183 ? 'Expiring < 6 Mos' : 'Valid';
+}
+
+/**
+  what: why a document already on record cannot be re-uploaded yet, or undefined when it can; inputs are the document, all notifications and today's date.
+  how: re-upload is open when the document is expired, when a reviewer returned or rejected it, or while a reviewer's reupload request is still open.
+  with what file: src/utils/documentRenewalHelpers.ts used by AssuranceDetailView.tsx, DocumentReviewDrawer.tsx, DocumentDetailView.tsx, VersionHistoryDrawer.tsx and DocumentUploadModal.tsx.
+*/
+export function getDocumentReuploadBlockReason(
+  document: Pick<MasterDocument, 'id' | 'expiryDate' | 'complianceState' | 'verificationStatus'>,
+  notifications: Pick<AppNotification, 'type' | 'documentId' | 'renewalReason' | 'status'>[],
+  today: Date = new Date(),
+): string | undefined {
+  if (isDocumentExpired(document, today)) return undefined;
+  if (
+    document.verificationStatus === 'Correction Requested' ||
+    document.verificationStatus === 'Rejected'
+  ) {
+    return undefined;
+  }
+  const hasOpenReuploadRequest = notifications.some(
+    (n) =>
+      n.type === 'document_renewal' &&
+      n.renewalReason === 'reupload_requested' &&
+      n.documentId === document.id &&
+      n.status !== 'actioned',
+  );
+  return hasOpenReuploadRequest ? undefined : DOCUMENT_REUPLOAD_BLOCK_REASON;
+}
+
 export interface DocumentRenewalDue {
   set: AssuranceSet;
   requirement: AssuranceRequirement;
@@ -137,7 +196,7 @@ export function getRenewalSubject(
   const daysLeft = getDaysUntil(document.expiryDate, today);
   switch (reason) {
     case 'expired':
-      return `Expired ${formatMaritimeDate(document.expiryDate)}: ${target}`;
+      return `${target} is expired please re-upload`;
     case 'charter_window':
       return `Expires before charter end ${formatMaritimeDate(set.charterWindowEnd)}: ${target}`;
     case 'expiring':

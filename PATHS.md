@@ -73,6 +73,13 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/vesselImageHelpers.ts`, `src/utils/vesselStatusHistoryHelpers.ts` : photo and status chip helpers, status history helpers
 - `src/types/vessel.ts`, `src/types/asset.ts` : vessel and asset status types
 
+## Unit tests named in the Task lists
+- `src/__tests__/` : all prototype tests. Run a subset with `npx vitest run src/__tests__/<file>`
+- Projects: `createProjectWizardOrganization.test.tsx`, `projectComposition.test.ts`, `projectNestedSets.test.ts`, `assuranceSetProjectRelationship.test.ts`, `mockDataConsistency.test.ts`, `notifications.test.ts`
+- User Management: `cAdminUserManagement.test.ts`, `userRoleHelpers.test.ts`, `store.test.ts`
+- Audit Trail: `permissionHelpers.test.ts`, `notifications.test.ts`, `mockDataBusinessRules.test.ts`, `store.test.ts`
+- Switchers and side panel: `demoSessionHelpers.test.ts`, `approverAndSidebar.test.ts`, `store.test.ts`
+
 ## Docs (`docs/` is gitignored, so these are local only)
 - The `docs/` root holds only `GLOSSARY.md` and folders. Do not save a file at the root. Layout set on 2026-10-12; record: `docs/plans/docs-declutter.md`
 - `docs/GLOSSARY.md` : domain terms (Administrator, Client, Vessel Provider, Crew Provider, Equipment Provider, Asset, Assurance Set, Document Renewal, Readiness and others; "Service Provider" is retired). Read it before wording a Task or a doc. It lives here, not at the repo root

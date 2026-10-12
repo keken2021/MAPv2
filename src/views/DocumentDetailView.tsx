@@ -12,6 +12,7 @@ import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { DocumentVersion } from '../types/document';
+import { getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -25,7 +26,7 @@ interface DocumentDetailViewProps {
   with what file: src/views/DocumentDetailView.tsx loaded by App.tsx.
 */
 export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ documentId }) => {
-  const { documents, setCurrentHashView, previousHashView, previousEntityId, activePersona } = useMapStore();
+  const { documents, setCurrentHashView, previousHashView, previousEntityId, activePersona, notifications } = useMapStore();
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
@@ -81,6 +82,9 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
   const versionsPagination = usePagination(sortedVersions, [versionSortField, versionSortDirection]);
 
   if (!doc) return <div>Document not found.</div>;
+
+  /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
+  const reuploadBlockReason = getDocumentReuploadBlockReason(doc, notifications);
 
   const handleExportCsv = () => {
     const metaRows: Record<string, string>[] = [
@@ -309,6 +313,8 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
               type="button"
               className="btn btn-sm btn-primary text-white font-mono-code ms-auto"
               onClick={() => setIsUploadModalOpen(true)}
+              disabled={Boolean(reuploadBlockReason)}
+              title={reuploadBlockReason}
             >
               Upload New Version
             </button>

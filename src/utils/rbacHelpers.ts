@@ -131,8 +131,24 @@ export function isAssuranceSetsReadOnlyPersona(persona: UserRolePersona): boolea
 }
 
 /**
+  what: true when a client admin created the assurance set; input is the set.
+  how: reads createdByPersona when it is recorded, otherwise the initiating role.
+  with what file: src/utils/rbacHelpers.ts used by getAssuranceSetRoleActions here and DocumentReviewDrawer.tsx.
+*/
+export function isAssuranceSetCreatedByCAdmin(
+  set: Pick<AssuranceSet, "createdByPersona" | "initiatorRole">,
+): boolean {
+  if (set.createdByPersona === "C Admin") return true;
+  if (set.createdByPersona === "Administrator") return false;
+  return (
+    set.initiatorRole === "C Admin · Client Created" ||
+    set.initiatorRole === "Client Admin"
+  );
+}
+
+/**
   what: resolves which actions the persona may take on one assurance set; input is the set and the active persona.
-  how: administrator and c admin keep manage rights; each workflow role gets only its own action and only when isAssuranceSetAssignedToPersona is true.
+  how: administrator and c admin keep manage rights; each workflow role gets only its own action and only when isAssuranceSetAssignedToPersona is true; c admin also verifies the sets a c admin created, and never uploads.
   with what file: src/utils/rbacHelpers.ts used by AssuranceDetailView.tsx; segregation checks stay in DocumentReviewDrawer.tsx and ApproverDashboardView.tsx.
 */
 export function getAssuranceSetRoleActions(
@@ -143,11 +159,16 @@ export function getAssuranceSetRoleActions(
   const isAssigned =
     isAssuranceSetsReadOnlyPersona(persona) &&
     isAssuranceSetAssignedToPersona(set, persona);
+  /* the client admin verifies the documents the provider uploads on a set the client admin created */
+  const isClientVerifier =
+    persona === "C Admin" &&
+    isAssuranceSetCreatedByCAdmin(set) &&
+    isAssuranceSetAssignedToPersona(set, persona);
 
   return {
     canManage: isAdmin || persona === "C Admin",
     canUpload: isAdmin || (persona === "Submitter" && isAssigned),
-    canVerify: isAdmin || (persona === "Verifier" && isAssigned),
+    canVerify: isAdmin || isClientVerifier || (persona === "Verifier" && isAssigned),
     canInspect: persona === "Inspector" && isAssigned,
     canApprove: persona === "Approver" && isAssigned,
   };

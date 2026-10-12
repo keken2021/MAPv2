@@ -168,6 +168,13 @@ describe('permissionDefaults and helpers', () => {
     expect(isBrdHardDenied('C Admin', 'verification_queue', 'read')).toBe(false);
     expect(isBrdHardDenied('C Admin', 'verification_decisions', 'update')).toBe(false);
     expect(getRoleScopeFlags(matrix, 'C Admin', 'verification_queue').read).toBe(false);
+    /* c admin verifies the documents on the sets a c admin created, from the set screen */
+    expect(getRoleScopeFlags(matrix, 'C Admin', 'verification_decisions')).toEqual({
+      create: false,
+      read: true,
+      update: true,
+      delete: false,
+    });
 
     const granted = applyPermissionGuards('verification_queue', 'C Admin', {
       create: false,

@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
 import { formatDocumentId } from '../../utils/formatters';
+import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Upload, Check, AlertCircle, X } from 'lucide-react';
 
 interface DocumentUploadModalProps {
@@ -39,7 +40,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   defaultVesselId,
   modalTitle,
 }) => {
-  const { vessels, documents, addDocument, uploadDocumentForRequirement, addDocumentVersion, verifyDocument, activePersona } =
+  const { vessels, documents, notifications, addDocument, uploadDocumentForRequirement, addDocumentVersion, verifyDocument, activePersona } =
     useMapStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -300,6 +301,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     e.preventDefault();
     setHasAttemptedSubmit(true);
     if (!canUpload || !title.trim()) return;
+    /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
+    if (existingDocument && getDocumentReuploadBlockReason(existingDocument, notifications)) return;
 
     const finalCertNo = certificateNo.trim() || `DNV-STAT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const finalAuthority = issuingAuthority.trim() || 'DNV Classification Society';
@@ -335,7 +338,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           nextVerLabel,
           finalFileName,
           2400000,
-          changeSummary.trim() || 'New version uploaded.'
+          changeSummary.trim() || 'New version uploaded.',
+          finalExpiry,
         );
         verifyDocument(existingDocument.id, 'Pending', 'New version submitted.');
       } else {

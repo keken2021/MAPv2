@@ -338,6 +338,8 @@ function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
 
     case 'verification_decisions':
       if (role === 'Verifier') return readUpdate();
+      /* c admin verifies the documents on the sets a c admin created */
+      if (role === 'C Admin') return readUpdate();
       if (role === 'Administrator') return readOnly();
       return emptyCrud();
 

@@ -10,6 +10,8 @@ import { MasterDocument } from '../../types/document';
 import { DocumentUploadModal } from '../modals/DocumentUploadModal';
 import { Check, AlertCircle } from 'lucide-react';
 import { isUserDocumentSubmitter } from '../../utils/userRoleHelpers';
+import { isAssuranceSetCreatedByCAdmin } from '../../utils/rbacHelpers';
+import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Drawer } from './Drawer';
 
 interface DocumentReviewDrawerProps {
@@ -36,7 +38,7 @@ interface ExtractedAttribute {
   with what file: src/components/drawers/DocumentReviewDrawer.tsx loaded by VerifierWorkspaceView.tsx and AssuranceDetailView.tsx.
 */
 export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose, allowSubmit = true, allowVerify = true }) => {
-  const { verifyDocument, requestDocumentReupload, activePersona, assuranceSets } = useMapStore();
+  const { verifyDocument, requestDocumentReupload, activePersona, assuranceSets, notifications } = useMapStore();
   const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState('');
   /* the notes field takes focus when a footer action needs notes, so the error is in view */
@@ -98,7 +100,15 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   );
 
   const canSubmit = allowSubmit && (activePersona === 'Submitter' || activePersona === 'Administrator');
-  const canVerify = allowVerify && !isSubmitter && (activePersona === 'Verifier' || activePersona === 'Administrator');
+  /* the client admin verifies the documents on a set a client admin created; it never edits or uploads them */
+  const isClientVerifier =
+    activePersona === 'C Admin' && Boolean(linkedSet) && isAssuranceSetCreatedByCAdmin(linkedSet!);
+  const canVerify =
+    allowVerify &&
+    !isSubmitter &&
+    (activePersona === 'Verifier' || activePersona === 'Administrator' || isClientVerifier);
+  /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
+  const reuploadBlockReason = getDocumentReuploadBlockReason(document, notifications);
 
   const requireComment = (message = 'Notes are required to return or reject a document.') => {
     if (!comment.trim()) {
@@ -244,7 +254,13 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
               </button>
               <div className="map-drawer-footer-actions">
                 {canSubmit && (
-                  <button type="button" className="btn btn-primary" onClick={() => setIsUploadModalOpen(true)}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => setIsUploadModalOpen(true)}
+                    disabled={Boolean(reuploadBlockReason)}
+                    title={reuploadBlockReason}
+                  >
                     Upload New Version
                   </button>
                 )}
@@ -454,6 +470,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     type="button"
                     className="btn btn-sm map-btn-orange-action"
                     onClick={() => setIsUploadModalOpen(true)}
+                    disabled={Boolean(reuploadBlockReason)}
+                    title={reuploadBlockReason}
                   >
                     Upload New Version
                   </button>

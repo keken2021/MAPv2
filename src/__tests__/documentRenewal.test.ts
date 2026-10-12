@@ -12,8 +12,11 @@ import { AssuranceSet } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { AppNotification } from '../types/notification';
 import {
+  DOCUMENT_REUPLOAD_BLOCK_REASON,
   findDocumentRenewalsDue,
+  getComplianceStateForExpiry,
   getDocumentRenewalReason,
+  getDocumentReuploadBlockReason,
   getRenewalMessage,
   getRenewalSubject,
   getRenewalSubmitterLabel,
@@ -74,6 +77,52 @@ describe('document renewal: reason', () => {
   });
 });
 
+describe('document renewal: re-upload rule', () => {
+  const valid = makeDocument({ expiryDate: '2029-01-01', verificationStatus: 'Verified' });
+  const request = {
+    type: 'document_renewal',
+    renewalReason: 'reupload_requested',
+    documentId: DOC_ID,
+    status: 'unread',
+  } as AppNotification;
+
+  it('blocks a valid document nobody sent back', () => {
+    expect(getDocumentReuploadBlockReason(valid, [], TODAY)).toBe(DOCUMENT_REUPLOAD_BLOCK_REASON);
+    expect(getDocumentReuploadBlockReason({ ...valid, verificationStatus: 'Pending' }, [], TODAY)).toBe(
+      DOCUMENT_REUPLOAD_BLOCK_REASON,
+    );
+    expect(
+      getDocumentReuploadBlockReason({ ...valid, expiryDate: '2026-12-15', complianceState: 'Expiring < 6 Mos' }, [], TODAY),
+    ).toBe(DOCUMENT_REUPLOAD_BLOCK_REASON);
+  });
+
+  it('opens for an expired document', () => {
+    expect(getDocumentReuploadBlockReason({ ...valid, expiryDate: '2026-09-30' }, [], TODAY)).toBeUndefined();
+    expect(getDocumentReuploadBlockReason({ ...valid, complianceState: 'Expired' }, [], TODAY)).toBeUndefined();
+  });
+
+  it('opens for a document a reviewer returned or rejected', () => {
+    expect(getDocumentReuploadBlockReason({ ...valid, verificationStatus: 'Correction Requested' }, [], TODAY)).toBeUndefined();
+    expect(getDocumentReuploadBlockReason({ ...valid, verificationStatus: 'Rejected' }, [], TODAY)).toBeUndefined();
+  });
+
+  it('opens while a reupload request is open, and closes once it is actioned', () => {
+    expect(getDocumentReuploadBlockReason(valid, [request], TODAY)).toBeUndefined();
+    expect(getDocumentReuploadBlockReason(valid, [{ ...request, status: 'actioned' }], TODAY)).toBe(
+      DOCUMENT_REUPLOAD_BLOCK_REASON,
+    );
+    expect(getDocumentReuploadBlockReason(valid, [{ ...request, documentId: 'OTHER' }], TODAY)).toBe(
+      DOCUMENT_REUPLOAD_BLOCK_REASON,
+    );
+  });
+
+  it('takes the compliance state from the expiry date', () => {
+    expect(getComplianceStateForExpiry('2026-09-30', TODAY)).toBe('Expired');
+    expect(getComplianceStateForExpiry('2026-12-15', TODAY)).toBe('Expiring < 6 Mos');
+    expect(getComplianceStateForExpiry('2029-01-01', TODAY)).toBe('Valid');
+  });
+});
+
 describe('document renewal: renewals due', () => {
   const document = makeDocument({ expiryDate: '2026-09-30' });
   const set = makeSet({
@@ -119,7 +168,7 @@ describe('document renewal: wording and recipient', () => {
 
   it('names the reason, its date and the asset in the subject', () => {
     expect(getRenewalSubject('expired', { ...document, expiryDate: '2026-09-30' }, vesselSet, TODAY)).toBe(
-      `Expired ${formatMaritimeDate('2026-09-30')}: IOPP Certificate (MV Pacific Endeavour)`,
+      'IOPP Certificate (MV Pacific Endeavour) is expired please re-upload',
     );
     expect(getRenewalSubject('expiring', document, vesselSet, TODAY)).toBe(
       'Expires in 41 days: IOPP Certificate (MV Pacific Endeavour)',
@@ -249,6 +298,52 @@ describe('store: document renewal notifications', () => {
     const closed = useMapStore.getState().notifications.find((n) => n.id === request.id);
     expect(closed?.status).toBe('actioned');
     expect(closed?.actionedAt).toBeTruthy();
+  });
+
+  it('sends an expired document to the submitter and to the administrator of the provider', () => {
+    const state = useMapStore.getState();
+    const source = state.assuranceSets.find((s) => s.id === SET_ID)!;
+    const expiredDoc: MasterDocument = {
+      ...baseDocument,
+      id: 'MAP-DOCR-TEST-EXPIRED',
+      title: 'Expired Test Certificate',
+      expiryDate: '2020-01-01',
+      complianceState: 'Expired',
+    };
+    const expiredSet: AssuranceSet = {
+      ...source,
+      id: 'AS-DOCR-TEST-002',
+      visibility: 'organization',
+      serviceProviderOrg: 'Northwind Marine Pty Ltd',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      requirements: [{ ...source.requirements[0], id: 'req-expired', documentId: expiredDoc.id, assignedSubmitter: undefined }],
+    };
+    useMapStore.setState({
+      assuranceSets: [...state.assuranceSets, expiredSet],
+      documents: [...state.documents, expiredDoc],
+    });
+
+    const submitter = state.users.find((u) => u.name === 'M. Chen')!;
+    const administrators = state.users.filter(
+      (u) => u.status === 'Active' && u.roles.includes('Administrator') && u.organization === 'Northwind Marine Pty Ltd',
+    );
+    const expected = new Set([submitter.id, ...administrators.map((u) => u.id)]);
+    expect(administrators.length).toBeGreaterThan(0);
+
+    expect(useMapStore.getState().raiseDocumentRenewalNotifications([expiredSet.id])).toBe(expected.size);
+    const renewals = renewalsOf(expiredSet.id);
+    expect(new Set(renewals.map((n) => n.recipientUserId))).toEqual(expected);
+    expect(renewals.every((n) => n.renewalReason === 'expired')).toBe(true);
+    expect(renewals.every((n) => n.subject === 'Expired Test Certificate (MV Pacific Endeavour) is expired please re-upload')).toBe(true);
+
+    /* a renewed version with a later expiry date clears the expired state */
+    useMapStore.getState().addDocumentVersion(expiredDoc.id, 'v2.0', 'renewed.pdf', 1024, 'Renewed certificate.', '2031-01-01');
+    const renewed = useMapStore.getState().documents.find((d) => d.id === expiredDoc.id)!;
+    expect(renewed.expiryDate).toBe('2031-01-01');
+    expect(renewed.complianceState).toBe('Valid');
+    expect(renewalsOf(expiredSet.id).every((n) => n.status === 'actioned')).toBe(true);
+
+    useMapStore.setState({ assuranceSets: state.assuranceSets, documents: state.documents });
   });
 
   it('falls back to the set creator when no submitter is named', () => {
