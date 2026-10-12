@@ -38,6 +38,7 @@ const VESSEL_STOCK_PHOTOS: Record<string, string> = {
   'VESSEL-009': 'https://plus.unsplash.com/premium_photo-1661962278758-d529030366fb?q=80&w=1228&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Austral Horizon (Liquid Cargo PSV)
   'VESSEL-010': 'https://plus.unsplash.com/premium_photo-1664298003939-e93f37196118?q=80&w=1333&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Oceanic Sentinel (Heavy 180T AHTS)
   'VESSEL-011': 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1000&q=80', // MV Southern Basin Pioneer (Subsea Construction)
+  'VESSEL-012': 'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Northwind Resolute (PSV DP2)
 };
 
 const TYPE_ACCURATE_PHOTOS: Record<string, string> = {

@@ -282,6 +282,11 @@ export interface MapStoreState {
     assigneeName: string,
   ) => { success: boolean; message?: string };
   updateAssuranceInspector: (setId: string, inspectorName: string) => void;
+  /** records a submitted inspection outcome for a vessel; returns the ids of the sets whose inspection it completed */
+  completeVesselInspection: (
+    vesselName: string,
+    outcome: "Pass" | "Pass with observations" | "Fail",
+  ) => string[];
   updateRequirementStatus: (
     setId: string,
     reqId: string,
@@ -1506,6 +1511,46 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   updateAssuranceInspector: (setId, inspectorName) => {
     get().updateAssuranceStakeholder(setId, "Inspector", inspectorName);
+  },
+  completeVesselInspection: (vesselName, outcome) => {
+    /* a failed inspection completes nothing; the sets stay at the inspection stage */
+    if (outcome === "Fail") return [];
+
+    const name = vesselName.trim().toLowerCase();
+    /* only sets waiting on the inspection move on: inspection required, not yet completed, every document verified */
+    const completedIds = get()
+      .assuranceSets.filter(
+        (s) =>
+          s.vesselName?.trim().toLowerCase() === name &&
+          s.mandatoryInspectionRequired &&
+          !s.inspectionCompleted &&
+          s.stage === "Inspection",
+      )
+      .map((s) => s.id);
+    if (completedIds.length === 0) return [];
+
+    set((state) => {
+      const updatedSets = state.assuranceSets.map((s) =>
+        completedIds.includes(s.id)
+          ? recalculateSetReadiness({ ...s, inspectionCompleted: true })
+          : s,
+      );
+      const { updatedProjects, updatedAssuranceSets } =
+        syncAllAffectedProjectRollups(state.projects, updatedSets, completedIds);
+      return { assuranceSets: updatedAssuranceSets, projects: updatedProjects };
+    });
+
+    /* a set that has just reached the approval stage goes to its approver */
+    get()
+      .assuranceSets.filter((s) => completedIds.includes(s.id) && s.stage === "Approval")
+      .forEach((s) => {
+        notifyAssuranceSetUser(get, s, s.assignedApprover, {
+          type: "approval_requested",
+          subject: `Approval requested: ${s.title}`,
+        });
+      });
+
+    return completedIds;
   },
   updateRequirementStatus: (setId, reqId, status, notes) => {
     const affectedDocIds = new Set<string>();

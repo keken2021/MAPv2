@@ -31,7 +31,7 @@ interface InspectionChecklistViewProps {
 */
 export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = ({ vesselName = 'MV Pacific Endeavour' }) => {
   const cleanVesselName = decodeURIComponent(vesselName || 'MV Pacific Endeavour');
-  const { capaItems, addCapaItem, logAuditEvent, activePersona, setCurrentHashView } = useMapStore();
+  const { capaItems, addCapaItem, logAuditEvent, activePersona, setCurrentHashView, completeVesselInspection } = useMapStore();
 
   const [items, setItems] = useState<InspectionItem[]>(DEFAULT_INSPECTION_CHECKLIST_ITEMS);
 
@@ -435,6 +435,8 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
       targetAsset: vesselName,
       justificationNotes: `Inspection outcome submitted: ${selectedResult}`,
     });
+    /* a passed inspection completes the inspection stage of the vessel's sets that are waiting on it */
+    completeVesselInspection(cleanVesselName, selectedResult);
     alert(`Submitted Inspection Outcome: ${selectedResult} for ${vesselName}.`);
     setCurrentHashView('inspector');
   };

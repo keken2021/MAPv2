@@ -32,8 +32,8 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
       'Submitter'
     );
 
-    /* all 7 northwind mock vessels belong to submitter */
-    expect(submitterVessels.length).toBe(7);
+    /* all 8 northwind mock vessels belong to submitter */
+    expect(submitterVessels.length).toBe(8);
     expect(submitterVessels.every((v) => v.registeredOwner?.toLowerCase().includes('northwind'))).toBe(true);
     expect(submitterVessels.find((v) => v.id === 'VESSEL-008')).toBeUndefined();
     expect(submitterVessels.find((v) => v.id === 'VESSEL-009')).toBeUndefined();
@@ -64,7 +64,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
       'Submitter'
     );
     expect(submitterWithCompetitor.find((v) => v.id === 'VESSEL-COMPETITOR-01')).toBeUndefined();
-    expect(submitterWithCompetitor.length).toBe(7);
+    expect(submitterWithCompetitor.length).toBe(8);
   });
 
   it('restricts administrator view to ONLY vessels owned by northwind marine pty ltd', () => {
@@ -75,7 +75,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     );
 
     /* administrator belongs to northwind marine pty ltd */
-    expect(adminVessels.length).toBe(7);
+    expect(adminVessels.length).toBe(8);
     adminVessels.forEach((v) => {
       expect(v.registeredOwner).toBe('Northwind Marine Pty Ltd');
     });
@@ -95,7 +95,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
       'Administrator'
     );
     expect(adminWithCompetitor.find((v) => v.id === 'VESSEL-COMPETITOR-02')).toBeUndefined();
-    expect(adminWithCompetitor.length).toBe(7);
+    expect(adminWithCompetitor.length).toBe(8);
   });
 
   it('restricts administrator assurance sets to only those created by admin or created by c admin for northwind vessels', () => {
@@ -131,7 +131,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
 
     /* c admin has complete visibility across all vessels on the platform */
     expect(cAdminVessels.length).toBe(MOCK_VESSELS.length);
-    expect(cAdminVessels.length).toBe(11);
+    expect(cAdminVessels.length).toBe(12);
     expect(cAdminVessels.map((v) => v.id)).toEqual(MOCK_VESSELS.map((v) => v.id));
   });
 
@@ -257,7 +257,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
 
     // Owned vessels tab
     const owned = allPlatformVessels.filter(isVesselOwned);
-    expect(owned.length).toBe(7);
+    expect(owned.length).toBe(8);
     owned.forEach((v) => {
       expect(isVesselOwned(v)).toBe(true);
     });
@@ -352,11 +352,11 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const found = filtered.find((v) => v.id === 'VESSEL-999');
     expect(found).toBeDefined();
     expect(found?.name).toBe('MV Pacific Pioneer');
-    expect(filtered.length).toBe(8);
+    expect(filtered.length).toBe(9);
   });
 
   it('validates mock data accuracy and completeness across all vessel Information', () => {
-    expect(MOCK_VESSELS.length).toBe(11);
+    expect(MOCK_VESSELS.length).toBe(12);
 
     MOCK_VESSELS.forEach((vessel) => {
       /* verify essential maritime data fields are populated accurately */
@@ -420,7 +420,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
   it('correctly identifies owned vs non-owned vessels for the current admin organization', () => {
     // Northwind / Pacific owned vessels
     const ownedVessels = MOCK_VESSELS.filter(isVesselOwnedByAdmin);
-    expect(ownedVessels.length).toBe(7);
+    expect(ownedVessels.length).toBe(8);
     ownedVessels.forEach((v) => {
       expect(isVesselOwnedByAdmin(v)).toBe(true);
     });
