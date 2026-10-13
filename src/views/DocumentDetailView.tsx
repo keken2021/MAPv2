@@ -309,10 +309,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
       <div className="card map-card-custom">
         <div className="card-header p-3 d-flex align-items-center justify-between fw-bold text-dark">
           <div className="d-flex align-items-center gap-2">
-            <span>Version History ({doc.versions.length})</span>
-            <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.725rem' }}>
-              Current: {doc.currentVersion}
-            </span>
+            <span>Version History</span>
           </div>
           <div className="d-flex align-items-center gap-2 ms-auto">
             <button
