@@ -13,6 +13,7 @@ import { isUserDocumentSubmitter } from '../../utils/userRoleHelpers';
 import { isAssuranceSetCreatedByCAdmin } from '../../utils/rbacHelpers';
 import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Drawer } from './Drawer';
+import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 
 interface DocumentReviewDrawerProps {
   document: MasterDocument | null;
@@ -292,33 +293,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       >
         <div className="row g-4">
           {/* left column: scanned document page preview box & quality checks */}
-          <div className="col-md-4 col-lg-3 d-flex flex-column gap-3">
-            <div
-              className="p-3 border rounded-3 text-center d-flex flex-column align-items-center justify-content-center bg-white shadow-2xs"
-              style={{
-                borderStyle: 'dashed',
-                borderColor: overallConfidence >= 90 ? '#86efac' : '#cbd5e1',
-                minHeight: '260px',
-                background: overallConfidence >= 90 ? 'linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)' : '#ffffff',
-              }}
-            >
-              <div className="font-mono-code text-uppercase text-muted small fw-bold" style={{ fontSize: '0.75rem', letterSpacing: '0.08em' }}>
-                SCANNED PAGE
-              </div>
-              <div className="font-mono-code text-muted small mt-1" style={{ fontSize: '0.75rem' }}>
-                1 of 1 · 240 DPI
-              </div>
-              <div
-                className="mt-3 px-2 py-1 rounded border font-mono-code fw-semibold"
-                style={{
-                  fontSize: '0.75rem',
-                  backgroundColor: overallConfidence >= 90 ? '#dcfce7' : '#ffedd5',
-                  color: overallConfidence >= 90 ? '#15803d' : '#c2410c',
-                }}
-              >
-                OCR {overallConfidence}% · {overallConfidence >= 90 ? 'High Fidelity' : 'Human Review'}
-              </div>
-            </div>
+          <div className="col-md-5 col-lg-5 d-flex flex-column gap-3">
+            <DocumentCertificatePreview document={document} compact={true} maxHeight="530px" />
 
             {/* quality checks list */}
             <div className="map-drawer-card d-flex flex-column gap-2">
@@ -361,7 +337,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
           </div>
 
           {/* right column: extracted metadata attributes & ocr confidence bars */}
-          <div className="col-md-8 col-lg-9 d-flex flex-column gap-3">
+          <div className="col-md-7 col-lg-7 d-flex flex-column gap-3">
             {/* Verification Notes & Audit Feedback Card */}
             {activeNotes && (
               <div className="map-drawer-card font-mono-code small">

@@ -4,11 +4,14 @@
   role in system: invoked from document vault table or document deep-dive view.
 */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { FileText, Printer, X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
-import { MasterDocument } from '../../types/document';
+import { MasterDocument, DocumentVersion } from '../../types/document';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
+import { exportDocumentAsPdf } from '../../utils/documentTemplateHelpers';
+import { UniversalDocumentPreviewModal } from '../modals/UniversalDocumentPreviewModal';
 import { Drawer } from './Drawer';
 
 const UPLOAD_FORM_ID = 'version-upload-form';
@@ -28,6 +31,21 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
   const [newVersionLabel, setNewVersionLabel] = useState('v1.2');
   const [newFileName, setNewFileName] = useState('');
   const [changeSummary, setChangeSummary] = useState('');
+  const [isCertModalOpen, setIsCertModalOpen] = useState(false);
+  const [selectedVersionForModal, setSelectedVersionForModal] = useState<DocumentVersion | null>(null);
+
+  const activeModalDoc: MasterDocument = useMemo(() => {
+    if (!document) return {} as MasterDocument;
+    if (!selectedVersionForModal) return document;
+    return {
+      ...document,
+      currentVersion: selectedVersionForModal.versionLabel,
+      versions: [
+        selectedVersionForModal,
+        ...document.versions.filter((v) => v.versionLabel !== selectedVersionForModal.versionLabel),
+      ],
+    };
+  }, [document, selectedVersionForModal]);
 
   if (!document) return null;
 
@@ -55,7 +73,8 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
   const reuploadBlockReason = getDocumentReuploadBlockReason(document, notifications);
 
   return (
-    <Drawer
+    <>
+      <Drawer
       title={document.title}
       meta={document.certificateNo}
       onClose={onClose}
@@ -144,9 +163,23 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
               <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.8rem' }}>
                 {ver.versionLabel}
               </span>
-              <span className="text-secondary small font-mono-code">
-                {formatMaritimeDate(ver.uploadedAt)}
-              </span>
+              <div className="d-flex align-items-center gap-2">
+                <span className="text-secondary small font-mono-code">
+                  {formatMaritimeDate(ver.uploadedAt)}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1 py-0.5 px-2 font-mono-code"
+                  onClick={() => {
+                    setSelectedVersionForModal(ver);
+                    setIsCertModalOpen(true);
+                  }}
+                  title={`Show document of version ${ver.versionLabel}`}
+                >
+                  <FileText size={12} />
+                  <span>Show Document</span>
+                </button>
+              </div>
             </div>
 
             <div className="fw-bold text-dark mb-1">{ver.fileName}</div>
@@ -160,5 +193,16 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
         ))}
       </div>
     </Drawer>
+
+    {/* Certificate Layout & PDF Review Modal */}
+    <UniversalDocumentPreviewModal
+      isOpen={isCertModalOpen}
+      document={activeModalDoc}
+      onClose={() => setIsCertModalOpen(false)}
+      versionLabel={selectedVersionForModal?.versionLabel}
+      uploadedAt={selectedVersionForModal?.uploadedAt}
+      uploadedBy={selectedVersionForModal?.uploadedBy}
+    />
+  </>
   );
 };

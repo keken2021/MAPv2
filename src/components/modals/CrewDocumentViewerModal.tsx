@@ -6,7 +6,9 @@
 
 import React from 'react';
 import { STCWDocumentItem } from '../../types/crew';
+import { MasterDocument } from '../../types/document';
 import { formatMaritimeDate } from '../../utils/formatters';
+import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 
 interface CrewDocumentViewerModalProps {
   isOpen: boolean;
@@ -116,29 +118,55 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
               </span>
             </div>
 
-            {/* Document Rendered Preview Mockup */}
-            <div
-              className="p-4 rounded-3 border bg-light text-center d-flex flex-column align-items-center justify-content-center gap-2"
-              style={{ minHeight: '220px', backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)', backgroundSize: '16px 16px' }}
-            >
-              <div className="p-3 bg-white border rounded shadow-sm" style={{ width: '100%', maxWidth: '440px' }}>
-                <div className="text-uppercase fw-bold text-primary mb-1" style={{ fontSize: '0.75rem', letterSpacing: '0.08em' }}>
-                  {document.issuingAuthority}
+            {/* Official PDF Document Certificate Preview */}
+            {(() => {
+              const docAsMaster: MasterDocument = {
+                id: document.id,
+                title: document.title,
+                entityType: 'Crew Certificate',
+                vesselId: '',
+                certificateNo: document.certificateNo,
+                issuingAuthority: document.issuingAuthority,
+                expiryDate: document.expiryDate,
+                ocrConfidence: 98,
+                complianceState: document.verificationStatus === 'Expired' ? 'Expired' : document.verificationStatus === 'Expiring' ? 'Expiring < 6 Mos' : 'Valid',
+                currentVersion: 'v1.0',
+                versions: [{
+                  versionLabel: 'v1.0',
+                  uploadedAt: document.issueDate ? `${document.issueDate}T00:00:00Z` : new Date().toISOString(),
+                  uploadedBy: 'Crewing Administrator',
+                  fileSizeBytes: document.fileSizeBytes || 1500000,
+                  fileName: document.fileName || `${document.title.toLowerCase().replace(/\s+/g, '_')}.pdf`,
+                  changeSummary: 'Uploaded STCW qualification certificate.'
+                }],
+                crewAttributes: {
+                  crewName,
+                  passportId: 'PA-AU-7739102',
+                  rank: 'Seafarer',
+                  certType: document.stcwRegulation || document.title,
+                  issuingCenter: document.issuingAuthority,
+                  issueDate: document.issueDate,
+                  expiryDate: document.expiryDate,
+                  assignedVessel: 'Assigned Vessel',
+                  nationality: document.flagState || 'Australian',
+                  trainingDate: document.issueDate,
+                  ocrConfidence: 98,
+                },
+                validationRules: {
+                  charterBufferPassed: true,
+                  assetMatch100Percent: true,
+                  iacsAuthorityValid: true,
+                  overallValid: true,
+                },
+                verificationStatus: document.verificationStatus === 'Verified' ? 'Verified' : 'Pending',
+              };
+
+              return (
+                <div className="p-3 rounded-3 border bg-slate-50 d-flex justify-content-center">
+                  <DocumentCertificatePreview document={docAsMaster} compact={false} />
                 </div>
-                <div className="fw-bold text-dark fs-6 mb-2">{document.title}</div>
-                <div className="badge bg-light text-dark border font-mono-code mb-3" style={{ fontSize: '0.7rem' }}>
-                  STCW Regulation {document.stcwRegulation}
-                </div>
-                <div className="p-2 bg-light rounded text-start font-mono-code text-secondary" style={{ fontSize: '0.7rem' }}>
-                  <div>Certificate No.: <strong className="text-dark">{document.certificateNo}</strong></div>
-                  <div>Issued To: <strong className="text-dark">{crewName}</strong></div>
-                  <div>Valid Until: <strong className={document.verificationStatus === 'Expired' ? 'text-danger' : 'text-dark'}>{document.expiryDate}</strong></div>
-                </div>
-                <div className="mt-3 pt-2 border-top text-muted text-uppercase font-mono-code" style={{ fontSize: '0.65rem' }}>
-                  Verified copy
-                </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </div>
 

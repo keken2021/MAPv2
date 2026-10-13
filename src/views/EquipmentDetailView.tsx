@@ -21,6 +21,8 @@ import {
   Crop,
   Download,
   Edit2,
+  Eye,
+  FileText,
   Image as ImageIcon,
   Info,
   Plus,
@@ -32,6 +34,9 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
+import { MasterDocument } from '../types/document';
+import { DocumentCertificatePreview } from '../components/common/DocumentCertificatePreview';
+import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
 
 interface EquipmentDetailViewProps {
   equipmentId: string;
@@ -76,6 +81,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
   /* Photo gallery & cropping modal states */
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
+  const [showCertModal, setShowCertModal] = useState(false);
   const [customPhotoUrl, setCustomPhotoUrl] = useState('');
   const [photoModalUrl, setPhotoModalUrl] = useState('');
   const [modalPhotos, setModalPhotos] = useState<string[]>([]);
@@ -118,6 +124,51 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
 
   const status = getEquipmentAssetStatus(item);
   const activeDisplayPhoto = selectedViewPhotoUrl || item.imageUrl || getEquipmentStockPhoto(item.id, item.name, item.category);
+
+  const equipmentCertDoc: MasterDocument = {
+    id: `EQ-CERT-${item.id}`,
+    title: `${item.name} Safety & Proof Test Certificate`,
+    entityType: 'Vessel Certificate',
+    vesselId: item.parentVesselId || 'AUSP1VSR619',
+    certificateNo: `EQ-CERT-${item.serialNumber || item.id}`,
+    issuingAuthority: item.manufacturer ? `${item.manufacturer} Engineering / DNV` : 'DNV Technical Assurance',
+    expiryDate: '2027-10-15',
+    ocrConfidence: 98,
+    complianceState: 'Valid',
+    currentVersion: 'v1.0',
+    versions: [
+      {
+        versionLabel: 'v1.0',
+        uploadedAt: '2026-01-15T08:00:00Z',
+        uploadedBy: 'System Auto-Ingest',
+        fileSizeBytes: 245000,
+        fileName: `${item.name.replace(/\s+/g, '_')}_Certificate.pdf`,
+        changeSummary: 'Initial verified proof test & compliance upload',
+      },
+    ],
+    vesselAttributes: {
+      title: `${item.name} Safety & Proof Test Certificate`,
+      certificateNumber: `EQ-CERT-${item.serialNumber || item.id}`,
+      certType: `${item.category} Compliance & Proof Test`,
+      issuingBody: item.manufacturer ? `${item.manufacturer} Engineering / DNV` : 'DNV Technical Assurance',
+      issueDate: '2026-01-15',
+      expiryDate: '2027-10-15',
+      vesselName: parentVessel?.name || 'Assigned Vessel',
+      imoNumber: parentVessel?.imoNumber || '9123456',
+      flagState: parentVessel?.flagState || 'Australia',
+      assetMatchFlag: true,
+      lastSurveyDate: '2026-01-10',
+      ocrConfidence: 98,
+      status: 'Valid',
+    },
+    validationRules: {
+      charterBufferPassed: true,
+      assetMatch100Percent: true,
+      iacsAuthorityValid: true,
+      overallValid: true,
+    },
+    verificationStatus: 'Verified',
+  };
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -284,13 +335,12 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
               type="button"
               className="btn btn-sm btn-outline-secondary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
               onClick={() => {
-                setToastMessage(`${item.name} is verified and certified under ${item.category}.`);
-                setTimeout(() => setToastMessage(null), 3500);
+                setShowCertModal(true);
               }}
-              title="Certified"
+              title="View Compliance Certificate (PDF)"
             >
-              <Shield className="w-3.5 h-3.5" />
-              <span style={{ fontSize: '0.68rem' }}>Certified</span>
+              <FileText className="w-3.5 h-3.5" />
+              <span style={{ fontSize: '0.68rem' }}>Certificate (PDF)</span>
             </button>
           </div>
         </div>
@@ -335,6 +385,38 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                   <div className="fw-semibold">{item.complianceStatus || 'Compliant'}</div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Statutory & Proof Test Certificate Card (PDF Form) */}
+          <div className="card map-card-custom">
+            <div className="card-header fw-bold bg-white d-flex align-items-center justify-content-between">
+              <span className="d-flex align-items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                <span>Statutory &amp; Proof Test Certificate (PDF)</span>
+              </span>
+              <button
+                type="button"
+                className="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1"
+                onClick={() => setShowCertModal(true)}
+              >
+                <Eye className="w-3 h-3" />
+                <span>Fullscreen PDF</span>
+              </button>
+            </div>
+            <div className="card-body p-3">
+              <div className="d-flex align-items-center justify-content-between mb-3 p-2 bg-light rounded border">
+                <div>
+                  <div className="fw-bold small text-dark">{equipmentCertDoc.title}</div>
+                  <div className="text-secondary font-mono-code" style={{ fontSize: '0.72rem' }}>
+                    {equipmentCertDoc.certificateNo} · Issuing: {equipmentCertDoc.issuingAuthority}
+                  </div>
+                </div>
+                <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code">
+                  Verified PDF
+                </span>
+              </div>
+              <DocumentCertificatePreview document={equipmentCertDoc} height="420px" />
             </div>
           </div>
 
@@ -793,6 +875,16 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
           onClose={() => setIsCropModalOpen(false)}
         />
       )}
+
+      {/* Equipment Compliance & Proof Test Certificate Modal (PDF Form) */}
+      {/* Universal Equipment Certificate Preview Modal */}
+      <UniversalDocumentPreviewModal
+        isOpen={showCertModal}
+        document={equipmentCertDoc}
+        onClose={() => setShowCertModal(false)}
+        title={equipmentCertDoc.title}
+        subtitle={`${equipmentCertDoc.certificateNo} · ${item.name} · PDF Preview`}
+      />
 
     </div>
   );

@@ -73,6 +73,8 @@ import {
 } from 'lucide-react';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
+import { DocumentCertificatePreview } from '../components/common/DocumentCertificatePreview';
+import { MasterDocument } from '../types/document';
 
 
 interface VesselDetailViewProps {
@@ -4512,71 +4514,63 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </div>
                 </div>
 
-                {/* 2. Extracted Technical Data Attributes Table */}
+                {/* 2. Official PDF Document Certificate Preview (PDF Form) */}
                 <div className="mb-4">
-                  <div className="d-flex align-items-center justify-content-between mb-2">
-                    <h6 className="fw-bold text-dark m-0 d-flex align-items-center gap-2">
-                      <FileText className="w-4 h-4 text-primary" />
-                      Extracted Fields
-                    </h6>
-                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code">
-                      13 Attributes Extracted
-                    </span>
-                  </div>
+                  {(() => {
+                    const matchingDoc: MasterDocument = documents.find(
+                      (d) =>
+                        d.certificateNo === selectedVaultCertForModal.number ||
+                        d.id === selectedVaultCertForModal.id ||
+                        d.title.toLowerCase().includes(selectedVaultCertForModal.name.toLowerCase())
+                    ) || {
+                      id: selectedVaultCertForModal.id,
+                      title: selectedVaultCertForModal.name,
+                      entityType: 'Vessel Certificate',
+                      vesselId: vessel.id,
+                      certificateNo: selectedVaultCertForModal.number,
+                      issuingAuthority: selectedVaultCertForModal.issuingBody,
+                      expiryDate: selectedVaultCertForModal.expiryDate,
+                      ocrConfidence: 98,
+                      complianceState: 'Valid',
+                      currentVersion: selectedVaultCertForModal.version || 'v1.0',
+                      versions: [{
+                        versionLabel: selectedVaultCertForModal.version || 'v1.0',
+                        uploadedAt: selectedVaultCertForModal.uploadedAt || new Date().toISOString(),
+                        uploadedBy: selectedVaultCertForModal.uploadedBy || 'Provider Admin',
+                        fileSizeBytes: 2450000,
+                        fileName: selectedVaultCertForModal.fileName || `${selectedVaultCertForModal.name.toLowerCase().replace(/\s+/g, '_')}.pdf`,
+                        changeSummary: 'Statutory certificate uploaded.'
+                      }],
+                      vesselAttributes: {
+                        title: selectedVaultCertForModal.name,
+                        certificateNumber: selectedVaultCertForModal.number,
+                        certType: selectedVaultCertForModal.name,
+                        issuingBody: selectedVaultCertForModal.issuingBody,
+                        issueDate: selectedVaultCertForModal.issueDate || '2024-01-15',
+                        expiryDate: selectedVaultCertForModal.expiryDate,
+                        vesselName: vessel.name,
+                        imoNumber: vessel.imoNumber,
+                        flagState: vessel.flagState,
+                        assetMatchFlag: true,
+                        lastSurveyDate: '2025-06-01',
+                        ocrConfidence: 98,
+                        status: 'Valid',
+                      },
+                      validationRules: {
+                        charterBufferPassed: true,
+                        assetMatch100Percent: true,
+                        iacsAuthorityValid: true,
+                        overallValid: true,
+                      },
+                      verificationStatus: 'Verified',
+                    };
 
-                  <div className="map-datasheet-grid border rounded p-2 bg-light">
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">AIS Name</span>
-                      <span className="map-datasheet-val fw-bold text-dark">{selectedVaultCertForModal.extractedAttributes?.vesselName || vessel.name}</span>
-                    </div>
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">IMO Number</span>
-                      <span className="map-datasheet-val font-mono-code fw-bold text-primary">{selectedVaultCertForModal.extractedAttributes?.imoNumber || vessel.imoNumber}</span>
-                    </div>
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Official Registration Number</span>
-                      <span className="map-datasheet-val font-mono-code">{selectedVaultCertForModal.extractedAttributes?.officialRegNumber || vessel.officialRegNumber || 'OSV-44-2019'}</span>
-                    </div>
-
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Flag State &amp; Port</span>
-                      <span className="map-datasheet-val">{selectedVaultCertForModal.extractedAttributes?.flagState || vessel.flagState} ({selectedVaultCertForModal.extractedAttributes?.portOfRegistry || vessel.portOfRegistry})</span>
-                    </div>
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Call Sign / MMSI</span>
-                      <span className="map-datasheet-val font-mono-code">{selectedVaultCertForModal.extractedAttributes?.callSign || vessel.callSign} / {selectedVaultCertForModal.extractedAttributes?.mmsiNumber || vessel.mmsiNumber}</span>
-                    </div>
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Class Society</span>
-                      <span className="map-datasheet-val">{selectedVaultCertForModal.extractedAttributes?.classificationSociety || vessel.classificationSociety}</span>
-                    </div>
-
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Class Notation</span>
-                      <span className="map-datasheet-val">{selectedVaultCertForModal.extractedAttributes?.classNotation || vessel.classNotation}</span>
-                    </div>
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Hull Type</span>
-                      <span className="map-datasheet-val">{selectedVaultCertForModal.extractedAttributes?.hullType || vessel.hullType}</span>
-                    </div>
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Year Built &amp; Shipyard</span>
-                      <span className="map-datasheet-val">{selectedVaultCertForModal.extractedAttributes?.yearBuilt || vessel.yearBuilt} ({selectedVaultCertForModal.extractedAttributes?.shipyardBuilder || vessel.shipyardBuilder})</span>
-                    </div>
-
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Gross Tonnage (GT)</span>
-                      <span className="map-datasheet-val font-mono-code">{selectedVaultCertForModal.extractedAttributes?.grossTonnageGT?.toLocaleString() || vessel.grossTonnageGT?.toLocaleString()} GT</span>
-                    </div>
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Deadweight (DWT)</span>
-                      <span className="map-datasheet-val font-mono-code">{selectedVaultCertForModal.extractedAttributes?.deadweightTonnageDWT?.toLocaleString() || vessel.deadweightTonnageDWT?.toLocaleString()} DWT</span>
-                    </div>
-                    <div className="map-datasheet-cell bg-white">
-                      <span className="map-datasheet-label">Dimensions (LOA x B x D)</span>
-                      <span className="map-datasheet-val font-mono-code">{selectedVaultCertForModal.extractedAttributes?.lengthOverallMeters || vessel.lengthOverallMeters}m x {selectedVaultCertForModal.extractedAttributes?.beamMeters || vessel.beamMeters}m x {selectedVaultCertForModal.extractedAttributes?.draftMeters || vessel.draftMeters}m</span>
-                    </div>
-                  </div>
+                    return (
+                      <div className="p-3 bg-slate-50 border rounded-3 d-flex justify-content-center">
+                        <DocumentCertificatePreview document={matchingDoc} compact={false} />
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* 3. Automated Validation & Rules Verification */}

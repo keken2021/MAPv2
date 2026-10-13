@@ -5,10 +5,11 @@
 */
 
 import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye, FileText } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, ComplianceState } from '../../types/document';
 import { ConfidenceBadge } from '../common/ConfidenceBadge';
+import { UniversalDocumentPreviewModal } from '../modals/UniversalDocumentPreviewModal';
 import { FilterModal } from '../common/FilterModal';
 import { FilterButton } from '../common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
@@ -60,6 +61,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [pdfPreviewDoc, setPdfPreviewDoc] = useState<MasterDocument | null>(null);
 
   const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
   const canUpload =
@@ -294,19 +296,34 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                   </span>
                 </td>
                 <td className="text-end">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                    style={{ width: '32px', height: '32px' }}
-                    title="View"
-                    aria-label="View"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectDocument(doc);
-                    }}
-                  >
-                    <Eye size={16} />
-                  </button>
+                  <div className="d-inline-flex align-items-center gap-1.5">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                      style={{ width: '32px', height: '32px' }}
+                      title="PDF Review"
+                      aria-label="PDF Review"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPdfPreviewDoc(doc);
+                      }}
+                    >
+                      <FileText size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                      style={{ width: '32px', height: '32px' }}
+                      title="View Details"
+                      aria-label="View Details"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectDocument(doc);
+                      }}
+                    >
+                      <Eye size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -372,6 +389,26 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           </div>
         </div>
       </FilterModal>
+
+      {/* Universal Document Preview Modal */}
+      <UniversalDocumentPreviewModal
+        isOpen={Boolean(pdfPreviewDoc)}
+        document={pdfPreviewDoc}
+        onClose={() => setPdfPreviewDoc(null)}
+        extraAction={
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={() => {
+              const target = pdfPreviewDoc;
+              setPdfPreviewDoc(null);
+              if (target) onSelectDocument(target);
+            }}
+          >
+            Open Full Detail View
+          </button>
+        }
+      />
     </div>
   );
 };

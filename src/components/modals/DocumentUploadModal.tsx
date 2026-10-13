@@ -9,7 +9,8 @@ import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
 import { formatDocumentId } from '../../utils/formatters';
 import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
-import { Upload, Check, AlertCircle, X } from 'lucide-react';
+import { Upload, Check, AlertCircle, X, FileText, Eye } from 'lucide-react';
+import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -413,8 +414,55 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }, 1500);
   };
 
+  const [leftPaneMode, setLeftPaneMode] = useState<'pdf' | 'attributes'>('pdf');
+
   /* extraction review is rendered only after ai ocr scan animation is completed */
   const hasExtractedSpecs = Boolean(isAiExtracted || (existingDocument && fileName));
+
+  const previewDoc: MasterDocument = {
+    id: existingDocument?.id || 'DOC-UPLOAD-PREVIEW',
+    title: title || existingDocument?.title || fileName || 'International Oil Pollution Prevention (IOPP)',
+    entityType,
+    vesselId: vesselId || existingDocument?.vesselId || 'AUSP1VSR619',
+    certificateNo: certificateNo || existingDocument?.certificateNo || 'IOPP-STAT-2026-99',
+    issuingAuthority: issuingAuthority || existingDocument?.issuingAuthority || 'DNV / AMSA Maritime Authority',
+    expiryDate: expiryDate || existingDocument?.expiryDate || '2029-06-30',
+    ocrConfidence: Math.round(aiOcrConfidence),
+    complianceState: existingDocument?.complianceState || 'Valid',
+    currentVersion: existingDocument?.currentVersion || 'v1.0',
+    versions: existingDocument?.versions || [
+      {
+        versionLabel: 'v1.0',
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: activePersona,
+        fileSizeBytes: 640000,
+        fileName: fileName || 'iopp-annex1-scan.pdf',
+        changeSummary: changeSummary || 'Uploaded statutory certificate',
+      },
+    ],
+    vesselAttributes: existingDocument?.vesselAttributes || {
+      title: title || 'International Oil Pollution Prevention (IOPP)',
+      certificateNumber: certificateNo || 'IOPP-STAT-2026-99',
+      certType: 'Statutory Pollution Prevention Certificate',
+      issuingBody: issuingAuthority || 'DNV Maritime',
+      issueDate: '2024-06-30',
+      expiryDate: expiryDate || '2029-06-30',
+      vesselName: vessels.find((v) => v.id === vesselId)?.name || 'MAP Demo Vessel AUSP1',
+      imoNumber: vessels.find((v) => v.id === vesselId)?.imoNumber || '9123456',
+      flagState: vessels.find((v) => v.id === vesselId)?.flagState || 'Australia (Sample)',
+      assetMatchFlag: true,
+      lastSurveyDate: '2024-06-15',
+      ocrConfidence: Math.round(aiOcrConfidence),
+      status: 'Valid',
+    },
+    validationRules: existingDocument?.validationRules || {
+      charterBufferPassed: true,
+      assetMatch100Percent: true,
+      iacsAuthorityValid: true,
+      overallValid: true,
+    },
+    verificationStatus: existingDocument?.verificationStatus || 'Pending',
+  };
 
   return (
     <div
@@ -493,7 +541,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                         <div className="d-flex flex-wrap align-items-start justify-content-between mb-3 border-bottom pb-3">
                           <div>
                             <div className="font-mono-code text-uppercase text-muted small fw-bold mb-0.5" style={{ fontSize: '0.675rem', letterSpacing: '0.08em' }}>
-                              REVIEW
+                              DOCUMENT PREVIEW
                             </div>
                             <h5 className="fw-bold text-dark m-0 mb-1" style={{ fontSize: '1.15rem' }}>
                               {title || existingDocument?.title || 'International Oil Pollution Prevention (IOPP)'}
@@ -503,31 +551,33 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                             </div>
                           </div>
 
-                          {(() => {
-                            const certNoScore = correctedFields.has('certNo') ? 100 : (certificateNo && certificateNo.trim() !== '' && !certificateNo.includes('partially legible') ? 98 : 61);
-                            const authorityScore = correctedFields.has('authority') ? 100 : (issuingAuthority && issuingAuthority.trim() !== '' && !issuingAuthority.includes('illegible') ? 97 : 44);
-                            const expiryScore = correctedFields.has('expiry') ? 100 : (expiryDate && expiryDate.trim() !== '' ? 98 : 79);
-                            const titleScore = 91;
-                            const dynamicScore = correctedFields.size >= 3
-                              ? 100
-                              : Math.min(100, Math.round((titleScore + certNoScore + authorityScore + expiryScore) / 4));
-                            const isFullPageCaptured = certNoScore >= 90 && expiryScore >= 90;
-                            const isSignaturePresent = authorityScore >= 90;
-
-                            return (
-                              <div className="text-end">
-                                <div className="fw-bold lh-1" style={{ fontSize: '1.65rem', color: dynamicScore >= 90 ? '#059669' : '#c2410c' }}>
-                                  {dynamicScore}%
-                                </div>
-                                <div className="small lh-sm text-muted" style={{ fontSize: '0.65rem' }}>
-                                  overall confidence<br />threshold 90%
-                                </div>
-                              </div>
-                            );
-                          })()}
+                          <div className="d-flex align-items-center gap-2">
+                            <div className="btn-group btn-group-sm">
+                              <button
+                                type="button"
+                                className={`btn btn-xs fw-semibold ${leftPaneMode === 'pdf' ? 'btn-primary text-white shadow-2xs' : 'btn-outline-secondary'}`}
+                                onClick={() => setLeftPaneMode('pdf')}
+                              >
+                                <FileText className="w-3.5 h-3.5 d-inline me-1" />
+                                PDF Form
+                              </button>
+                              <button
+                                type="button"
+                                className={`btn btn-xs fw-semibold ${leftPaneMode === 'attributes' ? 'btn-primary text-white shadow-2xs' : 'btn-outline-secondary'}`}
+                                onClick={() => setLeftPaneMode('attributes')}
+                              >
+                                Extracted Data
+                              </button>
+                            </div>
+                          </div>
                         </div>
 
-                        {(() => {
+                        {leftPaneMode === 'pdf' ? (
+                          <div className="mb-3">
+                            <DocumentCertificatePreview document={previewDoc} height="520px" />
+                          </div>
+                        ) : (
+                          (() => {
                           const certNoScore = correctedFields.has('certNo') ? 100 : (certificateNo && certificateNo.trim() !== '' && !certificateNo.includes('partially legible') ? 98 : 61);
                           const authorityScore = correctedFields.has('authority') ? 100 : (issuingAuthority && issuingAuthority.trim() !== '' && !issuingAuthority.includes('illegible') ? 97 : 44);
                           const expiryScore = correctedFields.has('expiry') ? 100 : (expiryDate && expiryDate.trim() !== '' ? 98 : 79);
@@ -724,7 +774,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                               </div>
                             </div>
                           );
-                        })()}
+                        })())}
                       </div>
 
                       {/* Exception Action Banner matching screenshot */}
@@ -984,17 +1034,17 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             if (e.target === e.currentTarget) setIsPendingVerification(false);
           }}
         >
-          <div className="modal-dialog modal-lg modal-dialog-centered">
+          <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div className="modal-content bg-white text-dark border shadow-lg">
               {/* Header */}
               <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
                 <div className="d-flex align-items-center gap-2">
                   <div>
                     <h5 className="modal-title fw-bold text-dark m-0">
-                      Document Preview
+                      Document Preview (PDF Form)
                     </h5>
                     <div className="text-secondary small mt-0.5">
-                      Check the scan is clear before reading it.
+                      Check document scan layout before reading and metadata extraction.
                     </div>
                   </div>
                 </div>
@@ -1016,19 +1066,10 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       <span className="badge bg-danger text-white font-mono-code" style={{ fontSize: '0.7rem' }}>PDF SCAN</span>
                       <span className="fw-bold text-dark font-mono-code">{fileName}</span>
                     </div>
-                    <span className="badge bg-success text-white font-mono-code" style={{ fontSize: '0.7rem' }}>CLEAR</span>
+                    <span className="badge bg-success text-white font-mono-code" style={{ fontSize: '0.7rem' }}>CLEAR &amp; VALIDATED</span>
                   </div>
 
-                  {/* Document Wireframe Scan Graphic */}
-                  <div className="bg-white p-3 border rounded font-mono-code text-start" style={{ fontSize: '0.775rem', lineHeight: '1.5' }}>
-                    <div className="text-uppercase fw-bold text-primary border-bottom pb-1 mb-2 d-flex justify-content-between">
-                      <span className="text-muted">PAGE 1 OF 1</span>
-                    </div>
-
-                    <div className="p-2.5 bg-light border rounded mt-2.5 text-muted text-center" style={{ fontSize: '0.725rem' }}>
-                      [ High resolution scan ready for automated AI OCR parsing &amp; metadata extraction ]
-                    </div>
-                  </div>
+                  <DocumentCertificatePreview document={previewDoc} height="520px" />
                 </div>
               </div>
 

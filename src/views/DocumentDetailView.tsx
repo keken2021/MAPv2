@@ -5,13 +5,15 @@
 */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, FileText, Printer, X } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { exportDocumentAsPdf } from '../utils/documentTemplateHelpers';
+import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
-import { DocumentVersion } from '../types/document';
+import { DocumentVersion, MasterDocument } from '../types/document';
 import { getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
@@ -29,6 +31,8 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
   const { documents, setCurrentHashView, previousHashView, previousEntityId, activePersona, notifications } = useMapStore();
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isCertModalOpen, setIsCertModalOpen] = useState(false);
+  const [selectedVersionForModal, setSelectedVersionForModal] = useState<DocumentVersion | null>(null);
 
   /* triggers one-shot shimmer on all extracted attribute value cells on mount */
   const [isJustLoaded, setIsJustLoaded] = useState(true);
@@ -86,6 +90,19 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
   /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
   const reuploadBlockReason = getDocumentReuploadBlockReason(doc, notifications);
 
+  const activeModalDoc: MasterDocument = useMemo(() => {
+    if (!doc) return {} as MasterDocument;
+    if (!selectedVersionForModal) return doc;
+    return {
+      ...doc,
+      currentVersion: selectedVersionForModal.versionLabel,
+      versions: [
+        selectedVersionForModal,
+        ...doc.versions.filter((v) => v.versionLabel !== selectedVersionForModal.versionLabel),
+      ],
+    };
+  }, [doc, selectedVersionForModal]);
+
   const handleExportCsv = () => {
     const metaRows: Record<string, string>[] = [
       {
@@ -136,38 +153,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
   };
 
   const handleExportPdf = () => {
-    const headers = ['Section', 'Attribute / File Name', 'Value / Timestamp', 'Authority / Uploader', 'Status / Size', 'Details'];
-    const metaRows: (string | number)[][] = [
-      [
-        'DOCUMENT SUMMARY',
-        `${doc.title} (${doc.certificateNo})`,
-        `Expiry: ${doc.expiryDate}`,
-        doc.issuingAuthority,
-        doc.verificationStatus,
-        `Type: ${doc.entityType} | OCR: ${doc.ocrConfidence}% | Version: ${doc.currentVersion}`,
-      ],
-    ];
-
-    if (doc.vesselAttributes) {
-      Object.entries(doc.vesselAttributes).forEach(([key, val]) => {
-        metaRows.push(['EXTRACTED ATTRIBUTES', key, String(val), 'OCR System', 'Verified', 'Vessel Attribute']);
-      });
-    } else if (doc.crewAttributes) {
-      Object.entries(doc.crewAttributes).forEach(([key, val]) => {
-        metaRows.push(['EXTRACTED ATTRIBUTES', key, String(val), 'OCR System', 'Verified', 'Crew Attribute']);
-      });
-    }
-
-    const versionRows: (string | number)[][] = doc.versions.map((v) => [
-      'VERSION HISTORY',
-      v.fileName,
-      v.uploadedAt,
-      v.uploadedBy,
-      `${(v.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB`,
-      `Version ${v.versionLabel}: ${v.changeSummary}`,
-    ]);
-
-    exportToPdf(`${doc.title} Complete Detail Report`, headers, [...metaRows, ...versionRows]);
+    exportDocumentAsPdf(doc);
     setIsExportOpen(false);
   };
 
@@ -194,8 +180,23 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
             </span>
           </div>
 
-          {/* Export Data Button */}
-          <div className="dropdown position-relative ms-auto">
+          {/* Actions & Export */}
+          <div className="d-flex align-items-center gap-2 ms-auto">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+              onClick={() => {
+                setSelectedVersionForModal(null);
+                setIsCertModalOpen(true);
+              }}
+              title="Certificate Layout & PDF Review"
+            >
+              <FileText size={15} />
+              <span>Certificate Layout &amp; PDF Review</span>
+            </button>
+
+            {/* Export Data Button */}
+            <div className="dropdown position-relative">
             <button
               type="button"
               className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
@@ -217,6 +218,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 </li>
               </ul>
             )}
+            </div>
           </div>
         </div>
 
@@ -305,20 +307,37 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
       {/* Version History Table */}
       <div className="card map-card-custom">
         <div className="card-header p-3 d-flex align-items-center justify-between fw-bold text-dark">
-          <div>
-            Version History ({doc.versions.length})
+          <div className="d-flex align-items-center gap-2">
+            <span>Version History ({doc.versions.length})</span>
+            <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.725rem' }}>
+              Current: {doc.currentVersion}
+            </span>
           </div>
-          {canUpload && (
+          <div className="d-flex align-items-center gap-2 ms-auto">
             <button
               type="button"
-              className="btn btn-sm btn-primary text-white font-mono-code ms-auto"
-              onClick={() => setIsUploadModalOpen(true)}
-              disabled={Boolean(reuploadBlockReason)}
-              title={reuploadBlockReason}
+              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+              onClick={() => {
+                setSelectedVersionForModal(null);
+                setIsCertModalOpen(true);
+              }}
+              title="Show active certificate in PDF review modal"
             >
-              Upload New Version
+              <FileText size={14} />
+              <span>Certificate Layout &amp; PDF Review</span>
             </button>
-          )}
+            {canUpload && (
+              <button
+                type="button"
+                className="btn btn-sm btn-primary text-white font-mono-code"
+                onClick={() => setIsUploadModalOpen(true)}
+                disabled={Boolean(reuploadBlockReason)}
+                title={reuploadBlockReason}
+              >
+                Upload New Version
+              </button>
+            )}
+          </div>
         </div>
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
@@ -360,26 +379,58 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 >
                   Change Summary {renderSortIndicator(versionSortField, 'changeSummary', versionSortDirection)}
                 </th>
+                <th className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                  Document
+                </th>
               </tr>
             </thead>
             <tbody>
-              {versionsPagination.pageItems.map((ver: DocumentVersion) => (
-                <tr key={ver.versionLabel}>
-                  <td>
-                    <span className="badge bg-info text-dark font-mono-code">{ver.versionLabel}</span>
-                  </td>
-                  <td className="fw-semibold text-primary">{ver.fileName}</td>
-                  <td className="font-mono-code small">{formatMaritimeDate(ver.uploadedAt)}</td>
-                  <td>{ver.uploadedBy}</td>
-                  <td className="font-mono-code small">{Math.round(ver.fileSizeBytes / 1024 / 1024 * 10) / 10} MB</td>
-                  <td className="small text-secondary">{ver.changeSummary}</td>
-                </tr>
-              ))}
+              {versionsPagination.pageItems.map((ver: DocumentVersion) => {
+                const isCurrent = ver.versionLabel === doc.currentVersion;
+                return (
+                  <tr key={ver.versionLabel} className={isCurrent ? 'bg-primary-subtle bg-opacity-10' : ''}>
+                    <td>
+                      <span className={`badge ${isCurrent ? 'bg-primary text-white' : 'bg-info text-dark'} font-mono-code`}>
+                        {ver.versionLabel} {isCurrent ? '· Current' : ''}
+                      </span>
+                    </td>
+                    <td className="fw-semibold text-primary">{ver.fileName}</td>
+                    <td className="font-mono-code small">{formatMaritimeDate(ver.uploadedAt)}</td>
+                    <td>{ver.uploadedBy}</td>
+                    <td className="font-mono-code small">{Math.round(ver.fileSizeBytes / 1024 / 1024 * 10) / 10} MB</td>
+                    <td className="small text-secondary">{ver.changeSummary}</td>
+                    <td className="text-end">
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 font-mono-code"
+                        onClick={() => {
+                          setSelectedVersionForModal(ver);
+                          setIsCertModalOpen(true);
+                        }}
+                        title={`Show document of version ${ver.versionLabel}`}
+                      >
+                        <FileText size={13} />
+                        <span>Show Document</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
         <TablePagination {...versionsPagination.controls} />
       </div>
+
+      {/* Certificate Layout & PDF Review Modal */}
+      <UniversalDocumentPreviewModal
+        isOpen={isCertModalOpen}
+        document={activeModalDoc}
+        onClose={() => setIsCertModalOpen(false)}
+        versionLabel={selectedVersionForModal?.versionLabel}
+        uploadedAt={selectedVersionForModal?.uploadedAt}
+        uploadedBy={selectedVersionForModal?.uploadedBy}
+      />
 
       {/* Upload New Version Modal */}
       <DocumentUploadModal

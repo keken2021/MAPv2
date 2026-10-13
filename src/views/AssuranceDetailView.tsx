@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, FolderOpen, FileCheck, RefreshCw, Upload } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, FolderOpen, FileCheck, FileText, RefreshCw, Upload } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -1055,10 +1055,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                               className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                               style={{ width: '32px', height: '32px' }}
                               onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
-                              title="Review"
-                              aria-label="Review"
+                              title="PDF Review"
+                              aria-label="PDF Review"
                             >
-                              <FileCheck size={16} />
+                              <FileText size={16} />
                             </button>
                             {canUpload && (
                               <button
@@ -1139,10 +1139,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                 style={{ width: '32px', height: '32px' }}
                                 onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
-                                title="Review"
-                                aria-label="Review"
+                                title="PDF Review"
+                                aria-label="PDF Review"
                               >
-                                <FileCheck size={16} />
+                                <FileText size={16} />
                               </button>
                               {canUpload && (
                                 <button

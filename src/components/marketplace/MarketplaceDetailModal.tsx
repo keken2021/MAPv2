@@ -21,7 +21,11 @@ import {
   ExternalLink,
   Download,
   Camera,
+  FileText,
 } from 'lucide-react';
+import { useMapStore } from '../../store/useMapStore';
+import { MasterDocument } from '../../types/document';
+import { UniversalDocumentPreviewModal } from '../modals/UniversalDocumentPreviewModal';
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 import { exportToPdf } from '../../utils/exportHelpers';
@@ -47,9 +51,11 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
   onCharter,
   charterDisabledReason,
 }) => {
+  const { documents } = useMapStore();
   const [activeTab, setActiveTab] = useState<'specs' | 'capabilities' | 'compliance' | 'provider'>('specs');
   const [inquirySent, setInquirySent] = useState(false);
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string>('');
+  const [previewCertDoc, setPreviewCertDoc] = useState<MasterDocument | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -640,18 +646,75 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                             {cert}
                           </span>
                         </div>
-                        <span
-                          className="badge rounded-pill px-3 py-1.5 flex-shrink-0"
-                          style={{
-                            backgroundColor: '#DCFCE7',
-                            color: '#15803D',
-                            border: '1px solid #BBF7D0',
-                            fontSize: '0.78rem',
-                            fontWeight: 600,
-                          }}
-                        >
-                          Verified
-                        </span>
+                        <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1 py-1 px-2.5"
+                            style={{ fontSize: '0.75rem' }}
+                            onClick={() => {
+                              const matchingDoc: MasterDocument = documents.find(
+                                (d) => d.title.toLowerCase().includes(cert.toLowerCase()) || cert.toLowerCase().includes(d.title.toLowerCase())
+                              ) || {
+                                id: `MAP-MKT-CERT-${i + 1}`,
+                                title: cert,
+                                entityType: 'Vessel Certificate',
+                                vesselId: item.id,
+                                certificateNo: `STAT-CERT-2026-00${i + 1}`,
+                                issuingAuthority: 'Recognized Classification Society',
+                                expiryDate: '2028-12-31',
+                                ocrConfidence: 99,
+                                complianceState: 'Valid',
+                                currentVersion: 'v1.0',
+                                versions: [{
+                                  versionLabel: 'v1.0',
+                                  uploadedAt: new Date().toISOString(),
+                                  uploadedBy: item.providerOrg,
+                                  fileSizeBytes: 2450000,
+                                  fileName: `${cert.toLowerCase().replace(/\s+/g, '_')}.pdf`,
+                                  changeSummary: 'Verified statutory marketplace record.'
+                                }],
+                                vesselAttributes: {
+                                  title: cert,
+                                  certificateNumber: `STAT-CERT-2026-00${i + 1}`,
+                                  certType: cert,
+                                  issuingBody: 'Recognized Classification Society',
+                                  issueDate: '2024-01-15',
+                                  expiryDate: '2028-12-31',
+                                  vesselName: item.name,
+                                  imoNumber: '9123456',
+                                  flagState: 'Australia',
+                                  assetMatchFlag: true,
+                                  lastSurveyDate: '2025-06-01',
+                                  ocrConfidence: 99,
+                                  status: 'Valid',
+                                },
+                                validationRules: {
+                                  charterBufferPassed: true,
+                                  assetMatch100Percent: true,
+                                  iacsAuthorityValid: true,
+                                  overallValid: true,
+                                },
+                                verificationStatus: 'Verified',
+                              };
+                              setPreviewCertDoc(matchingDoc);
+                            }}
+                          >
+                            <FileText size={13} />
+                            <span>View PDF</span>
+                          </button>
+                          <span
+                            className="badge rounded-pill px-3 py-1.5"
+                            style={{
+                              backgroundColor: '#DCFCE7',
+                              color: '#15803D',
+                              border: '1px solid #BBF7D0',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                            }}
+                          >
+                            Verified
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -854,6 +917,15 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Universal PDF Review Modal for Marketplace Certification */}
+      <UniversalDocumentPreviewModal
+        isOpen={Boolean(previewCertDoc)}
+        document={previewCertDoc}
+        onClose={() => setPreviewCertDoc(null)}
+        title={previewCertDoc ? `Official Certificate PDF — ${previewCertDoc.title}` : undefined}
+        subtitle={item ? `${item.name} · ${item.providerOrg}` : undefined}
+      />
     </div>
   );
 };

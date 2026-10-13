@@ -4,7 +4,7 @@
 > Paths are relative to the project root unless they start with `~` or a drive letter.
 > NEVER put secret values here, only where they are configured.
 
-Last verified: 2026-10-12 (Document Renewal notifications, one asset per set and provider terms added: plan, ADR 0004, glossary, 3 new source files; before that: `docs/` sorted into folders and 13 implemented records removed; colleague setup docs split into connection and comments-uploads sets; the rest as verified on 2026-10-10: docs, glossary, ADR, Marketplace and Vessels entries, Task list .docx files, board-comment skill)
+Last verified: 2026-10-13 (`task-branch` Task notes added: `note` command, `--notes` argument, `.task-notes/` in the MAP-1 clone; same day, `task-branch` skill added: skill folder, ADR 0006, plan record, Skill Spec, MAP-1 clone entries; before that, 2026-10-12: Document Renewal notifications, one asset per set and provider terms added: plan, ADR 0004, glossary, 3 new source files; before that: `docs/` sorted into folders and 13 implemented records removed; colleague setup docs split into connection and comments-uploads sets; the rest as verified on 2026-10-10: docs, glossary, ADR, Marketplace and Vessels entries, Task list .docx files, board-comment skill)
 Root: `C:\mapFiles\MAPv2`
 
 ## Start here
@@ -83,8 +83,9 @@ Root: `C:\mapFiles\MAPv2`
 ## Docs (`docs/` is gitignored, so these are local only)
 - The `docs/` root holds only `GLOSSARY.md` and folders. Do not save a file at the root. Layout set on 2026-10-12; record: `docs/plans/docs-declutter.md`
 - `docs/GLOSSARY.md` : domain terms (Administrator, Client, Vessel Provider, Crew Provider, Equipment Provider, Asset, Assurance Set, Document Renewal, Readiness and others; "Service Provider" is retired). Read it before wording a Task or a doc. It lives here, not at the repo root
-- `docs/adr/` : decision records, numbered `0001-...`. 0001 is the Task list layout, 0002 is the one Administrator role, 0003 limits board writes to discussion comments, 0004 is one asset per Assurance Set and the provider terms by asset type
+- `docs/adr/` : decision records, numbered `0001-...`. 0001 is the Task list layout, 0002 is the one Administrator role, 0003 limits board writes to discussion comments, 0004 is one asset per Assurance Set and the provider terms by asset type, 0005 is one Task for list controls and a Testing entry in each Task, 0006 lets the `task-branch` skill write a Task state and its Branch link (amends 0003)
 - `docs/plans/` : plans and audits of work not yet done. New plans go here
+- `docs/plans/assurance-sets-tasks-flow-plan.md`, `.docx` : Tasks execution flow plan, 6 hrs/day daily schedule (12 days), and task-branch planning for the 43 Tasks assigned to Creishen Ayuman under Feature 4583; starts at Task 4655
 - `docs/plans/document-renewal-and-one-asset-sets.md`, `.docx` : Document Renewal notification category, provider terms by asset type, one asset per set. Built on 2026-10-12, not committed; move to `docs/changes/` once merged. Rebuild the `.docx` with `docs/plans/document-renewal-and-one-asset-sets.build.py` (needs python-docx, which no installed Python has: use a venv; arguments: `docs/azure-boards/board-comment-skill-spec.docx` as style base, then the output path)
 - `docs/plans/asset-detail-uniform-layout.md` : shared layout for the vessel, crew and equipment detail screens. Not built (was `docs/plan.md`)
 - `docs/plans/australian-maritime-regulatory-gap-analysis.md` : AMSA, DAFF and research fields missing from the modals. Not built
@@ -99,12 +100,14 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/work-items/assurance-sets-ui-tasks.md`, `.csv`, `.docx` : 43 Tasks for User Stories 4617 to 4621 under Feature 4583 (3 remove the prototype switchers), with flags and import steps
 - `docs/work-items/marketplace-ui-tasks.md`, `.csv`, `.docx` : 33 Tasks for User Stories 4612 to 4616 under Feature 4582, with flags and import steps
 - `docs/work-items/vessels-ui-tasks.md`, `.csv`, `.docx` : 44 Tasks for User Stories 4597 to 4601 under Feature 4579 (3 remove the prototype switchers, the same 3 as in the other two files), with flags and import steps
-- `docs/azure-boards/` : everything for the Azure Boards connection and the `board-comment` skill (9 files)
+- `docs/azure-boards/` : everything for the Azure Boards connection and the `board-comment` and `task-branch` skills (12 files)
+- `docs/azure-boards/task-branch-skill.md` : plan and build record of the `task-branch` skill and of its Task notes (decisions 1 to 20, files, what is tested and what is not)
+- `docs/azure-boards/task-branch-skill-spec.docx` : Skill Spec for `task-branch`. Rebuild with `docs/azure-boards/task-branch-skill-spec.build.py` (needs python-docx in a venv; arguments: `docs/azure-boards/board-comment-skill-spec.docx` as style base, then the output path)
 - `docs/azure-boards/board-comment-skill.md` : plan and build record of the `board-comment` skill
 - `docs/azure-boards/board-comment-skill-spec.docx` : Skill Spec for `board-comment` in the documentation-docx house style. "Created by" on Word documents is Creishen
 - Colleague setup, set 1 (connection, read-only): `docs/azure-boards/azure-boards-connection-setup-guide.docx` (Word guide the person follows) and `docs/azure-boards/azure-boards-connection-runbook.md` (runbook their Claude Code runs: prerequisites, `sprint` skill, `azure-devops` MCP server, 8 deny rules, sign-in, checks)
 - Colleague setup, set 2 (comments and screenshot uploads; needs set 1): `docs/azure-boards/azure-boards-comments-uploads-setup-guide.docx` and `docs/azure-boards/azure-boards-comments-uploads-runbook.md` (`board-comment` skill, 2 write tools opened, screenshot check, optional token)
-- `docs/azure-boards/azure-boards-skills.zip` : the `sprint` and `board-comment` skill folders without `node_modules`. Send it with either set. Rebuild it when a skill file changes
+- `docs/azure-boards/azure-boards-skills.zip` : the `sprint`, `board-comment` and `task-branch` skill folders without `node_modules`. Send it with either set. Rebuild it when a skill file changes
 - `docs/azure-boards/azure-boards-setup-docs.md` : plan and build record of both sets. Rebuild a guide with `docs/azure-boards/azure-boards-setup-guides.build.py` (needs python-docx; arguments: `docs/azure-boards/board-comment-skill-spec.docx` as style base, `connection` or `comments-uploads`, then the output path)
 - Old names, gone since 2026-10-12: `azure-devops-mcp-colleague-setup.md`, `azure-boards-colleague-setup-guide.*`, `azure-boards-claude-code-integration.md`
 - Removed on 2026-10-12 (implemented; in the Recycle Bin until it is emptied): the change records for the organization switcher, table pagination, client dashboard columns, review channel, multi-scope filter, UI terminology, master-set purge, and the two skill and mock data audits
@@ -122,13 +125,19 @@ Root: `C:\mapFiles\MAPv2`
 - `tsconfig.json`, `vite.config.ts`, `postcss.config.js` : build config
 - `.gitignore` : ignores `docs/`, `dist/`, `node_modules/` and `.env*`
 - `.claude/settings.local.json` : local Claude Code permissions. Allows the Azure Boards comment tool, denies the other 6 write tools (ADR 0003)
+- `~/.gemini/config/mcp_config.json` : Antigravity global MCP server configuration (includes `azure-devops` for AIUN)
 
 ## Credentials & tokens (locations only, never values)
-- Azure DevOps (AIUN) : no token in the repo. The `azure-devops` MCP server signs in through the browser with the Entra work account. Setup: `docs/azure-boards/azure-boards-connection-runbook.md`
+- Azure DevOps (AIUN) : no token in the repo. The `azure-devops` MCP server signs in through the browser with the Entra work account. Registered at local scope for MAPv2 and for `C:\mapFiles\MAP-1`, both drive-letter spellings each. Setup: `docs/azure-boards/azure-boards-connection-runbook.md`
 - `AZURE_DEVOPS_PAT` : user environment variable (set with `setx`, not in any file) : create and revoke at https://dev.azure.com/AIUN/_usersSettings/tokens, scope Work Items: Read & write : used only by `~/.claude/skills/board-comment/scripts/upload.mjs`. Setup: `docs/azure-boards/azure-boards-comments-uploads-runbook.md`, step 10
+- `ADO_MCP_AUTH_TOKEN` / `PERSONAL_ACCESS_TOKEN` : user environment variables (set with `setx`, not in any file) : optional PAT variables for `@azure-devops/mcp` non-interactive token authentication
 - `.env`, `.env.local` : gitignored. None exists in the repo today.
 
 ## Outside the repo
+- `C:\mapFiles\MAP-1` : clone of the MAP repository on Azure Repos (`https://dev.azure.com/AIUN/MAP/_git/MAP`; default branch `master`, development branch `development`). The team build happens here; MAPv2 is the prototype. Its `CLAUDE.local.md` (Azure Boards section) and `.claude/settings.local.json` (board permissions, ADR 0006) are personal and not committed
+- `~/.claude/skills/task-branch/SKILL.md` : skill that starts, records and closes a Task from git (`/task-branch start <task id> [bugfix] [dry]`, `/task-branch note [task id] [dry]`, `/task-branch done [task id] [dry]`). Runs in the MAP-1 clone only
+- `~/.claude/skills/task-branch/scripts/branch-name.mjs` : builds `feature/<user story id>-<task name>`, and with `--notes <task id>` the notes folder name; test with `node --test branch-name.test.mjs` in that folder
+- `C:\mapFiles\MAP-1\.task-notes\<task id>-<task name>\` : Task notes of one Task, `changes.md` (what it changed) and `next-steps.md` (how to continue). Written by `task-branch`; ignored through `C:\mapFiles\MAP-1\.git\info\exclude`, never committed. Read `next-steps.md` before continuing a Task. None exists until the first live `start` or `note`
 - `C:\mapFiles\MAP` : sibling app with the same package name and layout
 - `C:\mapFiles\CoreUI` : CoreUI PRO React admin template (TypeScript)
 - `~/.claude/skills/board-comment/SKILL.md` : skill that posts branch changes to a work item discussion (`/board-comment [id]`, `/board-comment pr [number] [id]`, `dry` posts nothing)
