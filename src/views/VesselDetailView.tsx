@@ -4500,14 +4500,17 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             extraAction={
               <button
                 type="button"
-                className="btn btn-sm btn-primary fw-semibold"
+                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                style={{ width: '32px', height: '32px' }}
+                title="View Document"
+                aria-label="View Document"
                 onClick={() => {
                   const docId = selectedVaultCertForModal.docId || selectedVaultCertForModal.id;
                   setSelectedVaultCertForModal(null);
                   setCurrentHashView('documents', docId);
                 }}
               >
-                <span>View Document</span>
+                <Eye size={16} />
               </button>
             }
           />

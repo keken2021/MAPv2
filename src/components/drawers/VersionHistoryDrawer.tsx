@@ -169,15 +169,16 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
                 </span>
                 <button
                   type="button"
-                  className="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1 py-0.5 px-2 font-mono-code"
+                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                  style={{ width: '26px', height: '26px' }}
                   onClick={() => {
                     setSelectedVersionForModal(ver);
                     setIsCertModalOpen(true);
                   }}
-                  title={`Show document of version ${ver.versionLabel}`}
+                  title={`Show document (${ver.versionLabel})`}
+                  aria-label={`Show document (${ver.versionLabel})`}
                 >
-                  <FileText size={12} />
-                  <span>Show Document</span>
+                  <FileText size={13} />
                 </button>
               </div>
             </div>

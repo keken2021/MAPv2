@@ -5,7 +5,7 @@
 */
 
 import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Eye, FileText } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye, FileText, ExternalLink } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, ComplianceState } from '../../types/document';
 import { ConfidenceBadge } from '../common/ConfidenceBadge';
@@ -398,14 +398,17 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
         extraAction={
           <button
             type="button"
-            className="btn btn-sm btn-primary"
+            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+            style={{ width: '32px', height: '32px' }}
+            title="Open Full Detail View"
+            aria-label="Open Full Detail View"
             onClick={() => {
               const target = pdfPreviewDoc;
               setPdfPreviewDoc(null);
               if (target) onSelectDocument(target);
             }}
           >
-            Open Full Detail View
+            <ExternalLink size={16} />
           </button>
         }
       />

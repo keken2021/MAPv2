@@ -89,14 +89,16 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
         canManage ? (
           <button
             type="button"
-            className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5"
+            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+            style={{ width: '32px', height: '32px' }}
+            title="Upload New Version"
+            aria-label="Upload New Version"
             onClick={() => {
               onClose();
               onOpenReupload(document);
             }}
           >
-            <Upload size={14} />
-            <span>Upload New Version</span>
+            <Upload size={16} />
           </button>
         ) : undefined
       }

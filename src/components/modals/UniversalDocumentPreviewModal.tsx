@@ -6,10 +6,9 @@
 
 import React, { useEffect } from 'react';
 import { MasterDocument } from '../../types/document';
-import { exportDocumentAsPdf } from '../../utils/documentTemplateHelpers';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
-import { FileText, Printer, X } from 'lucide-react';
+import { FileText, X } from 'lucide-react';
 
 export interface UniversalDocumentPreviewModalProps {
   isOpen: boolean;
@@ -98,15 +97,6 @@ export const UniversalDocumentPreviewModal: React.FC<UniversalDocumentPreviewMod
             </div>
 
             <div className="d-flex align-items-center gap-2 flex-shrink-0">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1.5 py-1 px-2.5 font-mono-code"
-                onClick={() => exportDocumentAsPdf(document)}
-                title="Print or Save PDF"
-              >
-                <Printer size={14} />
-                <span>Print / Save PDF</span>
-              </button>
               <button
                 type="button"
                 className="btn btn-sm text-white p-2 border-0 bg-transparent opacity-75 hover-opacity-100"

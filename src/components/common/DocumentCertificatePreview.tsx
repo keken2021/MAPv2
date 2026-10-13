@@ -248,12 +248,12 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
             </button>
             <button
               type="button"
-              className="btn btn-xs btn-outline-primary ms-1 d-inline-flex align-items-center gap-1 py-1 px-2"
+              className="btn btn-sm btn-link text-secondary p-1"
               onClick={handlePrint}
-              title="Print / Save PDF"
+              title="Print or Save PDF"
+              aria-label="Print or Save PDF"
             >
-              <Printer size={13} />
-              <span style={{ fontSize: '0.72rem' }}>Print PDF</span>
+              <Printer size={15} />
             </button>
           </div>
         </div>
@@ -290,15 +290,6 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
                   </div>
                 </div>
                 <div className="d-flex align-items-center gap-2 flex-shrink-0">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1.5 py-1 px-2.5 font-mono-code"
-                    onClick={handlePrint}
-                    title="Print or Save PDF"
-                  >
-                    <Printer size={14} />
-                    <span className="d-none d-sm-inline">Print / Save PDF</span>
-                  </button>
                   <button
                     type="button"
                     className="btn btn-sm text-white p-2 border-0 bg-transparent opacity-75 hover-opacity-100"

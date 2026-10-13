@@ -184,15 +184,16 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
           <div className="d-flex align-items-center gap-2 ms-auto">
             <button
               type="button"
-              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+              style={{ width: '32px', height: '32px' }}
               onClick={() => {
                 setSelectedVersionForModal(null);
                 setIsCertModalOpen(true);
               }}
               title="Certificate Layout & PDF Review"
+              aria-label="Certificate Layout & PDF Review"
             >
-              <FileText size={15} />
-              <span>Certificate Layout &amp; PDF Review</span>
+              <FileText size={16} />
             </button>
 
             {/* Export Data Button */}
@@ -402,15 +403,16 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                     <td className="text-end">
                       <button
                         type="button"
-                        className="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 font-mono-code"
+                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                        style={{ width: '28px', height: '28px' }}
                         onClick={() => {
                           setSelectedVersionForModal(ver);
                           setIsCertModalOpen(true);
                         }}
-                        title={`Show document of version ${ver.versionLabel}`}
+                        title={`Show document (${ver.versionLabel})`}
+                        aria-label={`Show document (${ver.versionLabel})`}
                       >
-                        <FileText size={13} />
-                        <span>Show Document</span>
+                        <FileText size={14} />
                       </button>
                     </td>
                   </tr>

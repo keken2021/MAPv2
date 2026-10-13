@@ -397,11 +397,13 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
               </span>
               <button
                 type="button"
-                className="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1"
+                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                style={{ width: '28px', height: '28px' }}
                 onClick={() => setShowCertModal(true)}
+                title="Fullscreen PDF"
+                aria-label="Fullscreen PDF"
               >
-                <Eye className="w-3 h-3" />
-                <span>Fullscreen PDF</span>
+                <Eye size={14} />
               </button>
             </div>
             <div className="card-body p-3">
