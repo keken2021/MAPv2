@@ -73,7 +73,7 @@ import {
 } from 'lucide-react';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
-import { DocumentCertificatePreview } from '../components/common/DocumentCertificatePreview';
+import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
 import { MasterDocument } from '../types/document';
 
 
@@ -4437,202 +4437,82 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         </div>
       )}
 
-      {/* Comprehensive Document Data Inspector Modal */}
-      {selectedVaultCertForModal && (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1060 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedVaultCertForModal(null);
-          }}
-        >
-          <div className="modal-dialog modal-xl modal-dialog-centered">
-            <div className="modal-content bg-white text-dark border shadow-lg">
-              {/* Header */}
-              <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                <div className="min-w-0 pe-2">
-                  <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
-                    <span className="map-ocr-badge">{selectedVaultCertForModal.ocr}</span>
-                    <span className="badge bg-primary text-white font-mono-code">{selectedVaultCertForModal.docId || selectedVaultCertForModal.id}</span>
-                  </div>
-                  <h5 className="modal-title fw-bold text-dark m-0 text-truncate" title={selectedVaultCertForModal.name}>
-                    {selectedVaultCertForModal.name}
-                  </h5>
-                  <div className="text-secondary small mt-0.5 font-mono-code">
-                    Certificate No.: <span className="fw-semibold text-dark">{selectedVaultCertForModal.number}</span> · Asset: <span className="fw-semibold text-dark">{vessel.name} (IMO {vessel.imoNumber})</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-close flex-shrink-0"
-                  onClick={() => setSelectedVaultCertForModal(null)}
-                  aria-label="Close"
-                />
-              </div>
+      {/* Universal Document Preview Modal for Statutory Vessel Certificates */}
+      {selectedVaultCertForModal && (() => {
+        const matchingDoc: MasterDocument = documents.find(
+          (d) =>
+            d.certificateNo === selectedVaultCertForModal.number ||
+            d.id === selectedVaultCertForModal.id ||
+            d.title.toLowerCase().includes(selectedVaultCertForModal.name.toLowerCase())
+        ) || {
+          id: selectedVaultCertForModal.id,
+          title: selectedVaultCertForModal.name,
+          entityType: 'Vessel Certificate',
+          vesselId: vessel.id,
+          certificateNo: selectedVaultCertForModal.number,
+          issuingAuthority: selectedVaultCertForModal.issuingBody,
+          expiryDate: selectedVaultCertForModal.expiryDate,
+          ocrConfidence: 98,
+          complianceState: 'Valid',
+          currentVersion: selectedVaultCertForModal.version || 'v1.0',
+          versions: [{
+            versionLabel: selectedVaultCertForModal.version || 'v1.0',
+            uploadedAt: selectedVaultCertForModal.uploadedAt || new Date().toISOString(),
+            uploadedBy: selectedVaultCertForModal.uploadedBy || 'Provider Admin',
+            fileSizeBytes: 2450000,
+            fileName: selectedVaultCertForModal.fileName || `${selectedVaultCertForModal.name.toLowerCase().replace(/\s+/g, '_')}.pdf`,
+            changeSummary: 'Statutory certificate uploaded.'
+          }],
+          vesselAttributes: {
+            title: selectedVaultCertForModal.name,
+            certificateNumber: selectedVaultCertForModal.number,
+            certType: selectedVaultCertForModal.name,
+            issuingBody: selectedVaultCertForModal.issuingBody,
+            issueDate: selectedVaultCertForModal.issueDate || '2024-01-15',
+            expiryDate: selectedVaultCertForModal.expiryDate,
+            vesselName: vessel.name,
+            imoNumber: vessel.imoNumber,
+            flagState: vessel.flagState,
+            assetMatchFlag: true,
+            lastSurveyDate: '2025-06-01',
+            ocrConfidence: 98,
+            status: 'Valid',
+          },
+          validationRules: {
+            charterBufferPassed: true,
+            assetMatch100Percent: true,
+            iacsAuthorityValid: true,
+            overallValid: true,
+          },
+          verificationStatus: 'Verified',
+        };
 
-              {/* Modal Body: Complete Document Data */}
-              <div className="modal-body p-4 overflow-y-auto" style={{ maxHeight: '72vh' }}>
-                {/* 1. Core Summary Cards */}
-                <div className="row g-3 mb-4">
-                  <div className="col-12 col-md-3">
-                    <div className="p-3 bg-light border rounded h-100">
-                      <span className="text-secondary small text-uppercase fw-semibold d-block">Issuing Authority</span>
-                      <strong className="text-dark d-block mt-1">{selectedVaultCertForModal.issuingBody}</strong>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-3">
-                    <div className="p-3 bg-light border rounded h-100">
-                      <span className="text-secondary small text-uppercase fw-semibold d-block">Expiry Date</span>
-                      <strong className="font-mono-code text-dark d-block mt-1">
-                        {formatMaritimeDate(selectedVaultCertForModal.expiryDate)}
-                      </strong>
-                      <span className={`badge ${selectedVaultCertForModal.status === 'EXPIRED' ? 'bg-danger' : selectedVaultCertForModal.status.includes('Expiring') ? 'bg-warning text-dark' : 'bg-success'} text-white mt-1 font-mono-code`} style={{ fontSize: '0.72rem' }}>
-                        {selectedVaultCertForModal.status}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-3">
-                    <div className="p-3 bg-light border rounded h-100">
-                      <span className="text-secondary small text-uppercase fw-semibold d-block">File</span>
-                      <strong className="text-dark font-mono-code d-block mt-1 text-truncate" title={selectedVaultCertForModal.fileName}>
-                        {selectedVaultCertForModal.fileName}
-                      </strong>
-                      <span className="text-muted small font-mono-code" style={{ fontSize: '0.72rem' }}>
-                        {selectedVaultCertForModal.version} · {selectedVaultCertForModal.fileSize}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-3">
-                    <div className="p-3 bg-light border rounded h-100">
-                      <span className="text-secondary small text-uppercase fw-semibold d-block">Uploaded By</span>
-                      <strong className="text-dark d-block mt-1 text-truncate">{selectedVaultCertForModal.uploadedBy}</strong>
-                      <span className="text-muted small font-mono-code" style={{ fontSize: '0.72rem' }}>
-                        {formatMaritimeDate(selectedVaultCertForModal.uploadedAt)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Official PDF Document Certificate Preview (PDF Form) */}
-                <div className="mb-4">
-                  {(() => {
-                    const matchingDoc: MasterDocument = documents.find(
-                      (d) =>
-                        d.certificateNo === selectedVaultCertForModal.number ||
-                        d.id === selectedVaultCertForModal.id ||
-                        d.title.toLowerCase().includes(selectedVaultCertForModal.name.toLowerCase())
-                    ) || {
-                      id: selectedVaultCertForModal.id,
-                      title: selectedVaultCertForModal.name,
-                      entityType: 'Vessel Certificate',
-                      vesselId: vessel.id,
-                      certificateNo: selectedVaultCertForModal.number,
-                      issuingAuthority: selectedVaultCertForModal.issuingBody,
-                      expiryDate: selectedVaultCertForModal.expiryDate,
-                      ocrConfidence: 98,
-                      complianceState: 'Valid',
-                      currentVersion: selectedVaultCertForModal.version || 'v1.0',
-                      versions: [{
-                        versionLabel: selectedVaultCertForModal.version || 'v1.0',
-                        uploadedAt: selectedVaultCertForModal.uploadedAt || new Date().toISOString(),
-                        uploadedBy: selectedVaultCertForModal.uploadedBy || 'Provider Admin',
-                        fileSizeBytes: 2450000,
-                        fileName: selectedVaultCertForModal.fileName || `${selectedVaultCertForModal.name.toLowerCase().replace(/\s+/g, '_')}.pdf`,
-                        changeSummary: 'Statutory certificate uploaded.'
-                      }],
-                      vesselAttributes: {
-                        title: selectedVaultCertForModal.name,
-                        certificateNumber: selectedVaultCertForModal.number,
-                        certType: selectedVaultCertForModal.name,
-                        issuingBody: selectedVaultCertForModal.issuingBody,
-                        issueDate: selectedVaultCertForModal.issueDate || '2024-01-15',
-                        expiryDate: selectedVaultCertForModal.expiryDate,
-                        vesselName: vessel.name,
-                        imoNumber: vessel.imoNumber,
-                        flagState: vessel.flagState,
-                        assetMatchFlag: true,
-                        lastSurveyDate: '2025-06-01',
-                        ocrConfidence: 98,
-                        status: 'Valid',
-                      },
-                      validationRules: {
-                        charterBufferPassed: true,
-                        assetMatch100Percent: true,
-                        iacsAuthorityValid: true,
-                        overallValid: true,
-                      },
-                      verificationStatus: 'Verified',
-                    };
-
-                    return (
-                      <div className="p-3 bg-slate-50 border rounded-3 d-flex justify-content-center">
-                        <DocumentCertificatePreview document={matchingDoc} compact={false} />
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* 3. Automated Validation & Rules Verification */}
-                <div className="mb-4">
-                  <h6 className="fw-bold text-dark mb-2">Validation Checks</h6>
-                  <div className="row g-2">
-                    <div className="col-12 col-md-4">
-                      <div className="p-2.5 bg-light border rounded d-flex align-items-center justify-content-between">
-                        <div className="small">
-                          <strong className="text-dark d-block">Expiry Buffer</strong>
-                          <span className="text-muted" style={{ fontSize: '0.72rem' }}>At least 30 days before expiry</span>
-                        </div>
-                        <span className="badge bg-success text-white font-mono-code">PASSED</span>
-                      </div>
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <div className="p-2.5 bg-light border rounded d-flex align-items-center justify-content-between">
-                        <div className="small">
-                          <strong className="text-dark d-block">Vessel Match</strong>
-                          <span className="text-muted" style={{ fontSize: '0.72rem' }}>IMO number and name match</span>
-                        </div>
-                        <span className="badge bg-success text-white font-mono-code">VERIFIED</span>
-                      </div>
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <div className="p-2.5 bg-light border rounded d-flex align-items-center justify-content-between">
-                        <div className="small">
-                          <strong className="text-dark d-block">Issuing Authority</strong>
-                          <span className="text-muted" style={{ fontSize: '0.72rem' }}>Recognized Organization</span>
-                        </div>
-                        <span className="badge bg-success text-white font-mono-code">AUTHENTIC</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="modal-footer border-top bg-light d-flex justify-content-between">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setSelectedVaultCertForModal(null)}
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary fw-semibold d-flex align-items-center gap-1.5"
-                  onClick={() => {
-                    const docId = selectedVaultCertForModal.docId || selectedVaultCertForModal.id;
-                    setSelectedVaultCertForModal(null);
-                    setCurrentHashView('documents', docId);
-                  }}
-                >
-                  <span>View Document</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        return (
+          <UniversalDocumentPreviewModal
+            isOpen={Boolean(selectedVaultCertForModal)}
+            document={matchingDoc}
+            onClose={() => setSelectedVaultCertForModal(null)}
+            title="Certificate Layout & PDF Review"
+            subtitle={`${selectedVaultCertForModal.name} · Version ${selectedVaultCertForModal.version || 'v1.0'} (${selectedVaultCertForModal.number})`}
+            versionLabel={selectedVaultCertForModal.version || 'v1.0'}
+            uploadedAt={selectedVaultCertForModal.uploadedAt}
+            uploadedBy={selectedVaultCertForModal.uploadedBy}
+            extraAction={
+              <button
+                type="button"
+                className="btn btn-sm btn-primary fw-semibold"
+                onClick={() => {
+                  const docId = selectedVaultCertForModal.docId || selectedVaultCertForModal.id;
+                  setSelectedVaultCertForModal(null);
+                  setCurrentHashView('documents', docId);
+                }}
+              >
+                <span>View Document</span>
+              </button>
+            }
+          />
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* Vessel Profile Image Manager Modal (Add, Update, or Delete Photo) */}
