@@ -4,6 +4,7 @@ import {
   getAssuranceAssignmentWarnings,
   getEligibleVerifiers,
   getOperationalRoleOptions,
+  getRoleDisplayLabel,
   getSegregationWarnings,
   hasBlockingAssuranceAssignmentConflict,
   splitRolesForForm,
@@ -13,6 +14,11 @@ import {
 import { MOCK_USERS } from '../store/mockData';
 
 describe('userRoleHelpers', () => {
+  it('labels the Administrator persona as Administrator', () => {
+    expect(getRoleDisplayLabel('Administrator')).toBe('Administrator');
+    expect(getRoleDisplayLabel('C Admin')).toBe('Client Admin');
+  });
+
   it('should split and rebuild multi-role form state', () => {
     const split = splitRolesForForm(['Administrator', 'Submitter', 'Verifier']);
     expect(split.isPlatformAdmin).toBe(true);

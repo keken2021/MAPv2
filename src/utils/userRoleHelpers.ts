@@ -19,7 +19,7 @@ export const OPERATIONAL_ROLE_OPTIONS: { role: UserRolePersona; label: string }[
 
 /* on-screen names for stored role values; stored values are never renamed */
 export const ROLE_DISPLAY_LABELS: Record<string, string> = {
-  Administrator: 'Provider',
+  Administrator: 'Administrator',
   'C Admin': 'Client Admin',
   'C Admin · Client Created': 'Client Admin',
   'Vessel Provider': 'Provider',
