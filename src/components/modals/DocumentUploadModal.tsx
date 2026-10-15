@@ -85,6 +85,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
   const [uploadOption, setUploadOption] = useState<'new_file' | 'unassigned_doc'>('new_file');
   const [selectedUnassignedDocId, setSelectedUnassignedDocId] = useState<string>('');
+  /* kept with the other hooks: this state used to sit after the closed-modal return and crashed the page when the modal opened */
+  const [leftPaneMode, setLeftPaneMode] = useState<'pdf' | 'attributes'>('pdf');
 
   /* filter unassigned master documents available in library to link to requirement */
   const unassignedDocuments = documents.filter((doc) => {
@@ -125,7 +127,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setCertificateNo(found.certificateNo);
       setIssuingAuthority(found.issuingAuthority);
       setExpiryDate(found.expiryDate);
-      setFileName(found.versions[0]?.fileName || `${found.title}.pdf`);
+      setFileName(found.versions?.[0]?.fileName || `${found.title}.pdf`);
       setIsAiExtracted(true);
       setIsNewExtractionAnimate(true);
       setAiOcrConfidence(found.ocrConfidence || 99.2);
@@ -149,7 +151,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         setIssuingAuthority(existingDocument.issuingAuthority);
         setExpiryDate(existingDocument.expiryDate);
         setFileName(
-          existingDocument.versions[0]?.fileName ||
+          existingDocument.versions?.[0]?.fileName ||
           `${existingDocument.title.replace(/\s+/g, '_')}_Rev.pdf`
         );
         setChangeSummary('New version uploaded by submitter.');
@@ -414,8 +416,6 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }, 1500);
   };
 
-  const [leftPaneMode, setLeftPaneMode] = useState<'pdf' | 'attributes'>('pdf');
-
   /* extraction review is rendered only after ai ocr scan animation is completed */
   const hasExtractedSpecs = Boolean(isAiExtracted || (existingDocument && fileName));
 
@@ -547,7 +547,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                               {title || existingDocument?.title || 'International Oil Pollution Prevention (IOPP)'}
                             </h5>
                             <div className="font-mono-code text-muted small" style={{ fontSize: '0.75rem' }}>
-                              {(fileName || existingDocument?.versions[0]?.fileName || 'iopp-annex1-scan.jpg')} · 640 KB · 1 page
+                              {(fileName || existingDocument?.versions?.[0]?.fileName || 'iopp-annex1-scan.jpg')} · 640 KB · 1 page
                             </div>
                           </div>
 

@@ -41,6 +41,7 @@ export const ApproverDashboardView: React.FC = () => {
     userPermissionOverrides,
     users,
     customScopes,
+    activeDemoOrganization,
   } = useMapStore();
 
   const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
@@ -146,8 +147,8 @@ export const ApproverDashboardView: React.FC = () => {
   /* filter assigned sets that are verified and awaiting approval */
   const assignedSets = assuranceSets.filter((s) => {
     const isAssigned = usesApproverAssignment
-      ? isAssuranceSetAssignedToPersona(s, 'Approver')
-      : isAssuranceSetAssignedToPersona(s, activePersona);
+      ? isAssuranceSetAssignedToPersona(s, 'Approver', activeDemoOrganization)
+      : isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization);
     if (usesApproverAssignment) {
       const isVerificationReq = s.verificationRequired !== false;
       const isVerifiedAndReady =

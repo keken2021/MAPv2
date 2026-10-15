@@ -76,13 +76,13 @@ export const DashboardView: React.FC = () => {
   const activeAssurances = assuranceSets.filter((s) => s.stage !== 'Certified' && s.stage !== 'Approved').length;
 
   /* c admin specific assurance sets */
-  const cAdminAssuranceSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'C Admin'));
+  const cAdminAssuranceSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'C Admin', activeDemoOrganization));
 
   /* every scope a set covers as one label, shared by the c admin scope cell, sort and search */
   const getScopeLabel = (s: AssuranceSet) => getAssuranceSetScopes(s).join(', ');
 
   /* submitter specific assurance sets */
-  const submitterAssuranceSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter'));
+  const submitterAssuranceSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter', activeDemoOrganization));
   const visibleSubmitterSets = submitterAssuranceSets.length > 0 ? submitterAssuranceSets : assuranceSets;
 
   const renderSortIndicator = (currentField: string, field: string, direction: 'asc' | 'desc') => {
@@ -244,7 +244,7 @@ export const DashboardView: React.FC = () => {
   /* compute role-specific top summary metrics for activePersona */
   const renderDashboardCards = () => {
     if (activePersona === 'Submitter') {
-      const assignedSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter'));
+      const assignedSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter', activeDemoOrganization));
       const pendingUploads = documents.filter((d) => d.verificationStatus === 'Pending').length;
       const revisionsRequested = documents.filter(
         (d) => d.verificationStatus === 'Correction Requested' || d.verificationStatus === 'Rejected'

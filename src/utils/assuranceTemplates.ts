@@ -178,6 +178,12 @@ export interface StandardSubtypeDocument {
   isMandatory: boolean;
 }
 
+export interface TemplateCustomRequirement {
+  title: string;
+  description: string;
+  pillar: ThreePillarsCategory;
+}
+
 export interface SubtypeTemplate {
   id: string;
   subtype: AssuranceSubtype | 'All';
@@ -186,6 +192,21 @@ export interface SubtypeTemplate {
   organizationName?: string;
   description: string;
   recommendedDocIds: string[];
+  customRequirements?: TemplateCustomRequirement[];
+}
+
+/** People and Process omit the vessel subtype so the category sets the pillar. Plant stays on the vessel. */
+export function customRequirementFields(task: TemplateCustomRequirement): {
+  category: AssuranceRequirementCategory;
+  requirementSubtype: AssuranceSubtype | null;
+} {
+  if (task.pillar === 'People') {
+    return { category: 'Crew Credential', requirementSubtype: null };
+  }
+  if (task.pillar === 'Plant') {
+    return { category: 'Vessel Custom Requirement', requirementSubtype: 'Vessel' };
+  }
+  return { category: 'Operational Plan', requirementSubtype: null };
 }
 
 export const SUBTYPE_CATEGORIES: Record<AssuranceSubtype, AssuranceRequirementCategory[]> = {
@@ -424,7 +445,55 @@ export const SUBTYPE_STANDARD_DOCS: Record<AssuranceSubtype, StandardSubtypeDocu
   ],
 };
 
+const SS04_BUNKER_TASKS: TemplateCustomRequirement[] = [
+  { pillar: 'People', title: 'Bunker barge crew competency certificates', description: 'Valid certificates that match the barge crew list. Flag State or training center.' },
+  { pillar: 'People', title: 'Supplier person-in-charge qualification', description: 'Current qualification naming the person in charge of the bunker transfer. Oil Company.' },
+  { pillar: 'Plant', title: 'Bunker barge statutory and class certificates', description: 'Valid flag and class certificates for the bunker barge.' },
+  { pillar: 'Plant', title: 'Mass flow meter calibration certificate', description: 'Accredited calibration, within its calibration date.' },
+  { pillar: 'Plant', title: 'Bunker hose pressure test certificates', description: 'Pressure test within its test date.' },
+  { pillar: 'Process', title: 'Supplier bunker license or port approval', description: 'Valid for the delivery port. Port Authority.' },
+  { pillar: 'Process', title: 'Fuel certificate of analysis (ISO 8217)', description: 'Oil Company laboratory result that meets the ordered grade.' },
+  { pillar: 'Process', title: 'Independent fuel test result', description: 'Coastal Fuel Testing result that confirms the supplier analysis.' },
+  { pillar: 'Process', title: 'Bunker Delivery Note and MARPOL sample record', description: 'Meets MARPOL Annex VI. Sulphur is within the limit.' },
+  { pillar: 'Process', title: 'Bunkering safety checklist and spill response plan', description: 'Current and signed.' },
+  { pillar: 'Process', title: 'Supplier liability insurance', description: 'Valid cover that meets the client minimum.' },
+];
+
+const SS05_CONTROL_TASKS: TemplateCustomRequirement[] = [
+  { pillar: 'People', title: 'Vendor engineer cyber security certifications', description: 'Current IEC 62443 or GICSP certificates held by the named engineers.' },
+  { pillar: 'People', title: 'Background screening confirmation', description: 'Completed within the client period for engineers with system access.' },
+  { pillar: 'People', title: 'Site induction records', description: 'Completed before site access.' },
+  { pillar: 'Plant', title: 'System architecture and asset inventory', description: 'Hardware and software versions are complete and supported.' },
+  { pillar: 'Plant', title: 'SIL certificates', description: 'Valid safety integrity certificates that meet the required rating.' },
+  { pillar: 'Plant', title: 'FAT and SAT reports', description: 'Factory and site acceptance tests passed, with punch items closed.' },
+  { pillar: 'Plant', title: 'Vulnerability scan and penetration test report', description: 'No unresolved critical or high findings.' },
+  { pillar: 'Process', title: 'Cyber security management plan', description: 'Aligned with IEC 62443-2-4 and covers remote access.' },
+  { pillar: 'Process', title: 'Patch management and backup procedures', description: 'Current, and the restore has been tested.' },
+  { pillar: 'Process', title: 'Incident response plan', description: 'Current, with contact points named.' },
+  { pillar: 'Process', title: 'ISO/IEC 27001 certificate', description: 'Valid, and the scope covers the service.' },
+  { pillar: 'Process', title: 'Management of change procedure', description: 'Current and aligned with the Oil Company management of change.' },
+  { pillar: 'Process', title: 'Professional indemnity and cyber insurance', description: 'Valid cover that meets the client minimum.' },
+];
+
 export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
+  {
+    id: 'tmpl-pub-ss04-bunkering',
+    subtype: 'Vessel',
+    name: 'SS-04 Bunkering / Fuel Supply',
+    source: 'public',
+    description: 'BRD 8.6 evidence for a bunker delivery. Standard vessel certificates stay off. The 11 tasks cover People, Plant and Process.',
+    recommendedDocIds: [],
+    customRequirements: SS04_BUNKER_TASKS,
+  },
+  {
+    id: 'tmpl-pub-ss05-control-systems',
+    subtype: 'Vessel',
+    name: 'SS-05 IT / Control Systems',
+    source: 'public',
+    description: 'BRD 8.7 evidence for field control and safety systems. Standard vessel certificates stay off. The 13 tasks cover People, Plant and Process.',
+    recommendedDocIds: [],
+    customRequirements: SS05_CONTROL_TASKS,
+  },
   // Public Subtype Templates
   {
     id: 'tmpl-pub-imca-vessel',

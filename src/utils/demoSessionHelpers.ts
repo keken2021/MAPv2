@@ -90,9 +90,12 @@ export function getActiveUsersInOrganization(
   users: UserProfile[],
   organization: string,
 ): UserProfile[] {
-  return users.filter(
-    (user) => user.status === 'Active' && orgFieldMatches(organization, user.organization),
+  const active = users.filter((user) => user.status === 'Active');
+  const exact = active.filter(
+    (user) => user.organization.trim().toLowerCase() === organization.trim().toLowerCase(),
   );
+  if (exact.length > 0) return exact;
+  return active.filter((user) => orgFieldMatches(organization, user.organization));
 }
 
 export function getPersonasForOrganization(

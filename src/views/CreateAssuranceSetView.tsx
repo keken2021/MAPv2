@@ -20,6 +20,7 @@ import {
   filterCAdminAvailableToCharter,
   filterVesselAdminAvailableToCharter,
   getClientAdminOrganization,
+  orgFieldMatches,
 } from '../utils/rbacHelpers';
 import {
   usersWithRole,
@@ -46,14 +47,16 @@ import {
   getPrimaryAssuranceScope,
   getAssuranceSetScopes,
   buildAssuranceWizardSteps,
+  customRequirementFields,
+  getThreePillarsCategory,
 } from '../utils/assuranceTemplates';
 import {
   autoAttachDocumentsToRequirements,
   findMatchingDocumentForRequirement,
   getAssetAutoAttachSummary,
 } from '../utils/documentMatchingHelpers';
-import { filterProjectsForPersona, projectToAssuranceProjectScope } from '../utils/projectHelpers';
-import { resolveAssuranceRequestContext } from '../utils/notificationHelpers';
+import { filterProjectsForPersona, projectToAssuranceProjectScope, withProjectVessels } from '../utils/projectHelpers';
+import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient } from '../utils/notificationHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2 } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 
@@ -65,6 +68,9 @@ interface SpecializedDoc {
   description: string;
   isMandatory: boolean;
   isEnabled: boolean;
+  templateId?: string;
+  /** null omits the subtype so People and Process keep their pillar on a Vessel set */
+  requirementSubtype?: AssuranceSubtype | null;
 }
 
 interface CreateAssuranceSetViewProps {
@@ -94,6 +100,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     lockedProjectId: storeLockedProjectId,
     setLockedProjectId,
     users,
+    activeSessionUserId,
     notifications,
     pendingAssuranceRequestNotificationId,
     activeDemoOrganization,
@@ -114,9 +121,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     [projects, activePersona, users, assuranceSets, clientOrgHint],
   );
 
-  /* project the wizard was opened from; captured once so the store value can be cleared */
+  /* project the wizard was opened from, or the project named on the invitation */
   const [lockedProjectId] = useState<string | undefined>(() => {
-    const candidate = storeLockedProjectId || returnToProjectId;
+    const fromNotification = notifications.find(
+      (n) => n.id === pendingAssuranceRequestNotificationId && n.status !== 'actioned',
+    )?.projectId;
+    const candidate = storeLockedProjectId || returnToProjectId || fromNotification;
     return candidate && projects.some((p) => p.id === candidate)
       ? candidate
       : undefined;
@@ -179,7 +189,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const isClientAdmin = activePersona === 'C Admin';
   /* user recorded as the creator of sets made in this session; a request names its own creator */
   const creatorName =
-    requestContext?.assigneeName || users.find((u) => u.roles.includes(activePersona))?.name;
+    requestContext?.assigneeName ||
+    users.find((u) => u.id === activeSessionUserId)?.name ||
+    users.find((u) => u.roles.includes(activePersona) && u.organization === activeDemoOrganization)?.name;
   const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
   const clientOrg = getClientAdminOrganization(users, clientOrgHint);
 
@@ -190,8 +202,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       : vessels;
 
   const defaultCharterer = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
-  /* organization named in the default title: the project client for a request, otherwise the creating organization */
-  const titleOrg = requestContext?.clientOrganization || defaultCharterer;
+  /* an invited organization creating from a request is the client; other requests keep the project client */
+  const setClientOrg = resolveAssuranceRequestSetClient(defaultCharterer, requestContext);
+  const titleOrg = setClientOrg;
   const lockedVessel = createAssuranceForVesselId
     ? availableVessels.find((v) => v.id === createAssuranceForVesselId)
     : undefined;
@@ -226,7 +239,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Step 1: Scope & General Information */
   const [title, setTitle] = useState(
-    () => `${titleOrg} - ${initialSubjectName} Charter Vetting`
+    () => `${titleOrg} - ${initialSubjectName} Charter Vetting`,
   );
   /* the one scope the set covers, kept as a one-entry list; a set covers exactly one asset (ADR 0004). A request that suggests several scopes starts on the first; the others get their own sets */
   const [selectedScopes, setSelectedScopes] = useState<AssuranceSubtype[]>(() => {
@@ -259,8 +272,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
   const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
   const [isGeneralInfoExpanded, setIsGeneralInfoExpanded] = useState<boolean>(true);
-  /* the client is the organization of the user creating the set, or the project client when the set answers a request */
-  const charterer = requestContext?.clientOrganization || defaultCharterer;
+  const charterer = setClientOrg;
   const [startDate, setStartDate] = useState('2026-11-01');
   const [endDate, setEndDate] = useState('2027-11-01');
   const isVesselLocked = Boolean(lockedVessel);
@@ -285,7 +297,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [suitabilityCheckRequired, setSuitabilityCheckRequired] = useState<boolean>(true);
   const [authorityValidationMethod, setAuthorityValidationMethod] = useState<AuthorityValidationMethod>('api');
 
-  const selectedVesselForScope = availableVessels.find((v) => v.id === vesselId) || availableVessels[0];
+  /* a project set can use the project's vessels even when those vessels already have another set */
+  const vesselChoices = withProjectVessels(
+    availableVessels,
+    vessels,
+    projects.find((project) => project.id === (selectedProjectId || lockedProjectId)),
+  );
+  const selectedVesselForScope = vesselChoices.find((v) => v.id === vesselId) || vesselChoices[0];
   const selectedEquipmentForScope = equipment.find((e) => e.id === selectedEquipmentId);
   const selectedCrewForScope = crew.find((c) => c.id === selectedCrewId);
   const selectedActivityForScope = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId);
@@ -304,20 +322,33 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   const vesselOwnerOrg = serviceProviderOrg;
 
-  /* every wizard scope (Vessel, Crew, Equipment, Activity) is an internal deployment/self-assurance by the asset provider */
+  /* the supplier's submitter can be a different organization from the vessel owner, as on a bunker delivery */
+  const submitterCandidates = users.filter(
+    (user) =>
+      user.status === 'Active' &&
+      user.roles.includes('Submitter') &&
+      !orgFieldMatches(clientOrg, user.organization),
+  );
+  const [assignedSubmitterId, setAssignedSubmitterId] = useState('');
+  const selectedSubmitterForProvider = users.find((user) => user.id === assignedSubmitterId);
+  const appointedProviderOrg = selectedSubmitterForProvider?.organization || serviceProviderOrg;
+  /* keep the existing review lists; only the chosen supplier is kept off verifier and approver */
   const isInternalDeployment = true;
+  const excludeAppointedProvider = (user: UserProfile) =>
+    !selectedSubmitterForProvider ||
+    !user.organization?.toLowerCase().includes(appointedProviderOrg.toLowerCase());
 
   /* Dynamic Stakeholder candidate lists strictly enforcing Review Channel Governance & Segregation of Duties */
   const verifierCandidates = filterCandidatesByReviewMode(users, reviewMode, 'Verifier', {
     clientOrg,
     serviceProviderOrg,
     internalDeployment: isInternalDeployment,
-  });
+  }).filter(excludeAppointedProvider);
   const approverCandidates = filterCandidatesByReviewMode(users, reviewMode, 'Approver', {
     clientOrg,
     serviceProviderOrg,
     internalDeployment: isInternalDeployment,
-  });
+  }).filter(excludeAppointedProvider);
   const inspectorCandidates = usersWithRole(users, 'Inspector');
 
   /* Intelligent verifier defaults per category */
@@ -341,6 +372,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [assignedInspector, setAssignedInspector] = useState(inspectorCandidates[0]?.id || '');
   const [assignedApprover, setAssignedApprover] = useState(approverCandidates[0]?.id || '');
   const [isApproverSameAsVerifier, setIsApproverSameAsVerifier] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!assignedSubmitterId || reviewMode === 'issuing_authority') return;
+    if (!verifierCandidates.some((user) => user.id === assignedVerifier)) {
+      setAssignedVerifier(verifierCandidates[0]?.id || '');
+    }
+    if (!approverCandidates.some((user) => user.id === assignedApprover)) {
+      setAssignedApprover(approverCandidates[0]?.id || '');
+    }
+  }, [assignedSubmitterId, appointedProviderOrg, reviewMode, assignedVerifier, assignedApprover, verifierCandidates, approverCandidates]);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   /* Ensure selected verifier is available in approver list when dual-role/same-as-verifier is active */
@@ -373,7 +414,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     /* the suggested title follows the scope */
 
     if (newScope === 'Vessel') {
-      const v = availableVessels.find((item) => item.id === vesselId) || availableVessels[0];
+      const v = vesselChoices.find((item) => item.id === vesselId) || vesselChoices[0];
       setTitle(`${titleOrg} - ${v ? v.name : 'MV Pacific Endeavour'} Vetting`);
     } else if (newScope === 'Crew') {
       const c = crew.find((item) => item.id === selectedCrewId) || crew[0];
@@ -394,12 +435,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       clientOrg,
       serviceProviderOrg,
       internalDeployment: isInternalDeployment,
-    });
+    }).filter(excludeAppointedProvider);
     const newApprovers = filterCandidatesByReviewMode(users, newMode, 'Approver', {
       clientOrg,
       serviceProviderOrg,
       internalDeployment: isInternalDeployment,
-    });
+    }).filter(excludeAppointedProvider);
 
     if (newMode === 'issuing_authority') {
       setAssignedVerifier('api-authority');
@@ -510,9 +551,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   /* Handle global existing assurance set template selection */
   const applyGlobalTemplateData = (targetSet: AssuranceSet) => {
     if (!lockedVessel) {
-      const templateVesselId = availableVessels.some((v) => v.id === targetSet.vesselId)
+      const templateVesselId = vesselChoices.some((v) => v.id === targetSet.vesselId)
         ? targetSet.vesselId
-        : availableVessels[0]?.id || '';
+        : vesselChoices[0]?.id || '';
       setVesselId(templateVesselId);
     }
     if (targetSet.charterWindowStart) setStartDate(targetSet.charterWindowStart);
@@ -524,8 +565,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const templateCharterer = defaultCharterer;
 
     const targetVesselObj = lockedVessel
-      || availableVessels.find((v) => v.id === targetSet.vesselId)
-      || availableVessels[0];
+      || vesselChoices.find((v) => v.id === targetSet.vesselId)
+      || vesselChoices[0];
     const vesselDisplayName = targetSet.vesselName || targetVesselObj?.name || 'Vessel';
 
     const baseSubject = targetSet.title
@@ -583,9 +624,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           }
           if (target.vesselId) {
             setVesselId(
-              availableVessels.some((v) => v.id === target.vesselId)
+              vesselChoices.some((v) => v.id === target.vesselId)
                 ? target.vesselId
-                : availableVessels[0]?.id || '',
+                : vesselChoices[0]?.id || '',
             );
           }
           if (target.charterWindowStart) setStartDate(target.charterWindowStart);
@@ -644,23 +685,45 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   }, [templateSetId]);
 
   /* Handle Subtype Template Selection */
+  const savedRequirementSubtype = (spec: SpecializedDoc): AssuranceSubtype | undefined =>
+    spec.requirementSubtype === null ? undefined : (spec.requirementSubtype ?? spec.subtype);
+
   const handleSelectSubtypeTemplate = (subtype: AssuranceSubtype, templateId: string) => {
     setSelectedSubtypeTemplates((prev) => ({ ...prev, [subtype]: templateId }));
 
-    if (!templateId) return;
+    const tmpl = templateId ? SUBTYPE_TEMPLATES.find((t) => t.id === templateId) : undefined;
 
-    const tmpl = SUBTYPE_TEMPLATES.find((t) => t.id === templateId);
-    if (!tmpl) return;
-
-    setDocToggles((prev) => {
-      const updated = { ...prev };
-      SUBTYPE_STANDARD_DOCS[subtype].forEach((d) => {
-        updated[d.id] = tmpl.recommendedDocIds.includes(d.id);
+    if (tmpl) {
+      setDocToggles((prev) => {
+        const updated = { ...prev };
+        SUBTYPE_STANDARD_DOCS[subtype].forEach((d) => {
+          updated[d.id] = tmpl.recommendedDocIds.includes(d.id);
+        });
+        return updated;
       });
-      return updated;
+    }
+
+    setSpecializedDocs((prev) => {
+      const kept = prev.filter((doc) => !(doc.subtype === subtype && doc.templateId));
+      if (!tmpl?.customRequirements?.length) return kept;
+      const added = tmpl.customRequirements.map((task, index) => {
+        const fields = customRequirementFields(task);
+        return {
+          id: `tmpl-${tmpl.id}-${index}`,
+          subtype,
+          title: task.title,
+          category: fields.category,
+          description: task.description,
+          isMandatory: true,
+          isEnabled: true,
+          templateId: tmpl.id,
+          requirementSubtype: fields.requirementSubtype,
+        };
+      });
+      return [...kept, ...added];
     });
 
-    triggerAutofillAnimation([`subtype-docs-container-${subtype}`]);
+    if (tmpl) triggerAutofillAnimation([`subtype-docs-container-${subtype}`]);
   };
 
   /* link or unlink the optional project; ignored while the project is locked by the entry point */
@@ -732,7 +795,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const step = steps[stepNumber - 1];
     if (!step) return newErrors;
 
-    if (step.subtype === 'Vessel' && !availableVessels.some((v) => v.id === vesselId)) {
+    if (step.subtype === 'Vessel' && !vesselChoices.some((v) => v.id === vesselId)) {
       newErrors.vesselId = 'Select a vessel from another organization.';
     }
     if (step.subtype === 'Crew' && !selectedCrewId) {
@@ -784,22 +847,28 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           verifierId: verificationRequired && reviewMode !== 'issuing_authority' ? assignedVerifier : undefined,
           approverId: approvalRequired ? assignedApprover : undefined,
           vesselOwnerOrg: serviceProviderOrg,
-          serviceProviderOrg,
-          isCharteringOtherServices: !isInternalDeployment,
+          serviceProviderOrg: appointedProviderOrg,
+          isCharteringOtherServices: Boolean(selectedSubmitterForProvider),
           isClientAdmin,
           users,
-          internalDeployment: isInternalDeployment,
+          internalDeployment: selectedSubmitterForProvider
+            ? orgFieldMatches(clientOrg, selectedSubmitterForProvider.organization)
+            : isInternalDeployment,
         })
       ) {
         const verifierUser = users.find((u) => u.id === assignedVerifier);
         const approverUser = users.find((u) => u.id === assignedApprover);
-        if (verifierUser && serviceProviderOrg && verifierUser.organization?.toLowerCase().includes(serviceProviderOrg.toLowerCase())) {
-          newErrors.verifier = `Service provider conflict: Staff from ${serviceProviderOrg} cannot verify their own documents.`;
+        if (verifierUser && appointedProviderOrg && verifierUser.organization?.toLowerCase().includes(appointedProviderOrg.toLowerCase())) {
+          newErrors.verifier = `Service provider conflict: Staff from ${appointedProviderOrg} cannot verify their own documents.`;
         }
-        if (approverUser && serviceProviderOrg && approverUser.organization?.toLowerCase().includes(serviceProviderOrg.toLowerCase())) {
-          newErrors.approver = `Service provider conflict: Staff from ${serviceProviderOrg} cannot approve their own documents.`;
+        if (approverUser && appointedProviderOrg && approverUser.organization?.toLowerCase().includes(appointedProviderOrg.toLowerCase())) {
+          newErrors.approver = `Service provider conflict: Staff from ${appointedProviderOrg} cannot approve their own documents.`;
         }
       }
+    }
+
+    if (step.id === 'step-review' && !assignedSubmitterId) {
+      newErrors.submitter = 'Select the service provider submitter.';
     }
 
     return newErrors;
@@ -831,7 +900,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     selectedProject && !availableProjectOptions.some((p) => p.id === selectedProject.id)
       ? [projectToAssuranceProjectScope(selectedProject), ...availableProjectOptions]
       : availableProjectOptions;
-  const selectedVessel = availableVessels.find((v) => v.id === vesselId) || availableVessels[0];
+  const selectedVessel = vesselChoices.find((v) => v.id === vesselId) || vesselChoices[0];
   const selectedCrew = crew.find((c) => c.id === selectedCrewId) || crew[0];
   const selectedEquipment = equipment.find((e) => e.id === selectedEquipmentId) || equipment[0];
   const selectedActivity = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId) || EXISTING_ACTIVITIES[0];
@@ -850,6 +919,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         scope === 'Equipment' ? `${getScopeAssetName(scope)} (Tag: ${selectedEquipment?.equipmentIdentifier || 'N/A'})` :
           `${getScopeAssetName(scope)} (${selectedActivity?.category || 'N/A'})`;
 
+  const selectedSubmitter = users.find((u: UserProfile) => u.id === assignedSubmitterId);
+  const submitterLabel = selectedSubmitter
+    ? `${selectedSubmitter.name} (${selectedSubmitter.organization})`
+    : 'Designated by Chartered Asset Owner';
+  const appointedStakeholders = selectedSubmitter
+    ? {
+        submitterId: selectedSubmitter.id,
+        submitterName: selectedSubmitter.name,
+        submitterOrg: selectedSubmitter.organization,
+      }
+    : undefined;
   const selectedVerifier = users.find((u: UserProfile) => u.id === assignedVerifier);
   const selectedInspector = users.find((u: UserProfile) => u.id === assignedInspector);
   const selectedApprover = users.find((u: UserProfile) => u.id === assignedApprover);
@@ -859,7 +939,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     approverId: approvalRequired ? assignedApprover : undefined,
     subtypeStakeholders: undefined,
     vesselOwnerOrg: serviceProviderOrg,
-    serviceProviderOrg,
+    serviceProviderOrg: appointedProviderOrg,
     isCharteringOtherServices: !isInternalDeployment,
     isClientAdmin,
     users,
@@ -898,7 +978,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       : undefined;
 
     activeSubtypes.forEach((subtype) => {
-      const reqAssignedSubmitter = 'Designated by Chartered Asset Owner';
+      const reqAssignedSubmitter = submitterLabel;
 
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
@@ -927,7 +1007,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           category: spec.category,
           title: spec.title,
           description: spec.description,
-          subtype: spec.subtype,
+          subtype: savedRequirementSubtype(spec),
           isMandatory: spec.isMandatory,
           isSpecialized: true,
           isFulfilled: false,
@@ -984,32 +1064,32 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       subtypes: activeSubtypes,
       subtypeStakeholders: {
         Vessel: {
-          assignedSubmitter: 'Designated by Chartered Asset Owner',
-          submitterName: 'Designated by Chartered Asset Owner',
+          assignedSubmitter: submitterLabel,
+          submitterName: submitterLabel,
           verifierId: verificationRequired ? assignedVerifier : undefined,
           verifierName: selectedVerifier?.name,
           verifierOrg: selectedVerifier?.organization,
           assignedVerifier: reqAssignedVerifier,
         },
         Crew: {
-          assignedSubmitter: 'Designated by Chartered Asset Owner',
-          submitterName: 'Designated by Chartered Asset Owner',
+          assignedSubmitter: submitterLabel,
+          submitterName: submitterLabel,
           verifierId: verificationRequired ? assignedVerifier : undefined,
           verifierName: selectedVerifier?.name,
           verifierOrg: selectedVerifier?.organization,
           assignedVerifier: reqAssignedVerifier,
         },
         Activity: {
-          assignedSubmitter: 'Designated by Chartered Asset Owner',
-          submitterName: 'Designated by Chartered Asset Owner',
+          assignedSubmitter: submitterLabel,
+          submitterName: submitterLabel,
           verifierId: verificationRequired ? assignedVerifier : undefined,
           verifierName: selectedVerifier?.name,
           verifierOrg: selectedVerifier?.organization,
           assignedVerifier: reqAssignedVerifier,
         },
         Equipment: {
-          assignedSubmitter: 'Designated by Chartered Asset Owner',
-          submitterName: 'Designated by Chartered Asset Owner',
+          assignedSubmitter: submitterLabel,
+          submitterName: submitterLabel,
           verifierId: verificationRequired ? assignedVerifier : undefined,
           verifierName: selectedVerifier?.name,
           verifierOrg: selectedVerifier?.organization,
@@ -1033,7 +1113,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       mandatoryInspectionRequired: inspectionRequired,
       formalApprovalRequired: approvalRequired,
       inspectionCompleted: false,
-      assignedSubmitter: 'Designated by Chartered Asset Owner',
+      assignedSubmitter: submitterLabel,
       assignedVerifier: reqAssignedVerifier,
       assignedInspector: !inspectionRequired
         ? undefined
@@ -1050,10 +1130,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       validityCheckRequired,
       suitabilityCheckRequired,
       authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
-      serviceProviderOrg,
+      serviceProviderOrg: appointedProviderOrg,
       clientOrg: ownerOrg,
       requirements: effectiveRequirements,
-      stakeholders: undefined,
+      stakeholders: appointedStakeholders,
       assignedStakeholders: undefined,
       createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
       createdByName: creatorName,
@@ -1107,7 +1187,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       : undefined;
 
     activeSubtypes.forEach((subtype) => {
-      const reqAssignedSubmitter = 'Designated by Chartered Asset Owner';
+      const reqAssignedSubmitter = submitterLabel;
 
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
@@ -1136,7 +1216,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           category: spec.category,
           title: spec.title,
           description: spec.description,
-          subtype: spec.subtype,
+          subtype: savedRequirementSubtype(spec),
           isMandatory: spec.isMandatory,
           isSpecialized: true,
           isFulfilled: false,
@@ -1191,32 +1271,32 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       subtypes: activeSubtypes,
       subtypeStakeholders: {
         Vessel: {
-          assignedSubmitter: 'Designated by Chartered Asset Owner',
-          submitterName: 'Designated by Chartered Asset Owner',
+          assignedSubmitter: submitterLabel,
+          submitterName: submitterLabel,
           verifierId: verificationRequired ? assignedVerifier : undefined,
           verifierName: selectedVerifier?.name,
           verifierOrg: selectedVerifier?.organization,
           assignedVerifier: reqAssignedVerifier,
         },
         Crew: {
-          assignedSubmitter: 'Designated by Chartered Asset Owner',
-          submitterName: 'Designated by Chartered Asset Owner',
+          assignedSubmitter: submitterLabel,
+          submitterName: submitterLabel,
           verifierId: verificationRequired ? assignedVerifier : undefined,
           verifierName: selectedVerifier?.name,
           verifierOrg: selectedVerifier?.organization,
           assignedVerifier: reqAssignedVerifier,
         },
         Activity: {
-          assignedSubmitter: 'Designated by Chartered Asset Owner',
-          submitterName: 'Designated by Chartered Asset Owner',
+          assignedSubmitter: submitterLabel,
+          submitterName: submitterLabel,
           verifierId: verificationRequired ? assignedVerifier : undefined,
           verifierName: selectedVerifier?.name,
           verifierOrg: selectedVerifier?.organization,
           assignedVerifier: reqAssignedVerifier,
         },
         Equipment: {
-          assignedSubmitter: 'Designated by Chartered Asset Owner',
-          submitterName: 'Designated by Chartered Asset Owner',
+          assignedSubmitter: submitterLabel,
+          submitterName: submitterLabel,
           verifierId: verificationRequired ? assignedVerifier : undefined,
           verifierName: selectedVerifier?.name,
           verifierOrg: selectedVerifier?.organization,
@@ -1240,7 +1320,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       mandatoryInspectionRequired: inspectionRequired,
       formalApprovalRequired: approvalRequired,
       inspectionCompleted: false,
-      assignedSubmitter: 'Designated by Chartered Asset Owner',
+      assignedSubmitter: submitterLabel,
       assignedVerifier: reqAssignedVerifier,
       assignedInspector: !inspectionRequired
         ? undefined
@@ -1257,10 +1337,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       validityCheckRequired,
       suitabilityCheckRequired,
       authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
-      serviceProviderOrg,
+      serviceProviderOrg: appointedProviderOrg,
       clientOrg: ownerOrg,
       requirements: effectiveRequirements,
-      stakeholders: undefined,
+      stakeholders: appointedStakeholders,
       assignedStakeholders: undefined,
       createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
       createdByName: creatorName,
@@ -1351,12 +1431,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     return u;
                   });
                 }}
-                disabled={availableVessels.length === 0 || isVesselLocked || lockedScopes.includes('Vessel')}
+                disabled={vesselChoices.length === 0 || isVesselLocked || lockedScopes.includes('Vessel')}
               >
-                {availableVessels.length === 0 ? (
+                {vesselChoices.length === 0 ? (
                   <option value="">No vessels from another organization</option>
                 ) : (
-                  availableVessels.map((v) => (
+                  vesselChoices.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name} (IMO: {v.imoNumber} &mdash; Flag: {v.flagState} &mdash; {v.vesselType})
                     </option>
@@ -1890,7 +1970,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <div className="d-flex align-items-center gap-2">
                             <strong className="text-dark small">{spec.title}</strong>
                             <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                              {spec.category}
+                              {getThreePillarsCategory(savedRequirementSubtype(spec), spec.category)}
                             </span>
                             <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
                               Custom
@@ -2064,36 +2144,47 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       </div>
                     </div>
 
-                    {/* optional project link, locked when the wizard is opened from a project */}
+                    {/* the project is assigned by the invitation or the project page; otherwise it can be chosen */}
                     <div className="col-12 col-md-6">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-linked-project">
-                        Project <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                        Project{' '}
+                        {isProjectLocked ? null : (
+                          <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                        )}
                       </label>
-                      <select
-                        id="grid-linked-project"
-                        className="form-select bg-white text-dark border-secondary-subtle"
-                        value={selectedProjectId}
-                        onChange={(e) => handleProjectChange(e.target.value)}
-                        disabled={isProjectLocked}
-                        aria-describedby={isProjectLocked ? 'grid-linked-project-help' : undefined}
-                      >
-                        <option value="">No project</option>
-                        {projectOptions.map((proj) => (
-                          <option key={proj.id} value={proj.id}>
-                            {proj.id} &mdash; {proj.name}
-                          </option>
-                        ))}
-                      </select>
-                      {requestContext ? (
-                        <div id="grid-linked-project-help" className="form-text small">
-                          Requested by {requestContext.requestedByName}. Client: {requestContext.clientOrganization}. Created by: {requestContext.assigneeName}.
-                        </div>
+                      {isProjectLocked ? (
+                        <input
+                          id="grid-linked-project"
+                          className="form-control bg-light text-dark border-secondary-subtle"
+                          value={
+                            selectedProject
+                              ? `${selectedProject.id} — ${selectedProject.name}`
+                              : selectedProjectId
+                          }
+                          readOnly
+                          aria-describedby="grid-linked-project-help"
+                        />
                       ) : (
-                        isProjectLocked && (
-                          <div id="grid-linked-project-help" className="form-text small">
-                            Set by the project you came from.
-                          </div>
-                        )
+                        <select
+                          id="grid-linked-project"
+                          className="form-select bg-white text-dark border-secondary-subtle"
+                          value={selectedProjectId}
+                          onChange={(e) => handleProjectChange(e.target.value)}
+                        >
+                          <option value="">No project</option>
+                          {projectOptions.map((proj) => (
+                            <option key={proj.id} value={proj.id}>
+                              {proj.id} &mdash; {proj.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      {isProjectLocked && (
+                        <div id="grid-linked-project-help" className="form-text small">
+                          {requestContext
+                            ? `Assigned by the invitation from ${requestContext.requestedByName}. Client: ${setClientOrg}. Created by: ${requestContext.assigneeName}.`
+                            : 'Assigned by the project you came from.'}
+                        </div>
                       )}
                     </div>
 
@@ -2440,12 +2531,50 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 Stakeholders
                               </strong>
                               <div className="text-muted" style={{ fontSize: '0.78rem' }}>
-                                Select one verifier, inspector, and approver. The lists follow the review option chosen above.
+                                Choose the service provider submitter, then one verifier, inspector, and approver. The submitter can belong to a supplier other than the vessel owner.
                               </div>
                             </div>
                           </div>
 
                           <div className="row g-4 pt-1">
+                            <div className="col-12 col-md-6 col-lg-4 d-flex flex-column">
+                              <div className="d-flex align-items-center justify-content-between mb-2" style={{ minHeight: '22px' }}>
+                                <label className="form-label text-secondary small fw-semibold m-0" htmlFor="assign-sub">
+                                  Submitter <span className="text-danger">*</span>
+                                </label>
+                              </div>
+                              <select
+                                id="assign-sub"
+                                className={`form-select form-select-sm bg-white text-dark border-secondary-subtle${fieldErrors.submitter ? ' is-invalid border-danger' : ''}`}
+                                value={assignedSubmitterId}
+                                onChange={(e) => {
+                                  setAssignedSubmitterId(e.target.value);
+                                  setFieldErrors((prev) => {
+                                    const next = { ...prev };
+                                    delete next.submitter;
+                                    return next;
+                                  });
+                                }}
+                              >
+                                <option value="">Select submitter</option>
+                                {submitterCandidates.map((user) => (
+                                  <option key={user.id} value={user.id}>
+                                    {user.name} ({user.organization})
+                                  </option>
+                                ))}
+                              </select>
+                              {fieldErrors.submitter && (
+                                <div className="text-danger small mt-1 font-mono-code" style={{ fontSize: '0.72rem' }}>
+                                  {fieldErrors.submitter}
+                                </div>
+                              )}
+                              {/* {selectedSubmitterForProvider &&
+                                !orgFieldMatches(serviceProviderOrg, selectedSubmitterForProvider.organization) && (
+                                  <div className="alert alert-warning py-2 px-2 mt-2 mb-0" role="status" style={{ fontSize: '0.75rem' }}>
+                                    {selectedSubmitterForProvider.name} is in {selectedSubmitterForProvider.organization}. A submitter must belong to the same organization as the vessel provider ({serviceProviderOrg}).
+                                  </div>
+                                )} */}
+                            </div>
                             {verificationRequired && (
                               <div className="col-12 col-md-6 col-lg-4 d-flex flex-column">
                                 <div className="d-flex align-items-center justify-content-between mb-2" style={{ minHeight: '22px' }}>
@@ -2641,7 +2770,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           )}
                           {requestContext && (
                             <div className="text-secondary small mt-1">
-                              <strong>Client:</strong> {requestContext.clientOrganization} &middot;{' '}
+                              <strong>Client:</strong> {setClientOrg} &middot;{' '}
                               <strong>Created by:</strong> {requestContext.assigneeName}
                             </div>
                           )}
@@ -2657,7 +2786,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <div className="col-12 col-md-6">
                         <div className="p-3 bg-light rounded-3 border h-100">
                           <strong className="text-dark small d-block mb-1">Stakeholders</strong>
-                          <div className="text-secondary small"><strong>Submitter:</strong> Designated by Chartered Asset Owner</div>
+                          <div className="text-secondary small"><strong>Submitter:</strong> {submitterLabel}</div>
                           <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (selectedVerifier ? `${selectedVerifier.name} (${selectedVerifier.organization})` : 'Pending') : 'N/A'}</div>
                           <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (selectedInspector ? `${selectedInspector.name} (${selectedInspector.organization})` : 'Pending') : 'N/A'}</div>
                           <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (selectedApprover ? `${selectedApprover.name} (${selectedApprover.organization})` : 'Pending') : 'N/A'}</div>
@@ -2741,12 +2870,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               });
                             }
                           });
-                          specializedDocs.filter((d: { subtype: string; isEnabled: boolean }) => d.subtype === subtype && d.isEnabled).forEach((spec: { category: any; title: any; subtype: any; isMandatory: any; }) => {
+                          specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled).forEach((spec) => {
                             currentReqs.push({
                               id: `req-preview-${reqIndex++}`,
                               category: spec.category,
                               title: spec.title,
-                              subtype: spec.subtype,
+                              subtype: savedRequirementSubtype(spec),
                               isMandatory: spec.isMandatory,
                               isSpecialized: true,
                               isFulfilled: false,

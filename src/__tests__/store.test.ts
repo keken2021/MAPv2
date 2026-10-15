@@ -12,12 +12,13 @@ import { formatDocumentId, isValidDocumentId } from '../utils/formatters';
 
 describe('Map Store State Management', () => {
   beforeEach(() => {
-    // reset persona to Administrator before test execution
+    useMapStore.getState().setActiveDemoOrganization('Northwind Marine Pty Ltd');
     useMapStore.getState().setActivePersona('Administrator');
   });
 
   it('should switch active persona and log audit trail event', () => {
     const store = useMapStore.getState();
+    store.setActiveDemoOrganization('Southern Basin Energy Pty Ltd');
     store.setActivePersona('C Admin');
 
     expect(useMapStore.getState().activePersona).toBe('C Admin');
@@ -71,6 +72,31 @@ describe('Map Store State Management', () => {
     const updatedDoc = useMapStore.getState().documents.find((d) => d.id === targetDocId);
     expect(updatedDoc?.verificationStatus).toBe('Verified');
     expect(updatedDoc?.verificationNotes).toBe('Unit test verification check');
+  });
+
+  it('marks this set requirement verified when its library document was already verified elsewhere', () => {
+    const store = useMapStore.getState();
+    const targetSet = store.assuranceSets.find((s) =>
+      s.requirements.some((r) => r.documentId && r.verifierStatus !== 'Verified'),
+    );
+    expect(targetSet).toBeDefined();
+    if (!targetSet) return;
+
+    const req = targetSet.requirements.find((r) => r.documentId && r.verifierStatus !== 'Verified')!;
+    useMapStore.setState({
+      documents: store.documents.map((d) =>
+        d.id === req.documentId ? { ...d, verificationStatus: 'Verified' as const } : d,
+      ),
+    });
+
+    useMapStore.getState().verifyDocument(req.documentId!, 'Verified', 'Verified for this set', undefined, req.id);
+
+    const updatedReq = useMapStore
+      .getState()
+      .assuranceSets.find((s) => s.id === targetSet.id)
+      ?.requirements.find((r) => r.id === req.id);
+    expect(updatedReq?.verifierStatus).toBe('Verified');
+    expect(updatedReq?.isFulfilled).toBe(true);
   });
 
   it('should route assurance set to Inspection when all requirements verified with Inspector route', () => {

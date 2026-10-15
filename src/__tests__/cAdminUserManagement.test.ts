@@ -12,6 +12,7 @@ import { UserProfile, UserRolePersona } from '../types/user';
 
 describe('C Admin & Vessel Admin User Management & RBAC Isolation', () => {
   beforeEach(() => {
+    useMapStore.getState().setActiveDemoOrganization('Southern Basin Energy Pty Ltd');
     useMapStore.getState().setActivePersona('C Admin');
   });
 

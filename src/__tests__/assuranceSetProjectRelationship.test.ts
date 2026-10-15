@@ -101,6 +101,29 @@ describe('project to assurance set relationship', () => {
     expect(project?.assetLinks.map((l) => l.assuranceSetId).sort()).toEqual(['AS-REL-001', 'AS-REL-002']);
   });
 
+  it('keeps a second set on a project when that vessel is already linked', () => {
+    const projectId = 'MAP-PROJ-2026-MARINE-017';
+    const project = useMapStore.getState().projects.find((p) => p.id === projectId);
+    expect(project?.assetLinks.some((l) => l.assetId === 'VESSEL-013')).toBe(true);
+    const linkCount = project?.assetLinks.filter((l) => l.assetId === 'VESSEL-013').length ?? 0;
+
+    useMapStore.setState((state) => ({
+      assuranceSets: [
+        ...state.assuranceSets,
+        buildOrphanSet('AS-REL-006', 'VESSEL-013', 'LNGC Northwind Aurora'),
+      ],
+    }));
+
+    const result = useMapStore.getState().attachAssuranceSetToProject('AS-REL-006', projectId);
+    expect(result.success).toBe(true);
+
+    const after = useMapStore.getState();
+    expect(after.assuranceSets.find((s) => s.id === 'AS-REL-006')?.projectId).toBe(projectId);
+    expect(
+      after.projects.find((p) => p.id === projectId)?.assetLinks.filter((l) => l.assetId === 'VESSEL-013'),
+    ).toHaveLength(linkCount);
+  });
+
   it('attaches an orphaned set to one project and stamps the project on the set', () => {
     const projectId = MOCK_PROJECTS[0].id;
     useMapStore.setState((state) => ({

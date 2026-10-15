@@ -21,7 +21,17 @@ import {
   NOTIFICATION_TYPE_META,
 } from '../store/notificationMockData';
 import { getProjectClientOrganization } from './projectHelpers';
+import { orgFieldMatches } from './rbacHelpers';
 import { findUserByAssigneeLabel } from './userRoleHelpers';
+
+/**
+  what: subject line for an invitation to create one assurance set.
+  how: a request names the project; an assignment names the assurance set that was created.
+  with what file: src/utils/notificationHelpers.ts used by useMapStore.ts.
+*/
+export function assuranceInvitationSubject(title: string): string {
+  return `You are invited to create an assurance set for this particular ${title.trim()}`;
+}
 
 /**
   what: notifications addressed to one user, newest first; inputs are all notifications and the user id.
@@ -278,6 +288,24 @@ export function resolveAssuranceRequestContext(
     assignee,
     requestedByName: notification.senderName,
   };
+}
+
+/**
+  what: the client written onto a set opened from an assurance request.
+  how: an invited organization that is not the project client becomes the client of the set it creates. Every other request keeps the project client.
+  with what file: src/utils/notificationHelpers.ts used by CreateAssuranceSetView.tsx.
+*/
+export function resolveAssuranceRequestSetClient(
+  creatingOrganization: string,
+  context: Pick<AssuranceRequestContext, 'clientOrganization' | 'project'> | undefined,
+): string {
+  if (!context) return creatingOrganization;
+  const invited = context.project.invitedOrganizations?.some((org) =>
+    orgFieldMatches(creatingOrganization, org),
+  );
+  const isProjectClient = orgFieldMatches(creatingOrganization, context.clientOrganization);
+  if (invited && !isProjectClient) return creatingOrganization;
+  return context.clientOrganization || creatingOrganization;
 }
 
 /**

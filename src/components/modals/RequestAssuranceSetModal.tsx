@@ -8,7 +8,7 @@ import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { Project, ProjectAssetType } from '../../types/project';
 import {
-  getAssuranceSetCreatorsInOrganization,
+  getAssuranceSetRequestRecipients,
   getProjectOrganizationForPersona,
 } from '../../utils/projectHelpers';
 import { formatUserRoles, getSessionUserForPersona } from '../../utils/userRoleHelpers';
@@ -47,10 +47,13 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
 
   const recipients = useMemo(
     () =>
-      getAssuranceSetCreatorsInOrganization(users, senderOrg).filter(
-        (u) => u.id !== senderUser?.id,
+      getAssuranceSetRequestRecipients(
+        users,
+        senderOrg,
+        project.invitedOrganizations,
+        senderUser?.id,
       ),
-    [users, senderOrg, senderUser],
+    [users, senderOrg, senderUser, project.invitedOrganizations],
   );
 
   const [recipientUserId, setRecipientUserId] = useState('');
@@ -115,8 +118,8 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
           </div>
           <div className="modal-body">
             <p className="text-muted small mb-3">
-              Ask a colleague in <strong>{senderOrg}</strong> to create an assurance set for{' '}
-              <strong>{project.name}</strong>.
+              Ask someone in <strong>{senderOrg}</strong> or an organization invited to{' '}
+              <strong>{project.name}</strong> to create an assurance set.
             </p>
             {error && <div className="alert alert-danger py-2 small">{error}</div>}
             <div className="mb-3">
@@ -131,7 +134,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
                 <option value="">Select recipient</option>
                 {recipients.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} — {formatUserRoles(u.roles)}
+                    {u.name} — {u.organization} — {formatUserRoles(u.roles)}
                   </option>
                 ))}
               </select>

@@ -14,6 +14,7 @@ import {
   NotificationType,
   NotificationTypeMeta,
 } from '../types/notification';
+import { OIL_CO_PILOT_NOTIFICATIONS } from './oilCoLngPilotMockData';
 
 export const NOTIFICATION_TYPE_META: Record<NotificationType, NotificationTypeMeta> = {
   assurance_set_request: { category: 'Assurance Request', idCode: 'ASRQ', actionLabel: 'Create Set' },
@@ -520,4 +521,5 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     createdAt: '2026-10-09T06:00:00.000Z',
     assuranceSetId: 'AS-2026-023',
   },
+  ...OIL_CO_PILOT_NOTIFICATIONS,
 ];

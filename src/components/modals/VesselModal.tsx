@@ -375,7 +375,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
         }
         if (doc.vesselAttributes.issuingBody) {
           const body = doc.vesselAttributes.issuingBody;
-          if (['DNV', 'ABS', "Lloyd's Register", 'Bureau Veritas', 'RINA'].includes(body)) {
+          if (['DNV', 'ABS', "Lloyd's Register", 'Bureau Veritas', 'RINA', 'Austral Classification Society'].includes(body)) {
             setTimeout(() => {
               setClassificationSociety(body as ClassificationSociety);
               setRevealedVesselFields((p) => ({ ...p, classificationSociety: true }));
@@ -1259,6 +1259,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                         <option value="DNV">DNV</option>
                         <option value="ABS">ABS</option>
                         <option value="Lloyd's Register">Lloyd's Register</option>
+                        <option value="Austral Classification Society">Austral Classification Society</option>
                         <option value="Bureau Veritas">Bureau Veritas</option>
                         <option value="RINA">RINA</option>
                       </select>

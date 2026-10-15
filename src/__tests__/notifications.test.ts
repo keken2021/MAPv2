@@ -320,6 +320,7 @@ describe('store: assurance set request', () => {
     const request = sendRequest();
     expect(request).toMatchObject({
       type: 'assurance_set_request',
+      subject: `You are invited to create an assurance set for this particular ${chevronProject.name}`,
       status: 'unread',
       recipientUserId: 'USR-102',
       senderUserId: 'USR-101',
@@ -403,7 +404,12 @@ describe('store: assurance set request', () => {
 
 describe('store: workflow notifications', () => {
   beforeEach(() => {
-    useMapStore.setState({ notifications: [], activePersona: 'Administrator' });
+    useMapStore.setState({
+      notifications: [],
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
   });
 
   it('ignores placeholder stakeholder labels', () => {
@@ -428,9 +434,11 @@ describe('store: workflow notifications', () => {
       .getState()
       .notifications.filter((n) => n.assuranceSetId === 'AS-NTF-TEST-002' && n.type === 'stakeholder_assigned');
     expect(created.map((n) => [n.recipientUserId, n.assignedRole]).sort()).toEqual([
+      ['USR-102', 'Submitter'],
       ['USR-202', 'Verifier'],
       ['USR-203', 'Inspector'],
       ['USR-204', 'Approver'],
+      ['USR-221', 'C Admin'],
     ]);
     expect(created.every((n) => n.type === 'stakeholder_assigned' && n.senderUserId === 'USR-101')).toBe(true);
   });
@@ -474,13 +482,17 @@ describe('store: workflow notifications', () => {
       type: 'stakeholder_assigned',
       assignedRole: 'Inspector',
       assuranceSetId: target.id,
-      subject: `Assigned as Inspector: ${target.title}`,
+      subject: `You are invited to create an assurance set for this particular ${target.title}`,
       senderName: 'K. Osei',
     });
   });
 
   it('notifies the verifier when a set is sent for review', () => {
-    useMapStore.setState({ activePersona: 'C Admin' });
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+      activeSessionUserId: 'USR-201',
+    });
     useMapStore.getState().sendAssuranceForReview('AS-2026-007');
     expect(inboxOf('USR-205')[0]).toMatchObject({
       type: 'review_requested',
@@ -528,7 +540,11 @@ describe('store: workflow notifications', () => {
   });
 
   it('notifies the vessel inspector when a capa is flagged for re-inspection', () => {
-    useMapStore.setState({ activePersona: 'C Admin' });
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+      activeSessionUserId: 'USR-201',
+    });
     useMapStore.getState().flagCapaForReinspection('CAPA-118', 'Verify HRU replacement on board.');
     expect(inboxOf('USR-203')[0]).toMatchObject({
       type: 'capa_reinspection',

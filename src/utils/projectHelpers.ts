@@ -553,9 +553,10 @@ export function filterProjectsForPersona(
     const clientOrg = getClientAdminOrganization(users, sessionOrganization);
     return projects.filter((p) => {
       if (projectOrgMatchesClient(p, clientOrg)) return true;
+      if (p.invitedOrganizations?.some((org) => orgFieldMatches(clientOrg, org))) return true;
       if (assuranceSets.length === 0) return false;
       return getProjectAssuranceSets(p, assuranceSets).some((set) =>
-        isAssuranceSetAssignedToPersona(set, persona),
+        isAssuranceSetAssignedToPersona(set, persona, sessionOrganization),
       );
     });
   }
@@ -567,11 +568,18 @@ export function filterProjectsForPersona(
     'Approver',
   ];
   if (operationalPersonas.includes(persona)) {
-    return projects.filter((p) =>
-      getProjectAssuranceSets(p, assuranceSets).some((set) =>
-        isAssuranceSetAssignedToPersona(set, persona),
-      ),
-    );
+    return projects.filter((p) => {
+      if (
+        persona === 'Submitter' &&
+        sessionOrganization &&
+        p.invitedOrganizations?.some((org) => orgFieldMatches(sessionOrganization, org))
+      ) {
+        return true;
+      }
+      return getProjectAssuranceSets(p, assuranceSets).some((set) =>
+        isAssuranceSetAssignedToPersona(set, persona, sessionOrganization),
+      );
+    });
   }
 
   return [];
@@ -589,6 +597,42 @@ export function getAssuranceSetCreatorsInOrganization(
       u.roles.some((role) => creatorRoles.has(role as UserRolePersona)) &&
       orgFieldMatches(organization, u.organization),
   );
+}
+
+/** Charterable vessels plus any vessel already linked to the project. */
+export function withProjectVessels<T extends { id: string }>(
+  charterable: T[],
+  allVessels: T[],
+  project: Pick<Project, 'assetLinks'> | undefined,
+): T[] {
+  const linkedIds = new Set(
+    (project?.assetLinks ?? [])
+      .filter((link) => link.assetType === 'Vessel')
+      .map((link) => link.assetId),
+  );
+  const extras = allVessels.filter(
+    (vessel) => linkedIds.has(vessel.id) && !charterable.some((item) => item.id === vessel.id),
+  );
+  return [...charterable, ...extras];
+}
+
+/** Creators in the sender's organization and in organizations invited onto the project. */
+export function getAssuranceSetRequestRecipients(
+  users: UserProfile[],
+  senderOrganization: string,
+  invitedOrganizations: string[] = [],
+  senderUserId?: string,
+): UserProfile[] {
+  const seen = new Set<string>();
+  const recipients: UserProfile[] = [];
+  [senderOrganization, ...invitedOrganizations].forEach((organization) => {
+    getAssuranceSetCreatorsInOrganization(users, organization).forEach((user) => {
+      if (user.id === senderUserId || seen.has(user.id)) return;
+      seen.add(user.id);
+      recipients.push(user);
+    });
+  });
+  return recipients;
 }
 
 /** Resolve primary sub-asset ids from explicit project fields or first matching asset link. */

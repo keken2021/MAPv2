@@ -37,7 +37,7 @@ type SortField =
   with what file: src/views/VerifierWorkspaceView.tsx loaded by App.tsx.
 */
 export const VerifierWorkspaceView: React.FC = () => {
-  const { documents, assuranceSets, activePersona } = useMapStore();
+  const { documents, assuranceSets, activePersona, activeDemoOrganization } = useMapStore();
   const [selectedDoc, setSelectedDoc] = useState<MasterDocument | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -79,7 +79,7 @@ export const VerifierWorkspaceView: React.FC = () => {
   const activeFilterCount = activeChips.length;
 
   /* All documents in Verifier's queue (Pending, Correction Requested, Verified) */
-  const scopedDocs = filterDocumentsForVerifierQueue(documents, assuranceSets, activePersona);
+  const scopedDocs = filterDocumentsForVerifierQueue(documents, assuranceSets, activePersona, activeDemoOrganization);
 
   /* Map each document to its associated Assurance Set & Vessel */
   const getAssuranceSetInfo = (docId: string) => {

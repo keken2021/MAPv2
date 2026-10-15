@@ -1963,6 +1963,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         <option value="DNV">DNV</option>
                         <option value="ABS">ABS</option>
                         <option value="Lloyd's Register">Lloyd's Register</option>
+                        <option value="Austral Classification Society">Austral Classification Society</option>
                         <option value="Bureau Veritas">Bureau Veritas</option>
                         <option value="RINA">RINA</option>
                       </select>

@@ -19,9 +19,16 @@ import { UserProfile } from "../types/user";
   how: evaluates assignedSubmitter, assignedVerifier, assignedInspector, assignedApprover, and initiatorRole against active persona.
   with what file: src/utils/rbacHelpers.ts used by views and tables.
 */
+function pilotPartyMatches(organization: string, ...fields: Array<string | undefined>): boolean {
+  const org = organization.trim().toLowerCase();
+  if (!org) return false;
+  return fields.some((field) => Boolean(field) && field!.toLowerCase().includes(org));
+}
+
 export function isAssuranceSetAssignedToPersona(
   set: AssuranceSet,
   persona: UserRolePersona,
+  organization?: string,
 ): boolean {
   if (persona === "Administrator") {
     /* administrator only sees assurance sets they made (northwind marine) or made by c admin for the admin's vessels (VESSEL-005 MV Atlantic Ocean) */
@@ -57,13 +64,26 @@ export function isAssuranceSetAssignedToPersona(
           set.initiatorOrg.includes("Northwind Marine")))
     );
 
+    if (organization) {
+      return pilotPartyMatches(
+        organization,
+        set.assignedSubmitter,
+        set.serviceProviderOrg,
+        set.stakeholders?.submitterOrg,
+      );
+    }
     return isAssignedToOrg;
   }
   if (persona === "Verifier") {
+    if (organization) {
+      return pilotPartyMatches(organization, set.assignedVerifier, set.stakeholders?.verifierOrg);
+    }
     return Boolean(set.assignedVerifier);
   }
   if (persona === "Inspector") {
-    return Boolean(set.mandatoryInspectionRequired && set.assignedInspector);
+    const assigned = Boolean(set.mandatoryInspectionRequired && set.assignedInspector);
+    if (!organization) return assigned;
+    return assigned && pilotPartyMatches(organization, set.assignedInspector, set.stakeholders?.inspectorOrg);
   }
   if (persona === "Approver") {
     /* approver persona can only see assurance sets that are already verified and awaiting approval or certified */
@@ -75,10 +95,12 @@ export function isAssuranceSetAssignedToPersona(
         set.requirements.every(
           (r) => !r.isMandatory || r.verifierStatus === "Verified" || r.isFulfilled,
         ));
-    return Boolean(set.assignedApprover && isVerifiedAndAwaitingApproval);
+    const awaiting = Boolean(set.assignedApprover && isVerifiedAndAwaitingApproval);
+    if (!organization) return awaiting;
+    return awaiting && pilotPartyMatches(organization, set.assignedApprover, set.stakeholders?.approverOrg);
   }
   if (persona === "C Admin") {
-    return (
+    const legacy =
       set.initiatorRole === "C Admin · Client Created" ||
       set.initiatorOrg === "Chevron Australia Pty Ltd" ||
       set.charterer === "Chevron Australia Pty Ltd" ||
@@ -87,8 +109,9 @@ export function isAssuranceSetAssignedToPersona(
       set.initiatorOrg === "Woodside Energy Ltd" ||
       set.charterer === "Woodside Energy Ltd" ||
       set.initiatorOrg === "Inpex Operations Australia" ||
-      set.charterer === "Inpex Operations Australia"
-    );
+      set.charterer === "Inpex Operations Australia";
+    if (!organization) return legacy;
+    return pilotPartyMatches(organization, set.clientOrg, set.charterer, set.initiatorOrg);
   }
   return true;
 }
@@ -154,16 +177,17 @@ export function isAssuranceSetCreatedByCAdmin(
 export function getAssuranceSetRoleActions(
   set: AssuranceSet,
   persona: UserRolePersona,
+  organization?: string,
 ): AssuranceSetRoleActions {
   const isAdmin = persona === "Administrator";
   const isAssigned =
     isAssuranceSetsReadOnlyPersona(persona) &&
-    isAssuranceSetAssignedToPersona(set, persona);
+    isAssuranceSetAssignedToPersona(set, persona, organization);
   /* the client admin verifies the documents the provider uploads on a set the client admin created */
   const isClientVerifier =
     persona === "C Admin" &&
     isAssuranceSetCreatedByCAdmin(set) &&
-    isAssuranceSetAssignedToPersona(set, persona);
+    isAssuranceSetAssignedToPersona(set, persona, organization);
 
   return {
     canManage: isAdmin || persona === "C Admin",
@@ -182,9 +206,10 @@ export function getAssuranceSetRoleActions(
 export function getVerifierQueueDocumentIds(
   assuranceSets: AssuranceSet[],
   persona: UserRolePersona,
+  organization?: string,
 ): Set<string> {
   const assignedSets = assuranceSets.filter((set) =>
-    isAssuranceSetAssignedToPersona(set, persona),
+    isAssuranceSetAssignedToPersona(set, persona, organization),
   );
   const ids = new Set<string>();
   assignedSets.forEach((set) => {
@@ -204,8 +229,9 @@ export function filterDocumentsForVerifierQueue(
   documents: MasterDocument[],
   assuranceSets: AssuranceSet[],
   persona: UserRolePersona,
+  organization?: string,
 ): MasterDocument[] {
-  const allowedIds = getVerifierQueueDocumentIds(assuranceSets, persona);
+  const allowedIds = getVerifierQueueDocumentIds(assuranceSets, persona, organization);
   return documents.filter((d) => allowedIds.has(d.id));
 }
 

@@ -59,7 +59,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         activePersona,
         users,
         assuranceSets,
-        activePersona === "C Admin" ? activeDemoOrganization : undefined,
+        activeDemoOrganization,
       ),
     [projects, activePersona, activeDemoOrganization, users, assuranceSets],
   );
@@ -119,7 +119,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   };
 
   const canOpenSet = (set: AssuranceSet) =>
-    canManage || isAssuranceSetAssignedToPersona(set, activePersona);
+    canManage || isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization);
 
   return (
     <div className="d-flex flex-column gap-3">

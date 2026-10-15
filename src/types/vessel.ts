@@ -45,7 +45,7 @@ export type VesselRegistrationStatus =
   | 'Maintenance'
   | 'Decommissioned';
 
-export type ClassificationSociety = 'DNV' | 'ABS' | "Lloyd's Register" | 'Bureau Veritas' | 'RINA';
+export type ClassificationSociety = 'DNV' | 'ABS' | "Lloyd's Register" | 'Bureau Veritas' | 'RINA' | 'Austral Classification Society';
 
 export type VesselClientCharterOutcome = 'Approved' | 'Rejected' | 'Returned for Correction' | 'In Progress' | 'Completed';
 

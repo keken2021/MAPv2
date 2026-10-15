@@ -71,7 +71,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [targetProjectId, setTargetProjectId] = useState('');
   const [addToProjectError, setAddToProjectError] = useState<string | null>(null);
   const [projectToast, setProjectToast] = useState<string | null>(null);
-  const [selectedDocForReview, setSelectedDocForReview] = useState<{ doc: MasterDocument; notes?: string } | null>(null);
+  const [selectedDocForReview, setSelectedDocForReview] = useState<{ doc: MasterDocument; notes?: string; requirementId?: string; verifierStatus?: string } | null>(null);
   const [selectedDocForVersionHistory, setSelectedDocForVersionHistory] = useState<MasterDocument | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadTargetRequirement, setUploadTargetRequirement] = useState<AssuranceRequirement | null>(null);
@@ -184,7 +184,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             >
               Back to Assurance Sets
             </button>
-            {getAssuranceSetRoleActions(assuranceSet, activePersona).canManage && (
+            {getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization).canManage && (
               <button
                 type="button"
                 className="btn btn-primary px-4 fw-semibold"
@@ -200,7 +200,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   }
 
   const isCAdmin = isCAdminPersona;
-  const roleActions = getAssuranceSetRoleActions(assuranceSet, activePersona);
+  const roleActions = getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization);
 
   /* asset under assurance: its type, display name and the registry page it opens */
   const assuredAsset = ((): { typeLabel: string; name: string; view?: string; entityId?: string } => {
@@ -335,7 +335,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     }
     const isSetApproved = assuranceSet.stage === 'Approved' || assuranceSet.approverDecision === 'Approved';
 
-    if (req.verifierStatus === 'Verified' || req.isFulfilled) {
+    if (req.verifierStatus === 'Verified') {
       if (isSetApproved) {
         return <span className="badge bg-success text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Approved</span>;
       }
@@ -1054,7 +1054,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                               type="button"
                               className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                               style={{ width: '32px', height: '32px' }}
-                              onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
+                              onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus })}
                               title="PDF Review"
                               aria-label="PDF Review"
                             >
@@ -1138,7 +1138,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 type="button"
                                 className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                 style={{ width: '32px', height: '32px' }}
-                                onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes })}
+                                onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus })}
                                 title="PDF Review"
                                 aria-label="PDF Review"
                               >
@@ -1199,6 +1199,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         onClose={() => setSelectedDocForReview(null)}
         allowSubmit={roleActions.canUpload}
         allowVerify={roleActions.canVerify}
+        requirementId={selectedDocForReview?.requirementId}
+        requirementVerifierStatus={selectedDocForReview?.verifierStatus}
       />
 
       {/* add an orphaned set to one existing project */}

@@ -609,6 +609,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                 <option value="DNV">DNV</option>
                 <option value="ABS">ABS</option>
                 <option value="Lloyd's Register">Lloyd's Register</option>
+                <option value="Austral Classification Society">Austral Classification Society</option>
                 <option value="Bureau Veritas">Bureau Veritas</option>
               </select>
             </div>

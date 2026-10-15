@@ -94,6 +94,7 @@ import {
 import { toSingleAssetSet } from "../utils/assuranceTemplates";
 import { MOCK_NOTIFICATIONS } from "./notificationMockData";
 import {
+  assuranceInvitationSubject,
   generateNotificationId,
   isNotificationActionedOnOpen,
   resolveNotificationRecipient,
@@ -352,6 +353,8 @@ export interface MapStoreState {
     status: "Pending" | "Verified" | "Correction Requested" | "Rejected",
     notes?: string,
     routeTarget?: "Inspector" | "Approver",
+    /* the requirement opened for review, so a library document already verified elsewhere still clears this row */
+    requirementId?: string,
   ) => void;
 
   // Audit Trail State
@@ -583,16 +586,24 @@ function closeDocumentRenewalNotifications(
   }));
 }
 
+/** a finished set stays approved when a later set reuses one of its library documents */
+function isClosedAssuranceSet(set: Pick<AssuranceSet, "stage" | "approverDecision">): boolean {
+  return set.approverDecision === "Approved" || set.stage === "Approved" || set.stage === "Certified";
+}
+
 /**
-  what: notifies the verifier, inspector and approver named on an assurance set; inputs are the store getter and the set.
-  how: sends one stakeholder_assigned notification per role that is required and names a real user.
+  what: notifies every person assigned on an assurance set, and the client admins of its client and project; inputs are the store getter and the set.
+  how: sends one stakeholder_assigned notification to the submitter, verifier, inspector and approver, then to each active client admin of the client organization and the project owner; each person is notified once.
   with what file: src/store/useMapStore.ts, called by addAssuranceSet and updateAssuranceSet.
 */
 function notifyAssignedStakeholders(
   get: () => MapStoreState,
   assuranceSet: AssuranceSet,
 ): void {
+  const state = get();
+  const notifiedUserIds = new Set<string>();
   const assignments: { role: UserRolePersona; label?: string }[] = [
+    { role: "Submitter", label: assuranceSet.assignedSubmitter },
     { role: "Verifier", label: assuranceSet.assignedVerifier },
     {
       role: "Inspector",
@@ -602,13 +613,47 @@ function notifyAssignedStakeholders(
     },
     { role: "Approver", label: assuranceSet.assignedApprover },
   ];
+
+  const remember = (label: string | undefined) => {
+    const recipient = resolveNotificationRecipient(label, state.users);
+    if (recipient) notifiedUserIds.add(recipient.id);
+    return recipient;
+  };
+
   assignments.forEach(({ role, label }) => {
+    if (!remember(label)) return;
     notifyAssuranceSetUser(get, assuranceSet, label, {
       type: "stakeholder_assigned",
-      subject: `Assigned as ${role}: ${assuranceSet.title}`,
+      subject: assuranceInvitationSubject(assuranceSet.title),
       assignedRole: role,
     });
   });
+
+  const project = getProjectForAssuranceSet(assuranceSet, state.projects);
+  const organizations = [
+    assuranceSet.clientOrg,
+    assuranceSet.charterer,
+    project?.ownerOrganization,
+  ].filter((org): org is string => Boolean(org && org.trim()));
+  const sameOrganization = (left: string, right: string) =>
+    left.trim().toLowerCase() === right.trim().toLowerCase();
+
+  state.users
+    .filter(
+      (user) =>
+        user.status === "Active" &&
+        user.roles.includes("C Admin") &&
+        organizations.some((org) => sameOrganization(org, user.organization)) &&
+        !notifiedUserIds.has(user.id),
+    )
+    .forEach((user) => {
+      notifiedUserIds.add(user.id);
+      notifyAssuranceSetUser(get, assuranceSet, `${user.name} (${user.organization})`, {
+        type: "stakeholder_assigned",
+        subject: assuranceInvitationSubject(assuranceSet.title),
+        assignedRole: "C Admin",
+      });
+    });
 }
 
 export const useMapStore = create<MapStoreState>((set, get) => ({
@@ -929,7 +974,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const notificationId = get().pushNotification({
       type: "assurance_set_request",
-      subject: "Assurance set creation requested",
+      subject: assuranceInvitationSubject(project.name),
       message: input.message?.trim() || undefined,
       recipientUserId: assignee.id,
       senderUserId: input.senderUserId,
@@ -1177,6 +1222,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         success: false,
         message: "This assurance set has no asset to add to the project.",
       };
+    }
+
+    /* Aurora and Endeavour are already on the LNG project for SS-01 and SS-02. A later set for the same vessel joins the project without a second asset row. */
+    const assetAlreadyOnProject = project.assetLinks.some(
+      (l) => l.assetType === draftLink.assetType && l.assetId === draftLink.assetId,
+    );
+    if (assetAlreadyOnProject) {
+      const stampedSets = get().assuranceSets.map((s) =>
+        s.id === assuranceSetId
+          ? { ...s, projectId, projectName: project.name }
+          : s,
+      );
+      const syncedProjects = syncProjectFromAssuranceSets(
+        projectId,
+        get().projects,
+        stampedSets,
+      );
+      set({ projects: syncedProjects, assuranceSets: stampedSets });
+      return { success: true };
     }
 
     return get().addAssetToProject(projectId, draftLink);
@@ -1720,7 +1784,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
     notifyAssuranceSetUser(get, assuranceSet, assigneeName, {
       type: "stakeholder_assigned",
-      subject: `Assigned as ${role}: ${assuranceSet.title}`,
+      subject: assuranceInvitationSubject(assuranceSet.title),
       assignedRole: role,
     });
     return { success: true };
@@ -1799,21 +1863,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
         /* a verifier routing a requirement to the inspector makes the inspection mandatory; the stage itself is derived */
         const routedToInspector = updatedReqs.some((r) => r.verificationRoute === "Inspector");
+        const denial = status === "Correction Requested" || status === "Rejected";
+        const keepClosed = isClosedAssuranceSet(s) && !denial;
 
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
           mandatoryInspectionRequired: s.mandatoryInspectionRequired || routedToInspector,
-          inspectionCompleted: routedToInspector ? false : s.inspectionCompleted,
-          approverDecision: allVerified
-            ? s.formalApprovalRequired !== false
-              ? "Pending"
-              : "Approved"
-            : status === "Verified"
-              ? s.approverDecision
-              : status === "Correction Requested"
-                ? "Returned for Correction"
-                : "Rejected",
+          inspectionCompleted: keepClosed ? s.inspectionCompleted : routedToInspector ? false : s.inspectionCompleted,
+          approverDecision: keepClosed
+            ? s.approverDecision
+            : allVerified
+              ? s.formalApprovalRequired !== false
+                ? "Pending"
+                : "Approved"
+              : status === "Verified"
+                ? s.approverDecision
+                : status === "Correction Requested"
+                  ? "Returned for Correction"
+                  : "Rejected",
         };
 
         return recalculateSetReadiness(candidateSet);
@@ -2246,6 +2314,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       const targetDoc = updatedDocs.find((d) => d.id === docId);
 
       const updatedSets = state.assuranceSets.map((s) => {
+        /* a new version of a shared library document must not reopen a set that is already approved */
+        if (isClosedAssuranceSet(s)) return s;
         let hasMatchedReq = false;
         const updatedReqs = s.requirements.map((r) => {
           if (
@@ -2307,7 +2377,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       if (setIds.length > 0) get().raiseDocumentRenewalNotifications(setIds);
     }
   },
-  verifyDocument: (docId, status, notes, routeTarget) => {
+  verifyDocument: (docId, status, notes, routeTarget, requirementId) => {
     const setsBeforeVerification = get().assuranceSets;
     set((state) => {
       const updatedDocs = state.documents.map((d) =>
@@ -2318,6 +2388,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       const targetDoc = updatedDocs.find((d) => d.id === docId);
 
       const updatedSets = state.assuranceSets.map((s) => {
+        const denial = status === "Correction Requested" || status === "Rejected";
+        /* a review of one requirement stays on that set; a library-wide review does not reopen an approved set */
+        if (requirementId) {
+          if (!s.requirements.some((r) => r.id === requirementId)) return s;
+        } else if (isClosedAssuranceSet(s)) {
+          return s;
+        }
+
         let hasMatchedReq = false;
 
         const updatedReqs = s.requirements.map((r) => {
@@ -2329,12 +2407,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             targetDoc &&
             (r.title.toLowerCase().includes(targetDoc.title.toLowerCase()) ||
               targetDoc.title.toLowerCase().includes(r.title.toLowerCase()));
+          const matchesThisReview = requirementId
+            ? r.id === requirementId
+            : isDocIdMatch ||
+              isTitleMatch ||
+              (s.vesselId === targetDoc?.vesselId && isSubTitleMatch);
 
-          if (
-            isDocIdMatch ||
-            isTitleMatch ||
-            (s.vesselId === targetDoc?.vesselId && isSubTitleMatch)
-          ) {
+          if (matchesThisReview) {
             hasMatchedReq = true;
             return {
               ...r,
@@ -2364,21 +2443,30 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
         /* a verifier routing a requirement to the inspector makes the inspection mandatory; the stage itself is derived */
         const routedToInspector = updatedReqs.some((r) => r.verificationRoute === "Inspector");
+        const keepClosed = isClosedAssuranceSet(s) && !denial;
 
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
-          mandatoryInspectionRequired: s.mandatoryInspectionRequired || routedToInspector,
-          inspectionCompleted: routedToInspector ? false : s.inspectionCompleted,
-          approverDecision: allVerified
-            ? s.formalApprovalRequired !== false
-              ? "Pending"
-              : "Approved"
-            : status === "Verified"
-              ? s.approverDecision
-              : status === "Correction Requested"
-                ? "Returned for Correction"
-                : "Rejected",
+          mandatoryInspectionRequired: keepClosed
+            ? s.mandatoryInspectionRequired
+            : s.mandatoryInspectionRequired || routedToInspector,
+          inspectionCompleted: keepClosed
+            ? s.inspectionCompleted
+            : routedToInspector
+              ? false
+              : s.inspectionCompleted,
+          approverDecision: keepClosed
+            ? s.approverDecision
+            : allVerified
+              ? s.formalApprovalRequired !== false
+                ? "Pending"
+                : "Approved"
+              : status === "Verified"
+                ? s.approverDecision
+                : status === "Correction Requested"
+                  ? "Returned for Correction"
+                  : "Rejected",
         };
 
         return recalculateSetReadiness(candidateSet);

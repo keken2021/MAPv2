@@ -23,6 +23,9 @@ interface DocumentReviewDrawerProps {
   allowSubmit?: boolean;
   /* false when the caller's assurance set does not grant the active persona verify actions */
   allowVerify?: boolean;
+  /* the requirement this review was opened from; its own status decides whether Verify is still offered */
+  requirementId?: string;
+  requirementVerifierStatus?: string;
 }
 
 interface ExtractedAttribute {
@@ -38,7 +41,7 @@ interface ExtractedAttribute {
   how: displays document metadata header, scanned page preview box with quality checks, OCR extracted attributes with progress bars, and exception action banner.
   with what file: src/components/drawers/DocumentReviewDrawer.tsx loaded by VerifierWorkspaceView.tsx and AssuranceDetailView.tsx.
 */
-export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose, allowSubmit = true, allowVerify = true }) => {
+export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose, allowSubmit = true, allowVerify = true, requirementId, requirementVerifierStatus }) => {
   const { verifyDocument, requestDocumentReupload, activePersona, assuranceSets, notifications } = useMapStore();
   const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState('');
@@ -83,6 +86,10 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   if (!document) return null;
 
   const isVerified = document.verificationStatus === 'Verified';
+  /* a library document can already be verified on another set; this requirement still needs its own Verify */
+  const decisionsClosed = requirementVerifierStatus
+    ? requirementVerifierStatus === 'Verified'
+    : isVerified;
 
   const linkedReq = linkedSet?.requirements?.find(
     (req) =>
@@ -121,8 +128,9 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     return true;
   };
 
-  const isReuploaded = document.versions.length > 1 || document.currentVersion !== 'v1.0' || (document.ocrConfidence && document.ocrConfidence >= 90);
-  const activeNotes = requirementNotes || document.verificationNotes || (document.versions.length > 0 ? document.versions[0].changeSummary : undefined);
+  const versions = document.versions ?? [];
+  const isReuploaded = versions.length > 1 || document.currentVersion !== 'v1.0' || (document.ocrConfidence && document.ocrConfidence >= 90);
+  const activeNotes = requirementNotes || document.verificationNotes || (versions.length > 0 ? versions[0].changeSummary : undefined);
 
   /* mock extracted attributes matching design screenshot */
   const extractedAttributes: ExtractedAttribute[] = document.crewAttributes
@@ -173,19 +181,21 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       document.id,
       'Verified',
       comment.trim() || 'Verified extracted fields.',
+      undefined,
+      requirementId,
     );
     onClose();
   };
 
   const handleCorrection = () => {
     if (!requireComment()) return;
-    verifyDocument(document.id, 'Correction Requested', comment.trim());
+    verifyDocument(document.id, 'Correction Requested', comment.trim(), undefined, requirementId);
     onClose();
   };
 
   const handleReject = () => {
     if (!requireComment()) return;
-    verifyDocument(document.id, 'Rejected', comment.trim());
+    verifyDocument(document.id, 'Rejected', comment.trim(), undefined, requirementId);
     onClose();
   };
 
@@ -212,7 +222,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
         className={`form-control bg-white text-dark border p-3 ${commentError ? 'border-danger' : ''}`}
         rows={2}
         placeholder={
-          isVerified
+          decisionsClosed
             ? 'Required to request a reupload. Say why the document is outdated.'
             : 'Required to return, reject or request a reupload. Optional to verify.'
         }
@@ -268,7 +278,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                 <button type="button" className="btn btn-outline-secondary" onClick={handleRequestReupload}>
                   Request Reupload
                 </button>
-                {!isVerified && (
+                {!decisionsClosed && (
                   <>
                     <button type="button" className="btn btn-outline-danger" onClick={handleReject}>
                       Reject

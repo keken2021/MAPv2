@@ -9,6 +9,12 @@ import { AssuranceSet } from '../types/assurance';
 import { isAssuranceSetScopeDisabled } from '../utils/assuranceTemplates';
 import { MasterDocument } from '../types/document';
 import { AuditTrailEvent } from '../types/audit';
+import {
+  OIL_CO_PILOT_AUDIT,
+  OIL_CO_PILOT_DOCUMENTS,
+  OIL_CO_PILOT_USERS,
+  OIL_CO_PILOT_VESSELS,
+} from './oilCoLngPilotMockData';
 
 export const MOCK_VESSELS: Vessel[] = [
   {
@@ -970,6 +976,7 @@ export const MOCK_VESSELS: Vessel[] = [
     masterCertificateUploadCount: 3,
     clientHistory: [],
   },
+  ...OIL_CO_PILOT_VESSELS,
 ];
 
 const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
@@ -4882,6 +4889,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
     },
     verificationStatus: 'Pending',
   },
+  ...OIL_CO_PILOT_DOCUMENTS,
 ];
 
 export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = [
@@ -5020,6 +5028,7 @@ export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = [
     targetAsset: 'AS-CRW-104-01 (Bosun David Kowalski)',
     justificationNotes: 'Uploaded verified STCW endorsement and background clearance.',
   },
+  ...OIL_CO_PILOT_AUDIT,
 ];
 
 /* user each persona is signed in as; matches the identities shown in the sidebar footer */
@@ -5450,5 +5459,6 @@ export const MOCK_USERS: import('../types/user').UserProfile[] = [
     status: 'Active',
     lastActive: '2026-09-19 15:30 UTC',
   },
+  ...OIL_CO_PILOT_USERS,
 ];
 

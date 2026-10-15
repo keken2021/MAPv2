@@ -75,6 +75,8 @@ export interface Project extends AssuranceProject {
   operatorOrganization: string;
   /** Client organization that owns this project (charterer) */
   ownerOrganization?: string;
+  /** Organizations that may open the project and create a set before they are the client on one */
+  invitedOrganizations?: string[];
   assetLinks: ProjectAssetLink[];
   readinessScore?: number;
   /** Service / rental projects */

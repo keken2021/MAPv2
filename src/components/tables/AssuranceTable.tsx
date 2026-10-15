@@ -59,6 +59,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     customScopes,
     users,
     projects,
+    activeDemoOrganization,
   } = useMapStore();
   const [activeTab, setActiveTab] = useState<AssuranceViewTab>(defaultTab);
   const [searchTerm, setSearchTerm] = useState('');
@@ -88,7 +89,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
 
   const accessibleSets = assuranceSets.filter(
     (s) =>
-      isAssuranceSetAssignedToPersona(s, activePersona) &&
+      isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization) &&
       !(isReadOnly && s.visibility === 'draft'),
   );
 
@@ -98,10 +99,11 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const isDraftSet = (s: AssuranceSet) =>
     s.visibility === 'draft' || s.stage === 'Initiated';
 
-  /* organization tab: only sets owned or initiated by the current user organization */
-  const viewerOrg = matchingUser?.organization;
+  /* organization tab: sets this organization owns, or is appointed on, once they leave the draft stage */
+  const viewerOrg = activeDemoOrganization || matchingUser?.organization;
   const isOrgSet = (s: AssuranceSet) =>
-    isAssuranceSetOwnedOrInitiatedByOrganization(s, viewerOrg) &&
+    (isAssuranceSetOwnedOrInitiatedByOrganization(s, viewerOrg) ||
+      isAssuranceSetAssignedToPersona(s, activePersona, viewerOrg)) &&
     (s.visibility === 'organization' || (!isDraftSet(s) && !isPublicSet(s)) || (s.stage !== 'Initiated' && s.visibility !== 'public'));
 
   /* project id shown in the project column; empty for an orphaned set */

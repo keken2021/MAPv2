@@ -30,7 +30,7 @@ export const ProjectView: React.FC = () => {
         activePersona,
         users,
         assuranceSets,
-        activePersona === 'C Admin' ? activeDemoOrganization : undefined,
+        activeDemoOrganization,
       ),
     [projects, activePersona, activeDemoOrganization, users, assuranceSets],
   );

@@ -6,6 +6,7 @@
 
 import { AssuranceSet } from '../types/assurance';
 import { Project } from '../types/project';
+import { OIL_CO_PILOT_ASSURANCE_SETS, OIL_CO_PILOT_PROJECT } from './oilCoLngPilotMockData';
 
 export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
   {
@@ -421,6 +422,7 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
       },
     ],
   },
+  ...OIL_CO_PILOT_ASSURANCE_SETS,
 ];
 
 export const MOCK_PROJECTS: Project[] = [
@@ -782,4 +784,5 @@ export const MOCK_PROJECTS: Project[] = [
       },
     ],
   },
+  OIL_CO_PILOT_PROJECT,
 ];
