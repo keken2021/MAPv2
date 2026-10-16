@@ -26,6 +26,7 @@ import {
   usersWithRole,
   userHasRole,
   getEligibleVerifiers,
+  getServiceProviderSubmitterCandidates,
   filterEligibleVerifiersForScope,
   filterEligibleApproversForScope,
   filterCandidatesByReviewMode,
@@ -56,7 +57,7 @@ import {
   getAssetAutoAttachSummary,
 } from '../utils/documentMatchingHelpers';
 import { filterProjectsForPersona, projectToAssuranceProjectScope, withProjectVessels } from '../utils/projectHelpers';
-import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient } from '../utils/notificationHelpers';
+import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2 } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 
@@ -308,8 +309,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const selectedCrewForScope = crew.find((c) => c.id === selectedCrewId);
   const selectedActivityForScope = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId);
 
-  /* 1.4: Identify the provider of the asset the set covers (Vessel, Crew or Equipment Provider) */
-  const serviceProviderOrg =
+  /* owner of the asset the set names; a bunker supplier can be a different organization */
+  const assetProviderOrg =
     assuranceType === 'Vessel'
       ? (selectedVesselForScope?.registeredOwner || selectedVesselForScope?.ismCompany || 'Northwind Marine Pty Ltd')
       : assuranceType === 'Equipment'
@@ -320,16 +321,21 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             ? (selectedActivityForScope?.category || 'Deepwater Marine Services')
             : (selectedVesselForScope?.registeredOwner || 'Northwind Marine Pty Ltd');
 
+  /* a request from another organization makes that requester the service provider, so the submitter is theirs */
+  const serviceProviderOrg = resolveRequestedServiceProviderOrg(
+    requestContext,
+    setClientOrg,
+    assetProviderOrg,
+  );
   const vesselOwnerOrg = serviceProviderOrg;
 
-  /* the supplier's submitter can be a different organization from the vessel owner, as on a bunker delivery */
-  const submitterCandidates = users.filter(
-    (user) =>
-      user.status === 'Active' &&
-      user.roles.includes('Submitter') &&
-      !orgFieldMatches(clientOrg, user.organization),
+  const submitterCandidates = useMemo(
+    () => getServiceProviderSubmitterCandidates(users, serviceProviderOrg),
+    [users, serviceProviderOrg],
   );
-  const [assignedSubmitterId, setAssignedSubmitterId] = useState('');
+  const [assignedSubmitterId, setAssignedSubmitterId] = useState(
+    () => getServiceProviderSubmitterCandidates(users, serviceProviderOrg)[0]?.id || '',
+  );
   const selectedSubmitterForProvider = users.find((user) => user.id === assignedSubmitterId);
   const appointedProviderOrg = selectedSubmitterForProvider?.organization || serviceProviderOrg;
   /* keep the existing review lists; only the chosen supplier is kept off verifier and approver */
@@ -372,6 +378,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [assignedInspector, setAssignedInspector] = useState(inspectorCandidates[0]?.id || '');
   const [assignedApprover, setAssignedApprover] = useState(approverCandidates[0]?.id || '');
   const [isApproverSameAsVerifier, setIsApproverSameAsVerifier] = useState<boolean>(false);
+
+  useEffect(() => {
+    setAssignedSubmitterId((current) =>
+      submitterCandidates.some((user) => user.id === current)
+        ? current
+        : submitterCandidates[0]?.id || '',
+    );
+  }, [submitterCandidates]);
 
   useEffect(() => {
     if (!assignedSubmitterId || reviewMode === 'issuing_authority') return;
@@ -2531,7 +2545,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 Stakeholders
                               </strong>
                               <div className="text-muted" style={{ fontSize: '0.78rem' }}>
-                                Choose the service provider submitter, then one verifier, inspector, and approver. The submitter can belong to a supplier other than the vessel owner.
+                                The submitter is filled in from the service provider. Choose a submitter, a client admin, or an administrator of that organization, then one verifier, inspector, and approver.
                               </div>
                             </div>
                           </div>
@@ -2559,10 +2573,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 <option value="">Select submitter</option>
                                 {submitterCandidates.map((user) => (
                                   <option key={user.id} value={user.id}>
-                                    {user.name} ({user.organization})
+                                    {user.name} — {user.roles.includes('Submitter') ? 'Submitter' : user.roles.includes('C Admin') ? 'Client Admin' : 'Administrator'} ({user.organization})
                                   </option>
                                 ))}
                               </select>
+                              <div className="text-muted mt-1" style={{ fontSize: '0.75rem' }}>
+                                {serviceProviderOrg
+                                  ? `Service provider: ${serviceProviderOrg}.`
+                                  : 'Select the asset to name the service provider.'}
+                              </div>
                               {fieldErrors.submitter && (
                                 <div className="text-danger small mt-1 font-mono-code" style={{ fontSize: '0.72rem' }}>
                                   {fieldErrors.submitter}

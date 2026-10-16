@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import { filterProjectsForPersona, getAssuranceSetRequestRecipients, withProjectVessels } from '../utils/projectHelpers';
 import { SUBTYPE_TEMPLATES, customRequirementFields, getThreePillarsCategory } from '../utils/assuranceTemplates';
-import { resolveAssuranceRequestSetClient } from '../utils/notificationHelpers';
+import { resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
 import { ThreePillarsCategory } from '../types/assurance';
 import { MOCK_USERS } from '../store/mockData';
 import {
@@ -29,6 +29,7 @@ import {
   XY_MARINE_ORG,
 } from '../store/oilCoLngPilotMockData';
 import { getAssuranceSetRoleActions, isAssuranceSetAssignedToPersona, orgFieldMatches } from '../utils/rbacHelpers';
+import { getServiceProviderSubmitterCandidates } from '../utils/userRoleHelpers';
 
 describe('Oil Co LNG Field Development pilot', () => {
   const project = MOCK_PROJECTS.find((item) => item.id === OIL_CO_LNG_PROJECT_ID);
@@ -82,14 +83,25 @@ describe('Oil Co LNG Field Development pilot', () => {
     const solas = sets
       .find((set) => set.id === OIL_CO_SS01_ID)
       ?.requirements.find((req) => req.id === 'REQ-SS01-10');
-    expect(solas?.verifierStatus).toBe('Verified');
+    expect(solas?.verifierStatus).toBe('Correction Requested');
     expect(solas?.documentId).toBeTruthy();
-    sets.forEach((set) => {
-      expect(set.stage, set.id).toBe('Approved');
-      expect(set.approverDecision, set.id).toBe('Approved');
-      expect(set.readinessScore, set.id).toBe(100);
-      expect(set.requirements.every((req) => req.verifierStatus === 'Verified' && req.documentId)).toBe(true);
-    });
+
+    const ss01 = sets.find((set) => set.id === OIL_CO_SS01_ID);
+    expect(ss01?.title).toBe('LNG Transport Charter');
+    expect(ss01?.stage).toBe('Verification');
+    expect(ss01?.approverDecision).toBe('Pending');
+    expect(ss01?.readinessScore).toBeLessThan(100);
+    expect(ss01?.requirements.some((req) => req.verifierStatus !== 'Verified')).toBe(true);
+
+    sets
+      .filter((set) => set.id === OIL_CO_SS02_ID || set.id === OIL_CO_SS03_ID)
+      .forEach((set) => {
+        expect(set.title.startsWith('SS-0'), set.id).toBe(false);
+        expect(set.stage, set.id).toBe('Approved');
+        expect(set.approverDecision, set.id).toBe('Approved');
+        expect(set.readinessScore, set.id).toBe(100);
+        expect(set.requirements.every((req) => req.verifierStatus === 'Verified' && req.documentId)).toBe(true);
+      });
 
     sets.forEach((set) => {
       expect(orgFieldMatches(set.serviceProviderOrg || '', set.assignedVerifier || '')).toBe(false);
@@ -137,6 +149,30 @@ describe('Oil Co LNG Field Development pilot', () => {
       clientOrganization: OIL_CO_ORG,
       project: project!,
     })).toBe(OIL_CO_ORG);
+  });
+
+  it('prefills an Oil Company submitter when Northwind creates the set Oil Company requested', () => {
+    const provider = resolveRequestedServiceProviderOrg(
+      { requestedByOrganization: OIL_CO_ORG },
+      NORTHWIND_ORG,
+      NORTHWIND_ORG,
+    );
+    expect(provider).toBe(OIL_CO_ORG);
+
+    const candidates = getServiceProviderSubmitterCandidates(MOCK_USERS, provider);
+    expect(candidates[0]?.name).toBe('J. Hale');
+    expect(candidates.some((user) => user.name === 'A. Okonkwo' && user.roles.includes('C Admin'))).toBe(true);
+    expect(candidates.every((user) => user.organization === OIL_CO_ORG)).toBe(true);
+    expect(candidates.some((user) => user.name === 'K. Adeyemi')).toBe(false);
+    expect(candidates.some((user) => user.organization === NORTHWIND_ORG)).toBe(false);
+
+    expect(
+      resolveRequestedServiceProviderOrg(
+        { requestedByOrganization: OIL_CO_ORG },
+        OIL_CO_ORG,
+        NORTHWIND_ORG,
+      ),
+    ).toBe(NORTHWIND_ORG);
   });
 
   it('offers Aurora and Endeavour on the project and the BRD evidence templates', () => {

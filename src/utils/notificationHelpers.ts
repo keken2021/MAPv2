@@ -260,6 +260,8 @@ export interface AssuranceRequestContext {
   assigneeName: string;
   assignee?: UserProfile;
   requestedByName: string;
+  /** organization that sent the request */
+  requestedByOrganization?: string;
 }
 
 /**
@@ -279,6 +281,7 @@ export function resolveAssuranceRequestContext(
   if (!project) return undefined;
 
   const assignee = users.find((u) => u.id === notification.request?.assigneeUserId);
+  const sender = users.find((u) => u.id === notification.senderUserId);
   return {
     notification,
     project,
@@ -287,7 +290,23 @@ export function resolveAssuranceRequestContext(
     assigneeName: assignee?.name || notification.request.assigneeName,
     assignee,
     requestedByName: notification.senderName,
+    requestedByOrganization: sender?.organization,
   };
+}
+
+/**
+  what: the service provider for a set opened from an assurance request; inputs are the request, the set client, and the owner of the selected asset.
+  how: when another organization asks this client to create the set, that requester is the service provider and supplies the submitter. A request from the set's own client keeps the asset owner as the provider.
+  with what file: src/utils/notificationHelpers.ts used by CreateAssuranceSetView.tsx.
+*/
+export function resolveRequestedServiceProviderOrg(
+  context: Pick<AssuranceRequestContext, 'requestedByOrganization'> | undefined,
+  setClientOrg: string,
+  assetProviderOrg: string,
+): string {
+  const requesterOrg = context?.requestedByOrganization?.trim() || '';
+  if (requesterOrg && !orgFieldMatches(setClientOrg, requesterOrg)) return requesterOrg;
+  return assetProviderOrg;
 }
 
 /**

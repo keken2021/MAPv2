@@ -113,9 +113,11 @@ describe('finished pilot sets stay approved', () => {
     useMapStore.setState(initialState, true);
   });
 
-  it('keeps SS-01, SS-02 and SS-03 at 100 after SS-04 and SS-05 are created and a shared document is verified', () => {
+  it('keeps SS-02 and SS-03 at 100, and SS-01 below 100, after SS-04 and SS-05 are created and a shared document is verified', () => {
     const before = finishedSnapshot();
-    expect(before.sets.map((set) => set.score)).toEqual([100, 100, 100]);
+    expect(before.sets[0].stage).toBe('Verification');
+    expect(before.sets[0].score).toBeLessThan(100);
+    expect(before.sets.slice(1).map((set) => set.score)).toEqual([100, 100]);
 
     useMapStore.getState().addAssuranceSet(
       buildLiveSet(

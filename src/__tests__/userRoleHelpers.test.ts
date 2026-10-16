@@ -6,6 +6,7 @@ import {
   getOperationalRoleOptions,
   getRoleDisplayLabel,
   getSegregationWarnings,
+  getServiceProviderSubmitterCandidates,
   hasBlockingAssuranceAssignmentConflict,
   splitRolesForForm,
   usersWithRole,
@@ -119,5 +120,29 @@ describe('userRoleHelpers', () => {
     const otherVerifiers = eligibleVerifiers.slice(cAdminCount);
     expect(otherVerifiers.length).toBeGreaterThan(0);
     expect(otherVerifiers.every((u) => u.roles.includes('Verifier'))).toBe(true);
+  });
+
+  it('offers the service provider submitters, client admins, and administrators, with submitters first', () => {
+    const northwind = getServiceProviderSubmitterCandidates(MOCK_USERS, 'Northwind Marine Pty Ltd');
+    expect(northwind.some((user) => user.name === 'M. Chen')).toBe(true);
+    expect(northwind.some((user) => user.name === 'T. Okada' && user.roles.includes('C Admin'))).toBe(true);
+    expect(northwind.some((user) => user.name === 'K. Osei' && user.roles.includes('Administrator'))).toBe(true);
+    expect(northwind.every((user) => user.organization === 'Northwind Marine Pty Ltd')).toBe(true);
+    expect(
+      northwind.every(
+        (user) =>
+          user.roles.includes('Submitter') ||
+          user.roles.includes('C Admin') ||
+          user.roles.includes('Administrator'),
+      ),
+    ).toBe(true);
+
+    const firstAdministrator = northwind.findIndex(
+      (user) => user.roles.includes('Administrator') && !user.roles.includes('Submitter'),
+    );
+    expect(firstAdministrator).toBeGreaterThan(0);
+    expect(
+      northwind.slice(firstAdministrator).some((user) => user.roles.includes('Submitter')),
+    ).toBe(false);
   });
 });

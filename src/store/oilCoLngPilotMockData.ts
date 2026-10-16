@@ -625,13 +625,13 @@ const ss03Rows: EvidenceRow[] = [
   },
 ];
 
-/* the three seeded sets are already approved, so every task has a verified document */
+/* SS-02 and SS-03 are already approved, so every task has a verified document. SS-01 stays with the verifier. */
 function finishedRows(rows: EvidenceRow[]): EvidenceRow[] {
   return rows.map((row) => ({ ...row, state: "verified" }));
 }
 
 const ss01Evidence = buildEvidence(
-  finishedRows(ss01Rows),
+  ss01Rows,
   10101,
   OIL_CO_AURORA_ID,
   "LNGC Northwind Aurora",
@@ -909,6 +909,7 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
     ismCompany: NORTHWIND_ORG,
     technicalManager: NORTHWIND_ORG,
     masterName: "Capt. Elena Voss",
+    complianceReadinessScore: 74,
     statutoryCertificates: [
       {
         id: "MAP-VES-2026-STAT-10107",
@@ -933,7 +934,7 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
       {
         id: "CH-AURORA-01",
         clientOrganization: OIL_CO_ORG,
-        charterTitle: "SS-01 LNG Transport Charter",
+        charterTitle: "LNG Transport Charter",
         assuranceSetId: OIL_CO_SS01_ID,
         charterStart: "2026-11-15",
         charterEnd: "2027-05-14",
@@ -1000,7 +1001,7 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
 export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
   {
     id: OIL_CO_SS01_ID,
-    title: "SS-01 LNG Transport Charter",
+    title: "LNG Transport Charter",
     assuranceType: "Vessel",
     subtypes: ["Vessel"],
     projectId: OIL_CO_LNG_PROJECT_ID,
@@ -1018,17 +1019,17 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
     serviceProviderOrg: NORTHWIND_ORG,
     charterWindowStart: "2026-11-15",
     charterWindowEnd: "2027-05-14",
-    stage: "Approved",
-    readinessScore: 100,
+    stage: "Verification",
+    readinessScore: 48,
     mandatoryInspectionRequired: true,
-    inspectionCompleted: true,
+    inspectionCompleted: false,
     verificationRequired: true,
     formalApprovalRequired: true,
     assignedSubmitter: label(NORTHWIND_SUBMITTER, NORTHWIND_ORG),
     assignedVerifier: label(XY_VERIFIER, XY_MARINE_ORG),
     assignedInspector: label(XY_INSPECTOR, XY_MARINE_ORG),
     assignedApprover: label(XY_APPROVER, XY_MARINE_ORG),
-    approverDecision: "Approved",
+    approverDecision: "Pending",
     reviewMode: "third_party",
     reviewChannels: ["third_party"],
     requirements: ss01Evidence.requirements,
@@ -1049,7 +1050,7 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
   },
   {
     id: OIL_CO_SS02_ID,
-    title: "SS-02 Vessel Purchase (OSV)",
+    title: "Vessel Purchase (OSV)",
     assuranceType: "Vessel",
     subtypes: ["Vessel"],
     projectId: OIL_CO_LNG_PROJECT_ID,
@@ -1098,7 +1099,7 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
   },
   {
     id: OIL_CO_SS03_ID,
-    title: "SS-03 Terminal / Loading Operations",
+    title: "Terminal / Loading Operations",
     assuranceType: "Activity",
     subtypes: ["Activity"],
     projectId: OIL_CO_LNG_PROJECT_ID,
@@ -1164,8 +1165,8 @@ export const OIL_CO_PILOT_PROJECT: Project = {
   workLocationType: "Mixed",
   charterWindowStart: "2026-11-01",
   charterWindowEnd: "2027-12-31",
-  status: "Ready for Charter",
-  readinessScore: 100,
+  status: "Assurance In Progress",
+  readinessScore: 83,
   assetLinks: [
     {
       id: "PAL-017A",
@@ -1178,7 +1179,7 @@ export const OIL_CO_PILOT_PROJECT: Project = {
       roleInProject: "LNG export carrier",
       addedAt: "2026-10-01T00:00:00Z",
       addedByPersona: "C Admin",
-      notes: "SS-01 LNG Transport Charter",
+      notes: "LNG Transport Charter",
     },
     {
       id: "PAL-017B",
@@ -1191,7 +1192,7 @@ export const OIL_CO_PILOT_PROJECT: Project = {
       roleInProject: "Newbuild field support vessel",
       addedAt: "2026-10-01T00:00:00Z",
       addedByPersona: "C Admin",
-      notes: "SS-02 Vessel Purchase (OSV)",
+      notes: "Vessel Purchase (OSV)",
     },
   ],
 };
@@ -1215,7 +1216,7 @@ export const OIL_CO_PILOT_AUDIT: AuditTrailEvent[] = [
     userRole: "Submitter",
     organization: NORTHWIND_ORG,
     action: "Submitted Charter Evidence",
-    targetAsset: "AS-2026-101 (SS-01 LNG Transport Charter)",
+    targetAsset: "AS-2026-101 (LNG Transport Charter)",
     justificationNotes:
       "Uploaded class, registry, ISM, crew list and certificates of competency for LNGC Northwind Aurora.",
   },
@@ -1230,10 +1231,10 @@ export const OIL_CO_PILOT_AUDIT: AuditTrailEvent[] = [
     documentStatusDelta: {
       documentId: "MAP-VES-2026-STAT-10110",
       oldStatus: "Pending Verification",
-      newStatus: "Verified",
+      newStatus: "Correction Requested",
     },
     justificationNotes:
-      "SOLAS certificates were renewed and verified. SS-01 was then approved.",
+      "SOLAS certificates expire inside the charter buffer and were returned for correction. The rest of the charter evidence is still with the verifier.",
   },
   {
     id: "AUD-90513",
@@ -1242,7 +1243,7 @@ export const OIL_CO_PILOT_AUDIT: AuditTrailEvent[] = [
     userRole: "Verifier",
     organization: AUSTRAL_ORG,
     action: "Verified Class and Statutory Dossier",
-    targetAsset: "AS-2026-102 (SS-02 Vessel Purchase)",
+    targetAsset: "AS-2026-102 (Vessel Purchase (OSV))",
     justificationNotes:
       "Class status, statutory certificates and the delivery survey for OSV Meridian Endeavour are verified, and SS-02 is approved.",
   },
@@ -1253,7 +1254,7 @@ export const OIL_CO_PILOT_AUDIT: AuditTrailEvent[] = [
     userRole: "Submitter",
     organization: HARBOURLINE_ORG,
     action: "Submitted Terminal Evidence",
-    targetAsset: "AS-2026-103 (SS-03 Terminal / Loading Operations)",
+    targetAsset: "AS-2026-103 (Terminal / Loading Operations)",
     justificationNotes:
       "Harbourline submitted the remaining terminal evidence, XY Marine verified it, and SS-03 is approved.",
   },
@@ -1263,7 +1264,7 @@ export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
   {
     id: "MAP-NTF-2026-VERF-00031",
     type: "review_requested",
-    subject: "Verify SS-01 LNG Transport Charter",
+    subject: "Verify LNG Transport Charter",
     message:
       "Northwind has submitted vessel, crew and ISM evidence for LNGC Northwind Aurora. SOLAS radio is already back for correction.",
     recipientUserId: "USR-229",
@@ -1271,9 +1272,7 @@ export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
     senderName: OIL_CO_ADMIN,
     projectId: OIL_CO_LNG_PROJECT_ID,
     projectName: "Oil Company LNG Field Development",
-    status: "actioned",
-    readAt: "2026-10-14T02:00:00.000Z",
-    actionedAt: "2026-10-14T02:00:00.000Z",
+    status: "unread",
     createdAt: "2026-10-09T06:30:00.000Z",
     assuranceSetId: OIL_CO_SS01_ID,
     vesselName: "LNGC Northwind Aurora",
@@ -1290,9 +1289,7 @@ export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
     senderName: XY_VERIFIER,
     projectId: OIL_CO_LNG_PROJECT_ID,
     projectName: "Oil Company LNG Field Development",
-    status: "actioned",
-    readAt: "2026-10-14T02:00:00.000Z",
-    actionedAt: "2026-10-14T02:00:00.000Z",
+    status: "unread",
     createdAt: "2026-10-09T06:25:00.000Z",
     assuranceSetId: OIL_CO_SS01_ID,
     documentId: "MAP-VES-2026-STAT-10110",
@@ -1302,7 +1299,7 @@ export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
   {
     id: "MAP-NTF-2026-APRV-00033",
     type: "approval_requested",
-    subject: "Approve SS-02 Vessel Purchase (OSV)",
+    subject: "Approve Vessel Purchase (OSV)",
     message:
       "Austral Classification Society has verified the Meridian Endeavour delivery dossier. Delivery survey is complete.",
     recipientUserId: "USR-230",
@@ -1321,7 +1318,7 @@ export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
   {
     id: "MAP-NTF-2026-ASGN-00034",
     type: "stakeholder_assigned",
-    subject: "Submit remaining SS-03 terminal evidence",
+    subject: "Submit remaining terminal evidence",
     message:
       "Oil Company is waiting on ESD tests, mooring records, ship-shore compatibility for Northwind Aurora, and the port facility security statement.",
     recipientUserId: "USR-234",

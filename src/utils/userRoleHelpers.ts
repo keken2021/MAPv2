@@ -144,6 +144,39 @@ export function getEligibleVerifiers(users: UserProfile[]): UserProfile[] {
 }
 
 /**
+  what: returns the people who may submit for one service provider; inputs are the user registry and that organization.
+  how: keeps active users of that organization who hold Submitter, C Admin, or Administrator. Submitters come first, then client admins, then administrators. A person already listed under an earlier role is not repeated.
+  with what file: src/utils/userRoleHelpers.ts used by CreateAssuranceSetView.tsx.
+*/
+export function getServiceProviderSubmitterCandidates(
+  users: UserProfile[],
+  serviceProviderOrg: string,
+): UserProfile[] {
+  const provider = serviceProviderOrg.trim();
+  if (!provider) return [];
+  const eligible = users.filter(
+    (user) =>
+      user.status === 'Active' &&
+      Boolean(user.organization) &&
+      stakeholderOrgMatches(user.organization, provider) &&
+      (userHasRole(user, 'Submitter') ||
+        userHasRole(user, 'C Admin') ||
+        userHasRole(user, 'Administrator')),
+  );
+  const submitters = eligible.filter((user) => userHasRole(user, 'Submitter'));
+  const clientAdmins = eligible.filter(
+    (user) => userHasRole(user, 'C Admin') && !userHasRole(user, 'Submitter'),
+  );
+  const administrators = eligible.filter(
+    (user) =>
+      userHasRole(user, 'Administrator') &&
+      !userHasRole(user, 'Submitter') &&
+      !userHasRole(user, 'C Admin'),
+  );
+  return [...submitters, ...clientAdmins, ...administrators];
+}
+
+/**
   what: classifies a user into a review channel (Internal Client, Appointed Third Party, or Issuing Authority).
   how: checks user role, organization, and department metadata.
   with what file: src/utils/userRoleHelpers.ts consumed by CreateAssuranceSetView.tsx.
