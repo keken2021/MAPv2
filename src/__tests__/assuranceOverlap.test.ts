@@ -10,6 +10,9 @@ import {
   contractPeriodsOverlap,
   findOverlappingAssuranceSets,
   formatOverlapError,
+  getDefaultNonConflictingContractPeriod,
+  getAssetPeriodConflicts,
+  isAssetAvailableForPeriod,
 } from '../utils/assuranceOverlap';
 
 /* a saved set with only the fields the overlap check reads */
@@ -151,5 +154,29 @@ describe('contract period overlap', () => {
       'Contract period overlaps AS-A (01 NOV 2026 – 01 NOV 2027) for MV Pacific Endeavour and 1 more.',
     );
     expect(formatOverlapError([])).toBe('');
+  });
+
+  it('determines individual asset period availability and conflict retrieval', () => {
+    const existing = makeSet({ id: 'AS-EXISTING', vesselId: 'VESSEL-001', charterWindowStart: '2026-11-01', charterWindowEnd: '2027-11-01' });
+    expect(isAssetAvailableForPeriod('Vessel', 'VESSEL-001', '2027-01-01', '2027-06-01', [existing])).toBe(false);
+    expect(isAssetAvailableForPeriod('Vessel', 'VESSEL-001', '2027-11-01', '2028-11-01', [existing])).toBe(true);
+    expect(isAssetAvailableForPeriod('Vessel', 'VESSEL-002', '2027-01-01', '2027-06-01', [existing])).toBe(true);
+
+    const conflicts = getAssetPeriodConflicts('Vessel', 'VESSEL-001', '2027-01-01', '2027-06-01', [existing]);
+    expect(conflicts.length).toBe(1);
+    expect(conflicts[0].set.id).toBe('AS-EXISTING');
+  });
+
+  it('calculates a demo-friendly non-conflicting default contract period', () => {
+    const existing = makeSet({ id: 'AS-2027', charterWindowStart: '2026-11-01', charterWindowEnd: '2027-11-01' });
+    const defaultDates = getDefaultNonConflictingContractPeriod([existing]);
+    expect(defaultDates.start).toBe('2028-01-01');
+    expect(defaultDates.end).toBe('2028-12-31');
+
+    /* when sets already extend past 2027, advances past the latest end date */
+    const futureSet = makeSet({ id: 'AS-2028', charterWindowStart: '2028-01-01', charterWindowEnd: '2028-06-30' });
+    const futureDefault = getDefaultNonConflictingContractPeriod([existing, futureSet]);
+    expect(futureDefault.start).toBe('2028-07-01');
+    expect(futureDefault.end).toBe('2029-07-01');
   });
 });

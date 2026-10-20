@@ -54,7 +54,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/types/assurance.ts` : assurance set types
 - `src/__tests__/assuranceSetsRoleAccess.test.ts` : role access rules for these screens
 - `src/__tests__/oneAssetPerSet.test.ts` : one scope and one covered asset per set, provider terms (a crew set may list several crew members, ADR 0023)
-- `src/utils/assuranceOverlap.ts` : contract period overlap check between sets on the same asset (half-open periods, drafts skipped); used by the create wizard and the detail Contract Period edit; tests `src/__tests__/assuranceOverlap.test.ts`
+- `src/utils/assuranceOverlap.ts` : contract period overlap check between sets on the same asset (half-open periods, drafts skipped); used by the create wizard's Scope tab (asset picked next to the dates) and the detail Contract Period edit; tests `src/__tests__/assuranceOverlap.test.ts`
 - `src/utils/documentVersionSnapshot.ts` : `isClosedAssuranceSet`, version snapshot on verify (`verifiedVersion`), lock on approval (`lockedAt`), seed freeze, `getRequirementDocumentView` (version-pinned document for an approved set); tests `src/__tests__/documentVersionSnapshot.test.tsx`
 - `getAssuranceSetCrewIds`, `getAssuranceSetCrewNames`, `getAssuranceSetAssets` in `src/utils/assuranceTemplates.ts` : every crew member of a crew set (`crewIds`, ADR 0023); tests `src/__tests__/multiCrewScope.test.tsx` (includes the wizard checkbox list)
 

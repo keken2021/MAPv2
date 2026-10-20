@@ -1,7 +1,7 @@
 /*
   file summary: contract period overlap check between assurance sets that cover the same asset.
   responsibilities: finds saved sets whose contract period overlaps a candidate period on the same vessel, crew member or equipment item, and words the field error.
-  role in system: used by CreateAssuranceSetView.tsx (Scope step and submit) and AssuranceDetailView.tsx (inline Contract Period edit).
+  role in system: used by CreateAssuranceSetView.tsx (Scope tab, where the asset is picked next to the dates, and submit) and AssuranceDetailView.tsx (inline Contract Period edit).
 */
 
 import { AssuranceSet, AssuranceSubtype } from '../types/assurance';
@@ -71,4 +71,113 @@ export function formatOverlapError(conflicts: ContractPeriodConflict[]): string 
   const period = `${formatMaritimeDate(set.charterWindowStart)} – ${formatMaritimeDate(set.charterWindowEnd)}`;
   const more = conflicts.length > 1 ? ` and ${conflicts.length - 1} more` : '';
   return `Contract period overlaps ${set.id} (${period}) for ${assetName}${more}.`;
+}
+
+/**
+  what: find contract period conflicts for a specific single asset.
+  how: wraps findOverlappingAssuranceSets for a vessel id, crew id, or equipment id.
+  with what file: src/utils/assuranceOverlap.ts used by CreateAssuranceSetView.tsx.
+*/
+export function getAssetPeriodConflicts(
+  scope: AssuranceSubtype,
+  assetId: string,
+  start: string,
+  end: string,
+  sets: AssuranceSet[],
+  excludeId?: string,
+): ContractPeriodConflict[] {
+  if (!assetId || !start || !end || scope === 'Activity') return [];
+  return findOverlappingAssuranceSets(
+    {
+      id: excludeId,
+      scope,
+      vesselId: scope === 'Vessel' ? assetId : undefined,
+      crewIds: scope === 'Crew' ? [assetId] : undefined,
+      equipmentId: scope === 'Equipment' ? assetId : undefined,
+      start,
+      end,
+    },
+    sets,
+  );
+}
+
+/**
+  what: checks if an asset is free of overlapping contracts for the specified period.
+*/
+export function isAssetAvailableForPeriod(
+  scope: AssuranceSubtype,
+  assetId: string,
+  start: string,
+  end: string,
+  sets: AssuranceSet[],
+  excludeId?: string,
+): boolean {
+  return getAssetPeriodConflicts(scope, assetId, start, end, sets, excludeId).length === 0;
+}
+
+/**
+  what: calculates a demo-friendly, non-conflicting default contract period (start and end).
+  how: checks existing non-draft assurance sets for the candidate asset (or across all sets if unassigned).
+       Finds the latest charterWindowEnd and defaults to a non-conflicting 1-year window (2028-01-01 to 2028-12-31,
+       or the day after the latest existing contract if contracts already extend beyond 2027).
+  with what file: src/utils/assuranceOverlap.ts used by CreateAssuranceSetView.tsx.
+*/
+export function getDefaultNonConflictingContractPeriod(
+  sets: AssuranceSet[],
+  candidate?: Partial<ContractPeriodCandidate>,
+): { start: string; end: string } {
+  const relevantSets = sets.filter((set) => {
+    if (set.id === candidate?.id) return false;
+    if (set.visibility === 'draft') return false;
+    if (!set.charterWindowStart || !set.charterWindowEnd) return false;
+    if (candidate?.scope && candidate.scope !== 'Activity' && getAssuranceSetScopes(set)[0] !== candidate.scope) {
+      return false;
+    }
+    if (candidate?.scope === 'Vessel' && candidate.vesselId && set.vesselId !== candidate.vesselId) {
+      return false;
+    }
+    if (candidate?.scope === 'Crew' && candidate.crewIds?.length) {
+      const setCrewIds = getAssuranceSetCrewIds(set);
+      if (!candidate.crewIds.some((id) => setCrewIds.includes(id))) return false;
+    }
+    if (candidate?.scope === 'Equipment' && candidate.equipmentId && set.equipmentId !== candidate.equipmentId) {
+      return false;
+    }
+    return true;
+  });
+
+  /* If no relevant sets exist, default to 2028-01-01 – 2028-12-31 */
+  if (relevantSets.length === 0) {
+    return { start: '2028-01-01', end: '2028-12-31' };
+  }
+
+  let latestEnd = '2027-12-31';
+  relevantSets.forEach((s) => {
+    if (s.charterWindowEnd && s.charterWindowEnd > latestEnd) {
+      latestEnd = s.charterWindowEnd;
+    }
+  });
+
+  if (latestEnd <= '2027-12-31') {
+    return { start: '2028-01-01', end: '2028-12-31' };
+  }
+
+  /* Compute start date after latestEnd */
+  const [yearStr, monthStr, dayStr] = latestEnd.split('-');
+  const endDateObj = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr)));
+  endDateObj.setUTCDate(endDateObj.getUTCDate() + 1);
+
+  const startYear = endDateObj.getUTCFullYear();
+  const startMonth = String(endDateObj.getUTCMonth() + 1).padStart(2, '0');
+  const startDay = String(endDateObj.getUTCDate()).padStart(2, '0');
+  const computedStart = `${startYear}-${startMonth}-${startDay}`;
+
+  const computedEndDateObj = new Date(endDateObj.getTime());
+  computedEndDateObj.setUTCFullYear(computedEndDateObj.getUTCFullYear() + 1);
+  const endYear = computedEndDateObj.getUTCFullYear();
+  const endMonth = String(computedEndDateObj.getUTCMonth() + 1).padStart(2, '0');
+  const endDay = String(computedEndDateObj.getUTCDate()).padStart(2, '0');
+  const computedEnd = `${endYear}-${endMonth}-${endDay}`;
+
+  return { start: computedStart, end: computedEnd };
 }
