@@ -26,6 +26,10 @@ interface DocumentReviewDrawerProps {
   /* the requirement this review was opened from; its own status decides whether Verify is still offered */
   requirementId?: string;
   requirementVerifierStatus?: string;
+  /* the set the review was opened from; without it the first set using the document is taken */
+  assuranceSetId?: string;
+  /* true when the document is pinned to the version an approved set was approved against: no new version, no reupload */
+  isVersionLocked?: boolean;
 }
 
 interface ExtractedAttribute {
@@ -41,7 +45,7 @@ interface ExtractedAttribute {
   how: displays document metadata header, scanned page preview box with quality checks, OCR extracted attributes with progress bars, and exception action banner.
   with what file: src/components/drawers/DocumentReviewDrawer.tsx loaded by VerifierWorkspaceView.tsx and AssuranceDetailView.tsx.
 */
-export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose, allowSubmit = true, allowVerify = true, requirementId, requirementVerifierStatus }) => {
+export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose, allowSubmit = true, allowVerify = true, requirementId, requirementVerifierStatus, assuranceSetId, isVersionLocked = false }) => {
   const { verifyDocument, requestDocumentReupload, activePersona, assuranceSets, notifications } = useMapStore();
   const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState('');
@@ -52,7 +56,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [correctedFieldIds, setCorrectedFieldIds] = useState<Set<string>>(new Set());
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const linkedSet = document
+  const openedFromSet = assuranceSetId ? assuranceSets.find((set) => set.id === assuranceSetId) : undefined;
+  const linkedSet = openedFromSet || (document
     ? assuranceSets.find(
       (set) =>
         set.requirements?.some(
@@ -63,7 +68,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
             (document.title && req.title && document.title.toLowerCase().includes(req.title.toLowerCase()))
         ) || (set.vesselId === document.vesselId)
     )
-    : undefined;
+    : undefined);
 
   useEffect(() => {
     if (!document) return;
@@ -107,7 +112,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     linkedSet
   );
 
-  const canSubmit = allowSubmit && (activePersona === 'Submitter' || activePersona === 'Administrator');
+  /* a version locked on an approved set takes no new upload */
+  const canSubmit = allowSubmit && !isVersionLocked && (activePersona === 'Submitter' || activePersona === 'Administrator');
   /* the client admin verifies the documents on a set a client admin created; it never edits or uploads them */
   const isClientVerifier =
     activePersona === 'C Admin' && Boolean(linkedSet) && isAssuranceSetCreatedByCAdmin(linkedSet!);
@@ -243,7 +249,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     <>
       <Drawer
         title={document.title}
-        meta={`${document.title.toLowerCase().replace(/\s+/g, '-')}-scan.jpg · 640 KB · 1 page · ${document.currentVersion}`}
+        meta={`${document.title.toLowerCase().replace(/\s+/g, '-')}-scan.jpg · 640 KB · 1 page · ${document.currentVersion}${isVersionLocked ? ' · approved version, locked' : ''}`}
         size="xl"
         onClose={onClose}
         paused={isUploadModalOpen}
@@ -275,9 +281,11 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     Upload New Version
                   </button>
                 )}
-                <button type="button" className="btn btn-outline-secondary" onClick={handleRequestReupload}>
-                  Request Reupload
-                </button>
+                {!isVersionLocked && (
+                  <button type="button" className="btn btn-outline-secondary" onClick={handleRequestReupload}>
+                    Request Reupload
+                  </button>
+                )}
                 {!decisionsClosed && (
                   <>
                     <button type="button" className="btn btn-outline-danger" onClick={handleReject}>

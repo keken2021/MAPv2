@@ -31,6 +31,7 @@ import { normalizeText } from '../../utils/documentMatchingHelpers';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
+import { getAssuranceSetCrewNames } from '../../utils/assuranceTemplates';
 
 export interface AttachAssuranceSetPreviewModalProps {
   isOpen: boolean;
@@ -86,7 +87,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
       const c = crew.find((item) => item.id === assuranceSet.crewId);
       return {
         id: assuranceSet.crewId || 'CREW-N/A',
-        name: assuranceSet.crewName || c?.fullName || 'Crew Member',
+        name: getAssuranceSetCrewNames(assuranceSet).join(', ') || c?.fullName || 'Crew Member',
         org: c?.organization || assuranceSet.initiatorOrg || assuranceSet.serviceProviderOrg || 'Crew Provider',
         extra: c ? `${c.rank} · ${c.nationality}` : 'Crew',
       };

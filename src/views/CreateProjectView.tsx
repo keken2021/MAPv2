@@ -30,6 +30,7 @@ import {
   projectTypeShowsServiceFields,
 } from "../utils/projectHelpers";
 import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
+import { getAssuranceSetCrewNames } from "../utils/assuranceTemplates";
 
 const DEFAULT_ROLES: Partial<Record<ProjectAssetType, string>> = {
   Vessel: "Subject vessel",
@@ -609,7 +610,7 @@ export const CreateProjectView: React.FC = () => {
                         >
                           {s.assuranceType || "Asset"} · {s.stage}
                           {s.vesselName ? ` · ${s.vesselName}` : ""}
-                          {s.crewName ? ` · ${s.crewName}` : ""}
+                          {s.crewName ? ` · ${getAssuranceSetCrewNames(s).join(", ")}` : ""}
                         </div>
                       </div>
                       <button

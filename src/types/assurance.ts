@@ -89,6 +89,20 @@ export interface AssuranceRequirement {
   /** document (default) or pointer to a linked assurance set */
   fulfillmentType?: RequirementFulfillmentType;
   linkedAssuranceSetId?: string;
+  /** the exact document version this requirement was verified against; an approved set shows this, never the live version */
+  verifiedVersion?: RequirementVersionSnapshot;
+}
+
+/** frozen copy of one document version, taken when a requirement is verified or its set is approved */
+export interface RequirementVersionSnapshot {
+  documentId: string;
+  versionLabel: string;
+  fileName: string;
+  uploadedAt: string;
+  verifiedAt: string;
+  verifiedBy?: string;
+  verificationStatus: 'Verified' | 'Pending' | 'Correction Requested' | 'Rejected';
+  expiryDate?: string;
 }
 
 export interface AssuranceProject {
@@ -152,8 +166,12 @@ export interface AssuranceSet {
   /** nullable foreign key: a set belongs to at most one project; a project has zero or many sets */
   projectId?: string;
   projectName?: string;
+  /** first crew member of a crew set; kept for single-member readers */
   crewId?: string;
   crewName?: string;
+  /** every crew member a crew set covers, in selection order; crewIds[0] equals crewId (ADR 0023) */
+  crewIds?: string[];
+  crewNames?: string[];
   equipmentId?: string;
   equipmentName?: string;
   activityId?: string;
@@ -200,4 +218,6 @@ export interface AssuranceSet {
   /** C Admin workflow: draft until sent for review; client owns final approval */
   clientWorkflowStage?: ClientWorkflowStage;
   sentForReviewAt?: string;
+  /** iso date-time the set was approved and its document versions locked */
+  lockedAt?: string;
 }

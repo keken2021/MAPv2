@@ -1,6 +1,6 @@
 /*
-  file summary: tests that an assurance set covers exactly one asset.
-  responsibilities: verifies every seeded set has one scope and one covered asset, that the store reduces a set built with several scopes, and the provider term of each asset type.
+  file summary: tests that an assurance set covers one asset, or one or more crew members on a crew set (ADR 0004, amended by ADR 0023).
+  responsibilities: verifies every seeded set has one scope and one covered asset (a crew list only on crew sets), that the store reduces a set built with several scopes, and the provider term of each asset type.
   role in system: covers src/utils/assuranceTemplates.ts, the seeded sets in src/store/mockData.ts and src/store/projectMockData.ts, and getProviderLabel in src/utils/formatters.ts.
 */
 
@@ -36,6 +36,15 @@ describe('one asset per assurance set', () => {
       expect(asset.id, set.id).toBeTruthy();
       if (asset.type !== 'Crew') expect(set.crewId, set.id).toBeUndefined();
       if (asset.type !== 'Equipment') expect(set.equipmentId, set.id).toBeUndefined();
+    });
+  });
+
+  it('seeds a crew list only on crew sets, led by the set crewId', () => {
+    ALL_SETS.forEach((set) => {
+      if (!set.crewIds) return;
+      expect(getAssuranceSetScopes(set)[0], set.id).toBe('Crew');
+      expect(set.crewIds[0], set.id).toBe(set.crewId);
+      expect(new Set(set.crewIds).size, set.id).toBe(set.crewIds.length);
     });
   });
 

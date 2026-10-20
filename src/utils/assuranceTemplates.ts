@@ -1,7 +1,7 @@
 /* 
   file summary: predefined subtype document definitions, descriptions, public templates, and organization templates for assurance sets.
   responsibilities: provides maritime-accurate standard requirements for Vessel, Crew, Activity, and Equipment subtypes with complete operational descriptions.
-  role in system: consumed by CreateAssuranceSetView.tsx during assurance set initiation; a set covers exactly one asset (ADR 0004).
+  role in system: consumed by CreateAssuranceSetView.tsx during assurance set initiation; a set covers one asset, or one or more crew members on a crew set (ADR 0004, amended by ADR 0023).
 */
 
 import { AssuranceSet, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory } from '../types/assurance';
@@ -57,8 +57,43 @@ export function getAssuranceSetAsset(
   return { type, id: set.vesselId, name: set.vesselName || set.vesselId };
 }
 
+/* every crew member id a set covers: crewIds when saved, else its single crewId; empty for a set with no crew (ADR 0023) */
+export function getAssuranceSetCrewIds(set: Pick<AssuranceSet, 'crewId' | 'crewIds'>): string[] {
+  if (set.crewIds && set.crewIds.length > 0) return set.crewIds;
+  return set.crewId ? [set.crewId] : [];
+}
+
+/* every crew member name a set covers, in the order of getAssuranceSetCrewIds */
+export function getAssuranceSetCrewNames(set: Pick<AssuranceSet, 'crewId' | 'crewIds' | 'crewName' | 'crewNames'>): string[] {
+  return getAssuranceSetCrewIds(set).map((id, i) => set.crewNames?.[i] || (i === 0 ? set.crewName : undefined) || id);
+}
+
+/* every asset a set covers: one vessel or equipment item, or one or more crew members on a crew set (ADR 0023) */
+export function getAssuranceSetAssets(
+  set: Pick<
+    AssuranceSet,
+    | 'assuranceType'
+    | 'subtypes'
+    | 'vesselId'
+    | 'vesselName'
+    | 'crewId'
+    | 'crewName'
+    | 'crewIds'
+    | 'crewNames'
+    | 'equipmentId'
+    | 'equipmentName'
+  >,
+): AssuranceSetAsset[] {
+  const first = getAssuranceSetAsset(set);
+  if (first.type !== 'Crew') return [first];
+  const ids = getAssuranceSetCrewIds(set);
+  if (ids.length === 0) return [first];
+  const names = getAssuranceSetCrewNames(set);
+  return ids.map((id, i) => ({ type: 'Crew' as AssuranceSubtype, id, name: names[i] }));
+}
+
 /**
-  what: a set reduced to the one asset it covers; input is a set as a caller built it.
+  what: a set reduced to the asset it covers (one or more crew members on a crew set, ADR 0023); input is a set as a caller built it.
   how: keeps the scope the set is filed under as its only subtype, clears the crew and equipment links of other scopes, and drops requirements that belong to another scope; the vessel stays as the covered vessel or the host vessel.
   with what file: src/utils/assuranceTemplates.ts used by useMapStore.ts when a set is added or updated.
 */
@@ -68,8 +103,10 @@ export function toSingleAssetSet<T extends AssuranceSet>(set: T): T {
     ...set,
     assuranceType: scope,
     subtypes: [scope],
-    crewId: scope === 'Crew' ? set.crewId : undefined,
-    crewName: scope === 'Crew' ? set.crewName : undefined,
+    crewId: scope === 'Crew' ? (set.crewIds?.[0] ?? set.crewId) : undefined,
+    crewName: scope === 'Crew' ? (set.crewNames?.[0] ?? set.crewName) : undefined,
+    crewIds: scope === 'Crew' && set.crewIds && set.crewIds.length > 0 ? set.crewIds : undefined,
+    crewNames: scope === 'Crew' && set.crewIds && set.crewIds.length > 0 ? set.crewNames : undefined,
     equipmentId: scope === 'Equipment' ? set.equipmentId : undefined,
     equipmentName: scope === 'Equipment' ? set.equipmentName : undefined,
     activityId: scope === 'Activity' ? set.activityId : undefined,

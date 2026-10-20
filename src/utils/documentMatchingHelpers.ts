@@ -16,6 +16,8 @@ export interface AssetMatchingContext {
   vessels?: VesselInformation[];
   crew?: CrewMember[];
   selectedCrewId?: string;
+  /** every crew member of a crew set (ADR 0023); a requirement takes the first member's matching document */
+  selectedCrewIds?: string[];
   equipment?: EquipmentAsset[];
   selectedEquipmentId?: string;
   selectedVesselId?: string;
@@ -442,11 +444,22 @@ export function findMatchingDocumentForRequirement(
   // 2. CREW SUBTYPE MATCHING
   // -------------------------------------------------------------
   if (subtype === 'Crew') {
-    const targetCrew = context.selectedCrewId
-      ? context.crew?.find((c) => c.id === context.selectedCrewId)
-      : (context.crew && context.crew[0]);
+    const targetCrewIds =
+      context.selectedCrewIds && context.selectedCrewIds.length > 0
+        ? context.selectedCrewIds
+        : context.selectedCrewId
+          ? [context.selectedCrewId]
+          : [];
+    const targetCrews: CrewMember[] =
+      targetCrewIds.length > 0
+        ? targetCrewIds
+            .map((id) => context.crew?.find((c) => c.id === id))
+            .filter((c): c is CrewMember => Boolean(c))
+        : context.crew && context.crew[0]
+          ? [context.crew[0]]
+          : [];
 
-    if (targetCrew) {
+    for (const targetCrew of targetCrews) {
       // 2a. Search in MasterDocument Vault for crew documents
       const crewVaultDocs = context.documents.filter(
         (d) =>

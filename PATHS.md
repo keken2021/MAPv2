@@ -53,7 +53,10 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/drawers/DocumentReviewDrawer.tsx` : document review drawer opened from the detail screen
 - `src/types/assurance.ts` : assurance set types
 - `src/__tests__/assuranceSetsRoleAccess.test.ts` : role access rules for these screens
-- `src/__tests__/oneAssetPerSet.test.ts` : one scope and one covered asset per set, provider terms
+- `src/__tests__/oneAssetPerSet.test.ts` : one scope and one covered asset per set, provider terms (a crew set may list several crew members, ADR 0023)
+- `src/utils/assuranceOverlap.ts` : contract period overlap check between sets on the same asset (half-open periods, drafts skipped); used by the create wizard and the detail Contract Period edit; tests `src/__tests__/assuranceOverlap.test.ts`
+- `src/utils/documentVersionSnapshot.ts` : `isClosedAssuranceSet`, version snapshot on verify (`verifiedVersion`), lock on approval (`lockedAt`), seed freeze, `getRequirementDocumentView` (version-pinned document for an approved set); tests `src/__tests__/documentVersionSnapshot.test.tsx`
+- `getAssuranceSetCrewIds`, `getAssuranceSetCrewNames`, `getAssuranceSetAssets` in `src/utils/assuranceTemplates.ts` : every crew member of a crew set (`crewIds`, ADR 0023); tests `src/__tests__/multiCrewScope.test.tsx` (includes the wizard checkbox list)
 
 ## Marketplace screens
 - `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)
@@ -84,7 +87,7 @@ Root: `C:\mapFiles\MAPv2`
 ## Docs (`docs/` is gitignored, so these are local only)
 - The `docs/` root holds only `GLOSSARY.md` and folders. Do not save a file at the root. Layout set on 2026-10-12; record: `docs/plans/docs-declutter.md`
 - `docs/GLOSSARY.md` : domain terms (Administrator, Client, Vessel Provider, Crew Provider, Equipment Provider, Asset, Assurance Set, Document Renewal, Readiness and others; "Service Provider" is retired). Read it before wording a Task or a doc. It lives here, not at the repo root
-- `docs/adr/` : decision records, numbered `0001-...`. 0001 is the Task list layout, 0002 is the one Administrator role, 0003 limits board writes to discussion comments, 0004 is one asset per Assurance Set and the provider terms by asset type, 0005 is one Task for list controls and a Testing entry in each Task, 0006 lets the `task-branch` skill write a Task state and its Branch link (amends 0003)
+- `docs/adr/` : decision records, numbered `0001-...`. 0001 is the Task list layout, 0002 is the one Administrator role, 0003 limits board writes to discussion comments, 0004 is one asset per Assurance Set and the provider terms by asset type (amended by 0023: a Crew set may cover several crew members), 0005 is one Task for list controls and a Testing entry in each Task, 0006 lets the `task-branch` skill write a Task state and its Branch link (amends 0003)
 - `docs/plans/` : plans and audits of work not yet done. New plans go here
 - `docs/plans/assurance-sets-tasks-flow-plan.md`, `.docx` : Tasks execution flow plan, 6 hrs/day daily schedule (12 days), and task-branch planning for the 43 Tasks assigned to Creishen Ayuman under Feature 4583; starts at Task 4655
 - `docs/plans/document-renewal-and-one-asset-sets.md`, `.docx` : Document Renewal notification category, provider terms by asset type, one asset per set. Built on 2026-10-12, not committed; move to `docs/changes/` once merged. Rebuild the `.docx` with `docs/plans/document-renewal-and-one-asset-sets.build.py` (needs python-docx, which no installed Python has: use a venv; arguments: `docs/azure-boards/board-comment-skill-spec.docx` as style base, then the output path)

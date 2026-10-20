@@ -5,7 +5,7 @@
 */
 
 import { AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype } from '../types/assurance';
-import { EXISTING_PROJECTS } from './assuranceTemplates';
+import { EXISTING_PROJECTS, getAssuranceSetCrewIds } from './assuranceTemplates';
 import { UserRolePersona } from '../types/audit';
 import { CrewMember } from '../types/crew';
 import { EquipmentAsset } from '../types/equipment';
@@ -321,7 +321,7 @@ export function getCharterAssuranceSetsForAsset(
 ): AssuranceSet[] {
   return assuranceSets.filter((set) => {
     if (assetType === 'Vessel') return set.vesselId === assetId;
-    if (assetType === 'Crew') return set.crewId === assetId;
+    if (assetType === 'Crew') return getAssuranceSetCrewIds(set).includes(assetId);
     if (assetType === 'Equipment') return set.equipmentId === assetId;
     return false;
   });
@@ -421,7 +421,7 @@ export function getEligibleAssuranceSetsForAsset(
   const matched = assuranceSets.filter((set) => {
     if (set.visibility === 'draft' || (set.visibility as string) === 'private') return false;
     if (assetType === 'Vessel') return set.vesselId === assetId;
-    if (assetType === 'Crew') return set.crewId === assetId;
+    if (assetType === 'Crew') return getAssuranceSetCrewIds(set).includes(assetId);
     if (assetType === 'Equipment') return set.equipmentId === assetId;
     if (assetType === 'Activity') return set.activityId === assetId;
     return false;

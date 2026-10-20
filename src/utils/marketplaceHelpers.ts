@@ -17,7 +17,7 @@ import { getVesselStockPhoto, getEquipmentStockPhoto, getCrewStockPhoto, getOrga
 import { getClientAdminOrganization } from './rbacHelpers';
 import { calculateCrewComplianceScore, calculateEquipmentReadiness, calculateVesselReadiness } from './readinessHelpers';
 import { formatReadinessScore, getStatusDisplayLabel, NOT_ASSESSED_LABEL } from './formatters';
-import { getAssuranceSetScopes } from './assuranceTemplates';
+import { getAssuranceSetCrewIds, getAssuranceSetScopes } from './assuranceTemplates';
 import { toIsoLocalDate } from './validation';
 
 /**
@@ -304,7 +304,7 @@ export function isMarketplaceItemAvailableOnDate(
       kind === 'vessel'
         ? set.vesselId === assetId && getAssuranceSetScopes(set).includes('Vessel')
         : kind === 'crew'
-          ? set.crewId === assetId
+          ? getAssuranceSetCrewIds(set).includes(assetId)
           : set.equipmentId === assetId;
     if (!occupies) return false;
     return set.charterWindowStart <= date && date < set.charterWindowEnd;

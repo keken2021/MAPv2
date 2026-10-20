@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, FolderOpen, FileCheck, FileText, RefreshCw, Upload } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -33,6 +33,13 @@ import {
   getAssuranceSetStakeholderLockReason,
 } from '../utils/rbacHelpers';
 import { getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
+import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetScopes } from '../utils/assuranceTemplates';
+import { findOverlappingAssuranceSets, formatOverlapError } from '../utils/assuranceOverlap';
+import {
+  getRequirementDocumentView,
+  isClosedAssuranceSet,
+  RequirementDocumentView,
+} from '../utils/documentVersionSnapshot';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -71,7 +78,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [targetProjectId, setTargetProjectId] = useState('');
   const [addToProjectError, setAddToProjectError] = useState<string | null>(null);
   const [projectToast, setProjectToast] = useState<string | null>(null);
-  const [selectedDocForReview, setSelectedDocForReview] = useState<{ doc: MasterDocument; notes?: string; requirementId?: string; verifierStatus?: string } | null>(null);
+  const [selectedDocForReview, setSelectedDocForReview] = useState<{ doc: MasterDocument; notes?: string; requirementId?: string; verifierStatus?: string; isVersionLocked?: boolean } | null>(null);
   const [selectedDocForVersionHistory, setSelectedDocForVersionHistory] = useState<MasterDocument | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadTargetRequirement, setUploadTargetRequirement] = useState<AssuranceRequirement | null>(null);
@@ -202,14 +209,22 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const isCAdmin = isCAdminPersona;
   const roleActions = getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization);
 
-  /* asset under assurance: its type, display name and the registry page it opens */
-  const assuredAsset = ((): { typeLabel: string; name: string; view?: string; entityId?: string } => {
+  /* asset under assurance: its type, display name and the registry page it opens; a crew set may list several members (ADR 0023) */
+  const assuredAsset = ((): {
+    typeLabel: string;
+    name: string;
+    view?: string;
+    entityId?: string;
+    members?: { id: string; name: string }[];
+  } => {
     if (assuranceSet.assuranceType === 'Crew') {
+      const members = getAssuranceSetAssets(assuranceSet).map((asset) => ({ id: asset.id, name: asset.name }));
       return {
         typeLabel: 'Crew',
         name: assuranceSet.crewName || assuranceSet.vesselName,
         view: assuranceSet.crewId ? 'crew' : undefined,
         entityId: assuranceSet.crewId,
+        members: assuranceSet.crewId ? members : undefined,
       };
     }
     if (assuranceSet.assuranceType === 'Equipment') {
@@ -273,6 +288,24 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const saveCharterWindow = () => {
     const errors = validateCharterWindow(charterStartDraft, charterEndDraft);
+    if (!errors.start && !errors.end) {
+      /* the asset cannot hold two contracts at once */
+      const overlapError = formatOverlapError(
+        findOverlappingAssuranceSets(
+          {
+            id: assuranceSet.id,
+            scope: getAssuranceSetScopes(assuranceSet)[0],
+            vesselId: assuranceSet.vesselId,
+            crewIds: getAssuranceSetCrewIds(assuranceSet),
+            equipmentId: assuranceSet.equipmentId,
+            start: charterStartDraft,
+            end: charterEndDraft,
+          },
+          assuranceSets,
+        ),
+      );
+      if (overlapError) errors.start = overlapError;
+    }
     setCharterWindowErrors(errors);
     if (errors.start || errors.end) return;
 
@@ -370,11 +403,43 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     setReplaceExistingDoc(null);
   };
 
+  /* an approved or certified set takes no new uploads: its document versions are locked */
+  const isSetVersionLocked = isClosedAssuranceSet(assuranceSet);
+  const canUploadHere = canUpload && !isSetVersionLocked;
+
+  /* version badge of a requirement row: the pinned version with a lock on an approved set, and a note when the library has moved on */
+  const renderVersionBadge = (req: AssuranceRequirement, docView?: RequirementDocumentView) => {
+    const label = docView?.doc.currentVersion || req.documentVersion;
+    if (!label) return null;
+    const lockedOn = docView?.snapshot?.verifiedAt || assuranceSet.lockedAt;
+    return (
+      <>
+        <span
+          className="badge bg-light text-secondary border font-mono-code ms-2 d-inline-flex align-items-center gap-1"
+          style={{ fontSize: '0.7rem' }}
+          title={docView?.isLocked ? `Approved version${lockedOn ? `, locked ${formatMaritimeDate(lockedOn)}` : ''}` : undefined}
+        >
+          {docView?.isLocked && <Lock size={10} aria-label="Locked version" />}
+          {label}
+        </span>
+        {docView?.newerVersionLabel && (
+          <span className="text-secondary font-mono-code ms-1.5 fw-normal" style={{ fontSize: '0.7rem' }}>
+            {docView.newerVersionLabel} available
+          </span>
+        )}
+      </>
+    );
+  };
+
   const openRequirementUpload = (req: AssuranceRequirement, existingDoc?: MasterDocument) => {
     setUploadTargetRequirement(req);
     setReplaceExistingDoc(existingDoc || null);
     setIsUploadModalOpen(true);
   };
+
+  /* version a requirement is shown with: pinned on an approved set, live otherwise */
+  const getExportVersionLabel = (req: AssuranceRequirement, linkedDoc?: MasterDocument): string =>
+    (linkedDoc ? getRequirementDocumentView(assuranceSet, req, linkedDoc).doc.currentVersion : req.documentVersion) || '';
 
   const handleExportCsv = () => {
     const exportData = assuranceSet.requirements.map((req) => {
@@ -383,6 +448,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
       return {
         Requirement: req.title,
+        Version: getExportVersionLabel(req, linkedDoc),
         OcrConfidence: `${effectiveOcr}%`,
         Status: getStatusDisplayLabel(req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending')),
         Notes: req.notes || '',
@@ -393,13 +459,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   };
 
   const handleExportPdf = () => {
-    const headers = ['Requirement', 'OCR Confidence', 'Status', 'Notes'];
+    const headers = ['Requirement', 'Version', 'OCR Confidence', 'Status', 'Notes'];
     const rows = assuranceSet.requirements.map((req) => {
       const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
       const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
       const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
       return [
         req.title,
+        getExportVersionLabel(req, linkedDoc) || '-',
         `${effectiveOcr}%`,
         getStatusDisplayLabel(req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending')),
         req.notes || '-',
@@ -545,8 +612,25 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <div className="fw-bold text-dark">{assuredAsset.typeLabel}</div>
                   </div>
                   <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Asset:</div>
-                    {assuredAsset.view ? (
+                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>
+                      {assuredAsset.members && assuredAsset.members.length > 1 ? `Assets (${assuredAsset.members.length}):` : 'Asset:'}
+                    </div>
+                    {assuredAsset.members && assuredAsset.members.length > 1 ? (
+                      <ul className="list-unstyled mb-0">
+                        {assuredAsset.members.map((member) => (
+                          <li key={member.id}>
+                            <button
+                              type="button"
+                              className="d-block w-100 p-0 border-0 bg-transparent fw-bold text-dark text-start"
+                              style={{ fontSize: 'inherit', lineHeight: 'inherit', fontFamily: 'inherit', cursor: 'pointer' }}
+                              onClick={() => setCurrentHashView('crew', member.id)}
+                            >
+                              {member.name}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : assuredAsset.view ? (
                       <button
                         type="button"
                         className="d-block w-100 p-0 border-0 bg-transparent fw-bold text-dark text-start"
@@ -916,7 +1000,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </ul>
                 )}
               </div>
-              {canUpload && (
+              {canUploadHere && (
                 <button
                   type="button"
                   className="btn btn-sm btn-primary text-white font-mono-code"
@@ -962,6 +1046,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               {/* Main Files (Toggled Statutory Requirements during campaign creation) */}
               {pageMainRequirements.map((req: AssuranceRequirement) => {
                 const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+                /* an approved set shows the version it was approved against, not the live one */
+                const docView = linkedDoc ? getRequirementDocumentView(assuranceSet, req, linkedDoc) : undefined;
                 const linkedChildSet = req.linkedAssuranceSetId
                   ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
                   : undefined;
@@ -1012,11 +1098,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <td>
                       <div className="fw-semibold text-dark">
                         {req.title}
-                        {(linkedDoc?.currentVersion || req.documentVersion) && (
-                          <span className="badge bg-light text-secondary border font-mono-code ms-2" style={{ fontSize: '0.7rem' }}>
-                            {linkedDoc?.currentVersion || req.documentVersion}
-                          </span>
-                        )}
+                        {renderVersionBadge(req, docView)}
                         {req.isSpecialized && (
                           <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
                             Custom
@@ -1054,13 +1136,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                               type="button"
                               className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                               style={{ width: '32px', height: '32px' }}
-                              onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus })}
+                              onClick={() => setSelectedDocForReview({ doc: docView?.doc || linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
                               title="PDF Review"
                               aria-label="PDF Review"
                             >
                               <FileText size={16} />
                             </button>
-                            {canUpload && (
+                            {canUploadHere && (
                               <button
                                 type="button"
                                 className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
@@ -1074,7 +1156,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                               </button>
                             )}
                           </>
-                        ) : canUpload ? (
+                        ) : canUploadHere ? (
                           <button
                             type="button"
                             className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
@@ -1111,6 +1193,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               {otherRequirements.length > 0 ? (
                 pageOtherRequirements.map((req: AssuranceRequirement) => {
                   const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+                  /* an approved set shows the version it was approved against, not the live one */
+                  const docView = linkedDoc ? getRequirementDocumentView(assuranceSet, req, linkedDoc) : undefined;
                   const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
                   const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
 
@@ -1118,11 +1202,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <tr key={req.id}>
                       <td className="fw-semibold text-dark">
                         {req.title}
-                        {(linkedDoc?.currentVersion || req.documentVersion) && (
-                          <span className="badge bg-light text-secondary border font-mono-code ms-2" style={{ fontSize: '0.7rem' }}>
-                            {linkedDoc?.currentVersion || req.documentVersion}
-                          </span>
-                        )}
+                        {renderVersionBadge(req, docView)}
                       </td>
                       <td>
                         <ConfidenceBadge score={effectiveOcr} />
@@ -1138,13 +1218,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 type="button"
                                 className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                 style={{ width: '32px', height: '32px' }}
-                                onClick={() => setSelectedDocForReview({ doc: linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus })}
+                                onClick={() => setSelectedDocForReview({ doc: docView?.doc || linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
                                 title="PDF Review"
                                 aria-label="PDF Review"
                               >
                                 <FileText size={16} />
                               </button>
-                              {canUpload && (
+                              {canUploadHere && (
                                 <button
                                   type="button"
                                   className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
@@ -1158,7 +1238,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 </button>
                               )}
                             </>
-                          ) : canUpload ? (
+                          ) : canUploadHere ? (
                             <button
                               type="button"
                               className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
@@ -1201,6 +1281,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         allowVerify={roleActions.canVerify}
         requirementId={selectedDocForReview?.requirementId}
         requirementVerifierStatus={selectedDocForReview?.verifierStatus}
+        assuranceSetId={assuranceSet.id}
+        isVersionLocked={selectedDocForReview?.isVersionLocked}
       />
 
       {/* add an orphaned set to one existing project */}

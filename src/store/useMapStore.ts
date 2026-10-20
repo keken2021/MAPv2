@@ -91,7 +91,7 @@ import {
   getRenewalSubject,
   getRenewalSubmitterLabel,
 } from "../utils/documentRenewalHelpers";
-import { toSingleAssetSet } from "../utils/assuranceTemplates";
+import { getAssuranceSetCrewIds, toSingleAssetSet } from "../utils/assuranceTemplates";
 import { MOCK_NOTIFICATIONS } from "./notificationMockData";
 import {
   assuranceInvitationSubject,
@@ -118,6 +118,13 @@ import {
   getTrackedVesselStatusValues,
 } from "../utils/vesselStatusHistoryHelpers";
 import { autoAttachDocumentsToRequirements } from "../utils/documentMatchingHelpers";
+import {
+  findRequirementDocument,
+  freezeClosedSetDocuments,
+  isClosedAssuranceSet,
+  stampReviewedVersion,
+  syncDocumentVersionLock,
+} from "../utils/documentVersionSnapshot";
 
 export interface MapStoreState {
   // Authentication State
@@ -586,10 +593,6 @@ function closeDocumentRenewalNotifications(
   }));
 }
 
-/** a finished set stays approved when a later set reuses one of its library documents */
-function isClosedAssuranceSet(set: Pick<AssuranceSet, "stage" | "approverDecision">): boolean {
-  return set.approverDecision === "Approved" || set.stage === "Approved" || set.stage === "Certified";
-}
 
 /**
   what: notifies every person assigned on an assurance set, and the client admins of its client and project; inputs are the store getter and the set.
@@ -1554,7 +1557,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   // Assurance Sets
-  assuranceSets: [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS],
+  /* seeded approved and certified sets start with their document versions locked */
+  assuranceSets: freezeClosedSetDocuments([...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS], MOCK_DOCUMENTS),
   addAssuranceSet: (newSet) => {
     const existingSets = get().assuranceSets;
     const titleCheck = isDuplicateCampaignTitle(
@@ -1583,6 +1587,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         vessels: state.vessels,
         crew: state.crew,
         selectedCrewId: newSet.crewId,
+        selectedCrewIds: getAssuranceSetCrewIds(newSet),
         equipment: state.equipment,
         selectedEquipmentId: newSet.equipmentId,
         selectedVesselId: newSet.vesselId,
@@ -1659,6 +1664,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         vessels: state.vessels,
         crew: state.crew,
         selectedCrewId: updatedSet.crewId,
+        selectedCrewIds: getAssuranceSetCrewIds(updatedSet),
         equipment: state.equipment,
         selectedEquipmentId: updatedSet.equipmentId,
         selectedVesselId: updatedSet.vesselId,
@@ -1834,6 +1840,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   updateRequirementStatus: (setId, reqId, status, notes) => {
     const affectedDocIds = new Set<string>();
+    const reviewedAt = new Date().toISOString();
+    const reviewerId = getReviewerAuditIdentity(get).userId;
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -1842,12 +1850,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           if (r.id === reqId) {
             if (r.documentId) affectedDocIds.add(r.documentId);
             if (r.linkedDocumentId) affectedDocIds.add(r.linkedDocumentId);
-            return {
-              ...r,
-              verifierStatus: status,
-              notes: notes || r.notes,
-              isFulfilled: status === "Verified",
-            };
+            /* a verified requirement records the exact version it was verified against */
+            return stampReviewedVersion(
+              {
+                ...r,
+                verifierStatus: status,
+                notes: notes || r.notes,
+                isFulfilled: status === "Verified",
+              },
+              s,
+              findRequirementDocument(r, state.documents),
+              reviewedAt,
+              reviewerId,
+            );
           }
           return r;
         });
@@ -1884,7 +1899,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                   : "Rejected",
         };
 
-        return recalculateSetReadiness(candidateSet);
+        return syncDocumentVersionLock(recalculateSetReadiness(candidateSet), state.documents, reviewedAt);
       });
 
       const updatedDocs = state.documents.map((d) => {
@@ -2021,6 +2036,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                 ...r,
                 verifierStatus: mappedStatus,
                 isFulfilled: false,
+                verifiedVersion: undefined,
                 notes:
                   notes ||
                   `Campaign returned to verification stage by Executive Approver.`,
@@ -2034,7 +2050,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           approverDecision: decision,
           approverNotes: notes,
         };
-        return recalculateSetReadiness(candidateSet);
+        /* an approval locks the exact document versions the set was approved against */
+        return syncDocumentVersionLock(recalculateSetReadiness(candidateSet), state.documents, new Date().toISOString());
       });
 
       /* when entire campaign is denied, cascade returned/rejected status to all linked documents */
@@ -2328,6 +2345,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               ...r,
               documentId: docId,
               documentVersion: newVersionLabel,
+              verifiedVersion: undefined,
               verifierStatus: "Pending" as const,
               isFulfilled: false,
               ocrConfidence: 98,
@@ -2379,6 +2397,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   verifyDocument: (docId, status, notes, routeTarget, requirementId) => {
     const setsBeforeVerification = get().assuranceSets;
+    const reviewedAt = new Date().toISOString();
+    const reviewerId = getReviewerAuditIdentity(get).userId;
     set((state) => {
       const updatedDocs = state.documents.map((d) =>
         d.id === docId
@@ -2415,18 +2435,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
           if (matchesThisReview) {
             hasMatchedReq = true;
-            return {
-              ...r,
-              documentId: docId,
-              verifierStatus: status,
-              isFulfilled: status === "Verified",
-              ocrConfidence: targetDoc?.ocrConfidence || 98,
-              notes: notes || r.notes,
-              verificationRoute:
-                status === "Verified" && routeTarget
-                  ? routeTarget
-                  : r.verificationRoute,
-            };
+            /* a verified requirement records the exact version it was verified against */
+            return stampReviewedVersion(
+              {
+                ...r,
+                documentId: docId,
+                verifierStatus: status,
+                isFulfilled: status === "Verified",
+                ocrConfidence: targetDoc?.ocrConfidence || 98,
+                notes: notes || r.notes,
+                verificationRoute:
+                  status === "Verified" && routeTarget
+                    ? routeTarget
+                    : r.verificationRoute,
+              },
+              s,
+              targetDoc,
+              reviewedAt,
+              reviewerId,
+            );
           }
           return r;
         });
@@ -2469,7 +2496,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                   : "Rejected",
         };
 
-        return recalculateSetReadiness(candidateSet);
+        return syncDocumentVersionLock(recalculateSetReadiness(candidateSet), updatedDocs, reviewedAt);
       });
 
       return {

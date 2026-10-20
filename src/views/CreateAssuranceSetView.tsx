@@ -16,6 +16,7 @@ import {
   AssuranceRequirementCategory,
 } from '../types/assurance';
 import { UserProfile } from '../types/user';
+import { CrewMember } from '../types/crew';
 import {
   filterCAdminAvailableToCharter,
   filterVesselAdminAvailableToCharter,
@@ -47,6 +48,7 @@ import {
   orderAssuranceScopes,
   getPrimaryAssuranceScope,
   getAssuranceSetScopes,
+  getAssuranceSetCrewIds,
   buildAssuranceWizardSteps,
   customRequirementFields,
   getThreePillarsCategory,
@@ -56,6 +58,7 @@ import {
   findMatchingDocumentForRequirement,
   getAssetAutoAttachSummary,
 } from '../utils/documentMatchingHelpers';
+import { findOverlappingAssuranceSets, formatOverlapError } from '../utils/assuranceOverlap';
 import { filterProjectsForPersona, projectToAssuranceProjectScope, withProjectVessels } from '../utils/projectHelpers';
 import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2 } from 'lucide-react';
@@ -255,13 +258,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const lockedScopes: AssuranceSubtype[] = isScopeLocked && lockedAsset ? [lockedAsset.scope] : [];
   const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || '');
   const [vesselId, setVesselId] = useState(initialVesselId);
-  const [selectedCrewId, setSelectedCrewId] = useState<string>(() =>
-    lockedAsset?.scope === 'Crew'
-      ? lockedAsset.assetId
-      : suggestedAsset?.assetType === 'Crew'
-        ? suggestedAsset.assetId
-        : crew[0]?.id || '',
-  );
+  /* crew members a crew set covers, in the order they were ticked (ADR 0023); the first one names the set */
+  const [selectedCrewIds, setSelectedCrewIds] = useState<string[]>(() => {
+    const first =
+      lockedAsset?.scope === 'Crew'
+        ? lockedAsset.assetId
+        : suggestedAsset?.assetType === 'Crew'
+          ? suggestedAsset.assetId
+          : crew[0]?.id;
+    return first ? [first] : [];
+  });
+  const selectedCrewId = selectedCrewIds[0] || '';
   const [selectedEquipmentId, setSelectedEquipmentId] = useState<string>(() =>
     lockedAsset?.scope === 'Equipment'
       ? lockedAsset.assetId
@@ -628,7 +635,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           setTitle(target.title);
           if (!lockedAsset) setSelectedScopes([getPrimaryAssuranceScope(getAssuranceSetScopes(target))]);
           if (target.projectId && !lockedProjectId) setSelectedProjectId(target.projectId);
-          if (target.crewId && !lockedAsset) setSelectedCrewId(target.crewId);
+          if (target.crewId && !lockedAsset) setSelectedCrewIds(getAssuranceSetCrewIds(target));
           if (target.equipmentId && !lockedAsset) setSelectedEquipmentId(target.equipmentId);
           if (target.activityId) setSelectedActivityId(target.activityId);
           if (target.templateSource === 'public' || target.visibility === 'draft') {
@@ -809,17 +816,38 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const step = steps[stepNumber - 1];
     if (!step) return newErrors;
 
+    /* the asset cannot hold two contracts at once: shown on the dates and on the asset tab */
+    const overlapError = formatOverlapError(
+      findOverlappingAssuranceSets(
+        {
+          id: editingDraftId || undefined,
+          scope: assuranceType,
+          vesselId,
+          crewIds: selectedCrewIds,
+          equipmentId: selectedEquipmentId,
+          start: startDate,
+          end: endDate,
+        },
+        assuranceSets,
+      ),
+    );
+    const assetErrorKey =
+      step.subtype === 'Vessel' ? 'vesselId' : step.subtype === 'Crew' ? 'crewId' : step.subtype === 'Equipment' ? 'equipmentId' : '';
+
     if (step.subtype === 'Vessel' && !vesselChoices.some((v) => v.id === vesselId)) {
       newErrors.vesselId = 'Select a vessel from another organization.';
     }
-    if (step.subtype === 'Crew' && !selectedCrewId) {
-      newErrors.crewId = 'Select a crew member.';
+    if (step.subtype === 'Crew' && selectedCrewIds.length === 0) {
+      newErrors.crewId = 'Select at least one crew member.';
     }
     if (step.subtype === 'Equipment' && !selectedEquipmentId) {
       newErrors.equipmentId = 'Select equipment.';
     }
     if (step.subtype === 'Activity' && !selectedActivityId) {
       newErrors.activityId = 'Select an activity.';
+    }
+    if (assetErrorKey && overlapError && !newErrors[assetErrorKey]) {
+      newErrors[assetErrorKey] = overlapError;
     }
 
     if (step.id === 'step-scope') {
@@ -843,6 +871,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       }
       if (startDate && endDate && startDate > endDate) {
         newErrors.endDate = 'End date cannot be before the start date.';
+      }
+      if (overlapError && !newErrors.startDate && !newErrors.endDate) {
+        newErrors.startDate = overlapError;
       }
 
       /* Verifier, Inspector & Approver Role Validations (MVP 1:1 Mapping) */
@@ -916,20 +947,23 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       : availableProjectOptions;
   const selectedVessel = vesselChoices.find((v) => v.id === vesselId) || vesselChoices[0];
   const selectedCrew = crew.find((c) => c.id === selectedCrewId) || crew[0];
+  const selectedCrewMembers = selectedCrewIds
+    .map((id) => crew.find((c) => c.id === id))
+    .filter((c): c is CrewMember => Boolean(c));
   const selectedEquipment = equipment.find((e) => e.id === selectedEquipmentId) || equipment[0];
   const selectedActivity = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId) || EXISTING_ACTIVITIES[0];
 
   /* display name of the asset picked for a scope */
   const getScopeAssetName = (scope: AssuranceSubtype): string =>
     scope === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
-      scope === 'Crew' ? (selectedCrew?.fullName || 'Crew') :
+      scope === 'Crew' ? (selectedCrewMembers.map((c) => c.fullName).join(', ') || 'Crew') :
         scope === 'Equipment' ? (selectedEquipment?.name || 'Equipment') :
           (selectedActivity?.name || 'Activity');
 
   /* asset name with its identifying detail, as shown on the review tab */
   const getScopeAssetSummary = (scope: AssuranceSubtype): string =>
     scope === 'Vessel' ? `${getScopeAssetName(scope)} (IMO: ${selectedVessel?.imoNumber || 'N/A'})` :
-      scope === 'Crew' ? `${getScopeAssetName(scope)} (${selectedCrew?.rank || 'N/A'})` :
+      scope === 'Crew' ? (selectedCrewMembers.map((c) => `${c.fullName} (${c.rank})`).join(', ') || 'Crew') :
         scope === 'Equipment' ? `${getScopeAssetName(scope)} (Tag: ${selectedEquipment?.equipmentIdentifier || 'N/A'})` :
           `${getScopeAssetName(scope)} (${selectedActivity?.category || 'N/A'})`;
 
@@ -1047,6 +1081,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       vessels,
       crew,
       selectedCrewId,
+      selectedCrewIds,
       equipment,
       selectedEquipmentId,
       selectedVesselId: vesselId,
@@ -1071,6 +1106,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       projectName: selectedProject?.name,
       crewId: selectedScopes.includes('Crew') ? selectedCrewId : undefined,
       crewName: selectedScopes.includes('Crew') ? (selectedCrew?.fullName || selectedCrewId) : undefined,
+      crewIds: selectedScopes.includes('Crew') ? selectedCrewIds : undefined,
+      crewNames: selectedScopes.includes('Crew') ? selectedCrewMembers.map((c) => c.fullName) : undefined,
       equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
       equipmentName: selectedScopes.includes('Equipment') ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
       activityId: selectedScopes.includes('Activity') ? selectedActivityId : undefined,
@@ -1254,6 +1291,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       vessels,
       crew,
       selectedCrewId,
+      selectedCrewIds,
       equipment,
       selectedEquipmentId,
       selectedVesselId: vesselId,
@@ -1278,6 +1316,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       projectName: selectedProject?.name,
       crewId: selectedScopes.includes('Crew') ? selectedCrewId : undefined,
       crewName: selectedScopes.includes('Crew') ? (selectedCrew?.fullName || selectedCrewId) : undefined,
+      crewIds: selectedScopes.includes('Crew') ? selectedCrewIds : undefined,
+      crewNames: selectedScopes.includes('Crew') ? selectedCrewMembers.map((c) => c.fullName) : undefined,
       equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
       equipmentName: selectedScopes.includes('Equipment') ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
       activityId: selectedScopes.includes('Activity') ? selectedActivityId : undefined,
@@ -1490,52 +1530,66 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
           {subtype === 'Crew' && (
             <div>
-              <label className="form-label text-secondary small fw-semibold" htmlFor="grid-target-asset-crew">
-                Crew Member <span className="text-danger">*</span>
-              </label>
-              <select
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <span className="form-label text-secondary small fw-semibold mb-0" id="grid-target-asset-crew-label">
+                  Crew Members <span className="text-danger">*</span>
+                </span>
+                <span className="small text-secondary font-mono-code" aria-live="polite">
+                  {selectedCrewIds.length} selected
+                </span>
+              </div>
+              <div
                 id="grid-target-asset-crew"
-                className={`form-select bg-white text-dark border-secondary-subtle fw-semibold${fieldErrors.crewId ? ' is-invalid border-danger' : ''}`}
-                value={selectedCrewId}
-                onChange={(e) => {
-                  setSelectedCrewId(e.target.value);
-                  setFieldErrors((prev) => {
-                    const u = { ...prev };
-                    delete u.crewId;
-                    return u;
-                  });
-                }}
-                disabled={lockedScopes.includes('Crew')}
+                role="group"
+                aria-labelledby="grid-target-asset-crew-label"
+                className={`border rounded-3 bg-white overflow-auto${fieldErrors.crewId ? ' border-danger' : ' border-secondary-subtle'}`}
+                style={{ maxHeight: '240px' }}
               >
-                {crew.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.fullName} &mdash; {c.rank} (Seaman's Book: {c.seamansBookNo})
-                  </option>
-                ))}
-              </select>
+                {crew.map((c) => {
+                  const isChecked = selectedCrewIds.includes(c.id);
+                  /* a crew member handed over by a charter action stays in the set */
+                  const isLockedMember = lockedScopes.includes('Crew') && lockedAsset?.assetId === c.id;
+                  return (
+                    <label
+                      key={c.id}
+                      htmlFor={`grid-crew-${c.id}`}
+                      className={`d-flex align-items-start gap-2 px-3 py-2 border-bottom mb-0 small${isChecked ? ' bg-light' : ''}`}
+                      style={{ cursor: isLockedMember ? 'not-allowed' : 'pointer' }}
+                    >
+                      <input
+                        id={`grid-crew-${c.id}`}
+                        type="checkbox"
+                        className="form-check-input mt-1 flex-shrink-0"
+                        checked={isChecked}
+                        disabled={isLockedMember}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setSelectedCrewIds((prev) =>
+                            checked ? [...prev.filter((id) => id !== c.id), c.id] : prev.filter((id) => id !== c.id),
+                          );
+                          setFieldErrors((prev) => {
+                            const u = { ...prev };
+                            delete u.crewId;
+                            delete u.startDate;
+                            return u;
+                          });
+                        }}
+                      />
+                      <span className="d-flex flex-column">
+                        <span className="fw-semibold text-dark">
+                          {c.fullName} <span className="text-secondary fw-normal">&mdash; {c.rank}</span>
+                        </span>
+                        <span className="text-secondary font-mono-code" style={{ fontSize: '0.75rem' }}>
+                          Seaman's Book: {c.seamansBookNo} &middot; {c.organization} &middot; {c.currentVesselName || 'Unassigned'}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
               {fieldErrors.crewId && (
                 <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
                   {fieldErrors.crewId}
-                </div>
-              )}
-
-              {selectedCrew && (
-                <div className="mt-3 p-3 bg-light border rounded-3 small">
-                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                    <span className="fw-bold text-dark fs-6">{selectedCrew.fullName}</span>
-                    <span className="badge bg-primary text-white font-mono-code">{selectedCrew.rank}</span>
-                  </div>
-                  <div className="row g-2 text-secondary" style={{ fontSize: '0.8rem' }}>
-                    <div className="col-12 col-md-4">
-                      <strong>Organization:</strong> {selectedCrew.organization}
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <strong>Nationality:</strong> {selectedCrew.nationality}
-                    </div>
-                    <div className="col-12 col-md-4">
-                      <strong>Vessel:</strong> {selectedCrew.currentVesselName || 'Unassigned'}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -1770,6 +1824,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     vessels,
                     crew,
                     selectedCrewId,
+                    selectedCrewIds,
                     equipment,
                     selectedEquipmentId,
                     selectedVesselId: vesselId,
@@ -2910,6 +2965,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           vessels,
                           crew,
                           selectedCrewId,
+                          selectedCrewIds,
                           equipment,
                           selectedEquipmentId,
                           selectedVesselId: vesselId,

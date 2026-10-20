@@ -1572,6 +1572,9 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     subtypes: ['Crew'],
     crewId: 'CREW-102',
     crewName: 'Chief Eng. Marcus Sterling',
+    /* a crew set may cover several crew members (ADR 0023) */
+    crewIds: ['CREW-102', 'CREW-103'],
+    crewNames: ['Chief Eng. Marcus Sterling', 'Chief Off. Sarah Jenkins'],
     vesselId: 'VESSEL-002',
     vesselName: 'MV Coral Titan',
     imoNumber: '9284710',
