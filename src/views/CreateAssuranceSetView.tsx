@@ -35,7 +35,7 @@ import {
   hasBlockingAssuranceAssignmentConflict,
   getReviewChannelForUser,
 } from '../utils/userRoleHelpers';
-import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId } from '../utils/validation';
+import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId, validateComplianceDeadline } from '../utils/validation';
 import {
   SUBTYPE_STANDARD_DOCS,
   SUBTYPE_TEMPLATES,
@@ -309,6 +309,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   );
   const [startDate, setStartDate] = useState(() => initialPeriod.start);
   const [endDate, setEndDate] = useState(() => initialPeriod.end);
+  const [complianceDeadline, setComplianceDeadline] = useState(() => initialPeriod.start);
   const isVesselLocked = Boolean(lockedVessel);
 
   useEffect(() => {
@@ -605,6 +606,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     }
     if (targetSet.charterWindowStart) setStartDate(targetSet.charterWindowStart);
     if (targetSet.charterWindowEnd) setEndDate(targetSet.charterWindowEnd);
+    setComplianceDeadline(targetSet.complianceDeadline || targetSet.charterWindowStart || '');
     setVerificationRequired(targetSet.verificationRequired !== undefined ? targetSet.verificationRequired : Boolean(targetSet.assignedVerifier));
     setInspectionRequired(targetSet.mandatoryInspectionRequired);
     setApprovalRequired(targetSet.formalApprovalRequired !== undefined ? targetSet.formalApprovalRequired : Boolean(targetSet.assignedApprover));
@@ -678,6 +680,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           }
           if (target.charterWindowStart) setStartDate(target.charterWindowStart);
           if (target.charterWindowEnd) setEndDate(target.charterWindowEnd);
+          setComplianceDeadline(target.complianceDeadline || target.charterWindowStart || '');
           setVerificationRequired(target.verificationRequired ?? true);
           setInspectionRequired(target.mandatoryInspectionRequired);
           setApprovalRequired(target.formalApprovalRequired ?? true);
@@ -863,6 +866,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       }
       if (startDate && endDate && startDate > endDate) {
         newErrors.endDate = 'End date cannot be before the start date.';
+      }
+      const deadlineError = validateComplianceDeadline(complianceDeadline, startDate);
+      if (deadlineError) {
+        newErrors.complianceDeadline = deadlineError;
       }
       /* the asset is picked next to the dates; only the same asset cannot hold two contracts at once, so the error sits on the asset */
       const datesValid = !newErrors.startDate && !newErrors.endDate;
@@ -1181,6 +1188,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       charterer: effectiveCharterer,
       charterWindowStart: startDate,
       charterWindowEnd: endDate,
+      complianceDeadline,
       stage: 'Initiated',
       readinessScore: 10,
       verificationRequired,
@@ -1391,6 +1399,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       charterer: effectiveCharterer,
       charterWindowStart: startDate || initialPeriod.start,
       charterWindowEnd: endDate || initialPeriod.end,
+      complianceDeadline: complianceDeadline || startDate || initialPeriod.start,
       stage: 'Initiated',
       readinessScore: 0,
       verificationRequired,
@@ -1483,10 +1492,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     });
     setStartDate(next.start);
     setEndDate(next.end);
+    setComplianceDeadline((current) => (!current || current > next.start ? next.start : current));
     setFieldErrors((prev) => {
       const u = { ...prev };
       delete u.startDate;
       delete u.endDate;
+      delete u.complianceDeadline;
       delete u.vesselId;
       delete u.crewId;
       delete u.equipmentId;
@@ -2387,11 +2398,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.startDate ? ' is-invalid border-danger' : ''}`}
                         value={startDate}
                         onChange={(e) => {
-                          setStartDate(e.target.value);
+                          const nextStart = e.target.value;
+                          setStartDate(nextStart);
+                          setComplianceDeadline((current) => (!current || (nextStart && current > nextStart) ? nextStart : current));
                           setFieldErrors((prev) => {
                             const u = { ...prev };
                             delete u.startDate;
                             delete u.endDate;
+                            delete u.complianceDeadline;
                             return u;
                           });
                         }}
@@ -2427,6 +2441,37 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       {fieldErrors.endDate && (
                         <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
                           {fieldErrors.endDate}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="col-12 col-md-4">
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-compliance-deadline">
+                        Compliance Deadline <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        id="grid-compliance-deadline"
+                        type="date"
+                        className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.complianceDeadline ? ' is-invalid border-danger' : ''}`}
+                        value={complianceDeadline}
+                        max={startDate || undefined}
+                        onChange={(e) => {
+                          setComplianceDeadline(e.target.value);
+                          setFieldErrors((prev) => {
+                            const u = { ...prev };
+                            delete u.complianceDeadline;
+                            return u;
+                          });
+                        }}
+                        required
+                        aria-describedby="grid-compliance-deadline-help"
+                      />
+                      <div id="grid-compliance-deadline-help" className="form-text small">
+                        When this assurance set must be complete. On or before the contract start. Separate from the period the asset is chartered.
+                      </div>
+                      {fieldErrors.complianceDeadline && (
+                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                          {fieldErrors.complianceDeadline}
                         </div>
                       )}
                     </div>
@@ -2963,6 +3008,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           ))}
                           <div className="text-secondary small mt-1">
                             <strong>Contract Period:</strong> {startDate} to {endDate}
+                          </div>
+                          <div className="text-secondary small mt-1">
+                            <strong>Compliance Deadline:</strong> {complianceDeadline}
                           </div>
                           {selectedProject && (
                             <div className="text-secondary small mt-1">

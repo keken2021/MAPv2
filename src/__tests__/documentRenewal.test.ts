@@ -14,6 +14,7 @@ import { AppNotification } from '../types/notification';
 import {
   DOCUMENT_REUPLOAD_BLOCK_REASON,
   findDocumentRenewalsDue,
+  countDocumentsByExpiry,
   getComplianceStateForExpiry,
   getDocumentRenewalReason,
   getDocumentReuploadBlockReason,
@@ -120,6 +121,23 @@ describe('document renewal: re-upload rule', () => {
     expect(getComplianceStateForExpiry('2026-09-30', TODAY)).toBe('Expired');
     expect(getComplianceStateForExpiry('2026-12-15', TODAY)).toBe('Expiring < 6 Mos');
     expect(getComplianceStateForExpiry('2029-01-01', TODAY)).toBe('Valid');
+  });
+
+  it('opens re-upload when the certificate expires before the contract end', () => {
+    const short = { ...valid, expiryDate: '2026-12-15', complianceState: 'Expiring < 6 Mos' as const };
+    expect(getDocumentReuploadBlockReason(short, [], TODAY, '2027-01-31')).toBeUndefined();
+    expect(getDocumentReuploadBlockReason(short, [], TODAY, '2026-12-15')).toBe(DOCUMENT_REUPLOAD_BLOCK_REASON);
+  });
+
+  it('counts expiring and expired documents from their compliance state', () => {
+    expect(
+      countDocumentsByExpiry([
+        makeDocument({ complianceState: 'Expiring < 6 Mos' }),
+        makeDocument({ complianceState: 'Expired' }),
+        makeDocument({ complianceState: 'Expired' }),
+        makeDocument({ complianceState: 'Valid' }),
+      ]),
+    ).toEqual({ expiring: 1, expired: 2 });
   });
 });
 

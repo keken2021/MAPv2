@@ -224,3 +224,35 @@ export function validateCharterWindow(
 
   return errors;
 }
+
+export const COMPLIANCE_DEADLINE_REQUIRED = 'Compliance deadline is required.';
+export const COMPLIANCE_DEADLINE_BEFORE_START =
+  'Compliance deadline must be on or before the contract start.';
+
+/**
+  what: validates an assurance set's compliance deadline against its contract start; inputs are the two iso dates.
+  how: the deadline is required, and it must fall on or before the contract start so the set is complete before the asset goes on hire.
+  with what file: src/utils/validation.ts used by CreateAssuranceSetView.tsx and AssuranceDetailView.tsx.
+*/
+export function validateComplianceDeadline(
+  deadline: string,
+  contractStart: string,
+): string | undefined {
+  if (!deadline) return COMPLIANCE_DEADLINE_REQUIRED;
+  if (contractStart && deadline > contractStart) return COMPLIANCE_DEADLINE_BEFORE_START;
+  return undefined;
+}
+
+/**
+  what: true when an assurance set is past its compliance deadline and is not yet approved; inputs are the set and today's date.
+  how: approved and certified sets are finished, so a passed deadline is overdue only while the set is still open.
+  with what file: src/utils/validation.ts used by AssuranceDetailView.tsx.
+*/
+export function isComplianceDeadlineOverdue(
+  set: { complianceDeadline?: string; stage: string },
+  today: Date = new Date(),
+): boolean {
+  if (set.stage === 'Approved' || set.stage === 'Certified') return false;
+  if (!set.complianceDeadline) return false;
+  return set.complianceDeadline < toIsoLocalDate(today);
+}

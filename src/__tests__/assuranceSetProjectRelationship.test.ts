@@ -34,6 +34,7 @@ const buildOrphanSet = (id: string, vesselId: string, vesselName: string): Assur
   initiatorOrg: 'Northwind Marine Pty Ltd',
   initiatorRole: 'Vessel Provider Admin',
   charterWindowStart: '2026-11-01',
+  complianceDeadline: '2026-11-01',
   charterWindowEnd: '2027-02-01',
   stage: 'Validation',
   readinessScore: 10,

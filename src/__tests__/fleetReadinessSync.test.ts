@@ -72,6 +72,7 @@ describe('fleet overview readiness index and data synchronization', () => {
     initiatorOrg: 'Chevron Australia',
     initiatorRole: 'C Admin · Client Created',
     charterWindowStart: '2026-10-01',
+    complianceDeadline: '2026-10-01',
     charterWindowEnd: '2027-10-01',
     stage: 'Validation',
     readinessScore: 40,

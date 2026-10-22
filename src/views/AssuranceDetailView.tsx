@@ -4,7 +4,7 @@
   role in system: deep-dive view rendered when an assurance set row is selected.
 */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
@@ -12,7 +12,7 @@ import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { formatMaritimeDate, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
-import { toIsoLocalDate, validateCharterWindow } from '../utils/validation';
+import { toIsoLocalDate, validateCharterWindow, validateComplianceDeadline, isComplianceDeadlineOverdue } from '../utils/validation';
 import { MasterDocument } from '../types/document';
 import { AssuranceRequirement } from '../types/assurance';
 import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrphaned } from '../utils/projectHelpers';
@@ -32,7 +32,8 @@ import {
   getAssuranceSetCreator,
   getAssuranceSetStakeholderLockReason,
 } from '../utils/rbacHelpers';
-import { getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
+import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
+import { useOverlayBehavior } from '../utils/useOverlayBehavior';
 import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetScopes } from '../utils/assuranceTemplates';
 import { findOverlappingAssuranceSets, formatOverlapError } from '../utils/assuranceOverlap';
 import {
@@ -60,6 +61,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     updateAssuranceStakeholder,
     updateAssuranceInspector,
     updateAssuranceSet,
+    raiseDocumentRenewalNotifications,
     documents,
     activePersona,
     users,
@@ -74,7 +76,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [isEditingCharterWindow, setIsEditingCharterWindow] = useState(false);
   const [charterStartDraft, setCharterStartDraft] = useState('');
   const [charterEndDraft, setCharterEndDraft] = useState('');
-  const [charterWindowErrors, setCharterWindowErrors] = useState<{ start?: string; end?: string }>({});
+  const [deadlineDraft, setDeadlineDraft] = useState('');
+  const [charterWindowErrors, setCharterWindowErrors] = useState<{ start?: string; end?: string; deadline?: string }>({});
+  const [shortCertificateConfirm, setShortCertificateConfirm] = useState<MasterDocument[] | null>(null);
+  const confirmDialogRef = useRef<HTMLDivElement>(null);
   const [targetProjectId, setTargetProjectId] = useState('');
   const [addToProjectError, setAddToProjectError] = useState<string | null>(null);
   const [projectToast, setProjectToast] = useState<string | null>(null);
@@ -87,6 +92,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [editingRole, setEditingRole] = useState<'Submitter' | 'Verifier' | 'Inspector' | 'Approver' | null>(null);
 
   type ReqSortField = 'title' | 'ocrConfidence' | 'status';
+  useOverlayBehavior(confirmDialogRef, () => setShortCertificateConfirm(null), {
+    active: shortCertificateConfirm !== null,
+  });
+
   const [reqSortField, setReqSortField] = useState<ReqSortField>('title');
   const [reqSortDirection, setReqSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -208,6 +217,20 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const isCAdmin = isCAdminPersona;
   const roleActions = getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization);
+  const shortCertificates = listCertificatesShortOfContract(
+    assuranceSet,
+    documents,
+    assuranceSet.charterWindowEnd,
+  );
+  const complianceOverdue = isComplianceDeadlineOverdue(assuranceSet);
+  const renderContractShortWarning = (doc?: MasterDocument) => {
+    if (!doc || !documentExpiresBeforeContractEnd(doc, assuranceSet.charterWindowEnd)) return null;
+    return (
+      <div className="text-danger small mt-1">
+        Expires {formatMaritimeDate(doc.expiryDate)}, before the contract ends {formatMaritimeDate(assuranceSet.charterWindowEnd)}. Re-upload a certificate that covers the contract.
+      </div>
+    );
+  };
 
   /* asset under assurance: its type, display name and the registry page it opens; a crew set may list several members (ADR 0023) */
   const assuredAsset = ((): {
@@ -277,6 +300,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const startCharterWindowEdit = () => {
     setCharterStartDraft(assuranceSet.charterWindowStart || '');
     setCharterEndDraft(assuranceSet.charterWindowEnd || '');
+    setDeadlineDraft(assuranceSet.complianceDeadline || assuranceSet.charterWindowStart || '');
     setCharterWindowErrors({});
     setIsEditingCharterWindow(true);
   };
@@ -286,8 +310,27 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     setCharterWindowErrors({});
   };
 
+  const commitCharterWindow = () => {
+    const endChanged = charterEndDraft !== assuranceSet.charterWindowEnd;
+    updateAssuranceSet({
+      ...assuranceSet,
+      charterWindowStart: charterStartDraft,
+      charterWindowEnd: charterEndDraft,
+      complianceDeadline: deadlineDraft,
+    });
+    if (endChanged) {
+      raiseDocumentRenewalNotifications([assuranceSet.id]);
+    }
+    setIsEditingCharterWindow(false);
+    setShortCertificateConfirm(null);
+    setProjectToast('Contract Period updated.');
+    setTimeout(() => setProjectToast(null), 3500);
+  };
+
   const saveCharterWindow = () => {
-    const errors = validateCharterWindow(charterStartDraft, charterEndDraft);
+    const errors: { start?: string; end?: string; deadline?: string } = validateCharterWindow(charterStartDraft, charterEndDraft);
+    const deadlineError = validateComplianceDeadline(deadlineDraft, charterStartDraft);
+    if (deadlineError) errors.deadline = deadlineError;
     if (!errors.start && !errors.end) {
       /* the asset cannot hold two contracts at once */
       const overlapError = formatOverlapError(
@@ -307,16 +350,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       if (overlapError) errors.start = overlapError;
     }
     setCharterWindowErrors(errors);
-    if (errors.start || errors.end) return;
+    if (errors.start || errors.end || errors.deadline) return;
 
-    updateAssuranceSet({
-      ...assuranceSet,
-      charterWindowStart: charterStartDraft,
-      charterWindowEnd: charterEndDraft,
-    });
-    setIsEditingCharterWindow(false);
-    setProjectToast('Contract Period updated.');
-    setTimeout(() => setProjectToast(null), 3500);
+    const shortOfNewEnd = listCertificatesShortOfContract(assuranceSet, documents, charterEndDraft);
+    if (charterEndDraft !== assuranceSet.charterWindowEnd && shortOfNewEnd.length > 0) {
+      setShortCertificateConfirm(shortOfNewEnd);
+      return;
+    }
+
+    commitCharterWindow();
   };
 
   const closeAddToProject = () => {
@@ -489,7 +531,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           <div className="card map-card-custom p-4 h-100">
             <div className="d-flex flex-wrap align-items-center justify-between gap-3 mb-3">
               <div>
-                <h3 className="fw-bold mb-0 text-primary">{assuranceSet.title}</h3>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  <h3 className="fw-bold mb-0 text-primary">{assuranceSet.title}</h3>
+                  {complianceOverdue && (
+                    <span className="badge bg-danger">Overdue</span>
+                  )}
+                </div>
                
               </div>
               {/* Top header action controls: Use as Template button & Export Data dropdown */}
@@ -698,13 +745,38 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           )}
                         </div>
                         <div>
+                          <label className="form-label text-secondary small mb-1" htmlFor="compliance-deadline">
+                            Compliance Deadline <span className="text-danger">*</span>
+                          </label>
+                          <input
+                            id="compliance-deadline"
+                            type="date"
+                            className={`form-control form-control-sm bg-white text-dark${charterWindowErrors.deadline ? ' is-invalid border-danger' : ''}`}
+                            value={deadlineDraft}
+                            max={charterStartDraft || undefined}
+                            onChange={(e) => {
+                              setDeadlineDraft(e.target.value);
+                              setCharterWindowErrors((prev) => ({ ...prev, deadline: undefined }));
+                            }}
+                          />
+                          <div className="form-text">When this set must be complete. On or before the contract start.</div>
+                          {charterWindowErrors.deadline && (
+                            <div className="invalid-feedback d-block small">{charterWindowErrors.deadline}</div>
+                          )}
+                        </div>
+                        <div>
                           <button type="button" className="btn btn-sm btn-primary" onClick={saveCharterWindow}>
                             Save
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="fw-bold text-dark">{formatMaritimeDate(assuranceSet.charterWindowStart)} - {formatMaritimeDate(assuranceSet.charterWindowEnd)}</div>
+                      <div>
+                        <div className="fw-bold text-dark">{formatMaritimeDate(assuranceSet.charterWindowStart)} - {formatMaritimeDate(assuranceSet.charterWindowEnd)}</div>
+                        <div className="text-secondary mt-1" style={{ fontSize: '0.75rem' }}>
+                          Compliance deadline: {formatMaritimeDate(assuranceSet.complianceDeadline)}
+                        </div>
+                      </div>
                     )}
                     {roleActions.canManage && isCharterWindowLocked && (
                       <div className="text-secondary mt-1" style={{ fontSize: '0.7rem' }}>
@@ -1017,6 +1089,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           </div>
 
         </div>
+        {shortCertificates.length > 0 && (
+          <div className="alert alert-warning rounded-0 border-0 border-bottom mb-0" role="status">
+            {shortCertificates.length === 1
+              ? '1 certificate expires'
+              : `${shortCertificates.length} certificates expire`}{' '}
+            before the contract ends on {formatMaritimeDate(assuranceSet.charterWindowEnd)}.
+          </div>
+        )}
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
             <thead>
@@ -1105,6 +1185,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           </span>
                         )}
                       </div>
+                      {renderContractShortWarning(docView?.doc || linkedDoc)}
                       {req.description && (
                         <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
                           {req.description}
@@ -1148,8 +1229,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
                                 style={{ width: '32px', height: '32px' }}
                                 onClick={() => openRequirementUpload(req, linkedDoc)}
-                                disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications))}
-                                title={getDocumentReuploadBlockReason(linkedDoc, notifications) || 'Upload new version'}
+                                disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
+                                title={getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
                                 aria-label="Upload new version"
                               >
                                 <RefreshCw size={16} />
@@ -1203,6 +1284,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <td className="fw-semibold text-dark">
                         {req.title}
                         {renderVersionBadge(req, docView)}
+                        {renderContractShortWarning(docView?.doc || linkedDoc)}
                       </td>
                       <td>
                         <ConfidenceBadge score={effectiveOcr} />
@@ -1230,8 +1312,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                   className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
                                   style={{ width: '32px', height: '32px' }}
                                   onClick={() => openRequirementUpload(req, linkedDoc)}
-                                  disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications))}
-                                  title={getDocumentReuploadBlockReason(linkedDoc, notifications) || 'Upload new version'}
+                                  disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
+                                  title={getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
                                   aria-label="Upload new version"
                                 >
                                   <RefreshCw size={16} />
@@ -1350,6 +1432,41 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             </div>
           </div>
         </div>
+      )}
+
+      {shortCertificateConfirm && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="short-certificate-title">
+            <div className="modal-dialog modal-dialog-centered" ref={confirmDialogRef} tabIndex={-1}>
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title" id="short-certificate-title">Certificates expire before the contract ends</h5>
+                </div>
+                <div className="modal-body">
+                  <p className="mb-2">
+                    These certificates expire before {formatMaritimeDate(charterEndDraft)}. Saving still updates the contract period. Re-upload each one so it covers the contract.
+                  </p>
+                  <ul className="mb-0">
+                    {shortCertificateConfirm.map((doc) => (
+                      <li key={doc.id}>
+                        {doc.title} — expires {formatMaritimeDate(doc.expiryDate)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-outline-secondary" onClick={() => setShortCertificateConfirm(null)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={commitCharterWindow}>
+                    Save contract period
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Version History Drawer for Submitter / Admin Reupload */}

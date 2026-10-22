@@ -61,6 +61,7 @@ function buildLiveSet(
     initiatorOrg: 'Northwind Marine Pty Ltd',
     initiatorRole: 'C Admin · Client Created',
     charterWindowStart: '2026-11-18',
+    complianceDeadline: '2026-11-18',
     charterWindowEnd: '2026-11-20',
     stage: 'Initiated',
     readinessScore: 10,

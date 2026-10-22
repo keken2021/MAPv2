@@ -30,6 +30,7 @@ function charterVessel(title: string): string {
     clientOrg: CLIENT,
     serviceProviderOrg: 'Northwind Marine Pty Ltd',
     charterWindowStart: '2026-12-01',
+    complianceDeadline: '2026-12-01',
     charterWindowEnd: '2027-06-01',
     stage: 'Initiated',
     readinessScore: 10,

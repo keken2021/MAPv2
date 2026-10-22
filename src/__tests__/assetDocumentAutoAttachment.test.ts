@@ -102,6 +102,7 @@ describe('Chartered Asset Document Auto-Attachment', () => {
       initiatorOrg: 'Northwind Marine Pty Ltd',
       initiatorRole: 'Vessel Provider Admin',
       charterWindowStart: '2026-11-01',
+      complianceDeadline: '2026-11-01',
       charterWindowEnd: '2027-11-01',
       stage: 'Initiated',
       readinessScore: 10,

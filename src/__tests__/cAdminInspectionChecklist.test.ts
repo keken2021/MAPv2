@@ -42,6 +42,7 @@ describe('C Admin Inspector Checklist Isolation', () => {
       initiatorRole: 'C Admin · Client Created',
       charterer: 'Chevron Australia Pty Ltd',
       charterWindowStart: '2026-11-01',
+      complianceDeadline: '2026-11-01',
       charterWindowEnd: '2027-11-01',
       stage: 'Initiated',
       readinessScore: 0,

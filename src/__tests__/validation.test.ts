@@ -14,6 +14,10 @@ import {
   generateUniqueRequirementId,
   toIsoLocalDate,
   validateCharterWindow,
+  validateComplianceDeadline,
+  isComplianceDeadlineOverdue,
+  COMPLIANCE_DEADLINE_REQUIRED,
+  COMPLIANCE_DEADLINE_BEFORE_START,
 } from '../utils/validation';
 import { VesselInformation } from '../types/vessel';
 import { AssuranceSet } from '../types/assurance';
@@ -144,5 +148,21 @@ describe('charter window validation', () => {
       start: 'Start date is required.',
       end: 'End date is required.',
     });
+  });
+});
+
+describe('compliance deadline', () => {
+  it('requires a deadline, rejects one after the contract start, and accepts the contract start', () => {
+    expect(validateComplianceDeadline('', '2026-11-01')).toBe(COMPLIANCE_DEADLINE_REQUIRED);
+    expect(validateComplianceDeadline('2026-11-02', '2026-11-01')).toBe(COMPLIANCE_DEADLINE_BEFORE_START);
+    expect(validateComplianceDeadline('2026-11-01', '2026-11-01')).toBeUndefined();
+    expect(validateComplianceDeadline('2026-10-01', '2026-11-01')).toBeUndefined();
+  });
+
+  it('marks an open set overdue once the deadline has passed', () => {
+    const today = new Date(2026, 9, 22);
+    expect(isComplianceDeadlineOverdue({ complianceDeadline: '2026-10-21', stage: 'Verification' }, today)).toBe(true);
+    expect(isComplianceDeadlineOverdue({ complianceDeadline: '2026-10-22', stage: 'Verification' }, today)).toBe(false);
+    expect(isComplianceDeadlineOverdue({ complianceDeadline: '2026-10-01', stage: 'Approved' }, today)).toBe(false);
   });
 });

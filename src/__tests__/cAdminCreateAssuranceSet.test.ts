@@ -41,6 +41,7 @@ describe('c admin assurance set creation and default charterer attribution', () 
       initiatorRole: 'C Admin · Client Created',
       charterer: defaultCharterer,
       charterWindowStart: '2026-11-01',
+      complianceDeadline: '2026-11-01',
       charterWindowEnd: '2027-11-01',
       stage: 'Initiated',
       readinessScore: 10,

@@ -48,6 +48,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
             initiatorOrg: 'Northwind Marine Pty Ltd',
             initiatorRole: 'Vessel Provider Admin',
             charterWindowStart: '2028-03-01',
+            complianceDeadline: '2028-03-01',
             charterWindowEnd: '2028-08-01',
             stage: 'Initiated',
             readinessScore: 0,

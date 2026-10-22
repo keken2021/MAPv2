@@ -43,6 +43,7 @@ const mockAssuranceSets: AssuranceSet[] = [
     initiatorRole: 'Client Admin',
     charterer: 'Chevron Global Upstream',
     charterWindowStart: '2026-03-01',
+    complianceDeadline: '2026-03-01',
     charterWindowEnd: '2026-06-30',
     stage: 'Approved',
     readinessScore: 95,

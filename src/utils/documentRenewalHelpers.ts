@@ -85,16 +85,69 @@ export function getComplianceStateForExpiry(
 }
 
 /**
-  what: why a document already on record cannot be re-uploaded yet, or undefined when it can; inputs are the document, all notifications and today's date.
-  how: re-upload is open when the document is expired, when a reviewer returned or rejected it, or while a reviewer's reupload request is still open.
+  what: counts of documents expiring within six months and documents already expired; input is the document list.
+  how: reads complianceState, the same states the library table badges.
+  with what file: src/utils/documentRenewalHelpers.ts used by DocumentLibraryView.tsx and DashboardView.tsx.
+*/
+export function countDocumentsByExpiry(
+  documents: Pick<MasterDocument, 'complianceState'>[],
+): { expiring: number; expired: number } {
+  return {
+    expiring: documents.filter((d) => d.complianceState === 'Expiring < 6 Mos').length,
+    expired: documents.filter((d) => d.complianceState === 'Expired').length,
+  };
+}
+
+/**
+  what: true when a certificate's expiry date falls before the contract end; inputs are the document and the contract end.
+  how: compares the two dates, and treats an equal date as still covering the contract.
+  with what file: src/utils/documentRenewalHelpers.ts used by AssuranceDetailView.tsx and ProjectDetailView.tsx.
+*/
+export function documentExpiresBeforeContractEnd(
+  document: Pick<MasterDocument, 'expiryDate'>,
+  charterWindowEnd: string,
+): boolean {
+  const expiry = new Date(document.expiryDate).getTime();
+  const charterEnd = new Date(charterWindowEnd).getTime();
+  return !Number.isNaN(expiry) && !Number.isNaN(charterEnd) && expiry < charterEnd;
+}
+
+/**
+  what: attached certificates that expire before a contract end, each document once; inputs are the set, the library and the contract end.
+  how: walks the set's requirements, keeps the first requirement that points at each document, and keeps the document when its expiry is before the end.
+  with what file: src/utils/documentRenewalHelpers.ts used by AssuranceDetailView.tsx and ProjectDetailView.tsx.
+*/
+export function listCertificatesShortOfContract(
+  set: Pick<AssuranceSet, 'requirements'>,
+  documents: MasterDocument[],
+  charterWindowEnd: string,
+): MasterDocument[] {
+  const seen = new Set<string>();
+  const short: MasterDocument[] = [];
+  set.requirements.forEach((requirement) => {
+    const documentId = requirement.documentId || requirement.linkedDocumentId;
+    if (!documentId || seen.has(documentId)) return;
+    seen.add(documentId);
+    const document = documents.find((d) => d.id === documentId);
+    if (!document || !documentExpiresBeforeContractEnd(document, charterWindowEnd)) return;
+    short.push(document);
+  });
+  return short;
+}
+
+/**
+  what: why a document already on record cannot be re-uploaded yet, or undefined when it can; inputs are the document, all notifications, today's date and an optional contract end.
+  how: re-upload is open when the document is expired, when it expires before the contract end, when a reviewer returned or rejected it, or while a reviewer's reupload request is still open.
   with what file: src/utils/documentRenewalHelpers.ts used by AssuranceDetailView.tsx, DocumentReviewDrawer.tsx, DocumentDetailView.tsx, VersionHistoryDrawer.tsx and DocumentUploadModal.tsx.
 */
 export function getDocumentReuploadBlockReason(
   document: Pick<MasterDocument, 'id' | 'expiryDate' | 'complianceState' | 'verificationStatus'>,
   notifications: Pick<AppNotification, 'type' | 'documentId' | 'renewalReason' | 'status'>[],
   today: Date = new Date(),
+  charterWindowEnd?: string,
 ): string | undefined {
   if (isDocumentExpired(document, today)) return undefined;
+  if (charterWindowEnd && documentExpiresBeforeContractEnd(document, charterWindowEnd)) return undefined;
   if (
     document.verificationStatus === 'Correction Requested' ||
     document.verificationStatus === 'Rejected'

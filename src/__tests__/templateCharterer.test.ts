@@ -37,6 +37,7 @@ describe('Assurance Set Template Charterer Inclusion', () => {
       initiatorRole: 'Vessel Provider Admin',
       charterer: templateCharterer,
       charterWindowStart: templateSet.charterWindowStart,
+      complianceDeadline: templateSet.complianceDeadline,
       charterWindowEnd: templateSet.charterWindowEnd,
       stage: 'Initiated',
       readinessScore: 10,

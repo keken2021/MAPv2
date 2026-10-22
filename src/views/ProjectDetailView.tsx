@@ -12,6 +12,7 @@ import {
 } from "../utils/projectHelpers";
 import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
 import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
+import { listCertificatesShortOfContract } from "../utils/documentRenewalHelpers";
 import { ProjectAddAssetModal } from "../components/modals/ProjectAddAssetModal";
 import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
 import { RequestAssuranceSetModal } from "../components/modals/RequestAssuranceSetModal";
@@ -37,6 +38,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     addAssetToProject,
     updateAssuranceSet,
     activeDemoOrganization,
+    documents,
   } = useMapStore();
 
   const [activeTab, setActiveTab] = useState<"roster" | "assurance">(
@@ -386,10 +388,22 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 ) : (
                   setsPagination.pageItems.map((s) => {
                     const openable = canOpenSet(s);
+                    const shortCount = listCertificatesShortOfContract(
+                      s,
+                      documents,
+                      s.charterWindowEnd,
+                    ).length;
                     return (
                       <tr key={s.id}>
                         <td className="font-mono-code text-primary">{s.id}</td>
-                        <td>{s.title}</td>
+                        <td>
+                          {s.title}
+                          {shortCount > 0 && (
+                            <span className="badge bg-warning text-dark ms-2">
+                              {shortCount} expire before contract end
+                            </span>
+                          )}
+                        </td>
                         <td>{s.assuranceType || "Asset"}</td>
                         <td>
                           <span className="badge bg-secondary">{s.stage}</span>

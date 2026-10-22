@@ -33,6 +33,8 @@ interface DocumentTableProps {
   onSelectDocument: (doc: MasterDocument) => void;
   onOpenVersionHistory?: (doc: MasterDocument) => void;
   onUploadDocument?: () => void;
+  statusFilter?: string;
+  onStatusFilterChange?: (value: string) => void;
 }
 
 /**
@@ -44,6 +46,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   onSelectDocument,
   onOpenVersionHistory,
   onUploadDocument,
+  statusFilter: statusFilterProp,
+  onStatusFilterChange,
 }) => {
   const {
     documents,
@@ -55,7 +59,9 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   } = useMapStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [internalStatusFilter, setInternalStatusFilter] = useState('ALL');
+  const statusFilter = statusFilterProp ?? internalStatusFilter;
+  const setStatusFilter = onStatusFilterChange ?? setInternalStatusFilter;
   const [verificationFilter, setVerificationFilter] = useState('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('title');

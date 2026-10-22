@@ -188,6 +188,7 @@ export interface AssuranceSet {
   charterer?: string; /* charterer organization or entity assigned to the campaign set */
   charterWindowStart: string; /* iso date - contractual hire window (on-hire delivery to off-hire redelivery) */
   charterWindowEnd: string; /* iso date - contractual hire window */
+  complianceDeadline: string; /* iso date - the set must be complete on or before the contract start */
   projectWindowStart?: string; /* iso date - active offshore field operations window */
   projectWindowEnd?: string; /* iso date - active offshore field operations window */
   stage: AssuranceStage;

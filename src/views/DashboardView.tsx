@@ -16,6 +16,7 @@ import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer
 import { ReturnedDocumentsDrawer } from '../components/drawers/ReturnedDocumentsDrawer';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { filterProjectsForPersona } from '../utils/projectHelpers';
+import { countDocumentsByExpiry } from '../utils/documentRenewalHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -386,8 +387,8 @@ export const DashboardView: React.FC = () => {
             <div className="map-kpi-label">
               Expiring Soon
             </div>
-            <div className="map-kpi-value text-danger mt-1">4</div>
-            <div className="map-kpi-subtitle mt-1">Documents expiring within 90 days</div>
+            <div className="map-kpi-value text-danger mt-1">{countDocumentsByExpiry(documents).expiring}</div>
+            <div className="map-kpi-subtitle mt-1">Documents expiring within 6 months</div>
           </div>
         </div>
       </div>

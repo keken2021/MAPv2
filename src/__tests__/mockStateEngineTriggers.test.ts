@@ -47,6 +47,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       imoNumber: '',
       initiatorRole: 'C Admin · Client Created',
       charterWindowStart: '',
+      complianceDeadline: '',
       charterWindowEnd: '',
       mandatoryInspectionRequired: false,
       inspectionCompleted: false
@@ -106,6 +107,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       imoNumber: '',
       initiatorRole: 'C Admin · Client Created',
       charterWindowStart: '',
+      complianceDeadline: '',
       charterWindowEnd: '',
       mandatoryInspectionRequired: false,
       inspectionCompleted: false
@@ -144,6 +146,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       imoNumber: '',
       initiatorRole: 'C Admin · Client Created',
       charterWindowStart: '',
+      complianceDeadline: '',
       charterWindowEnd: '',
       mandatoryInspectionRequired: false,
       inspectionCompleted: false

@@ -36,6 +36,7 @@ const crewSet = (overrides: Partial<AssuranceSet> = {}): AssuranceSet => ({
   initiatorOrg: 'Chevron Australia Pty Ltd',
   initiatorRole: 'C Admin · Client Created',
   charterWindowStart: '2028-01-01',
+  complianceDeadline: '2028-01-01',
   charterWindowEnd: '2028-06-01',
   stage: 'Initiated',
   readinessScore: 0,
