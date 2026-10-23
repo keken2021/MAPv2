@@ -211,9 +211,6 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
       );
 
       logAuditEvent({
-        userId: 'USR-INSPEC-01',
-        userRole: activePersona,
-        organization: 'Meridian Marine Surveyors',
         action: `Captured Real-Life Photo Evidence for ${activePhotoItemId}`,
         targetAsset: vesselName,
         justificationNotes: `Attached camera photo: ${newEv.fileName}`,
@@ -280,9 +277,6 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
     );
 
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: `Captured Live Camera Photo Evidence for ${activePhotoItemId}`,
       targetAsset: vesselName,
       justificationNotes: `Attached live camera photo for item ${activePhotoItemId}`,
@@ -328,9 +322,6 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
     );
 
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: `Uploaded ${evType} Evidence for ${activeUploadItemId}`,
       targetAsset: vesselName,
       justificationNotes: `Attached file: ${newEv.fileName} (${newEv.fileSize})`,
@@ -360,9 +351,6 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
     );
 
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: `Updated Finding Comment for ${itemId}`,
       targetAsset: vesselName,
       justificationNotes: `Finding comment saved for ${itemId}`,
@@ -392,9 +380,6 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
     );
 
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: `Raised ${capaCode} for ${item.id}`,
       targetAsset: vesselName,
       justificationNotes: `CAPA ${capaCode} linked to ${item.title}`,
@@ -422,9 +407,6 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
     setCapaActions((prev) => [newCapa, ...prev]);
 
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: `Created Corrective Action ${newCapa.id}`,
       targetAsset: vesselName,
       justificationNotes: `CAPA raised: ${newCapa.title} (Owner: ${newCapa.owner})`,
@@ -438,9 +420,6 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
 
   const handleSubmitOutcome = () => {
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: `Submitted Visual Survey Outcome (${selectedResult})`,
       targetAsset: vesselName,
       justificationNotes: `Inspection outcome submitted: ${selectedResult}`,

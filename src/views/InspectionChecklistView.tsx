@@ -193,9 +193,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
       );
 
       logAuditEvent({
-        userId: 'USR-INSPEC-01',
-        userRole: activePersona,
-        organization: 'Meridian Marine Surveyors',
         action: 'Captured Real-Life Inspection Photo',
         targetAsset: `${vesselName} · ${file.name || 'Camera Photo'}`,
         justificationNotes: `Attached live camera photo evidence for checklist item ${activePhotoItemId}`,
@@ -264,9 +261,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
     );
 
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: 'Captured Live Camera Photo Evidence',
       targetAsset: `${vesselName} · Checklist Item ${activePhotoItemId}`,
       justificationNotes: `Attached live webcam photo for item ${activePhotoItemId}`,
@@ -310,9 +304,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
     );
 
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: 'Uploaded Physical Evidence File',
       targetAsset: `${vesselName} · ${file.name}`,
       justificationNotes: `Attached ${newEvidence.type} evidence for checklist item ${uploadingItemId}`,
@@ -382,9 +373,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
     );
 
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: `Created Corrective Action (${capaId})`,
       targetAsset: `${vesselName} · ${item.title}`,
       justificationNotes: `Raised ${capaId}: ${itemCapaTitle}`,
@@ -428,9 +416,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
   const handleSubmitOutcome = () => {
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: `Submitted Visual Survey Outcome (${selectedResult})`,
       targetAsset: vesselName,
       justificationNotes: `Inspection outcome submitted: ${selectedResult}`,

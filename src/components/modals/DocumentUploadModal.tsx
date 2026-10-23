@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
 import { formatDocumentId } from '../../utils/formatters';
+import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Upload, Check, AlertCircle, X, FileText, Eye } from 'lucide-react';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
@@ -41,8 +42,10 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   defaultVesselId,
   modalTitle,
 }) => {
-  const { vessels, documents, notifications, addDocument, uploadDocumentForRequirement, addDocumentVersion, activePersona } =
+  const { vessels, documents, notifications, addDocument, uploadDocumentForRequirement, addDocumentVersion, activePersona, users, activeDemoOrganization, activeSessionUserId } =
     useMapStore();
+  /* the version is recorded against the signed-in user, not a placeholder name */
+  const sessionUser = getSessionUserForPersona(activePersona, users, getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -365,7 +368,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             {
               versionLabel: 'v1.0',
               uploadedAt: new Date().toISOString(),
-              uploadedBy: 'Ops Submitter',
+              uploadedBy: sessionUser?.id || activePersona,
               fileSizeBytes: 2100000,
               fileName: finalFileName,
               changeSummary: changeSummary.trim() || 'Initial Master Document submission with AI extracted metadata.',

@@ -370,7 +370,10 @@ export interface MapStoreState {
 
   // Audit Trail State
   auditEvents: AuditTrailEvent[];
-  logAuditEvent: (event: Omit<AuditTrailEvent, "id" | "timestampUtc">) => void;
+  /* the actor (user id, role, organization) is always the signed-in session user; callers give only what happened */
+  logAuditEvent: (
+    event: Omit<AuditTrailEvent, "id" | "timestampUtc" | "userId" | "userRole" | "organization">,
+  ) => void;
 
   // User Management State
   users: UserProfile[];
@@ -549,28 +552,24 @@ function resolveExpiredRenewalRecipientLabels(
 }
 
 /**
-  what: user id and organization recorded on the audit event of a review action; input is the store getter.
-  how: the signed-in client admin when the persona is c admin, otherwise the fixed approver or verifier account.
-  with what file: src/store/useMapStore.ts, called by requestDocumentReupload and verifyDocument.
+  what: the person an audit event or a review stamp is recorded against; input is the store getter.
+  how: the signed-in session user for the active persona and demo organization, with that persona as the role (gap review E8).
+  with what file: src/store/useMapStore.ts, called by logAuditEvent, verifyDocument and updateRequirementStatus.
 */
-function getReviewerAuditIdentity(
+function getSessionActor(
   get: () => MapStoreState,
-): { userId: string; organization: string } {
+): { userId: string; userRole: UserRolePersona; organization: string } {
   const state = get();
-  if (state.activePersona === "C Admin") {
-    const sessionUser = getSessionUserForPersona(
-      state.activePersona,
-      state.users,
-      getDemoSessionContext(state),
-    );
-    return {
-      userId: sessionUser?.id || "USR-CADMIN-01",
-      organization: sessionUser?.organization || state.activeDemoOrganization,
-    };
-  }
-  return state.activePersona === "Approver"
-    ? { userId: "USR-APPROVE-01", organization: "Marine Assurance Authority" }
-    : { userId: "USR-VERIFY-01", organization: "Verifier Inspectorate" };
+  const sessionUser = getSessionUserForPersona(
+    state.activePersona,
+    state.users,
+    getDemoSessionContext(state),
+  );
+  return {
+    userId: sessionUser?.id || `${state.activePersona} (no user record)`,
+    userRole: state.activePersona,
+    organization: sessionUser?.organization || state.activeDemoOrganization,
+  };
 }
 
 /**
@@ -669,14 +668,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const users = get().users;
     const sessionUser = getSessionUserForPersona(role, users);
     const organization = sessionUser?.organization ?? DEFAULT_DEMO_ORGANIZATION;
-    get().logAuditEvent({
-      userId: sessionUser?.id ?? "USR-LOGIN",
-      userRole: role,
-      organization,
-      action: "Authenticated User Session",
-      targetAsset: "Authentication Gateway",
-      justificationNotes: `Logged in as ${role}`,
-    });
     const targetView =
       role === "Verifier"
         ? "verifier"
@@ -691,12 +682,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       activeSessionUserId: sessionUser?.id,
       currentHashView: targetView,
     });
+    get().logAuditEvent({
+      action: "Authenticated User Session",
+      targetAsset: "Authentication Gateway",
+      justificationNotes: `Logged in as ${role}`,
+    });
   },
   logout: () => {
     get().logAuditEvent({
-      userId: "USR-LOGOUT",
-      userRole: get().activePersona,
-      organization: "MAP Gateway",
       action: "Terminated User Session",
       targetAsset: "Authentication Gateway",
       justificationNotes: "User signed out.",
@@ -718,14 +711,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       personas[0];
     const sessionUser = pickSessionUserForOrgPersona(users, organization, nextPersona);
 
-    get().logAuditEvent({
-      userId: sessionUser?.id ?? "USR-PERSONA-SWITCH",
-      userRole: nextPersona,
-      organization,
-      action: "Switched Demo Organization",
-      targetAsset: "Global System Context",
-      justificationNotes: `Demo organization set to ${organization}`,
-    });
 
     const currentView = get().currentHashView;
     const currentId = get().currentEntityId;
@@ -738,6 +723,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       activePersona: nextPersona,
       activeSessionUserId: sessionUser?.id,
     });
+    get().logAuditEvent({
+      action: "Switched Demo Organization",
+      targetAsset: "Global System Context",
+      justificationNotes: `Demo organization set to ${organization}`,
+    });
   },
   setActivePersona: (persona) => {
     const organization = get().activeDemoOrganization;
@@ -747,14 +737,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const sessionUser = pickSessionUserForOrgPersona(users, organization, persona);
 
-    get().logAuditEvent({
-      userId: sessionUser?.id ?? "USR-PERSONA-SWITCH",
-      userRole: persona,
-      organization,
-      action: "Switched Active User Persona",
-      targetAsset: "Global System Context",
-      justificationNotes: `Persona set to ${persona}`,
-    });
 
     /* default to dashboard if active view is not accessible to newly selected persona */
     const currentView = get().currentHashView;
@@ -765,6 +747,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
 
     set({ activePersona: persona, activeSessionUserId: sessionUser?.id });
+    get().logAuditEvent({
+      action: "Switched Active User Persona",
+      targetAsset: "Global System Context",
+      justificationNotes: `Persona set to ${persona}`,
+    });
   },
 
   currentHashView: "login",
@@ -897,8 +884,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const activePersona = get().activePersona;
     get().logAuditEvent({
-      ...getReviewerAuditIdentity(get),
-      userRole: activePersona,
       action: "Requested Document Reupload [PING: SUBMITTER ACTION REQUIRED]",
       targetAsset: `Document ${docId}`,
       justificationNotes: note,
@@ -1002,9 +987,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
 
     get().logAuditEvent({
-      userId: input.senderUserId,
-      userRole: get().activePersona,
-      organization: project.requestingOrganization,
       action: "Requested Assurance Set",
       targetAsset: `${input.projectId} → ${input.recipientUserId}`,
       justificationNotes: input.message || "Assurance set request sent.",
@@ -1118,9 +1100,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     set({ projects: syncedProjects, assuranceSets: stampedSets });
 
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: persona,
-      organization: input.operatorOrganization,
       action: "Created Project Charter",
       targetAsset: `${projectId} (${input.name})`,
       justificationNotes: "Project charter created.",
@@ -1196,9 +1175,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     set({ projects: syncedProjects, assuranceSets: stampedSets });
 
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization: project.operatorOrganization,
       action: "Linked Asset to Project",
       targetAsset: `${projectId} ← ${link.assetName}`,
       justificationNotes: `Attached ${link.assuranceSetId} for ${link.assetType} asset.`,
@@ -1353,7 +1329,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       newValue: params.newValue,
       effectiveFrom: now,
       changedAt: now,
-      changedBy: params.changedBy ?? "USR-CURRENT",
+      changedBy: params.changedBy ?? getSessionActor(get).userId,
       changedByRole: params.changedByRole ?? activePersona,
       notes: params.notes,
       source: params.source ?? "manual",
@@ -1386,7 +1362,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const registeredAt = new Date().toISOString();
     const initialHistory = buildInitialVesselStatusHistoryEntries(
       newVessel,
-      "USR-CURRENT",
+      getSessionActor(get).userId,
       get().activePersona,
       registeredAt,
     );
@@ -1397,12 +1373,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
 
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization:
-        get().activePersona === "Administrator"
-          ? "Northwind Marine Pty Ltd"
-          : "Northwind Marine Pty Ltd",
       action: "Registered Unique Vessel Record",
       targetAsset: `${newVessel.name} (IMO ${newVessel.imoNumber})`,
       justificationNotes: `Registered vessel under ${newVessel.flagState} flag.`,
@@ -1457,12 +1427,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization:
-        get().activePersona === "C Admin"
-          ? "Chevron Australia"
-          : "Northwind Marine Pty Ltd",
       action: "Updated Vessel Specifications",
       targetAsset: `${updatedVessel.name} (IMO ${updatedVessel.imoNumber})`,
       justificationNotes: `Updated vessel Information for ${updatedVessel.name}`,
@@ -1531,9 +1495,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
     set((state) => ({ equipment: [...state.equipment, newEquipment] }));
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization: newEquipment.owningOrganization,
       action: "Registered Equipment Asset",
       targetAsset: `${newEquipment.name} (${newEquipment.equipmentIdentifier})`,
       justificationNotes: `Registered equipment under category ${newEquipment.category}.`,
@@ -1647,9 +1608,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
 
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization: newSet.initiatorOrg,
       action: "Initiated Assurance Set",
       targetAsset: `${computedSet.id} (${computedSet.title})`,
       justificationNotes: `Created assurance set for vessel ${computedSet.vesselName}`,
@@ -1782,12 +1740,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       }),
     }));
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization:
-        get().activePersona === "C Admin"
-          ? "Southern Basin Energy"
-          : "Northwind Marine",
       action: `Assigned Vessel ${role}`,
       targetAsset: `${setId} · ${assigneeName}`,
       justificationNotes: `Assigned ${role.toLowerCase()} ${assigneeName} to assurance campaign ${setId}`,
@@ -1844,7 +1796,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   updateRequirementStatus: (setId, reqId, status, notes) => {
     const reviewedAt = new Date().toISOString();
-    const reviewerId = getReviewerAuditIdentity(get).userId;
+    const reviewerId = getSessionActor(get).userId;
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -1916,13 +1868,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const isDenial = status === "Correction Requested" || status === "Rejected";
     const actionTag = isDenial ? " [PING: SUBMITTER ACTION REQUIRED]" : "";
     get().logAuditEvent({
-      userId:
-        get().activePersona === "Approver" ? "USR-APPROVE-01" : "USR-VERIFY-01",
-      userRole: get().activePersona,
-      organization:
-        get().activePersona === "Approver"
-          ? "Marine Assurance Authority"
-          : "Compliance Services",
       action: `Requirement Verification: ${status}${actionTag}`,
       targetAsset: `${setId} / Requirement ${reqId}`,
       justificationNotes:
@@ -1975,9 +1920,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: "USR-APPROVE-01",
-      userRole: get().activePersona,
-      organization: "Marine Assurance Authority",
       action: `Approver Denied Verified Document [PING: SUBMITTER ACTION REQUIRED]`,
       targetAsset: `${setId} / ${requirementTitle}`,
       justificationNotes: `Approver denied verified document (${decision}): ${notes || "Revision requested from submitter."}`,
@@ -2030,9 +1972,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const pingTag = isDenial ? " [PING: SUBMITTER ACTION REQUIRED]" : "";
     get().logAuditEvent({
-      userId: "USR-APPROVE-01",
-      userRole: get().activePersona,
-      organization: "Marine Assurance Authority",
       action: `Approver Final Decision: ${decision}${pingTag}`,
       targetAsset: `Assurance Set ${setId}`,
       justificationNotes:
@@ -2077,9 +2016,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     });
     get().logAuditEvent({
-      userId: "USR-CADMIN-01",
-      userRole: get().activePersona,
-      organization: "Southern Basin Energy",
       action: "Client Sent Campaign for Review",
       targetAsset: `Assurance Set ${setId}`,
       justificationNotes:
@@ -2121,9 +2057,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     });
     get().logAuditEvent({
-      userId: "USR-CADMIN-01",
-      userRole: get().activePersona,
-      organization: "Southern Basin Energy",
       action: `Client Campaign Decision: ${decision}`,
       targetAsset: `Assurance Set ${setId}`,
       justificationNotes: notes || `Client sign-off: ${decision}`,
@@ -2135,9 +2068,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   addDocument: (doc) => {
     set((state) => ({ documents: [...state.documents, doc] }));
     get().logAuditEvent({
-      userId: "USR-SUBMIT-01",
-      userRole: get().activePersona,
-      organization: "Vessel Provider Operations",
       action: "Uploaded New Master Document",
       targetAsset: `${doc.id} (${doc.title})`,
       justificationNotes: `Uploaded certificate ${doc.certificateNo}`,
@@ -2231,9 +2161,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: "USR-SUBMIT-01",
-      userRole: get().activePersona,
-      organization: "Vessel Provider Operations",
       action: "Uploaded Document for Assurance Requirement",
       targetAsset: `${doc.id} -> ${setId} / ${requirementId || "Other Documents"}`,
       justificationNotes: `Upload: ${doc.title} (${doc.certificateNo}) queued for verifier review.`,
@@ -2260,7 +2187,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         const newVersionObj = {
           versionLabel: newVersionLabel,
           uploadedAt: new Date().toISOString(),
-          uploadedBy: "Ops Submitter",
+          uploadedBy: getSessionActor(get).userId,
           fileSizeBytes,
           fileName,
           changeSummary,
@@ -2324,9 +2251,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: "USR-SUBMIT-01",
-      userRole: get().activePersona,
-      organization: "Vessel Provider Operations",
       action: `Uploaded Document Revision ${newVersionLabel}`,
       targetAsset: `Document ${docId}`,
       justificationNotes: changeSummary,
@@ -2361,7 +2285,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   verifyDocument: (docId, status, notes, routeTarget, requirementId, assuranceSetId) => {
     const setsBeforeVerification = get().assuranceSets;
     const reviewedAt = new Date().toISOString();
-    const reviewerId = getReviewerAuditIdentity(get).userId;
+    const reviewerId = getSessionActor(get).userId;
     /* a decision belongs to one requirement on one set; without a requirement nothing on any set changes */
     const reviewedSetId = requirementId
       ? assuranceSetId ||
@@ -2456,8 +2380,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const routeNote = routeTarget ? ` | Routed to ${routeTarget}` : "";
     const activePersona = get().activePersona;
     get().logAuditEvent({
-      ...getReviewerAuditIdentity(get),
-      userRole: activePersona,
       action: `${activePersona === "Approver" ? "Approver" : "Verifier"} Document Action: ${status}${pingTag}`,
       targetAsset: reviewedSetId ? `Document ${docId} -> ${reviewedSetId} / ${requirementId}` : `Document ${docId}`,
       justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${isDenial ? " — Submitter revision required." : ""}`,
@@ -2497,10 +2419,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   // Audit Events
   auditEvents: MOCK_AUDIT_TRAIL,
   logAuditEvent: (eventData) => {
+    const actor = getSessionActor(get);
     const newEvent: AuditTrailEvent = {
       id: `MAP-AUD-2026-EVNT-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, "0")}`,
       timestampUtc: new Date().toISOString(),
       ...eventData,
+      ...actor,
     };
     set((state) => ({ auditEvents: [newEvent, ...state.auditEvents] }));
   },
@@ -2518,9 +2442,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     };
     set((state) => ({ users: [preparedUser, ...state.users] }));
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: `Provisioned New User Profile (${preparedUser.userType})`,
       targetAsset: `${preparedUser.name} (${preparedUser.email})`,
       justificationNotes: `Added ${preparedUser.userType} user assigned as ${preparedUser.roles.join(", ")} for ${preparedUser.organization}.`,
@@ -2533,9 +2454,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ),
     }));
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Updated User Profile",
       targetAsset: `${updatedUser.name} (${updatedUser.email})`,
       justificationNotes: `Updated user profile for ${updatedUser.name} (${updatedUser.roles.join(", ")}, ${updatedUser.userType}).`,
@@ -2576,9 +2494,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         (s) => s.key === scopeKey,
       )?.label ?? scopeKey;
     get().logAuditEvent({
-      userId: "USR-ADMIN",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Updated Role Permission Default",
       targetAsset: `${role} · ${scopeLabel} · ${action}`,
       justificationNotes: `Set ${action} to ${value ? "allowed" : "denied"} for role ${role} on "${scopeLabel}".`,
@@ -2587,9 +2502,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   commitRolePermissionDefaults: (matrix) => {
     set({ rolePermissionDefaults: matrix });
     get().logAuditEvent({
-      userId: "USR-ADMIN",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Saved Role Permission Defaults",
       targetAsset: "Role Rights Matrix",
       justificationNotes:
@@ -2599,9 +2511,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   commitUserPermissionOverrides: (overrides) => {
     set({ userPermissionOverrides: overrides });
     get().logAuditEvent({
-      userId: "USR-ADMIN",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Saved User Permission Overrides",
       targetAsset: "User Rights Matrix",
       justificationNotes:
@@ -2617,9 +2526,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       customCategories: [],
     });
     get().logAuditEvent({
-      userId: "USR-ADMIN",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Reset Role Permissions to BRD Defaults",
       targetAsset: "Role Rights Matrix",
       justificationNotes:
@@ -2649,9 +2555,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       )?.label ?? scopeKey;
     const userName = get().users.find((u) => u.id === userId)?.name ?? userId;
     get().logAuditEvent({
-      userId: "USR-ADMIN",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Updated User Permission Override",
       targetAsset: `${userName} · ${scopeLabel} · ${action}`,
       justificationNotes: `Override ${action}=${value} for ${userName} on "${scopeLabel}".`,
@@ -2664,9 +2567,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       return { userPermissionOverrides: next };
     });
     get().logAuditEvent({
-      userId: "USR-ADMIN",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Cleared User Permission Overrides",
       targetAsset: userId,
       justificationNotes: `Restored user ${userId} to role-default permissions.`,
@@ -2691,9 +2591,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       },
     }));
     get().logAuditEvent({
-      userId: "USR-ADMIN",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Created Custom Role",
       targetAsset: name,
       justificationNotes: `Added custom role "${name}" with empty CRUD defaults.`,
@@ -2717,9 +2614,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       customCategories: [...state.customCategories, name],
     }));
     get().logAuditEvent({
-      userId: "USR-ADMIN",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Created Permission Category",
       targetAsset: name,
       justificationNotes: `Added permission category "${name}".`,
@@ -2772,9 +2666,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     });
     get().logAuditEvent({
-      userId: "USR-ADMIN",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Created Custom Permission Scope",
       targetAsset: trimmed,
       justificationNotes: `Added permission "${trimmed}" under category "${categoryName}".`,
@@ -2864,9 +2755,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Registered Crew Member",
       targetAsset: `${newCrew.fullName} (${newCrew.rank})`,
       justificationNotes: `Registered crew member with Seaman's Book ${newCrew.seamansBookNo}`,
@@ -2877,9 +2765,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       crew: state.crew.map((c) => (c.id === updatedCrew.id ? updatedCrew : c)),
     }));
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization: updatedCrew.organization || "Northwind Marine Pty Ltd",
       action: "Updated Seafarer Profile",
       targetAsset: `${updatedCrew.fullName} (${updatedCrew.id})`,
       justificationNotes: `Updated profile details and photo gallery for ${updatedCrew.fullName}.`,
@@ -2953,9 +2838,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: "USR-ADMIN-01",
-      userRole: get().activePersona,
-      organization: "Northwind Marine",
       action: "Updated Crew Vessel Assignment",
       targetAsset: `Crew ${crewId}`,
       justificationNotes: vesselId
@@ -3055,9 +2937,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
 
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: `Uploaded Crew STCW Document (${doc.title})`,
       targetAsset: `Crew ${crewId} / ${doc.certificateNo}`,
       justificationNotes: `Uploaded ${doc.layer} certificate for STCW compliance tracking.`,
@@ -3183,9 +3062,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: `Updated / Reuploaded Crew STCW Document (${doc.title})`,
       targetAsset: `Crew ${crewId} / ${doc.certificateNo}`,
       justificationNotes: `Reuploaded / updated ${doc.layer} certificate status (${doc.verificationStatus}), expiry date ${doc.expiryDate}.`,
@@ -3207,9 +3083,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       documents: state.documents.filter((d) => d.id !== docId),
     }));
     get().logAuditEvent({
-      userId: "USR-CURRENT",
-      userRole: get().activePersona,
-      organization: "Northwind Marine Pty Ltd",
       action: "Deleted Crew STCW Document",
       targetAsset: `Crew ${crewId} / Doc ${docId}`,
       justificationNotes: "Removed STCW certificate record from crew profile.",
@@ -3286,9 +3159,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ),
     }));
     get().logAuditEvent({
-      userId: "USR-CADMIN-01",
-      userRole: get().activePersona,
-      organization: "Charterer Organization",
       action: `Flagged CAPA (${capaId}) for Re-Inspection`,
       targetAsset: `CAPA ${capaId}`,
       justificationNotes:

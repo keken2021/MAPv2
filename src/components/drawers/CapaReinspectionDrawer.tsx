@@ -59,9 +59,6 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
     updateCapaStatus(capa.id, reInspectStatus, reInspectNotes.trim() ? reInspectNotes.trim() : undefined);
 
     logAuditEvent({
-      userId: 'USR-INSPEC-01',
-      userRole: activePersona,
-      organization: 'Meridian Marine Surveyors',
       action: `Re-Inspected CAPA (${capa.id})`,
       targetAsset: `${capa.vesselName} · ${capa.title}`,
       justificationNotes: `Updated CAPA ${capa.id} status to ${reInspectStatus}. Notes: ${reInspectNotes || 'Endorsed'}`,
