@@ -63,15 +63,29 @@ describe('Map Store State Management', () => {
   });
 
 
-  it('should update document verification status', () => {
+  it('records a verification on the one requirement and set it was made on, not on the library document', () => {
     const store = useMapStore.getState();
-    const targetDocId = store.documents[0].id;
+    const targetSet = store.assuranceSets.find((s) =>
+      s.requirements.some((r) => r.documentId && r.verifierStatus !== 'Verified'),
+    )!;
+    const req = targetSet.requirements.find((r) => r.documentId && r.verifierStatus !== 'Verified')!;
+    const docBefore = store.documents.find((d) => d.id === req.documentId);
 
-    store.verifyDocument(targetDocId, 'Verified', 'Unit test verification check', 'Approver');
+    store.verifyDocument(req.documentId!, 'Verified', 'Unit test verification check', 'Approver', req.id, targetSet.id);
 
-    const updatedDoc = useMapStore.getState().documents.find((d) => d.id === targetDocId);
-    expect(updatedDoc?.verificationStatus).toBe('Verified');
-    expect(updatedDoc?.verificationNotes).toBe('Unit test verification check');
+    const after = useMapStore.getState();
+    const updatedReq = after.assuranceSets.find((s) => s.id === targetSet.id)!.requirements.find((r) => r.id === req.id);
+    expect(updatedReq?.verifierStatus).toBe('Verified');
+    expect(updatedReq?.notes).toBe('Unit test verification check');
+    const docAfter = after.documents.find((d) => d.id === req.documentId);
+    expect(docAfter?.verificationStatus).toBe(docBefore?.verificationStatus);
+  });
+
+  it('changes no set when a verification names no requirement', () => {
+    const store = useMapStore.getState();
+    const setsBefore = store.assuranceSets;
+    store.verifyDocument(store.documents[0].id, 'Verified', 'No requirement');
+    expect(useMapStore.getState().assuranceSets).toEqual(setsBefore);
   });
 
   it('marks this set requirement verified when its library document was already verified elsewhere', () => {
@@ -107,7 +121,7 @@ describe('Map Store State Management', () => {
 
     targetSet.requirements.forEach((req) => {
       if (req.documentId) {
-        store.verifyDocument(req.documentId, 'Verified', 'Verified for inspection routing test', 'Inspector');
+        store.verifyDocument(req.documentId, 'Verified', 'Verified for inspection routing test', 'Inspector', req.id, targetSet.id);
       }
     });
 

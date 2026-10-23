@@ -58,8 +58,11 @@ describe('document version snapshot', () => {
   });
 
   it('keeps the approved status when another set that uses the document is rejected', () => {
+    const docStatusBefore = getDoc(SHARED_DOC).verificationStatus;
     useMapStore.getState().setApproverDecision('AS-2026-027', 'Rejected', 'Rejected for test.');
-    expect(getDoc(SHARED_DOC).verificationStatus).toBe('Rejected');
+    /* the rejection stays on the rejected set; the shared library document is not marked */
+    expect(getReqForDoc('AS-2026-027', SHARED_DOC).verifierStatus).toBe('Rejected');
+    expect(getDoc(SHARED_DOC).verificationStatus).toBe(docStatusBefore);
     const approvedReq = getReqForDoc('AS-2026-004', SHARED_DOC);
     const view = getRequirementDocumentView(getSet('AS-2026-004'), approvedReq, getDoc(SHARED_DOC));
     expect(view.doc.verificationStatus).toBe('Verified');

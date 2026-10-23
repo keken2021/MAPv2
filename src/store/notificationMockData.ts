@@ -25,6 +25,7 @@ export const NOTIFICATION_TYPE_META: Record<NotificationType, NotificationTypeMe
   approval_requested: { category: 'Approval', idCode: 'APRV', actionLabel: 'Review Approval' },
   approval_decision: { category: 'Approval', idCode: 'APRV', actionLabel: 'Open Set' },
   capa_reinspection: { category: 'CAPA', idCode: 'CAPA', actionLabel: 'Open CAPA' },
+  document_new_version: { category: 'Verification', idCode: 'VERF', actionLabel: 'Open Set' },
 };
 
 /* row action shown on an assurance set request once its set exists */

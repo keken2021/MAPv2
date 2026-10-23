@@ -17,7 +17,9 @@ export type NotificationType =
   | 'document_renewal'
   | 'approval_requested'
   | 'approval_decision'
-  | 'capa_reinspection';
+  | 'capa_reinspection'
+  /* a new version of a document this set uses was submitted on another set; this set keeps its own decision */
+  | 'document_new_version';
 
 export type NotificationCategory =
   | 'Assurance Request'

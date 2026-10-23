@@ -57,16 +57,12 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   const [correctedFieldIds, setCorrectedFieldIds] = useState<Set<string>>(new Set());
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const openedFromSet = assuranceSetId ? assuranceSets.find((set) => set.id === assuranceSetId) : undefined;
+  /* the set is the one the review was opened from, or the set that holds the requirement; never a guess by title or vessel */
   const linkedSet = openedFromSet || (document
-    ? assuranceSets.find(
-      (set) =>
-        set.requirements?.some(
-          (req) =>
-            req.documentId === document.id ||
-            req.linkedDocumentId === document.id ||
-            (req.title && document.title && req.title.toLowerCase().includes(document.title.toLowerCase())) ||
-            (document.title && req.title && document.title.toLowerCase().includes(req.title.toLowerCase()))
-        ) || (set.vesselId === document.vesselId)
+    ? assuranceSets.find((set) =>
+      requirementId
+        ? set.requirements?.some((req) => req.id === requirementId)
+        : set.requirements?.some((req) => req.documentId === document.id || req.linkedDocumentId === document.id)
     )
     : undefined);
 
@@ -90,19 +86,17 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
 
   if (!document) return null;
 
-  const isVerified = document.verificationStatus === 'Verified';
-  /* a library document can already be verified on another set; this requirement still needs its own Verify */
-  const decisionsClosed = requirementVerifierStatus
-    ? requirementVerifierStatus === 'Verified'
-    : isVerified;
-
-  const linkedReq = linkedSet?.requirements?.find(
-    (req) =>
-      req.documentId === document.id ||
-      req.linkedDocumentId === document.id ||
-      (req.title && document.title && req.title.toLowerCase().includes(document.title.toLowerCase())) ||
-      (document.title && req.title && document.title.toLowerCase().includes(req.title.toLowerCase()))
+  const linkedReq = linkedSet?.requirements?.find((req) =>
+    requirementId ? req.id === requirementId : req.documentId === document.id || req.linkedDocumentId === document.id
   );
+  /* a decision is made on one requirement of one set; opened without one, the drawer only shows the document on file */
+  const reviewedSetId = requirementId ? linkedSet?.id : undefined;
+  const hasReviewContext = Boolean(requirementId && reviewedSetId);
+  /* verified here means verified on this requirement; the same document verified on another set does not count */
+  const isVerified = hasReviewContext
+    ? (requirementVerifierStatus ?? linkedReq?.verifierStatus) === 'Verified'
+    : false;
+  const decisionsClosed = isVerified;
 
   const isSubmitter = isUserDocumentSubmitter(
     null,
@@ -119,6 +113,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     activePersona === 'C Admin' && Boolean(linkedSet) && isAssuranceSetCreatedByCAdmin(linkedSet!);
   const canVerify =
     allowVerify &&
+    hasReviewContext &&
     !isSubmitter &&
     (activePersona === 'Verifier' || activePersona === 'Administrator' || isClientVerifier);
   /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
@@ -165,7 +160,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     const isCorrected = correctedFieldIds.has(attr.id) || (editedValues[attr.id] !== undefined && editedValues[attr.id].trim() !== '' && editedValues[attr.id] !== attr.value);
     return sum + (isCorrected ? 100 : attr.confidence);
   }, 0);
-  const overallConfidence = document.verificationStatus === 'Verified'
+  const overallConfidence = isVerified
     ? 100
     : Math.min(100, Math.round(totalEffectiveConfidence / extractedAttributes.length));
 
@@ -180,7 +175,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     (editedValues['5'] && editedValues['5'].trim() !== '') ||
     (editedValues['4'] && editedValues['4'].trim() !== '') ||
     overallConfidence >= 90 ||
-    document.verificationStatus === 'Verified';
+    isVerified;
 
   const handleVerify = () => {
     verifyDocument(
@@ -189,19 +184,20 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       comment.trim() || 'Verified extracted fields.',
       undefined,
       requirementId,
+      reviewedSetId,
     );
     onClose();
   };
 
   const handleCorrection = () => {
     if (!requireComment()) return;
-    verifyDocument(document.id, 'Correction Requested', comment.trim(), undefined, requirementId);
+    verifyDocument(document.id, 'Correction Requested', comment.trim(), undefined, requirementId, reviewedSetId);
     onClose();
   };
 
   const handleReject = () => {
     if (!requireComment()) return;
-    verifyDocument(document.id, 'Rejected', comment.trim(), undefined, requirementId);
+    verifyDocument(document.id, 'Rejected', comment.trim(), undefined, requirementId, reviewedSetId);
     onClose();
   };
 
@@ -563,6 +559,11 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
             {notesField}
 
           </div>
+        ) : !hasReviewContext && (activePersona === 'Verifier' || activePersona === 'C Admin' || activePersona === 'Administrator') ? (
+          /* without a set requirement there is no decision to record; each set verifies the document for itself */
+          <div className="map-drawer-card mt-4 small text-muted">
+            Verification is recorded per assurance set. Open this document from a set's requirement to verify, return or reject it.
+          </div>
         ) : null}
       </Drawer>
 
@@ -571,6 +572,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         existingDocument={document}
+        assuranceSetId={reviewedSetId}
+        requirementId={hasReviewContext ? requirementId : undefined}
         onUploadComplete={() => {
           setIsUploadModalOpen(false);
           onClose();

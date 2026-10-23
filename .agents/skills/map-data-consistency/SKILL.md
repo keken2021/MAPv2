@@ -102,7 +102,7 @@ Stage is `Validation`, Index is `48`.
 | **C8** | Marketplace score equals linked asset and metric text |
 | **C9** | Denormalized names and IDs match source record |
 | **C10** | Vessel status agrees with readiness |
-| **C11** | Requirement status equals linked document status |
+| **C11** | Retired: a verification decision belongs to one requirement on one set; the library document's status never decides it (gap review E1) |
 | **C12** | Project status agrees with its sets |
 
 ---

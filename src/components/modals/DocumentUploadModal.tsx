@@ -41,7 +41,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   defaultVesselId,
   modalTitle,
 }) => {
-  const { vessels, documents, notifications, addDocument, uploadDocumentForRequirement, addDocumentVersion, verifyDocument, activePersona } =
+  const { vessels, documents, notifications, addDocument, uploadDocumentForRequirement, addDocumentVersion, activePersona } =
     useMapStore();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -343,8 +343,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           2400000,
           changeSummary.trim() || 'New version uploaded.',
           finalExpiry,
+          /* opened from a requirement: only that requirement goes back to review */
+          assuranceSetId && requirementId ? { assuranceSetId, requirementId } : undefined,
         );
-        verifyDocument(existingDocument.id, 'Pending', 'New version submitted.');
       } else {
         const targetVesselObj = vesselId ? vessels.find((v) => v.id === vesselId) : undefined;
         const entityPrefix = entityType === 'Crew Certificate' ? 'CRW' : vesselId ? 'VES' : 'DOC';

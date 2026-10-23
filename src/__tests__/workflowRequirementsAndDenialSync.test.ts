@@ -77,9 +77,9 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     expect(updatedReq.isFulfilled).toBe(false);
     expect(updatedReq.notes).toContain('Missing official IACS stamp');
 
-    /* verify master document in document library is updated */
+    /* the denial stays on the requirement; the library document keeps its own status */
     const linkedDoc = useMapStore.getState().documents.find((d) => d.id === 'MAP-VES-2026-STAT-00001')!;
-    expect(linkedDoc.verificationStatus).toBe('Correction Requested');
+    expect(linkedDoc.verificationStatus).not.toBe('Correction Requested');
 
     /* verify audit trail contains submitter ping */
     const latestAudit = useMapStore.getState().auditEvents[0];
@@ -92,7 +92,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     how: calls setApproverDecision with Rejected and verifies document and requirement statuses.
     with what file: src/__tests__/workflowRequirementsAndDenialSync.test.ts testing useMapStore.ts.
   */
-  it('should cascade Rejected status and ping submitter when approver rejects whole assurance set', () => {
+  it('should reject every requirement of the set, not its shared documents, and ping the submitter', () => {
     const store = useMapStore.getState();
     const testSet: AssuranceSet = {
       id: 'AS-WORKFLOW-TEST-02',
@@ -148,8 +148,9 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     expect(updatedReq.verifierStatus).toBe('Rejected');
     expect(updatedReq.isFulfilled).toBe(false);
 
+    /* a rejected set does not mark the shared library document */
     const linkedDoc = useMapStore.getState().documents.find((d) => d.id === 'MAP-VES-2026-STAT-00003')!;
-    expect(linkedDoc.verificationStatus).toBe('Rejected');
+    expect(linkedDoc.verificationStatus).not.toBe('Rejected');
 
     const latestAudit = useMapStore.getState().auditEvents[0];
     expect(latestAudit.action).toContain('[PING: SUBMITTER ACTION REQUIRED]');

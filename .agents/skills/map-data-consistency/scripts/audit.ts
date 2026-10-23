@@ -56,7 +56,7 @@ const CHECK_TITLES: Record<CheckId, string> = {
   C8: 'marketplace score equals the linked asset and its own metric text',
   C9: 'denormalized names and ids match their source record',
   C10: 'vessel status agrees with its readiness',
-  C11: 'requirement status equals the linked document status',
+  C11: 'retired: a verification decision belongs to one set requirement, not to the library document',
   C12: 'project status agrees with its sets',
 };
 
@@ -174,24 +174,17 @@ function auditSets(): void {
     /* c4: references must resolve, and a verified requirement must point at its evidence */
     const broken: string[] = [];
     const unreferenced: string[] = [];
-    /* c11: the requirement row and the document library must tell the same story */
-    const disagreeing: string[] = [];
     set.requirements.forEach((r) => {
       if (r.documentId && !documentIds.has(r.documentId)) broken.push(`${r.id} documentId ${r.documentId}`);
       if (r.linkedDocumentId && !documentIds.has(r.linkedDocumentId)) broken.push(`${r.id} linkedDocumentId ${r.linkedDocumentId}`);
       if (r.linkedAssuranceSetId && !resolveSet(r.linkedAssuranceSetId)) broken.push(`${r.id} linkedAssuranceSetId ${r.linkedAssuranceSetId}`);
       if (r.verifierStatus === 'Verified' && !requirementHasDocument(r)) unreferenced.push(r.id);
 
-      const document = MOCK_DOCUMENTS.find((d) => d.id === (r.documentId || r.linkedDocumentId));
-      if (document && document.verificationStatus !== r.verifierStatus) {
-        disagreeing.push(`${r.id} ${r.verifierStatus} but ${document.id} is ${document.verificationStatus}`);
-      }
     });
     if (broken.length > 0) report('C4', 'error', set.id, `unresolved reference: ${broken.join(', ')}`);
     if (unreferenced.length > 0) {
       report('C4', 'error', set.id, `${unreferenced.length} verified with no document reference: ${unreferenced.join(', ')}`);
     }
-    if (disagreeing.length > 0) report('C11', 'error', set.id, disagreeing.join(', '));
 
     /* c9: fields copied from the vessel, project, equipment and crew records */
     const vessel = MOCK_VESSELS.find((v) => v.id === set.vesselId);

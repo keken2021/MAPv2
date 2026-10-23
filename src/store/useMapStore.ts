@@ -354,14 +354,18 @@ export interface MapStoreState {
     changeSummary: string,
     /* expiry date read from the new version; the compliance state follows it */
     expiryDate?: string,
+    /* the one requirement the version was submitted for; other sets using the document keep their decision and get a notice */
+    scope?: { assuranceSetId: string; requirementId: string },
   ) => void;
   verifyDocument: (
     docId: string,
     status: "Pending" | "Verified" | "Correction Requested" | "Rejected",
     notes?: string,
     routeTarget?: "Inspector" | "Approver",
-    /* the requirement opened for review, so a library document already verified elsewhere still clears this row */
+    /* the requirement opened for review; a decision applies to this one requirement only */
     requirementId?: string,
+    /* the set the requirement belongs to; requirement ids repeat across sets */
+    assuranceSetId?: string,
   ) => void;
 
   // Audit Trail State
@@ -1839,7 +1843,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     return completedIds;
   },
   updateRequirementStatus: (setId, reqId, status, notes) => {
-    const affectedDocIds = new Set<string>();
     const reviewedAt = new Date().toISOString();
     const reviewerId = getReviewerAuditIdentity(get).userId;
 
@@ -1848,8 +1851,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         if (s.id !== setId) return s;
         const updatedReqs = s.requirements.map((r) => {
           if (r.id === reqId) {
-            if (r.documentId) affectedDocIds.add(r.documentId);
-            if (r.linkedDocumentId) affectedDocIds.add(r.linkedDocumentId);
             /* a verified requirement records the exact version it was verified against */
             return stampReviewedVersion(
               {
@@ -1902,20 +1903,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         return syncDocumentVersionLock(recalculateSetReadiness(candidateSet), state.documents, reviewedAt);
       });
 
-      const updatedDocs = state.documents.map((d) => {
-        if (affectedDocIds.has(d.id)) {
-          return { ...d, verificationStatus: status, verificationNotes: notes };
-        }
-        return d;
-      });
-
+      /* the decision stays on this requirement; the shared library document keeps no verification status */
       const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
         syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
 
       return {
         assuranceSets: syncedSets,
         projects: syncedProjects,
-        documents: updatedDocs,
       };
     });
 
@@ -1937,7 +1931,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   denyRequirementByApprover: (setId, reqId, decision, notes) => {
-    const affectedDocIds = new Set<string>();
     let requirementTitle = reqId;
 
     set((state) => {
@@ -1947,8 +1940,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         const updatedReqs = s.requirements.map((r) => {
           if (r.id === reqId) {
             requirementTitle = r.title;
-            if (r.documentId) affectedDocIds.add(r.documentId);
-            if (r.linkedDocumentId) affectedDocIds.add(r.linkedDocumentId);
             return {
               ...r,
               verifierStatus: decision,
@@ -1973,35 +1964,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         return recalculateSetReadiness(candidateSet);
       });
 
-      /* synchronize master documents matching the requirement */
-      const updatedDocs = state.documents.map((d) => {
-        const isMatchedDoc =
-          affectedDocIds.has(d.id) ||
-          d.title.toLowerCase() === requirementTitle.toLowerCase() ||
-          (d.vesselId &&
-            state.assuranceSets.find((s) => s.id === setId)?.vesselId ===
-              d.vesselId &&
-            d.title.toLowerCase().includes(requirementTitle.toLowerCase()));
-
-        if (isMatchedDoc) {
-          return {
-            ...d,
-            verificationStatus: decision,
-            verificationNotes:
-              notes ||
-              `Executive Approver set status to ${decision}. Submitter revision required.`,
-          };
-        }
-        return d;
-      });
-
+      /* the denial stays on this requirement; the shared library document and other sets are not touched */
       const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
         syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
 
       return {
         assuranceSets: syncedSets,
         projects: syncedProjects,
-        documents: updatedDocs,
       };
     });
 
@@ -2021,17 +1990,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       decision === "Returned for Correction"
         ? "Correction Requested"
         : "Rejected";
-    const affectedDocIds = new Set<string>();
 
     set((state) => {
-      const targetSet = state.assuranceSets.find((s) => s.id === setId);
-
       const updatedSets = state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
         const updatedReqs: AssuranceRequirement[] = isDenial
           ? s.requirements.map((r) => {
-              if (r.documentId) affectedDocIds.add(r.documentId);
-              if (r.linkedDocumentId) affectedDocIds.add(r.linkedDocumentId);
               return {
                 ...r,
                 verifierStatus: mappedStatus,
@@ -2054,32 +2018,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         return syncDocumentVersionLock(recalculateSetReadiness(candidateSet), state.documents, new Date().toISOString());
       });
 
-      /* when entire campaign is denied, cascade returned/rejected status to all linked documents */
-      const updatedDocs = isDenial
-        ? state.documents.map((d) => {
-            const isSetLinked =
-              affectedDocIds.has(d.id) ||
-              (targetSet && d.vesselId === targetSet.vesselId);
-            if (isSetLinked) {
-              return {
-                ...d,
-                verificationStatus: mappedStatus,
-                verificationNotes:
-                  notes ||
-                  `Approver ${decision}: Revision required for campaign ${setId}.`,
-              };
-            }
-            return d;
-          })
-        : state.documents;
-
+      /* a denial stays on this set's requirements; shared library documents and other sets keep their own decisions */
       const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
         syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
 
       return {
         assuranceSets: syncedSets,
         projects: syncedProjects,
-        documents: updatedDocs,
       };
     });
 
@@ -2305,7 +2250,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     fileSizeBytes,
     changeSummary,
     expiryDate,
+    scope,
   ) => {
+    /* open sets that use the document but were not the one the version was submitted for */
+    const noticeSetIds: string[] = [];
     set((state) => {
       const updatedDocs = state.documents.map((d) => {
         if (d.id !== docId) return d;
@@ -2328,18 +2276,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           versions: [newVersionObj, ...d.versions],
         };
       });
-      const targetDoc = updatedDocs.find((d) => d.id === docId);
-
       const updatedSets = state.assuranceSets.map((s) => {
         /* a new version of a shared library document must not reopen a set that is already approved */
         if (isClosedAssuranceSet(s)) return s;
         let hasMatchedReq = false;
         const updatedReqs = s.requirements.map((r) => {
-          if (
-            r.documentId === docId ||
-            (targetDoc &&
-              r.title.toLowerCase() === targetDoc.title.toLowerCase())
-          ) {
+          const usesDocument = r.documentId === docId || r.linkedDocumentId === docId;
+          /* only the requirement the version was submitted for goes back to Pending; with no scope, every open use does */
+          const isSubmittedRequirement = scope
+            ? s.id === scope.assuranceSetId && r.id === scope.requirementId
+            : usesDocument;
+          if (!isSubmittedRequirement && usesDocument && !noticeSetIds.includes(s.id)) {
+            noticeSetIds.push(s.id);
+          }
+          if (isSubmittedRequirement) {
             hasMatchedReq = true;
             return {
               ...r,
@@ -2382,6 +2332,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       justificationNotes: changeSummary,
     });
 
+    /* other open sets keep the version they reviewed; their verifier is told a newer one exists */
+    const versionedDoc = get().documents.find((d) => d.id === docId);
+    noticeSetIds.forEach((noticeSetId) => {
+      const noticeSet = get().assuranceSets.find((s) => s.id === noticeSetId);
+      if (!noticeSet) return;
+      notifyAssuranceSetUser(get, noticeSet, noticeSet.assignedVerifier, {
+        type: "document_new_version",
+        subject: `New version ${newVersionLabel} available: ${versionedDoc?.title || docId}`,
+        message: "This set keeps its own decision on the version it reviewed.",
+        documentId: docId,
+      });
+    });
+
     /* a new version answers every open renewal of the document */
     closeDocumentRenewalNotifications(set, docId);
 
@@ -2395,45 +2358,28 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       if (setIds.length > 0) get().raiseDocumentRenewalNotifications(setIds);
     }
   },
-  verifyDocument: (docId, status, notes, routeTarget, requirementId) => {
+  verifyDocument: (docId, status, notes, routeTarget, requirementId, assuranceSetId) => {
     const setsBeforeVerification = get().assuranceSets;
     const reviewedAt = new Date().toISOString();
     const reviewerId = getReviewerAuditIdentity(get).userId;
+    /* a decision belongs to one requirement on one set; without a requirement nothing on any set changes */
+    const reviewedSetId = requirementId
+      ? assuranceSetId ||
+        setsBeforeVerification.find((s) => s.requirements.some((r) => r.id === requirementId))?.id
+      : undefined;
     set((state) => {
-      const updatedDocs = state.documents.map((d) =>
-        d.id === docId
-          ? { ...d, verificationStatus: status, verificationNotes: notes }
-          : d,
-      );
+      /* the library document is only "on file"; its status is not a verification decision */
+      const updatedDocs = state.documents;
       const targetDoc = updatedDocs.find((d) => d.id === docId);
 
       const updatedSets = state.assuranceSets.map((s) => {
         const denial = status === "Correction Requested" || status === "Rejected";
-        /* a review of one requirement stays on that set; a library-wide review does not reopen an approved set */
-        if (requirementId) {
-          if (!s.requirements.some((r) => r.id === requirementId)) return s;
-        } else if (isClosedAssuranceSet(s)) {
-          return s;
-        }
+        if (!reviewedSetId || s.id !== reviewedSetId) return s;
 
         let hasMatchedReq = false;
 
         const updatedReqs = s.requirements.map((r) => {
-          const isDocIdMatch = r.documentId === docId;
-          const isTitleMatch =
-            targetDoc &&
-            r.title.toLowerCase() === targetDoc.title.toLowerCase();
-          const isSubTitleMatch =
-            targetDoc &&
-            (r.title.toLowerCase().includes(targetDoc.title.toLowerCase()) ||
-              targetDoc.title.toLowerCase().includes(r.title.toLowerCase()));
-          const matchesThisReview = requirementId
-            ? r.id === requirementId
-            : isDocIdMatch ||
-              isTitleMatch ||
-              (s.vesselId === targetDoc?.vesselId && isSubTitleMatch);
-
-          if (matchesThisReview) {
+          if (r.id === requirementId) {
             hasMatchedReq = true;
             /* a verified requirement records the exact version it was verified against */
             return stampReviewedVersion(
@@ -2513,13 +2459,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ...getReviewerAuditIdentity(get),
       userRole: activePersona,
       action: `${activePersona === "Approver" ? "Approver" : "Verifier"} Document Action: ${status}${pingTag}`,
-      targetAsset: `Document ${docId}`,
+      targetAsset: reviewedSetId ? `Document ${docId} -> ${reviewedSetId} / ${requirementId}` : `Document ${docId}`,
       justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${isDenial ? " — Submitter revision required." : ""}`,
     });
 
     const verifiedDoc = get().documents.find((d) => d.id === docId);
     get().assuranceSets.forEach((s) => {
-      if (!s.requirements.some((r) => r.documentId === docId)) return;
+      if (s.id !== reviewedSetId) return;
 
       /* a denied document goes back to the submitter, or to the set creator when no submitter is named */
       if (isDenial) {

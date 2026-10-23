@@ -517,7 +517,7 @@ describe('store: workflow notifications', () => {
   it('notifies the submitter when a verifier requests a document correction', () => {
     const { assuranceSets, users } = useMapStore.getState();
     const linked = assuranceSets
-      .flatMap((s) => s.requirements.map((r) => ({ set: s, docId: r.documentId })))
+      .flatMap((s) => s.requirements.map((r) => ({ set: s, docId: r.documentId, reqId: r.id })))
       .find(({ set, docId }) => docId && resolveNotificationRecipient(set.assignedSubmitter, users));
     expect(linked).toBeDefined();
 
@@ -526,7 +526,7 @@ describe('store: workflow notifications', () => {
       activeDemoOrganization: 'Bureau Veritas Inspectorate',
       activeSessionUserId: 'USR-202',
     });
-    useMapStore.getState().verifyDocument(linked!.docId!, 'Correction Requested', 'Expiry falls inside the charter window.');
+    useMapStore.getState().verifyDocument(linked!.docId!, 'Correction Requested', 'Expiry falls inside the charter window.', undefined, linked!.reqId, linked!.set.id);
 
     const submitter = resolveNotificationRecipient(linked!.set.assignedSubmitter, users)!;
     const correction = inboxOf(submitter.id).find(

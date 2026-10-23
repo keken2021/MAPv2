@@ -84,10 +84,12 @@ export const VerifierWorkspaceView: React.FC = () => {
   /* Map each document to its associated Assurance Set & Vessel */
   const getAssuranceSetInfo = (docId: string) => {
     for (const set of assuranceSets) {
-      const hasDoc = set.requirements?.some((r) => r.documentId === docId || r.linkedDocumentId === docId);
-      if (hasDoc) {
+      const requirement = set.requirements?.find((r) => r.documentId === docId || r.linkedDocumentId === docId);
+      if (requirement) {
         return {
           setId: set.id,
+          requirementId: requirement.id,
+          requirementVerifierStatus: requirement.verifierStatus,
           setTitle: set.title,
           vesselName: set.vesselName,
           stage: set.stage,
@@ -96,6 +98,9 @@ export const VerifierWorkspaceView: React.FC = () => {
     }
     return null;
   };
+
+  /* the queue row opens the review on the set and requirement it belongs to */
+  const selectedDocSetInfo = selectedDoc ? getAssuranceSetInfo(selectedDoc.id) : null;
 
   /* Filter Logic */
   const filteredDocs = scopedDocs.filter((d) => {
@@ -365,7 +370,13 @@ export const VerifierWorkspaceView: React.FC = () => {
       </div>
 
       {/* Split-Screen Review Drawer */}
-      <DocumentReviewDrawer document={selectedDoc} onClose={() => setSelectedDoc(null)} />
+      <DocumentReviewDrawer
+        document={selectedDoc}
+        onClose={() => setSelectedDoc(null)}
+        assuranceSetId={selectedDocSetInfo?.setId}
+        requirementId={selectedDocSetInfo?.requirementId}
+        requirementVerifierStatus={selectedDocSetInfo?.requirementVerifierStatus}
+      />
 
       {/* Dedicated Filter Modal */}
       <FilterModal
