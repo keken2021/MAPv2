@@ -64,7 +64,8 @@ describe('verify gate', () => {
     expect(verify).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText(/Method/), { target: { value: 'Issuer lookup' } });
-    expect(screen.getByText('Checks not passed')).toBeInTheDocument();
+    expect(screen.getByText('A check failed. Override with a reason to verify.')).toBeInTheDocument();
+    expect(screen.queryByText('Checks not passed')).toBeNull();
     expect(verify).toBeDisabled();
 
     fireEvent.click(screen.getByLabelText('Override'));

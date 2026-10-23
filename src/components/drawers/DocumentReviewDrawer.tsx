@@ -15,7 +15,23 @@ import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpe
 import { Drawer } from './Drawer';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import type { VerificationMethod } from '../../types/assurance';
-import { VERIFICATION_METHODS, VERIFICATION_SCOPE_STATEMENT, getVerifyBlockReasons } from '../../utils/verificationPolicy';
+import {
+  VERIFICATION_METHODS,
+  VERIFICATION_SCOPE_STATEMENT,
+  getFieldChecks,
+  getVerifyBlockReasons,
+  type FieldCheck,
+  type FieldCheckKey,
+  type FieldCheckState,
+} from '../../utils/verificationPolicy';
+
+/* text colour of a field check line: green pass, amber warning, red fail, grey not checked */
+const FIELD_CHECK_COLORS: Record<FieldCheckState, string> = {
+  pass: '#047857',
+  warn: '#b45309',
+  fail: '#dc2626',
+  not_checked: '#64748b',
+};
 import { getInspectionValidUntil } from '../../utils/inspectionEvidence';
 import { maskRestrictedValue } from '../../utils/restrictedData';
 
@@ -42,6 +58,8 @@ interface ExtractedAttribute {
   value: string;
   confidence: number;
   isMandatoryMissing?: boolean;
+  /* the check that belongs to this field, shown under it */
+  check?: FieldCheck;
 }
 
 /**
@@ -144,6 +162,9 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   const isReuploaded = versions.length > 1 || document.currentVersion !== 'v1.0' || (document.ocrConfidence && document.ocrConfidence >= 90);
   const activeNotes = requirementNotes || document.verificationNotes || (versions.length > 0 ? versions[0].changeSummary : undefined);
 
+  /* each check is shown under the field it belongs to, judged against the set the review was opened from */
+  const fieldChecks = getFieldChecks(document, linkedSet);
+
   /* extracted fields come from the document record; a value the record does not hold shows as not extracted (gap review E7) */
   const NOT_EXTRACTED = 'Not extracted';
   const field = (
@@ -153,6 +174,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     readConfidence: number,
     firstScanConfidence: number,
     mandatory = false,
+    checkKey?: FieldCheckKey,
   ): ExtractedAttribute => {
     const hasValue = Boolean(value && value.trim());
     return {
@@ -161,6 +183,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       value: hasValue ? value!.trim() : NOT_EXTRACTED,
       confidence: hasValue ? (isReuploaded ? readConfidence : firstScanConfidence) : 0,
       isMandatoryMissing: mandatory && !hasValue,
+      check: checkKey ? fieldChecks[checkKey] : undefined,
     };
   };
   const crew = document.crewAttributes;
@@ -172,19 +195,19 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       field('2', 'PASSPORT NUMBER', maskRestrictedValue(crew.passportId), 98, 61, true),
       field('3', 'RANK', crew.rank, 97, 88),
       field('4', 'CERTIFICATE TYPE', crew.certType || document.title, 99, 94, true),
-      field('5', 'ISSUING AUTHORITY', crew.issuingCenter || document.issuingAuthority, 97, 44, true),
+      field('5', 'ISSUING AUTHORITY', crew.issuingCenter || document.issuingAuthority, 97, 44, true, 'issuingAuthority'),
       field('6', 'ISSUE DATE', crew.issueDate, 98, 79),
-      field('7', 'EXPIRY DATE', crew.expiryDate || document.expiryDate, 99, 86, true),
+      field('7', 'EXPIRY DATE', crew.expiryDate || document.expiryDate, 99, 86, true, 'expiryDate'),
       field('8', 'VESSEL', crew.assignedVessel, 98, 72),
       field('9', 'NATIONALITY', crew.nationality, 98, 90),
       field('10', 'TRAINING COMPLETION DATE', crew.trainingDate, 96, 70),
     ]
     : [
-      field('1', 'CERTIFICATE NO.', document.certificateNo, 99, 94, true),
-      field('2', 'VESSEL NAME', vessel?.vesselName, 98, 91, true),
-      field('3', 'IMO NUMBER', vessel?.imoNumber, 99, 88, true),
-      field('4', 'ISSUING AUTHORITY', document.issuingAuthority, 97, 65, true),
-      field('5', 'EXPIRY DATE', document.expiryDate, 98, 79, true),
+      field('1', 'CERTIFICATE NO.', document.certificateNo, 99, 94, true, 'certificateNo'),
+      field('2', 'VESSEL NAME', vessel?.vesselName, 98, 91, true, 'vesselName'),
+      field('3', 'IMO NUMBER', vessel?.imoNumber, 99, 88, true, 'imoNumber'),
+      field('4', 'ISSUING AUTHORITY', document.issuingAuthority, 97, 65, true, 'issuingAuthority'),
+      field('5', 'EXPIRY DATE', document.expiryDate, 98, 79, true, 'expiryDate'),
     ];
 
   /* dynamic confidence calculation aligned with data entry edits and manual corrections */
@@ -212,6 +235,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   /* verify needs a method, and either every check passed or an override with a reason (gap review E6, G1) */
   const verifyBlockReasons = getVerifyBlockReasons({
     document,
+    set: linkedSet,
     overallConfidence,
     fullPagePassed: isFullPagePassed,
     signaturePassed: Boolean(isSignaturePassed),
@@ -482,15 +506,33 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                       <div className="small mt-0.5 fw-bold text-success d-inline-flex align-items-center gap-1" style={{ fontSize: '0.75rem' }}>
                         <Check className="w-3 h-3 text-success" /> Entered by hand
                       </div>
-                    ) : isBelowThreshold ? (
-                      <div className="small mt-0.5" style={{ fontSize: '0.75rem', color: '#b45309' }}>
-                        Below 90%. Check this field.
-                      </div>
                     ) : isMissing ? (
                       <div className="small mt-0.5 fw-semibold" style={{ fontSize: '0.75rem', color: '#dc2626' }}>
                         Mandatory field missing
                       </div>
-                    ) : null}
+                    ) : (
+                      <>
+                        {/* the field's own check, so the reviewer sees which value failed */}
+                        {attr.check && (
+                          <div
+                            className="small mt-0.5 d-inline-flex align-items-center gap-1"
+                            style={{ fontSize: '0.75rem', color: FIELD_CHECK_COLORS[attr.check.state] }}
+                          >
+                            {attr.check.state === 'pass' ? (
+                              <Check className="w-3 h-3" />
+                            ) : attr.check.state === 'not_checked' ? null : (
+                              <AlertCircle className="w-3 h-3" />
+                            )}
+                            {attr.check.message}
+                          </div>
+                        )}
+                        {isBelowThreshold && (
+                          <div className="small mt-0.5" style={{ fontSize: '0.75rem', color: '#b45309' }}>
+                            Below 90%. Check this field.
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   {/* ocr confidence bar */}
@@ -679,12 +721,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
 
             {needsOverride && (
               <div className="alert alert-warning py-3 px-3 mb-3" style={{ fontSize: '0.8rem' }}>
-                <div className="fw-semibold mb-1">Checks not passed</div>
-                <ul className="mb-2 ps-3">
-                  {verifyBlockReasons.map((reason) => (
-                    <li key={reason}>{reason}</li>
-                  ))}
-                </ul>
+                {/* the failed checks are shown under their fields and in the scan checks; this only offers the override */}
+                <div className="fw-semibold mb-2">A check failed. Override with a reason to verify.</div>
                 <div className="form-check">
                   <input
                     id="review-override"

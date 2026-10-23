@@ -5,7 +5,8 @@
 */
 
 import type { MasterDocument } from '../types/document';
-import type { VerificationMethod } from '../types/assurance';
+import type { AssuranceSet, VerificationMethod } from '../types/assurance';
+import { getValidityInContractPeriod } from './expiryPolicy';
 
 /* the methods a verifier chooses from, in the order shown (paper Table 3) */
 export const VERIFICATION_METHODS: readonly VerificationMethod[] = [
@@ -22,34 +23,118 @@ export const OCR_MIN_CONFIDENCE = 90;
 export const VERIFICATION_SCOPE_STATEMENT =
   'MAP records who checked this document, how and when. It does not confirm the certificate with its issuer.';
 
+/* the extracted fields a check can belong to */
+export type FieldCheckKey = 'certificateNo' | 'vesselName' | 'imoNumber' | 'issuingAuthority' | 'expiryDate';
+
+export type FieldCheckState = 'pass' | 'warn' | 'fail' | 'not_checked';
+
+export interface FieldCheck {
+  state: FieldCheckState;
+  message: string;
+}
+
+/* names of the fields in a block reason */
+const FIELD_CHECK_LABELS: Record<FieldCheckKey, string> = {
+  certificateNo: 'Certificate No.',
+  vesselName: 'Vessel Name',
+  imoNumber: 'IMO Number',
+  issuingAuthority: 'Issuing Authority',
+  expiryDate: 'Expiry Date',
+};
+
+export type FieldCheckDocument = Pick<
+  MasterDocument,
+  'certificateNo' | 'expiryDate' | 'validationRules' | 'vesselAttributes' | 'crewAttributes'
+>;
+
+/**
+  what: one check result for each extracted field a check belongs to; inputs are the document, the set it is reviewed on, and today.
+  how: certificate no. must be present; vessel name and IMO follow the asset match; issuing authority follows the recognised-authority rule (crew: no rule, so not checked); expiry is judged against the set's contract period, or against today without a set. A lapsed or missing expiry fails; an expiry inside the period or within the warning period warns.
+  with what file: src/utils/verificationPolicy.ts, used by DocumentReviewDrawer.tsx and getVerifyBlockReasons.
+*/
+export function getFieldChecks(
+  document: FieldCheckDocument,
+  set?: Pick<AssuranceSet, 'charterWindowEnd'>,
+  today: Date = new Date(),
+): Partial<Record<FieldCheckKey, FieldCheck>> {
+  const rules = document.validationRules;
+  const notChecked = Boolean(rules?.rulesNotChecked);
+  const checks: Partial<Record<FieldCheckKey, FieldCheck>> = {};
+
+  const expiryDate = document.crewAttributes?.expiryDate || document.expiryDate;
+  const validity = getValidityInContractPeriod(expiryDate, set ?? { charterWindowEnd: '' }, today);
+  checks.expiryDate =
+    validity.state === 'unknown'
+      ? { state: 'fail', message: 'Expiry date missing.' }
+      : validity.state === 'lapsed'
+        ? { state: 'fail', message: 'Lapsed.' }
+        : validity.state === 'expires_in_period'
+          ? { state: 'warn', message: 'Expires during the contract period.' }
+          : validity.state === 'expiring_soon'
+            ? { state: 'warn', message: validity.label + '.' }
+            : { state: 'pass', message: set ? 'Valid through the contract period.' : 'Valid.' };
+
+  if (document.crewAttributes) {
+    /* no rule checks a crew certificate's issuer */
+    checks.issuingAuthority = { state: 'not_checked', message: 'Not checked.' };
+    return checks;
+  }
+
+  checks.certificateNo = document.certificateNo?.trim()
+    ? { state: 'pass', message: 'Present.' }
+    : { state: 'fail', message: 'Certificate no. missing.' };
+
+  const assetMatch: FieldCheck = notChecked
+    ? { state: 'not_checked', message: 'Asset match not checked.' }
+    : document.vesselAttributes?.assetMatchFlag === false || rules?.assetMatch100Percent === false
+      ? { state: 'fail', message: 'Does not match the asset.' }
+      : { state: 'pass', message: 'Matches the asset.' };
+  checks.vesselName = assetMatch;
+  checks.imoNumber = assetMatch;
+
+  checks.issuingAuthority = notChecked
+    ? { state: 'not_checked', message: 'Not checked.' }
+    : rules?.iacsAuthorityValid === false
+      ? { state: 'fail', message: 'Not a recognised authority.' }
+      : { state: 'pass', message: 'Recognised authority.' };
+
+  return checks;
+}
+
 export interface VerifyGateInput {
-  document: Pick<MasterDocument, 'validationRules' | 'vesselAttributes' | 'crewAttributes'>;
+  document: FieldCheckDocument;
+  /* the set the document is reviewed on; its contract period judges the expiry */
+  set?: Pick<AssuranceSet, 'charterWindowEnd'>;
   overallConfidence: number;
   fullPagePassed: boolean;
   signaturePassed: boolean;
 }
 
 /**
-  what: the reasons a verifier may not verify a document without an override; input is the document and the drawer's quality checks.
-  how: collects a reason for low confidence, each failed quality check, rules not yet checked, a failed rule and an asset mismatch.
+  what: the reasons a verifier may not verify a document without an override; input is the document, its set and the drawer's quality checks.
+  how: each field check that failed or was not run, named by field, then low confidence and the two page checks; a failed rule with no field to show it on is added last. The drawer shows the same field checks under each field, so the gate and the screen agree.
   with what file: src/utils/verificationPolicy.ts, used by DocumentReviewDrawer.tsx.
 */
 export function getVerifyBlockReasons(input: VerifyGateInput): string[] {
-  const { document, overallConfidence, fullPagePassed, signaturePassed } = input;
+  const { document, set, overallConfidence, fullPagePassed, signaturePassed } = input;
   const reasons: string[] = [];
+  const fieldChecks = getFieldChecks(document, set);
+  (Object.keys(FIELD_CHECK_LABELS) as FieldCheckKey[]).forEach((key) => {
+    const check = fieldChecks[key];
+    if (!check || check.state === 'pass' || check.state === 'warn') return;
+    /* vessel name and IMO share one asset check; name it once */
+    if (key === 'imoNumber' && fieldChecks.vesselName === check) return;
+    reasons.push(`${FIELD_CHECK_LABELS[key]}: ${check.message}`);
+  });
   if (overallConfidence < OCR_MIN_CONFIDENCE) {
     reasons.push(`Extraction confidence ${overallConfidence}% is below ${OCR_MIN_CONFIDENCE}%.`);
   }
   if (!fullPagePassed) reasons.push('Full page not captured.');
   if (!signaturePassed) reasons.push('No signature or stamp found.');
   const rules = document.validationRules;
-  if (rules?.rulesNotChecked) {
-    reasons.push('Validation rules have not been checked.');
-  } else if (rules && !rules.overallValid) {
+  const fieldFailed = Object.values(fieldChecks).some((c) => c?.state === 'fail');
+  if (rules && !rules.rulesNotChecked && !rules.overallValid && !fieldFailed) {
     reasons.push(rules.exceptionDetails || 'A validation rule failed.');
-  }
-  if (document.vesselAttributes && document.vesselAttributes.assetMatchFlag === false) {
-    reasons.push('Vessel name or IMO does not match the asset.');
   }
   return reasons;
 }
