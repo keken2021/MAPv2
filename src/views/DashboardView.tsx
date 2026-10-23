@@ -20,6 +20,7 @@ import { countDocumentsByExpiry } from '../utils/documentRenewalHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { EXPIRY_WARNING_DAYS, isExpiringWithinWarning } from '../utils/expiryPolicy';
+import { averageDaysToClearance, countReVerifications, countReusedDocuments } from '../utils/valueMetrics';
 
 /**
   what: renders the executive dashboard workspace view in light theme.
@@ -408,6 +409,28 @@ export const DashboardView: React.FC = () => {
     <div className="d-flex flex-column gap-4">
       {/* top banner kpi summary cards */}
       {renderDashboardCards()}
+
+      {/* what shared evidence saves, counted from the sets (gap review G8; paper P14) */}
+      {(() => {
+        const daysToClearance = averageDaysToClearance(assuranceSets);
+        return (
+          <div className="card map-card-custom">
+            <div className="card-body py-3 d-flex flex-wrap gap-4 align-items-center">
+              <span className="fw-bold text-dark">Evidence Reuse</span>
+              <span className="small text-secondary">
+                Documents reused <strong className="text-dark font-mono-code">{countReusedDocuments(assuranceSets)}</strong>
+              </span>
+              <span className="small text-secondary">
+                Re-verifications <strong className="text-dark font-mono-code">{countReVerifications(assuranceSets)}</strong>
+              </span>
+              <span className="small text-secondary">
+                Days to clearance{' '}
+                <strong className="text-dark font-mono-code">{daysToClearance === undefined ? 'No data yet' : daysToClearance}</strong>
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* main content area: c admin & submitter display assurance sets; other personas display fleet overview */}
       {activePersona === 'C Admin' ? (

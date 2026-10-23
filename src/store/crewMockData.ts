@@ -485,8 +485,8 @@ export const MOCK_CREW: CrewMember[] = [
       'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1519764622345-23439dd774f7?auto=format&fit=crop&w=800&q=80',
     ],
-    complianceStatus: 'Fully Compliant',
-    overallComplianceScore: 100,
+    complianceStatus: 'Document Deficient',
+    overallComplianceScore: 80,
     lastAuditedDate: '2026-09-10',
     assignments: [
       {
@@ -549,7 +549,7 @@ export const MOCK_CREW: CrewMember[] = [
         issuingAuthority: 'AMSA Doctor',
         issueDate: '2025-08-10',
         expiryDate: '2027-08-09',
-        verificationStatus: 'Verified',
+        verificationStatus: 'Pending',
         fileName: 'eng1_kowalski.pdf',
         fileSizeBytes: 810000,
       },
