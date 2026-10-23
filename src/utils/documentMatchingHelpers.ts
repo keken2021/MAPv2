@@ -574,11 +574,11 @@ export function autoAttachDocumentsToRequirements(
   if (!requirements || requirements.length === 0) return [];
 
   return requirements.map((req) => {
-    // If the requirement already has an attached document and is fulfilled, keep it intact
+    /* an attached document is submitted, not verified: only a verifier's decision fulfils the requirement (gap review E3) */
     if (req.documentId || req.linkedDocumentId) {
       return {
         ...req,
-        isFulfilled: true,
+        isFulfilled: req.verifierStatus === 'Verified',
         ocrConfidence: req.ocrConfidence || 95,
       };
     }
@@ -591,8 +591,9 @@ export function autoAttachDocumentsToRequirements(
         linkedDocumentId: matched.linkedDocumentId,
         documentVersion: matched.documentVersion,
         ocrConfidence: matched.ocrConfidence,
-        isFulfilled: true,
-        verifierStatus: req.verifierStatus || 'Pending',
+        /* a document on file for another set still needs this set's own verification */
+        isFulfilled: false,
+        verifierStatus: 'Pending',
       };
     }
 

@@ -2844,7 +2844,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             ? `Certificate expired on ${doc.expiryDate}. Immediate renewal required.`
             : undefined,
         },
-        verificationStatus: isExpired ? "Correction Requested" : "Verified",
+        /* an uploaded crew document waits for a verifier; it is never verified on upload (gap review E3) */
+        verificationStatus: isExpired ? "Correction Requested" : "Pending",
         verificationNotes: isExpired
           ? "Expired certificate. Please upload updated renewal scan."
           : undefined,
@@ -3019,21 +3020,26 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           ? `Certificate expired on ${doc.expiryDate}. Immediate renewal required.`
           : undefined,
       },
-      verificationStatus: isExpired ? "Correction Requested" : "Verified",
+      /* an uploaded crew document waits for a verifier; it is never verified on upload (gap review E3) */
+      verificationStatus: isExpired ? "Correction Requested" : "Pending",
       verificationNotes: isExpired
         ? "Expired certificate. Please upload updated renewal scan."
         : undefined,
     };
+
+    /* an upload is never a verification: a document sent in as Verified is stored as Pending */
+    const storedDoc: STCWDocumentItem =
+      doc.verificationStatus === "Verified" ? { ...doc, verificationStatus: "Pending" } : doc;
 
     set((state) => ({
       crew: state.crew.map((c) => {
         if (c.id !== crewId) return c;
         const isLayer1 = doc.layer === "Layer 1 - Universal Core";
         const updatedL1 = isLayer1
-          ? [doc, ...c.layer1CoreDocuments]
+          ? [storedDoc, ...c.layer1CoreDocuments]
           : c.layer1CoreDocuments;
         const updatedL2 = !isLayer1
-          ? [doc, ...c.layer2Endorsements]
+          ? [storedDoc, ...c.layer2Endorsements]
           : c.layer2Endorsements;
         return {
           ...c,
@@ -3099,7 +3105,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                   : ("Valid" as const),
               verificationStatus: isExpired
                 ? ("Correction Requested" as const)
-                : ("Verified" as const),
+                : ("Pending" as const),
               versions: [
                 {
                   versionLabel: `v${d.versions.length + 1}.0`,
@@ -3165,7 +3171,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               },
               verificationStatus: isExpired
                 ? ("Correction Requested" as const)
-                : ("Verified" as const),
+                : ("Pending" as const),
             },
             ...state.documents,
           ];

@@ -200,19 +200,19 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     });
 
     // Verify Vessel docs attached
-    const vesselAttached = attached.filter((r) => r.subtype === 'Vessel' && r.isFulfilled);
+    const vesselAttached = attached.filter((r) => r.subtype === 'Vessel' && Boolean(r.documentId || r.linkedDocumentId));
     expect(vesselAttached.length).toBeGreaterThan(0);
 
     // Verify Crew docs attached
-    const crewAttached = attached.filter((r) => r.subtype === 'Crew' && r.isFulfilled);
+    const crewAttached = attached.filter((r) => r.subtype === 'Crew' && Boolean(r.documentId || r.linkedDocumentId));
     expect(crewAttached.length).toBeGreaterThan(0);
 
     // Verify Activity docs attached
-    const actAttached = attached.filter((r) => r.subtype === 'Activity' && r.isFulfilled);
+    const actAttached = attached.filter((r) => r.subtype === 'Activity' && Boolean(r.documentId || r.linkedDocumentId));
     expect(actAttached.length).toBeGreaterThan(0);
 
     // Verify Equipment docs attached
-    const eqAttached = attached.filter((r) => r.subtype === 'Equipment' && r.isFulfilled);
+    const eqAttached = attached.filter((r) => r.subtype === 'Equipment' && Boolean(r.documentId || r.linkedDocumentId));
     expect(eqAttached.length).toBeGreaterThan(0);
   });
 
@@ -350,7 +350,7 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     });
 
     // Validates that asset vault documents attach during roster/campaign nomination
-    expect(downstreamAttached.some((r) => r.isFulfilled && r.documentId)).toBe(true);
+    expect(downstreamAttached.some((r) => r.documentId && !r.isFulfilled)).toBe(true);
   });
 });
 

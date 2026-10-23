@@ -44,7 +44,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
   const [flagState, setFlagState] = useState('Australia');
   const [issueDate, setIssueDate] = useState('2026-01-01');
   const [expiryDate, setExpiryDate] = useState('2031-01-01');
-  const [verificationStatus, setVerificationStatus] = useState<'Verified' | 'Pending' | 'Expiring' | 'Expired'>('Verified');
+  const [verificationStatus, setVerificationStatus] = useState<'Verified' | 'Pending' | 'Expiring' | 'Expired'>('Pending');
   const [fileName, setFileName] = useState('');
   const [changeSummary, setChangeSummary] = useState('');
 
@@ -140,7 +140,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
     setFlagState(chosenDoc.crewAttributes?.nationality || 'Australia');
     setIssueDate(chosenDoc.crewAttributes?.issueDate || '2026-01-01');
     setExpiryDate(chosenDoc.expiryDate);
-    setVerificationStatus('Verified');
+    setVerificationStatus('Pending');
     setFileName(chosenDoc.versions[0]?.fileName || `${chosenDoc.id.toLowerCase()}.pdf`);
     setChangeSummary(`Linked unassigned certificate ${chosenDoc.certificateNo} from Document Library.`);
     setIsAiExtracted(true);
@@ -165,7 +165,8 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
         setFlagState(existingDocument.flagState || 'Australia');
         setIssueDate(existingDocument.issueDate);
         setExpiryDate(existingDocument.expiryDate);
-        setVerificationStatus(existingDocument.verificationStatus === 'Expired' ? 'Verified' : existingDocument.verificationStatus);
+        /* a replacement scan goes back to review; it does not inherit the old decision */
+        setVerificationStatus('Pending');
         setFileName(existingDocument.fileName || `${existingDocument.title.toLowerCase().replace(/\s+/g, '_')}_v2.pdf`);
         setChangeSummary('Replacement STCW certificate scan uploaded by submitter.');
         setIsAiExtracted(true);
@@ -180,7 +181,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
         setFlagState('Australia');
         setIssueDate('2026-01-01');
         setExpiryDate('2031-01-01');
-        setVerificationStatus('Verified');
+        setVerificationStatus('Pending');
         setFileName('');
         setChangeSummary('');
         setIsAiExtracted(false);

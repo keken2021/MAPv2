@@ -74,7 +74,8 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
 
     expect(set.vesselId).toBe('VESSEL-001');
     expect(set.internalDeployment).toBe(true);
-    expect(set.requirements.some((r) => r.isFulfilled && r.documentId)).toBe(true);
+    expect(set.requirements.some((r) => r.documentId && r.verifierStatus === 'Pending')).toBe(true);
+    expect(set.requirements.every((r) => !r.isFulfilled)).toBe(true);
     expect(set.readinessScore).toBeGreaterThan(10);
   });
 
@@ -134,7 +135,8 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
     expect(set.crewId).toBe('CREW-101');
     expect(set.crewName).toBe(crewMember.fullName);
     expect(set.internalDeployment).toBe(true);
-    expect(set.requirements.some((r) => r.isFulfilled)).toBe(true);
+    expect(set.requirements.some((r) => r.documentId || r.linkedDocumentId)).toBe(true);
+    expect(set.requirements.every((r) => !r.isFulfilled)).toBe(true);
   });
 
   it('creates a focused Equipment Assurance Set with equipmentId and equipment vault matching', () => {

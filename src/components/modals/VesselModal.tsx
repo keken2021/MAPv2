@@ -554,7 +554,8 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
             iacsAuthorityValid: true,
             overallValid: true,
           },
-          verificationStatus: 'Verified',
+          /* a registration upload is on file, not verified (gap review E3) */
+          verificationStatus: 'Pending',
         };
 
         addDocument(newMasterDoc);
