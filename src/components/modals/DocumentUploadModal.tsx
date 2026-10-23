@@ -9,7 +9,7 @@ import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
 import { formatDocumentId } from '../../utils/formatters';
 import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
-import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
+import { getComplianceStateForExpiry, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Upload, Check, AlertCircle, X, FileText, Eye } from 'lucide-react';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 
@@ -54,7 +54,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [vesselId, setVesselId] = useState('');
   const [certificateNo, setCertificateNo] = useState('');
   const [issuingAuthority, setIssuingAuthority] = useState('');
-  const [expiryDate, setExpiryDate] = useState('2029-06-30');
+  const [expiryDate, setExpiryDate] = useState('');
   const [fileName, setFileName] = useState('');
   const [changeSummary, setChangeSummary] = useState('');
 
@@ -166,7 +166,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         setVesselId(defaultVesselId || '');
         setCertificateNo('');
         setIssuingAuthority('');
-        setExpiryDate('2029-06-30');
+        setExpiryDate('');
         setFileName('');
         setChangeSummary(
           requirementTitle ? `Initial upload for assurance requirement: ${requirementTitle}.` : '',
@@ -248,7 +248,6 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     setIsAiExtracted(false);
     setRevealedFields({ certNo: false, authority: false, expiry: false, summary: false });
 
-    const generatedCertNo = `DNV-STAT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const selectedVesselObj = vessels.find((v) => v.id === vesselId);
     const authority = selectedVesselObj?.classificationSociety
       ? `${selectedVesselObj.classificationSociety} Classification Society`
@@ -261,9 +260,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setIsNewExtractionAnimate(true);
       setAiOcrConfidence(99.2);
 
-      /* stagger 1: certificate number — add shimmer, remove after 750ms */
+      /* stagger 1: certificate number — the demo extraction reads no number, the user enters it */
       setTimeout(() => {
-        setCertificateNo(generatedCertNo);
         setRevealedFields((prev) => ({ ...prev, certNo: true }));
         setAnimatingFields((prev) => new Set(prev).add('doc-cert-no'));
         setTimeout(() => setAnimatingFields((prev) => { const n = new Set(prev); n.delete('doc-cert-no'); return n; }), 750);
@@ -277,9 +275,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         setTimeout(() => setAnimatingFields((prev) => { const n = new Set(prev); n.delete('doc-issuing-authority'); return n; }), 750);
       }, 420);
 
-      /* stagger 3: expiry date — add shimmer, remove after 750ms */
+      /* stagger 3: expiry date — the demo extraction reads no date, the user enters it */
       setTimeout(() => {
-        setExpiryDate('2029-06-30');
         setRevealedFields((prev) => ({ ...prev, expiry: true }));
         setAnimatingFields((prev) => new Set(prev).add('doc-expiry-date'));
         setTimeout(() => setAnimatingFields((prev) => { const n = new Set(prev); n.delete('doc-expiry-date'); return n; }), 750);
@@ -310,9 +307,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
     if (existingDocument && getDocumentReuploadBlockReason(existingDocument, notifications)) return;
 
-    const finalCertNo = certificateNo.trim() || `DNV-STAT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const finalAuthority = issuingAuthority.trim() || 'DNV Classification Society';
-    const finalExpiry = expiryDate || '2029-06-30';
+    /* a new document needs its certificate no. and expiry entered; nothing is made up for it (gap review E7) */
+    if (!existingDocument && (!certificateNo.trim() || !expiryDate)) return;
+    const finalCertNo = certificateNo.trim() || existingDocument?.certificateNo || '';
+    const finalAuthority = issuingAuthority.trim() || existingDocument?.issuingAuthority || '';
+    const finalExpiry = expiryDate || existingDocument?.expiryDate || '';
 
     /* start simulated upload sequence */
     setIsUploading(true);
@@ -362,7 +361,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           issuingAuthority: finalAuthority,
           expiryDate: finalExpiry,
           ocrConfidence: aiOcrConfidence || 99,
-          complianceState: 'Valid',
+          complianceState: getComplianceStateForExpiry(finalExpiry),
           currentVersion: 'v1.0',
           versions: [
             {
@@ -381,22 +380,25 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 certificateNumber: finalCertNo,
                 certType: 'Statutory Certificate',
                 issuingBody: finalAuthority,
-                issueDate: '2024-01-01',
+                /* not read from the scan; left empty, not invented */
+                issueDate: '',
                 expiryDate: finalExpiry,
                 vesselName: targetVesselObj?.name || '',
                 imoNumber: targetVesselObj?.imoNumber || '',
-                flagState: 'Australia',
-                assetMatchFlag: true,
-                lastSurveyDate: '2025-06-01',
+                flagState: targetVesselObj?.flagState || '',
+                assetMatchFlag: false,
+                lastSurveyDate: '',
                 ocrConfidence: aiOcrConfidence || 99,
-                status: 'Valid',
+                status: getComplianceStateForExpiry(finalExpiry),
               }
               : undefined,
+          /* no check has run on a new upload */
           validationRules: {
-            charterBufferPassed: true,
-            assetMatch100Percent: true,
-            iacsAuthorityValid: true,
-            overallValid: true,
+            charterBufferPassed: false,
+            assetMatch100Percent: false,
+            iacsAuthorityValid: false,
+            overallValid: false,
+            rulesNotChecked: true,
           },
           verificationStatus: 'Pending',
         };
@@ -428,9 +430,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     title: title || existingDocument?.title || fileName || 'International Oil Pollution Prevention (IOPP)',
     entityType,
     vesselId: vesselId || existingDocument?.vesselId || 'AUSP1VSR619',
-    certificateNo: certificateNo || existingDocument?.certificateNo || 'IOPP-STAT-2026-99',
-    issuingAuthority: issuingAuthority || existingDocument?.issuingAuthority || 'DNV / AMSA Maritime Authority',
-    expiryDate: expiryDate || existingDocument?.expiryDate || '2029-06-30',
+    certificateNo: certificateNo || existingDocument?.certificateNo || '',
+    issuingAuthority: issuingAuthority || existingDocument?.issuingAuthority || '',
+    expiryDate: expiryDate || existingDocument?.expiryDate || '',
     ocrConfidence: Math.round(aiOcrConfidence),
     complianceState: existingDocument?.complianceState || 'Valid',
     currentVersion: existingDocument?.currentVersion || 'v1.0',
@@ -446,24 +448,25 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     ],
     vesselAttributes: existingDocument?.vesselAttributes || {
       title: title || 'International Oil Pollution Prevention (IOPP)',
-      certificateNumber: certificateNo || 'IOPP-STAT-2026-99',
+      certificateNumber: certificateNo || '',
       certType: 'Statutory Pollution Prevention Certificate',
-      issuingBody: issuingAuthority || 'DNV Maritime',
-      issueDate: '2024-06-30',
-      expiryDate: expiryDate || '2029-06-30',
+      issuingBody: issuingAuthority || '',
+      issueDate: '',
+      expiryDate: expiryDate || '',
       vesselName: vessels.find((v) => v.id === vesselId)?.name || 'MAP Demo Vessel AUSP1',
       imoNumber: vessels.find((v) => v.id === vesselId)?.imoNumber || '9123456',
       flagState: vessels.find((v) => v.id === vesselId)?.flagState || 'Australia (Sample)',
-      assetMatchFlag: true,
-      lastSurveyDate: '2024-06-15',
+      assetMatchFlag: false,
+      lastSurveyDate: '',
       ocrConfidence: Math.round(aiOcrConfidence),
       status: 'Valid',
     },
     validationRules: existingDocument?.validationRules || {
-      charterBufferPassed: true,
-      assetMatch100Percent: true,
-      iacsAuthorityValid: true,
-      overallValid: true,
+      charterBufferPassed: false,
+      assetMatch100Percent: false,
+      iacsAuthorityValid: false,
+      overallValid: false,
+      rulesNotChecked: true,
     },
     verificationStatus: existingDocument?.verificationStatus || 'Pending',
   };
@@ -686,7 +689,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                       />
                                     ) : (
                                       <div className={`font-mono-code fw-bold text-dark small cursor-pointer${animatingFields.has('doc-cert-no') ? ' map-autofill-animate' : ''}`} onClick={() => canUpload && setIsManualEditActive(true)}>
-                                        {certificateNo || 'P9912447 (partially legible)'}
+                                        {certificateNo || 'Not extracted'}
                                       </div>
                                     )}
                                     {certNoScore < 90 ? (
@@ -695,7 +698,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                       </div>
                                     ) : (
                                       <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
-                                        <Check className="w-3 h-3 text-success" /> Field verified / corrected
+                                        <Check className="w-3 h-3 text-success" /> Entered
                                       </div>
                                     )}
                                   </div>
@@ -731,7 +734,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                       </div>
                                     ) : (
                                       <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
-                                        <Check className="w-3 h-3 text-success" /> Field verified / corrected
+                                        <Check className="w-3 h-3 text-success" /> Entered
                                       </div>
                                     )}
                                   </div>
@@ -758,7 +761,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                       />
                                     ) : (
                                       <div className={`font-mono-code fw-bold text-dark small cursor-pointer${animatingFields.has('doc-expiry-date') ? ' map-autofill-animate' : ''}`} onClick={() => canUpload && setIsManualEditActive(true)}>
-                                        {expiryDate || '2026-10-29'}
+                                        {expiryDate || 'Not extracted'}
                                       </div>
                                     )}
                                     {expiryScore < 90 ? (
@@ -767,7 +770,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                       </div>
                                     ) : (
                                       <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
-                                        <Check className="w-3 h-3 text-success" /> Field verified / corrected
+                                        <Check className="w-3 h-3 text-success" /> Entered
                                       </div>
                                     )}
                                   </div>
@@ -1010,7 +1013,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               <button
                 type="submit"
                 className="btn btn-sm btn-primary fw-bold px-4 d-inline-flex align-items-center gap-2"
-                disabled={isUploading || isExtractingAi || !title.trim()}
+                disabled={isUploading || isExtractingAi || !title.trim() || (!existingDocument && (!certificateNo.trim() || !expiryDate))}
+                title={!existingDocument && (!certificateNo.trim() || !expiryDate) ? 'Enter the certificate no. and expiry date.' : undefined}
               >
                 {isUploading ? (
                   <>
@@ -1018,7 +1022,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     Uploading...
                   </>
                 ) : existingDocument ? (
-                  'Submit Replacement Revision'
+                  'Upload New Version'
                 ) : (
                   ' Upload Document'
                 )}

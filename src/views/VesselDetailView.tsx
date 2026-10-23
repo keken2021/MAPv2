@@ -529,7 +529,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           name: doc.title,
           number: doc.certificateNo || doc.id,
           issuingBody: doc.issuingAuthority || 'AMSA',
-          issueDate: (doc as any).issueDate || (doc.vesselAttributes as any)?.issueDate || '2024-01-15',
+          issueDate: (doc as any).issueDate || (doc.vesselAttributes as any)?.issueDate || '',
           expiryDate: doc.expiryDate,
           ocr: formattedOcr,
           ocrScore: score,
@@ -574,7 +574,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             iacsAuthorityValid: true,
             overallValid: daysLeft > 0,
           },
-          rawOcrText: `STATUTORY CERTIFICATE DOCUMENT PAYLOAD\n======================================\nCERTIFICATE TYPE: ${doc.title}\nISSUING BODY: ${doc.issuingAuthority}\nCERTIFICATE NUMBER: ${doc.certificateNo || doc.id}\nVESSEL NAME: ${vessel.name.toUpperCase()}\nIMO NUMBER: ${vessel.imoNumber}\nFLAG STATE: ${vessel.flagState.toUpperCase()}\nVALIDITY: ${(doc as any).issueDate || '2024-01-15'} UNTIL ${doc.expiryDate}\nOCR ENGINE: Tesseract v5.3-Maritime / Confidence: ${score.toFixed(1)}%\nDIGITAL WATERMARK: VALID SHA-256 HASH MATCH`,
+          rawOcrText: `STATUTORY CERTIFICATE DOCUMENT PAYLOAD\n======================================\nCERTIFICATE TYPE: ${doc.title}\nISSUING BODY: ${doc.issuingAuthority}\nCERTIFICATE NUMBER: ${doc.certificateNo || doc.id}\nVESSEL NAME: ${vessel.name.toUpperCase()}\nIMO NUMBER: ${vessel.imoNumber}\nFLAG STATE: ${vessel.flagState.toUpperCase()}\nVALIDITY: ${(doc as any).issueDate || 'issue date not recorded'} UNTIL ${doc.expiryDate}\nDEMO DATA: simulated text, not read from a scan`,
         });
       }
     });
@@ -612,8 +612,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           version: 'v1.0',
           fileName: `${cert.name.replace(/[^a-zA-Z0-9]/g, '_')}_${vessel.imoNumber}.pdf`,
           fileSize: '2.40 MB',
-          uploadedBy: 'Statutory Authority Upload Integration',
-          uploadedAt: cert.issueDate ? `${cert.issueDate}T08:00:00Z` : '2024-01-15T08:00:00Z',
+          /* seeded certificate, not an issuer feed: no issuer integration exists (paper P3) */
+          uploadedBy: 'Demo data',
+          uploadedAt: cert.issueDate ? `${cert.issueDate}T08:00:00Z` : '',
           extractedAttributes: {
             vesselName: vessel.name,
             imoNumber: vessel.imoNumber,
@@ -641,13 +642,15 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             masterName: vessel.masterName,
             safeManningComplement: vessel.safeManningComplement,
           },
+          /* only the expiry is known for a seeded certificate; the asset and authority checks never ran */
           validationRules: {
             charterBufferPassed: daysLeft > 30,
-            assetMatch100Percent: true,
-            iacsAuthorityValid: true,
+            assetMatch100Percent: false,
+            iacsAuthorityValid: false,
             overallValid: daysLeft > 0,
+            rulesNotChecked: true,
           },
-          rawOcrText: `STATUTORY CERTIFICATE DOCUMENT PAYLOAD\n======================================\nCERTIFICATE TYPE: ${cert.name}\nISSUING BODY: ${cert.issuingBody}\nCERTIFICATE NUMBER: ${cert.certificateNumber}\nVESSEL NAME: ${vessel.name.toUpperCase()}\nIMO NUMBER: ${vessel.imoNumber}\nFLAG STATE: ${vessel.flagState.toUpperCase()}\nVALIDITY: ${cert.issueDate} UNTIL ${cert.expiryDate}\nOCR ENGINE: Tesseract v5.3-Maritime / Confidence: ${score.toFixed(1)}%\nDIGITAL WATERMARK: VALID SHA-256 HASH MATCH`,
+          rawOcrText: `STATUTORY CERTIFICATE DOCUMENT PAYLOAD\n======================================\nCERTIFICATE TYPE: ${cert.name}\nISSUING BODY: ${cert.issuingBody}\nCERTIFICATE NUMBER: ${cert.certificateNumber}\nVESSEL NAME: ${vessel.name.toUpperCase()}\nIMO NUMBER: ${vessel.imoNumber}\nFLAG STATE: ${vessel.flagState.toUpperCase()}\nVALIDITY: ${cert.issueDate} UNTIL ${cert.expiryDate}\nDEMO DATA: simulated text, not read from a scan`,
         });
       }
     });
@@ -4469,7 +4472,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             certificateNumber: selectedVaultCertForModal.number,
             certType: selectedVaultCertForModal.name,
             issuingBody: selectedVaultCertForModal.issuingBody,
-            issueDate: selectedVaultCertForModal.issueDate || '2024-01-15',
+            issueDate: selectedVaultCertForModal.issueDate || '',
             expiryDate: selectedVaultCertForModal.expiryDate,
             vesselName: vessel.name,
             imoNumber: vessel.imoNumber,

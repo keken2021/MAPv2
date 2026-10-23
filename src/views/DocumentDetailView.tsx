@@ -15,6 +15,7 @@ import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDoc
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { DocumentVersion, MasterDocument } from '../types/document';
 import { getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
+import { VERIFICATION_SCOPE_STATEMENT } from '../utils/verificationPolicy';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -225,8 +226,19 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
 
         {/* Card Body: Extracted Metadata Attributes Grid */}
         <div className="card-body p-4">
+          {/* what MAP records and what it does not (gap review G2) */}
+          <div className="small text-muted mb-3">{VERIFICATION_SCOPE_STATEMENT}</div>
+
+          {/* rules that never ran are not an exception; they are unchecked */}
+          {doc.validationRules.rulesNotChecked && (
+            <div className="alert alert-secondary p-3 mb-3">
+              <h6 className="fw-bold mb-1">Not Checked</h6>
+              <div>No validation rule has run on this document yet.</div>
+            </div>
+          )}
+
           {/* Validation exception alert if any */}
-          {!doc.validationRules.overallValid && (
+          {!doc.validationRules.overallValid && !doc.validationRules.rulesNotChecked && (
             <div className="alert alert-warning p-3 mb-3 border-warning">
               <h6 className="fw-bold mb-1">Validation Exception</h6>
               <div>{doc.validationRules.exceptionDetails || 'Document requires attention prior to charter verification.'}</div>
@@ -260,7 +272,17 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 <span className="text-secondary">Flag State:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.vesselAttributes.flagState}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">100% Asset Match:</span> <div><span className="badge bg-success text-white">Match Verified</span></div>
+                <span className="text-secondary">Asset Match:</span>{' '}
+                <div>
+                  {/* the badge follows the stored check, and says so when no check has run (gap review E7) */}
+                  {doc.validationRules.rulesNotChecked ? (
+                    <span className="badge bg-secondary-subtle text-secondary-emphasis border">Not Checked</span>
+                  ) : doc.vesselAttributes.assetMatchFlag ? (
+                    <span className="badge bg-success text-white">Match</span>
+                  ) : (
+                    <span className="badge bg-danger text-white">Mismatch</span>
+                  )}
+                </div>
               </div>
               <div className="col-md-4">
                 <span className="text-secondary">Last Survey Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.vesselAttributes.lastSurveyDate)}</strong></div>

@@ -142,26 +142,46 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   const isReuploaded = versions.length > 1 || document.currentVersion !== 'v1.0' || (document.ocrConfidence && document.ocrConfidence >= 90);
   const activeNotes = requirementNotes || document.verificationNotes || (versions.length > 0 ? versions[0].changeSummary : undefined);
 
-  /* mock extracted attributes matching design screenshot */
-  const extractedAttributes: ExtractedAttribute[] = document.crewAttributes
+  /* extracted fields come from the document record; a value the record does not hold shows as not extracted (gap review E7) */
+  const NOT_EXTRACTED = 'Not extracted';
+  const field = (
+    id: string,
+    label: string,
+    value: string | undefined,
+    readConfidence: number,
+    firstScanConfidence: number,
+    mandatory = false,
+  ): ExtractedAttribute => {
+    const hasValue = Boolean(value && value.trim());
+    return {
+      id,
+      label,
+      value: hasValue ? value!.trim() : NOT_EXTRACTED,
+      confidence: hasValue ? (isReuploaded ? readConfidence : firstScanConfidence) : 0,
+      isMandatoryMissing: mandatory && !hasValue,
+    };
+  };
+  const crew = document.crewAttributes;
+  const vessel = document.vesselAttributes;
+  const extractedAttributes: ExtractedAttribute[] = crew
     ? [
-      { id: '1', label: 'CREW NAME', value: document.crewAttributes.crewName || 'A. Mendoza', confidence: isReuploaded ? 98 : 91 },
-      { id: '2', label: 'PASSPORT NUMBER', value: isReuploaded ? (document.crewAttributes.passportId || 'P9912447') : `${document.crewAttributes.passportId || 'P9912447'} (partially legible)`, confidence: isReuploaded ? 98 : 61 },
-      { id: '3', label: 'RANK', value: document.crewAttributes.rank || 'Able Seaman', confidence: isReuploaded ? 97 : 88 },
-      { id: '4', label: 'CERTIFICATE TYPE', value: document.title || 'Medical Fitness Certificate', confidence: isReuploaded ? 99 : 94 },
-      { id: '5', label: 'ISSUING AUTHORITY', value: isReuploaded ? (document.issuingAuthority || 'AMSA (Verified Seal)') : `${document.issuingAuthority || 'illegible stamp'}`, confidence: isReuploaded ? 97 : 44 },
-      { id: '6', label: 'ISSUE DATE', value: '2024-11-02', confidence: isReuploaded ? 98 : 79 },
-      { id: '7', label: 'EXPIRY DATE', value: '2026-10-29', confidence: isReuploaded ? 99 : 86 },
-      { id: '8', label: 'VESSEL', value: 'MV Torrens Supporter', confidence: isReuploaded ? 98 : 72 },
-      { id: '9', label: 'NATIONALITY', value: 'Philippines', confidence: isReuploaded ? 98 : 90 },
-      { id: '10', label: 'TRAINING COMPLETION DATE', value: isReuploaded ? '2024-10-15' : 'not present', confidence: isReuploaded ? 96 : 0, isMandatoryMissing: isReuploaded ? false : true },
+      field('1', 'CREW NAME', crew.crewName, 98, 91, true),
+      field('2', 'PASSPORT NUMBER', crew.passportId, 98, 61, true),
+      field('3', 'RANK', crew.rank, 97, 88),
+      field('4', 'CERTIFICATE TYPE', crew.certType || document.title, 99, 94, true),
+      field('5', 'ISSUING AUTHORITY', crew.issuingCenter || document.issuingAuthority, 97, 44, true),
+      field('6', 'ISSUE DATE', crew.issueDate, 98, 79),
+      field('7', 'EXPIRY DATE', crew.expiryDate || document.expiryDate, 99, 86, true),
+      field('8', 'VESSEL', crew.assignedVessel, 98, 72),
+      field('9', 'NATIONALITY', crew.nationality, 98, 90),
+      field('10', 'TRAINING COMPLETION DATE', crew.trainingDate, 96, 70),
     ]
     : [
-      { id: '1', label: 'CERTIFICATE NO.', value: document.certificateNo || 'CERT-99412', confidence: isReuploaded ? 99 : 94 },
-      { id: '2', label: 'VESSEL NAME', value: document.vesselAttributes?.vesselName || 'MV Torrens Supporter', confidence: isReuploaded ? 98 : 91 },
-      { id: '3', label: 'IMO NUMBER', value: document.vesselAttributes?.imoNumber || 'IMO 9840123', confidence: isReuploaded ? 99 : 88 },
-      { id: '4', label: 'ISSUING AUTHORITY', value: isReuploaded ? (document.issuingAuthority || 'DNV GL (Verified)') : (document.issuingAuthority || 'DNV GL (partially legible)'), confidence: isReuploaded ? 97 : 65 },
-      { id: '5', label: 'EXPIRY DATE', value: document.expiryDate || '2026-10-29', confidence: isReuploaded ? 98 : 79 },
+      field('1', 'CERTIFICATE NO.', document.certificateNo, 99, 94, true),
+      field('2', 'VESSEL NAME', vessel?.vesselName, 98, 91, true),
+      field('3', 'IMO NUMBER', vessel?.imoNumber, 99, 88, true),
+      field('4', 'ISSUING AUTHORITY', document.issuingAuthority, 97, 65, true),
+      field('5', 'EXPIRY DATE', document.expiryDate, 98, 79, true),
     ];
 
   /* dynamic confidence calculation aligned with data entry edits and manual corrections */
@@ -435,7 +455,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     )}
                     {isFieldCorrected ? (
                       <div className="small mt-0.5 fw-bold text-success d-inline-flex align-items-center gap-1" style={{ fontSize: '0.75rem' }}>
-                        <Check className="w-3 h-3 text-success" /> Manually Corrected (100% Verified)
+                        <Check className="w-3 h-3 text-success" /> Entered by hand
                       </div>
                     ) : isBelowThreshold ? (
                       <div className="small mt-0.5" style={{ fontSize: '0.75rem', color: '#b45309' }}>
@@ -476,7 +496,12 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     Submitter action required
                   </div>
                   <div className="small" style={{ fontSize: '0.775rem', color: '#b45309' }}>
-                    The issuing authority and passport number are hard to read, and the training completion date is missing. Upload a clearer scan or a renewed certificate.
+                    {extractedAttributes.some((attr) => attr.isMandatoryMissing || (attr.confidence > 0 && attr.confidence < 90))
+                      ? `Check ${extractedAttributes
+                        .filter((attr) => attr.isMandatoryMissing || (attr.confidence > 0 && attr.confidence < 90))
+                        .map((attr) => attr.label.toLowerCase())
+                        .join(', ')}. Upload a clearer scan or enter the values.`
+                      : 'Upload a clearer scan or a renewed certificate if a value is wrong.'}
                   </div>
                 </div>
 
