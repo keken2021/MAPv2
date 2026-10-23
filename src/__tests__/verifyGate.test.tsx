@@ -64,7 +64,9 @@ describe('verify gate', () => {
     expect(verify).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText(/Method/), { target: { value: 'Issuer lookup' } });
-    expect(screen.getByText('A check failed. Override with a reason to verify.')).toBeInTheDocument();
+    /* the banner says why Verify is blocked and what to do */
+    expect(screen.getByText('Verify is blocked because:')).toBeInTheDocument();
+    expect(screen.getByText(/^Extraction confidence \d+% is below 90%\. Correct the amber fields/)).toBeInTheDocument();
     expect(screen.queryByText('Checks not passed')).toBeNull();
     expect(verify).toBeDisabled();
 

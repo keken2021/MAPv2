@@ -93,6 +93,7 @@ import {
   getRenewalSubject,
   getRenewalSubmitterLabel,
 } from "../utils/documentRenewalHelpers";
+import { withDocumentChecks } from "../utils/documentChecks";
 import { getAssuranceSetCrewIds, toSingleAssetSet } from "../utils/assuranceTemplates";
 import { MOCK_NOTIFICATIONS } from "./notificationMockData";
 import {
@@ -2094,7 +2095,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   // Documents
   documents: MOCK_DOCUMENTS,
   addDocument: (doc) => {
-    set((state) => ({ documents: [...state.documents, doc] }));
+    /* the validation rules run on upload, so the reviewer sees results, not "not checked" */
+    set((state) => ({ documents: [...state.documents, withDocumentChecks(doc, state.vessels)] }));
     get().logAuditEvent({
       action: "Uploaded New Master Document",
       targetAsset: `${doc.id} (${doc.title})`,
@@ -2177,7 +2179,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
       const updatedDocs = state.documents.some((d) => d.id === doc.id)
         ? state.documents
-        : [...state.documents, doc];
+        : [...state.documents, withDocumentChecks(doc, state.vessels)];
 
       const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
         syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
@@ -2224,16 +2226,27 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           fileName,
           changeSummary,
         };
-        return {
-          ...d,
-          ...(expiryDate
-            ? { expiryDate, complianceState: getComplianceStateForExpiry(expiryDate) }
-            : {}),
-          currentVersion: newVersionLabel,
-          ocrConfidence: 98,
-          verificationStatus: "Pending" as const,
-          versions: [newVersionObj, ...d.versions],
-        };
+        /* the new version's expiry replaces the old one everywhere it is shown, and the rules run again on it */
+        return withDocumentChecks(
+          {
+            ...d,
+            ...(expiryDate
+              ? {
+                expiryDate,
+                complianceState: getComplianceStateForExpiry(expiryDate),
+                vesselAttributes: d.vesselAttributes
+                  ? { ...d.vesselAttributes, expiryDate, status: getComplianceStateForExpiry(expiryDate) }
+                  : undefined,
+                crewAttributes: d.crewAttributes ? { ...d.crewAttributes, expiryDate } : undefined,
+              }
+              : {}),
+            currentVersion: newVersionLabel,
+            ocrConfidence: 98,
+            verificationStatus: "Pending" as const,
+            versions: [newVersionObj, ...d.versions],
+          },
+          state.vessels,
+        );
       });
       const updatedSets = state.assuranceSets.map((s) => {
         /* a new version of a shared library document must not reopen a set that is already approved */

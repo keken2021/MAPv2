@@ -26,7 +26,8 @@ export const VERIFICATION_SCOPE_STATEMENT =
 /* the extracted fields a check can belong to */
 export type FieldCheckKey = 'certificateNo' | 'vesselName' | 'imoNumber' | 'issuingAuthority' | 'expiryDate';
 
-export type FieldCheckState = 'pass' | 'warn' | 'fail' | 'not_checked';
+/* info: shown for context, never blocks (a field no rule checks) */
+export type FieldCheckState = 'pass' | 'warn' | 'fail' | 'not_checked' | 'info';
 
 export interface FieldCheck {
   state: FieldCheckState;
@@ -60,42 +61,48 @@ export function getFieldChecks(
   const rules = document.validationRules;
   const notChecked = Boolean(rules?.rulesNotChecked);
   const checks: Partial<Record<FieldCheckKey, FieldCheck>> = {};
+  /* each message says what is wrong and what the reviewer or submitter can do about it */
+  const NOT_CHECKED =
+    rules?.exceptionDetails && notChecked
+      ? rules.exceptionDetails
+      : 'Not checked yet. Upload a new version to run the checks, or override with a reason.';
 
-  const expiryDate = document.crewAttributes?.expiryDate || document.expiryDate;
+  /* the current version's expiry comes first; the certificate details can hold an older one */
+  const expiryDate = document.expiryDate || document.crewAttributes?.expiryDate || document.vesselAttributes?.expiryDate;
   const validity = getValidityInContractPeriod(expiryDate, set ?? { charterWindowEnd: '' }, today);
   checks.expiryDate =
     validity.state === 'unknown'
-      ? { state: 'fail', message: 'Expiry date missing.' }
+      ? { state: 'fail', message: 'Expiry date missing. Enter it (Edit Fields) or upload a clearer scan.' }
       : validity.state === 'lapsed'
-        ? { state: 'fail', message: 'Lapsed.' }
+        ? { state: 'fail', message: `Lapsed on ${expiryDate}. Upload a renewed certificate.` }
         : validity.state === 'expires_in_period'
-          ? { state: 'warn', message: 'Expires during the contract period.' }
+          ? { state: 'warn', message: 'Expires during the contract period. The client decides whether to accept it.' }
           : validity.state === 'expiring_soon'
-            ? { state: 'warn', message: validity.label + '.' }
+            ? { state: 'warn', message: `${validity.label}. Ask for the renewal early.` }
             : { state: 'pass', message: set ? 'Valid through the contract period.' : 'Valid.' };
 
   if (document.crewAttributes) {
-    /* no rule checks a crew certificate's issuer */
-    checks.issuingAuthority = { state: 'not_checked', message: 'Not checked.' };
+    /* no rule checks a crew certificate's issuer; shown, never a block */
+    checks.issuingAuthority = { state: 'info', message: 'No rule checks this field.' };
     return checks;
   }
 
   checks.certificateNo = document.certificateNo?.trim()
     ? { state: 'pass', message: 'Present.' }
-    : { state: 'fail', message: 'Certificate no. missing.' };
+    : { state: 'fail', message: 'Certificate no. missing. Enter it (Edit Fields) or upload a clearer scan.' };
 
   const assetMatch: FieldCheck = notChecked
-    ? { state: 'not_checked', message: 'Asset match not checked.' }
+    ? { state: 'not_checked', message: NOT_CHECKED }
     : document.vesselAttributes?.assetMatchFlag === false || rules?.assetMatch100Percent === false
-      ? { state: 'fail', message: 'Does not match the asset.' }
-      : { state: 'pass', message: 'Matches the asset.' };
+      ? { state: 'fail', message: 'Does not match the vessel record. Check the vessel name and IMO, then upload the right certificate.' }
+      : { state: 'pass', message: 'Matches the vessel record.' };
   checks.vesselName = assetMatch;
   checks.imoNumber = assetMatch;
 
   checks.issuingAuthority = notChecked
-    ? { state: 'not_checked', message: 'Not checked.' }
+    ? { state: 'not_checked', message: NOT_CHECKED }
     : rules?.iacsAuthorityValid === false
-      ? { state: 'fail', message: 'Not a recognised authority.' }
+      ? { state: 'fail', message: 'Not a recognised (IACS) authority. Check the issuer; override if the client accepts it.' }
       : { state: 'pass', message: 'Recognised authority.' };
 
   return checks;
@@ -121,16 +128,18 @@ export function getVerifyBlockReasons(input: VerifyGateInput): string[] {
   const fieldChecks = getFieldChecks(document, set);
   (Object.keys(FIELD_CHECK_LABELS) as FieldCheckKey[]).forEach((key) => {
     const check = fieldChecks[key];
-    if (!check || check.state === 'pass' || check.state === 'warn') return;
+    if (!check || check.state === 'pass' || check.state === 'warn' || check.state === 'info') return;
     /* vessel name and IMO share one asset check; name it once */
     if (key === 'imoNumber' && fieldChecks.vesselName === check) return;
     reasons.push(`${FIELD_CHECK_LABELS[key]}: ${check.message}`);
   });
   if (overallConfidence < OCR_MIN_CONFIDENCE) {
-    reasons.push(`Extraction confidence ${overallConfidence}% is below ${OCR_MIN_CONFIDENCE}%.`);
+    reasons.push(
+      `Extraction confidence ${overallConfidence}% is below ${OCR_MIN_CONFIDENCE}%. Correct the amber fields (Edit Fields) or upload a clearer scan.`,
+    );
   }
-  if (!fullPagePassed) reasons.push('Full page not captured.');
-  if (!signaturePassed) reasons.push('No signature or stamp found.');
+  if (!fullPagePassed) reasons.push('Full page not captured or a required field is missing. Upload a complete, clear scan.');
+  if (!signaturePassed) reasons.push('No signature or stamp found. Upload a scan that shows it.');
   const rules = document.validationRules;
   const fieldFailed = Object.values(fieldChecks).some((c) => c?.state === 'fail');
   if (rules && !rules.rulesNotChecked && !rules.overallValid && !fieldFailed) {

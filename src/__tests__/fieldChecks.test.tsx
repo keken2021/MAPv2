@@ -47,11 +47,14 @@ describe('field checks', () => {
       PERIOD,
       TODAY,
     );
-    expect(checks.certificateNo).toEqual({ state: 'fail', message: 'Certificate no. missing.' });
-    expect(checks.vesselName?.message).toBe('Does not match the asset.');
+    /* each message names the problem and what to do */
+    expect(checks.certificateNo?.state).toBe('fail');
+    expect(checks.certificateNo?.message).toMatch(/^Certificate no\. missing\. Enter it/);
+    expect(checks.vesselName?.message).toMatch(/^Does not match the vessel record\. Check the vessel name and IMO/);
     expect(checks.imoNumber?.state).toBe('fail');
-    expect(checks.issuingAuthority?.message).toBe('Not a recognised authority.');
-    expect(checks.expiryDate).toEqual({ state: 'warn', message: 'Expires during the contract period.' });
+    expect(checks.issuingAuthority?.message).toMatch(/^Not a recognised \(IACS\) authority\. Check the issuer/);
+    expect(checks.expiryDate?.state).toBe('warn');
+    expect(checks.expiryDate?.message).toMatch(/^Expires during the contract period\./);
   });
 
   it('marks unchecked rules as not checked and a lapsed expiry as failed', () => {
@@ -65,26 +68,41 @@ describe('field checks', () => {
     );
     expect(checks.vesselName?.state).toBe('not_checked');
     expect(checks.issuingAuthority?.state).toBe('not_checked');
-    expect(checks.expiryDate).toEqual({ state: 'fail', message: 'Lapsed.' });
+    expect(checks.expiryDate).toEqual({ state: 'fail', message: 'Lapsed on 2026-10-01. Upload a renewed certificate.' });
+    expect(checks.vesselName?.message).toMatch(/Upload a new version to run the checks/);
   });
 
-  it('checks a crew certificate on its expiry and leaves its issuer not checked', () => {
+  it('checks a crew certificate on its expiry and shows its issuer as unchecked, without blocking', () => {
     const checks = getFieldChecks(
-      { ...vesselDoc(), vesselAttributes: undefined, crewAttributes: { expiryDate: '2026-12-01' } as MasterDocument['crewAttributes'] },
+      { ...vesselDoc(), vesselAttributes: undefined, expiryDate: '2026-12-01', crewAttributes: { expiryDate: '2026-12-01' } as MasterDocument['crewAttributes'] },
       PERIOD,
       TODAY,
     );
     expect(Object.keys(checks).sort()).toEqual(['expiryDate', 'issuingAuthority']);
-    expect(checks.issuingAuthority?.state).toBe('not_checked');
+    expect(checks.issuingAuthority).toEqual({ state: 'info', message: 'No rule checks this field.' });
     expect(checks.expiryDate?.state).toBe('warn');
+  });
+
+  it('reads the current version expiry before an older one in the certificate details', () => {
+    const checks = getFieldChecks(
+      { ...vesselDoc(), vesselAttributes: undefined, expiryDate: '2029-01-01', crewAttributes: { expiryDate: '2026-01-01' } as MasterDocument['crewAttributes'] },
+      PERIOD,
+      TODAY,
+    );
+    expect(checks.expiryDate?.state).toBe('pass');
+  });
+
+  it('never blocks a crew certificate on its issuing authority', () => {
+    const crewDoc = { ...vesselDoc(), vesselAttributes: undefined, expiryDate: '2029-01-01', crewAttributes: { expiryDate: '2029-01-01' } as MasterDocument['crewAttributes'] };
+    expect(getVerifyBlockReasons({ document: crewDoc, set: PERIOD, overallConfidence: 95, fullPagePassed: true, signaturePassed: true })).toEqual([]);
   });
 
   it('names the failing field in the reasons Verify is blocked, and does not block on a warning', () => {
     const base = { overallConfidence: 95, fullPagePassed: true, signaturePassed: true, set: PERIOD };
     expect(getVerifyBlockReasons({ ...base, document: vesselDoc({ expiryDate: '2026-11-30' }) })).toEqual([]);
-    expect(getVerifyBlockReasons({ ...base, document: vesselDoc({ certificateNo: '' }) })).toEqual([
-      'Certificate No.: Certificate no. missing.',
-    ]);
+    const [reason, ...rest] = getVerifyBlockReasons({ ...base, document: vesselDoc({ certificateNo: '' }) });
+    expect(rest).toEqual([]);
+    expect(reason).toMatch(/^Certificate No\.: Certificate no\. missing\. Enter it \(Edit Fields\) or upload a clearer scan\.$/);
   });
 
   it('shows each check under its field in the review drawer, with no separate check list', () => {
@@ -110,7 +128,7 @@ describe('field checks', () => {
     );
 
     const imoRow = screen.getByText('IMO NUMBER').closest('.map-extraction-field-row') as HTMLElement;
-    expect(within(imoRow).getByText('Does not match the asset.')).toBeInTheDocument();
+    expect(within(imoRow).getByText(/^Does not match the vessel record\./)).toBeInTheDocument();
     const authorityRow = screen.getByText('ISSUING AUTHORITY').closest('.map-extraction-field-row') as HTMLElement;
     expect(within(authorityRow).getByText('Recognised authority.')).toBeInTheDocument();
     expect(screen.queryByText('Checks not passed')).toBeNull();

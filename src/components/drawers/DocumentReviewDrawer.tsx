@@ -31,6 +31,7 @@ const FIELD_CHECK_COLORS: Record<FieldCheckState, string> = {
   warn: '#b45309',
   fail: '#dc2626',
   not_checked: '#64748b',
+  info: '#64748b',
 };
 import { getInspectionValidUntil } from '../../utils/inspectionEvidence';
 import { maskRestrictedValue } from '../../utils/restrictedData';
@@ -197,7 +198,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       field('4', 'CERTIFICATE TYPE', crew.certType || document.title, 99, 94, true),
       field('5', 'ISSUING AUTHORITY', crew.issuingCenter || document.issuingAuthority, 97, 44, true, 'issuingAuthority'),
       field('6', 'ISSUE DATE', crew.issueDate, 98, 79),
-      field('7', 'EXPIRY DATE', crew.expiryDate || document.expiryDate, 99, 86, true, 'expiryDate'),
+      /* the current version's expiry comes first; the certificate details can hold an older one */
+      field('7', 'EXPIRY DATE', document.expiryDate || crew.expiryDate, 99, 86, true, 'expiryDate'),
       field('8', 'VESSEL', crew.assignedVessel, 98, 72),
       field('9', 'NATIONALITY', crew.nationality, 98, 90),
       field('10', 'TRAINING COMPLETION DATE', crew.trainingDate, 96, 70),
@@ -210,14 +212,19 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       field('5', 'EXPIRY DATE', document.expiryDate, 98, 79, true, 'expiryDate'),
     ];
 
-  /* dynamic confidence calculation aligned with data entry edits and manual corrections */
-  const totalEffectiveConfidence = extractedAttributes.reduce((sum, attr) => {
-    const isCorrected = correctedFieldIds.has(attr.id) || (editedValues[attr.id] !== undefined && editedValues[attr.id].trim() !== '' && editedValues[attr.id] !== attr.value);
-    return sum + (isCorrected ? 100 : attr.confidence);
-  }, 0);
+  /* confidence is averaged over the fields that hold a value; an empty field is flagged on its own row, not counted as 0% */
+  const isAttrCorrected = (attr: ExtractedAttribute) =>
+    correctedFieldIds.has(attr.id) || (editedValues[attr.id] !== undefined && editedValues[attr.id].trim() !== '' && editedValues[attr.id] !== attr.value);
+  const readAttributes = extractedAttributes.filter((attr) => attr.value !== NOT_EXTRACTED || isAttrCorrected(attr));
+  const totalEffectiveConfidence = readAttributes.reduce(
+    (sum, attr) => sum + (isAttrCorrected(attr) ? 100 : attr.confidence),
+    0,
+  );
   const overallConfidence = isVerified
     ? 100
-    : Math.min(100, Math.round(totalEffectiveConfidence / extractedAttributes.length));
+    : readAttributes.length === 0
+      ? 0
+      : Math.min(100, Math.round(totalEffectiveConfidence / readAttributes.length));
 
   /* dynamic quality checks aligned with document attributes and manual data entry */
   const hasUncorrectedMissingMandatory = extractedAttributes.some(
@@ -721,8 +728,14 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
 
             {needsOverride && (
               <div className="alert alert-warning py-3 px-3 mb-3" style={{ fontSize: '0.8rem' }}>
-                {/* the failed checks are shown under their fields and in the scan checks; this only offers the override */}
-                <div className="fw-semibold mb-2">A check failed. Override with a reason to verify.</div>
+                {/* every reason names the field or scan check and what to do; the same text shows under the field */}
+                <div className="fw-semibold mb-1">Verify is blocked because:</div>
+                <ul className="mb-2 ps-3">
+                  {verifyBlockReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+                <div className="mb-2">Fix these, ask the submitter for a new version, or override with a reason.</div>
                 <div className="form-check">
                   <input
                     id="review-override"
