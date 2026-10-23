@@ -4,12 +4,17 @@
   role in system: primary audit workspace accessible via sidebar (/audit).
 */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { formatMaritimeDate } from '../utils/formatters';
 import { filterAuditTrailForPersona } from '../utils/rbacHelpers';
-import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
+import {
+  getDemoSessionContext,
+  getRoleDisplayLabel,
+  getSessionUserForPersona,
+  pickSessionUserForOrgPersona,
+} from '../utils/userRoleHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
@@ -23,11 +28,31 @@ import { TablePagination } from '../components/common/TablePagination';
   with what file: src/views/AuditTrailView.tsx loaded by App.tsx router.
 */
 export const AuditTrailView: React.FC = () => {
-  const { auditEvents, activePersona, assuranceSets, vessels } = useMapStore();
+  const {
+    auditEvents,
+    activePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
+    users,
+    assuranceSets,
+    vessels,
+  } = useMapStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+
+  const sessionUser = useMemo(
+    () =>
+      getSessionUserForPersona(
+        activePersona,
+        users,
+        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+      ) ?? pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona),
+    [activePersona, users, activeDemoOrganization, activeSessionUserId],
+  );
+
+  const currentUserId = sessionUser?.id || activeSessionUserId;
 
   type AuditSortField = 'timestampUtc' | 'action' | 'targetAsset' | 'userRole' | 'fieldDelta' | 'justificationNotes';
   const [sortField, setSortField] = useState<AuditSortField>('timestampUtc');
@@ -53,7 +78,13 @@ export const AuditTrailView: React.FC = () => {
     }
   };
 
-  const visibleEvents = filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels);
+  const visibleEvents = filterAuditTrailForPersona(
+    auditEvents,
+    activePersona,
+    assuranceSets,
+    vessels,
+    currentUserId,
+  );
 
   const filteredEvents = visibleEvents.filter((ev) => {
     const matchesSearch =
@@ -215,39 +246,47 @@ export const AuditTrailView: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {eventsPagination.pageItems.map((ev) => (
-                <tr key={ev.id}>
-                  <td className="font-mono-code small text-nowrap">{formatMaritimeDate(ev.timestampUtc)}</td>
-                  <td>
-                    <span className="fw-semibold text-primary">{ev.action}</span>
-                  </td>
-                  <td>
-                    <strong className="text-slate-900">{ev.targetAsset}</strong>
-                  </td>
-                  <td>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.75rem' }}>
-                        {getRoleDisplayLabel(ev.userRole)}
-                      </span>
-                      <span className="text-secondary small">{ev.organization}</span>
-                    </div>
-                  </td>
-                  <td>
-                    {ev.fieldDelta ? (
-                      <div className="p-2 bg-light rounded font-mono-code small border border-secondary" style={{ fontSize: '0.75rem' }}>
-                        <div className="fw-bold text-dark">Field: {ev.fieldDelta.fieldName}</div>
-                        <div className="text-danger">Old: {ev.fieldDelta.oldValue}</div>
-                        <div className="text-success">New: {ev.fieldDelta.newValue}</div>
-                      </div>
-                    ) : (
-                      <span className="text-muted small">No change</span>
-                    )}
-                  </td>
-                  <td className="small text-secondary fst-italic">
-                    {ev.justificationNotes ? `"${ev.justificationNotes}"` : 'N/A'}
+              {eventsPagination.pageItems.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-4 text-secondary small">
+                    No audit entries found.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                eventsPagination.pageItems.map((ev) => (
+                  <tr key={ev.id}>
+                    <td className="font-mono-code small text-nowrap">{formatMaritimeDate(ev.timestampUtc)}</td>
+                    <td>
+                      <span className="fw-semibold text-primary">{ev.action}</span>
+                    </td>
+                    <td>
+                      <strong className="text-slate-900">{ev.targetAsset}</strong>
+                    </td>
+                    <td>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.75rem' }}>
+                          {getRoleDisplayLabel(ev.userRole)}
+                        </span>
+                        <span className="text-secondary small">{ev.organization}</span>
+                      </div>
+                    </td>
+                    <td>
+                      {ev.fieldDelta ? (
+                        <div className="p-2 bg-light rounded font-mono-code small border border-secondary" style={{ fontSize: '0.75rem' }}>
+                          <div className="fw-bold text-dark">Field: {ev.fieldDelta.fieldName}</div>
+                          <div className="text-danger">Old: {ev.fieldDelta.oldValue}</div>
+                          <div className="text-success">New: {ev.fieldDelta.newValue}</div>
+                        </div>
+                      ) : (
+                        <span className="text-muted small">No change</span>
+                      )}
+                    </td>
+                    <td className="small text-secondary fst-italic">
+                      {ev.justificationNotes ? `"${ev.justificationNotes}"` : 'N/A'}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

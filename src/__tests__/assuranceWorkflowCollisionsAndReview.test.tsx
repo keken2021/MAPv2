@@ -151,12 +151,12 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
     const rows = table!.querySelectorAll('tbody tr');
     expect(rows.length).toBe(2);
 
-    /* Verify table header columns */
+    /* Verify table header columns (excluding vessel designation) */
     const headers = Array.from(table!.querySelectorAll('thead th')).map((th) => th.textContent?.trim());
     expect(headers).toContain('Crew Member');
     expect(headers).toContain('Rank');
     expect(headers).toContain("Seaman's Book");
     expect(headers).toContain('Organization');
-    expect(headers).toContain('Current Vessel');
+    expect(headers).not.toContain('Current Vessel');
   });
 });

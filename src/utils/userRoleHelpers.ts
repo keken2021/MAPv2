@@ -9,6 +9,7 @@ import { RoleName } from '../types/permissions';
 import { UserProfile } from '../types/user';
 import { MOCK_PERSONA_SESSION_USER_IDS } from '../store/mockData';
 import { pickSessionUserForOrgPersona } from './demoSessionHelpers';
+export { pickSessionUserForOrgPersona };
 
 export const OPERATIONAL_ROLE_OPTIONS: { role: UserRolePersona; label: string }[] = [
   { role: 'Submitter', label: 'Submitter' },

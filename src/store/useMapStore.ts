@@ -15,6 +15,7 @@ import { EquipmentAsset } from "../types/equipment";
 import { AvailabilityStatus } from "../types/asset";
 import {
   AssuranceSet,
+  AssuranceTemplate,
   AssuranceStage,
   AssuranceRequirement,
   VerificationMethod,
@@ -24,6 +25,7 @@ import { MasterDocument } from "../types/document";
 import {
   MOCK_VESSELS,
   MOCK_ASSURANCE_SETS,
+  MOCK_ASSURANCE_TEMPLATES,
   MOCK_DOCUMENTS,
   MOCK_AUDIT_TRAIL,
   MOCK_USERS,
@@ -299,6 +301,11 @@ export interface MapStoreState {
   assuranceSets: AssuranceSet[];
   addAssuranceSet: (set: AssuranceSet) => void;
   updateAssuranceSet: (set: AssuranceSet) => void;
+
+  // Assurance Templates State (Dedicated Public Templates Slice)
+  assuranceTemplates: AssuranceTemplate[];
+  addAssuranceTemplate: (template: AssuranceTemplate) => void;
+  updateAssuranceTemplate: (template: AssuranceTemplate) => void;
   updateAssuranceStage: (setId: string, stage: AssuranceStage) => void;
   updateAssuranceStakeholder: (
     setId: string,
@@ -1546,6 +1553,30 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         e.id === equipmentId
           ? { ...e, availabilityStatus, availabilityUpdatedAt: now }
           : e,
+      ),
+    }));
+  },
+
+  // Assurance Templates State (Dedicated Public Templates Slice)
+  assuranceTemplates: MOCK_ASSURANCE_TEMPLATES,
+  addAssuranceTemplate: (template) => {
+    set((state) => {
+      if (state.assuranceTemplates.some((t) => t.id === template.id)) {
+        return {
+          assuranceTemplates: state.assuranceTemplates.map((t) =>
+            t.id === template.id ? template : t,
+          ),
+        };
+      }
+      return {
+        assuranceTemplates: [template, ...state.assuranceTemplates],
+      };
+    });
+  },
+  updateAssuranceTemplate: (template) => {
+    set((state) => ({
+      assuranceTemplates: state.assuranceTemplates.map((t) =>
+        t.id === template.id ? template : t,
       ),
     }));
   },

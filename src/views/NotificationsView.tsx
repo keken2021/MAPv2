@@ -131,9 +131,8 @@ export const NotificationsView: React.FC = () => {
               type="button"
               role="tab"
               aria-selected={activeTab === tab.key}
-              className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${
-                activeTab === tab.key ? 'active bg-primary text-white fw-semibold' : 'text-secondary'
-              }`}
+              className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${activeTab === tab.key ? 'active bg-primary text-white fw-semibold' : 'text-secondary'
+                }`}
               style={{ fontSize: '0.8rem' }}
               onClick={() => {
                 setActiveTab(tab.key);
@@ -170,9 +169,6 @@ export const NotificationsView: React.FC = () => {
               style={{ width: 'min(280px, 100%)' }}
             />
             <FilterButton onClick={() => setIsFilterModalOpen(true)} activeCount={activeFilterCount} />
-          </div>
-          <div className="text-secondary small map-notif-numeric">
-            Showing <strong className="text-dark">{visibleItems.length}</strong> of {tabItems.length}
           </div>
         </div>
 

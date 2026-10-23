@@ -16,7 +16,12 @@ import {
 } from '../types/vessel';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { formatMaritimeDate, getDaysUntilExpiry, getStatusDisplayLabel, getVesselStatusBadgeClass } from '../utils/formatters';
-import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
+import {
+  getDemoSessionContext,
+  getRoleDisplayLabel,
+  getSessionUserForPersona,
+  pickSessionUserForOrgPersona,
+} from '../utils/userRoleHelpers';
 import { filterAuditTrailForPersona, filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, filterVesselsForPersona, getBackButtonInfo, getClientAdminOrganization, isVesselOwnedByAdmin, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateAssuranceSetReadiness, calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
@@ -97,6 +102,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     previousEntityId,
     activePersona,
     activeDemoOrganization,
+    activeSessionUserId,
     users,
     assuranceSets,
     documents,
@@ -377,7 +383,24 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     exportToPdf(`${vessel.name} Datasheet`, headers, rows);
   };
 
-  const visibleAuditEvents = filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels);
+  const sessionUser = useMemo(
+    () =>
+      getSessionUserForPersona(
+        activePersona,
+        users,
+        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+      ) ?? pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona),
+    [activePersona, users, activeDemoOrganization, activeSessionUserId],
+  );
+  const currentUserId = sessionUser?.id || activeSessionUserId;
+
+  const visibleAuditEvents = filterAuditTrailForPersona(
+    auditEvents,
+    activePersona,
+    assuranceSets,
+    vessels,
+    currentUserId,
+  );
 
   // Linked assurance sets, documents, crew, and audit items for this vessel
   const linkedSets = vessel ? assuranceSets.filter((s) => s.vesselId === vessel.id) : [];

@@ -7,7 +7,7 @@
 import React, { useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Copy, Play, Eye } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
-import { AssuranceSet, AssuranceStage } from '../../types/assurance';
+import { AssuranceSet, AssuranceStage, AssuranceTemplate } from '../../types/assurance';
 import { ReadinessGauge } from '../common/ReadinessGauge';
 import { FilterModal } from '../common/FilterModal';
 import { FilterButton } from '../common/FilterButton';
@@ -34,7 +34,9 @@ type AssuranceSortField =
   | 'project'
   | 'initiatorOrg'
   | 'stage'
-  | 'readinessScore';
+  | 'readinessScore'
+  | 'scope'
+  | 'scopeType';
 
 export type AssuranceViewTab = 'public' | 'organization' | 'drafts';
 
@@ -52,6 +54,7 @@ interface AssuranceTableProps {
 export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onInitiateSet, defaultTab = 'organization' }) => {
   const {
     assuranceSets,
+    assuranceTemplates = [],
     activePersona,
     setCurrentHashView,
     rolePermissionDefaults,
@@ -93,9 +96,6 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
       !(isReadOnly && s.visibility === 'draft'),
   );
 
-  const isPublicSet = (s: AssuranceSet) =>
-    s.visibility === 'public' || s.templateSource === 'public' || s.stage === 'Approved' || s.stage === 'Certified';
-
   const isDraftSet = (s: AssuranceSet) =>
     s.visibility === 'draft' || s.stage === 'Initiated';
 
@@ -104,20 +104,50 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const isOrgSet = (s: AssuranceSet) =>
     (isAssuranceSetOwnedOrInitiatedByOrganization(s, viewerOrg) ||
       isAssuranceSetAssignedToPersona(s, activePersona, viewerOrg)) &&
-    (s.visibility === 'organization' || (!isDraftSet(s) && !isPublicSet(s)) || (s.stage !== 'Initiated' && s.visibility !== 'public'));
+    !isDraftSet(s);
 
   /* project id shown in the project column; empty for an orphaned set */
   const getProjectId = (s: AssuranceSet) => getProjectForAssuranceSet(s, projects)?.id ?? '';
 
-  const publicCount = accessibleSets.filter(isPublicSet).length;
+  const publicCount = (assuranceTemplates || []).length;
   const orgCount = accessibleSets.filter(isOrgSet).length;
   const draftsCount = accessibleSets.filter(isDraftSet).length;
 
+  // Filter public templates
+  const filteredTemplates = (assuranceTemplates || []).filter((t) => {
+    const term = searchTerm.toLowerCase();
+    const matchesSearch =
+      !searchTerm ||
+      t.title.toLowerCase().includes(term) ||
+      (t.scope || t.assuranceType || '').toLowerCase().includes(term) ||
+      (t.scopeType || '').toLowerCase().includes(term) ||
+      (t.initiatorOrg && t.initiatorOrg.toLowerCase().includes(term)) ||
+      (t.description && t.description.toLowerCase().includes(term));
+    const matchesScope = scopeFilter === 'ALL' || t.scope === scopeFilter || t.assuranceType === scopeFilter;
+    return matchesSearch && matchesScope;
+  });
+
+  const sortedTemplates = [...filteredTemplates].sort((a, b) => {
+    let comparison = 0;
+    if (sortField === 'title') {
+      comparison = a.title.localeCompare(b.title);
+    } else if (sortField === 'scope') {
+      comparison = (a.scope || a.assuranceType || '').localeCompare(b.scope || b.assuranceType || '');
+    } else if (sortField === 'scopeType') {
+      comparison = (a.scopeType || '').localeCompare(b.scopeType || '');
+    } else if (sortField === 'initiatorOrg') {
+      const aOrg = a.initiatorOrg || '';
+      const bOrg = b.initiatorOrg || '';
+      comparison = aOrg.localeCompare(bOrg);
+    } else {
+      comparison = a.title.localeCompare(b.title);
+    }
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
   const filteredSets = accessibleSets.filter((s) => {
     let matchesTab = true;
-    if (activeTab === 'public') {
-      matchesTab = isPublicSet(s);
-    } else if (activeTab === 'organization') {
+    if (activeTab === 'organization') {
       matchesTab = isOrgSet(s);
     } else if (activeTab === 'drafts') {
       matchesTab = isDraftSet(s);
@@ -143,14 +173,16 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   );
 
   const activeFilterCount =
-    (stageFilter !== 'ALL' ? 1 : 0) +
-    (scopeFilter !== 'ALL' ? 1 : 0) +
-    (projectFilter !== 'ALL' ? 1 : 0);
+    activeTab === 'public'
+      ? (scopeFilter !== 'ALL' ? 1 : 0)
+      : (stageFilter !== 'ALL' ? 1 : 0) +
+        (scopeFilter !== 'ALL' ? 1 : 0) +
+        (projectFilter !== 'ALL' ? 1 : 0);
 
   const activeChips: FilterChip[] = [
-    ...(stageFilter !== 'ALL' ? [{ id: 'stage', label: 'Stage', value: stageFilter, onRemove: () => setStageFilter('ALL') }] : []),
+    ...(stageFilter !== 'ALL' && activeTab !== 'public' ? [{ id: 'stage', label: 'Stage', value: stageFilter, onRemove: () => setStageFilter('ALL') }] : []),
     ...(scopeFilter !== 'ALL' ? [{ id: 'scope', label: 'Scope', value: scopeFilter, onRemove: () => setScopeFilter('ALL') }] : []),
-    ...(projectFilter !== 'ALL'
+    ...(projectFilter !== 'ALL' && activeTab !== 'public'
       ? [{
           id: 'project',
           label: 'Project',
@@ -187,8 +219,18 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   };
 
   const sortedSets = [...filteredSets].sort((a, b) => {
-    let valA: any = sortField === 'project' ? getProjectId(a) || ORPHANED_LABEL : a[sortField] ?? '';
-    let valB: any = sortField === 'project' ? getProjectId(b) || ORPHANED_LABEL : b[sortField] ?? '';
+    let valA: any =
+      sortField === 'project'
+        ? getProjectId(a) || ORPHANED_LABEL
+        : sortField === 'scope'
+          ? a.assuranceType || ''
+          : a[sortField as keyof AssuranceSet] ?? '';
+    let valB: any =
+      sortField === 'project'
+        ? getProjectId(b) || ORPHANED_LABEL
+        : sortField === 'scope'
+          ? b.assuranceType || ''
+          : b[sortField as keyof AssuranceSet] ?? '';
 
     /* sort the created-by column by what it displays */
     if (sortField === 'initiatorOrg') {
@@ -222,6 +264,19 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   };
 
   const handleExportCsv = () => {
+    if (activeTab === 'public') {
+      const exportData = sortedTemplates.map((t) => ({
+        Title: t.title,
+        Scope: t.scope || t.assuranceType || 'Vessel',
+        ScopeType: t.scopeType || 'General',
+        CreatedBy: t.initiatorOrg || 'Global',
+        Organization: t.initiatorOrg,
+        RequirementsCount: t.requirements?.length || 0,
+      }));
+      exportToCsv('Public_Assurance_Templates', exportData);
+      setIsExportOpen(false);
+      return;
+    }
     const exportData = sortedSets.map((s) => ({
       SetID: s.id,
       Title: s.title,
@@ -238,6 +293,19 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   };
 
   const handleExportPdf = () => {
+    if (activeTab === 'public') {
+      const headers = ['Title', 'Scope', 'Scope Type', 'Created By', 'Organization'];
+      const rows = sortedTemplates.map((t) => [
+        t.title,
+        t.scope || t.assuranceType || 'Vessel',
+        t.scopeType || 'General',
+        t.initiatorOrg || 'Global',
+        t.initiatorOrg,
+      ]);
+      exportToPdf('Public Assurance Templates', headers, rows);
+      setIsExportOpen(false);
+      return;
+    }
     const headers = ['Set ID', 'Title', 'Project', 'Created By', 'Stage', 'Readiness'];
     const rows = sortedSets.map((s) => [
       s.id,
@@ -252,6 +320,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   };
 
   const setsPagination = usePagination(sortedSets, [activeTab, searchTerm, stageFilter, scopeFilter, projectFilter, sortField, sortDirection]);
+  const templatesPagination = usePagination(sortedTemplates, [activeTab, searchTerm, scopeFilter, sortField, sortDirection]);
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -358,124 +427,209 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
       <div className="table-responsive">
         <table className="table map-table-custom align-middle mb-0">
           <thead>
-            <tr>
-              <th onClick={() => handleSort('id')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Set ID {renderSortIndicator('id')}
-              </th>
-              <th onClick={() => handleSort('title')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Title {renderSortIndicator('title')}
-              </th>
-              <th onClick={() => handleSort('project')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Project {renderSortIndicator('project')}
-              </th>
-              <th onClick={() => handleSort('initiatorOrg')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Created By {renderSortIndicator('initiatorOrg')}
-              </th>
-              <th onClick={() => handleSort('stage')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Stage {renderSortIndicator('stage')}
-              </th>
-              <th onClick={() => handleSort('readinessScore')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Readiness {renderSortIndicator('readinessScore')}
-              </th>
-              <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
-            </tr>
+            {activeTab === 'public' ? (
+              <tr>
+                <th onClick={() => handleSort('title')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Title {renderSortIndicator('title')}
+                </th>
+                <th onClick={() => handleSort('scope')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Scope {renderSortIndicator('scope')}
+                </th>
+                <th onClick={() => handleSort('scopeType')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Scope Type {renderSortIndicator('scopeType')}
+                </th>
+                <th onClick={() => handleSort('initiatorOrg')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Created By {renderSortIndicator('initiatorOrg')}
+                </th>
+                <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
+              </tr>
+            ) : (
+              <tr>
+                <th onClick={() => handleSort('id')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Set ID {renderSortIndicator('id')}
+                </th>
+                <th onClick={() => handleSort('title')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Title {renderSortIndicator('title')}
+                </th>
+                <th onClick={() => handleSort('project')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Project {renderSortIndicator('project')}
+                </th>
+                <th onClick={() => handleSort('initiatorOrg')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Created By {renderSortIndicator('initiatorOrg')}
+                </th>
+                <th onClick={() => handleSort('stage')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Stage {renderSortIndicator('stage')}
+                </th>
+                <th onClick={() => handleSort('readinessScore')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                  Readiness {renderSortIndicator('readinessScore')}
+                </th>
+                <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
+              </tr>
+            )}
           </thead>
           <tbody>
-            {setsPagination.pageItems.map((s) => {
-              /* only roles that can edit a draft are routed to the wizard */
-              const isDraft = canInitiate && isDraftSet(s);
-              return (
-                <tr
-                  key={s.id}
-                  onClick={() => {
-                    if (isDraft) {
-                      setCurrentHashView('create-assurance-set', s.id);
-                    } else {
-                      onSelectSet(s);
-                    }
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <td className="font-mono-code fw-bold text-primary">{s.id}</td>
-                  <td className="fw-semibold">
-                    <div className="d-flex align-items-center gap-2">
-                      <span>{s.title}</span>
-                      {isDraft && (
-                        <span className="badge bg-warning-subtle text-dark border border-warning-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                          Draft
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    {getProjectId(s) ? (
-                      <span className="font-mono-code">{getProjectId(s)}</span>
-                    ) : (
-                      <span className="text-secondary">{ORPHANED_LABEL}</span>
-                    )}
-                  </td>
-                  <td>
-                    {/* creator name for sets made inside the viewer organization, otherwise the initiating organization */}
-                    <span title={s.initiatorOrg}>{getAssuranceSetCreatedByLabel(s, users, activePersona)}</span>
-                  </td>
-                  <td>
-                    <span className={`badge ${getStageBadgeClass(s.stage)}`}>{s.stage}</span>
-                  </td>
-                  <td>
-                    <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />
-                  </td>
-                  <td className="text-end">
-                    <div className="d-flex align-items-center justify-content-end gap-1.5">
-                      {!isDraft && canInitiate && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
-                          style={{ width: '32px', height: '32px' }}
-                          title="Use as template"
-                          aria-label="Use as template"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCurrentHashView('create-assurance-set', s.id);
-                          }}
-                        >
-                          <Copy size={16} />
-                        </button>
-                      )}
-                      {isDraft ? (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center p-0 text-white"
-                          style={{ width: '32px', height: '32px' }}
-                          title="Continue setup"
-                          aria-label="Continue setup"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCurrentHashView('create-assurance-set', s.id);
-                          }}
-                        >
-                          <Play size={16} />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                          style={{ width: '32px', height: '32px' }}
-                          title="View"
-                          aria-label="View"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectSet(s);
-                          }}
-                        >
-                          <Eye size={16} />
-                        </button>
-                      )}
-                    </div>
+            {activeTab === 'public' ? (
+              templatesPagination.pageItems.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center text-secondary py-4">
+                    No public assurance templates found.
                   </td>
                 </tr>
-              );
-            })}
-            {sortedSets.length === 0 && (
+              ) : (
+                templatesPagination.pageItems.map((t) => (
+                  <tr
+                    key={t.id}
+                    onClick={() => {
+                      if (canInitiate) {
+                        setCurrentHashView('create-assurance-set', t.id);
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td className="fw-semibold">
+                      <div className="d-flex flex-column">
+                        <span className="text-dark">{t.title}</span>
+                        {t.description && (
+                          <span className="text-secondary small text-truncate mt-0.5" style={{ maxWidth: '440px', fontSize: '0.775rem' }}>
+                            {t.description}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge bg-info-subtle text-dark border border-info-subtle font-mono-code">
+                        {t.scope || t.assuranceType || 'Vessel'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge bg-light text-dark border font-mono-code">
+                        {t.scopeType || 'General'}
+                      </span>
+                    </td>
+                    <td>
+                      <span title={t.initiatorOrg}>
+                        {t.initiatorOrg || 'Global'}
+                      </span>
+                    </td>
+                    <td className="text-end">
+                      <div className="d-flex align-items-center justify-content-end gap-1.5">
+                        {canInitiate && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
+                            title="Use as template"
+                            aria-label="Use as template"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentHashView('create-assurance-set', t.id);
+                            }}
+                          >
+                            <Copy size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )
+            ) : (
+              setsPagination.pageItems.map((s) => {
+                /* only roles that can edit a draft are routed to the wizard */
+                const isDraft = canInitiate && isDraftSet(s);
+                return (
+                  <tr
+                    key={s.id}
+                    onClick={() => {
+                      if (isDraft) {
+                        setCurrentHashView('create-assurance-set', s.id);
+                      } else {
+                        onSelectSet(s);
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td className="font-mono-code fw-bold text-primary">{s.id}</td>
+                    <td className="fw-semibold">
+                      <div className="d-flex align-items-center gap-2">
+                        <span>{s.title}</span>
+                        {isDraft && (
+                          <span className="badge bg-warning-subtle text-dark border border-warning-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
+                            Draft
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      {getProjectId(s) ? (
+                        <span className="font-mono-code">{getProjectId(s)}</span>
+                      ) : (
+                        <span className="text-secondary">{ORPHANED_LABEL}</span>
+                      )}
+                    </td>
+                    <td>
+                      {/* creator name for sets made inside the viewer organization, otherwise the initiating organization */}
+                      <span title={s.initiatorOrg}>{getAssuranceSetCreatedByLabel(s, users, activePersona)}</span>
+                    </td>
+                    <td>
+                      <span className={`badge ${getStageBadgeClass(s.stage)}`}>{s.stage}</span>
+                    </td>
+                    <td>
+                      <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />
+                    </td>
+                    <td className="text-end">
+                      <div className="d-flex align-items-center justify-content-end gap-1.5">
+                        {!isDraft && canInitiate && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
+                            title="Use as template"
+                            aria-label="Use as template"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentHashView('create-assurance-set', s.id);
+                            }}
+                          >
+                            <Copy size={16} />
+                          </button>
+                        )}
+                        {isDraft ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center p-0 text-white"
+                            style={{ width: '32px', height: '32px' }}
+                            title="Continue setup"
+                            aria-label="Continue setup"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCurrentHashView('create-assurance-set', s.id);
+                            }}
+                          >
+                            <Play size={16} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
+                            title="View"
+                            aria-label="View"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectSet(s);
+                            }}
+                          >
+                            <Eye size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+            {activeTab !== 'public' && sortedSets.length === 0 && (
               <tr>
                 <td colSpan={7} className="text-center text-secondary py-4">
                   {accessibleSets.length > 0
@@ -489,7 +643,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
           </tbody>
         </table>
       </div>
-      <TablePagination {...setsPagination.controls} />
+      <TablePagination {...(activeTab === 'public' ? templatesPagination.controls : setsPagination.controls)} />
 
       {/* Assurance Filter Modal */}
       <FilterModal

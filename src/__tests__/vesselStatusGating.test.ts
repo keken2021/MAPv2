@@ -189,6 +189,7 @@ describe('vessel status assurance gating', () => {
       initiatorRole: 'C Admin · Client Created',
       charterWindowStart: '2025-01-01',
       charterWindowEnd: '2025-12-31',
+      complianceDeadline: '2025-12-31',
       stage: 'Approved',
       readinessScore: 100,
       mandatoryInspectionRequired: false,

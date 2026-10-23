@@ -13,6 +13,7 @@ import { userMatchesAnyRole } from "./userRoleHelpers";
 import { VIEW_TO_SCOPE, canPerform, isUserOverride, getEffectiveUserScopeFlags, getRoleScopeFlags } from "./permissionHelpers";
 import { RolePermissionMatrix, UserPermissionOverrides } from "../types/permissions";
 import { UserProfile } from "../types/user";
+import { MOCK_PERSONA_SESSION_USER_IDS } from "../store/mockData";
 
 /**
   what: checks if an assurance set is assigned to the specified user persona role.
@@ -29,8 +30,26 @@ export function isAssuranceSetAssignedToPersona(
   set: AssuranceSet,
   persona: UserRolePersona,
   organization?: string,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles">,
 ): boolean {
   if (persona === "Administrator") {
+    if (organization) {
+      const orgMatches = pilotPartyMatches(
+        organization,
+        set.serviceProviderOrg,
+        set.initiatorOrg,
+        set.assignedSubmitter,
+        set.stakeholders?.submitterOrg,
+        set.assignedStakeholders?.submitterOrg,
+      );
+      const isOwnerVessel =
+        (organization.toLowerCase().includes("northwind") || organization.toLowerCase().includes("pacific")) &&
+        (set.vesselId === "VESSEL-005" || Boolean(set.vesselName?.toLowerCase().includes("atlantic ocean")));
+      const isMadeByThisOrgAdmin =
+        set.createdByPersona === "Administrator" &&
+        pilotPartyMatches(organization, set.initiatorOrg, set.serviceProviderOrg);
+      return orgMatches || isOwnerVessel || isMadeByThisOrgAdmin;
+    }
     /* administrator only sees assurance sets they made (northwind marine) or made by c admin for the admin's vessels (VESSEL-005 MV Atlantic Ocean) */
     const isNorthwindVessel =
       set.vesselId === "VESSEL-005" ||
@@ -52,6 +71,9 @@ export function isAssuranceSetAssignedToPersona(
     return isNorthwindVessel || isNorthwindStakeholder || isMadeByAdmin;
   }
   if (persona === "Submitter") {
+    if (user?.name && set.assignedSubmitter && set.assignedSubmitter.toLowerCase().includes(user.name.toLowerCase())) {
+      return true;
+    }
     /* submitter / vessel admin can only access assurance sets for their own organization */
     const isAssignedToOrg = Boolean(
       (set.assignedSubmitter &&
@@ -75,6 +97,9 @@ export function isAssuranceSetAssignedToPersona(
     return isAssignedToOrg;
   }
   if (persona === "Verifier") {
+    if (user?.name && set.assignedVerifier && set.assignedVerifier.toLowerCase().includes(user.name.toLowerCase())) {
+      return true;
+    }
     if (organization) {
       return pilotPartyMatches(organization, set.assignedVerifier, set.stakeholders?.verifierOrg);
     }
@@ -82,6 +107,10 @@ export function isAssuranceSetAssignedToPersona(
   }
   if (persona === "Inspector") {
     const assigned = Boolean(set.mandatoryInspectionRequired && set.assignedInspector);
+    if (!assigned) return false;
+    if (user?.name && set.assignedInspector && set.assignedInspector.toLowerCase().includes(user.name.toLowerCase())) {
+      return true;
+    }
     if (!organization) return assigned;
     return assigned && pilotPartyMatches(organization, set.assignedInspector, set.stakeholders?.inspectorOrg);
   }
@@ -96,6 +125,10 @@ export function isAssuranceSetAssignedToPersona(
           (r) => !r.isMandatory || r.verifierStatus === "Verified" || r.isFulfilled,
         ));
     const awaiting = Boolean(set.assignedApprover && isVerifiedAndAwaitingApproval);
+    if (!awaiting) return false;
+    if (user?.name && set.assignedApprover && set.assignedApprover.toLowerCase().includes(user.name.toLowerCase())) {
+      return true;
+    }
     if (!organization) return awaiting;
     return awaiting && pilotPartyMatches(organization, set.assignedApprover, set.stakeholders?.approverOrg);
   }
@@ -171,30 +204,44 @@ export function isAssuranceSetCreatedByCAdmin(
 
 /**
   what: resolves which actions the persona may take on one assurance set; input is the set and the active persona.
-  how: administrator and c admin keep manage rights; each workflow role gets only its own action and only when isAssuranceSetAssignedToPersona is true; c admin also verifies the sets a c admin created, and never uploads.
+  how: administrator and c admin keep manage rights on assigned sets; submitter and administrator can upload on assigned sets; c admin also verifies sets a c admin created; verifier verifies assigned sets; service providers (Administrator, Submitter) never verify.
   with what file: src/utils/rbacHelpers.ts used by AssuranceDetailView.tsx; segregation checks stay in DocumentReviewDrawer.tsx and ApproverDashboardView.tsx.
 */
 export function getAssuranceSetRoleActions(
   set: AssuranceSet,
   persona: UserRolePersona,
   organization?: string,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles">,
 ): AssuranceSetRoleActions {
-  const isAdmin = persona === "Administrator";
-  const isAssigned =
-    isAssuranceSetsReadOnlyPersona(persona) &&
-    isAssuranceSetAssignedToPersona(set, persona, organization);
+  const isAssigned = isAssuranceSetAssignedToPersona(set, persona, organization, user);
+
+  /* administrators and client admins may only manage sets they are assigned stakeholders in */
+  const canManage = (persona === "Administrator" || persona === "C Admin") && isAssigned;
+
+  /* service providers (Administrator, Submitter) may upload on their assigned sets; clients and reviewers never upload */
+  const canUpload = (persona === "Administrator" || persona === "Submitter") && isAssigned;
+
   /* the client admin verifies the documents the provider uploads on a set the client admin created */
   const isClientVerifier =
     persona === "C Admin" &&
     isAssuranceSetCreatedByCAdmin(set) &&
-    isAssuranceSetAssignedToPersona(set, persona, organization);
+    isAssigned;
+
+  /* verifier verifies on assigned sets; service providers (Administrator, Submitter) never verify */
+  const canVerify = isClientVerifier || (persona === "Verifier" && isAssigned);
+
+  /* inspector inspects on assigned sets */
+  const canInspect = persona === "Inspector" && isAssigned;
+
+  /* approver approves on assigned sets */
+  const canApprove = persona === "Approver" && isAssigned;
 
   return {
-    canManage: isAdmin || persona === "C Admin",
-    canUpload: isAdmin || (persona === "Submitter" && isAssigned),
-    canVerify: isAdmin || isClientVerifier || (persona === "Verifier" && isAssigned),
-    canInspect: persona === "Inspector" && isAssigned,
-    canApprove: persona === "Approver" && isAssigned,
+    canManage,
+    canUpload,
+    canVerify,
+    canInspect,
+    canApprove,
   };
 }
 
@@ -276,15 +323,23 @@ export function isAssuranceSetStakeholderAssignmentLocked(
   return getAssuranceSetStakeholderLockReason(assuranceSet) !== null;
 }
 
-/** Administrator and C Admin may reassign stakeholders only while the campaign is still editable. */
+/** Administrator and C Admin may reassign stakeholders only on sets they are assigned stakeholders in and while the campaign is still editable. */
 export function canEditAssuranceSetStakeholders(
   assuranceSet: AssuranceSetStakeholderLockInput,
   persona: UserRolePersona,
+  organization?: string,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles">,
 ): boolean {
   if (persona !== 'Administrator' && persona !== 'C Admin') {
     return false;
   }
-  return !isAssuranceSetStakeholderAssignmentLocked(assuranceSet);
+  if (isAssuranceSetStakeholderAssignmentLocked(assuranceSet)) {
+    return false;
+  }
+  if (organization && ('requirements' in assuranceSet || 'initiatorOrg' in assuranceSet || 'vesselId' in assuranceSet)) {
+    return isAssuranceSetAssignedToPersona(assuranceSet as AssuranceSet, persona, organization, user);
+  }
+  return true;
 }
 
 /**
@@ -558,71 +613,42 @@ export function filterUsersForPersona(
 }
 
 /**
-  what: filters audit trail event logs based on active user persona RBAC rules.
-  how: returns all events for Administrator, and for non-admin personas returns only events for tasks related to them or performed by the system.
-  with what file: src/utils/rbacHelpers.ts consumed by AuditTrailView, AuditTrailDrawer, DashboardView, and VesselDetailView.
+  what: filters audit trail event logs to return only the user's activities.
+  how: returns events where ev.userId matches the user's id (session user ID or persona fallback).
+  with what file: src/utils/rbacHelpers.ts consumed by AuditTrailView, AuditTrailDrawer, and VesselDetailView.
+*/
+export function filterAuditTrailForUser(
+  events: AuditTrailEvent[],
+  userId?: string,
+  persona?: UserRolePersona,
+): AuditTrailEvent[] {
+  const effectiveUserId = userId || (persona ? MOCK_PERSONA_SESSION_USER_IDS[persona] : undefined);
+  if (!effectiveUserId && !persona) return [];
+
+  return events.filter((ev) => {
+    if (effectiveUserId && ev.userId === effectiveUserId) {
+      return true;
+    }
+    if (persona && (ev.userId === persona || ev.userId === `${persona} (no user record)`)) {
+      return true;
+    }
+    return false;
+  });
+}
+
+/**
+  what: filters audit trail event logs based on active user persona and session user RBAC rules.
+  how: ensures the audit trail displays only the active user's activities.
+  with what file: src/utils/rbacHelpers.ts consumed by AuditTrailView, AuditTrailDrawer, and VesselDetailView.
 */
 export function filterAuditTrailForPersona(
   events: AuditTrailEvent[],
   persona: UserRolePersona,
-  assuranceSets: AssuranceSet[],
-  vessels: VesselInformation[],
+  assuranceSets?: AssuranceSet[],
+  vessels?: VesselInformation[],
+  userId?: string,
 ): AuditTrailEvent[] {
-  if (persona === "Administrator") {
-    return events;
-  }
-
-  /* get IDs and names of assurance sets and vessels assigned to persona */
-  const assignedSets = assuranceSets.filter((set) =>
-    isAssuranceSetAssignedToPersona(set, persona),
-  );
-  const assignedVessels = filterVesselsForPersona(
-    vessels,
-    assuranceSets,
-    persona,
-  );
-
-  const assignedSetKeys = new Set<string>();
-  assignedSets.forEach((set) => {
-    if (set.id) assignedSetKeys.add(set.id.toLowerCase());
-    if (set.title) assignedSetKeys.add(set.title.toLowerCase());
-    if (set.vesselName) assignedSetKeys.add(set.vesselName.toLowerCase());
-  });
-
-  const assignedVesselKeys = new Set<string>();
-  assignedVessels.forEach((v) => {
-    if (v.id) assignedVesselKeys.add(v.id.toLowerCase());
-    if (v.name) assignedVesselKeys.add(v.name.toLowerCase());
-    if (v.imoNumber) assignedVesselKeys.add(v.imoNumber.toLowerCase());
-  });
-
-  return events.filter((ev) => {
-    /* 1. Tasks performed by system / automated background routines */
-    const isSystemEvent =
-      ev.userRole === ("System" as any) ||
-      ev.userRole.toLowerCase().includes("system") ||
-      ev.userRole.toLowerCase().includes("ocr") ||
-      ev.userId.toLowerCase().includes("sys") ||
-      ev.userId.toLowerCase().includes("system");
-
-    if (isSystemEvent) return true;
-
-    /* 2. Tasks performed by active persona role */
-    if (ev.userRole === persona) return true;
-
-    /* 3. Tasks related to assigned sets or vessels */
-    const targetLower = (ev.targetAsset || "").toLowerCase();
-
-    for (const key of assignedSetKeys) {
-      if (key && targetLower.includes(key)) return true;
-    }
-
-    for (const key of assignedVesselKeys) {
-      if (key && targetLower.includes(key)) return true;
-    }
-
-    return false;
-  });
+  return filterAuditTrailForUser(events, userId, persona);
 }
 
 /**

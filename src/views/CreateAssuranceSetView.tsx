@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import {
   AssuranceSet,
+  AssuranceTemplate,
   AssuranceRequirement,
   AssuranceSubtype,
   ReviewMode,
@@ -48,6 +49,7 @@ import {
   orderAssuranceScopes,
   getPrimaryAssuranceScope,
   getAssuranceSetScopes,
+  getAssuranceSetScopeType,
   getAssuranceSetCrewIds,
   buildAssuranceWizardSteps,
   customRequirementFields,
@@ -55,8 +57,6 @@ import {
 } from '../utils/assuranceTemplates';
 import {
   autoAttachDocumentsToRequirements,
-  findMatchingDocumentForRequirement,
-  getAssetAutoAttachSummary,
 } from '../utils/documentMatchingHelpers';
 import {
   findOverlappingAssuranceSets,
@@ -96,7 +96,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     crew,
     documents,
     assuranceSets,
+    assuranceTemplates = [],
     addAssuranceSet,
+    addAssuranceTemplate,
     updateAssuranceSet,
     activePersona,
     setCurrentHashView,
@@ -655,8 +657,48 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   useEffect(() => {
     if (templateSetId) {
       setSelectedGlobalTemplateId(templateSetId);
+      const publicTmpl = (assuranceTemplates || []).find((t) => t.id === templateSetId);
       const target = assuranceSets.find((s) => s.id === templateSetId);
-      if (target) {
+
+      if (publicTmpl) {
+        // Pre-fill from public generalized AssuranceTemplate (no specific asset bindings)
+        const templateScope = publicTmpl.scope || publicTmpl.assuranceType || 'Vessel';
+        if (!lockedAsset) setSelectedScopes([templateScope]);
+        setTitle(`${defaultCharterer} - ${publicTmpl.scopeType || initialSubjectName} Charter Vetting`);
+        setTemplatePrivacy('organization');
+        setVerificationRequired(publicTmpl.verificationRequired ?? true);
+        setInspectionRequired(publicTmpl.mandatoryInspectionRequired ?? true);
+        setApprovalRequired(publicTmpl.formalApprovalRequired ?? true);
+        if (publicTmpl.reviewMode) setReviewMode(publicTmpl.reviewMode);
+
+        const updatedToggles: Record<string, boolean> = {};
+        Object.values(SUBTYPE_STANDARD_DOCS).flat().forEach((doc) => {
+          const matched = publicTmpl.requirements.some(
+            (r) => r.title.toLowerCase().includes(doc.title.toLowerCase()) || doc.title.toLowerCase().includes(r.title.toLowerCase()),
+          );
+          if (matched) {
+            updatedToggles[doc.id] = true;
+          }
+        });
+        setDocToggles((prev) => ({ ...prev, ...updatedToggles }));
+
+        const customReqs: SpecializedDoc[] = publicTmpl.requirements
+          .filter((r) => !Object.values(SUBTYPE_STANDARD_DOCS).flat().some((d) => d.title.toLowerCase() === r.title.toLowerCase()))
+          .map((r, idx) => ({
+            id: `template-spec-${idx}-${Date.now()}`,
+            subtype: (r.subtype as AssuranceSubtype) || templateScope,
+            title: r.title,
+            category: r.category,
+            description: r.description || '',
+            isMandatory: r.isMandatory,
+            isEnabled: true,
+          }));
+        if (customReqs.length > 0) {
+          setSpecializedDocs(customReqs);
+        }
+
+        triggerAutofillAnimation(['grid-campaign-title', 'grid-target-vessel', 'grid-charter-start', 'grid-charter-end']);
+      } else if (target) {
         if (target.visibility === 'draft') {
           // Resume draft editing in-place
           setEditingDraftId(target.id);
@@ -1128,10 +1170,25 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const effectiveImo =
       assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
 
+    const isPublicTemplateRequested = templatePrivacy === 'public';
+
     const newSet: AssuranceSet = {
       id: targetSetId,
       title: title.trim(),
       assuranceType,
+      scopeType: getAssuranceSetScopeType(
+        {
+          assuranceType,
+          subtypes: activeSubtypes,
+          vesselId: selectedVessel?.id,
+          crewId: selectedScopes.includes('Crew') ? selectedCrewId : undefined,
+          equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
+          title,
+        },
+        vessels,
+        crew,
+        equipment,
+      ),
       projectId: selectedProject?.id,
       projectName: selectedProject?.name,
       crewId: selectedScopes.includes('Crew') ? selectedCrewId : undefined,
@@ -1177,8 +1234,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           assignedVerifier: reqAssignedVerifier,
         },
       },
-      visibility: templatePrivacy,
-      templateSource: templatePrivacy,
+      visibility: 'organization',
+      templateSource: isPublicTemplateRequested ? 'public' : 'organization',
       appliedTemplates: selectedSubtypeTemplates,
       vesselId: selectedVessel?.id || '',
       vesselName: effectiveAssetName,
@@ -1228,6 +1285,51 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       updateAssuranceSet(newSet);
     } else {
       addAssuranceSet(newSet);
+    }
+
+    // When Public scope is selected for template privacy, auto-create a duplicate generalized AssuranceTemplate with AST- ID
+    if (isPublicTemplateRequested) {
+      const derivedScopeType = newSet.scopeType || 'General';
+      const existingTmplCount = (assuranceTemplates || []).length;
+      let nextNum = existingTmplCount + 1;
+      let candidateId = `AST-2026-${String(nextNum).padStart(3, '0')}`;
+      while ((assuranceTemplates || []).some((t) => t.id === candidateId)) {
+        nextNum++;
+        candidateId = `AST-2026-${String(nextNum).padStart(3, '0')}`;
+      }
+
+      const duplicateTemplate: AssuranceTemplate = {
+        id: candidateId,
+        title: `${derivedScopeType} Standard Assurance Template`,
+        description: `Generalized public assurance template for ${derivedScopeType} operations. Published by ${initiatorOrg}.`,
+        scope: assuranceType,
+        assuranceType,
+        scopeType: derivedScopeType,
+        visibility: 'public',
+        templateSource: 'public',
+        subtypes: activeSubtypes,
+        requirements: effectiveRequirements.map((r, i) => ({
+          ...r,
+          id: `AST-REQ-${String(nextNum).padStart(3, '0')}-${i + 1}`,
+          isFulfilled: false,
+          ocrConfidence: 0,
+          documentId: undefined,
+          linkedDocumentId: undefined,
+          verifierStatus: 'Pending',
+          notes: undefined,
+        })),
+        initiatorOrg,
+        createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
+        createdByName: creatorName,
+        createdAt: new Date().toISOString(),
+        mandatoryInspectionRequired: inspectionRequired,
+        verificationRequired,
+        formalApprovalRequired: approvalRequired,
+        reviewMode,
+        reviewChannels: reviewMode === 'mixed' ? ['internal', 'third_party', 'issuing_authority'] : [reviewMode],
+      };
+
+      addAssuranceTemplate(duplicateTemplate);
     }
 
     /* an initiated set with a project joins that project roster; the set keeps a single project */
@@ -1684,7 +1786,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           )}
                         </div>
                         <span className="text-secondary font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          Seaman's Book: {c.seamansBookNo} &middot; {c.organization} &middot; {c.currentVesselName || 'Unassigned'}
+                          Seaman's Book: {c.seamansBookNo} &middot; {c.organization}
                         </span>
                       </span>
                     </label>
@@ -1936,30 +2038,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             <div className="d-flex flex-column gap-3">
               {standardDocs.map((doc) => {
                 const isEnabled = Boolean(docToggles[doc.id]);
-                const matchedAssetDoc = findMatchingDocumentForRequirement(
-                  {
-                    id: doc.id,
-                    title: doc.title,
-                    category: doc.category,
-                    subtype: doc.subtype,
-                    isMandatory: doc.isMandatory,
-                    isFulfilled: false,
-                    ocrConfidence: 0,
-                    verifierStatus: 'Pending',
-                  },
-                  {
-                    documents,
-                    vessel: selectedVesselForScope,
-                    vessels,
-                    crew,
-                    selectedCrewId,
-                    selectedCrewIds,
-                    equipment,
-                    selectedEquipmentId,
-                    selectedVesselId: vesselId,
-                    targetSubtype: subtype,
-                  }
-                );
 
                 return (
                   <div
@@ -1987,19 +2065,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             >
                               {doc.title}
                             </label>
-                            <span className="badge bg-secondary-subtle text-dark border font-mono-code" style={{ fontSize: '0.675rem' }}>
-                              {doc.category}
-                            </span>
-                            {doc.isMandatory && (
-                              <span className="badge bg-danger-subtle text-danger border border-danger-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                Statutory
-                              </span>
-                            )}
-                            {matchedAssetDoc && (
-                              <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                Linked ({matchedAssetDoc.documentId})
-                              </span>
-                            )}
                           </div>
                           <p className="text-secondary small mb-0 mt-1" style={{ lineHeight: '1.45', fontSize: '0.8125rem' }}>
                             {doc.description}
@@ -2167,12 +2232,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         <div>
                           <div className="d-flex align-items-center gap-2">
                             <strong className="text-dark small">{spec.title}</strong>
-                            <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                              {getThreePillarsCategory(savedRequirementSubtype(spec), spec.category)}
-                            </span>
-                            <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                              Custom
-                            </span>
                           </div>
                           <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem' }}>
                             {spec.description}
@@ -3105,13 +3164,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                               <th className="py-2 px-3 fw-semibold">Rank</th>
                                               <th className="py-2 px-3 fw-semibold font-mono-code">Seaman's Book</th>
                                               <th className="py-2 px-3 fw-semibold">Organization</th>
-                                              <th className="py-2 px-3 fw-semibold">Current Vessel</th>
                                             </tr>
                                           </thead>
                                           <tbody>
                                             {selectedCrewMembers.length === 0 ? (
                                               <tr>
-                                                <td colSpan={5} className="py-3 px-3 text-center text-secondary">
+                                                <td colSpan={4} className="py-3 px-3 text-center text-secondary">
                                                   No crew members selected
                                                 </td>
                                               </tr>
@@ -3122,7 +3180,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                                   <td className="py-2 px-3 text-secondary">{c.rank}</td>
                                                   <td className="py-2 px-3 font-mono-code text-secondary">{c.seamansBookNo || c.id}</td>
                                                   <td className="py-2 px-3 text-secondary">{c.organization}</td>
-                                                  <td className="py-2 px-3 text-secondary">{c.currentVesselName || 'Unassigned'}</td>
                                                 </tr>
                                               ))
                                             )}
@@ -3143,77 +3200,81 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         </div>
                       </div>
 
-                      {/* Auto-Attached Documents from Asset Vault */}
+                      {/* Required & Added Documents Needed for Assurance Set */}
                       {(() => {
                         const activeSubtypes = orderAssuranceScopes(selectedScopes);
 
-                        const currentReqs: AssuranceRequirement[] = [];
-                        let reqIndex = 0;
+                        const allNeededDocs: { subtype: AssuranceSubtype; title: string; isCustom: boolean; isMandatory: boolean }[] = [];
                         activeSubtypes.forEach((subtype) => {
                           SUBTYPE_STANDARD_DOCS[subtype].forEach((doc) => {
                             if (docToggles[doc.id]) {
-                              currentReqs.push({
-                                id: `req-preview-${reqIndex++}`,
-                                category: doc.category,
+                              allNeededDocs.push({
+                                subtype,
                                 title: doc.title,
-                                subtype: doc.subtype,
+                                isCustom: false,
                                 isMandatory: doc.isMandatory,
-                                isFulfilled: false,
-                                ocrConfidence: 0,
-                                verifierStatus: 'Pending',
                               });
                             }
                           });
                           specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled).forEach((spec) => {
-                            currentReqs.push({
-                              id: `req-preview-${reqIndex++}`,
-                              category: spec.category,
+                            allNeededDocs.push({
+                              subtype,
                               title: spec.title,
-                              subtype: savedRequirementSubtype(spec),
+                              isCustom: true,
                               isMandatory: spec.isMandatory,
-                              isSpecialized: true,
-                              isFulfilled: false,
-                              ocrConfidence: 0,
-                              verifierStatus: 'Pending',
                             });
                           });
                         });
 
-                        const summary = getAssetAutoAttachSummary(currentReqs, {
-                          documents,
-                          vessel: selectedVesselForScope,
-                          vessels,
-                          crew,
-                          selectedCrewId,
-                          selectedCrewIds,
-                          equipment,
-                          selectedEquipmentId,
-                          selectedVesselId: vesselId,
-                          targetSubtype: assuranceType,
-                        });
+                        const standardCount = allNeededDocs.filter((d) => !d.isCustom).length;
+                        const addedCount = allNeededDocs.filter((d) => d.isCustom).length;
 
                         return (
                           <div className="col-12">
-                            <div className="p-3 bg-light-subtle rounded-3 border border-primary-subtle">
+                            <div className="p-3 bg-light-subtle rounded-3 border border-secondary-subtle">
                               <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                                 <div className="d-flex align-items-center gap-2">
                                   <FileCheck className="text-primary" style={{ width: '18px', height: '18px' }} />
-                                  <strong className="text-dark small">Attached Documents</strong>
+                                  <strong className="text-dark small">Required &amp; Added Documents ({allNeededDocs.length})</strong>
                                 </div>
-                                <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.75rem' }}>
-                                  {summary.autoAttachedCount} of {summary.totalCount} Matched
+                                <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.75rem' }}>
+                                  {standardCount} Required · {addedCount} Added
                                 </span>
                               </div>
-                              <p className="text-secondary small mb-2" style={{ fontSize: '0.8125rem' }}>
-                                Existing documents for this asset are attached automatically when the set is created.
+                              <p className="text-secondary small mb-3" style={{ fontSize: '0.8125rem' }}>
+                                These documents are required for this assurance set. Existing documents will only attach themselves or show after the set has been created.
                               </p>
-                              {summary.attachedDetails.length > 0 && (
-                                <div className="d-flex flex-wrap gap-2 pt-1">
-                                  {summary.attachedDetails.map((item, idx) => (
-                                    <span key={idx} className="badge bg-white text-dark border font-mono-code px-2 py-1" style={{ fontSize: '0.7rem' }}>
-                                      {item.reqTitle} &rarr; <span className="text-primary fw-semibold">{item.docId}</span> (OCR: {item.ocrConfidence}%)
-                                    </span>
-                                  ))}
+                              {allNeededDocs.length === 0 ? (
+                                <div className="text-muted small fst-italic">No documents required or added for this set.</div>
+                              ) : (
+                                <div className="d-flex flex-column gap-2.5">
+                                  {activeSubtypes.map((sub) => {
+                                    const subDocs = allNeededDocs.filter((d) => d.subtype === sub);
+                                    if (subDocs.length === 0) return null;
+                                    return (
+                                      <div key={sub} className="bg-white p-3 rounded-2 border">
+                                        <div className="fw-semibold text-dark small mb-2">
+                                          {sub} Scope Documents ({subDocs.length})
+                                        </div>
+                                        <div className="d-flex flex-column gap-1.5">
+                                          {subDocs.map((doc, idx) => (
+                                            <div
+                                              key={idx}
+                                              className="d-flex align-items-center justify-content-between p-2 rounded-1 bg-light small"
+                                            >
+                                              <span className="text-dark fw-medium">{doc.title}</span>
+                                              <span
+                                                className={`badge ${doc.isCustom ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`}
+                                                style={{ fontSize: '0.7rem' }}
+                                              >
+                                                {doc.isCustom ? 'Added' : 'Required'}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>

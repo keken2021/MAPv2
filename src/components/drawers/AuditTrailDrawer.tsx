@@ -4,11 +4,16 @@
   role in system: global drawer triggered from header banner button.
 */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { filterAuditTrailForPersona } from '../../utils/rbacHelpers';
-import { getRoleDisplayLabel } from '../../utils/userRoleHelpers';
+import {
+  getDemoSessionContext,
+  getRoleDisplayLabel,
+  getSessionUserForPersona,
+  pickSessionUserForOrgPersona,
+} from '../../utils/userRoleHelpers';
 import { Drawer } from './Drawer';
 
 /**
@@ -17,12 +22,39 @@ import { Drawer } from './Drawer';
   with what file: src/components/drawers/AuditTrailDrawer.tsx loaded by App.tsx.
 */
 export const AuditTrailDrawer: React.FC = () => {
-  const { isAuditDrawerOpen, setAuditDrawerOpen, auditEvents, activePersona, assuranceSets, vessels } = useMapStore();
+  const {
+    isAuditDrawerOpen,
+    setAuditDrawerOpen,
+    auditEvents,
+    activePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
+    users,
+    assuranceSets,
+    vessels,
+  } = useMapStore();
   const [searchTerm, setSearchTerm] = useState('');
+
+  const sessionUser = useMemo(
+    () =>
+      getSessionUserForPersona(
+        activePersona,
+        users,
+        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+      ) ?? pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona),
+    [activePersona, users, activeDemoOrganization, activeSessionUserId],
+  );
 
   if (!isAuditDrawerOpen) return null;
 
-  const visibleEvents = filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels);
+  const currentUserId = sessionUser?.id || activeSessionUserId;
+  const visibleEvents = filterAuditTrailForPersona(
+    auditEvents,
+    activePersona,
+    assuranceSets,
+    vessels,
+    currentUserId,
+  );
 
   const filteredEvents = visibleEvents.filter((ev) =>
     ev.action.toLowerCase().includes(searchTerm.toLowerCase()) ||

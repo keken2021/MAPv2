@@ -183,6 +183,8 @@ export interface AssuranceSet {
   id: string; // e.g. AS-2026-001
   title: string; // e.g. Chevron Gorgon Charter Vetting
   assuranceType?: AssuranceScopeType;
+  /** specific asset or operational category, e.g. Tanker, Barge, Captain */
+  scopeType?: string;
   /** nullable foreign key: a set belongs to at most one project; a project has zero or many sets */
   projectId?: string;
   projectName?: string;
@@ -242,3 +244,36 @@ export interface AssuranceSet {
   /** iso date-time the set was approved and its document versions locked */
   lockedAt?: string;
 }
+
+/**
+ * Generalized public assurance template blueprint.
+ * Stripped of any specific asset bindings (no vessel, crew, equipment, project or execution stages).
+ * Identified by AST- prefix.
+ */
+export interface AssuranceTemplate {
+  /** template unique identifier, strictly prefixed with AST- (e.g. AST-2026-001) */
+  id: string;
+  title: string;
+  description?: string;
+  /** primary operational scope (Vessel, Crew, Equipment, Activity) */
+  scope: AssuranceScopeType;
+  /** operational scope alias for compatibility */
+  assuranceType?: AssuranceScopeType;
+  /** specific asset or operational category, e.g. Tanker, Barge, Captain, Crane, Lifeboat */
+  scopeType: string;
+  visibility: 'public';
+  templateSource?: 'public' | 'organization' | 'custom';
+  appliedTemplates?: Record<string, string>;
+  subtypes?: AssuranceSubtype[];
+  requirements: AssuranceRequirement[];
+  initiatorOrg: string;
+  createdByPersona?: string;
+  createdByName?: string;
+  createdAt?: string;
+  mandatoryInspectionRequired?: boolean;
+  verificationRequired?: boolean;
+  formalApprovalRequired?: boolean;
+  reviewMode?: ReviewMode;
+  reviewChannels?: ReviewChannel[];
+}
+

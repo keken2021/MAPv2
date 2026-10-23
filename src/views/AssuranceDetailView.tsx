@@ -24,6 +24,7 @@ import {
   userHasRole,
   filterCandidatesByReviewMode,
   filterEligibleApproversForScope,
+  getSessionUserForPersona,
 } from '../utils/userRoleHelpers';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import {
@@ -65,11 +66,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     raiseDocumentRenewalNotifications,
     documents,
     activePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
     users,
     projects,
     attachAssuranceSetToProject,
     setCurrentHashView,
-    activeDemoOrganization,
     notifications,
   } = useMapStore();
   const [stakeholderError, setStakeholderError] = useState<string | null>(null);
@@ -180,6 +182,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const isLastRequirementsPage =
     requirementsPagination.controls.page === requirementsPagination.controls.totalPages;
 
+  const sessionUser = useMemo(
+    () =>
+      users.find((u) => u.id === activeSessionUserId) ||
+      getSessionUserForPersona(activePersona, users, { organization: activeDemoOrganization, sessionUserId: activeSessionUserId }),
+    [users, activeSessionUserId, activeDemoOrganization, activePersona],
+  );
+
   if (!assuranceSet) return <div>Assurance Set not found.</div>;
 
   if (assuranceSet.visibility === 'draft') {
@@ -201,7 +210,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             >
               Back to Assurance Sets
             </button>
-            {getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization).canManage && (
+            {getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization, sessionUser).canManage && (
               <button
                 type="button"
                 className="btn btn-primary px-4 fw-semibold"
@@ -217,7 +226,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   }
 
   const isCAdmin = isCAdminPersona;
-  const roleActions = getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization);
+  const roleActions = getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization, sessionUser);
   const shortCertificates = listCertificatesShortOfContract(
     assuranceSet,
     documents,
@@ -381,7 +390,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   };
   const canUpload = roleActions.canUpload;
   const stakeholderLockReason = getAssuranceSetStakeholderLockReason(assuranceSet);
-  const canEditStakeholders = canEditAssuranceSetStakeholders(assuranceSet, activePersona);
+  const canEditStakeholders =
+    roleActions.canManage &&
+    canEditAssuranceSetStakeholders(assuranceSet, activePersona, activeDemoOrganization, sessionUser);
   const isLinkedSubSet = (req: AssuranceRequirement) =>
     req.fulfillmentType === 'assurance_set' || Boolean(req.linkedAssuranceSetId);
 
@@ -542,7 +553,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               </div>
               {/* Top header action controls: Use as Template button & Export Data dropdown */}
               <div className="d-flex align-items-center gap-2 ms-auto">
-                {(isCAdmin || activePersona === 'Administrator') && (
+                {(roleActions.canManage || ((isCAdmin || activePersona === 'Administrator') && (assuranceSet.visibility === 'public' || assuranceSet.templateSource === 'public'))) && (
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-primary"

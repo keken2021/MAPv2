@@ -34,6 +34,67 @@ export function getAssuranceSetScopes(set: Pick<AssuranceSet, 'assuranceType' | 
   return [ALL_ASSURANCE_SCOPES.find((scope) => subtypes.includes(scope)) || 'Vessel'];
 }
 
+/* the primary scope of a saved set: Vessel, Crew, Activity, or Equipment */
+export function getAssuranceSetScope(set: Pick<AssuranceSet, 'assuranceType' | 'subtypes'>): AssuranceSubtype {
+  return getAssuranceSetScopes(set)[0];
+}
+
+/**
+ * Derives the specific asset or operational category (e.g. Barge, Captain, Tanker, Lifeboat).
+ * Uses set.scopeType when explicitly assigned, falling back to asset records or title heuristics.
+ */
+export function getAssuranceSetScopeType(
+  set: Pick<AssuranceSet, 'scopeType' | 'assuranceType' | 'subtypes' | 'crewId' | 'equipmentId' | 'vesselId' | 'title'>,
+  vessels?: { id: string; vesselType?: string; subtype?: string }[],
+  crew?: { id: string; rank?: string }[],
+  equipment?: { id: string; type?: string }[],
+): string {
+  if (set.scopeType) return set.scopeType;
+
+  const scope = getAssuranceSetScope(set);
+
+  if (scope === 'Crew') {
+    if (set.crewId && crew) {
+      const member = crew.find((c) => c.id === set.crewId);
+      if (member?.rank) return member.rank;
+    }
+    const t = set.title.toLowerCase();
+    if (t.includes('capt') || t.includes('master')) return 'Captain';
+    if (t.includes('chief engineer')) return 'Chief Engineer';
+    if (t.includes('officer')) return 'Officer';
+    if (t.includes('deck') || t.includes('seafarer') || t.includes('bosun')) return 'Able Seafarer';
+    return 'Crew';
+  }
+
+  if (scope === 'Equipment') {
+    if (set.equipmentId && equipment) {
+      const eq = equipment.find((e) => e.id === set.equipmentId);
+      if (eq?.type) return eq.type;
+    }
+    const t = set.title.toLowerCase();
+    if (t.includes('crane')) return 'Crane';
+    if (t.includes('lifeboat')) return 'Lifeboat';
+    if (t.includes('rov')) return 'ROV System';
+    return 'Equipment';
+  }
+
+  if (scope === 'Vessel') {
+    if (set.vesselId && vessels) {
+      const vessel = vessels.find((v) => v.id === set.vesselId);
+      if (vessel?.vesselType) return vessel.vesselType;
+      if (vessel?.subtype) return vessel.subtype;
+    }
+    const t = set.title.toLowerCase();
+    if (t.includes('tanker')) return 'Tanker';
+    if (t.includes('barge') || t.includes('subsea')) return 'Barge';
+    if (t.includes('ahts')) return 'AHTS';
+    if (t.includes('tug')) return 'Tug';
+    return 'Vessel';
+  }
+
+  return scope;
+}
+
 export interface AssuranceSetAsset {
   type: AssuranceSubtype;
   id: string;
@@ -566,6 +627,19 @@ const SS05_CONTROL_TASKS: TemplateCustomRequirement[] = [
   { pillar: 'Process', title: 'Professional indemnity and cyber insurance', description: 'Valid cover that meets the client minimum.' },
 ];
 
+const GENERIC_ASSURANCE_CUSTOM_TASKS: TemplateCustomRequirement[] = [
+  { pillar: 'Plant', title: 'Cargo Ship Safety Radio Certificate (SOLAS)', description: 'GMDSS radio installation and emergency beacon compliance for [Vessel Type].' },
+  { pillar: 'Plant', title: 'International Air Pollution Prevention Certificate (IAPP)', description: 'MARPOL Annex VI compliance for exhaust emissions and fuel oil quality for [Vessel Type].' },
+  { pillar: 'Plant', title: 'International Ship Security Certificate (ISSC)', description: 'ISPS Code compliance and verified Ship Security Plan for [Vessel Type].' },
+  { pillar: 'Plant', title: 'Lifeboat & Rescue Boat Release Mechanism Inspection Certificate', description: 'Annual and five-yearly thorough examination and dynamic brake test compliant with IMO MSC.402(96).' },
+  { pillar: 'People', title: 'High Voltage Safety Endorsement', description: 'Certified electrical safety qualification for high-voltage marine installations for [Crew Type].' },
+  { pillar: 'People', title: 'Able Seafarer Deck Certificate (STCW II/5)', description: 'Certified qualifications for navigational watchkeeping and deck safety operations for [Crew Type].' },
+  { pillar: 'People', title: 'Key Personnel Appointments (DPA & CSO)', description: 'Formal appointment and 24/7 contact records for shore-based safety and security management.' },
+  { pillar: 'Process', title: 'Project HSE Management Plan & Safety Statistics', description: 'Health, Safety, and Environment plan with trailing safety performance statistics (LTIF/TRCF).' },
+  { pillar: 'Process', title: 'Management of Change (MOC) Procedure', description: 'Formal procedure for assessing, approving, and documenting technical and operational alterations.' },
+  { pillar: 'Process', title: 'Port & Terminal Regulations Acknowledgment', description: 'Written acknowledgment of port limits, navigation channels, and local maritime safety directions.' },
+];
+
 export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
   {
     id: 'tmpl-pub-ss04-bunkering',
@@ -666,6 +740,42 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
       'act-mop-method', 'act-hazid-hazop', 'act-emergency-response', 'act-simops-matrix',
       'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-helideck-cert', 'eq-rigging-slings',
     ],
+  },
+  {
+    id: 'tmpl-pub-generic-assurance',
+    subtype: 'All',
+    name: 'Generic Offshore Marine Assurance Template (illustrative)',
+    source: 'public',
+    description: 'Clean, generalized assurance template covering generic [Vessel Type], [Crew Type], [Activity Type], and [Equipment Type] statutory and operational requirements. Template by: [Organization Name].',
+    recommendedDocIds: [
+      'vessel-class-cert',
+      'vessel-solas-safety',
+      'vessel-flag-registry',
+      'vessel-safe-manning',
+      'vessel-iopp-cert',
+      'vessel-bwm-cert',
+      'vessel-ism-doc',
+      'vessel-ism-smc',
+      'vessel-pi-entry',
+      'vessel-mlc-cert',
+      'vessel-inspection-report',
+      'crew-stcw-coc',
+      'crew-eng1-medical',
+      'crew-bosiet-training',
+      'crew-dp-logbook',
+      'crew-dg-endorsement',
+      'act-mop-method',
+      'act-hazid-hazop',
+      'act-mooring-analysis',
+      'act-emergency-response',
+      'act-simops-matrix',
+      'eq-lifting-register',
+      'eq-dp-fmea-trials',
+      'eq-rov-winch-test',
+      'eq-helideck-cert',
+      'eq-rigging-slings',
+    ],
+    customRequirements: GENERIC_ASSURANCE_CUSTOM_TASKS,
   },
 
   // Organization Single-Subtype Templates

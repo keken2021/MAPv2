@@ -138,14 +138,20 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
 
   /* a version locked on an approved set takes no new upload */
   const canSubmit = allowSubmit && !isVersionLocked && (activePersona === 'Submitter' || activePersona === 'Administrator');
+
   /* the client admin verifies the documents on a set a client admin created; it never edits or uploads them */
   const isClientVerifier =
-    activePersona === 'C Admin' && Boolean(linkedSet) && isAssuranceSetCreatedByCAdmin(linkedSet!);
+    activePersona === 'C Admin' &&
+    Boolean(linkedSet) &&
+    isAssuranceSetCreatedByCAdmin(linkedSet!);
+
+  /* service providers (Administrator, Submitter) never verify; verifier verifies when allowed by set role scope */
   const canVerify =
     allowVerify &&
     hasReviewContext &&
     !isSubmitter &&
-    (activePersona === 'Verifier' || activePersona === 'Administrator' || isClientVerifier);
+    activePersona !== 'Administrator' &&
+    (activePersona === 'Verifier' || isClientVerifier);
   /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
   const reuploadBlockReason = getDocumentReuploadBlockReason(document, notifications);
 
