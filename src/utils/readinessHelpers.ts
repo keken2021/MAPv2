@@ -176,7 +176,7 @@ export function calculateAssuranceSetReadiness(
 
 /**
   what: calculates the dynamic fleet compliance readiness score for a vessel based on all linked assurance sets and statutory documents.
-  how: aggregates document and requirement scores linked to the vessel and computes the average score.
+  how: aggregates document and requirement scores linked to the vessel and computes the average score. It is an overview only: it blends sets of different clients, so it never decides whether the vessel is assured (see isVesselAssuranceApproved).
   with what file: src/utils/readinessHelpers.ts consumed by FleetRegistryView, VesselTable, and DashboardView.
 */
 export function calculateVesselReadiness(
@@ -224,37 +224,42 @@ export function calculateVesselReadiness(
 }
 
 /**
-  what: checks whether a vessel has reached 100% assurance readiness or holds an approved assurance set.
-  how: examines linked assurance sets for approved/certified stages or 100% calculated readiness scores.
+  what: the approved or certified sets of a vessel whose contract period has not ended; inputs are the vessel, all sets and today.
+  how: a set counts only on its own approval and its own contract period; another set's approval, a readiness score or documents on file never stand in for it (gap review E4).
+  with what file: src/utils/readinessHelpers.ts used by isVesselAssuranceApproved and VesselDetailView.tsx.
+*/
+export function getVesselAssuringSets(
+  vessel: VesselInformation,
+  assuranceSets: AssuranceSet[] = [],
+  today: Date = new Date(),
+): AssuranceSet[] {
+  const todayIso = today.toISOString().slice(0, 10);
+  return assuranceSets.filter(
+    (s) =>
+      (s.vesselId === vessel.id || Boolean(vessel.name && s.vesselName?.toLowerCase() === vessel.name.toLowerCase())) &&
+      (s.stage === 'Approved' || s.stage === 'Certified' || s.approverDecision === 'Approved') &&
+      Boolean(s.charterWindowEnd) &&
+      s.charterWindowEnd.slice(0, 10) >= todayIso,
+  );
+}
+
+/**
+  what: checks whether a vessel is assured for a charter now; inputs are the vessel, all sets, the documents (unused, kept for callers) and today.
+  how: true only when one of its sets is approved or certified and that set's contract period has not ended.
   with what file: src/utils/readinessHelpers.ts consumed by VesselDetailView, VesselModal, and VesselTable.
 */
 export function isVesselAssuranceApproved(
   vessel: VesselInformation,
   assuranceSets: AssuranceSet[] = [],
-  documents: MasterDocument[] = [],
+  _documents: MasterDocument[] = [],
+  today: Date = new Date(),
 ): boolean {
-  /* find linked assurance sets for this vessel */
-  const linkedSets = assuranceSets.filter(
-    (s) => s.vesselId === vessel.id || (vessel.name && s.vesselName?.toLowerCase() === vessel.name.toLowerCase())
-  );
-
-  if (linkedSets.length > 0) {
-    return linkedSets.some(
-      (s) =>
-        s.stage === 'Approved' ||
-        s.stage === 'Certified' ||
-        s.approverDecision === 'Approved' ||
-        calculateAssuranceSetReadiness(s) >= 100
-    );
-  }
-
-  /* fallback: if no assurance sets exist, check calculated vessel readiness */
-  return calculateVesselReadiness(vessel, assuranceSets, documents) >= 100;
+  return getVesselAssuringSets(vessel, assuranceSets, today).length > 0;
 }
 
 /**
   what: validates if a target vessel operating or transit status is permitted based on assurance readiness approval gating.
-  how: prevents 'Under Charter', 'In Operations', and 'In Transit' unless the vessel is 100% ready or approved.
+  how: prevents 'Under Charter', 'In Operations', and 'In Transit' unless an approved set covers a current contract period.
   with what file: src/utils/readinessHelpers.ts consumed by VesselDetailView and VesselModal.
 */
 export function isVesselStatusPermitted(
@@ -275,7 +280,7 @@ export function isVesselStatusPermitted(
   if (!isApproved) {
     return {
       isPermitted: false,
-      reason: `Cannot set status to ${status}: Vessel assurance set readiness is not 100% ready or approved.`,
+      reason: `Cannot set status to ${status}: no approved assurance set covers a current contract period for this vessel.`,
     };
   }
 

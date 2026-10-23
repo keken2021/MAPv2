@@ -146,7 +146,7 @@ describe('vessel status assurance gating', () => {
     expect(isVesselStatusPermitted('In Operations', mockVessel, [approvedSet], emptyDocs).isPermitted).toBe(true);
   });
 
-  it('permits in transit, under charter and in operations when assurance set readiness score is 100%', () => {
+  it('rejects in transit, under charter and in operations when a set is ready but not approved (gap review E4)', () => {
     const readySet: AssuranceSet = {
       id: 'AS-TEST-03',
       title: '100% Ready Assurance Campaign',
@@ -171,10 +171,39 @@ describe('vessel status assurance gating', () => {
       createdByPersona: ''
     };
 
-    expect(isVesselAssuranceApproved(mockVessel, [readySet], emptyDocs)).toBe(true);
-    expect(isVesselStatusPermitted('In Transit', mockVessel, [readySet], emptyDocs).isPermitted).toBe(true);
-    expect(isVesselStatusPermitted('Under Charter', mockVessel, [readySet], emptyDocs).isPermitted).toBe(true);
-    expect(isVesselStatusPermitted('In Operations', mockVessel, [readySet], emptyDocs).isPermitted).toBe(true);
+    /* readiness is not approval: only the client's approval of the set assures the vessel */
+    expect(isVesselAssuranceApproved(mockVessel, [readySet], emptyDocs)).toBe(false);
+    expect(isVesselStatusPermitted('In Transit', mockVessel, [readySet], emptyDocs).isPermitted).toBe(false);
+    expect(isVesselStatusPermitted('Under Charter', mockVessel, [readySet], emptyDocs).isPermitted).toBe(false);
+    expect(isVesselStatusPermitted('In Operations', mockVessel, [readySet], emptyDocs).isPermitted).toBe(false);
+  });
+
+  it('rejects under charter when the only approved set has a contract period that ended (gap review E4)', () => {
+    const endedSet: AssuranceSet = {
+      id: 'AS-TEST-04',
+      title: 'Approved, Period Ended',
+      vesselId: mockVessel.id,
+      vesselName: mockVessel.name,
+      imoNumber: mockVessel.imoNumber,
+      initiatorOrg: 'Woodside Energy Ltd',
+      initiatorRole: 'C Admin · Client Created',
+      charterWindowStart: '2025-01-01',
+      charterWindowEnd: '2025-12-31',
+      stage: 'Approved',
+      readinessScore: 100,
+      mandatoryInspectionRequired: false,
+      inspectionCompleted: true,
+      assignedSubmitter: 'Tester',
+      assignedVerifier: 'Verifier',
+      assignedApprover: 'Approver',
+      requirements: [],
+      stakeholders: undefined,
+      assignedStakeholders: undefined,
+      createdByPersona: ''
+    };
+
+    expect(isVesselAssuranceApproved(mockVessel, [endedSet], emptyDocs, new Date('2026-10-23'))).toBe(false);
+    expect(isVesselAssuranceApproved(mockVessel, [endedSet], emptyDocs, new Date('2025-06-01'))).toBe(true);
   });
 
   it('maps vessel statuses to correct color badge classes (green, yellow, blue, red, grey)', () => {

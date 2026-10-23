@@ -953,9 +953,9 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                         value={vesselRegStatus}
                         onChange={(e) => setVesselRegStatus(e.target.value as VesselInformation['status'])}
                       >
-                        <option value="In Operations" disabled>In Operations (requires approved assurance)</option>
-                        <option value="Under Charter" disabled>Under Charter (requires approved assurance)</option>
-                        <option value="In Transit" disabled>In Transit (requires approved assurance)</option>
+                        <option value="In Operations" disabled>In Operations (needs an approved set for a current contract period)</option>
+                        <option value="Under Charter" disabled>Under Charter (needs an approved set for a current contract period)</option>
+                        <option value="In Transit" disabled>In Transit (needs an approved set for a current contract period)</option>
                         <option value="Port Stay">Port Stay</option>
                         <option value="Dry Docking">Dry Docking</option>
                         <option value="Lay-up">Lay-up</option>

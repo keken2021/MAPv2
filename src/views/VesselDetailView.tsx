@@ -337,7 +337,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       { Category: 'Insurance & Crew', Field: 'Safe Manning Complement', Value: vessel.safeManningComplement },
       { Category: 'Insurance & Crew', Field: 'Lifeboat Capacity', Value: vessel.lifeboatCapacity },
       { Category: 'Status', Field: 'Operating Status', Value: vessel.status },
-      { Category: 'Compliance', Field: 'Readiness Score', Value: `${calculateVesselReadiness(vessel, assuranceSets, documents)}%` },
+      { Category: 'Compliance', Field: 'Readiness (average of all sets)', Value: `${calculateVesselReadiness(vessel, assuranceSets, documents)}%` },
     ];
 
     exportToCsv(`${vessel.name.replace(/\s+/g, '_')}_Information`, vesselDetails);
@@ -371,7 +371,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       ['Insurance & Crew', 'P&I Club & Policy #', `${vessel.piClubName} (#${vessel.policyNumber})`],
       ['Insurance & Crew', 'Master & Manning', `${vessel.masterName} (${vessel.safeManningComplement} Crew / Cap: ${vessel.lifeboatCapacity})`],
       ['Operating Status', 'Current Status', vessel.status],
-      ['Compliance', 'Readiness Score', `${calculateVesselReadiness(vessel, assuranceSets, documents)}%`],
+      ['Compliance', 'Readiness (average of all sets)', `${calculateVesselReadiness(vessel, assuranceSets, documents)}%`],
     ];
 
     exportToPdf(`${vessel.name} Datasheet`, headers, rows);
@@ -1046,14 +1046,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   >
                     <option value="Active">Active</option>
                     <option value="In Operations" disabled={!isAssuranceApproved}>
-                      In Operations {!isAssuranceApproved ? '(requires approved assurance)' : ''}
+                      In Operations {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
                     </option>
                     <option value="In Transit" disabled={!isAssuranceApproved}>
-                      In Transit {!isAssuranceApproved ? '(requires approved assurance)' : ''}
+                      In Transit {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
                     </option>
                     <option value="Port Stay">Port Stay</option>
                     <option value="Under Charter" disabled={!isAssuranceApproved}>
-                      Under Charter {!isAssuranceApproved ? '(requires approved assurance)' : ''}
+                      Under Charter {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
                     </option>
                     <option value="Standby">Standby</option>
                     <option value="Maintenance">Maintenance</option>
@@ -1775,14 +1775,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       >
                         <option value="Active">Active</option>
                         <option value="In Operations" disabled={!isAssuranceApproved}>
-                          In Operations {!isAssuranceApproved ? '(requires approved assurance)' : ''}
+                          In Operations {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
                         </option>
                         <option value="In Transit" disabled={!isAssuranceApproved}>
-                          In Transit {!isAssuranceApproved ? '(requires approved assurance)' : ''}
+                          In Transit {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
                         </option>
                         <option value="Port Stay">Port Stay</option>
                         <option value="Under Charter" disabled={!isAssuranceApproved}>
-                          Under Charter {!isAssuranceApproved ? '(requires approved assurance)' : ''}
+                          Under Charter {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
                         </option>
                         <option value="Standby">Standby</option>
                         <option value="Maintenance">Maintenance</option>
