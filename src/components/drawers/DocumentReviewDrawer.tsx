@@ -17,6 +17,7 @@ import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview
 import type { VerificationMethod } from '../../types/assurance';
 import { VERIFICATION_METHODS, VERIFICATION_SCOPE_STATEMENT, getVerifyBlockReasons } from '../../utils/verificationPolicy';
 import { getInspectionValidUntil } from '../../utils/inspectionEvidence';
+import { maskRestrictedValue } from '../../utils/restrictedData';
 
 interface DocumentReviewDrawerProps {
   document: MasterDocument | null;
@@ -167,7 +168,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   const extractedAttributes: ExtractedAttribute[] = crew
     ? [
       field('1', 'CREW NAME', crew.crewName, 98, 91, true),
-      field('2', 'PASSPORT NUMBER', crew.passportId, 98, 61, true),
+      /* restricted identity data is shown masked to reviewers (gap review G12) */
+      field('2', 'PASSPORT NUMBER', maskRestrictedValue(crew.passportId), 98, 61, true),
       field('3', 'RANK', crew.rank, 97, 88),
       field('4', 'CERTIFICATE TYPE', crew.certType || document.title, 99, 94, true),
       field('5', 'ISSUING AUTHORITY', crew.issuingCenter || document.issuingAuthority, 97, 44, true),

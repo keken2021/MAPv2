@@ -17,6 +17,7 @@ import { canPerform } from '../../utils/permissionHelpers';
 import { getCrewStockPhoto } from '../../utils/vesselImageHelpers';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
+import { maskRestrictedValue } from '../../utils/restrictedData';
 
 type CrewSortField =
   | 'id'
@@ -180,7 +181,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
       CurrentVessel: c.currentVesselName || 'Unassigned / Ashore',
       Nationality: c.nationality,
       SeamansBookNo: c.seamansBookNo,
-      PassportNo: c.passportNo,
+      /* restricted identity data leaves the platform masked (gap review G12) */
+      PassportNo: maskRestrictedValue(c.passportNo),
       Compliance: getStatusDisplayLabel(c.complianceStatus),
       ComplianceScore: `${c.overallComplianceScore}%`,
       LastAuditedDate: c.lastAuditedDate,

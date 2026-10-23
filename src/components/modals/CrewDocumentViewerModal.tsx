@@ -55,7 +55,8 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
     }],
     crewAttributes: {
       crewName,
-      passportId: 'PA-AU-7739102',
+      /* the crew document carries no passport number; none is invented */
+      passportId: '',
       rank: 'Seafarer',
       certType: document.stcwRegulation || document.title,
       issuingCenter: document.issuingAuthority,

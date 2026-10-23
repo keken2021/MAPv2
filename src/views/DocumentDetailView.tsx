@@ -16,6 +16,7 @@ import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { DocumentVersion, MasterDocument } from '../types/document';
 import { getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
 import { VERIFICATION_SCOPE_STATEMENT } from '../utils/verificationPolicy';
+import { maskRestrictedValue } from '../utils/restrictedData';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -299,7 +300,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 <span className="text-secondary">Crew:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.crewName}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">Passport No.:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.passportId}</strong></div>
+                <span className="text-secondary">Passport No.:</span> <div className="font-mono-code"><strong className="text-dark">{maskRestrictedValue(doc.crewAttributes.passportId) || 'Not recorded'}</strong></div>
               </div>
               <div className="col-md-4">
                 <span className="text-secondary">Rank:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.crewAttributes.rank}</strong></div>

@@ -31,6 +31,8 @@ import { ImageCropModal } from '../components/modals/VesselImageCropModal';
 import { CURATED_CREW_PHOTOS, getCrewStockPhoto } from '../utils/vesselImageHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
+import { MaskedValue } from '../components/common/MaskedValue';
+import { isRestrictedCrewDocument, maskRestrictedValue } from '../utils/restrictedData';
 
 interface CrewDetailViewProps {
   crewId: string;
@@ -184,12 +186,26 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
 
   if (!crewMember) return <div className="p-4">Crew profile not found.</div>;
 
+  /* an export never carries a restricted number in clear (gap review G12) */
+  const exportCertificateNo = (d: STCWDocumentItem) =>
+    isRestrictedCrewDocument(d.title) ? maskRestrictedValue(d.certificateNo) : d.certificateNo;
+
+  /* the states behind a certificate and its DP days, when recorded (gap review G7) */
+  const renderCertificateOrigin = (d: STCWDocumentItem) =>
+    d.issuingState || d.endorsingState || d.dpLoggedDays !== undefined ? (
+      <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
+        {d.issuingState && <span>Issued: {d.issuingState}</span>}
+        {d.endorsingState && <span className="ms-2">Endorsed: {d.endorsingState}</span>}
+        {d.dpLoggedDays !== undefined && <span className="ms-2">DP Days: {d.dpLoggedDays}</span>}
+      </div>
+    ) : null;
+
   const handleExportCsv = () => {
     const coreData = crewMember.layer1CoreDocuments.map((d) => ({
       Category: 'Layer 1 Universal Core',
       DocumentTitle: d.title,
       STCWRegulation: d.stcwRegulation,
-      CertificateNo: d.certificateNo,
+      CertificateNo: exportCertificateNo(d),
       IssuingAuthority: d.issuingAuthority,
       ExpiryDate: d.expiryDate,
       VerificationStatus: d.verificationStatus,
@@ -199,7 +215,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
       Category: 'Layer 2 Vessel Specific & Endorsement',
       DocumentTitle: d.title,
       STCWRegulation: d.stcwRegulation,
-      CertificateNo: d.certificateNo,
+      CertificateNo: exportCertificateNo(d),
       IssuingAuthority: d.issuingAuthority,
       ExpiryDate: d.expiryDate,
       VerificationStatus: d.verificationStatus,
@@ -216,7 +232,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
       'Layer 1 Core',
       d.title,
       d.stcwRegulation,
-      d.certificateNo,
+      exportCertificateNo(d),
       d.issuingAuthority,
       d.expiryDate,
       d.verificationStatus,
@@ -226,7 +242,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
       'Layer 2 Endorsement',
       d.title,
       d.stcwRegulation,
-      d.certificateNo,
+      exportCertificateNo(d),
       d.issuingAuthority,
       d.expiryDate,
       d.verificationStatus,
@@ -484,11 +500,20 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                 </div>
                 <div className="col-md-4 col-6">
                   <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Passport No.</span>
-                  <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.passportNo}</strong>
+                  {/* restricted identity data is masked; the owning organization's admin may reveal it, and each reveal is audited */}
+                  <strong className="text-dark">
+                    <MaskedValue value={crewMember.passportNo} label="Passport No." ownerOrganization={crewMember.organization} targetAsset={`Crew ${crewMember.id}`} />
+                  </strong>
                 </div>
                 <div className="col-md-4 col-6">
                   <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Date of Birth</span>
-                  <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.dateOfBirth}</strong>
+                  <strong className="text-dark">
+                    <MaskedValue value={crewMember.dateOfBirth} label="Date of Birth" ownerOrganization={crewMember.organization} targetAsset={`Crew ${crewMember.id}`} />
+                  </strong>
+                </div>
+                <div className="col-md-4 col-6">
+                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Manning Agency</span>
+                  <strong className="text-dark text-truncate d-block">{crewMember.manningAgency || 'Not recorded'}</strong>
                 </div>
                 <div className="col-md-4 col-6">
                   <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Emergency Contact</span>
@@ -697,7 +722,17 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               {layer1Pagination.pageItems.map((doc: STCWDocumentItem) => (
                 <tr key={doc.id}>
                   <td>
-                    <div className="font-mono-code fw-semibold text-primary">{doc.certificateNo}</div>
+                    {isRestrictedCrewDocument(doc.title) ? (
+                      <MaskedValue
+                        value={doc.certificateNo}
+                        label={`${doc.title} certificate no.`}
+                        ownerOrganization={crewMember.organization}
+                        targetAsset={`Crew ${crewMember.id}`}
+                        className="fw-semibold text-primary"
+                      />
+                    ) : (
+                      <div className="font-mono-code fw-semibold text-primary">{doc.certificateNo}</div>
+                    )}
                     <div className="small font-mono-code text-secondary">{doc.stcwRegulation}</div>
                   </td>
                   <td>
@@ -706,6 +741,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   <td className="small">
                     <div className="fw-medium text-dark">{doc.issuingAuthority}</div>
                     {doc.flagState && <span className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>Flag State: {doc.flagState}</span>}
+                    {renderCertificateOrigin(doc)}
                   </td>
                   <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
                   <td>{renderStatusBadge(doc.verificationStatus)}</td>
@@ -827,7 +863,17 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                 layer2Pagination.pageItems.map((doc: STCWDocumentItem) => (
                   <tr key={doc.id}>
                     <td>
-                      <div className="font-mono-code fw-semibold text-primary">{doc.certificateNo}</div>
+                      {isRestrictedCrewDocument(doc.title) ? (
+                        <MaskedValue
+                        value={doc.certificateNo}
+                        label={`${doc.title} certificate no.`}
+                        ownerOrganization={crewMember.organization}
+                        targetAsset={`Crew ${crewMember.id}`}
+                        className="fw-semibold text-primary"
+                      />
+                      ) : (
+                        <div className="font-mono-code fw-semibold text-primary">{doc.certificateNo}</div>
+                      )}
                       <div className="small font-mono-code text-secondary">{doc.stcwRegulation}</div>
                     </td>
                     <td>
@@ -838,6 +884,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                       <span className="badge bg-light text-secondary border font-mono-code mt-0.5" style={{ fontSize: '0.68rem' }}>
                         {doc.flagState || 'Universal Flag'}
                       </span>
+                      {renderCertificateOrigin(doc)}
                     </td>
                     <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
                     <td>{renderStatusBadge(doc.verificationStatus)}</td>

@@ -42,6 +42,10 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
   const [certificateNo, setCertificateNo] = useState('');
   const [issuingAuthority, setIssuingAuthority] = useState('Australian Maritime Safety Authority (AMSA)');
   const [flagState, setFlagState] = useState('Australia');
+  /* where the certificate came from and who recognised it (gap review G7) */
+  const [issuingState, setIssuingState] = useState('');
+  const [endorsingState, setEndorsingState] = useState('');
+  const [dpLoggedDays, setDpLoggedDays] = useState('');
   const [issueDate, setIssueDate] = useState('2026-01-01');
   const [expiryDate, setExpiryDate] = useState('2031-01-01');
   const [verificationStatus, setVerificationStatus] = useState<'Verified' | 'Pending' | 'Expiring' | 'Expired'>('Pending');
@@ -163,6 +167,9 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
         setCertificateNo(existingDocument.certificateNo);
         setIssuingAuthority(existingDocument.issuingAuthority);
         setFlagState(existingDocument.flagState || 'Australia');
+        setIssuingState(existingDocument.issuingState || '');
+        setEndorsingState(existingDocument.endorsingState || '');
+        setDpLoggedDays(existingDocument.dpLoggedDays !== undefined ? String(existingDocument.dpLoggedDays) : '');
         setIssueDate(existingDocument.issueDate);
         setExpiryDate(existingDocument.expiryDate);
         /* a replacement scan goes back to review; it does not inherit the old decision */
@@ -347,6 +354,9 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
         certificateNo: finalCertNo,
         issuingAuthority: finalAuthority,
         flagState: flagState.trim() || 'Australia',
+        issuingState: issuingState.trim() || undefined,
+        endorsingState: endorsingState.trim() || undefined,
+        dpLoggedDays: dpLoggedDays.trim() ? Number(dpLoggedDays) : undefined,
         issueDate,
         expiryDate,
         verificationStatus,
@@ -870,6 +880,49 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                           placeholder="e.g. Australia / Liberia"
                           value={flagState}
                           onChange={(e) => setFlagState(e.target.value)}
+                          disabled={isUploading || isExtractingAi}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="issuing-state">
+                          Issuing State
+                        </label>
+                        <input
+                          id="issuing-state"
+                          type="text"
+                          className="form-control form-control-sm bg-white text-dark border-secondary"
+                          placeholder="e.g. Philippines"
+                          value={issuingState}
+                          onChange={(e) => setIssuingState(e.target.value)}
+                          disabled={isUploading || isExtractingAi}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="endorsing-state">
+                          Endorsing State
+                        </label>
+                        <input
+                          id="endorsing-state"
+                          type="text"
+                          className="form-control form-control-sm bg-white text-dark border-secondary"
+                          placeholder="e.g. Australia (CoR)"
+                          value={endorsingState}
+                          onChange={(e) => setEndorsingState(e.target.value)}
+                          disabled={isUploading || isExtractingAi}
+                        />
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="dp-days">
+                          DP Logged Days
+                        </label>
+                        <input
+                          id="dp-days"
+                          type="number"
+                          min={0}
+                          className="form-control form-control-sm bg-white text-dark border-secondary"
+                          placeholder="DP certificates only"
+                          value={dpLoggedDays}
+                          onChange={(e) => setDpLoggedDays(e.target.value)}
                           disabled={isUploading || isExtractingAi}
                         />
                       </div>

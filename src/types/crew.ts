@@ -16,6 +16,12 @@ export interface STCWDocumentItem {
   certificateNo: string;
   issuingAuthority: string;
   flagState?: string;
+  /** the state that issued the certificate */
+  issuingState?: string;
+  /** the state that endorsed or recognised a foreign certificate, e.g. an AMSA Certificate of Recognition */
+  endorsingState?: string;
+  /** logged dynamic positioning days, on a DP certificate */
+  dpLoggedDays?: number;
   issueDate: string;
   expiryDate: string;
   verificationStatus: 'Verified' | 'Pending' | 'Expiring' | 'Expired';
@@ -43,6 +49,8 @@ export interface CrewMember {
   rank: string; // e.g. Master / Ship Captain, Chief Engineer, Chief Officer, Bosun
   nationality: string;
   organization?: string; // employer / managing organization
+  /** licensed manning agency that placed the crew member; liability follows the principal-agency chain */
+  manningAgency?: string;
   seamansBookNo: string;
   passportNo: string;
   dateOfBirth: string;
