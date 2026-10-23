@@ -35,7 +35,11 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     // Verify key public standards
     const imcaTemplate = projectTemplates.find((t) => t.id === 'tmpl-pub-imca-unified-project');
     expect(imcaTemplate).toBeDefined();
-    expect(imcaTemplate?.name).toContain('IMCA');
+    /* public templates carry neutral names; the paper does not confirm the issuer lists (gap review E9) */
+    expect(imcaTemplate?.name).toContain('(illustrative)');
+    projectTemplates
+      .filter((t) => t.source === 'public')
+      .forEach((t) => expect(t.name).not.toMatch(/IMCA|OCIMF|IOGP|NOPSEMA|DNV-ST|OPITO/));
 
     const ogpTemplate = projectTemplates.find((t) => t.id === 'tmpl-pub-ogp-offshore-project');
     expect(ogpTemplate).toBeDefined();
