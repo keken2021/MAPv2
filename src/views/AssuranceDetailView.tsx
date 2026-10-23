@@ -43,6 +43,7 @@ import {
 } from '../utils/documentVersionSnapshot';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
+import { getValidityInContractPeriod } from '../utils/expiryPolicy';
 
 interface AssuranceDetailViewProps {
   setId: string;
@@ -1202,6 +1203,34 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           )}
                         </div>
                       )}
+                      {/* the document judged against this set's contract period, not once for every set (gap review E5, G3) */}
+                      {docView && (() => {
+                        const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
+                        if (validity.state === 'unknown') return null;
+                        const tone =
+                          validity.state === 'valid_through_period'
+                            ? 'bg-success-subtle text-success-emphasis border-success-subtle'
+                            : validity.state === 'lapsed'
+                              ? 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
+                              : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+                        return (
+                          <div className="mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
+                            <span className={`badge border ${tone}`}>{validity.label}</span>
+                            {validity.state !== 'valid_through_period' && validity.expiryDate && (
+                              <span className="font-mono-code text-muted">
+                                {formatMaritimeDate(validity.expiryDate)}
+                                {/* a lapse names the issuer and the party responsible for renewal (paper 16.1) */}
+                                {validity.state === 'lapsed' && (
+                                  <>
+                                    {' '}· {docView.doc.issuingAuthority || 'Issuing authority not recorded'}
+                                    {' '}· Responsible: {assuranceSet.serviceProviderOrg || 'Service provider not recorded'}
+                                  </>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {/* how this set's verifier confirmed the document (gap review G1) */}
                       {req.verifierStatus === 'Verified' && (
                         <div className="font-mono-code text-muted mt-1" style={{ fontSize: '0.7rem' }}>

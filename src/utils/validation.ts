@@ -4,6 +4,7 @@
   role in system: used by vessel registration modal, document verification pipeline, and store actions to enforce data integrity.
 */
 
+import { EXPIRY_WARNING_DAYS } from './expiryPolicy';
 import { VesselInformation } from '../types/vessel';
 import { AssuranceSet } from '../types/assurance';
 import { EquipmentAsset } from '../types/equipment';
@@ -163,14 +164,14 @@ export function generateUniqueRequirementId(setId: string, index: number): strin
 }
 
 /**
-  what: checks if a certificate expiry date satisfies the mandatory 6-month (180 days) charter buffer rule.
-  how: calculates the difference in days between expiry date and charter window end date.
-  with what file: src/utils/validation.ts used by DocumentTable.tsx, DocumentDetailView.tsx, and AssuranceDetailView.tsx.
+  what: checks if a certificate stays valid for the warning period after the contract period ends.
+  how: calculates the difference in days between expiry date and contract period end date; the buffer is EXPIRY_WARNING_DAYS (pending supervisor Q3, was 180).
+  with what file: src/utils/validation.ts used by its tests.
 */
 export function checkCharterBufferPassed(expiryDateStr: string, charterEndStr: string): boolean {
   const expiry = new Date(expiryDateStr);
   const charterEnd = new Date(charterEndStr);
-  const bufferMs = 180 * 24 * 60 * 60 * 1000; // 180 days buffer
+  const bufferMs = EXPIRY_WARNING_DAYS * 24 * 60 * 60 * 1000;
   return expiry.getTime() - charterEnd.getTime() >= bufferMs;
 }
 

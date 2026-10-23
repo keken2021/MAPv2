@@ -19,6 +19,7 @@ import { filterProjectsForPersona } from '../utils/projectHelpers';
 import { countDocumentsByExpiry } from '../utils/documentRenewalHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
+import { EXPIRY_WARNING_DAYS, isExpiringWithinWarning } from '../utils/expiryPolicy';
 
 /**
   what: renders the executive dashboard workspace view in light theme.
@@ -387,8 +388,9 @@ export const DashboardView: React.FC = () => {
             <div className="map-kpi-label">
               Expiring Soon
             </div>
-            <div className="map-kpi-value text-danger mt-1">{countDocumentsByExpiry(documents).expiring}</div>
-            <div className="map-kpi-subtitle mt-1">Documents expiring within 6 months</div>
+            {/* counted from the library, not a fixed number (gap review G3) */}
+            <div className="map-kpi-value text-danger mt-1">{documents.filter((d) => isExpiringWithinWarning(d.expiryDate)).length}</div>
+            <div className="map-kpi-subtitle mt-1">Documents expiring within {EXPIRY_WARNING_DAYS} days</div>
           </div>
         </div>
       </div>

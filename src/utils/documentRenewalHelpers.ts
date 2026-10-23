@@ -9,6 +9,7 @@ import { MasterDocument } from '../types/document';
 import { AppNotification, DocumentRenewalReason } from '../types/notification';
 import { getAssuranceSetAsset } from './assuranceTemplates';
 import { formatMaritimeDate, getProviderLabel } from './formatters';
+import { EXPIRY_WARNING_DAYS } from './expiryPolicy';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
@@ -71,7 +72,7 @@ export function isDocumentExpired(
 
 /**
   what: compliance state a document takes from its expiry date; inputs are the expiry date and today's date.
-  how: expired once the date has passed, expiring within six months, otherwise valid.
+  how: expired once the date has passed, expiring within the warning period (EXPIRY_WARNING_DAYS), otherwise valid.
   with what file: src/utils/documentRenewalHelpers.ts used by useMapStore.ts when a new version carries a new expiry date.
 */
 export function getComplianceStateForExpiry(
@@ -81,7 +82,8 @@ export function getComplianceStateForExpiry(
   const daysLeft = getDaysUntil(expiryDate, today);
   if (daysLeft === undefined) return 'Valid';
   if (daysLeft < 0) return 'Expired';
-  return daysLeft < 183 ? 'Expiring < 6 Mos' : 'Valid';
+  /* the stored state keeps its name; the period is the one warning period (pending supervisor Q3) */
+  return daysLeft <= EXPIRY_WARNING_DAYS ? 'Expiring < 6 Mos' : 'Valid';
 }
 
 /**
