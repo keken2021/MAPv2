@@ -863,6 +863,7 @@ export const DashboardView: React.FC = () => {
           assuranceSetId={selectedReturnedSet?.id}
           requirementId={uploadModalTarget.req.id}
           requirementTitle={uploadModalTarget.req.title}
+          requirementCategory={uploadModalTarget.req.category}
           defaultVesselId={selectedReturnedSet?.vesselId}
           onUploadComplete={() => {
             setUploadModalTarget(null);

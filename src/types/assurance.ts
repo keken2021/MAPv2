@@ -68,6 +68,17 @@ export type AssuranceRequirementCategory =
 /** how a person confirmed a document for one set; MAP records the method, it does not confirm with the issuer itself (paper P3) */
 export type VerificationMethod = 'Issuer lookup' | 'Direct link' | 'Manual review' | 'Client-provided copy';
 
+/** where an inspection report comes from (paper Table 2) */
+export type InspectionReportSource = 'OVID' | 'eCMID' | 'SIRE 2.0' | 'Charterer' | 'Other';
+
+/** the facts a charterer reads off an inspection report, not only that one exists (gap review G4) */
+export interface InspectionReportEvidence {
+  source: InspectionReportSource;
+  reportDate: string;
+  validityMonths: number;
+  inspectorAccreditation?: string;
+}
+
 export interface AssuranceRequirement {
   id: string;
   category: AssuranceRequirementCategory;
@@ -98,6 +109,8 @@ export interface AssuranceRequirement {
   verificationMethod?: VerificationMethod;
   /** why the verifier verified although a check failed or was not run (gap review E6) */
   overrideReason?: string;
+  /** source, date, validity and inspector of the report, on an inspection report requirement */
+  inspectionReport?: InspectionReportEvidence;
 }
 
 /** frozen copy of one document version, taken when a requirement is verified or its set is approved */

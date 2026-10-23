@@ -1521,6 +1521,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         assuranceSetId={assuranceSet.id}
         requirementId={uploadTargetRequirement?.id}
         requirementTitle={uploadTargetRequirement?.title}
+        requirementCategory={uploadTargetRequirement?.category}
         defaultVesselId={assuranceSet.vesselId}
         onUploadComplete={closeUploadModal}
       />

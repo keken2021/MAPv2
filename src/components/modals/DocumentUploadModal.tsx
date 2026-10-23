@@ -8,6 +8,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
 import { formatDocumentId } from '../../utils/formatters';
+import type { InspectionReportEvidence, InspectionReportSource } from '../../types/assurance';
+import {
+  INSPECTION_REPORT_SOURCES,
+  INSPECTION_VALIDITY_MONTHS,
+  getDefaultInspectionValidityMonths,
+  getInspectionValidUntil,
+} from '../../utils/inspectionEvidence';
 import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { getComplianceStateForExpiry, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Upload, Check, AlertCircle, X, FileText, Eye } from 'lucide-react';
@@ -22,6 +29,8 @@ interface DocumentUploadModalProps {
   assuranceSetId?: string;
   requirementId?: string;
   requirementTitle?: string;
+  /* the requirement's category; an inspection report asks for its source, date and validity */
+  requirementCategory?: string;
   defaultVesselId?: string;
   modalTitle?: string;
 }
@@ -39,6 +48,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   assuranceSetId,
   requirementId,
   requirementTitle,
+  requirementCategory,
   defaultVesselId,
   modalTitle,
 }) => {
@@ -55,6 +65,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [certificateNo, setCertificateNo] = useState('');
   const [issuingAuthority, setIssuingAuthority] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
+  /* inspection report facts (gap review G4) */
+  const [inspectionSource, setInspectionSource] = useState<InspectionReportSource | ''>('');
+  const [inspectionReportDate, setInspectionReportDate] = useState('');
+  const [inspectionValidityMonths, setInspectionValidityMonths] = useState<number>(INSPECTION_VALIDITY_MONTHS);
+  const [inspectorAccreditation, setInspectorAccreditation] = useState('');
   const [fileName, setFileName] = useState('');
   const [changeSummary, setChangeSummary] = useState('');
 
@@ -167,6 +182,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         setCertificateNo('');
         setIssuingAuthority('');
         setExpiryDate('');
+        setInspectionSource('');
+        setInspectionReportDate('');
+        setInspectionValidityMonths(
+          getDefaultInspectionValidityMonths(vessels.find((v) => v.id === (defaultVesselId || ''))?.yearBuilt),
+        );
+        setInspectorAccreditation('');
         setFileName('');
         setChangeSummary(
           requirementTitle ? `Initial upload for assurance requirement: ${requirementTitle}.` : '',
@@ -300,6 +321,15 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     handleSelectFileForPreview(sampleName);
   };
 
+  /* an inspection report on a requirement: its validity sets the expiry date */
+  const isInspectionUpload = !existingDocument && requirementCategory === 'Inspection Report';
+  const updateInspectionValidity = (reportDate: string, months: number) => {
+    setInspectionReportDate(reportDate);
+    setInspectionValidityMonths(months);
+    const validUntil = getInspectionValidUntil(reportDate, months);
+    if (validUntil) setExpiryDate(validUntil);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setHasAttemptedSubmit(true);
@@ -309,6 +339,16 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
     /* a new document needs its certificate no. and expiry entered; nothing is made up for it (gap review E7) */
     if (!existingDocument && (!certificateNo.trim() || !expiryDate)) return;
+    if (isInspectionUpload && (!inspectionSource || !inspectionReportDate)) return;
+    const inspectionReport: InspectionReportEvidence | undefined =
+      isInspectionUpload && inspectionSource
+        ? {
+          source: inspectionSource,
+          reportDate: inspectionReportDate,
+          validityMonths: inspectionValidityMonths,
+          inspectorAccreditation: inspectorAccreditation.trim() || undefined,
+        }
+        : undefined;
     const finalCertNo = certificateNo.trim() || existingDocument?.certificateNo || '';
     const finalAuthority = issuingAuthority.trim() || existingDocument?.issuingAuthority || '';
     const finalExpiry = expiryDate || existingDocument?.expiryDate || '';
@@ -406,11 +446,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           const chosenDoc = documents.find((d) => d.id === selectedUnassignedDocId);
           if (chosenDoc) {
             if (assuranceSetId) {
-              uploadDocumentForRequirement(assuranceSetId, requirementId, chosenDoc);
+              uploadDocumentForRequirement(assuranceSetId, requirementId, chosenDoc, inspectionReport);
             }
           }
         } else if (assuranceSetId) {
-          uploadDocumentForRequirement(assuranceSetId, requirementId, newDoc);
+          uploadDocumentForRequirement(assuranceSetId, requirementId, newDoc, inspectionReport);
         } else {
           addDocument(newDoc);
         }
@@ -847,6 +887,71 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       </select>
                     </div>
                   </div>
+                  {isInspectionUpload && (
+                    <div className="row g-2">
+                      <div className="col-md-6">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="inspection-source">
+                          Report Source <span className="text-danger">*</span>
+                        </label>
+                        <select
+                          id="inspection-source"
+                          className={`form-select form-select-sm bg-white text-dark border-secondary ${hasAttemptedSubmit && !inspectionSource ? 'is-invalid' : ''}`}
+                          value={inspectionSource}
+                          onChange={(e) => setInspectionSource(e.target.value as InspectionReportSource | '')}
+                          disabled={isUploading}
+                        >
+                          <option value="">Choose a source</option>
+                          {INSPECTION_REPORT_SOURCES.map((source) => (
+                            <option key={source} value={source}>{source}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="inspection-date">
+                          Report Date <span className="text-danger">*</span>
+                        </label>
+                        <input
+                          id="inspection-date"
+                          type="date"
+                          className={`form-control form-control-sm bg-white text-dark border-secondary ${hasAttemptedSubmit && !inspectionReportDate ? 'is-invalid' : ''}`}
+                          value={inspectionReportDate}
+                          onChange={(e) => updateInspectionValidity(e.target.value, inspectionValidityMonths)}
+                          disabled={isUploading}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="inspection-validity">
+                          Validity (Months)
+                        </label>
+                        <input
+                          id="inspection-validity"
+                          type="number"
+                          min={1}
+                          className="form-control form-control-sm bg-white text-dark border-secondary"
+                          value={inspectionValidityMonths}
+                          onChange={(e) => updateInspectionValidity(inspectionReportDate, Number(e.target.value) || 0)}
+                          disabled={isUploading}
+                        />
+                        <div className="small text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                          12 months, or 6 for vessels aged 15 or more, per one published charterer procedure. Set the client&apos;s own period.
+                        </div>
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="inspection-accreditation">
+                          Inspector Accreditation
+                        </label>
+                        <input
+                          id="inspection-accreditation"
+                          type="text"
+                          className="form-control form-control-sm bg-white text-dark border-secondary"
+                          placeholder="e.g. OVID accredited inspector"
+                          value={inspectorAccreditation}
+                          onChange={(e) => setInspectorAccreditation(e.target.value)}
+                          disabled={isUploading}
+                        />
+                      </div>
+                    </div>
+                  )}
                   {/* Option A: Upload from Document Library (if not replacing existing doc revision) */}
                   {!existingDocument && (
                     <div className="p-2.5 bg-light border rounded-3 d-flex flex-column gap-2 mb-1">

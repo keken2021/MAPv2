@@ -18,6 +18,7 @@ import {
   AssuranceStage,
   AssuranceRequirement,
   VerificationMethod,
+  InspectionReportEvidence,
 } from "../types/assurance";
 import { MasterDocument } from "../types/document";
 import {
@@ -346,6 +347,8 @@ export interface MapStoreState {
     setId: string,
     requirementId: string | undefined,
     doc: MasterDocument,
+    /* the report facts, when the requirement asks for an inspection report */
+    inspectionReport?: InspectionReportEvidence,
   ) => void;
   addDocumentVersion: (
     docId: string,
@@ -2094,7 +2097,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       }),
     }));
   },
-  uploadDocumentForRequirement: (setId, requirementId, doc) => {
+  uploadDocumentForRequirement: (setId, requirementId, doc, inspectionReport) => {
     /* the document this upload replaces on the requirement, if any */
     const replacedDocumentId = get()
       .assuranceSets.find((s) => s.id === setId)
@@ -2118,6 +2121,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               verifierStatus: "Pending" as const,
               isFulfilled: false,
               ocrConfidence: doc.ocrConfidence,
+              inspectionReport: inspectionReport ?? r.inspectionReport,
               notes: `Upload linked to requirement (${doc.versions[0]?.fileName || doc.title}).`,
             };
           });

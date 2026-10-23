@@ -16,6 +16,7 @@ import { Drawer } from './Drawer';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import type { VerificationMethod } from '../../types/assurance';
 import { VERIFICATION_METHODS, VERIFICATION_SCOPE_STATEMENT, getVerifyBlockReasons } from '../../utils/verificationPolicy';
+import { getInspectionValidUntil } from '../../utils/inspectionEvidence';
 
 interface DocumentReviewDrawerProps {
   document: MasterDocument | null;
@@ -412,6 +413,28 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                 </div>
                 <div className="text-dark fw-semibold" style={{ fontSize: '0.825rem' }}>
                   {activeNotes}
+                </div>
+              </div>
+            )}
+
+            {/* the facts of an inspection report, read for this set's requirement (gap review G4) */}
+            {linkedReq?.inspectionReport && (
+              <div className="map-drawer-card small" style={{ fontSize: '0.8rem' }}>
+                <div className="map-drawer-section-title mb-2">Inspection Report</div>
+                <div className="row g-2">
+                  <div className="col-6"><span className="text-secondary">Source:</span> <strong>{linkedReq.inspectionReport.source}</strong></div>
+                  <div className="col-6"><span className="text-secondary">Report Date:</span> <strong className="font-mono-code">{linkedReq.inspectionReport.reportDate}</strong></div>
+                  <div className="col-6">
+                    <span className="text-secondary">Valid Until:</span>{' '}
+                    <strong className="font-mono-code">
+                      {getInspectionValidUntil(linkedReq.inspectionReport.reportDate, linkedReq.inspectionReport.validityMonths) || 'Not recorded'}
+                    </strong>{' '}
+                    <span className="text-muted">({linkedReq.inspectionReport.validityMonths} months)</span>
+                  </div>
+                  <div className="col-6">
+                    <span className="text-secondary">Inspector:</span>{' '}
+                    <strong>{linkedReq.inspectionReport.inspectorAccreditation || 'Accreditation not recorded'}</strong>
+                  </div>
                 </div>
               </div>
             )}
