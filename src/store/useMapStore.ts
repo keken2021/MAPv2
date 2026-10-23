@@ -579,6 +579,28 @@ function getSessionActor(
 }
 
 /**
+  what: tells a set's verifier that a document was submitted for review; inputs are the store getter, the set, the requirement and the document.
+  how: one review_requested notification to the assigned verifier naming the requirement; nothing when the set has no verifier who resolves to a user.
+  with what file: src/store/useMapStore.ts, called by uploadDocumentForRequirement and addDocumentVersion.
+*/
+function notifySubmittedForReview(
+  get: () => MapStoreState,
+  assuranceSetId: string,
+  requirementId: string | undefined,
+  documentId: string,
+): void {
+  const set = get().assuranceSets.find((s) => s.id === assuranceSetId);
+  if (!set) return;
+  const requirement = set.requirements.find((r) => r.id === requirementId);
+  const document = get().documents.find((d) => d.id === documentId);
+  notifyAssuranceSetUser(get, set, set.assignedVerifier, {
+    type: "review_requested",
+    subject: `Document submitted: ${requirement?.title || document?.title || documentId}`,
+    documentId,
+  });
+}
+
+/**
   what: closes the renewal notifications a new upload answers; inputs are the store setter, the document id and, optionally, the one set the upload was made on.
   how: marks every renewal notification of that document that is not yet actioned as actioned.
   with what file: src/store/useMapStore.ts, called by uploadDocumentForRequirement and addDocumentVersion.
@@ -2173,6 +2195,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       justificationNotes: `Upload: ${doc.title} (${doc.certificateNo}) queued for verifier review.`,
     });
 
+    /* a submitted document goes straight to the set's verifier, when one is appointed */
+    notifySubmittedForReview(get, setId, requirementId, doc.id);
+
     /* the upload answers the renewals of the document it replaces; the new document is then checked in turn */
     closeDocumentRenewalNotifications(set, replacedDocumentId, setId);
     get().raiseDocumentRenewalNotifications([setId]);
@@ -2262,6 +2287,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetAsset: `Document ${docId}`,
       justificationNotes: changeSummary,
     });
+
+    /* the version submitted for one requirement goes back to that set's verifier */
+    if (scope) notifySubmittedForReview(get, scope.assuranceSetId, scope.requirementId, docId);
 
     /* other open sets keep the version they reviewed; their verifier is told a newer one exists */
     const versionedDoc = get().documents.find((d) => d.id === docId);
