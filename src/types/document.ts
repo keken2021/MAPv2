@@ -53,6 +53,8 @@ export interface ValidationRuleStatus {
   iacsAuthorityValid: boolean; // IACS recognized body
   overallValid: boolean;
   exceptionDetails?: string;
+  /* true until a check has run: the booleans above then mean nothing and the UI shows "Not checked" (gap review E7) */
+  rulesNotChecked?: boolean;
 }
 
 export interface MasterDocument {

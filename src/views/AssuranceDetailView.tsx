@@ -1202,6 +1202,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           )}
                         </div>
                       )}
+                      {/* how this set's verifier confirmed the document (gap review G1) */}
+                      {req.verifierStatus === 'Verified' && (
+                        <div className="font-mono-code text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                          <span className="text-secondary fw-semibold">Method:</span> {req.verificationMethod || 'Not recorded'}
+                          {req.overrideReason && (
+                            <span className="ms-2 text-warning-emphasis" title={req.overrideReason}>· Override</span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <ConfidenceBadge score={effectiveOcr} />

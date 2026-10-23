@@ -17,6 +17,7 @@ import {
   AssuranceSet,
   AssuranceStage,
   AssuranceRequirement,
+  VerificationMethod,
 } from "../types/assurance";
 import { MasterDocument } from "../types/document";
 import {
@@ -366,6 +367,8 @@ export interface MapStoreState {
     requirementId?: string,
     /* the set the requirement belongs to; requirement ids repeat across sets */
     assuranceSetId?: string,
+    /* how the document was confirmed, and why it was verified although a check failed (gap review G1, E6) */
+    review?: { verificationMethod?: VerificationMethod; overrideReason?: string },
   ) => void;
 
   // Audit Trail State
@@ -2282,7 +2285,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       if (setIds.length > 0) get().raiseDocumentRenewalNotifications(setIds);
     }
   },
-  verifyDocument: (docId, status, notes, routeTarget, requirementId, assuranceSetId) => {
+  verifyDocument: (docId, status, notes, routeTarget, requirementId, assuranceSetId, review) => {
     const setsBeforeVerification = get().assuranceSets;
     const reviewedAt = new Date().toISOString();
     const reviewerId = getSessionActor(get).userId;
@@ -2318,6 +2321,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                   status === "Verified" && routeTarget
                     ? routeTarget
                     : r.verificationRoute,
+                /* the method and any override belong to a verification; a return or rejection clears them */
+                verificationMethod: status === "Verified" ? review?.verificationMethod : undefined,
+                overrideReason: status === "Verified" ? review?.overrideReason?.trim() || undefined : undefined,
               },
               s,
               targetDoc,
@@ -2378,11 +2384,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const isDenial = status === "Correction Requested" || status === "Rejected";
     const pingTag = isDenial ? " [PING: SUBMITTER ACTION REQUIRED]" : "";
     const routeNote = routeTarget ? ` | Routed to ${routeTarget}` : "";
+    const methodNote = status === "Verified" && review?.verificationMethod ? ` | Method: ${review.verificationMethod}` : "";
+    const overrideNote = status === "Verified" && review?.overrideReason?.trim() ? ` | Override: ${review.overrideReason.trim()}` : "";
     const activePersona = get().activePersona;
     get().logAuditEvent({
       action: `${activePersona === "Approver" ? "Approver" : "Verifier"} Document Action: ${status}${pingTag}`,
       targetAsset: reviewedSetId ? `Document ${docId} -> ${reviewedSetId} / ${requirementId}` : `Document ${docId}`,
-      justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${isDenial ? " — Submitter revision required." : ""}`,
+      justificationNotes: `${notes || `Verification status updated to ${status}`}${routeNote}${methodNote}${overrideNote}${isDenial ? " — Submitter revision required." : ""}`,
     });
 
     const verifiedDoc = get().documents.find((d) => d.id === docId);

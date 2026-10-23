@@ -65,6 +65,9 @@ export type AssuranceRequirementCategory =
   | 'Custom Requirement'
   | (string & {});
 
+/** how a person confirmed a document for one set; MAP records the method, it does not confirm with the issuer itself (paper P3) */
+export type VerificationMethod = 'Issuer lookup' | 'Direct link' | 'Manual review' | 'Client-provided copy';
+
 export interface AssuranceRequirement {
   id: string;
   category: AssuranceRequirementCategory;
@@ -91,6 +94,10 @@ export interface AssuranceRequirement {
   linkedAssuranceSetId?: string;
   /** the exact document version this requirement was verified against; an approved set shows this, never the live version */
   verifiedVersion?: RequirementVersionSnapshot;
+  /** how the verifier confirmed the document for this set (gap review G1) */
+  verificationMethod?: VerificationMethod;
+  /** why the verifier verified although a check failed or was not run (gap review E6) */
+  overrideReason?: string;
 }
 
 /** frozen copy of one document version, taken when a requirement is verified or its set is approved */

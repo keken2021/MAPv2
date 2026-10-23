@@ -14,6 +14,8 @@ import { isAssuranceSetCreatedByCAdmin } from '../../utils/rbacHelpers';
 import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Drawer } from './Drawer';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
+import type { VerificationMethod } from '../../types/assurance';
+import { VERIFICATION_METHODS, VERIFICATION_SCOPE_STATEMENT, getVerifyBlockReasons } from '../../utils/verificationPolicy';
 
 interface DocumentReviewDrawerProps {
   document: MasterDocument | null;
@@ -56,6 +58,10 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [correctedFieldIds, setCorrectedFieldIds] = useState<Set<string>>(new Set());
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  /* how the verifier confirmed the document, and the reason for verifying past a failed check */
+  const [verificationMethod, setVerificationMethod] = useState<VerificationMethod | ''>('');
+  const [isOverrideActive, setIsOverrideActive] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
   const openedFromSet = assuranceSetId ? assuranceSets.find((set) => set.id === assuranceSetId) : undefined;
   /* the set is the one the review was opened from, or the set that holds the requirement; never a guess by title or vessel */
   const linkedSet = openedFromSet || (document
@@ -73,6 +79,9 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     setIsManualEditActive(false);
     setEditedValues({});
     setCorrectedFieldIds(new Set());
+    setVerificationMethod('');
+    setIsOverrideActive(false);
+    setOverrideReason('');
   }, [document?.id, linkedSet?.id, linkedSet?.mandatoryInspectionRequired]);
 
   /* triggers one-shot shimmer on all ocr-extracted value cells when drawer opens or document changes */
@@ -177,7 +186,23 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     overallConfidence >= 90 ||
     isVerified;
 
+  /* verify needs a method, and either every check passed or an override with a reason (gap review E6, G1) */
+  const verifyBlockReasons = getVerifyBlockReasons({
+    document,
+    overallConfidence,
+    fullPagePassed: isFullPagePassed,
+    signaturePassed: Boolean(isSignaturePassed),
+  });
+  const needsOverride = verifyBlockReasons.length > 0;
+  const hasOverride = isOverrideActive && overrideReason.trim().length > 0;
+  const verifyDisabledReason = !verificationMethod
+    ? 'Choose how you checked the document.'
+    : needsOverride && !hasOverride
+      ? 'A check failed. Override with a reason to verify.'
+      : undefined;
+
   const handleVerify = () => {
+    if (verifyDisabledReason || !verificationMethod) return;
     verifyDocument(
       document.id,
       'Verified',
@@ -185,6 +210,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       undefined,
       requirementId,
       reviewedSetId,
+      { verificationMethod, overrideReason: needsOverride ? overrideReason.trim() : undefined },
     );
     onClose();
   };
@@ -295,7 +321,13 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     >
                       Return for Correction
                     </button>
-                    <button type="button" className="btn btn-success" onClick={handleVerify}>
+                    <button
+                      type="button"
+                      className="btn btn-success"
+                      onClick={handleVerify}
+                      disabled={Boolean(verifyDisabledReason)}
+                      title={verifyDisabledReason}
+                    >
                       Verify
                     </button>
                   </>
@@ -512,6 +544,23 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     {isSetApproved ? 'Approved' : 'Verified'}
                   </span>
                 </div>
+                <div className="small" style={{ fontSize: '0.8rem', color: '#334155' }}>
+                  <div>
+                    <span className="fw-semibold">Method:</span> {linkedReq?.verificationMethod || 'Not recorded'}
+                    {linkedReq?.verifiedVersion?.verifiedBy && (
+                      <> · <span className="fw-semibold">By:</span> {linkedReq.verifiedVersion.verifiedBy}</>
+                    )}
+                    {linkedReq?.verifiedVersion?.verifiedAt && (
+                      <> · {new Date(linkedReq.verifiedVersion.verifiedAt).toLocaleDateString()}</>
+                    )}
+                  </div>
+                  {linkedReq?.overrideReason && (
+                    <div className="mt-1">
+                      <span className="fw-semibold">Override:</span> {linkedReq.overrideReason}
+                    </div>
+                  )}
+                  <div className="text-muted mt-1">{VERIFICATION_SCOPE_STATEMENT}</div>
+                </div>
                 {document.verificationNotes && (
                   <div
                     className={`p-3 rounded-3 bg-white border text-dark small shadow-2xs ${isSetApproved ? 'border-success-subtle' : 'border-info-subtle'}`}
@@ -553,6 +602,67 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                 <div>
                   <strong>Segregation of Duties:</strong> You submitted this document, so you cannot verify or approve it. A verifier or the client must review it.
                 </div>
+              </div>
+            )}
+
+            <div className="map-drawer-inset small text-muted mb-3">{VERIFICATION_SCOPE_STATEMENT}</div>
+
+            <div className="mb-3">
+              <label className="map-drawer-label" htmlFor="review-method">
+                Method <span className="text-danger">*</span>
+              </label>
+              <select
+                id="review-method"
+                className="form-select bg-white"
+                value={verificationMethod}
+                onChange={(e) => setVerificationMethod(e.target.value as VerificationMethod | '')}
+                style={{ fontSize: '0.825rem' }}
+              >
+                <option value="">Choose how you checked it</option>
+                {VERIFICATION_METHODS.map((method) => (
+                  <option key={method} value={method}>
+                    {method}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {needsOverride && (
+              <div className="alert alert-warning py-3 px-3 mb-3" style={{ fontSize: '0.8rem' }}>
+                <div className="fw-semibold mb-1">Checks not passed</div>
+                <ul className="mb-2 ps-3">
+                  {verifyBlockReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+                <div className="form-check">
+                  <input
+                    id="review-override"
+                    className="form-check-input"
+                    type="checkbox"
+                    checked={isOverrideActive}
+                    onChange={(e) => setIsOverrideActive(e.target.checked)}
+                  />
+                  <label className="form-check-label" htmlFor="review-override">
+                    Override
+                  </label>
+                </div>
+                {isOverrideActive && (
+                  <div className="mt-2">
+                    <label className="map-drawer-label" htmlFor="review-override-reason">
+                      Override Reason <span className="text-danger">*</span>
+                    </label>
+                    <textarea
+                      id="review-override-reason"
+                      className="form-control bg-white"
+                      rows={2}
+                      placeholder="Say why the document can be verified anyway."
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      style={{ fontSize: '0.825rem' }}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
