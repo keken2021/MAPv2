@@ -494,7 +494,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       issueDate: '',
       expiryDate: expiryDate || '',
       vesselName: vessels.find((v) => v.id === vesselId)?.name || 'MAP Demo Vessel AUSP1',
-      imoNumber: vessels.find((v) => v.id === vesselId)?.imoNumber || '9123456',
+      imoNumber: vessels.find((v) => v.id === vesselId)?.imoNumber || '9123453',
       flagState: vessels.find((v) => v.id === vesselId)?.flagState || 'Australia (Sample)',
       assetMatchFlag: false,
       lastSurveyDate: '',

@@ -35,6 +35,8 @@ const FIELD_CHECK_COLORS: Record<FieldCheckState, string> = {
 };
 import { getInspectionValidUntil } from '../../utils/inspectionEvidence';
 import { maskRestrictedValue } from '../../utils/restrictedData';
+import { getIssuerVerificationProfile } from '../../utils/issuerVerificationProfiles';
+import { runCrossCertificateChecks } from '../../utils/documentChecks';
 
 interface DocumentReviewDrawerProps {
   document: MasterDocument | null;
@@ -69,7 +71,7 @@ interface ExtractedAttribute {
   with what file: src/components/drawers/DocumentReviewDrawer.tsx loaded by VerifierWorkspaceView.tsx and AssuranceDetailView.tsx.
 */
 export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose, allowSubmit = true, allowVerify = true, requirementId, requirementVerifierStatus, assuranceSetId, isVersionLocked = false }) => {
-  const { verifyDocument, requestDocumentReupload, activePersona, assuranceSets, notifications } = useMapStore();
+  const { verifyDocument, requestDocumentReupload, activePersona, assuranceSets, notifications, documents, vessels } = useMapStore();
   const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState('');
   /* the notes field takes focus when a footer action needs notes, so the error is in view */
@@ -81,6 +83,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   /* how the verifier confirmed the document, and the reason for verifying past a failed check */
   const [verificationMethod, setVerificationMethod] = useState<VerificationMethod | ''>('');
+  const [verificationReference, setVerificationReference] = useState('');
   const [isOverrideActive, setIsOverrideActive] = useState(false);
   const [overrideReason, setOverrideReason] = useState('');
   const openedFromSet = assuranceSetId ? assuranceSets.find((set) => set.id === assuranceSetId) : undefined;
@@ -101,6 +104,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     setEditedValues({});
     setCorrectedFieldIds(new Set());
     setVerificationMethod('');
+    setVerificationReference('');
     setIsOverrideActive(false);
     setOverrideReason('');
   }, [document?.id, linkedSet?.id, linkedSet?.mandatoryInspectionRequired]);
@@ -174,6 +178,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
 
   /* extracted fields come from the document record; a value the record does not hold shows as not extracted (gap review E7) */
   const NOT_EXTRACTED = 'Not extracted';
+  const NOT_CAPTURED = 'Not captured';
   const field = (
     id: string,
     label: string,
@@ -182,12 +187,13 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     firstScanConfidence: number,
     mandatory = false,
     checkKey?: FieldCheckKey,
+    fallback = NOT_EXTRACTED,
   ): ExtractedAttribute => {
     const hasValue = Boolean(value && value.trim());
     return {
       id,
       label,
-      value: hasValue ? value!.trim() : NOT_EXTRACTED,
+      value: hasValue ? value!.trim() : fallback,
       confidence: hasValue ? (isReuploaded ? readConfidence : firstScanConfidence) : 0,
       isMandatoryMissing: mandatory && !hasValue,
       check: checkKey ? fieldChecks[checkKey] : undefined,
@@ -216,12 +222,20 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       field('3', 'IMO NUMBER', vessel?.imoNumber, 99, 88, true, 'imoNumber'),
       field('4', 'ISSUING AUTHORITY', document.issuingAuthority, 97, 65, true, 'issuingAuthority'),
       field('5', 'EXPIRY DATE', document.expiryDate, 98, 79, true, 'expiryDate'),
+      field('6', 'UNIQUE TRACKING NO. (UTN)', document.uniqueTrackingNumber || vessel?.uniqueTrackingNumber, 98, 90, false, undefined, NOT_CAPTURED),
+      field('7', 'ISSUING STATE', document.issuingState || vessel?.issuingState, 98, 92, false, undefined, NOT_CAPTURED),
+      field('8', 'RECOGNISED ORGANISATION', document.recognisedOrganisation || vessel?.recognisedOrganisation, 97, 85, false, undefined, NOT_CAPTURED),
+      field('9', 'PLACE OF ISSUE', document.placeOfIssue || vessel?.placeOfIssue, 95, 80, false, undefined, NOT_CAPTURED),
+      field('10', 'SURVEY COMPLETION DATE', document.surveyCompletionDate || vessel?.surveyCompletionDate, 96, 84, false, undefined, NOT_CAPTURED),
+      field('11', 'ANNIVERSARY DATE', document.anniversaryDate || vessel?.anniversaryDate, 96, 82, false, undefined, NOT_CAPTURED),
+      field('12', 'ISM COMPANY IMO', document.companyImoNumber || vessel?.companyImoNumber, 98, 88, false, undefined, NOT_CAPTURED),
+      field('13', 'GROSS TONNAGE (PRINTED)', document.grossTonnagePrinted != null ? String(document.grossTonnagePrinted) : vessel?.grossTonnagePrinted != null ? String(vessel.grossTonnagePrinted) : undefined, 99, 90, false, undefined, NOT_CAPTURED),
     ];
 
   /* confidence is averaged over the fields that hold a value; an empty field is flagged on its own row, not counted as 0% */
   const isAttrCorrected = (attr: ExtractedAttribute) =>
     correctedFieldIds.has(attr.id) || (editedValues[attr.id] !== undefined && editedValues[attr.id].trim() !== '' && editedValues[attr.id] !== attr.value);
-  const readAttributes = extractedAttributes.filter((attr) => attr.value !== NOT_EXTRACTED || isAttrCorrected(attr));
+  const readAttributes = extractedAttributes.filter((attr) => (attr.value !== NOT_EXTRACTED && attr.value !== NOT_CAPTURED) || isAttrCorrected(attr));
   const totalEffectiveConfidence = readAttributes.reduce(
     (sum, attr) => sum + (isAttrCorrected(attr) ? 100 : attr.confidence),
     0,
@@ -245,6 +259,14 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     overallConfidence >= 90 ||
     isVerified;
 
+  /* issuer verification profile (gap review R2-G4, R2-S8) */
+  const issuerProfile = getIssuerVerificationProfile(document.issuingAuthority);
+
+  /* cross-certificate consistency checks across fleet invariants (gap review R2-G2, R2-S7) */
+  const crossChecks = runCrossCertificateChecks(document, documents, vessels);
+  const failingCrossChecks = crossChecks.filter((c) => c.state === 'fail');
+  const crossCheckBlockReasons = failingCrossChecks.map((c) => `${c.label}: ${c.message}`);
+
   /* verify needs a method, and either every check passed or an override with a reason (gap review E6, G1) */
   const verifyBlockReasons = getVerifyBlockReasons({
     document,
@@ -252,6 +274,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     overallConfidence,
     fullPagePassed: isFullPagePassed,
     signaturePassed: Boolean(isSignaturePassed),
+    crossCertificateBlockReasons: crossCheckBlockReasons,
   });
   const needsOverride = verifyBlockReasons.length > 0;
   const hasOverride = isOverrideActive && overrideReason.trim().length > 0;
@@ -270,7 +293,11 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       undefined,
       requirementId,
       reviewedSetId,
-      { verificationMethod, overrideReason: needsOverride ? overrideReason.trim() : undefined },
+      {
+        verificationMethod,
+        overrideReason: needsOverride ? overrideReason.trim() : undefined,
+        verificationReference: verificationReference.trim() || undefined,
+      },
     );
     onClose();
   };
@@ -507,7 +534,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                       />
                     ) : (
                       <div
-                        className={`font-mono-code fw-bold ${isMissing ? 'text-danger' : `text-dark${isJustLoaded && !isMissing ? ' map-autofill-animate' : ''}`}`}
+                        className={`font-mono-code fw-bold ${isMissing ? 'text-danger' : attr.value === NOT_CAPTURED ? 'text-muted fst-italic' : `text-dark${isJustLoaded && !isMissing ? ' map-autofill-animate' : ''}`}`}
                         style={{ fontSize: '0.875rem', cursor: canSubmit ? 'pointer' : 'default' }}
                         title={canSubmit ? "Click to edit field manually" : undefined}
                         onClick={() => canSubmit && setIsManualEditActive(true)}
@@ -567,6 +594,74 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
               );
             })}
             </div>
+
+            {/* Automated Cross-Certificate & Fleet Checks (gap review R2-G2, R2-S7) */}
+            {crossChecks.length > 0 && (
+              <div className="map-drawer-card">
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                  <div className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
+                    Automated Cross-Certificate Checks
+                  </div>
+                  <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.7rem' }}>
+                    Fleet Invariants
+                  </span>
+                </div>
+                <div className="d-flex flex-column gap-2">
+                  {crossChecks.map((check) => {
+                    const isPass = check.state === 'pass';
+                    const isFail = check.state === 'fail';
+                    const isWarn = check.state === 'warn';
+                    const badgeClass = isPass
+                      ? 'text-success'
+                      : isFail
+                        ? 'text-danger'
+                        : isWarn
+                          ? 'text-warning-emphasis'
+                          : 'text-muted';
+                    return (
+                      <div
+                        key={check.checkId}
+                        className="p-2.5 rounded-2 border d-flex align-items-start gap-2.5"
+                        style={{
+                          backgroundColor: isFail ? '#fef2f2' : isWarn ? '#fffbeb' : '#f8fafc',
+                          borderColor: isFail ? '#fecaca' : isWarn ? '#fde68a' : '#e2e8f0',
+                        }}
+                      >
+                        <div className="mt-0.5 flex-shrink-0">
+                          {isPass ? (
+                            <Check className="w-3.5 h-3.5 text-success" strokeWidth={3} />
+                          ) : isFail ? (
+                            <AlertCircle className="w-3.5 h-3.5 text-danger" />
+                          ) : isWarn ? (
+                            <AlertCircle className="w-3.5 h-3.5 text-warning" />
+                          ) : (
+                            <div className="w-2.5 h-2.5 rounded-circle bg-secondary opacity-50 mt-1" />
+                          )}
+                        </div>
+                        <div className="flex-grow-1">
+                          <div className="d-flex align-items-center justify-content-between">
+                            <span className="fw-semibold text-dark" style={{ fontSize: '0.775rem' }}>
+                              {check.label}
+                            </span>
+                            <span className={`small fw-bold ${badgeClass}`} style={{ fontSize: '0.7rem' }}>
+                              {check.state === 'not_applicable' ? 'N/A' : check.state.toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="small text-muted mt-0.5" style={{ fontSize: '0.75rem', lineHeight: '1.3' }}>
+                            {check.message}
+                          </div>
+                          {check.details && (
+                            <div className="small text-danger mt-0.5" style={{ fontSize: '0.7rem' }}>
+                              {check.details}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Exception Action Banner matching design screenshot - hidden for Verifiers, only shown for Submitter / Vessel Admin roles */}
             {canSubmit && (
@@ -652,6 +747,9 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                 <div className="small" style={{ fontSize: '0.8rem', color: '#334155' }}>
                   <div>
                     <span className="fw-semibold">Method:</span> {linkedReq?.verificationMethod || 'Not recorded'}
+                    {linkedReq?.verificationReference && (
+                      <> · <span className="fw-semibold">Ref:</span> <span className="font-mono-code">{linkedReq.verificationReference}</span></>
+                    )}
                     {linkedReq?.verifiedVersion?.verifiedBy && (
                       <> · <span className="fw-semibold">By:</span> {linkedReq.verifiedVersion.verifiedBy}</>
                     )}
@@ -730,6 +828,59 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                   </option>
                 ))}
               </select>
+            </div>
+
+            {verificationMethod === 'Issuer lookup' && (
+              <div className="p-3 rounded-2 border mb-3 bg-light" style={{ fontSize: '0.8rem' }}>
+                {issuerProfile ? (
+                  <>
+                    <div className="fw-semibold text-dark mb-1 d-flex align-items-center justify-content-between">
+                      <span>{issuerProfile.name} ({issuerProfile.type})</span>
+                      <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.7rem' }}>
+                        Confirmed Route
+                      </span>
+                    </div>
+                    <div className="text-secondary mb-2" style={{ fontSize: '0.75rem' }}>
+                      {issuerProfile.confirmedMethod}
+                    </div>
+                    <div className="fw-medium text-dark mb-1" style={{ fontSize: '0.75rem' }}>
+                      Verification Procedure:
+                    </div>
+                    <ol className="ps-3 mb-2 text-muted" style={{ fontSize: '0.75rem' }}>
+                      {issuerProfile.verificationSteps.map((step, idx) => (
+                        <li key={idx} className="mb-0.5">{step}</li>
+                      ))}
+                    </ol>
+                    {issuerProfile.notes && (
+                      <div className="fst-italic text-muted" style={{ fontSize: '0.72rem' }}>
+                        Note: {issuerProfile.notes}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                    No automated verification profile configured for "{document.issuingAuthority || 'this issuer'}". Perform manual authority register lookup and record the lookup reference below.
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mb-3">
+              <label className="map-drawer-label" htmlFor="verification-reference">
+                Verification Reference / Tracking Code (UTN, TID, or Portal ID)
+              </label>
+              <input
+                id="verification-reference"
+                type="text"
+                className="form-control bg-white font-mono-code"
+                placeholder={issuerProfile ? `e.g. ${issuerProfile.referenceLabel}` : "e.g. UTN-48921-X, TID or online query ID"}
+                value={verificationReference}
+                onChange={(e) => setVerificationReference(e.target.value)}
+                style={{ fontSize: '0.825rem' }}
+              />
+              <div className="form-text text-muted" style={{ fontSize: '0.72rem' }}>
+                Recorded in the verification audit ledger for independent verification traceability (R2-G1, R2-S5).
+              </div>
             </div>
 
             {needsOverride && (

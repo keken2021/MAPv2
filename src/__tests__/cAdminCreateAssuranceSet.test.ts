@@ -36,7 +36,7 @@ describe('c admin assurance set creation and default charterer attribution', () 
       title: `${defaultCharterer} - MV Northern Endeavour Charter Vetting`,
       vesselId: 'VESSEL-001',
       vesselName: 'MV Northern Endeavour',
-      imoNumber: '9123456',
+      imoNumber: '9123453',
       initiatorOrg: defaultCharterer,
       initiatorRole: 'C Admin · Client Created',
       charterer: defaultCharterer,

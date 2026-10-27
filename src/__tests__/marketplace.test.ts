@@ -367,4 +367,30 @@ describe('Marketplace Module & Segregation', () => {
     ).toBeNull();
     expect(resolveMarketplaceCharterTarget({ category: 'service', linkedEntityId: 'VESSEL-008' }, registries)).toBeNull();
   });
+
+  it('bases marketplace readiness strictly on provider on-file evidence, not on competitor client assurance sets (R2-E10)', () => {
+    const itemsWithoutClientSets = getMarketplaceItems(
+      MOCK_VESSELS,
+      MOCK_EQUIPMENT,
+      'C Admin',
+      mockUsers,
+      MOCK_CREW,
+      [],
+      MOCK_DOCUMENTS,
+    );
+    const itemsWithClientSets = getMarketplaceItems(
+      MOCK_VESSELS,
+      MOCK_EQUIPMENT,
+      'C Admin',
+      mockUsers,
+      MOCK_CREW,
+      MOCK_ASSURANCE_SETS,
+      MOCK_DOCUMENTS,
+    );
+
+    const targetWithout = itemsWithoutClientSets.find((i) => i.linkedEntityId === 'VESSEL-008');
+    const targetWith = itemsWithClientSets.find((i) => i.linkedEntityId === 'VESSEL-008');
+    expect(targetWithout?.complianceReadinessScore).toBeDefined();
+    expect(targetWithout?.complianceReadinessScore).toBe(targetWith?.complianceReadinessScore);
+  });
 });

@@ -57,7 +57,7 @@ export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLa
     titleUpper.includes('PULL TEST');
 
   const vesselName = doc.vesselAttributes?.vesselName || doc.crewAttributes?.assignedVessel || 'MAP Demo Vessel AUSP1';
-  const imoNumber = doc.vesselAttributes?.imoNumber || (vesselName.includes('Pacific') ? '9123456' : 'AUSP1VSR619');
+  const imoNumber = doc.vesselAttributes?.imoNumber || (vesselName.includes('Pacific') ? '9123453' : 'AUSP1VSR619');
   const flagState = doc.vesselAttributes?.flagState || 'Australia (Sample)';
   const issueDateFormatted = doc.vesselAttributes?.issueDate
     ? formatMaritimeDate(doc.vesselAttributes.issueDate)

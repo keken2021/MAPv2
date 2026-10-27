@@ -10,13 +10,29 @@ import { AssuranceSet } from '../types/assurance';
 import { EquipmentAsset } from '../types/equipment';
 
 /**
-  what: validates if a string is a valid 7-digit maritime imo number.
-  how: checks regex pattern matching exactly 7 numerical digits.
+  what: calculates the 7th check digit for a 6-digit IMO number prefix under IMO A.1117(30).
+  how: weights [7, 6, 5, 4, 3, 2] on digits 1 to 6; check digit is sum modulo 10.
+  with what file: src/utils/validation.ts used by validateImoNumber and documentChecks.ts.
+*/
+export function calculateImoCheckDigit(sixDigits: string): number {
+  const digits = (sixDigits || '').replace(/\D/g, '');
+  if (digits.length < 6) return -1;
+  const weights = [7, 6, 5, 4, 3, 2];
+  const sum = weights.reduce((acc, weight, i) => acc + parseInt(digits[i], 10) * weight, 0);
+  return sum % 10;
+}
+
+/**
+  what: validates if a string is a valid 7-digit maritime imo number under IMO A.1117(30).
+  how: checks 7 numerical digits and verifies that the 7th digit matches the weighted modulo 10 check digit of the first 6 digits.
   with what file: src/utils/validation.ts used by VesselModal.tsx and useMapStore.ts.
 */
 export function validateImoNumber(imo: string): boolean {
+  const clean = (imo || '').trim();
   const imoRegex = /^\d{7}$/;
-  return imoRegex.test(imo.trim());
+  if (!imoRegex.test(clean)) return false;
+  const expectedCheckDigit = calculateImoCheckDigit(clean.slice(0, 6));
+  return parseInt(clean[6], 10) === expectedCheckDigit;
 }
 
 /**

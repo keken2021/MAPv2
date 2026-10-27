@@ -2,7 +2,7 @@
 
 ## Executive Overview
 
-The Marine Assurance Platform (MAP) is an enterprise-grade web application designed for statutory vessel inspections, marine document verification, regulatory compliance tracking, and corrective action management (CAPA). Built for maritime inspectors, verifiers, approvers, and fleet administrators, MAP ensures complete compliance with SOLAS, MARPOL, ISM Code, and STCW international standards.
+The Marine Assurance Platform (MAP) is an enterprise-grade web application designed for statutory vessel inspections, marine document verification, regulatory compliance tracking, and corrective action management (CAPA). Built for maritime inspectors, verifiers, approvers, and fleet administrators, MAP records who checked what, how, and when across SOLAS, MARPOL, ISM Code, and STCW evidence.
 
 ---
 
@@ -18,13 +18,13 @@ The Marine Assurance Platform (MAP) is an enterprise-grade web application desig
 ### 2. Multi-Persona Workspaces & Governance
 - **Role-Based Access Control**: Dedicated views tailored for four core maritime personas:
   - **Inspector**: Conducts physical vessel surveys, records findings, uploads evidence, and submits survey outcomes.
-  - **Verifier**: Audits uploaded certificates, verifies statutory document validity, and checks compliance records.
+  - **Verifier**: Audits uploaded certificates, records verification methods and references, and checks evidence against platform rules.
   - **Approver**: Reviews inspection findings, approves/rejects vessel assurance requirements, and manages risk releases.
   - **Administrator**: Oversees fleet registries, configures assurance rules, and monitors system-wide audit logs.
 - **User Authentication**: Secure multi-role login interface with role switching and profile management.
 
 ### 3. Audit Trail & Compliance Verification
-- **Immutable Log Tracking**: Every inspection action, outcome submission, evidence upload, and CAPA creation is logged with timestamps, user IDs, roles, organizations, and justification notes.
+- **Audit Trail & Verification Log**: Every inspection action, outcome submission, evidence upload, and CAPA creation is logged with timestamps, user IDs, roles, organizations, and justification notes (append-only in the prototype, not tamper-evident).
 - **Filtering & Export**: Searchable audit trail table filtered by asset name, date range, user role, and event severity.
 
 ### 4. Responsive Enterprise Design
@@ -43,7 +43,7 @@ The Marine Assurance Platform (MAP) is an enterprise-grade web application desig
 
 1. Navigate to the project directory:
    ```bash
-   cd c:/mapFiles/MAP
+   cd c:/mapFiles/MAPv2
    ```
 
 2. Install dependencies:

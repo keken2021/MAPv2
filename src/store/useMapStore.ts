@@ -379,7 +379,12 @@ export interface MapStoreState {
     /* the set the requirement belongs to; requirement ids repeat across sets */
     assuranceSetId?: string,
     /* how the document was confirmed, and why it was verified although a check failed (gap review G1, E6) */
-    review?: { verificationMethod?: VerificationMethod; overrideReason?: string },
+    review?: {
+      verificationMethod?: VerificationMethod;
+      overrideReason?: string;
+      verificationReference?: string;
+      verificationResultSummary?: string;
+    },
   ) => void;
 
   // Audit Trail State
@@ -2400,6 +2405,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                 /* the method and any override belong to a verification; a return or rejection clears them */
                 verificationMethod: status === "Verified" ? review?.verificationMethod : undefined,
                 overrideReason: status === "Verified" ? review?.overrideReason?.trim() || undefined : undefined,
+                verificationReference: status === "Verified" ? review?.verificationReference?.trim() || undefined : undefined,
+                verificationResultSummary: status === "Verified" ? review?.verificationResultSummary?.trim() || undefined : undefined,
               },
               s,
               targetDoc,

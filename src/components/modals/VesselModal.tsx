@@ -186,7 +186,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
       return false;
     }
     if (!validateImoNumber(imoNumber)) {
-      setErrorMessage('IMO Number must be exactly 7 digits (e.g. 9123456).');
+      setErrorMessage('IMO Number must be exactly 7 digits with a valid check digit (e.g. 9123453).');
       return false;
     }
     if (!officialRegNumber.trim()) {

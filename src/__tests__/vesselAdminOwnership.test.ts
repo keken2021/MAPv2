@@ -293,7 +293,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const newSubmitterVessel: VesselInformation = {
       id: 'VESSEL-999',
       name: 'MV Pacific Pioneer',
-      imoNumber: '9991234',
+      imoNumber: '9991238',
       officialRegNumber: 'AUS-999123',
       mmsiNumber: '503999123',
       flagState: 'Australia',
@@ -402,7 +402,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
       ...MOCK_VESSELS[0],
       id: 'VESSEL-ADMIN-NORTHWIND',
       name: 'MV Northwind Sentinel',
-      imoNumber: '9988112',
+      imoNumber: '9988114',
       officialRegNumber: 'NW-998811',
       registeredOwner: 'Northwind Marine Pty Ltd',
       technicalManager: 'Northwind Marine Pty Ltd',

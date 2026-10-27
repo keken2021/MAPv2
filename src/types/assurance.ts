@@ -107,6 +107,10 @@ export interface AssuranceRequirement {
   verifiedVersion?: RequirementVersionSnapshot;
   /** how the verifier confirmed the document for this set (gap review G1) */
   verificationMethod?: VerificationMethod;
+  /** identifier, URL, UTN, or lookup reference used to verify the certificate (gap review G1, R2-S5) */
+  verificationReference?: string;
+  /** summary or confirmation details returned by the issuer verification portal */
+  verificationResultSummary?: string;
   /** why the verifier verified although a check failed or was not run (gap review E6) */
   overrideReason?: string;
   /** source, date, validity and inspector of the report, on an inspection report requirement */
@@ -261,7 +265,7 @@ export interface AssuranceTemplate {
   assuranceType?: AssuranceScopeType;
   /** specific asset or operational category, e.g. Tanker, Barge, Captain, Crane, Lifeboat */
   scopeType: string;
-  visibility: 'public';
+  visibility: 'public' | 'organization' | 'private';
   templateSource?: 'public' | 'organization' | 'custom';
   appliedTemplates?: Record<string, string>;
   subtypes?: AssuranceSubtype[];

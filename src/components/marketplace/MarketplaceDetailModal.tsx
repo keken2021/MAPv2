@@ -681,7 +681,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                                   issueDate: '2024-01-15',
                                   expiryDate: '2028-12-31',
                                   vesselName: item.name,
-                                  imoNumber: '9123456',
+                                  imoNumber: '9123453',
                                   flagState: 'Australia',
                                   assetMatchFlag: true,
                                   lastSurveyDate: '2025-06-01',

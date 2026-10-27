@@ -26,7 +26,7 @@ export const MOCK_MARKETPLACE_ITEMS: MarketplaceItem[] = [
     complianceReadinessScore: 70,
     rateEstimate: 'AUD 28,500 / day',
     mobilizationLeadTime: '48 Hours',
-    certifications: ['DNV +100A1 DP2', 'AMSA Statutory Pack', 'SOLAS / ISPS Fully Certified'],
+    certifications: ['DNV 1A1 DP2', 'AMSA Statutory Pack', 'SOLAS / ISPS Fully Certified'],
     operationalCapabilities: [
       'Deck cargo area 850 m2 with 10t/m2 loading strength',
       'Dynamic Positioning DP2 (Kongsberg K-Pos 22)',
@@ -34,8 +34,8 @@ export const MOCK_MARKETPLACE_ITEMS: MarketplaceItem[] = [
       'Liquid mud and dry bulk pneumatic discharge systems',
     ],
     detailedSpecs: [
-      { label: 'IMO Number', value: '9845120' },
-      { label: 'Classification', value: 'DNV +100A1 PSV DP2' },
+      { label: 'IMO Number', value: '9845128' },
+      { label: 'Classification', value: 'DNV 1A1 PSV DP2' },
       { label: 'Year Built', value: '2022 (Vard Marine Norway)' },
       { label: 'Length Overall (LOA)', value: '84.5 m' },
       { label: 'Beam / Draft', value: '19.0 m / 5.9 m' },
@@ -86,7 +86,7 @@ export const MOCK_MARKETPLACE_ITEMS: MarketplaceItem[] = [
       'Full FiFi 1 firefighting water spray monitors',
     ],
     detailedSpecs: [
-      { label: 'IMO Number', value: '9782143' },
+      { label: 'IMO Number', value: '9782144' },
       { label: 'Classification', value: "Lloyd's Register +100A1 DP2" },
       { label: 'Year Built', value: '2021 (Damen Shipyards)' },
       { label: 'Length Overall (LOA)', value: '89.2 m' },
@@ -137,7 +137,7 @@ export const MOCK_MARKETPLACE_ITEMS: MarketplaceItem[] = [
       'Heavy offshore anchor recovery and rig repositioning',
     ],
     detailedSpecs: [
-      { label: 'IMO Number', value: '9651892' },
+      { label: 'IMO Number', value: '9651890' },
       { label: 'Classification', value: 'ABS +A1 Offshore Support Vessel (AHTS) DP2' },
       { label: 'Year Built', value: '2020 (Keppel FELS)' },
       { label: 'Length Overall (LOA)', value: '82.0 m' },

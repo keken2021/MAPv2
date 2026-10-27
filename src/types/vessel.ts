@@ -75,7 +75,7 @@ export interface VesselInformation {
   id: string;
   name: string; // e.g. MV Pacific Endeavour
   previousNames?: string;
-  imoNumber: string; // 7 digits, e.g. 9123456
+  imoNumber: string; // 7 digits, e.g. 9123453
   officialRegNumber: string; // e.g. OSV-44-2019
   mmsiNumber: string; // 9 digits, e.g. 503728940
   callSign: string; // e.g. VJQ4821

@@ -209,7 +209,7 @@ describe('dynamic readiness index calculation suite', () => {
       ...useMapStore.getState().vessels[0],
       id: 'VESSEL-TEST-1',
       name: 'Southern Explorer',
-      imoNumber: '9123456',
+      imoNumber: '9123453',
       complianceReadinessScore: 0,
     };
 
@@ -218,7 +218,7 @@ describe('dynamic readiness index calculation suite', () => {
       title: 'Campaign A',
       vesselId: 'VESSEL-TEST-1',
       vesselName: 'Southern Explorer',
-      imoNumber: '9123456',
+      imoNumber: '9123453',
       initiatorOrg: 'Northwind Marine',
       initiatorRole: 'Vessel Provider Admin',
       charterer: 'Inpex',

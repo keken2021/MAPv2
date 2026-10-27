@@ -86,7 +86,9 @@ export function getMarketplaceItems(
           const stockPhoto = getVesselStockPhoto(v.id, v.name, v.vesselType, v.vesselSubtype, v.imageUrl);
           cloned.imageUrl = v.imageUrl || stockPhoto;
           cloned.photos = v.photos && v.photos.length > 0 ? v.photos : cloned.photos || [cloned.imageUrl];
-          cloned.complianceReadinessScore = calculateVesselReadiness(v, assuranceSets, documents);
+          // Marketplace readiness reflects the provider's on-file evidence (standalone documents and statutory certificates),
+          // not competitor clients' private assurance sets or decisions (gap review R2-E10, paper Appendix C Q7)
+          cloned.complianceReadinessScore = calculateVesselReadiness(v, [], documents);
           cloned.metrics = withReadinessMetric(cloned.metrics, cloned.complianceReadinessScore);
         }
       } else if (cloned.linkedEntityType === 'equipment') {
@@ -95,7 +97,7 @@ export function getMarketplaceItems(
           const stockPhoto = getEquipmentStockPhoto(eq.id, eq.name, eq.category, eq.imageUrl);
           cloned.imageUrl = eq.imageUrl || stockPhoto;
           cloned.photos = eq.photos && eq.photos.length > 0 ? eq.photos : cloned.photos || [cloned.imageUrl];
-          cloned.complianceReadinessScore = calculateEquipmentReadiness(eq, assuranceSets);
+          cloned.complianceReadinessScore = calculateEquipmentReadiness(eq, []);
           cloned.metrics = withReadinessMetric(cloned.metrics, cloned.complianceReadinessScore);
         }
       } else if (cloned.linkedEntityType === 'crew') {
@@ -116,7 +118,7 @@ export function getMarketplaceItems(
     const isBasePresent = baseItems.some((item) => item.linkedEntityId === v.id);
     if (!isBasePresent) {
       const orgInfo = getOrganizationLogo(v.registeredOwner);
-      const vesselReadiness = calculateVesselReadiness(v, assuranceSets, documents);
+      const vesselReadiness = calculateVesselReadiness(v, [], documents);
       const photoUrl = getVesselStockPhoto(v.id, v.name, v.vesselType, v.vesselSubtype, v.imageUrl);
 
       baseItems.push({

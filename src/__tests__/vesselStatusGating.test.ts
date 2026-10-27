@@ -16,7 +16,7 @@ describe('vessel status assurance gating', () => {
   const mockVessel: Vessel = {
     id: 'VESSEL-TEST-01',
     name: 'MV Ocean Test',
-    imoNumber: '9999991',
+    imoNumber: '9999993',
     officialRegNumber: 'REG-991',
     mmsiNumber: '503000001',
     callSign: 'TEST1',

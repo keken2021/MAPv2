@@ -115,6 +115,8 @@ export interface VerifyGateInput {
   overallConfidence: number;
   fullPagePassed: boolean;
   signaturePassed: boolean;
+  /* cross-certificate consistency failure reasons (gap review R2-G2, R2-S7) */
+  crossCertificateBlockReasons?: string[];
 }
 
 /**
@@ -123,7 +125,7 @@ export interface VerifyGateInput {
   with what file: src/utils/verificationPolicy.ts, used by DocumentReviewDrawer.tsx.
 */
 export function getVerifyBlockReasons(input: VerifyGateInput): string[] {
-  const { document, set, overallConfidence, fullPagePassed, signaturePassed } = input;
+  const { document, set, overallConfidence, fullPagePassed, signaturePassed, crossCertificateBlockReasons } = input;
   const reasons: string[] = [];
   const fieldChecks = getFieldChecks(document, set);
   (Object.keys(FIELD_CHECK_LABELS) as FieldCheckKey[]).forEach((key) => {
@@ -144,6 +146,9 @@ export function getVerifyBlockReasons(input: VerifyGateInput): string[] {
   const fieldFailed = Object.values(fieldChecks).some((c) => c?.state === 'fail');
   if (rules && !rules.rulesNotChecked && !rules.overallValid && !fieldFailed) {
     reasons.push(rules.exceptionDetails || 'A validation rule failed.');
+  }
+  if (crossCertificateBlockReasons && crossCertificateBlockReasons.length > 0) {
+    reasons.push(...crossCertificateBlockReasons);
   }
   return reasons;
 }

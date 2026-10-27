@@ -1168,7 +1168,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               (selectedActivity?.name || 'Activity');
 
     const effectiveImo =
-      assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
+      assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123453') : (selectedVessel?.imoNumber || 'N/A');
 
     const isPublicTemplateRequested = templatePrivacy === 'public';
 
@@ -1439,7 +1439,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               (selectedActivity?.name || 'Activity');
 
     const effectiveImo =
-      assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123456') : (selectedVessel?.imoNumber || 'N/A');
+      assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123453') : (selectedVessel?.imoNumber || 'N/A');
 
     const draftSet: AssuranceSet = {
       id: targetSetId,

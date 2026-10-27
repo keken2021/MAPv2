@@ -14,7 +14,7 @@ const mockVessel = {
   ...MOCK_VESSELS[0],
   id: 'VESSEL-001',
   name: 'MV Pacific Endeavour',
-  imoNumber: '9123456',
+  imoNumber: '9123453',
   vesselType: 'Offshore Support Vessel (OSV)',
   vesselSubtype: 'AHTS / PSV',
   shipyardBuilder: 'Damen Shipyards Group',
@@ -38,7 +38,7 @@ const mockAssuranceSets: AssuranceSet[] = [
     title: 'Chevron Gorgon Charter Vetting',
     vesselId: 'VESSEL-001',
     vesselName: 'MV Pacific Endeavour',
-    imoNumber: '9123456',
+    imoNumber: '9123453',
     initiatorOrg: 'Chevron Australia',
     initiatorRole: 'Client Admin',
     charterer: 'Chevron Global Upstream',
@@ -97,7 +97,7 @@ const mockDocuments: MasterDocument[] = [
       issueDate: '2023-11-20',
       expiryDate: '2028-11-20',
       vesselName: 'MV Pacific Endeavour',
-      imoNumber: '9123456',
+      imoNumber: '9123453',
       flagState: 'Australia',
       assetMatchFlag: true,
       lastSurveyDate: '2025-11-20',
@@ -148,7 +148,7 @@ describe('matchesVesselSearch - Fleet Registry Search by Assurance Sets and Docu
 
   it('matches vessel core fields (name, IMO, owner, type, classification)', () => {
     expect(matchesVesselSearch(mockVessel, 'Pacific Endeavour', mockAssuranceSets, mockDocuments)).toBe(true);
-    expect(matchesVesselSearch(mockVessel, '9123456', mockAssuranceSets, mockDocuments)).toBe(true);
+    expect(matchesVesselSearch(mockVessel, '9123453', mockAssuranceSets, mockDocuments)).toBe(true);
     expect(matchesVesselSearch(mockVessel, 'Pacific Ocean Logistics', mockAssuranceSets, mockDocuments)).toBe(true);
     expect(matchesVesselSearch(mockVessel, 'AHTS', mockAssuranceSets, mockDocuments)).toBe(true);
     expect(matchesVesselSearch(mockVessel, 'Damen', mockAssuranceSets, mockDocuments)).toBe(true);

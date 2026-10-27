@@ -6,7 +6,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
-import { isIacsAuthority, runDocumentChecks } from '../utils/documentChecks';
+import { isIacsAuthority, runDocumentChecks, runCrossCertificateChecks } from '../utils/documentChecks';
 import { getVerifyBlockReasons } from '../utils/verificationPolicy';
 import type { MasterDocument } from '../types/document';
 
@@ -92,5 +92,111 @@ describe('document checks without a vessel record', () => {
       signaturePassed: true,
     });
     expect(reason).toMatch(/not linked to a vessel record\. Link it to its vessel/);
+  });
+});
+
+describe('automated cross-certificate checks (gap review R2-G2, R2-S7)', () => {
+  it('validates gross tonnage consistency against registered vessel gross tonnage', () => {
+    const vessel = useMapStore.getState().vessels[0];
+    const registeredGt = vessel.grossTonnageGT; // e.g. 3250
+    const matchingCert = matchingDocument('DOC-GT-1', {
+      grossTonnagePrinted: registeredGt,
+    });
+    const results = runCrossCertificateChecks(matchingCert, [], [vessel]);
+    const gtCheck = results.find((r) => r.checkId === 'gt_consistency')!;
+    expect(gtCheck.state).toBe('pass');
+    expect(gtCheck.message).toContain('matches vessel registry GT');
+
+    const mismatchedCert = matchingDocument('DOC-GT-2', {
+      grossTonnagePrinted: registeredGt + 500,
+    });
+    const mismatchResults = runCrossCertificateChecks(mismatchedCert, [], [vessel]);
+    const mismatchGtCheck = mismatchResults.find((r) => r.checkId === 'gt_consistency')!;
+    expect(mismatchGtCheck.state).toBe('fail');
+    expect(mismatchGtCheck.message).toContain('does not match vessel registry GT');
+  });
+
+  it('validates DOC and SMC ISM company matching', () => {
+    const vessel = useMapStore.getState().vessels[0];
+    const docCert = matchingDocument('DOC-PARENT', {
+      title: 'Document of Compliance (DOC)',
+      companyImoNumber: '9512345',
+      expiryDate: '2028-12-31',
+    });
+    const matchingSmc = matchingDocument('SMC-CHILD-1', {
+      title: 'Safety Management Certificate (SMC)',
+      companyImoNumber: '9512345',
+      expiryDate: '2027-12-31',
+    });
+    const results = runCrossCertificateChecks(matchingSmc, [docCert], [vessel]);
+    const companyCheck = results.find((r) => r.checkId === 'smc_doc_company_match')!;
+    expect(companyCheck.state).toBe('pass');
+    expect(companyCheck.message).toContain('matches parent Document of Compliance');
+
+    const mismatchedSmc = matchingDocument('SMC-CHILD-2', {
+      title: 'Safety Management Certificate (SMC)',
+      companyImoNumber: '9999999',
+      expiryDate: '2027-12-31',
+    });
+    const mismatchResults = runCrossCertificateChecks(mismatchedSmc, [docCert], [vessel]);
+    const mismatchCompanyCheck = mismatchResults.find((r) => r.checkId === 'smc_doc_company_match')!;
+    expect(mismatchCompanyCheck.state).toBe('fail');
+    expect(mismatchCompanyCheck.message).toContain('does not match parent DOC');
+  });
+
+  it('enforces SMC validity bound: SMC expiry cannot outlast DOC expiry', () => {
+    const vessel = useMapStore.getState().vessels[0];
+    const docCert = matchingDocument('DOC-PARENT', {
+      title: 'Document of Compliance (DOC)',
+      companyImoNumber: '9512345',
+      expiryDate: '2028-12-31',
+    });
+    const validSmc = matchingDocument('SMC-VALID', {
+      title: 'Safety Management Certificate (SMC)',
+      companyImoNumber: '9512345',
+      expiryDate: '2028-06-30',
+    });
+    const results = runCrossCertificateChecks(validSmc, [docCert], [vessel]);
+    const boundCheck = results.find((r) => r.checkId === 'smc_doc_validity_bound')!;
+    expect(boundCheck.state).toBe('pass');
+    expect(boundCheck.message).toContain('is within parent DOC expiry');
+
+    const invalidSmc = matchingDocument('SMC-OVERDUE', {
+      title: 'Safety Management Certificate (SMC)',
+      companyImoNumber: '9512345',
+      expiryDate: '2029-06-30',
+    });
+    const invalidResults = runCrossCertificateChecks(invalidSmc, [docCert], [vessel]);
+    const invalidBoundCheck = invalidResults.find((r) => r.checkId === 'smc_doc_validity_bound')!;
+    expect(invalidBoundCheck.state).toBe('fail');
+    expect(invalidBoundCheck.message).toContain('exceeds parent DOC expiry');
+  });
+
+  it('records and preserves verificationReference on verified requirements (R2-G1, R2-S5)', () => {
+    const store = useMapStore.getState();
+    const set = store.assuranceSets[0];
+    const req = set.requirements[0];
+    const docId = req.documentId || 'MAP-VES-2026-STAT-00412';
+
+    store.verifyDocument(
+      docId,
+      'Verified',
+      'Verified with DNV Trust UTN.',
+      undefined,
+      req.id,
+      set.id,
+      {
+        verificationMethod: 'Issuer lookup',
+        verificationReference: 'DNV-UTN-9842104-X',
+        verificationResultSummary: 'Confirmed active on DNV Trust ledger',
+      },
+    );
+
+    const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === set.id)!;
+    const updatedReq = updatedSet.requirements.find((r) => r.id === req.id)!;
+    expect(updatedReq.verifierStatus).toBe('Verified');
+    expect(updatedReq.verificationMethod).toBe('Issuer lookup');
+    expect(updatedReq.verificationReference).toBe('DNV-UTN-9842104-X');
+    expect(updatedReq.verificationResultSummary).toBe('Confirmed active on DNV Trust ledger');
   });
 });

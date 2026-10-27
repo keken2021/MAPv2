@@ -52,7 +52,7 @@ describe('Map Store State Management', () => {
       ...store.vessels[0],
       id: 'VESSEL-UNIT-TEST',
       name: 'MV Unit Test Vessel',
-      imoNumber: '9999999',
+      imoNumber: '9999993',
       officialRegNumber: 'UNIT-REG-001',
     };
 
@@ -443,7 +443,7 @@ describe('Map Store State Management', () => {
       ...store.vessels[0],
       id: 'VESSEL-PHOTO-TEST',
       name: 'MV Photo Test Carrier',
-      imoNumber: '9988776',
+      imoNumber: '9988774',
       officialRegNumber: 'PHOTO-REG-01',
       imageUrl: customImg,
     };
@@ -485,7 +485,7 @@ describe('Map Store State Management', () => {
       ...store.vessels[0],
       id: 'VESSEL-MULTI-PHOTO-TEST',
       name: 'MV Multi Photo Explorer',
-      imoNumber: '9988775',
+      imoNumber: '9988713',
       officialRegNumber: 'MULTI-PHOTO-REG-01',
       imageUrl: photo1,
       photos: [photo1, photo2, photo3],

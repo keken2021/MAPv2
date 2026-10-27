@@ -23,7 +23,7 @@ const makeSet = (overrides: Partial<AssuranceSet>): AssuranceSet => ({
   subtypes: ['Vessel'],
   vesselId: 'VESSEL-001',
   vesselName: 'MV Pacific Endeavour',
-  imoNumber: '9123456',
+  imoNumber: '9123453',
   initiatorOrg: 'Chevron Australia Pty Ltd',
   initiatorRole: 'C Admin · Client Created',
   charterWindowStart: '2026-11-01',

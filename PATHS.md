@@ -34,6 +34,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/types/` : TypeScript types per domain
 - `src/utils/rbacHelpers.ts` : which role sees which set, asset and action
 - `src/utils/permissionHelpers.ts`, `src/utils/permissionDefaults.ts` : role permission matrix
+- `src/utils/issuerVerificationProfiles.ts` : confirmed digital verification portals and procedures for ROs and Flag Administrations (gap review R2-G4, R2-S8)
 - `src/config/featureFlags.ts` : feature flags
 - `src/utils/formatters.ts` : dates, status labels, and `getProviderLabel` (Vessel Provider, Crew Provider, Equipment Provider, or Provider)
 
@@ -92,6 +93,8 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/plans/assurance-sets-tasks-flow-plan.md`, `.docx` : Tasks execution flow plan, 6 hrs/day daily schedule (12 days), and task-branch planning for the 43 Tasks assigned to Creishen Ayuman under Feature 4583; starts at Task 4655
 - `docs/plans/document-renewal-and-one-asset-sets.md`, `.docx` : Document Renewal notification category, provider terms by asset type, one asset per set. Built on 2026-10-12, not committed; move to `docs/changes/` once merged. Rebuild the `.docx` with `docs/plans/document-renewal-and-one-asset-sets.build.py` (needs python-docx, which no installed Python has: use a venv; arguments: `docs/azure-boards/board-comment-skill-spec.docx` as style base, then the output path)
 - `docs/plans/asset-detail-uniform-layout.md` : shared layout for the vessel, crew and equipment detail screens. Not built (was `docs/plan.md`)
+- `docs/plans/map-paper-gap-review-round-2.md` : second review against the paper (Ed. 2) and the certificate data-fields note (23 Oct 2026): status of E1 to G12, new R2-E/G/I/S findings, parked items. Round 1 is `docs/meetings/map-paper-gap-review-2026-10-23.md`
+- `docs/plans/map-paper-gap-fixes-modular-plan.md` : modular execution plan and verification results for round 2 gap review fixes (Modules 1 to 5)
 - `docs/plans/australian-maritime-regulatory-gap-analysis.md` : AMSA, DAFF and research fields missing from the modals. Not built
 - `docs/changes/` : change summaries of work already done. New ones go here; remove one when nobody needs it
 - `docs/changes/EXPLANATION_OF_V3_CHANGES.html` : export that explains the v3 changes (2.9 MB; its `.md` source is gone)

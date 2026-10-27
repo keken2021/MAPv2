@@ -96,7 +96,7 @@ describe('crew directory and document library mock data consistency', () => {
       dateOfBirth: '1989-08-12',
       emergencyContact: '+61 400 999 888',
       currentVesselId: 'VESSEL-001',
-      currentVesselName: 'MV Pacific Endeavour (IMO 9123456)',
+      currentVesselName: 'MV Pacific Endeavour (IMO 9123453)',
       complianceStatus: 'Fully Compliant' as const,
       overallComplianceScore: 100,
       lastAuditedDate: '2026-09-24',

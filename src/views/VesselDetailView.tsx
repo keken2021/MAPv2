@@ -738,6 +738,15 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     if (!vessel || !vessel.clientHistory) return [];
     return vessel.clientHistory
       .filter((r: VesselClientHistoryRecord) => {
+        // Confidentiality shielding: client admins only see charter history of their own organization (gap review R2-E10)
+        if (isCAdmin) {
+          const userOrg = (clientOrg || '').toLowerCase();
+          const recOrg = r.clientOrganization.toLowerCase();
+          if (!userOrg || (!recOrg.includes(userOrg) && !userOrg.includes(recOrg))) {
+            return false;
+          }
+        }
+
         const matchesSearch =
           !clientSearch ||
           r.clientOrganization.toLowerCase().includes(clientSearch.toLowerCase()) ||
@@ -758,7 +767,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         else if (clientSortField === 'notes') comp = (a.notes || '').localeCompare(b.notes || '');
         return clientSortDirection === 'asc' ? comp : -comp;
       });
-  }, [vessel, clientSearch, clientOutcomeFilter, clientSortField, clientSortDirection]);
+  }, [vessel, clientSearch, clientOutcomeFilter, clientSortField, clientSortDirection, isCAdmin, clientOrg]);
 
   const auditActions = useMemo(() => {
     return Array.from(new Set(linkedAudits.map((a) => a.action))).sort();

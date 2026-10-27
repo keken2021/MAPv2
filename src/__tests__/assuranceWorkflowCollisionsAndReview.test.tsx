@@ -44,7 +44,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
             vesselName: 'Conflicting Vessel',
             equipmentId: scope === 'Equipment' ? assetId : undefined,
             equipmentName: scope === 'Equipment' ? 'Conflicting Equipment' : undefined,
-            imoNumber: '9123456',
+            imoNumber: '9123453',
             initiatorOrg: 'Northwind Marine Pty Ltd',
             initiatorRole: 'Vessel Provider Admin',
             charterWindowStart: '2028-03-01',

@@ -31,6 +31,18 @@ export interface VesselCertAttributes {
   lastSurveyDate: string;
   ocrConfidence: number; // e.g. 96%
   status: ComplianceState;
+  /* Extended IMO & statutory certificate attributes (gap review R2-G1) */
+  uniqueTrackingNumber?: string; // UTN, TID, or QR verification payload
+  issuingState?: string; // Flag state administration separate from RO
+  recognisedOrganisation?: string; // RO acting on behalf of flag (e.g. DNV, LR)
+  placeOfIssue?: string; // Port or city of issue
+  surveyCompletionDate?: string; // Date survey/audit was completed
+  anniversaryDate?: string; // Annual survey anniversary window reference
+  isInterim?: boolean; // Interim certificate flag (max 5-6 mos)
+  companyImoNumber?: string; // Operating company IMO number (DOC/SMC/ISSC)
+  grossTonnagePrinted?: number; // Gross tonnage as printed on certificate
+  certificateStatus?: 'Valid' | 'Expiring Soon' | 'Expired' | 'Suspended' | 'Withdrawn' | 'Superseded';
+  checksumSha256?: string; // SHA-256 digital fingerprint of certificate
 }
 
 export interface CrewCertAttributes {
@@ -75,4 +87,15 @@ export interface MasterDocument {
   verificationStatus: 'Pending' | 'Verified' | 'Correction Requested' | 'Rejected';
   verificationNotes?: string;
   fileUrl?: string;
+  /* Extended IMO certificate metadata (gap review R2-G1) */
+  uniqueTrackingNumber?: string;
+  issuingState?: string;
+  recognisedOrganisation?: string;
+  placeOfIssue?: string;
+  surveyCompletionDate?: string;
+  anniversaryDate?: string;
+  isInterim?: boolean;
+  companyImoNumber?: string;
+  grossTonnagePrinted?: number;
+  checksumSha256?: string;
 }

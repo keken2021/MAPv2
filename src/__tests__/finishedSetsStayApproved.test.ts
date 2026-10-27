@@ -55,7 +55,7 @@ function buildLiveSet(
     subtypes: ['Vessel'],
     vesselId,
     vesselName,
-    imoNumber: vesselId === OIL_CO_AURORA_ID ? '9694417' : '9941186',
+    imoNumber: vesselId === OIL_CO_AURORA_ID ? '9694414' : '9941180',
     projectId: OIL_CO_LNG_PROJECT_ID,
     projectName: 'Oil Company LNG Field Development',
     initiatorOrg: 'Northwind Marine Pty Ltd',

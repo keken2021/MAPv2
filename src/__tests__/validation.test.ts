@@ -23,33 +23,38 @@ import { VesselInformation } from '../types/vessel';
 import { AssuranceSet } from '../types/assurance';
 
 describe('Maritime Validation Utilities', () => {
-  it('should validate valid 7-digit IMO numbers', () => {
-    expect(validateImoNumber('9123456')).toBe(true);
-    expect(validateImoNumber('9634721')).toBe(true);
+  it('should validate valid 7-digit IMO numbers with valid check digit', () => {
+    expect(validateImoNumber('9123453')).toBe(true);
+    expect(validateImoNumber('9712345')).toBe(true);
+    expect(validateImoNumber('9871232')).toBe(true);
+    expect(validateImoNumber('9348120')).toBe(true);
   });
 
-  it('should reject invalid IMO numbers', () => {
+  it('should reject invalid IMO numbers and invalid check digits', () => {
     expect(validateImoNumber('12345')).toBe(false);
     expect(validateImoNumber('91234567')).toBe(false);
-    expect(validateImoNumber('IMO9123456')).toBe(false);
+    expect(validateImoNumber('IMO9123453')).toBe(false);
+    // Invalid check digits under IMO A.1117(30)
+    expect(validateImoNumber('9123456')).toBe(false); // expected 3
+    expect(validateImoNumber('9634721')).toBe(false); // expected 5
   });
 
   it('should detect duplicate vessel registration by IMO number', () => {
     const mockVessels: Partial<VesselInformation>[] = [
-      { name: 'MV Pacific Endeavour', imoNumber: '9123456', officialRegNumber: 'OSV-44-2019' },
+      { name: 'MV Pacific Endeavour', imoNumber: '9123453', officialRegNumber: 'OSV-44-2019' },
     ];
 
-    const result = isDuplicateVessel('9123456', 'NEW-REG-100', mockVessels as VesselInformation[]);
+    const result = isDuplicateVessel('9123453', 'NEW-REG-100', mockVessels as VesselInformation[]);
     expect(result.isDuplicate).toBe(true);
-    expect(result.reason).toContain('IMO number 9123456');
+    expect(result.reason).toContain('IMO number 9123453');
   });
 
   it('should detect duplicate vessel registration by Official Registration Number', () => {
     const mockVessels: Partial<VesselInformation>[] = [
-      { name: 'MV Pacific Endeavour', imoNumber: '9123456', officialRegNumber: 'OSV-44-2019' },
+      { name: 'MV Pacific Endeavour', imoNumber: '9123453', officialRegNumber: 'OSV-44-2019' },
     ];
 
-    const result = isDuplicateVessel('9999999', 'osv-44-2019', mockVessels as VesselInformation[]);
+    const result = isDuplicateVessel('9999993', 'osv-44-2019', mockVessels as VesselInformation[]);
     expect(result.isDuplicate).toBe(true);
     expect(result.reason).toContain('Official Registration Number OSV-44-2019');
   });

@@ -154,7 +154,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
       issueDate: '2026-01-15',
       expiryDate: '2027-10-15',
       vesselName: parentVessel?.name || 'Assigned Vessel',
-      imoNumber: parentVessel?.imoNumber || '9123456',
+      imoNumber: parentVessel?.imoNumber || '9123453',
       flagState: parentVessel?.flagState || 'Australia',
       assetMatchFlag: true,
       lastSurveyDate: '2026-01-10',
