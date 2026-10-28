@@ -57,6 +57,13 @@ export const PERMISSION_SCOPE_CATALOG: PermissionScopeDefinition[] = [
     lockDelete: true,
   },
   {
+    key: 'date_permissions',
+    label: 'Target Date Permissions',
+    description: 'Grant short-term permission to named client users to change target dates on assurance sets and tasks.',
+    category: 'Setup & configuration',
+    lockDelete: true,
+  },
+  {
     key: 'workflow_assignment',
     label: 'Stakeholders',
     description: 'Assign Submitter, Verifier, Inspector, and Approver on an assurance set.',
@@ -278,6 +285,10 @@ function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
     case 'assurance_requirements':
       if (role === 'Administrator' || role === 'C Admin') return createReadUpdate();
       if (role === 'Submitter') return readOnly();
+      return emptyCrud();
+
+    case 'date_permissions':
+      if (role === 'C Admin') return createReadUpdate();
       return emptyCrud();
 
     case 'workflow_assignment':

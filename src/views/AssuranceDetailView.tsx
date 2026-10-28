@@ -5,16 +5,26 @@
 */
 
 import React, { useState, useMemo, useRef } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, History, Key, ShieldCheck } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { formatMaritimeDate, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
-import { toIsoLocalDate, validateCharterWindow, validateComplianceDeadline, isComplianceDeadlineOverdue } from '../utils/validation';
+import {
+  toIsoLocalDate,
+  validateCharterWindow,
+  validateComplianceDeadline,
+  isComplianceDeadlineOverdue,
+  validateTaskTargetDate,
+  TASK_DATE_AFTER_SET_DATE,
+  DATE_PERMISSION_REQUIRED,
+  DATE_PERMISSION_EXPIRED,
+  isDatePermissionActive,
+} from '../utils/validation';
 import { MasterDocument } from '../types/document';
-import { AssuranceRequirement } from '../types/assurance';
+import { AssuranceRequirement, DatePermissionGrant, TargetDateChangeRecord } from '../types/assurance';
 import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrphaned } from '../utils/projectHelpers';
 
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
@@ -32,6 +42,8 @@ import {
   getAssuranceSetRoleActions,
   getAssuranceSetCreator,
   getAssuranceSetStakeholderLockReason,
+  isClientUser,
+  getUserActiveDatePermission,
 } from '../utils/rbacHelpers';
 import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
 import { useOverlayBehavior } from '../utils/useOverlayBehavior';
@@ -73,6 +85,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     attachAssuranceSetToProject,
     setCurrentHashView,
     notifications,
+    grantDatePermission,
+    revokeDatePermission,
+    updateTaskTargetDate,
   } = useMapStore();
   const [stakeholderError, setStakeholderError] = useState<string | null>(null);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
@@ -80,6 +95,16 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [charterStartDraft, setCharterStartDraft] = useState('');
   const [charterEndDraft, setCharterEndDraft] = useState('');
   const [deadlineDraft, setDeadlineDraft] = useState('');
+  const [deadlineReasonDraft, setDeadlineReasonDraft] = useState('');
+  const [isDatePermissionsModalOpen, setIsDatePermissionsModalOpen] = useState(false);
+  const [selectedGranteeId, setSelectedGranteeId] = useState('');
+  const [grantDurationHours, setGrantDurationHours] = useState('24');
+  const [grantReasonDraft, setGrantReasonDraft] = useState('');
+  const [isDateHistoryModalOpen, setIsDateHistoryModalOpen] = useState(false);
+  const [editingTaskDate, setEditingTaskDate] = useState<{ reqId: string; title: string; currentDate: string } | null>(null);
+  const [taskDateDraft, setTaskDateDraft] = useState('');
+  const [taskDateReasonDraft, setTaskDateReasonDraft] = useState('');
+  const [taskDateError, setTaskDateError] = useState<string | null>(null);
   const [charterWindowErrors, setCharterWindowErrors] = useState<{ start?: string; end?: string; deadline?: string }>({});
   const [shortCertificateConfirm, setShortCertificateConfirm] = useState<MasterDocument[] | null>(null);
   const confirmDialogRef = useRef<HTMLDivElement>(null);
@@ -94,7 +119,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<'Submitter' | 'Verifier' | 'Inspector' | 'Approver' | null>(null);
 
-  type ReqSortField = 'title' | 'ocrConfidence' | 'status';
+  type ReqSortField = 'title' | 'targetDate' | 'ocrConfidence' | 'status';
   useOverlayBehavior(confirmDialogRef, () => setShortCertificateConfirm(null), {
     active: shortCertificateConfirm !== null,
   });
@@ -129,6 +154,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       let comp = 0;
       if (reqSortField === 'title') {
         comp = a.title.localeCompare(b.title);
+      } else if (reqSortField === 'targetDate') {
+        const dateA = a.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
+        const dateB = b.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
+        comp = dateA.localeCompare(dateB);
       } else if (reqSortField === 'ocrConfidence') {
         const docA = documents.find((d) => d.id === a.documentId || (a.linkedDocumentId && d.id === a.linkedDocumentId));
         const docB = documents.find((d) => d.id === b.documentId || (b.linkedDocumentId && d.id === b.linkedDocumentId));
@@ -296,9 +325,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     : [];
   const creator = getAssuranceSetCreator(assuranceSet, users);
 
-  /* the charter window stays editable for managers until the set is approved or certified */
+  /* the charter window stays editable for managers with date permission until the set is approved or certified */
   const isCharterWindowLocked = assuranceSet.stage === 'Approved' || assuranceSet.stage === 'Certified';
-  const canEditCharterWindow = roleActions.canManage && !isCharterWindowLocked;
+  const canEditCharterWindow = roleActions.canManage && roleActions.canChangeDates && !isCharterWindowLocked;
 
   /* earliest selectable day: tomorrow, since today and earlier are not allowed */
   const minCharterDate = (() => {
@@ -308,9 +337,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   })();
 
   const startCharterWindowEdit = () => {
+    if (!roleActions.canChangeDates) {
+      setProjectToast(DATE_PERMISSION_REQUIRED);
+      setTimeout(() => setProjectToast(null), 3500);
+      return;
+    }
     setCharterStartDraft(assuranceSet.charterWindowStart || '');
     setCharterEndDraft(assuranceSet.charterWindowEnd || '');
-    setDeadlineDraft(assuranceSet.complianceDeadline || assuranceSet.charterWindowStart || '');
+    setDeadlineDraft(assuranceSet.complianceDeadline || assuranceSet.targetDate || assuranceSet.charterWindowStart || '');
+    setDeadlineReasonDraft('');
     setCharterWindowErrors({});
     setIsEditingCharterWindow(true);
   };
@@ -322,18 +357,103 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const commitCharterWindow = () => {
     const endChanged = charterEndDraft !== assuranceSet.charterWindowEnd;
+    const oldDeadline = assuranceSet.complianceDeadline || assuranceSet.targetDate || '';
+    const deadlineChanged = deadlineDraft !== oldDeadline;
+
+    const historyRow: TargetDateChangeRecord | undefined = deadlineChanged
+      ? {
+          id: `TDC-${Date.now()}-set`,
+          setId: assuranceSet.id,
+          scope: 'set',
+          oldDate: oldDeadline || '—',
+          newDate: deadlineDraft,
+          changedBy: sessionUser?.name || 'Client Admin',
+          changedAt: new Date().toISOString(),
+          reason: deadlineReasonDraft.trim() || undefined,
+        }
+      : undefined;
+
     updateAssuranceSet({
       ...assuranceSet,
       charterWindowStart: charterStartDraft,
       charterWindowEnd: charterEndDraft,
       complianceDeadline: deadlineDraft,
+      targetDate: deadlineDraft,
+      targetDateHistory: historyRow
+        ? [...(assuranceSet.targetDateHistory || []), historyRow]
+        : assuranceSet.targetDateHistory,
     });
     if (endChanged) {
       raiseDocumentRenewalNotifications([assuranceSet.id]);
     }
     setIsEditingCharterWindow(false);
     setShortCertificateConfirm(null);
-    setProjectToast('Contract Period updated.');
+    setProjectToast('Contract Period and Target Date updated.');
+    setTimeout(() => setProjectToast(null), 3500);
+  };
+
+  const openTaskDateEdit = (req: AssuranceRequirement) => {
+    if (!roleActions.canChangeDates) {
+      setProjectToast('Date change permission required to modify task target dates.');
+      setTimeout(() => setProjectToast(null), 3500);
+      return;
+    }
+    const setLimit = assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
+    setEditingTaskDate({
+      reqId: req.id,
+      title: req.title,
+      currentDate: req.targetDate || setLimit,
+    });
+    setTaskDateDraft(req.targetDate || setLimit);
+    setTaskDateReasonDraft('');
+    setTaskDateError(null);
+  };
+
+  const handleSaveTaskTargetDate = () => {
+    if (!editingTaskDate) return;
+    const setLimit = assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
+    const err = validateTaskTargetDate(taskDateDraft, setLimit);
+    if (err) {
+      setTaskDateError(err);
+      return;
+    }
+    const result = updateTaskTargetDate(
+      assuranceSet.id,
+      editingTaskDate.reqId,
+      taskDateDraft,
+      sessionUser?.name || 'Client Admin',
+      taskDateReasonDraft.trim() || undefined,
+    );
+    if (result.success) {
+      setEditingTaskDate(null);
+      setProjectToast(`Target date for "${editingTaskDate.title}" updated.`);
+      setTimeout(() => setProjectToast(null), 3500);
+    } else {
+      setTaskDateError(result.message || 'Failed to update task target date.');
+    }
+  };
+
+  const handleGrantPermission = () => {
+    const grantee = users.find((u) => u.id === selectedGranteeId);
+    if (!grantee) return;
+    const hours = parseInt(grantDurationHours, 10) || 24;
+    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    grantDatePermission(assuranceSet.id, {
+      userId: grantee.id,
+      userName: grantee.name,
+      grantedBy: sessionUser?.name || 'Client Admin',
+      expiresAt,
+      reason: grantReasonDraft.trim() || undefined,
+    });
+    setSelectedGranteeId('');
+    setGrantReasonDraft('');
+    setProjectToast(`Date change permission granted to ${grantee.name} for ${hours} hours.`);
+    setTimeout(() => setProjectToast(null), 3500);
+  };
+
+  const handleRevokePermission = (grantId: string) => {
+    revokeDatePermission(assuranceSet.id, grantId);
+    setProjectToast('Date change permission revoked.');
     setTimeout(() => setProjectToast(null), 3500);
   };
 
@@ -704,7 +824,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </div>
                   <div className="map-detail-row">
                     <div className="d-flex align-items-center justify-content-between">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Contract Period:</div>
+                      <div className="d-flex align-items-center gap-2">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Contract Period:</div>
+                        {roleActions.canChangeDates ? (
+                          <span className="badge bg-success-subtle text-success border border-success-subtle" style={{ fontSize: '0.65rem' }}>
+                            Authorized
+                          </span>
+                        ) : roleActions.canManage && !isCharterWindowLocked ? (
+                          <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style={{ fontSize: '0.65rem' }}>
+                            Permission required
+                          </span>
+                        ) : null}
+                      </div>
                       {canEditCharterWindow && (
                         <button
                           type="button"
@@ -777,6 +908,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           )}
                         </div>
                         <div>
+                          <label className="form-label text-secondary small mb-1" htmlFor="deadline-reason">
+                            Reason for Date Change <span className="text-muted fw-normal">(optional)</span>
+                          </label>
+                          <input
+                            id="deadline-reason"
+                            type="text"
+                            className="form-control form-control-sm bg-white text-dark"
+                            placeholder="e.g. Schedule adjustment per operational request"
+                            value={deadlineReasonDraft}
+                            onChange={(e) => setDeadlineReasonDraft(e.target.value)}
+                          />
+                        </div>
+                        <div>
                           <button type="button" className="btn btn-sm btn-primary" onClick={saveCharterWindow}>
                             Save
                           </button>
@@ -785,8 +929,28 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     ) : (
                       <div>
                         <div className="fw-bold text-dark">{formatMaritimeDate(assuranceSet.charterWindowStart)} - {formatMaritimeDate(assuranceSet.charterWindowEnd)}</div>
-                        <div className="text-secondary mt-1" style={{ fontSize: '0.75rem' }}>
-                          Compliance deadline: {formatMaritimeDate(assuranceSet.complianceDeadline)}
+                        <div className="text-secondary mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.75rem' }}>
+                          <span>Compliance deadline: {formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}</span>
+                        </div>
+                        <div className="d-flex align-items-center gap-2 mt-2">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary py-0 px-2 d-inline-flex align-items-center gap-1 font-mono-code"
+                            style={{ fontSize: '0.72rem' }}
+                            onClick={() => setIsDateHistoryModalOpen(true)}
+                          >
+                            <History size={12} />
+                            Date History ({(assuranceSet.targetDateHistory || []).length})
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1 font-mono-code"
+                            style={{ fontSize: '0.72rem' }}
+                            onClick={() => setIsDatePermissionsModalOpen(true)}
+                          >
+                            <Key size={12} />
+                            Date Permissions ({(assuranceSet.datePermissionGrants || []).filter((g) => isDatePermissionActive(g)).length})
+                          </button>
                         </div>
                       </div>
                     )}
@@ -1121,6 +1285,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  onClick={() => handleReqSort('targetDate')}
+                >
+                  Target Date {renderSortIndicator('targetDate')}
+                </th>
+                <th
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleReqSort('ocrConfidence')}
                 >
                   OCR Confidence {renderSortIndicator('ocrConfidence')}
@@ -1160,6 +1330,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         {req.description && (
                           <div className="text-secondary small mt-0.5">{req.description}</div>
                         )}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <span className="font-mono-code small text-dark">
+                          {formatMaritimeDate(req.targetDate || linkedChildSet.complianceDeadline || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
+                        </span>
                       </td>
                       <td>
                         <span className="text-muted small">—</span>
@@ -1252,6 +1427,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         </div>
                       )}
                     </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="font-mono-code small text-dark">
+                          {formatMaritimeDate(req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
+                        </span>
+                        {roleActions.canChangeDates && !isCharterWindowLocked && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link p-0 text-secondary"
+                            title="Edit task target date"
+                            onClick={() => openTaskDateEdit(req)}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td>
                       <ConfidenceBadge score={effectiveOcr} />
                     </td>
@@ -1334,6 +1526,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         {req.title}
                         {renderVersionBadge(req, docView)}
                         {renderContractShortWarning(docView?.doc || linkedDoc)}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="font-mono-code small text-dark">
+                            {formatMaritimeDate(req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
+                          </span>
+                          {roleActions.canChangeDates && !isCharterWindowLocked && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-link p-0 text-secondary"
+                              title="Edit task target date"
+                              onClick={() => openTaskDateEdit(req)}
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td>
                         <ConfidenceBadge score={effectiveOcr} />
@@ -1536,6 +1745,290 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         defaultVesselId={assuranceSet.vesselId}
         onUploadComplete={closeUploadModal}
       />
+
+      {/* Edit Task Target Date Modal */}
+      {editingTaskDate && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="edit-task-date-title">
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title fs-6 fw-bold" id="edit-task-date-title">Edit Task Target Date</h5>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setEditingTaskDate(null)} />
+                </div>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label text-secondary small fw-semibold">Task</label>
+                    <div className="fw-semibold text-dark">{editingTaskDate.title}</div>
+                    <div className="text-muted small">ID: {editingTaskDate.reqId}</div>
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="task-target-date-input">
+                      Target Date <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      id="task-target-date-input"
+                      type="date"
+                      className={`form-control bg-white text-dark${taskDateError ? ' is-invalid border-danger' : ''}`}
+                      value={taskDateDraft}
+                      max={assuranceSet.targetDate || assuranceSet.complianceDeadline || undefined}
+                      onChange={(e) => {
+                        setTaskDateDraft(e.target.value);
+                        setTaskDateError(null);
+                      }}
+                    />
+                    <div className="form-text">
+                      Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.targetDate || assuranceSet.complianceDeadline)}).
+                    </div>
+                    {taskDateError && (
+                      <div className="invalid-feedback d-block small mt-1">{taskDateError}</div>
+                    )}
+                  </div>
+                  <div className="mb-2">
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="task-date-reason-input">
+                      Reason for Change <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <input
+                      id="task-date-reason-input"
+                      type="text"
+                      className="form-control bg-white text-dark"
+                      placeholder="e.g. Schedule adjustment"
+                      value={taskDateReasonDraft}
+                      onChange={(e) => setTaskDateReasonDraft(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setEditingTaskDate(null)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveTaskTargetDate}>
+                    Save Target Date
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Target Date Permissions Modal */}
+      {isDatePermissionsModalOpen && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="date-permissions-title">
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <div>
+                    <h5 className="modal-title fs-6 fw-bold" id="date-permissions-title">Target Date Permissions</h5>
+                    <div className="text-muted small">Short-term permissions granted to named client users to change target dates (BRD V4.2 change 6).</div>
+                  </div>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsDatePermissionsModalOpen(false)} />
+                </div>
+                <div className="modal-body d-flex flex-column gap-3">
+                  <div>
+                    <h6 className="fw-bold text-dark small mb-2">Active & Recent Grants</h6>
+                    {(!assuranceSet.datePermissionGrants || assuranceSet.datePermissionGrants.length === 0) ? (
+                      <div className="alert alert-light border small text-muted mb-0">
+                        No named client users have date modification permissions on this set.
+                      </div>
+                    ) : (
+                      <div className="table-responsive">
+                        <table className="table table-sm table-bordered align-middle mb-0 font-mono-code" style={{ fontSize: '0.78rem' }}>
+                          <thead className="table-light">
+                            <tr>
+                              <th>Client User</th>
+                              <th>Granted By</th>
+                              <th>Granted At</th>
+                              <th>Expires At</th>
+                              <th>Status</th>
+                              {activePersona === 'C Admin' && <th className="text-end">Action</th>}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {assuranceSet.datePermissionGrants.map((grant) => {
+                              const active = isDatePermissionActive(grant);
+                              return (
+                                <tr key={grant.id}>
+                                  <td className="fw-semibold text-dark">{grant.userName}</td>
+                                  <td>{grant.grantedBy}</td>
+                                  <td>{formatMaritimeDate(grant.grantedAt)}</td>
+                                  <td>{new Date(grant.expiresAt).toLocaleString()}</td>
+                                  <td>
+                                    {active ? (
+                                      <span className="badge bg-success-subtle text-success border border-success-subtle">
+                                        Active
+                                      </span>
+                                    ) : (
+                                      <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                        Expired
+                                      </span>
+                                    )}
+                                  </td>
+                                  {activePersona === 'C Admin' && (
+                                    <td className="text-end">
+                                      {active && (
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-link text-danger p-0"
+                                          style={{ fontSize: '0.72rem' }}
+                                          onClick={() => handleRevokePermission(grant.id)}
+                                        >
+                                          Revoke
+                                        </button>
+                                      )}
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {activePersona === 'C Admin' && (
+                    <div className="card bg-light-subtle border p-3 rounded-2">
+                      <h6 className="fw-bold text-dark small mb-2">Grant Short-Term Date Permission</h6>
+                      <div className="row g-2">
+                        <div className="col-12 col-md-5">
+                          <label className="form-label text-secondary small mb-1">Select Client User</label>
+                          <select
+                            className="form-select form-select-sm bg-white"
+                            value={selectedGranteeId}
+                            onChange={(e) => setSelectedGranteeId(e.target.value)}
+                          >
+                            <option value="">Choose client user...</option>
+                            {users
+                              .filter((u) => isClientUser(u, assuranceSet, activePersona))
+                              .map((u) => (
+                                <option key={u.id} value={u.id}>
+                                  {u.name} ({u.organization})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                        <div className="col-12 col-md-3">
+                          <label className="form-label text-secondary small mb-1">Duration</label>
+                          <select
+                            className="form-select form-select-sm bg-white"
+                            value={grantDurationHours}
+                            onChange={(e) => setGrantDurationHours(e.target.value)}
+                          >
+                            <option value="1">1 Hour</option>
+                            <option value="2">2 Hours</option>
+                            <option value="8">8 Hours</option>
+                            <option value="24">24 Hours</option>
+                            <option value="48">48 Hours</option>
+                            <option value="168">7 Days</option>
+                          </select>
+                        </div>
+                        <div className="col-12 col-md-4">
+                          <label className="form-label text-secondary small mb-1">Reason (optional)</label>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm bg-white"
+                            placeholder="e.g. Schedule audit window"
+                            value={grantReasonDraft}
+                            onChange={(e) => setGrantReasonDraft(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-2 text-end">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          disabled={!selectedGranteeId}
+                          onClick={handleGrantPermission}
+                        >
+                          Grant Permission
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsDatePermissionsModalOpen(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Target Date Change History Modal */}
+      {isDateHistoryModalOpen && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="date-history-title">
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <div>
+                    <h5 className="modal-title fs-6 fw-bold" id="date-history-title">Target Date Change History</h5>
+                    <div className="text-muted small">Full historical audit ledger of target date modifications for this assurance set and its tasks.</div>
+                  </div>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsDateHistoryModalOpen(false)} />
+                </div>
+                <div className="modal-body">
+                  {(!assuranceSet.targetDateHistory || assuranceSet.targetDateHistory.length === 0) ? (
+                    <div className="alert alert-light border small text-muted mb-0">
+                      No target date changes have been recorded on this assurance set yet.
+                    </div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-sm table-striped align-middle mb-0 font-mono-code" style={{ fontSize: '0.78rem' }}>
+                        <thead className="table-light">
+                          <tr>
+                            <th>Scope</th>
+                            <th>Previous Date</th>
+                            <th>New Date</th>
+                            <th>Changed By</th>
+                            <th>Changed At</th>
+                            <th>Reason</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {assuranceSet.targetDateHistory.map((row) => (
+                            <tr key={row.id}>
+                              <td>
+                                {row.scope === 'set' ? (
+                                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                    Assurance Set
+                                  </span>
+                                ) : (
+                                  <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle" title={row.taskTitle}>
+                                    Task: {row.taskTitle || row.taskId}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="text-muted">{formatMaritimeDate(row.oldDate)}</td>
+                              <td className="fw-semibold text-dark">{formatMaritimeDate(row.newDate)}</td>
+                              <td>{row.changedBy}</td>
+                              <td>{new Date(row.changedAt).toLocaleString()}</td>
+                              <td className="text-secondary">{row.reason || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsDateHistoryModalOpen(false)}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

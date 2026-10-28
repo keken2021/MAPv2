@@ -4,12 +4,13 @@
   role in system: consumed by AssuranceTable, VerifierWorkspaceView, InspectorWorkspaceView, ApproverDashboardView, and FleetRegistryView.
 */
 
-import { AssuranceSet } from "../types/assurance";
+import { AssuranceSet, DatePermissionGrant } from "../types/assurance";
 import { AuditTrailEvent, UserRolePersona } from "../types/audit";
 import { MasterDocument } from "../types/document";
 import { VesselInformation } from "../types/vessel";
 import { EquipmentAsset } from "../types/equipment";
 import { userMatchesAnyRole } from "./userRoleHelpers";
+import { isDatePermissionActive } from "./validation";
 import { VIEW_TO_SCOPE, canPerform, isUserOverride, getEffectiveUserScopeFlags, getRoleScopeFlags } from "./permissionHelpers";
 import { RolePermissionMatrix, UserPermissionOverrides } from "../types/permissions";
 import { UserProfile } from "../types/user";
@@ -175,6 +176,7 @@ export interface AssuranceSetRoleActions {
   canVerify: boolean;
   canInspect: boolean;
   canApprove: boolean;
+  canChangeDates: boolean;
 }
 
 /**
@@ -236,13 +238,81 @@ export function getAssuranceSetRoleActions(
   /* approver approves on assigned sets */
   const canApprove = persona === "Approver" && isAssigned;
 
+  /* short-term permission given to named client users to change dates (BRD V4.2 change 6) */
+  const canChangeDates = canUserChangeAssuranceDates(user, set, persona);
+
   return {
     canManage,
     canUpload,
     canVerify,
     canInspect,
     canApprove,
+    canChangeDates,
   };
+}
+
+/**
+  what: checks if a user is a client user (C Admin or member of the client organization).
+  how: checks user role and organization against the set client organization and charterer.
+  with what file: src/utils/rbacHelpers.ts used by date permission gating.
+*/
+export function isClientUser(
+  user: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | undefined,
+  set?: Pick<AssuranceSet, "clientOrg" | "charterer" | "initiatorOrg" | "serviceProviderOrg">,
+  persona?: UserRolePersona,
+): boolean {
+  if (persona === "C Admin") return true;
+  if (user?.roles?.includes("C Admin")) return true;
+  if (!user?.organization) return false;
+
+  /* vendor roles or service provider organizations are never client users */
+  if (persona === "Administrator" || persona === "Submitter") return false;
+  if (set?.serviceProviderOrg && orgFieldMatches(user.organization, set.serviceProviderOrg)) {
+    return false;
+  }
+
+  const clientOrg = set?.clientOrg || set?.charterer;
+  if (clientOrg && orgFieldMatches(user.organization, clientOrg)) {
+    return true;
+  }
+  if (set?.initiatorOrg && orgFieldMatches(user.organization, set.initiatorOrg)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+  what: retrieves the active date change permission grant for a user on an assurance set, if valid.
+  how: matches the user by id or name and ensures the grant is not expired.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceDetailView.tsx and validation checks.
+*/
+export function getUserActiveDatePermission(
+  user: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | undefined,
+  set: AssuranceSet,
+  now: Date = new Date(),
+): DatePermissionGrant | undefined {
+  if (!user || !set.datePermissionGrants?.length) return undefined;
+  return set.datePermissionGrants.find((grant) => {
+    const matchesUser =
+      (user.id && grant.userId === user.id) ||
+      (user.name && grant.userName.toLowerCase() === user.name.toLowerCase());
+    return Boolean(matchesUser && isDatePermissionActive(grant, now));
+  });
+}
+
+/**
+  what: checks if a client user is authorized to modify target dates on an assurance set.
+  how: user must be a client user and have an active, non-expired date permission grant.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceDetailView.tsx and useMapStore.ts.
+*/
+export function canUserChangeAssuranceDates(
+  user: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | undefined,
+  set: AssuranceSet,
+  persona?: UserRolePersona,
+  now: Date = new Date(),
+): boolean {
+  if (!isClientUser(user, set, persona)) return false;
+  return Boolean(getUserActiveDatePermission(user, set, now));
 }
 
 /**

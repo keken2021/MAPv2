@@ -243,6 +243,14 @@ export function validateCharterWindow(
 }
 
 export const COMPLIANCE_DEADLINE_REQUIRED = 'Compliance deadline is required.';
+export const TASK_DATE_AFTER_SET_DATE =
+  'Task target date cannot be after the assurance set target date.';
+export const TASK_DATE_BEFORE_START =
+  'Task target date cannot be before the contract start date.';
+export const DATE_PERMISSION_EXPIRED =
+  'Date change permission has expired.';
+export const DATE_PERMISSION_REQUIRED =
+  'You do not have permission to modify target dates.';
 export const COMPLIANCE_DEADLINE_BEFORE_START =
   'Compliance deadline must be on or before the contract start.';
 
@@ -272,4 +280,62 @@ export function isComplianceDeadlineOverdue(
   if (set.stage === 'Approved' || set.stage === 'Certified') return false;
   if (!set.complianceDeadline) return false;
   return set.complianceDeadline < toIsoLocalDate(today);
+}
+
+/**
+  what: validates a task target date against the assurance set target date and optional contract start.
+  how: ensures the task target date falls on or before the set target date.
+  with what file: src/utils/validation.ts used by CreateAssuranceSetView.tsx, AssuranceDetailView.tsx, and useMapStore.ts.
+*/
+export function validateTaskTargetDate(
+  taskTargetDate: string,
+  setTargetDate: string,
+  setStartDate?: string,
+): string | undefined {
+  if (!taskTargetDate || !setTargetDate) return undefined;
+  if (taskTargetDate > setTargetDate) {
+    return TASK_DATE_AFTER_SET_DATE;
+  }
+  if (setStartDate && taskTargetDate < setStartDate) {
+    return TASK_DATE_BEFORE_START;
+  }
+  return undefined;
+}
+
+/**
+  what: checks if all tasks in a list have valid target dates falling on or before the set target date.
+  how: evaluates each task requirement against the set date and returns a dictionary of requirement ID to error string.
+  with what file: src/utils/validation.ts used by CreateAssuranceSetView.tsx and AssuranceDetailView.tsx.
+*/
+export function validateAllTaskTargetDates(
+  requirements: Array<{ id: string; title: string; targetDate?: string }>,
+  setTargetDate: string,
+  setStartDate?: string,
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (!setTargetDate) return errors;
+  for (const req of requirements) {
+    if (req.targetDate) {
+      const err = validateTaskTargetDate(req.targetDate, setTargetDate, setStartDate);
+      if (err) {
+        errors[req.id] = err;
+      }
+    }
+  }
+  return errors;
+}
+
+/**
+  what: checks if a date permission grant is active and not expired.
+  how: compares the grant's expiresAt against the provided date or current time.
+  with what file: src/utils/validation.ts used by rbacHelpers.ts and views.
+*/
+export function isDatePermissionActive(
+  grant: { expiresAt: string } | undefined | null,
+  now: Date = new Date(),
+): boolean {
+  if (!grant || !grant.expiresAt) return false;
+  const expiryTime = new Date(grant.expiresAt).getTime();
+  if (Number.isNaN(expiryTime)) return false;
+  return expiryTime > now.getTime();
 }

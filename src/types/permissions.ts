@@ -45,7 +45,8 @@ export type PermissionScopeKey =
   | 'assurance_completion'
   | 'dashboard'
   | 'audit_trail'
-  | 'compliance_export';
+  | 'compliance_export'
+  | 'date_permissions';
 
 export type PermissionCategory = string;
 

@@ -22,6 +22,8 @@ import { AvailabilityStatus } from "../types/asset";
 import {
   AssuranceSet,
   AssuranceTemplate,
+  DatePermissionGrant,
+  TargetDateChangeRecord,
   AssuranceStage,
   AssuranceRequirement,
   VerificationMethod,
@@ -322,6 +324,15 @@ export interface MapStoreState {
   assuranceSets: AssuranceSet[];
   addAssuranceSet: (set: AssuranceSet) => void;
   updateAssuranceSet: (set: AssuranceSet) => void;
+  grantDatePermission: (setId: string, grant: Omit<DatePermissionGrant, 'id' | 'grantedAt'>) => void;
+  revokeDatePermission: (setId: string, grantId: string) => void;
+  updateTaskTargetDate: (
+    setId: string,
+    taskId: string,
+    targetDate: string,
+    actorName: string,
+    reason?: string,
+  ) => { success: boolean; message?: string };
 
   // Assurance Templates State (Dedicated Public Templates Slice)
   assuranceTemplates: AssuranceTemplate[];
@@ -496,6 +507,7 @@ const ASSURANCE_DATE_FIELDS = [
   "charterWindowStart",
   "charterWindowEnd",
   "complianceDeadline",
+  "targetDate",
   "projectWindowStart",
   "projectWindowEnd",
 ] as const;
@@ -576,6 +588,7 @@ function taskEditSnapshot(task: AssuranceRequirement): string {
     task.description ?? "",
     task.category,
     task.isMandatory ? "mandatory" : "optional",
+    task.targetDate ?? "",
   ].join("\u001f");
 }
 
@@ -1853,6 +1866,39 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const computedSet = recalculateSetReadiness(
       toSingleAssetSet({
         ...updatedSet,
+        targetDate: updatedSet.targetDate || updatedSet.complianceDeadline,
+        datePermissionGrants: updatedSet.datePermissionGrants ?? state.assuranceSets.find((s) => s.id === updatedSet.id)?.datePermissionGrants ?? [],
+        targetDateHistory: (() => {
+          const prev = state.assuranceSets.find((s) => s.id === updatedSet.id);
+          const resolved = updatedSet.targetDate || updatedSet.complianceDeadline;
+          const prevDate = prev?.targetDate || prev?.complianceDeadline;
+          let ledger = updatedSet.targetDateHistory ?? prev?.targetDateHistory ?? [];
+          if (
+            prev &&
+            resolved &&
+            prevDate &&
+            prevDate !== resolved &&
+            !ledger.some((h) => h.scope === "set" && h.newDate === resolved)
+          ) {
+            ledger = [
+              ...ledger,
+              {
+                id: `TDC-${Date.now()}-set`,
+                setId: updatedSet.id,
+                scope: "set",
+                targetType: "set",
+                oldDate: prevDate,
+                newDate: resolved,
+                changedBy:
+                  state.users.find((u) => u.id === state.activeSessionUserId)?.name ||
+                  state.activePersona ||
+                  "Client Admin",
+                changedAt: new Date().toISOString(),
+              },
+            ];
+          }
+          return ledger;
+        })(),
         requirements: sanitizedRequirements,
       }),
     );
@@ -1880,6 +1926,82 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     if (previousSet) {
       logAssuranceSetAuditDiff(get, previousSet, updatedSet);
     }
+  },
+  grantDatePermission: (setId, grantInput) => {
+    set((state) => {
+      const target = state.assuranceSets.find((s) => s.id === setId);
+      if (!target) return state;
+      const newGrant: DatePermissionGrant = {
+        ...grantInput,
+        id: `DPG-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        grantedAt: new Date().toISOString(),
+      };
+      const updatedGrants = [...(target.datePermissionGrants || []), newGrant];
+      const updatedSet: AssuranceSet = { ...target, datePermissionGrants: updatedGrants };
+      return {
+        assuranceSets: state.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
+      };
+    });
+    get().logAuditEvent({
+      action: "Granted Date Permission",
+      targetAsset: setId,
+      justificationNotes: `Granted target date change permission to ${grantInput.userName}.`,
+    });
+  },
+  revokeDatePermission: (setId, grantId) => {
+    set((state) => {
+      const target = state.assuranceSets.find((s) => s.id === setId);
+      if (!target) return state;
+      const updatedGrants = (target.datePermissionGrants || []).filter(
+        (g) => g.id !== grantId && g.userId !== grantId,
+      );
+      const updatedSet: AssuranceSet = { ...target, datePermissionGrants: updatedGrants };
+      return {
+        assuranceSets: state.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
+      };
+    });
+    get().logAuditEvent({
+      action: "Revoked Date Permission",
+      targetAsset: setId,
+      justificationNotes: `Revoked target date change permission ${grantId}.`,
+    });
+  },
+  updateTaskTargetDate: (setId, taskId, targetDate, actorName, reason) => {
+    const state = get();
+    const setTarget = state.assuranceSets.find((s) => s.id === setId);
+    if (!setTarget) return { success: false, message: "Assurance set not found." };
+    const setDeadline = setTarget.targetDate || setTarget.complianceDeadline || "";
+    if (setDeadline && targetDate > setDeadline) {
+      return { success: false, message: "Task target date cannot be after the assurance set target date." };
+    }
+    const task = setTarget.requirements.find((r) => r.id === taskId);
+    if (!task) return { success: false, message: "Task requirement not found." };
+
+    const oldDate = task.targetDate || "—";
+    const updatedRequirements = setTarget.requirements.map((r) =>
+      r.id === taskId ? { ...r, targetDate } : r,
+    );
+    const historyRow: TargetDateChangeRecord = {
+      id: `TDC-${Date.now()}-${taskId}`,
+      setId,
+      taskId,
+      taskTitle: task.title,
+      scope: "task",
+      targetType: "task",
+      requirementId: taskId,
+      oldDate,
+      newDate: targetDate,
+      changedBy: actorName,
+      changedAt: new Date().toISOString(),
+      reason: reason || undefined,
+    };
+    const updatedSet: AssuranceSet = {
+      ...setTarget,
+      requirements: updatedRequirements,
+      targetDateHistory: [...(setTarget.targetDateHistory || []), historyRow],
+    };
+    get().updateAssuranceSet(updatedSet);
+    return { success: true };
   },
   updateAssuranceStage: (setId, stage) => {
     /* explicit manual override: the chosen stage is kept and only the readiness index is recalculated */

@@ -37,7 +37,7 @@ import {
   hasBlockingAssuranceAssignmentConflict,
   getReviewChannelForUser,
 } from '../utils/userRoleHelpers';
-import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId, validateComplianceDeadline } from '../utils/validation';
+import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId, validateComplianceDeadline, validateTaskTargetDate, TASK_DATE_AFTER_SET_DATE } from '../utils/validation';
 import {
   SUBTYPE_STANDARD_DOCS,
   SUBTYPE_TEMPLATES,
@@ -90,6 +90,7 @@ interface SpecializedDoc {
   /** null omits the subtype so People and Process keep their pillar on a Vessel set */
   requirementSubtype?: AssuranceSubtype | null;
   targetObjectId?: string;
+  targetDate?: string;
 }
 
 interface CreateAssuranceSetViewProps {
@@ -1236,6 +1237,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             assignedSubmitter: reqAssignedSubmitter,
             assignedVerifier: reqAssignedVerifier,
             verifierId: verificationRequired ? assignedVerifier : undefined,
+            targetDate: complianceDeadline,
           });
         }
       });
@@ -1250,6 +1252,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           subtype: savedRequirementSubtype(spec),
           isMandatory: spec.isMandatory,
           isSpecialized: true,
+          targetDate: spec.targetDate || complianceDeadline,
           isFulfilled: false,
           ocrConfidence: 0,
           verifierStatus: 'Pending',
@@ -1280,6 +1283,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       selectedActivityId,
       targetSubtype: assuranceType,
     });
+
+    const invalidTask = finalRequirements.find(
+      (r) => r.targetDate && validateTaskTargetDate(r.targetDate, complianceDeadline)
+    );
+    if (invalidTask) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        complianceDeadline: TASK_DATE_AFTER_SET_DATE,
+      }));
+      return;
+    }
 
     const effectiveAssetName =
       assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
@@ -1366,6 +1380,32 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       charterWindowStart: startDate,
       charterWindowEnd: endDate,
       complianceDeadline,
+      targetDate: complianceDeadline,
+      datePermissionGrants: activeSessionUserId
+        ? [
+            {
+              id: `DPG-${Date.now()}-1`,
+              userId: activeSessionUserId,
+              userName: creatorName || 'Client Admin',
+              grantedBy: 'System (Creation)',
+              grantedAt: new Date().toISOString(),
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+              reason: 'Initial setup permission',
+            },
+          ]
+        : [],
+      targetDateHistory: [
+        {
+          id: `TDC-${Date.now()}-0`,
+          setId: uniqueSetId,
+          scope: 'set',
+          oldDate: '—',
+          newDate: complianceDeadline,
+          changedBy: creatorName || 'Client Admin',
+          changedAt: new Date().toISOString(),
+          reason: 'Initial target date set at creation',
+        },
+      ],
       stage: 'Initiated',
       readinessScore: 10,
       verificationRequired,
@@ -1510,6 +1550,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             assignedSubmitter: reqAssignedSubmitter,
             assignedVerifier: reqAssignedVerifier,
             verifierId: verificationRequired ? assignedVerifier : undefined,
+            targetDate: complianceDeadline,
           });
         }
       });
@@ -1524,6 +1565,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           subtype: savedRequirementSubtype(spec),
           isMandatory: spec.isMandatory,
           isSpecialized: true,
+          targetDate: spec.targetDate || complianceDeadline,
           isFulfilled: false,
           ocrConfidence: 0,
           verifierStatus: 'Pending',
@@ -1552,6 +1594,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       selectedActivityId,
       targetSubtype: assuranceType,
     });
+
+    const invalidTask = finalRequirements.find(
+      (r) => r.targetDate && validateTaskTargetDate(r.targetDate, complianceDeadline)
+    );
+    if (invalidTask) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        complianceDeadline: TASK_DATE_AFTER_SET_DATE,
+      }));
+      return;
+    }
 
     const effectiveAssetName =
       assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
@@ -1623,6 +1676,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       charterWindowStart: startDate || initialPeriod.start,
       charterWindowEnd: endDate || initialPeriod.end,
       complianceDeadline: complianceDeadline || startDate || initialPeriod.start,
+      targetDate: complianceDeadline || startDate || initialPeriod.start,
       stage: 'Initiated',
       readinessScore: 0,
       verificationRequired,

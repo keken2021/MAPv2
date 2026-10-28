@@ -76,23 +76,23 @@ describe('assurance set role actions', () => {
     });
 
     expect(getAssuranceSetRoleActions(assignedSet, 'Submitter')).toEqual({
-      canManage: false, canUpload: true, canVerify: false, canInspect: false, canApprove: false,
+      canManage: false, canUpload: true, canVerify: false, canInspect: false, canApprove: false, canChangeDates: false,
     });
     expect(getAssuranceSetRoleActions(assignedSet, 'Verifier')).toEqual({
-      canManage: false, canUpload: false, canVerify: true, canInspect: false, canApprove: false,
+      canManage: false, canUpload: false, canVerify: true, canInspect: false, canApprove: false, canChangeDates: false,
     });
     expect(getAssuranceSetRoleActions(assignedSet, 'Inspector')).toEqual({
-      canManage: false, canUpload: false, canVerify: false, canInspect: true, canApprove: false,
+      canManage: false, canUpload: false, canVerify: false, canInspect: true, canApprove: false, canChangeDates: false,
     });
     expect(getAssuranceSetRoleActions(assignedSet, 'Approver')).toEqual({
-      canManage: false, canUpload: false, canVerify: false, canInspect: false, canApprove: true,
+      canManage: false, canUpload: false, canVerify: false, canInspect: false, canApprove: true, canChangeDates: false,
     });
   });
 
   it('grants no actions on a set the role is not assigned to', () => {
     ASSURANCE_SETS_READ_ONLY_ROLES.forEach((role) => {
       expect(getAssuranceSetRoleActions(unassignedSet, role)).toEqual({
-        canManage: false, canUpload: false, canVerify: false, canInspect: false, canApprove: false,
+        canManage: false, canUpload: false, canVerify: false, canInspect: false, canApprove: false, canChangeDates: false,
       });
     });
   });
@@ -114,7 +114,7 @@ describe('assurance set role actions', () => {
     };
     expect(isAssuranceSetCreatedByCAdmin(clientSet)).toBe(true);
     expect(getAssuranceSetRoleActions(clientSet, 'C Admin')).toEqual({
-      canManage: true, canUpload: false, canVerify: true, canInspect: false, canApprove: false,
+      canManage: true, canUpload: false, canVerify: true, canInspect: false, canApprove: false, canChangeDates: false,
     });
 
     const providerSet: AssuranceSet = {
@@ -157,6 +157,7 @@ describe('assurance set role actions', () => {
       canVerify: false,
       canInspect: false,
       canApprove: false,
+      canChangeDates: false,
     });
 
     const unrelatedClientAdminActions = getAssuranceSetRoleActions(
@@ -170,6 +171,7 @@ describe('assurance set role actions', () => {
       canVerify: false,
       canInspect: false,
       canApprove: false,
+      canChangeDates: false,
     });
   });
 

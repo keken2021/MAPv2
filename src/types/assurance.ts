@@ -137,6 +137,35 @@ export interface AssuranceRequirement {
   inspectionReport?: InspectionReportEvidence;
   /** ID of the assurance object this requirement/task is assigned to (ADR 0029) */
   targetObjectId?: string;
+  /** target date for this requirement/task (must fall on or before the set target date; BRD V4.2 change 6) */
+  targetDate?: string;
+}
+
+/** short-term permission granted to a named client user to change target dates (BRD V4.2 change 6) */
+export interface DatePermissionGrant {
+  id: string;
+  userId: string;
+  userName: string;
+  grantedBy: string;
+  grantedAt: string;
+  expiresAt: string;
+  reason?: string;
+}
+
+/** historical record of a target date change on an assurance set or one of its tasks (BRD V4.2 change 6) */
+export interface TargetDateChangeRecord {
+  id: string;
+  setId: string;
+  taskId?: string;
+  requirementId?: string;
+  taskTitle?: string;
+  scope: 'set' | 'task';
+  targetType?: 'set' | 'task';
+  oldDate: string;
+  newDate: string;
+  changedBy: string;
+  changedAt: string;
+  reason?: string;
 }
 
 /** frozen copy of one document version, taken when a requirement is verified or its set is approved */
@@ -271,6 +300,12 @@ export interface AssuranceSet {
   lockedAt?: string;
   /** assurance objects covered by this set across multiple types (ADR 0029) */
   assuranceObjects?: AssuranceObject[];
+  /** target date for the set (aligned with complianceDeadline; BRD V4.2 change 6) */
+  targetDate?: string;
+  /** short-term date change permission grants to named client users (BRD V4.2 change 6) */
+  datePermissionGrants?: DatePermissionGrant[];
+  /** audit history ledger of target date changes on this set and its tasks (BRD V4.2 change 6) */
+  targetDateHistory?: TargetDateChangeRecord[];
 }
 
 /**
