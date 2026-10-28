@@ -4,10 +4,12 @@
   role in system: guarantees stcw documentation accuracy across crewing and master document registers.
 */
 
-import { describe, it, expect } from 'vitest';
+import { beforeEach, describe, it, expect } from 'vitest';
 import { MOCK_CREW } from '../store/crewMockData';
 import { MOCK_DOCUMENTS, MOCK_VESSELS, MOCK_ASSURANCE_SETS } from '../store/mockData';
 import { useMapStore } from '../store/useMapStore';
+
+const initialState = useMapStore.getState();
 
 describe('crew directory and document library mock data consistency', () => {
   it('ensures all mock documents in document library have unique IDs and certificate numbers', () => {
@@ -166,6 +168,52 @@ describe('crew directory and document library mock data consistency', () => {
     useMapStore.getState().deleteCrewDocument('CREW-NEW-999', 'MAP-CRW-2026-STCW-00778');
     const finalDocs = useMapStore.getState().documents;
     expect(finalDocs.find((d: any) => d.id === 'MAP-CRW-2026-STCW-00778')).toBeUndefined();
+  });
+});
+
+describe('person to vessel assignment', () => {
+  beforeEach(() => {
+    useMapStore.setState(initialState, true);
+  });
+
+  it('keeps rotation dates when existing crew load as person objects', () => {
+    expect(MOCK_CREW).toHaveLength(5);
+    const person = useMapStore.getState().assuranceObjects.find((object) => object.id === 'CREW-101');
+    const current = person?.assignments?.find((assignment) => assignment.isCurrent);
+    expect(current?.targetObjectType).toBe('vessel');
+    expect(current?.targetObjectId).toBe('VESSEL-001');
+    expect(current?.startDate).toBe('2024-03-01');
+    expect(current?.endDate).toBeUndefined();
+    const earlier = person?.assignments?.find((assignment) => assignment.id === 'ASG-102');
+    expect(earlier?.startDate).toBe('2021-06-15');
+    expect(earlier?.endDate).toBe('2024-02-10');
+
+    const bosun = useMapStore.getState().assuranceObjects.find((object) => object.id === 'CREW-104');
+    const equipment = bosun?.assignments?.find((assignment) => assignment.targetObjectId === 'EQ-007');
+    expect(equipment?.targetObjectType).toBe('equipment');
+    expect(equipment?.startDate).toBe('2025-01-06');
+    expect(equipment?.endDate).toBe('2025-03-28');
+    expect(bosun?.assignments?.find((assignment) => assignment.isCurrent)?.targetObjectId).toBe('VESSEL-001');
+  });
+
+  it('saves an assignment to another object with the dates entered', () => {
+    const result = useMapStore.getState().assignPersonToObject('CREW-101', {
+      targetObjectId: 'EQ-003',
+      targetObjectType: 'equipment',
+      targetName: 'Free-Fall Lifeboat #1',
+      startDate: '2026-11-01',
+      endDate: '2027-02-01',
+      role: 'Master / Ship Captain',
+    });
+    expect(result.success).toBe(true);
+    const person = useMapStore.getState().assuranceObjects.find((object) => object.id === 'CREW-101');
+    const saved = person?.assignments?.find((assignment) => assignment.targetObjectId === 'EQ-003');
+    expect(saved?.startDate).toBe('2026-11-01');
+    expect(saved?.endDate).toBe('2027-02-01');
+    expect(saved?.isCurrent).toBe(true);
+    const vesselRotation = person?.assignments?.find((assignment) => assignment.id === 'ASG-101');
+    expect(vesselRotation?.isCurrent).toBe(false);
+    expect(vesselRotation?.endDate).toBe('2026-11-01');
   });
 });
 

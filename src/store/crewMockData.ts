@@ -500,6 +500,18 @@ export const MOCK_CREW: CrewMember[] = [
         isCurrent: true,
       },
     ],
+    objectAssignments: [
+      {
+        id: 'ASG-OBJ-401',
+        targetObjectId: 'EQ-007',
+        targetObjectType: 'equipment',
+        targetName: 'Subsea Work-Class ROV & 150T Traction Winch',
+        startDate: '2025-01-06',
+        endDate: '2025-03-28',
+        isCurrent: false,
+        role: 'ROV deck support',
+      },
+    ],
     layer1CoreDocuments: [
       {
         id: 'MAP-CRW-2026-IDNT-00401',

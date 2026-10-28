@@ -45,6 +45,18 @@ export type ObjectVerificationStatus =
 /** a client self-check reads as internal. A review by another organization reads as external. */
 export type ObjectVerificationChannel = 'internal' | 'external';
 
+/** a person assigned to a vessel or another assurance object for a rotation. */
+export interface ObjectAssignment {
+  id: string;
+  targetObjectId: string;
+  targetObjectType: AssuranceObjectType;
+  targetName: string;
+  startDate: string;
+  endDate?: string;
+  isCurrent: boolean;
+  role?: string;
+}
+
 /** the check one client can see on an object. It does not include another client's documents. */
 export interface ObjectVerification {
   status: ObjectVerificationStatus;
@@ -62,6 +74,8 @@ export interface AssuranceObject {
   identifier?: string;
   description?: string;
   metadata?: Record<string, unknown>;
+  /** vessel rotations and assignments to other objects, with start and end dates */
+  assignments?: ObjectAssignment[];
 }
 
 export type ReviewMode = 'internal' | 'third_party' | 'issuing_authority' | 'mixed';

@@ -4,7 +4,9 @@
   role in system: consumed by CreateAssuranceSetView.tsx during assurance set initiation; a set covers one asset, or one or more crew members on a crew set (ADR 0004, amended by ADR 0023).
 */
 
-import { AssuranceSet, AssuranceRequirement, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory, AssuranceObject, AssuranceObjectType, TaskSection } from '../types/assurance';
+import { AssuranceSet, AssuranceRequirement, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory, AssuranceObject, AssuranceObjectType, ObjectAssignment, TaskSection } from '../types/assurance';
+import { CrewVesselAssignment } from '../types/crew';
+import { VesselPersonLink } from '../types/vessel';
 
 /* every scope the data model knows, in display order */
 const ALL_ASSURANCE_SCOPES: AssuranceSubtype[] = ['Vessel', 'Crew', 'Activity', 'Equipment'];
@@ -113,6 +115,52 @@ export function vesselToAssuranceObject(vessel: {
   };
 }
 
+/** a crew vessel rotation kept as an assignment on the person object */
+export function vesselAssignmentToObject(assignment: CrewVesselAssignment): ObjectAssignment {
+  return {
+    id: assignment.id,
+    targetObjectId: assignment.vesselId,
+    targetObjectType: 'vessel',
+    targetName: assignment.vesselName,
+    startDate: assignment.embarkDate,
+    endDate: assignment.disembarkDate,
+    isCurrent: assignment.isCurrent,
+    role: assignment.rankHeld,
+  };
+}
+
+/** vessel rotations plus any assignment to another object */
+export function personObjectAssignments(member: {
+  assignments?: CrewVesselAssignment[];
+  objectAssignments?: ObjectAssignment[];
+}): ObjectAssignment[] {
+  const fromVessels = (member.assignments ?? []).map(vesselAssignmentToObject);
+  const known = new Set(fromVessels.map((assignment) => assignment.id));
+  const extra = (member.objectAssignments ?? []).filter((assignment) => !known.has(assignment.id));
+  return [...fromVessels, ...extra];
+}
+
+export function currentObjectAssignment(assignments?: ObjectAssignment[]): ObjectAssignment | undefined {
+  return assignments?.find((assignment) => assignment.isCurrent);
+}
+
+/** people assigned to a vessel, read from person objects */
+export function personLinksForVessel(objects: AssuranceObject[], vesselId: string): VesselPersonLink[] {
+  return objects.flatMap((object) => {
+    if (object.type !== 'person') return [];
+    return (object.assignments ?? [])
+      .filter((assignment) => assignment.targetObjectType === 'vessel' && assignment.targetObjectId === vesselId)
+      .map((assignment) => ({
+        personObjectId: object.id,
+        personName: object.name,
+        startDate: assignment.startDate,
+        endDate: assignment.endDate,
+        isCurrent: assignment.isCurrent,
+        role: assignment.role,
+      }));
+  });
+}
+
 /** converts a crew member to an assurance object (ADR 0029) */
 export function crewToAssuranceObject(member: {
   id: string;
@@ -122,6 +170,8 @@ export function crewToAssuranceObject(member: {
   manningAgency?: string;
   seamansBookNo?: string;
   passportNo?: string;
+  assignments?: CrewVesselAssignment[];
+  objectAssignments?: ObjectAssignment[];
 }): AssuranceObject {
   return {
     id: member.id,
@@ -130,6 +180,7 @@ export function crewToAssuranceObject(member: {
     ownerOrganization: member.organization || member.manningAgency || 'Crew Provider',
     identifier: member.seamansBookNo || member.passportNo || member.rank,
     description: member.rank,
+    assignments: personObjectAssignments(member),
   };
 }
 

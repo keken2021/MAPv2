@@ -156,6 +156,16 @@ export interface VesselInformation {
   clientHistory: VesselClientHistoryRecord[];
 }
 
+/** a person assurance object assigned to this vessel, with the rotation dates */
+export interface VesselPersonLink {
+  personObjectId: string;
+  personName: string;
+  startDate: string;
+  endDate?: string;
+  isCurrent: boolean;
+  role?: string;
+}
+
 // Alias exports so components using legacy or current names work seamlessly
 export type Vessel = VesselInformation;
 /** @deprecated Use VesselInformation — kept for backward compatibility after rename */

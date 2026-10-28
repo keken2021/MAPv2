@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { STCWDocumentItem, CrewVesselAssignment, CrewMember } from '../types/crew';
+import { AssuranceObjectType } from '../types/assurance';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
@@ -41,6 +42,8 @@ interface CrewDetailViewProps {
 export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const {
     crew,
+    assuranceObjects,
+    assignPersonToObject,
     activePersona,
     setCurrentHashView,
     previousHashView,
@@ -60,6 +63,9 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
 
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [assignmentTargetId, setAssignmentTargetId] = useState('');
+  const [assignmentStart, setAssignmentStart] = useState('2026-11-01');
+  const [assignmentEnd, setAssignmentEnd] = useState('');
 
   /* Photo gallery & cropping modal states */
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
@@ -76,6 +82,12 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const photoFileInputRef = useRef<HTMLInputElement>(null);
 
   const crewMember = crew.find((c) => c.id === crewId) || crew[0];
+  const personObject = assuranceObjects.find((object) => object.id === crewMember.id && object.type === 'person');
+  const currentAssignment = personObject?.assignments?.find((assignment) => assignment.isCurrent);
+  const otherObjectAssignments = (personObject?.assignments ?? []).filter(
+    (assignment) => assignment.targetObjectType !== 'vessel',
+  );
+  const assignmentTargets = assuranceObjects.filter((object) => object.id !== crewMember.id);
   const canManageDocuments = activePersona === 'Administrator' || activePersona === 'Submitter';
   const canManagePhotos = activePersona === 'Administrator' || activePersona === 'Submitter';
   /* hire is offered to admins for crew from other organizations only */
@@ -314,6 +326,13 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                 ) : (
                   <strong>{crewMember.currentVesselName || 'Unassigned / Ashore'}</strong>
                 )}
+                {currentAssignment && (
+                  <span>
+                    {formatMaritimeDate(currentAssignment.startDate)}
+                    {' → '}
+                    {currentAssignment.endDate ? formatMaritimeDate(currentAssignment.endDate) : 'Present'}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -537,6 +556,82 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
 
       {/* SECTION 1: Historical Sea Service & Vessel Assignments Register */}
       <div className="card map-card-custom">
+        <div className="card-header p-3 border-bottom">
+          <div className="fw-bold text-dark fs-6">Assignment</div>
+          <p className="text-muted small mb-2">
+            Assign this person to a vessel or another object. The dates are the crew rotation.
+          </p>
+          <div className="row g-2 align-items-end">
+            <div className="col-md-5">
+              <label className="form-label small fw-semibold">Object</label>
+              <select
+                className="form-select form-select-sm"
+                value={assignmentTargetId}
+                onChange={(event) => setAssignmentTargetId(event.target.value)}
+              >
+                <option value="">Select an object</option>
+                {assignmentTargets.map((object) => (
+                  <option key={object.id} value={object.id}>
+                    {object.name} ({object.type})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-2">
+              <label className="form-label small fw-semibold">Start</label>
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                value={assignmentStart}
+                onChange={(event) => setAssignmentStart(event.target.value)}
+              />
+            </div>
+            <div className="col-md-2">
+              <label className="form-label small fw-semibold">End</label>
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                value={assignmentEnd}
+                onChange={(event) => setAssignmentEnd(event.target.value)}
+              />
+            </div>
+            <div className="col-md-3">
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => {
+                  const target = assignmentTargets.find((object) => object.id === assignmentTargetId);
+                  if (!target) {
+                    setToastMessage('Select an object.');
+                    return;
+                  }
+                  const result = assignPersonToObject(crewMember.id, {
+                    targetObjectId: target.id,
+                    targetObjectType: target.type as AssuranceObjectType,
+                    targetName: target.name,
+                    startDate: assignmentStart,
+                    endDate: assignmentEnd || undefined,
+                    role: crewMember.rank,
+                  });
+                  setToastMessage(result.success ? `Assigned to ${target.name}.` : result.message || 'Could not assign.');
+                }}
+              >
+                Save assignment
+              </button>
+            </div>
+          </div>
+          {otherObjectAssignments.length > 0 && (
+            <ul className="list-unstyled small mb-0 mt-3">
+              {otherObjectAssignments.map((assignment) => (
+                <li key={assignment.id}>
+                  {assignment.targetName} ({assignment.targetObjectType}) · {formatMaritimeDate(assignment.startDate)}
+                  {' → '}
+                  {assignment.endDate ? formatMaritimeDate(assignment.endDate) : 'Present'}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <div className="card-header p-3 border-bottom d-flex align-items-center justify-between">
           <div className="fw-bold text-dark fs-6">
             Assignment History

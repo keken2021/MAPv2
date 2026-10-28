@@ -113,6 +113,7 @@ import {
   toSingleAssetSet,
   vesselToAssuranceObject,
   crewToAssuranceObject,
+  personObjectAssignments,
   equipmentToAssuranceObject,
   SEEDED_OPERATIONAL_OBJECTS,
   getAssuranceSetObjects,
@@ -524,6 +525,17 @@ export interface MapStoreState {
   addCrewMember: (crew: CrewMember) => void;
   updateCrewMember: (updatedCrew: CrewMember) => void;
   assignCrewToVessel: (crewId: string, vesselId: string | undefined) => void;
+  assignPersonToObject: (
+    personId: string,
+    input: {
+      targetObjectId: string;
+      targetObjectType: AssuranceObjectType;
+      targetName: string;
+      startDate: string;
+      endDate?: string;
+      role?: string;
+    },
+  ) => { success: boolean; message?: string };
   addCrewDocument: (crewId: string, doc: STCWDocumentItem) => void;
   updateCrewDocument: (crewId: string, doc: STCWDocumentItem) => void;
   deleteCrewDocument: (crewId: string, docId: string) => void;
@@ -3518,11 +3530,17 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       const crewName = targetCrew?.fullName;
       const updatedCrew = state.crew.map((c) => {
         if (c.id !== crewId) return c;
+        const today = new Date().toISOString().split("T")[0];
         if (!vesselId) {
           return {
             ...c,
             currentVesselId: undefined,
             currentVesselName: undefined,
+            assignments: (c.assignments || []).map((assignment) =>
+              assignment.isCurrent
+                ? { ...assignment, isCurrent: false, disembarkDate: assignment.disembarkDate || today }
+                : assignment,
+            ),
           };
         }
         const existingAssignments = c.assignments || [];
@@ -3535,12 +3553,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             ? `${vessel!.classificationSociety} Vessel`
             : "Offshore Support Vessel",
           rankHeld: c.rank,
-          embarkDate: new Date().toISOString().split("T")[0],
+          embarkDate: today,
           isCurrent: true,
         };
         const updatedAssignments = [
           newAssignment,
-          ...existingAssignments.map((a) => ({ ...a, isCurrent: false })),
+          ...existingAssignments.map((assignment) =>
+            assignment.isCurrent
+              ? { ...assignment, isCurrent: false, disembarkDate: assignment.disembarkDate || today }
+              : assignment,
+          ),
         ];
         return {
           ...c,
@@ -3575,6 +3597,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       return {
         crew: updatedCrew,
         documents: updatedDocuments,
+        assuranceObjects: state.assuranceObjects.map((object) => {
+          const member = updatedCrew.find((person) => person.id === object.id);
+          if (!member || object.type !== "person") return object;
+          return { ...object, assignments: personObjectAssignments(member) };
+        }),
       };
     });
 
@@ -3585,6 +3612,97 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         ? `Assigned crew ${crewId} to vessel ${vessel?.name}`
         : `Unassigned crew ${crewId}`,
     });
+  },
+  assignPersonToObject: (personId, input) => {
+    const startDate = input.startDate.trim();
+    const endDate = input.endDate?.trim() || undefined;
+    if (!startDate) return { success: false, message: "A start date is required." };
+    if (endDate && endDate < startDate) {
+      return { success: false, message: "The end date must be on or after the start date." };
+    }
+    const person = get().assuranceObjects.find((object) => object.id === personId && object.type === "person");
+    if (!person) return { success: false, message: "That person is not an assurance object." };
+    const today = new Date().toISOString().split("T")[0];
+    const isCurrent = !endDate || endDate >= today;
+    const assignmentId = `ASG-OBJ-${Date.now()}`;
+    const nextAssignment = {
+      id: assignmentId,
+      targetObjectId: input.targetObjectId,
+      targetObjectType: input.targetObjectType,
+      targetName: input.targetName,
+      startDate,
+      endDate,
+      isCurrent,
+      role: input.role,
+    };
+    const vessel = input.targetObjectType === "vessel"
+      ? get().vessels.find((item) => item.id === input.targetObjectId)
+      : undefined;
+
+    set((state) => {
+      const crew = state.crew.map((member) => {
+        if (member.id !== personId) return member;
+        const closed = (member.assignments || []).map((assignment) =>
+          assignment.isCurrent && isCurrent
+            ? { ...assignment, isCurrent: false, disembarkDate: assignment.disembarkDate || startDate }
+            : assignment,
+        );
+        const objectAssignments = [
+          nextAssignment,
+          ...(member.objectAssignments ?? []).map((assignment) =>
+            assignment.isCurrent && isCurrent ? { ...assignment, isCurrent: false, endDate: assignment.endDate || startDate } : assignment,
+          ),
+        ];
+        if (input.targetObjectType !== "vessel" || !vessel) {
+          return {
+            ...member,
+            currentVesselId: isCurrent ? undefined : member.currentVesselId,
+            currentVesselName: isCurrent ? undefined : member.currentVesselName,
+            assignments: isCurrent ? closed : member.assignments,
+            objectAssignments,
+          };
+        }
+        return {
+          ...member,
+          currentVesselId: isCurrent ? vessel.id : member.currentVesselId,
+          currentVesselName: isCurrent ? `${vessel.name} (IMO ${vessel.imoNumber})` : member.currentVesselName,
+          assignments: [
+            {
+              id: assignmentId,
+              vesselId: vessel.id,
+              vesselName: vessel.name,
+              imoNumber: vessel.imoNumber,
+              vesselType: vessel.vesselType || "Vessel",
+              rankHeld: input.role || member.rank,
+              embarkDate: startDate,
+              disembarkDate: endDate,
+              isCurrent,
+            },
+            ...closed,
+          ],
+          objectAssignments: (member.objectAssignments ?? []).map((assignment) =>
+            assignment.isCurrent && isCurrent ? { ...assignment, isCurrent: false, endDate: assignment.endDate || startDate } : assignment,
+          ),
+        };
+      });
+      return {
+        crew,
+        assuranceObjects: state.assuranceObjects.map((object) => {
+          if (object.id !== personId) return object;
+          const member = crew.find((person) => person.id === personId);
+          return member
+            ? { ...object, assignments: personObjectAssignments(member) }
+            : object;
+        }),
+      };
+    });
+
+    get().logAuditEvent({
+      action: "Updated Crew Vessel Assignment",
+      targetAsset: `${person.name} → ${input.targetName}`,
+      justificationNotes: `Assigned ${person.name} to ${input.targetName} from ${startDate}${endDate ? ` to ${endDate}` : ""}.`,
+    });
+    return { success: true };
   },
   addCrewDocument: (crewId, doc) => {
     const targetCrew = get().crew.find((c) => c.id === crewId);

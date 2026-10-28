@@ -4,6 +4,10 @@
   role in system: consumed by CrewTable, CrewDetailView, CrewModal, CrewDocumentUploadModal, and useMapStore.
 */
 
+import type { ObjectAssignment } from './assurance';
+
+export type { ObjectAssignment };
+
 export type STCWLayer = 'Layer 1 - Universal Core' | 'Layer 2 - Vessel Specific & Endorsements';
 
 export type CrewComplianceStatus = 'Fully Compliant' | 'Expiring < 60 Days' | 'Document Deficient';
@@ -63,6 +67,8 @@ export interface CrewMember {
   overallComplianceScore: number; // 0-100%
   lastAuditedDate: string;
   assignments: CrewVesselAssignment[];
+  /** assignments to a vessel or another assurance object. Vessel rows are also kept in assignments. */
+  objectAssignments?: ObjectAssignment[];
   layer1CoreDocuments: STCWDocumentItem[];
   layer2Endorsements: STCWDocumentItem[];
 }
