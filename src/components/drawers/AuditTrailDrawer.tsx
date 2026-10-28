@@ -7,6 +7,7 @@
 import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { formatMaritimeDate } from '../../utils/formatters';
+import { auditEventMatchesSearch, formatAuditTarget } from '../../types/audit';
 import { filterAuditTrailForPersona } from '../../utils/rbacHelpers';
 import {
   getDemoSessionContext,
@@ -56,12 +57,7 @@ export const AuditTrailDrawer: React.FC = () => {
     currentUserId,
   );
 
-  const filteredEvents = visibleEvents.filter((ev) =>
-    ev.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ev.targetAsset.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ev.userRole.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (ev.justificationNotes && ev.justificationNotes.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredEvents = visibleEvents.filter((ev) => auditEventMatchesSearch(ev, searchTerm));
 
   return (
     <Drawer
@@ -93,7 +89,8 @@ export const AuditTrailDrawer: React.FC = () => {
             </div>
 
             <div className="text-dark mb-1">
-              Asset: <strong className="text-slate-900">{ev.targetAsset}</strong>
+              Target: <strong className="text-slate-900">{formatAuditTarget(ev.target)}</strong>
+              <div className="small text-secondary">{ev.targetAsset}</div>
             </div>
 
             <div className="d-flex align-items-center gap-2">

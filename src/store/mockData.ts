@@ -8,7 +8,7 @@ import { Vessel } from '../types/vessel';
 import { AssuranceSet, AssuranceTemplate } from '../types/assurance';
 import { isAssuranceSetScopeDisabled } from '../utils/assuranceTemplates';
 import { MasterDocument } from '../types/document';
-import { AuditTrailEvent } from '../types/audit';
+import { AuditTrailEvent, AuditTrailEventDraft, withStructuredAuditTarget } from '../types/audit';
 import {
   OIL_CO_PILOT_AUDIT,
   OIL_CO_PILOT_DOCUMENTS,
@@ -5238,7 +5238,7 @@ export const MOCK_DOCUMENTS: MasterDocument[] = [
   ...OIL_CO_PILOT_DOCUMENTS,
 ];
 
-export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = [
+export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = ([
   {
     id: 'AUD-90481',
     timestampUtc: '2026-09-19T08:15:30Z',
@@ -5375,7 +5375,7 @@ export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = [
     justificationNotes: 'Uploaded verified STCW endorsement and background clearance.',
   },
   ...OIL_CO_PILOT_AUDIT,
-];
+] satisfies AuditTrailEventDraft[]).map(withStructuredAuditTarget);
 
 /* user each persona is signed in as; matches the identities shown in the sidebar footer */
 export const MOCK_PERSONA_SESSION_USER_IDS: Record<import('../types/audit').UserRolePersona, string> = {

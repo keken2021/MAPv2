@@ -9,7 +9,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { filterVesselsForPersona } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
-import { getStatusDisplayLabel } from '../utils/formatters';
+import { formatMaritimeDateTime, getStatusDisplayLabel } from '../utils/formatters';
 import { CapaItem, CapaStatus } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { FilterModal } from '../components/common/FilterModal';
@@ -38,6 +38,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
     setCurrentHashView,
     previousHashView,
     previousEntityId,
+    logExport,
   } = useMapStore();
 
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -189,6 +190,20 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
     </th>
   );
 
+  const exportSetId = (() => {
+    if (isFleetOverview) return undefined;
+    const ids = new Set(
+      assuranceSets
+        .filter(
+          (set) =>
+            set.vesselName.toLowerCase() === selectedVesselName.toLowerCase() ||
+            set.vesselId === selectedVesselName,
+        )
+        .map((set) => set.id),
+    );
+    return ids.size === 1 ? [...ids][0] : undefined;
+  })();
+
   const handleExportCsv = () => {
     const exportData = sortedCapas.map((c) => ({
       CapaId: c.id,
@@ -200,9 +215,16 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
       Owner: c.owner,
       DueDate: c.dueDate,
       InspectorNotes: c.inspectorNotes || 'None',
+      ClosedDate: c.closedDate || '',
       EvidenceCount: c.evidences.length,
     }));
     exportToCsv(`${selectedVesselName.replace(/\s+/g, '_')}_CAPA_Report`, exportData);
+    logExport({
+      screen: `CAPA register · ${selectedVesselName}`,
+      format: 'CSV',
+      setId: exportSetId,
+      detail: `${sortedCapas.length} findings`,
+    });
     setIsExportOpen(false);
   };
 
@@ -217,6 +239,12 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
       c.dueDate,
     ]);
     exportToPdf(`${selectedVesselName} CAPA Re-Inspection Summary`, headers, rows);
+    logExport({
+      screen: `CAPA register · ${selectedVesselName}`,
+      format: 'PDF',
+      setId: exportSetId,
+      detail: `${sortedCapas.length} findings`,
+    });
     setIsExportOpen(false);
   };
 
@@ -371,6 +399,11 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
                     <span className={`badge ${getStatusBadgeClass(capa.status)}`}>
                       {getStatusDisplayLabel(capa.status)}
                     </span>
+                    {capa.closedDate && (
+                      <div className="small text-secondary mt-1">
+                        Closed {formatMaritimeDateTime(capa.closedDate)}
+                      </div>
+                    )}
                   </td>
                   <td className="text-end">
                     <button

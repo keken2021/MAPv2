@@ -7,10 +7,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { filterAuditTrailForPersona, filterAuditTrailForUser } from '../utils/rbacHelpers';
-import { AuditTrailEvent } from '../types/audit';
+import { AuditTrailEvent, AuditTrailEventDraft, withStructuredAuditTarget } from '../types/audit';
 import { MOCK_AUDIT_TRAIL } from '../store/mockData';
 
-const testEvents: AuditTrailEvent[] = [
+const testEvents: AuditTrailEvent[] = ([
   {
     id: 'AUD-001',
     timestampUtc: '2026-10-01T10:00:00Z',
@@ -56,7 +56,7 @@ const testEvents: AuditTrailEvent[] = [
     action: 'Updated Vessel Availability',
     targetAsset: 'MV Northern Pioneer',
   },
-];
+] satisfies AuditTrailEventDraft[]).map(withStructuredAuditTarget);
 
 describe('audit trail user activity isolation', () => {
   const initialStoreState = useMapStore.getState();

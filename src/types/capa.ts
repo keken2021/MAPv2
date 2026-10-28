@@ -1,6 +1,6 @@
 /* 
   file summary: type definitions for corrective and preventive action (capa) items and evidence attachments.
-  responsibilities: defines interfaces for capa items, re-inspection statuses, and photo/document evidence files.
+  responsibilities: defines interfaces for capa items, re-inspection statuses, the date a finding was closed, and photo/document evidence files.
   role in system: consumed by zustand store, capa management view, checklist view, and inspector drawers.
 */
 
@@ -31,6 +31,8 @@ export interface CapaItem {
   inspectorNotes?: string;
   evidences: CapaEvidenceItem[];
   createdDate: string;
+  /** ISO timestamp set when the finding is closed, and cleared if it is opened again */
+  closedDate?: string;
   lastInspectedDate?: string;
   flaggedForReinspection?: boolean;
   cadminFlagReason?: string;

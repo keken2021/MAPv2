@@ -9,7 +9,7 @@ import {
   AssuranceSet,
   ThreePillarsCategory,
 } from "../types/assurance";
-import { AuditTrailEvent } from "../types/audit";
+import { AuditTrailEventDraft } from "../types/audit";
 import { MasterDocument } from "../types/document";
 import { AppNotification } from "../types/notification";
 import { Project } from "../types/project";
@@ -1201,7 +1201,7 @@ export const OIL_CO_PILOT_PROJECT: Project = {
   ],
 };
 
-export const OIL_CO_PILOT_AUDIT: AuditTrailEvent[] = [
+export const OIL_CO_PILOT_AUDIT: AuditTrailEventDraft[] = [
   {
     id: "AUD-90510",
     timestampUtc: "2026-10-01T01:00:00Z",

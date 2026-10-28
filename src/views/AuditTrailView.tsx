@@ -8,6 +8,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { formatMaritimeDate } from '../utils/formatters';
+import { auditEventMatchesSearch, formatAuditTarget } from '../types/audit';
 import { filterAuditTrailForPersona } from '../utils/rbacHelpers';
 import {
   getDemoSessionContext,
@@ -36,9 +37,11 @@ export const AuditTrailView: React.FC = () => {
     users,
     assuranceSets,
     vessels,
+    logExport,
   } = useMapStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [targetKindFilter, setTargetKindFilter] = useState<'ALL' | 'set' | 'task' | 'date'>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
 
@@ -87,63 +90,84 @@ export const AuditTrailView: React.FC = () => {
   );
 
   const filteredEvents = visibleEvents.filter((ev) => {
-    const matchesSearch =
-      ev.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ev.targetAsset.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ev.userRole.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (ev.justificationNotes && ev.justificationNotes.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesSearch = auditEventMatchesSearch(ev, searchTerm);
     const matchesRole = roleFilter === 'ALL' || ev.userRole === roleFilter;
-    return matchesSearch && matchesRole;
+    const matchesTarget = targetKindFilter === 'ALL' || ev.target.kind === targetKindFilter;
+    return matchesSearch && matchesRole && matchesTarget;
   });
 
   const sortedEvents = [...filteredEvents].sort((a, b) => {
     let comp = 0;
     if (sortField === 'timestampUtc') comp = new Date(a.timestampUtc).getTime() - new Date(b.timestampUtc).getTime();
     else if (sortField === 'action') comp = a.action.localeCompare(b.action);
-    else if (sortField === 'targetAsset') comp = a.targetAsset.localeCompare(b.targetAsset);
+    else if (sortField === 'targetAsset') comp = formatAuditTarget(a.target).localeCompare(formatAuditTarget(b.target));
     else if (sortField === 'userRole') comp = `${a.userRole} ${a.organization}`.localeCompare(`${b.userRole} ${b.organization}`);
     else if (sortField === 'fieldDelta') comp = (a.fieldDelta ? a.fieldDelta.fieldName : '').localeCompare(b.fieldDelta ? b.fieldDelta.fieldName : '');
     else if (sortField === 'justificationNotes') comp = (a.justificationNotes || '').localeCompare(b.justificationNotes || '');
     return sortDirection === 'asc' ? comp : -comp;
   });
 
+  const exportSetId = (() => {
+    const ids = new Set(
+      sortedEvents
+        .map((ev) => ev.target.setId)
+        .filter((id) => id !== 'unscoped' && id !== 'multiple'),
+    );
+    return ids.size === 1 ? [...ids][0] : undefined;
+  })();
+
   const handleExportCsv = () => {
     const exportData = sortedEvents.map((ev) => ({
       TimestampUtc: ev.timestampUtc,
       Action: ev.action,
+      Target: formatAuditTarget(ev.target),
       TargetAsset: ev.targetAsset,
       UserRole: ev.userRole,
       Organization: ev.organization,
       Notes: ev.justificationNotes || '',
     }));
     exportToCsv('System_Audit_Trail', exportData);
+    logExport({
+      screen: 'Audit trail',
+      format: 'CSV',
+      setId: exportSetId,
+      detail: `${sortedEvents.length} events`,
+    });
     setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
-    const headers = ['Timestamp (UTC)', 'Action', 'Asset', 'Role', 'Notes'];
+    const headers = ['Timestamp (UTC)', 'Action', 'Target', 'Role', 'Notes'];
     const rows = sortedEvents.map((ev) => [
       ev.timestampUtc,
       ev.action,
-      ev.targetAsset,
+      formatAuditTarget(ev.target),
       `${getRoleDisplayLabel(ev.userRole)} (${ev.organization})`,
       ev.justificationNotes || '-',
     ]);
     exportToPdf('Audit Trail', headers, rows);
+    logExport({
+      screen: 'Audit trail',
+      format: 'PDF',
+      setId: exportSetId,
+      detail: `${sortedEvents.length} events`,
+    });
     setIsExportOpen(false);
   };
 
-  const activeFilterCount = (roleFilter !== 'ALL' ? 1 : 0);
+  const activeFilterCount = (roleFilter !== 'ALL' ? 1 : 0) + (targetKindFilter !== 'ALL' ? 1 : 0);
 
   const activeChips: FilterChip[] = [
     ...(roleFilter !== 'ALL' ? [{ id: 'role', label: 'Role', value: getRoleDisplayLabel(roleFilter), onRemove: () => setRoleFilter('ALL') }] : []),
+    ...(targetKindFilter !== 'ALL' ? [{ id: 'target', label: 'Target', value: targetKindFilter, onRemove: () => setTargetKindFilter('ALL') }] : []),
   ];
 
   const handleResetFilters = () => {
     setRoleFilter('ALL');
+    setTargetKindFilter('ALL');
   };
 
-  const eventsPagination = usePagination(sortedEvents, [searchTerm, roleFilter, sortField, sortDirection]);
+  const eventsPagination = usePagination(sortedEvents, [searchTerm, roleFilter, targetKindFilter, sortField, sortDirection]);
 
   return (
     <div className="d-flex flex-column gap-4">
@@ -223,7 +247,7 @@ export const AuditTrailView: React.FC = () => {
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handleSort('targetAsset')}
                 >
-                  Asset {renderSortIndicator('targetAsset')}
+                  Target {renderSortIndicator('targetAsset')}
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -260,7 +284,8 @@ export const AuditTrailView: React.FC = () => {
                       <span className="fw-semibold text-primary">{ev.action}</span>
                     </td>
                     <td>
-                      <strong className="text-slate-900">{ev.targetAsset}</strong>
+                      <strong className="text-slate-900">{formatAuditTarget(ev.target)}</strong>
+                      <div className="small text-secondary">{ev.targetAsset}</div>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-2">
@@ -317,6 +342,19 @@ export const AuditTrailView: React.FC = () => {
                 <option value="Verifier">Verifier</option>
                 <option value="Inspector">Inspector</option>
                 <option value="Approver">Approver</option>
+              </select>
+            </div>
+            <div className="col-12">
+              <label className="form-label small fw-semibold text-secondary mb-1">Target</label>
+              <select
+                className="form-select form-select-sm bg-white text-dark border-secondary"
+                value={targetKindFilter}
+                onChange={(e) => setTargetKindFilter(e.target.value as 'ALL' | 'set' | 'task' | 'date')}
+              >
+                <option value="ALL">All targets</option>
+                <option value="set">Set</option>
+                <option value="task">Task</option>
+                <option value="date">Date</option>
               </select>
             </div>
           </div>

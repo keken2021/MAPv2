@@ -5,7 +5,13 @@
 */
 
 import { create } from "zustand";
-import { UserRolePersona, AuditTrailEvent } from "../types/audit";
+import {
+  UserRolePersona,
+  AuditTrailEvent,
+  AuditTrailEventDraft,
+  auditDateFieldLabel,
+  withStructuredAuditTarget,
+} from "../types/audit";
 import {
   VesselInformation,
   VesselStatusDimension,
@@ -406,8 +412,18 @@ export interface MapStoreState {
   auditEvents: AuditTrailEvent[];
   /* the actor (user id, role, organization) is always the signed-in session user; callers give only what happened */
   logAuditEvent: (
-    event: Omit<AuditTrailEvent, "id" | "timestampUtc" | "userId" | "userRole" | "organization">,
+    event: Omit<
+      AuditTrailEventDraft,
+      "id" | "timestampUtc" | "userId" | "userRole" | "organization"
+    >,
   ) => void;
+  /* an export of a screen; the target is the set when the export is about one set */
+  logExport: (input: {
+    screen: string;
+    format: "CSV" | "PDF";
+    setId?: string;
+    detail: string;
+  }) => void;
 
   // User Management State
   users: UserProfile[];
@@ -475,6 +491,93 @@ export interface MapStoreState {
 }
 
 const BRD_PERMISSION_DEFAULTS = buildBrdRolePermissionDefaults();
+
+const ASSURANCE_DATE_FIELDS = [
+  "charterWindowStart",
+  "charterWindowEnd",
+  "complianceDeadline",
+  "projectWindowStart",
+  "projectWindowEnd",
+] as const;
+
+/**
+  what: writes one audit event for each date or task that changed on an assurance set.
+  how: compares the stored set with the set the caller submitted, and logs a date target or a task target for each difference.
+  with what file: src/store/useMapStore.ts, called by updateAssuranceSet.
+*/
+function logAssuranceSetAuditDiff(
+  get: () => MapStoreState,
+  previousSet: AssuranceSet,
+  nextSet: AssuranceSet,
+) {
+  for (const field of ASSURANCE_DATE_FIELDS) {
+    const oldValue = previousSet[field] ?? "";
+    const newValue = nextSet[field] ?? "";
+    if (oldValue === newValue) continue;
+    get().logAuditEvent({
+      action: "Changed date",
+      targetAsset: `${nextSet.id} (${nextSet.title})`,
+      target: { kind: "date", setId: nextSet.id, dateField: field },
+      fieldDelta: {
+        fieldName: auditDateFieldLabel(field),
+        oldValue: oldValue || "—",
+        newValue: newValue || "—",
+      },
+    });
+  }
+
+  const previousTasks = new Map(previousSet.requirements.map((task) => [task.id, task]));
+  const nextTasks = new Map((nextSet.requirements || []).map((task) => [task.id, task]));
+
+  for (const [taskId, task] of nextTasks) {
+    const previous = previousTasks.get(taskId);
+    if (!previous) {
+      get().logAuditEvent({
+        action: "Added task",
+        targetAsset: `${nextSet.id} · ${task.title}`,
+        target: { kind: "task", setId: nextSet.id, taskId },
+        justificationNotes: `Added task ${task.title}.`,
+      });
+      continue;
+    }
+    if (taskEditSnapshot(previous) === taskEditSnapshot(task)) continue;
+    get().logAuditEvent({
+      action: "Edited task",
+      targetAsset: `${nextSet.id} · ${task.title}`,
+      target: { kind: "task", setId: nextSet.id, taskId },
+      fieldDelta: {
+        fieldName: "Task",
+        oldValue: previous.title,
+        newValue: task.title,
+      },
+      justificationNotes: `Edited task ${task.title}.`,
+    });
+  }
+
+  for (const [taskId, task] of previousTasks) {
+    if (nextTasks.has(taskId)) continue;
+    get().logAuditEvent({
+      action: "Removed task",
+      targetAsset: `${previousSet.id} · ${task.title}`,
+      target: { kind: "task", setId: previousSet.id, taskId },
+      justificationNotes: `Removed task ${task.title}.`,
+    });
+  }
+}
+
+/**
+  what: returns the task fields an edit should record.
+  how: joins the title, description, category and whether the task is mandatory.
+  with what file: src/store/useMapStore.ts, called by logAssuranceSetAuditDiff.
+*/
+function taskEditSnapshot(task: AssuranceRequirement): string {
+  return [
+    task.title,
+    task.description ?? "",
+    task.category,
+    task.isMandatory ? "mandatory" : "optional",
+  ].join("\u001f");
+}
 
 /**
   what: raises a notification about an assurance set to the user a stakeholder label names; inputs are the store getter, the set, the label and the notification content.
@@ -1772,6 +1875,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       notifyAssignedStakeholders(get, computedSet);
       get().raiseDocumentRenewalNotifications([computedSet.id]);
     }
+
+    /* date changes and task edits are recorded against the set the caller submitted */
+    if (previousSet) {
+      logAssuranceSetAuditDiff(get, previousSet, updatedSet);
+    }
   },
   updateAssuranceStage: (setId, stage) => {
     /* explicit manual override: the chosen stage is kept and only the readiness index is recalculated */
@@ -2552,13 +2660,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   auditEvents: MOCK_AUDIT_TRAIL,
   logAuditEvent: (eventData) => {
     const actor = getSessionActor(get);
-    const newEvent: AuditTrailEvent = {
+    const newEvent = withStructuredAuditTarget({
       id: `MAP-AUD-2026-EVNT-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, "0")}`,
       timestampUtc: new Date().toISOString(),
       ...eventData,
       ...actor,
-    };
+    });
     set((state) => ({ auditEvents: [newEvent, ...state.auditEvents] }));
+  },
+  logExport: ({ screen, format, setId, detail }) => {
+    get().logAuditEvent({
+      action: "Exported data",
+      targetAsset: screen,
+      target: { kind: "set", setId: setId || "multiple" },
+      justificationNotes: `${format} export. ${detail}`,
+    });
   },
 
   /* user management store state and actions */
@@ -3230,12 +3346,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   addCapaItem: (capa) =>
     set((state) => ({ capaItems: [capa, ...state.capaItems] })),
   updateCapaStatus: (capaId, status, inspectorNotes) => {
+    const current = get().capaItems.find((item) => item.id === capaId);
+    if (!current) return;
+    const closing = status === "Verified & Closed" && current.status !== "Verified & Closed";
+    const closedDate =
+      status === "Verified & Closed"
+        ? closing
+          ? new Date().toISOString()
+          : current.closedDate
+        : undefined;
     set((state) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
           ? {
               ...item,
               status,
+              closedDate,
               inspectorNotes:
                 inspectorNotes !== undefined
                   ? inspectorNotes
@@ -3249,6 +3375,26 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           : item,
       ),
     }));
+    if (closing && closedDate) {
+      const relatedSet = get().assuranceSets.find(
+        (s) => s.vesselId === current.vesselId || s.vesselName === current.vesselName,
+      );
+      get().logAuditEvent({
+        action: "Closed finding",
+        targetAsset: `${current.id} · ${current.title}`,
+        target: {
+          kind: "date",
+          setId: relatedSet?.id || "unscoped",
+          dateField: "closedDate",
+        },
+        fieldDelta: {
+          fieldName: auditDateFieldLabel("closedDate"),
+          oldValue: "—",
+          newValue: closedDate,
+        },
+        justificationNotes: `Finding ${current.id} was closed.`,
+      });
+    }
   },
   addCapaEvidence: (capaId, evidence) => {
     set((state) => ({
@@ -3278,6 +3424,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           ? {
               ...item,
               status: "Under Re-Inspection",
+              closedDate: undefined,
               flaggedForReinspection: true,
               cadminFlagReason:
                 reason?.trim() ||

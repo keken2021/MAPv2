@@ -1,0 +1,12 @@
+# Copy to the clone root as .cursorignore. Keeps Cursor from indexing large files nobody edits.
+# references/ holds Word, PDF and HTML originals; the ERD HTML alone is about 120,000 tokens.
+references/
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+*.docx
+*.pdf
+*.pptx
+*.xlsx
+# Do not add .autopilot/ here: .cursorignore also hides files from the agent, and autopilot keeps its plans and notes there.

@@ -69,6 +69,7 @@ export const MOCK_CAPA_ITEMS: CapaItem[] = [
     owner: 'Northwind Marine',
     dueDate: '12 Sep 2026',
     status: 'Verified & Closed',
+    closedDate: '2026-09-15T03:05:00.000Z',
     inspectorNotes: 'Re-inspected on 15 Sep 2026. Approved manual stamp verified and endorsed copy uploaded.',
     createdDate: '10 Sep 2026',
     lastInspectedDate: '15 Sep 2026',
