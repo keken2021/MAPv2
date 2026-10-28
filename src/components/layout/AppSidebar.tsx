@@ -156,7 +156,7 @@ export const AppSidebar: React.FC = () => {
     },
     {
       key: "assets",
-      label: "Assets",
+      label: "Assurance Objects",
       isGroup: true,
       allowedRoles: ["Administrator", "C Admin", "Submitter"],
       children: [

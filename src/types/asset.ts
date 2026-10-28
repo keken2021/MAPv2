@@ -5,6 +5,9 @@
 */
 
 import { VesselParticulars, VesselRegistrationStatus } from './vessel';
+import type { AssuranceObjectType, AssuranceObject } from './assurance';
+
+export type { AssuranceObjectType, AssuranceObject };
 
 export type AvailabilityStatus =
   | 'Available'

@@ -15,6 +15,8 @@ import {
   ReviewChannel,
   AuthorityValidationMethod,
   AssuranceRequirementCategory,
+  AssuranceObject,
+  AssuranceObjectType,
 } from '../types/assurance';
 import { UserProfile } from '../types/user';
 import { CrewMember } from '../types/crew';
@@ -53,6 +55,11 @@ import {
   buildAssuranceWizardSteps,
   customRequirementFields,
   getThreePillarsCategory,
+  vesselToAssuranceObject,
+  crewToAssuranceObject,
+  equipmentToAssuranceObject,
+  SEEDED_OPERATIONAL_OBJECTS,
+  getAssuranceSetObjects,
 } from '../utils/assuranceTemplates';
 import {
   autoAttachDocumentsToRequirements,
@@ -82,6 +89,7 @@ interface SpecializedDoc {
   templateId?: string;
   /** null omits the subtype so People and Process keep their pillar on a Vessel set */
   requirementSubtype?: AssuranceSubtype | null;
+  targetObjectId?: string;
 }
 
 interface CreateAssuranceSetViewProps {
@@ -96,6 +104,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     documents,
     assuranceSets,
     assuranceTemplates = [],
+    assuranceObjects: storeAssuranceObjects = [],
+    registerAssuranceObject,
     addAssuranceSet,
     addAssuranceTemplate,
     updateAssuranceSet,
@@ -307,6 +317,122 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [endDate, setEndDate] = useState(() => initialPeriod.end);
   const [complianceDeadline, setComplianceDeadline] = useState(() => initialPeriod.start);
   const isVesselLocked = Boolean(lockedVessel);
+
+  /* Covered Assurance Objects State (ADR 0029) */
+  const [selectedAssuranceObjects, setSelectedAssuranceObjects] = useState<AssuranceObject[]>(() => {
+    const list: AssuranceObject[] = [];
+    if (lockedAsset) {
+      if (lockedAsset.scope === 'Vessel') {
+        const v = vessels.find((x) => x.id === lockedAsset.assetId);
+        if (v) list.push(vesselToAssuranceObject(v));
+      } else if (lockedAsset.scope === 'Crew') {
+        const c = crew.find((x) => x.id === lockedAsset.assetId);
+        if (c) list.push(crewToAssuranceObject(c));
+      } else if (lockedAsset.scope === 'Equipment') {
+        const e = equipment.find((x) => x.id === lockedAsset.assetId);
+        if (e) list.push(equipmentToAssuranceObject(e));
+      }
+    } else if (suggestedAsset) {
+      if (suggestedAsset.assetType === 'Vessel') {
+        const v = vessels.find((x) => x.id === suggestedAsset.assetId);
+        if (v) list.push(vesselToAssuranceObject(v));
+      } else if (suggestedAsset.assetType === 'Crew') {
+        const c = crew.find((x) => x.id === suggestedAsset.assetId);
+        if (c) list.push(crewToAssuranceObject(c));
+      } else if (suggestedAsset.assetType === 'Equipment') {
+        const e = equipment.find((x) => x.id === suggestedAsset.assetId);
+        if (e) list.push(equipmentToAssuranceObject(e));
+      }
+    }
+    if (list.length === 0 && initialVesselId) {
+      const v = vessels.find((x) => x.id === initialVesselId);
+      if (v) list.push(vesselToAssuranceObject(v));
+    }
+    return list;
+  });
+  const [newObjectType, setNewObjectType] = useState<AssuranceObjectType>('procedure');
+  const [newObjectId, setNewObjectId] = useState<string>('');
+
+  // Sync vessel changes into assuranceObjects
+  useEffect(() => {
+    if (!vesselId) return;
+    const v = vessels.find((x) => x.id === vesselId);
+    if (!v) return;
+    const vObj = vesselToAssuranceObject(v);
+    setSelectedAssuranceObjects((prev) => {
+      if (prev.some((o) => o.id === v.id)) return prev;
+      const nonVessels = prev.filter((o) => o.type !== 'vessel');
+      return [vObj, ...nonVessels];
+    });
+  }, [vesselId, vessels]);
+
+  // Sync crew changes into assuranceObjects
+  useEffect(() => {
+    if (selectedCrewIds.length === 0) return;
+    const crewObjs = selectedCrewIds
+      .map((id) => crew.find((c) => c.id === id))
+      .filter((c): c is NonNullable<typeof c> => Boolean(c))
+      .map(crewToAssuranceObject);
+    setSelectedAssuranceObjects((prev) => {
+      const nonPersons = prev.filter((o) => o.type !== 'person');
+      return [...nonPersons, ...crewObjs];
+    });
+  }, [selectedCrewIds, crew]);
+
+  // Sync equipment changes into assuranceObjects
+  useEffect(() => {
+    if (!selectedEquipmentId) return;
+    const eq = equipment.find((e) => e.id === selectedEquipmentId);
+    if (!eq) return;
+    const eqObj = equipmentToAssuranceObject(eq);
+    setSelectedAssuranceObjects((prev) => {
+      if (prev.some((o) => o.id === eq.id)) return prev;
+      const nonEquip = prev.filter((o) => o.type !== 'equipment');
+      return [...nonEquip, eqObj];
+    });
+  }, [selectedEquipmentId, equipment]);
+
+  const availableObjectsForType = useMemo<AssuranceObject[]>(() => {
+    let list: AssuranceObject[] = [];
+    switch (newObjectType) {
+      case 'vessel':
+        list = availableVessels.map(vesselToAssuranceObject);
+        break;
+      case 'person':
+        list = crew.map(crewToAssuranceObject);
+        break;
+      case 'equipment':
+        list = equipment.map(equipmentToAssuranceObject);
+        break;
+      case 'procedure':
+        list = [
+          ...storeAssuranceObjects.filter((o) => o.type === 'procedure'),
+          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'procedure'),
+        ];
+        break;
+      case 'method':
+        list = [
+          ...storeAssuranceObjects.filter((o) => o.type === 'method'),
+          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'method'),
+        ];
+        break;
+      case 'document':
+        list = [
+          ...storeAssuranceObjects.filter((o) => o.type === 'document'),
+          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'document'),
+        ];
+        break;
+      case 'organization':
+        list = [
+          ...storeAssuranceObjects.filter((o) => o.type === 'organization'),
+          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'organization'),
+        ];
+        break;
+      default:
+        list = [];
+    }
+    return Array.from(new Map(list.map((o) => [o.id, o])).values());
+  }, [newObjectType, availableVessels, crew, equipment, storeAssuranceObjects]);
 
   useEffect(() => {
     if (createAssuranceForVesselId && !lockedVessel) {
@@ -1271,6 +1397,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       createdByPersona: 'C Admin',
       createdByName: creatorName,
       clientWorkflowStage: 'draft',
+      assuranceObjects: selectedAssuranceObjects,
     };
 
     newSet.readinessScore = calculateAssuranceSetReadiness(newSet);
@@ -1528,6 +1655,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       createdByName: creatorName,
       clientWorkflowStage: 'draft',
       internalDeployment: isInternalDeployment,
+      assuranceObjects: selectedAssuranceObjects,
     };
 
     draftSet.readinessScore = calculateAssuranceSetReadiness(draftSet);
@@ -2534,6 +2662,155 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
               {/* the asset sits next to the contract period, so the overlap check runs against the asset actually picked */}
               {renderAssetPicker(assuranceType)}
+
+              {/* Covered Assurance Objects Section (ADR 0029) */}
+              <div className="card border shadow-2xs rounded-3 bg-white mt-4" id="covered-assurance-objects-card">
+                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div>
+                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                      Covered Assurance Objects ({selectedAssuranceObjects.length})
+                    </h5>
+                    <div className="text-muted small mt-0.5">
+                      A set can cover any mix of objects (vessels, personnel, equipment, procedures, methods, documents, organizations). Each object shows its type and owner (ADR 0029).
+                    </div>
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
+                    <button
+                      type="button"
+                      id="btn-load-port-entry-bundle"
+                      className="btn btn-sm btn-outline-primary fw-semibold d-inline-flex align-items-center gap-1.5"
+                      onClick={() => {
+                        const v = vessels.find((x) => x.id === vesselId) || vessels[0];
+                        const c = crew.find((x) => x.id === (selectedCrewId || crew[0]?.id)) || crew[0];
+                        const eq = equipment.find((x) => x.id === (selectedEquipmentId || equipment[0]?.id)) || equipment[0];
+                        const portProc = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-PROC-PORT-01')!;
+                        const towMeth = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-METH-TOW-01')!;
+                        const portDoc = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-DOC-CLR-01')!;
+                        const portOrg = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-ORG-PPA-01')!;
+                        const portSetObjects: AssuranceObject[] = [];
+                        if (v) portSetObjects.push(vesselToAssuranceObject(v));
+                        if (c) portSetObjects.push(crewToAssuranceObject(c));
+                        if (eq) portSetObjects.push(equipmentToAssuranceObject(eq));
+                        portSetObjects.push(portProc, towMeth, portDoc, portOrg);
+                        setSelectedAssuranceObjects(portSetObjects);
+                        if (v) setVesselId(v.id);
+                        if (c) setSelectedCrewIds([c.id]);
+                        if (eq) setSelectedEquipmentId(eq.id);
+                        setSelectedScopes(['Vessel', 'Crew', 'Equipment']);
+                        setTitle((prev) => prev.includes('Port Entry') ? prev : `${clientOrg} - Port Entry & Arrival Assurance Set`);
+                      }}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Load Port-Entry Bundle
+                    </button>
+                  </div>
+                </div>
+                <div className="card-body p-4">
+                  {selectedAssuranceObjects.length === 0 ? (
+                    <div className="text-muted small">No assurance objects attached yet.</div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-sm table-hover align-middle mb-0">
+                        <thead className="table-light small text-secondary">
+                          <tr>
+                            <th scope="col" style={{ width: '120px' }}>Type</th>
+                            <th scope="col">Name</th>
+                            <th scope="col">Owner Organization</th>
+                            <th scope="col">Identifier / Tag</th>
+                            <th scope="col" className="text-end" style={{ width: '80px' }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedAssuranceObjects.map((obj) => (
+                            <tr key={obj.id} data-testid={`assurance-object-row-${obj.id}`}>
+                              <td>
+                                <span className={`badge ${
+                                  obj.type === 'vessel' ? 'bg-primary text-white' :
+                                  obj.type === 'person' ? 'bg-success text-white' :
+                                  obj.type === 'equipment' ? 'bg-warning text-dark' :
+                                  obj.type === 'procedure' ? 'bg-info text-dark' :
+                                  obj.type === 'method' ? 'bg-secondary text-white' :
+                                  obj.type === 'document' ? 'bg-dark text-white' : 'bg-light text-dark border'
+                                } text-capitalize font-mono-code`}>
+                                  {obj.type}
+                                </span>
+                              </td>
+                              <td className="fw-semibold text-dark">{obj.name}</td>
+                              <td className="text-secondary small">{obj.ownerOrganization}</td>
+                              <td className="font-mono-code small text-secondary">{obj.identifier || '—'}</td>
+                              <td className="text-end">
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-link text-danger p-0"
+                                  title="Remove object"
+                                  onClick={() => {
+                                    setSelectedAssuranceObjects((prev) => prev.filter((o) => o.id !== obj.id));
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Add Object row */}
+                  <div className="row g-2 align-items-center mt-3 pt-3 border-top">
+                    <div className="col-12 col-md-3">
+                      <select
+                        className="form-select form-select-sm"
+                        value={newObjectType}
+                        onChange={(e) => {
+                          setNewObjectType(e.target.value as AssuranceObjectType);
+                          setNewObjectId('');
+                        }}
+                      >
+                        <option value="vessel">Vessel</option>
+                        <option value="person">Person / Crew</option>
+                        <option value="equipment">Equipment</option>
+                        <option value="procedure">Procedure</option>
+                        <option value="method">Method</option>
+                        <option value="document">Document</option>
+                        <option value="organization">Organization</option>
+                      </select>
+                    </div>
+                    <div className="col-12 col-md-6">
+                      <select
+                        className="form-select form-select-sm"
+                        value={newObjectId}
+                        onChange={(e) => setNewObjectId(e.target.value)}
+                      >
+                        <option value="">Select {newObjectType} to add...</option>
+                        {availableObjectsForType.map((o) => (
+                          <option key={o.id} value={o.id} disabled={selectedAssuranceObjects.some((x) => x.id === o.id)}>
+                            {o.name} ({o.ownerOrganization}) {selectedAssuranceObjects.some((x) => x.id === o.id) ? '— added' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-12 col-md-3">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary w-100 d-inline-flex align-items-center justify-content-center gap-1"
+                        disabled={!newObjectId}
+                        onClick={() => {
+                          const found = availableObjectsForType.find((o) => o.id === newObjectId);
+                          if (found && !selectedAssuranceObjects.some((o) => o.id === found.id)) {
+                            setSelectedAssuranceObjects((prev) => [...prev, found]);
+                            setNewObjectId('');
+                          }
+                        }}
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Object
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* Template Privacy & Access Scope Card */}
               <div className="card border shadow-2xs rounded-3 bg-white">

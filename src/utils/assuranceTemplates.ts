@@ -4,7 +4,7 @@
   role in system: consumed by CreateAssuranceSetView.tsx during assurance set initiation; a set covers one asset, or one or more crew members on a crew set (ADR 0004, amended by ADR 0023).
 */
 
-import { AssuranceSet, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory } from '../types/assurance';
+import { AssuranceSet, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory, AssuranceObject, AssuranceObjectType } from '../types/assurance';
 
 /* every scope the data model knows, in display order */
 const ALL_ASSURANCE_SCOPES: AssuranceSubtype[] = ['Vessel', 'Crew', 'Activity', 'Equipment'];
@@ -95,6 +95,152 @@ export function getAssuranceSetScopeType(
   return scope;
 }
 
+/** converts a vessel to an assurance object (ADR 0029) */
+export function vesselToAssuranceObject(vessel: {
+  id: string;
+  name: string;
+  imoNumber?: string;
+  ownerOrg?: string;
+  operator?: string;
+  clientOrganization?: string;
+}): AssuranceObject {
+  return {
+    id: vessel.id,
+    type: 'vessel',
+    name: vessel.name,
+    ownerOrganization: vessel.ownerOrg || vessel.operator || 'Vessel Provider',
+    identifier: vessel.imoNumber ? 'IMO: ' + vessel.imoNumber : undefined,
+  };
+}
+
+/** converts a crew member to an assurance object (ADR 0029) */
+export function crewToAssuranceObject(member: {
+  id: string;
+  fullName: string;
+  rank?: string;
+  organization?: string;
+  manningAgency?: string;
+  seamansBookNo?: string;
+  passportNo?: string;
+}): AssuranceObject {
+  return {
+    id: member.id,
+    type: 'person',
+    name: member.fullName,
+    ownerOrganization: member.organization || member.manningAgency || 'Crew Provider',
+    identifier: member.seamansBookNo || member.passportNo || member.rank,
+    description: member.rank,
+  };
+}
+
+/** converts an equipment asset to an assurance object (ADR 0029) */
+export function equipmentToAssuranceObject(item: {
+  id: string;
+  name: string;
+  category?: string;
+  owningOrganization?: string;
+  serialNumber?: string;
+  equipmentIdentifier?: string;
+}): AssuranceObject {
+  return {
+    id: item.id,
+    type: 'equipment',
+    name: item.name,
+    ownerOrganization: item.owningOrganization || 'Equipment Provider',
+    identifier: item.equipmentIdentifier || item.serialNumber,
+    description: item.category,
+  };
+}
+
+/** seeded operational procedures, methods, documents and organizations for multi-object sets (ADR 0029) */
+export const SEEDED_OPERATIONAL_OBJECTS: AssuranceObject[] = [
+  {
+    id: 'OBJ-PROC-PORT-01',
+    type: 'procedure',
+    name: 'Port Entry & Berthing Procedure',
+    ownerOrganization: 'Fremantle Port Authority',
+    identifier: 'SOP-PORT-2026',
+    description: 'Navigation, pilot boarding and tug escort operating procedure for port arrival',
+  },
+  {
+    id: 'OBJ-METH-TOW-01',
+    type: 'method',
+    name: 'Mooring & Towage Method Statement (MOP)',
+    ownerOrganization: 'Tidewater Marine',
+    identifier: 'MOP-TOW-004',
+    description: 'Detailed operational method for tandem mooring and harbour towage assistance',
+  },
+  {
+    id: 'OBJ-DOC-CLR-01',
+    type: 'document',
+    name: 'Port Clearance & Customs Declaration',
+    ownerOrganization: 'Australian Border Force',
+    identifier: 'PCD-WA-8812',
+    description: 'Statutory vessel border entry clearance and bio-security verification documentation',
+  },
+  {
+    id: 'OBJ-ORG-PPA-01',
+    type: 'organization',
+    name: 'Pilbara Ports Authority',
+    ownerOrganization: 'Pilbara Ports Authority',
+    identifier: 'PPA-PORT-AUTH',
+    description: 'Regional port authority and harbour master oversight organization',
+  },
+];
+
+/** returns all assurance objects for a set, synthesizing from legacy fields if unpopulated (ADR 0029) */
+export function getAssuranceSetObjects(
+  set: Pick<
+    AssuranceSet,
+    | 'assuranceObjects'
+    | 'assuranceType'
+    | 'subtypes'
+    | 'vesselId'
+    | 'vesselName'
+    | 'imoNumber'
+    | 'crewId'
+    | 'crewName'
+    | 'crewIds'
+    | 'crewNames'
+    | 'equipmentId'
+    | 'equipmentName'
+    | 'serviceProviderOrg'
+  >,
+): AssuranceObject[] {
+  if (set.assuranceObjects && set.assuranceObjects.length > 0) {
+    return set.assuranceObjects;
+  }
+  const objects: AssuranceObject[] = [];
+  if (set.vesselId) {
+    objects.push({
+      id: set.vesselId,
+      type: 'vessel',
+      name: set.vesselName || set.vesselId,
+      ownerOrganization: set.serviceProviderOrg || 'Vessel Provider',
+      identifier: set.imoNumber ? 'IMO: ' + set.imoNumber : undefined,
+    });
+  }
+  const crewIds = set.crewIds && set.crewIds.length > 0 ? set.crewIds : set.crewId ? [set.crewId] : [];
+  crewIds.forEach((id, idx) => {
+    const name = set.crewNames?.[idx] || (idx === 0 ? set.crewName : undefined) || id;
+    objects.push({
+      id,
+      type: 'person',
+      name,
+      ownerOrganization: set.serviceProviderOrg || 'Crew Provider',
+    });
+  });
+  if (set.equipmentId) {
+    objects.push({
+      id: set.equipmentId,
+      type: 'equipment',
+      name: set.equipmentName || set.equipmentId,
+      ownerOrganization: set.serviceProviderOrg || 'Equipment Provider',
+    });
+  }
+  return objects;
+}
+
 export interface AssuranceSetAsset {
   type: AssuranceSubtype;
   id: string;
@@ -158,12 +304,30 @@ export function getAssuranceSetAssets(
   how: keeps the scope the set is filed under as its only subtype, clears the crew and equipment links of other scopes, and drops requirements that belong to another scope; the vessel stays as the covered vessel or the host vessel.
   with what file: src/utils/assuranceTemplates.ts used by useMapStore.ts when a set is added or updated.
 */
+/** normalizes set assets and assurance objects (ADR 0029: multi-object sets preserve all objects) */
 export function toSingleAssetSet<T extends AssuranceSet>(set: T): T {
+  // If the set specifies explicit assuranceObjects (ADR 0029 multi-object model), preserve all of them
+  if (set.assuranceObjects && set.assuranceObjects.length > 0) {
+    const hasCrew = set.assuranceObjects.some((o) => o.type === 'person');
+    const hasEquipment = set.assuranceObjects.some((o) => o.type === 'equipment');
+    return {
+      ...set,
+      assuranceObjects: set.assuranceObjects,
+      crewId: hasCrew ? (set.crewIds?.[0] ?? set.crewId) : undefined,
+      crewName: hasCrew ? (set.crewNames?.[0] ?? set.crewName) : undefined,
+      crewIds: hasCrew ? set.crewIds : undefined,
+      crewNames: hasCrew ? set.crewNames : undefined,
+      equipmentId: hasEquipment ? set.equipmentId : undefined,
+      equipmentName: hasEquipment ? set.equipmentName : undefined,
+    };
+  }
+  // Legacy single-asset clamping (ADR 0004 compatibility when assuranceObjects is not set)
   const scope = getAssuranceSetScopes(set)[0];
   return {
     ...set,
     assuranceType: scope,
     subtypes: [scope],
+    assuranceObjects: getAssuranceSetObjects({ ...set, assuranceType: scope, subtypes: [scope] }),
     crewId: scope === 'Crew' ? (set.crewIds?.[0] ?? set.crewId) : undefined,
     crewName: scope === 'Crew' ? (set.crewNames?.[0] ?? set.crewName) : undefined,
     crewIds: scope === 'Crew' && set.crewIds && set.crewIds.length > 0 ? set.crewIds : undefined,

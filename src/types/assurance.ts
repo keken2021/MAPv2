@@ -24,6 +24,26 @@ export type AssuranceScopeType = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 export type AssuranceSubtype = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 export type ThreePillarsCategory = 'People' | 'Plant' | 'Process';
 
+/** canonical assurance object types under BRD V4.2 change 3 and ADR 0029 */
+export type AssuranceObjectType =
+  | 'vessel'
+  | 'person'
+  | 'equipment'
+  | 'organization'
+  | 'procedure'
+  | 'document'
+  | 'method';
+
+export interface AssuranceObject {
+  id: string;
+  type: AssuranceObjectType;
+  name: string;
+  ownerOrganization: string;
+  identifier?: string;
+  description?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export type ReviewMode = 'internal' | 'third_party' | 'issuing_authority' | 'mixed';
 export type ReviewChannel = 'internal' | 'third_party' | 'issuing_authority';
 export type AuthorityValidationMethod = 'api' | 'direct_link' | 'manual';
@@ -115,6 +135,8 @@ export interface AssuranceRequirement {
   overrideReason?: string;
   /** source, date, validity and inspector of the report, on an inspection report requirement */
   inspectionReport?: InspectionReportEvidence;
+  /** ID of the assurance object this requirement/task is assigned to (ADR 0029) */
+  targetObjectId?: string;
 }
 
 /** frozen copy of one document version, taken when a requirement is verified or its set is approved */
@@ -247,6 +269,8 @@ export interface AssuranceSet {
   sentForReviewAt?: string;
   /** iso date-time the set was approved and its document versions locked */
   lockedAt?: string;
+  /** assurance objects covered by this set across multiple types (ADR 0029) */
+  assuranceObjects?: AssuranceObject[];
 }
 
 /**

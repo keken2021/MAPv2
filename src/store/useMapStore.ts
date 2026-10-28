@@ -20,6 +20,8 @@ import {
   AssuranceRequirement,
   VerificationMethod,
   InspectionReportEvidence,
+  AssuranceObject,
+  AssuranceObjectType,
 } from "../types/assurance";
 import { MasterDocument } from "../types/document";
 import {
@@ -96,7 +98,15 @@ import {
   getRenewalSubmitterLabel,
 } from "../utils/documentRenewalHelpers";
 import { withDocumentChecks } from "../utils/documentChecks";
-import { getAssuranceSetCrewIds, toSingleAssetSet } from "../utils/assuranceTemplates";
+import {
+  getAssuranceSetCrewIds,
+  toSingleAssetSet,
+  vesselToAssuranceObject,
+  crewToAssuranceObject,
+  equipmentToAssuranceObject,
+  SEEDED_OPERATIONAL_OBJECTS,
+  getAssuranceSetObjects,
+} from "../utils/assuranceTemplates";
 import { MOCK_NOTIFICATIONS } from "./notificationMockData";
 import {
   assuranceInvitationSubject,
@@ -296,6 +306,11 @@ export interface MapStoreState {
     equipmentId: string,
     availabilityStatus: AvailabilityStatus,
   ) => void;
+
+  // Assurance Objects State (ADR 0029)
+  assuranceObjects: AssuranceObject[];
+  registerAssuranceObject: (object: AssuranceObject) => { success: boolean; objectId: string; message?: string };
+  addAssuranceObject: (object: AssuranceObject) => { success: boolean; objectId: string; message?: string };
 
   // Assurance Sets State
   assuranceSets: AssuranceSet[];
@@ -1410,6 +1425,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     set((state) => ({
       vessels: [...state.vessels, newVessel],
+      assuranceObjects: [...state.assuranceObjects, vesselToAssuranceObject(newVessel)],
       vesselStatusHistory: [...state.vesselStatusHistory, ...initialHistory],
     }));
 
@@ -1534,7 +1550,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     if (dupCheck.isDuplicate) {
       return { success: false, message: dupCheck.reason };
     }
-    set((state) => ({ equipment: [...state.equipment, newEquipment] }));
+    set((state) => ({
+      equipment: [...state.equipment, newEquipment],
+      assuranceObjects: [...state.assuranceObjects, equipmentToAssuranceObject(newEquipment)],
+    }));
     get().logAuditEvent({
       action: "Registered Equipment Asset",
       targetAsset: `${newEquipment.name} (${newEquipment.equipmentIdentifier})`,
@@ -1585,6 +1604,28 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ),
     }));
   },
+
+  // Assurance Objects State (ADR 0029)
+  assuranceObjects: [
+    ...MOCK_VESSELS.map(vesselToAssuranceObject),
+    ...MOCK_CREW.map(crewToAssuranceObject),
+    ...MOCK_EQUIPMENT.map(equipmentToAssuranceObject),
+    ...SEEDED_OPERATIONAL_OBJECTS,
+  ],
+  registerAssuranceObject: (newObject: AssuranceObject) => {
+    const existing = get().assuranceObjects;
+    if (existing.some((o) => o.id === newObject.id)) {
+      return { success: false, message: `Object with ID ${newObject.id} already exists.`, objectId: newObject.id };
+    }
+    set((state) => ({ assuranceObjects: [...state.assuranceObjects, newObject] }));
+    get().logAuditEvent({
+      action: "Registered Assurance Object",
+      targetAsset: `${newObject.name} (${newObject.type})`,
+      justificationNotes: `Registered assurance object owned by ${newObject.ownerOrganization}.`,
+    });
+    return { success: true, objectId: newObject.id };
+  },
+  addAssuranceObject: (newObject: AssuranceObject) => get().registerAssuranceObject(newObject),
 
   // Assurance Sets
   /* seeded approved and certified sets start with their document versions locked */
@@ -2841,6 +2882,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       );
       return {
         crew: [newCrew, ...state.crew],
+        assuranceObjects: [...state.assuranceObjects, crewToAssuranceObject(newCrew)],
         documents: [...filteredNewDocs, ...state.documents],
       };
     });
