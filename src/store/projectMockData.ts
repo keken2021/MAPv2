@@ -777,7 +777,7 @@ export const MOCK_PROJECTS: Project[] = [
     charterWindowEnd: '2027-12-01',
     status: 'Assurance In Progress',
     operatorOrganization: 'Inpex Operations Australia',
-    readinessScore: 70,
+    readinessScore: 40,
     assetLinks: [
       {
         id: 'PAL-016A',

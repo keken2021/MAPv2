@@ -88,6 +88,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     grantDatePermission,
     revokeDatePermission,
     updateTaskTargetDate,
+    reviseAssuranceSetDeadline,
+    exemptAssuranceTasks,
+    partiallyCloseAssuranceSet,
+    cancelAssuranceSet,
   } = useMapStore();
   const [stakeholderError, setStakeholderError] = useState<string | null>(null);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
@@ -106,6 +110,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [taskDateReasonDraft, setTaskDateReasonDraft] = useState('');
   const [taskDateError, setTaskDateError] = useState<string | null>(null);
   const [charterWindowErrors, setCharterWindowErrors] = useState<{ start?: string; end?: string; deadline?: string }>({});
+  const [isReviseDeadlineModalOpen, setIsReviseDeadlineModalOpen] = useState(false);
+  const [revisedDateDraft, setRevisedDateDraft] = useState('');
+  const [revisedDateReason, setRevisedDateReason] = useState('');
+  const [revisedDateError, setRevisedDateError] = useState<string | null>(null);
+
+  const [isExemptTasksModalOpen, setIsExemptTasksModalOpen] = useState(false);
+  const [selectedExemptTaskIds, setSelectedExemptTaskIds] = useState<string[]>([]);
+  const [exemptionReasonDraft, setExemptionReasonDraft] = useState('');
+  const [exemptionGrantedByDraft, setExemptionGrantedByDraft] = useState('');
+  const [exemptionNewDateDraft, setExemptionNewDateDraft] = useState('');
+  const [exemptionError, setExemptionError] = useState<string | null>(null);
+
+  const [isPartialCloseModalOpen, setIsPartialCloseModalOpen] = useState(false);
+  const [partialCloseNotes, setPartialCloseNotes] = useState('');
+
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [cancellationReasonDraft, setCancellationReasonDraft] = useState('');
   const [shortCertificateConfirm, setShortCertificateConfirm] = useState<MasterDocument[] | null>(null);
   const confirmDialogRef = useRef<HTMLDivElement>(null);
   const [targetProjectId, setTargetProjectId] = useState('');
@@ -344,7 +365,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const creator = getAssuranceSetCreator(assuranceSet, users);
 
   /* the charter window stays editable for managers with date permission until the set is approved or certified */
-  const isCharterWindowLocked = assuranceSet.stage === 'Approved' || assuranceSet.stage === 'Certified';
+  const isCharterWindowLocked = assuranceSet.stage === 'Approved' || assuranceSet.stage === 'Certified' || assuranceSet.stage === 'Cancelled';
   const canEditCharterWindow = roleActions.canManage && roleActions.canChangeDates && !isCharterWindowLocked;
 
   /* earliest selectable day: tomorrow, since today and earlier are not allowed */
@@ -467,6 +488,87 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     setGrantReasonDraft('');
     setProjectToast(`Date change permission granted to ${grantee.name} for ${hours} hours.`);
     setTimeout(() => setProjectToast(null), 3500);
+  };
+
+  const handleSaveRevisedDeadline = () => {
+    if (!revisedDateDraft) {
+      setRevisedDateError('Revised completion date is required.');
+      return;
+    }
+    const result = reviseAssuranceSetDeadline(
+      assuranceSet.id,
+      revisedDateDraft,
+      sessionUser?.name || 'Set Manager',
+      revisedDateReason.trim() || undefined,
+    );
+    if (result.success) {
+      setIsReviseDeadlineModalOpen(false);
+      setProjectToast('Revised completion date saved.');
+      setTimeout(() => setProjectToast(null), 3500);
+    } else {
+      setRevisedDateError(result.message || 'Failed to update completion date.');
+    }
+  };
+
+  const handleGrantExemptions = () => {
+    if (selectedExemptTaskIds.length === 0) {
+      setExemptionError('Please select at least one task to exempt.');
+      return;
+    }
+    if (!exemptionReasonDraft.trim()) {
+      setExemptionError('Exemption reason is required.');
+      return;
+    }
+    if (!exemptionNewDateDraft) {
+      setExemptionError('New completion date for exempted tasks is required.');
+      return;
+    }
+    const result = exemptAssuranceTasks(
+      assuranceSet.id,
+      selectedExemptTaskIds,
+      exemptionReasonDraft.trim(),
+      exemptionGrantedByDraft.trim() || sessionUser?.name || 'Set Manager',
+      exemptionNewDateDraft,
+    );
+    if (result.success) {
+      setIsExemptTasksModalOpen(false);
+      setProjectToast(`${selectedExemptTaskIds.length} task(s) exempted.`);
+      setTimeout(() => setProjectToast(null), 3500);
+    } else {
+      setExemptionError(result.message || 'Failed to exempt tasks.');
+    }
+  };
+
+  const handleConfirmPartialClose = () => {
+    const result = partiallyCloseAssuranceSet(
+      assuranceSet.id,
+      sessionUser?.name || 'Set Manager',
+      partialCloseNotes.trim() || undefined,
+    );
+    if (result.success) {
+      setIsPartialCloseModalOpen(false);
+      setProjectToast('Assurance set partially closed. Exempted tasks remain open.');
+      setTimeout(() => setProjectToast(null), 3500);
+    } else {
+      setProjectToast(result.message || 'Failed to partially close assurance set.');
+      setTimeout(() => setProjectToast(null), 3500);
+    }
+  };
+
+  const handleConfirmCancel = () => {
+    const result = cancelAssuranceSet(
+      assuranceSet.id,
+      sessionUser?.name || 'Set Manager',
+      cancellationReasonDraft.trim() || undefined,
+    );
+    if (result.success) {
+      setIsCancelModalOpen(false);
+      setProjectToast('Assurance set has been cancelled.');
+      setTimeout(() => setProjectToast(null), 3500);
+    } else {
+      setProjectToast(result.message || 'Failed to cancel assurance set.');
+      setTimeout(() => setProjectToast(null), 3500);
+    }
   };
 
   const handleRevokePermission = (grantId: string) => {
@@ -686,7 +788,86 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   {complianceOverdue && (
                     <span className="badge bg-danger">Overdue</span>
                   )}
+                  {assuranceSet.stage === 'Cancelled' && (
+                    <span className="badge bg-secondary">Cancelled</span>
+                  )}
+                  {assuranceSet.closureType === 'partial' && (
+                    <span className="badge bg-warning text-dark">Partially Closed</span>
+                  )}
                 </div>
+                {complianceOverdue && roleActions.canManage && assuranceSet.stage !== 'Cancelled' && assuranceSet.stage !== 'Approved' && (
+                  <div className="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3 mb-0" role="alert">
+                    <div>
+                      <div className="fw-semibold text-danger">Overdue Outcome Required</div>
+                      <div className="small text-danger-emphasis">
+                        This assurance set passed its deadline ({formatMaritimeDate(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}). Choose an outcome to proceed.
+                      </div>
+                    </div>
+                    <div className="d-flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => {
+                          setRevisedDateDraft(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '');
+                          setRevisedDateReason('');
+                          setRevisedDateError(null);
+                          setIsReviseDeadlineModalOpen(true);
+                        }}
+                      >
+                        Revise Completion Date
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => {
+                          setSelectedExemptTaskIds([]);
+                          setExemptionReasonDraft('');
+                          setExemptionGrantedByDraft(sessionUser?.name || 'Set Manager');
+                          setExemptionNewDateDraft('');
+                          setExemptionError(null);
+                          setIsExemptTasksModalOpen(true);
+                        }}
+                      >
+                        Exempt Tasks
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => {
+                          setPartialCloseNotes('');
+                          setIsPartialCloseModalOpen(true);
+                        }}
+                      >
+                        Partial Closure
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger text-white"
+                        onClick={() => {
+                          setCancellationReasonDraft('');
+                          setIsCancelModalOpen(true);
+                        }}
+                      >
+                        Cancel Set
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {assuranceSet.stage === 'Cancelled' && (
+                  <div className="alert alert-secondary mt-3 mb-0" role="alert">
+                    <span className="fw-semibold">Cancelled:</span>{' '}
+                    This assurance set was cancelled on {formatMaritimeDate(assuranceSet.cancelledAt || '')}.
+                    {assuranceSet.cancellationReason ? ` Reason: ${assuranceSet.cancellationReason}.` : ''}{' '}
+                    This set cannot be restarted.
+                  </div>
+                )}
+                {assuranceSet.closureType === 'partial' && (
+                  <div className="alert alert-warning mt-3 mb-0" role="alert">
+                    <span className="fw-semibold">Partially Closed:</span>{' '}
+                    This assurance set was partially closed on {formatMaritimeDate(assuranceSet.partiallyClosedAt || '')}.
+                    Exempted tasks remain open under their granted extension dates.
+                  </div>
+                )}
                
               </div>
               {/* Top header action controls: Use as Template button & Export Data dropdown */}
@@ -1431,6 +1612,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <div className="fw-semibold text-dark">
                         {req.title}
                         {renderVersionBadge(req, docView)}
+                        {req.exemption && (
+                          <span
+                            className="badge bg-warning text-dark font-mono-code ms-1.5"
+                            style={{ fontSize: '0.65rem' }}
+                            title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
+                          >
+                            Exempted ({formatMaritimeDate(req.exemption.newDate)})
+                          </span>
+                        )}
                         {renderTaskPlacement(req)}
                         {req.isSpecialized && (
                           <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
@@ -2089,6 +2279,338 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 <div className="modal-footer">
                   <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsDateHistoryModalOpen(false)}>
                     Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+      {/* Overdue Outcome Modal: Revise Completion Date */}
+      {isReviseDeadlineModalOpen && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="revise-deadline-title">
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <div>
+                    <h5 className="modal-title fs-6 fw-bold" id="revise-deadline-title">Revise Completion Date</h5>
+                    <div className="text-muted small">Update the target completion date for this overdue assurance set.</div>
+                  </div>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsReviseDeadlineModalOpen(false)} />
+                </div>
+                <div className="modal-body d-flex flex-column gap-3">
+                  <div>
+                    <label className="form-label text-secondary small mb-1">Current Deadline</label>
+                    <div className="fw-bold text-dark">
+                      {formatMaritimeDate(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small mb-1" htmlFor="revised-deadline-input">
+                      New Completion Date <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      id="revised-deadline-input"
+                      type="date"
+                      className="form-control form-control-sm font-mono-code"
+                      value={revisedDateDraft}
+                      onChange={(e) => {
+                        setRevisedDateDraft(e.target.value);
+                        setRevisedDateError(null);
+                      }}
+                    />
+                    {revisedDateError && (
+                      <div className="invalid-feedback d-block small">{revisedDateError}</div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small mb-1" htmlFor="revised-deadline-reason">
+                      Reason for Revision <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      id="revised-deadline-reason"
+                      rows={2}
+                      className="form-control form-control-sm"
+                      placeholder="e.g. Supplier delay in certification endorsement..."
+                      value={revisedDateReason}
+                      onChange={(e) => setRevisedDateReason(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsReviseDeadlineModalOpen(false)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveRevisedDeadline}>
+                    Save Revised Date
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Overdue Outcome Modal: Exempt Tasks */}
+      {isExemptTasksModalOpen && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="exempt-tasks-title">
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <div>
+                    <h5 className="modal-title fs-6 fw-bold" id="exempt-tasks-title">Exempt Tasks from Completion Date</h5>
+                    <div className="text-muted small">Grant individual deadline extensions for specific tasks so the set can proceed.</div>
+                  </div>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsExemptTasksModalOpen(false)} />
+                </div>
+                <div className="modal-body d-flex flex-column gap-3">
+                  <div>
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <label className="form-label text-secondary small mb-0 fw-bold">Select Tasks to Exempt</label>
+                      <div className="d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0 text-decoration-none"
+                          onClick={() => setSelectedExemptTaskIds(assuranceSet.requirements.map((r) => r.id))}
+                        >
+                          Select All
+                        </button>
+                        <span className="text-muted">·</span>
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0 text-decoration-none"
+                          onClick={() => setSelectedExemptTaskIds([])}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="table-responsive border rounded" style={{ maxHeight: '200px' }}>
+                      <table className="table table-sm table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>
+                        <thead className="table-light">
+                          <tr>
+                            <th style={{ width: '40px' }}></th>
+                            <th>Task Title</th>
+                            <th>Current Target Date</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {assuranceSet.requirements.map((req) => {
+                            const isSelected = selectedExemptTaskIds.includes(req.id);
+                            return (
+                              <tr
+                                key={req.id}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  setSelectedExemptTaskIds((prev) =>
+                                    prev.includes(req.id) ? prev.filter((id) => id !== req.id) : [...prev, req.id],
+                                  );
+                                }}
+                              >
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    checked={isSelected}
+                                    onChange={() => {}}
+                                  />
+                                </td>
+                                <td className="fw-semibold text-dark">
+                                  {req.title}
+                                  {req.exemption && (
+                                    <span className="badge bg-warning text-dark font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
+                                      Already Exempted
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="font-mono-code text-muted">
+                                  {formatMaritimeDate(req.targetDate || req.exemption?.newDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '')}
+                                </td>
+                                <td>
+                                  <span className={`badge ${req.isFulfilled ? 'bg-success' : 'bg-secondary'}`}>
+                                    {req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending')}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="row g-2">
+                    <div className="col-md-6">
+                      <label className="form-label text-secondary small mb-1" htmlFor="exemption-granted-by">
+                        Granted By
+                      </label>
+                      <input
+                        id="exemption-granted-by"
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={exemptionGrantedByDraft}
+                        onChange={(e) => setExemptionGrantedByDraft(e.target.value)}
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label text-secondary small mb-1" htmlFor="exemption-new-date">
+                        New Target Date for Exempted Tasks <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        id="exemption-new-date"
+                        type="date"
+                        className="form-control form-control-sm font-mono-code"
+                        value={exemptionNewDateDraft}
+                        onChange={(e) => {
+                          setExemptionNewDateDraft(e.target.value);
+                          setExemptionError(null);
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="form-label text-secondary small mb-1" htmlFor="exemption-reason">
+                      Exemption Reason <span className="text-danger">*</span>
+                    </label>
+                    <textarea
+                      id="exemption-reason"
+                      rows={2}
+                      className="form-control form-control-sm"
+                      placeholder="e.g. Vessel dry-dock survey scheduled for next week..."
+                      value={exemptionReasonDraft}
+                      onChange={(e) => {
+                        setExemptionReasonDraft(e.target.value);
+                        setExemptionError(null);
+                      }}
+                    />
+                  </div>
+
+                  {exemptionError && (
+                    <div className="alert alert-danger py-1.5 px-3 mb-0 small">{exemptionError}</div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsExemptTasksModalOpen(false)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={handleGrantExemptions}>
+                    Grant Exemption ({selectedExemptTaskIds.length})
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Overdue Outcome Modal: Partial Closure */}
+      {isPartialCloseModalOpen && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="partial-close-title">
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <div>
+                    <h5 className="modal-title fs-6 fw-bold" id="partial-close-title">Confirm Partial Closure</h5>
+                    <div className="text-muted small">Partially approve this assurance set while leaving exempted tasks open.</div>
+                  </div>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsPartialCloseModalOpen(false)} />
+                </div>
+                <div className="modal-body d-flex flex-column gap-3">
+                  <div className="alert alert-warning py-2 mb-0 small">
+                    <strong>Partial Closure Policy:</strong> The set will be moved to Approved status with partial closure mode. All exempted tasks will remain open and retain their extended completion dates.
+                  </div>
+                  <div className="d-flex flex-column gap-1 small">
+                    <div>
+                      <span className="text-muted">Total tasks:</span>{' '}
+                      <span className="fw-semibold text-dark">{assuranceSet.requirements.length}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted">Exempted tasks (will remain open):</span>{' '}
+                      <span className="fw-semibold text-warning">
+                        {assuranceSet.requirements.filter((r) => r.exemption).length}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted">Completed / fulfilled tasks:</span>{' '}
+                      <span className="fw-semibold text-success">
+                        {assuranceSet.requirements.filter((r) => r.isFulfilled).length}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small mb-1" htmlFor="partial-close-notes">
+                      Closure Notes <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      id="partial-close-notes"
+                      rows={2}
+                      className="form-control form-control-sm"
+                      placeholder="e.g. Approved with partial closure under management exemption..."
+                      value={partialCloseNotes}
+                      onChange={(e) => setPartialCloseNotes(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsPartialCloseModalOpen(false)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-sm btn-warning text-dark fw-semibold" onClick={handleConfirmPartialClose}>
+                    Partially Close Set
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Overdue Outcome Modal: Cancel Set */}
+      {isCancelModalOpen && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="cancel-set-title">
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <div>
+                    <h5 className="modal-title fs-6 fw-bold text-danger" id="cancel-set-title">Cancel Assurance Set</h5>
+                    <div className="text-muted small">Move this assurance set to Cancelled status.</div>
+                  </div>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsCancelModalOpen(false)} />
+                </div>
+                <div className="modal-body d-flex flex-column gap-3">
+                  <div className="alert alert-danger py-2 mb-0 small">
+                    <strong>Permanent Action:</strong> Cancelling moves this set to <strong>Cancelled</strong> status. There is no action to restart or re-initiate this set.
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small mb-1" htmlFor="cancel-reason">
+                      Cancellation Reason <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      id="cancel-reason"
+                      rows={2}
+                      className="form-control form-control-sm"
+                      placeholder="e.g. Vessel replacement nominated by charterer; campaign discontinued..."
+                      value={cancellationReasonDraft}
+                      onChange={(e) => setCancellationReasonDraft(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsCancelModalOpen(false)}>
+                    Keep Set
+                  </button>
+                  <button type="button" className="btn btn-sm btn-danger text-white fw-semibold" onClick={handleConfirmCancel}>
+                    Cancel Set
                   </button>
                 </div>
               </div>

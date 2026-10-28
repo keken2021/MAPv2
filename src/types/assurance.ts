@@ -11,7 +11,8 @@ export type AssuranceStage =
   | 'Inspection'
   | 'Approval'
   | 'Certified'
-  | 'Approved';
+  | 'Approved'
+  | 'Cancelled';
 
 export type InitiatingRoleType =
   | 'Vessel Provider'
@@ -143,9 +144,19 @@ export interface AssuranceRequirement {
   sectionId?: string;
   /** the one earlier task this task follows */
   predecessorId?: string;
+  /** exemption details if this requirement/task was exempted (BRD V4.2 change 7) */
+  exemption?: TaskExemption;
 }
 
 /** a named group of tasks on an assurance set; the critical-path chart is not part of this prototype */
+/** exemption on an assurance requirement/task (BRD V4.2 change 7) */
+export interface TaskExemption {
+  reason: string;
+  grantedBy: string;
+  grantedAt?: string;
+  newDate: string;
+}
+
 export interface TaskSection {
   id: string;
   name: string;
@@ -319,6 +330,16 @@ export interface AssuranceSet {
   datePermissionGrants?: DatePermissionGrant[];
   /** audit history ledger of target date changes on this set and its tasks (BRD V4.2 change 6) */
   targetDateHistory?: TargetDateChangeRecord[];
+  /** closure mode: full (default when approved) or partial (BRD V4.2 change 7) */
+  closureType?: 'full' | 'partial';
+  /** revised completion date when overdue (BRD V4.2 change 7) */
+  revisedCompletionDate?: string;
+  /** iso date-time the set was partially closed */
+  partiallyClosedAt?: string;
+  /** iso date-time the set was cancelled */
+  cancelledAt?: string;
+  /** reason why the set was cancelled */
+  cancellationReason?: string;
 }
 
 /**

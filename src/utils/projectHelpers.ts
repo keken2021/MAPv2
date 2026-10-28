@@ -713,7 +713,7 @@ export function countProjectAssets(links: ProjectAssetLink[]): string {
 
 /* approved and certified are the same terminal position on the pipeline */
 function isTerminalStage(stage: AssuranceSet['stage']): boolean {
-  return stage === 'Approved' || stage === 'Certified';
+  return stage === 'Approved' || stage === 'Certified' || stage === 'Cancelled';
 }
 
 /**
@@ -725,6 +725,15 @@ export function recalculateSetReadiness(
   set: AssuranceSet,
   linkedSetResolver?: (setId: string) => AssuranceSet | undefined,
 ): AssuranceSet {
+  if (set.stage === 'Cancelled') {
+    return set;
+  }
+  if (set.closureType === 'partial' && (set.stage === 'Approved' || set.stage === 'Certified')) {
+    return {
+      ...set,
+      readinessScore: calculateAssuranceSetReadiness(set, linkedSetResolver),
+    };
+  }
   const derivedStage = set.requirements.length > 0 ? derivePipelineStage(set) : set.stage;
   const stage = isTerminalStage(derivedStage) && isTerminalStage(set.stage) ? set.stage : derivedStage;
   const staged: AssuranceSet = { ...set, stage };

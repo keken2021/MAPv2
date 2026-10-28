@@ -326,6 +326,29 @@ export interface MapStoreState {
   updateAssuranceSet: (set: AssuranceSet) => void;
   grantDatePermission: (setId: string, grant: Omit<DatePermissionGrant, 'id' | 'grantedAt'>) => void;
   revokeDatePermission: (setId: string, grantId: string) => void;
+  reviseAssuranceSetDeadline: (
+    setId: string,
+    revisedDate: string,
+    actorName: string,
+    reason?: string,
+  ) => { success: boolean; message?: string };
+  exemptAssuranceTasks: (
+    setId: string,
+    taskIds: string[],
+    reason: string,
+    grantedBy: string,
+    newDate: string,
+  ) => { success: boolean; message?: string };
+  partiallyCloseAssuranceSet: (
+    setId: string,
+    actorName: string,
+    notes?: string,
+  ) => { success: boolean; message?: string };
+  cancelAssuranceSet: (
+    setId: string,
+    actorName: string,
+    reason?: string,
+  ) => { success: boolean; message?: string };
   updateTaskTargetDate: (
     setId: string,
     taskId: string,
@@ -2001,6 +2024,124 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetDateHistory: [...(setTarget.targetDateHistory || []), historyRow],
     };
     get().updateAssuranceSet(updatedSet);
+    return { success: true };
+  },
+  reviseAssuranceSetDeadline: (setId, revisedDate, actorName, reason) => {
+    const state = get();
+    const setTarget = state.assuranceSets.find((s) => s.id === setId);
+    if (!setTarget) return { success: false, message: "Assurance set not found." };
+    const oldDeadline = setTarget.revisedCompletionDate || setTarget.targetDate || setTarget.complianceDeadline || "—";
+    const historyRow: TargetDateChangeRecord = {
+      id: `TDC-${Date.now()}-set`,
+      setId,
+      scope: "set",
+      targetType: "set",
+      oldDate: oldDeadline,
+      newDate: revisedDate,
+      changedBy: actorName,
+      changedAt: new Date().toISOString(),
+      reason: reason || undefined,
+    };
+    const updatedSet: AssuranceSet = {
+      ...setTarget,
+      revisedCompletionDate: revisedDate,
+      targetDate: revisedDate,
+      targetDateHistory: [...(setTarget.targetDateHistory || []), historyRow],
+    };
+    get().updateAssuranceSet(updatedSet);
+    get().logAuditEvent({
+      action: "Revised Completion Date",
+      targetAsset: setId,
+      justificationNotes: `Revised completion date from ${oldDeadline} to ${revisedDate} by ${actorName}.${reason ? ` Reason: ${reason}` : ""}`,
+    });
+    return { success: true };
+  },
+  exemptAssuranceTasks: (setId, taskIds, reason, grantedBy, newDate) => {
+    const state = get();
+    const setTarget = state.assuranceSets.find((s) => s.id === setId);
+    if (!setTarget) return { success: false, message: "Assurance set not found." };
+    const now = new Date().toISOString();
+    const historyRows: TargetDateChangeRecord[] = [];
+    const updatedRequirements = setTarget.requirements.map((r) => {
+      if (!taskIds.includes(r.id)) return r;
+      const oldDate = r.targetDate || "—";
+      historyRows.push({
+        id: `TDC-${Date.now()}-${r.id}`,
+        setId,
+        taskId: r.id,
+        taskTitle: r.title,
+        scope: "task",
+        targetType: "task",
+        requirementId: r.id,
+        oldDate,
+        newDate,
+        changedBy: grantedBy,
+        changedAt: now,
+        reason: `Exemption: ${reason}`,
+      });
+      return {
+        ...r,
+        targetDate: newDate,
+        exemption: {
+          reason,
+          grantedBy,
+          newDate,
+          grantedAt: now,
+        },
+      };
+    });
+    const updatedSet: AssuranceSet = {
+      ...setTarget,
+      requirements: updatedRequirements,
+      targetDateHistory: [...(setTarget.targetDateHistory || []), ...historyRows],
+    };
+    get().updateAssuranceSet(updatedSet);
+    get().logAuditEvent({
+      action: "Exempted Tasks",
+      targetAsset: setId,
+      justificationNotes: `Exempted ${taskIds.length} task(s) until ${newDate} by ${grantedBy}. Reason: ${reason}`,
+    });
+    return { success: true };
+  },
+  partiallyCloseAssuranceSet: (setId, actorName, notes) => {
+    const state = get();
+    const setTarget = state.assuranceSets.find((s) => s.id === setId);
+    if (!setTarget) return { success: false, message: "Assurance set not found." };
+    const now = new Date().toISOString();
+    const updatedSet: AssuranceSet = {
+      ...setTarget,
+      stage: "Approved",
+      closureType: "partial",
+      lockedAt: setTarget.lockedAt || now,
+      partiallyClosedAt: now,
+      approverDecision: "Approved",
+      approverNotes: notes || `Partially closed by ${actorName}. Exempted tasks remain open.`,
+    };
+    get().updateAssuranceSet(updatedSet);
+    get().logAuditEvent({
+      action: "Partial Closure",
+      targetAsset: setId,
+      justificationNotes: notes || `Assurance set ${setId} partially closed by ${actorName}. Exempted tasks remain open.`,
+    });
+    return { success: true };
+  },
+  cancelAssuranceSet: (setId, actorName, reason) => {
+    const state = get();
+    const setTarget = state.assuranceSets.find((s) => s.id === setId);
+    if (!setTarget) return { success: false, message: "Assurance set not found." };
+    const now = new Date().toISOString();
+    const updatedSet: AssuranceSet = {
+      ...setTarget,
+      stage: "Cancelled",
+      cancelledAt: now,
+      cancellationReason: reason,
+    };
+    get().updateAssuranceSet(updatedSet);
+    get().logAuditEvent({
+      action: "Cancelled Assurance Set",
+      targetAsset: setId,
+      justificationNotes: `Assurance set ${setId} cancelled by ${actorName}.${reason ? ` Reason: ${reason}` : ""}`,
+    });
     return { success: true };
   },
   updateAssuranceStage: (setId, stage) => {
