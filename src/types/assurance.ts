@@ -187,6 +187,10 @@ export interface AssuranceRequirement {
   predecessorId?: string;
   /** exemption details if this requirement/task was exempted (BRD V4.2 change 7) */
   exemption?: TaskExemption;
+  /** submission attempt number; increments on resubmission / new document version (BRD V4.2 change 12) */
+  attemptNumber?: number;
+  /** ISO timestamp of the review decision (BRD V4.2 change 12) */
+  decisionTime?: string;
 }
 
 /** a named group of tasks on an assurance set; the critical-path chart is not part of this prototype */
@@ -241,6 +245,10 @@ export interface RequirementVersionSnapshot {
   verifiedBy?: string;
   verificationStatus: 'Verified' | 'Pending' | 'Correction Requested' | 'Rejected';
   expiryDate?: string;
+  /** submission attempt number */
+  attemptNumber?: number;
+  /** ISO timestamp of the review decision */
+  decisionTime?: string;
 }
 
 export interface AssuranceProject {

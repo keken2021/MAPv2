@@ -2588,6 +2588,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               {
                 ...r,
                 verifierStatus: status,
+                decisionTime: reviewedAt,
                 notes: notes || r.notes,
                 isFulfilled: status === "Verified",
               },
@@ -2668,6 +2669,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             return {
               ...r,
               verifierStatus: decision,
+              decisionTime: new Date().toISOString(),
               isFulfilled: false,
               notes:
                 notes || `Executive Approver returned document as ${decision}.`,
@@ -2721,6 +2723,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               return {
                 ...r,
                 verifierStatus: mappedStatus,
+                decisionTime: new Date().toISOString(),
                 isFulfilled: false,
                 verifiedVersion: undefined,
                 notes:
@@ -2889,11 +2892,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         if (targetReqExists) {
           updatedReqs = updatedReqs.map((r) => {
             if (r.id !== requirementId) return r;
+            const isResubmission = Boolean(r.documentId || r.linkedDocumentId || r.attemptNumber);
+            const nextAttempt = isResubmission ? (r.attemptNumber || 1) + 1 : (r.attemptNumber || 1);
             return {
               ...r,
               documentId: doc.id,
               documentVersion: doc.currentVersion,
               verifierStatus: "Pending" as const,
+              decisionTime: undefined,
+              attemptNumber: nextAttempt,
               isFulfilled: false,
               ocrConfidence: doc.ocrConfidence,
               inspectionReport: inspectionReport ?? r.inspectionReport,
@@ -2914,6 +2921,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             documentId: doc.id,
             documentVersion: doc.currentVersion || "v1.0",
             verifierStatus: "Pending",
+            decisionTime: undefined,
+            attemptNumber: 1,
             isOtherDocument: true,
             notes: `Uploaded additional document (${doc.versions?.[0]?.fileName || doc.title}).`,
           };
@@ -2976,6 +2985,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           fileSizeBytes,
           fileName,
           changeSummary,
+          attemptNumber: (d.versions[0]?.attemptNumber || d.versions.length) + 1,
         };
         /* the new version's expiry replaces the old one everywhere it is shown, and the rules run again on it */
         return withDocumentChecks(
@@ -3014,12 +3024,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           }
           if (isSubmittedRequirement) {
             hasMatchedReq = true;
+            const nextAttempt = (r.attemptNumber || 1) + 1;
             return {
               ...r,
               documentId: docId,
               documentVersion: newVersionLabel,
               verifiedVersion: undefined,
               verifierStatus: "Pending" as const,
+              decisionTime: undefined,
+              attemptNumber: nextAttempt,
               isFulfilled: false,
               ocrConfidence: 98,
               notes:
@@ -3110,6 +3123,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                 ...r,
                 documentId: docId,
                 verifierStatus: status,
+                decisionTime: reviewedAt,
                 isFulfilled: status === "Verified",
                 ocrConfidence: targetDoc?.ocrConfidence || 98,
                 notes: notes || r.notes,
@@ -4025,7 +4039,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       status === "Verified & Closed"
         ? closing
           ? new Date().toISOString()
-          : current.closedDate
+          : current.closedDate || new Date().toISOString()
         : undefined;
     set((state) => ({
       capaItems: state.capaItems.map((item) =>

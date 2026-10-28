@@ -11,7 +11,7 @@ import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
-import { formatMaritimeDate, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
+import { formatMaritimeDate, formatMaritimeDateTime, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
 import { setOrganizationParties } from '../utils/projectHelpers';
 import {
   toIsoLocalDate,
@@ -37,7 +37,13 @@ import {
   filterEligibleApproversForScope,
   getSessionUserForPersona,
 } from '../utils/userRoleHelpers';
-import { calculateAssuranceSetReadiness, summarizeTaskSections } from '../utils/readinessHelpers';
+import {
+  calculateAssuranceSetReadiness,
+  summarizeTaskSections,
+  getAssuranceSetOnTimeStatus,
+  getAssuranceSetOpenFindings,
+  getAssuranceSetRemainingItems,
+} from '../utils/readinessHelpers';
 import TaskSectionCards from '../components/common/TaskSectionCards';
 import {
   canEditAssuranceSetStakeholders,
@@ -79,6 +85,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     updateAssuranceSet,
     raiseDocumentRenewalNotifications,
     documents,
+    capaItems,
     activePersona,
     activeDemoOrganization,
     activeSessionUserId,
@@ -256,6 +263,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   );
 
   const sectionSummaries = useMemo(() => summarizeTaskSections(assuranceSet), [assuranceSet]);
+  const onTimeStatus = useMemo(() => getAssuranceSetOnTimeStatus(assuranceSet), [assuranceSet]);
+  const openFindings = useMemo(() => getAssuranceSetOpenFindings(assuranceSet, capaItems), [assuranceSet, capaItems]);
+  const remainingItems = useMemo(() => getAssuranceSetRemainingItems(assuranceSet), [assuranceSet]);
   const sectionNameFor = (sectionId?: string) =>
     assuranceSet.sections?.find((section) => section.id === sectionId)?.name;
   const predecessorTitleFor = (taskId?: string) =>
@@ -950,6 +960,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   {assuranceSet.closureType === 'partial' && (
                     <span className="badge bg-warning text-dark">Partially Closed</span>
                   )}
+                  <span className={`badge font-mono-code ${onTimeStatus.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTimeStatus.detail}>
+                    {onTimeStatus.statusLabel}{!onTimeStatus.isOnTime && onTimeStatus.lateItemsCount > 0 ? ` (${onTimeStatus.lateItemsCount} late)` : ''}
+                  </span>
+                  {openFindings.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-link p-0 text-decoration-none"
+                      onClick={() => setCurrentHashView('capa', assuranceSet.vesselName || assuranceSet.vesselId)}
+                    >
+                      <span className="badge bg-warning text-dark font-mono-code">
+                        {openFindings.length} {openFindings.length === 1 ? 'Open Finding' : 'Open Findings'}
+                      </span>
+                    </button>
+                  )}
+                  <span className="badge bg-light text-secondary border font-mono-code">
+                    {remainingItems.remainingTasks} remaining tasks ({remainingItems.remainingCertificates} certs)
+                  </span>
                 </div>
                 {complianceOverdue && roleActions.canManage && assuranceSet.stage !== 'Cancelled' && assuranceSet.stage !== 'Approved' && (
                   <div className="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3 mb-0" role="alert">
@@ -1770,6 +1797,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <div className="fw-semibold text-dark">
                         {req.title}
                         {renderVersionBadge(req, docView)}
+                        {req.attemptNumber && (
+                          <span className="badge bg-light text-secondary border font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
+                            Attempt {req.attemptNumber}
+                          </span>
+                        )}
                         {req.exemption && (
                           <span
                             className="badge bg-warning text-dark font-mono-code ms-1.5"
@@ -1831,6 +1863,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           </div>
                         );
                       })()}
+                      {req.decisionTime && (
+                        <div className="font-mono-code text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                          <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
+                        </div>
+                      )}
                       {/* how this set's verifier confirmed the document (gap review G1) */}
                       {req.verifierStatus === 'Verified' && (
                         <div className="font-mono-code text-muted mt-1" style={{ fontSize: '0.7rem' }}>
@@ -1939,7 +1976,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <td className="fw-semibold text-dark">
                         {req.title}
                         {renderVersionBadge(req, docView)}
+                        {req.attemptNumber && (
+                          <span className="badge bg-light text-secondary border font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
+                            Attempt {req.attemptNumber}
+                          </span>
+                        )}
                         {renderTaskPlacement(req)}
+                        {req.decisionTime && (
+                          <div className="font-mono-code text-muted mt-0.5" style={{ fontSize: '0.7rem' }}>
+                            <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
+                          </div>
+                        )}
                         {renderContractShortWarning(docView?.doc || linkedDoc)}
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>

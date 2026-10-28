@@ -234,7 +234,7 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
       c.id,
       c.vesselName,
       `${c.title}\n(${c.checklistItemTitle})`,
-      c.status,
+      c.closedDate ? `${c.status} (Closed ${formatMaritimeDateTime(c.closedDate)})` : c.status,
       c.owner,
       c.dueDate,
     ]);

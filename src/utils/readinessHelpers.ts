@@ -9,6 +9,8 @@ import { CrewComplianceStatus, CrewMember } from '../types/crew';
 import { MasterDocument } from '../types/document';
 import { EquipmentAsset } from '../types/equipment';
 import { VesselInformation } from '../types/vessel';
+import { CapaItem } from '../types/capa';
+import { isComplianceDeadlineOverdue } from './validation';
 
 /**
   dynamic stage percentage weights as specified in compliance calculation rules:
@@ -517,4 +519,153 @@ export function listOpenTasksInSection(
   return set.requirements.filter(
     (task) => !task.isOtherDocument && (task.sectionId || 'general') === sectionId && isTaskOpen(task),
   );
+}
+
+
+function toIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+  what: checks whether an individual assurance requirement is past its target date.
+  how: true when the task is open and has a target date earlier than the comparison date.
+  with what file: src/utils/readinessHelpers.ts used by getAssuranceSetOnTimeStatus.
+*/
+export function isRequirementLate(task: AssuranceRequirement, today: Date = new Date()): boolean {
+  if (!isTaskOpen(task)) return false;
+  if (!task.targetDate) return false;
+  return task.targetDate < toIsoDate(today);
+}
+
+/**
+  what: computes the on-time delivery status for an assurance set and its tasks.
+  how: checks set deadline overdue status and whether any open requirements are past their target dates.
+  with what file: src/utils/readinessHelpers.ts used by DashboardView and AssuranceDetailView.
+*/
+export function getAssuranceSetOnTimeStatus(
+  set: AssuranceSet,
+  today: Date = new Date(),
+): {
+  isOnTime: boolean;
+  statusLabel: 'On time' | 'Late';
+  lateItemsCount: number;
+  detail: string;
+} {
+  if (set.stage === 'Approved' || set.stage === 'Certified') {
+    return { isOnTime: true, statusLabel: 'On time', lateItemsCount: 0, detail: 'Completed' };
+  }
+  if (set.stage === 'Cancelled') {
+    return { isOnTime: true, statusLabel: 'On time', lateItemsCount: 0, detail: 'Cancelled' };
+  }
+  const isDeadlineOverdue = isComplianceDeadlineOverdue(set, today);
+  const lateTasks = (set.requirements || []).filter((r) => !r.isOtherDocument && isRequirementLate(r, today));
+  const lateItemsCount = lateTasks.length + (isDeadlineOverdue && lateTasks.length === 0 ? 1 : 0);
+  const isOnTime = !isDeadlineOverdue && lateTasks.length === 0;
+  const statusLabel: 'On time' | 'Late' = isOnTime ? 'On time' : 'Late';
+  const detail = isOnTime
+    ? 'All items on schedule'
+    : isDeadlineOverdue
+      ? 'Compliance deadline overdue'
+      : `${lateTasks.length} ${lateTasks.length === 1 ? 'task' : 'tasks'} late`;
+
+  return { isOnTime, statusLabel, lateItemsCount, detail };
+}
+
+/**
+  what: returns open findings (CAPA items) linked to an assurance set or its vessel.
+  how: matches findings by set id or vessel and filters for status other than Verified & Closed.
+  with what file: src/utils/readinessHelpers.ts used by DashboardView and AssuranceDetailView.
+*/
+export function getAssuranceSetOpenFindings(
+  set: Pick<AssuranceSet, 'id' | 'vesselId' | 'vesselName'>,
+  capaItems: CapaItem[] = [],
+): CapaItem[] {
+  return capaItems.filter((c) => {
+    if (c.status === 'Verified & Closed') return false;
+    if (c.assuranceSetId && c.assuranceSetId === set.id) return true;
+    if (set.vesselId && c.vesselId === set.vesselId) return true;
+    if (set.vesselName && c.vesselName && c.vesselName.toLowerCase() === set.vesselName.toLowerCase()) return true;
+    return false;
+  });
+}
+
+/**
+  what: returns the count of open findings for an assurance set.
+  how: counts open findings from getAssuranceSetOpenFindings.
+  with what file: src/utils/readinessHelpers.ts used by DashboardView and AssuranceDetailView.
+*/
+export function getAssuranceSetOpenFindingsCount(
+  set: Pick<AssuranceSet, 'id' | 'vesselId' | 'vesselName'>,
+  capaItems: CapaItem[] = [],
+): number {
+  return getAssuranceSetOpenFindings(set, capaItems).length;
+}
+
+/**
+  what: counts remaining open tasks and remaining open certificates for an assurance set.
+  how: counts open tasks and tests each with isCertificateTask.
+  with what file: src/utils/readinessHelpers.ts used by DashboardView and AssuranceDetailView.
+*/
+export function getAssuranceSetRemainingItems(
+  set: Pick<AssuranceSet, 'requirements'>,
+): { remainingTasks: number; remainingCertificates: number } {
+  const openTasks = (set.requirements || []).filter((r) => !r.isOtherDocument && isTaskOpen(r));
+  const openCertificates = openTasks.filter(isCertificateTask);
+  return {
+    remainingTasks: openTasks.length,
+    remainingCertificates: openCertificates.length,
+  };
+}
+
+/**
+  what: aggregates delivery performance metrics across assurance sets and CAPA findings.
+  how: computes on-time set counts, total open findings, and remaining tasks and certificates.
+  with what file: src/utils/readinessHelpers.ts used by DashboardView.
+*/
+export function getFleetPerformanceSummary(
+  sets: AssuranceSet[],
+  capaItems: CapaItem[] = [],
+  today: Date = new Date(),
+): {
+  totalSets: number;
+  onTimeSets: number;
+  lateSets: number;
+  onTimePercentage: number;
+  openFindings: number;
+  remainingTasks: number;
+  remainingCertificates: number;
+} {
+  const totalSets = sets.length;
+  let onTimeSets = 0;
+  let lateSets = 0;
+  let remainingTasks = 0;
+  let remainingCertificates = 0;
+
+  for (const s of sets) {
+    const onTimeStatus = getAssuranceSetOnTimeStatus(s, today);
+    if (onTimeStatus.isOnTime) {
+      onTimeSets++;
+    } else {
+      lateSets++;
+    }
+    const remaining = getAssuranceSetRemainingItems(s);
+    remainingTasks += remaining.remainingTasks;
+    remainingCertificates += remaining.remainingCertificates;
+  }
+
+  const openFindings = capaItems.filter((c) => c.status !== 'Verified & Closed').length;
+  const onTimePercentage = totalSets > 0 ? Math.round((onTimeSets / totalSets) * 100) : 100;
+
+  return {
+    totalSets,
+    onTimeSets,
+    lateSets,
+    onTimePercentage,
+    openFindings,
+    remainingTasks,
+    remainingCertificates,
+  };
 }

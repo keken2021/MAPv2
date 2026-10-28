@@ -63,13 +63,21 @@ export function stampReviewedVersion(
   verifiedAt: string,
   verifiedBy?: string,
 ): AssuranceRequirement {
-  if (req.verifierStatus !== 'Verified') return { ...req, verifiedVersion: undefined };
-  if (isClosedAssuranceSet(set) && req.verifiedVersion) return req;
-  if (!doc) return req;
-  return {
+  const reqWithDecision: AssuranceRequirement = {
     ...req,
+    decisionTime: req.decisionTime || verifiedAt,
+  };
+  if (req.verifierStatus !== 'Verified') return { ...reqWithDecision, verifiedVersion: undefined };
+  if (isClosedAssuranceSet(set) && req.verifiedVersion) return reqWithDecision;
+  if (!doc) return reqWithDecision;
+  return {
+    ...reqWithDecision,
     documentVersion: doc.currentVersion,
-    verifiedVersion: takeVersionSnapshot(doc, verifiedAt, verifiedBy),
+    verifiedVersion: {
+      ...takeVersionSnapshot(doc, verifiedAt, verifiedBy),
+      decisionTime: verifiedAt,
+      attemptNumber: req.attemptNumber,
+    },
   };
 }
 

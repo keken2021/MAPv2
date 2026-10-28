@@ -15,6 +15,7 @@ export interface DocumentVersion {
   fileSizeBytes: number;
   fileName: string;
   changeSummary: string;
+  attemptNumber?: number;
 }
 
 export interface VesselCertAttributes {
@@ -42,7 +43,9 @@ export interface VesselCertAttributes {
   companyImoNumber?: string; // Operating company IMO number (DOC/SMC/ISSC)
   grossTonnagePrinted?: number; // Gross tonnage as printed on certificate
   certificateStatus?: 'Valid' | 'Expiring Soon' | 'Expired' | 'Suspended' | 'Withdrawn' | 'Superseded';
-  checksumSha256?: string; // SHA-256 digital fingerprint of certificate
+  checksumSha256?: string;
+  attemptNumber?: number;
+  decisionTime?: string; // SHA-256 digital fingerprint of certificate
 }
 
 export interface CrewCertAttributes {
@@ -98,4 +101,6 @@ export interface MasterDocument {
   companyImoNumber?: string;
   grossTonnagePrinted?: number;
   checksumSha256?: string;
+  attemptNumber?: number;
+  decisionTime?: string;
 }

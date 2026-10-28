@@ -21,6 +21,8 @@ export interface CapaItem {
   id: string;
   vesselName: string;
   vesselId?: string;
+  /** optional assurance set ID this finding belongs to */
+  assuranceSetId?: string;
   checklistId?: string;
   checklistItemTitle: string;
   title: string;

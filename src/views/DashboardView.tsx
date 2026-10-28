@@ -10,7 +10,14 @@ import { Vessel } from '../types/vessel';
 import { AssuranceSet, AssuranceStage, AssuranceRequirement } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { isAssuranceSetAssignedToPersona, filterVesselsForPersona } from '../utils/rbacHelpers';
-import { calculateAssuranceSetReadiness, calculateVesselReadiness } from '../utils/readinessHelpers';
+import {
+  calculateAssuranceSetReadiness,
+  calculateVesselReadiness,
+  getAssuranceSetOnTimeStatus,
+  getAssuranceSetOpenFindingsCount,
+  getAssuranceSetRemainingItems,
+  getFleetPerformanceSummary,
+} from '../utils/readinessHelpers';
 import { getAssuranceSetScopes } from '../utils/assuranceTemplates';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { ReturnedDocumentsDrawer } from '../components/drawers/ReturnedDocumentsDrawer';
@@ -34,6 +41,7 @@ export const DashboardView: React.FC = () => {
     documents,
     projects,
     users,
+    capaItems,
     activePersona,
     activeDemoOrganization,
     setCurrentHashView,
@@ -244,6 +252,17 @@ export const DashboardView: React.FC = () => {
     }
   };
 
+  const relevantSetsForPerformance = useMemo(() => {
+    if (activePersona === 'C Admin') return cAdminAssuranceSets;
+    if (activePersona === 'Submitter') return visibleSubmitterSets;
+    return assuranceSets;
+  }, [activePersona, cAdminAssuranceSets, visibleSubmitterSets, assuranceSets]);
+
+  const performanceSummary = useMemo(
+    () => getFleetPerformanceSummary(relevantSetsForPerformance, capaItems),
+    [relevantSetsForPerformance, capaItems],
+  );
+
   /* compute role-specific top summary metrics for activePersona */
   const renderDashboardCards = () => {
     if (activePersona === 'Submitter') {
@@ -409,6 +428,38 @@ export const DashboardView: React.FC = () => {
     <div className="d-flex flex-column gap-4">
       {/* top banner kpi summary cards */}
       {renderDashboardCards()}
+
+      {/* Delivery Performance Summary: on-time completion, open findings, remaining tasks & certificates */}
+      <div className="card map-card-custom p-3 bg-light border">
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div className="d-flex align-items-center gap-2">
+            <span className="fw-bold text-dark font-mono-code" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>
+              PERFORMANCE
+            </span>
+            <span className="badge bg-secondary-subtle text-dark border">Delivery metrics</span>
+          </div>
+          <div className="d-flex flex-wrap align-items-center gap-4 ms-auto small">
+            <div>
+              <span className="text-secondary me-1.5">On-Time Status:</span>
+              <span className={`fw-semibold font-mono-code ${performanceSummary.lateSets > 0 ? 'text-danger' : 'text-success'}`}>
+                {performanceSummary.onTimeSets} / {performanceSummary.totalSets} on time {performanceSummary.lateSets > 0 ? `(${performanceSummary.lateSets} late)` : ''}
+              </span>
+            </div>
+            <div className="border-start ps-3">
+              <span className="text-secondary me-1.5">Open Findings:</span>
+              <span className={`fw-semibold font-mono-code ${performanceSummary.openFindings > 0 ? 'text-warning-emphasis' : 'text-success'}`}>
+                {performanceSummary.openFindings} {performanceSummary.openFindings === 1 ? 'finding' : 'findings'}
+              </span>
+            </div>
+            <div className="border-start ps-3">
+              <span className="text-secondary me-1.5">Remaining Work:</span>
+              <span className="fw-semibold font-mono-code text-dark">
+                {performanceSummary.remainingTasks} {performanceSummary.remainingTasks === 1 ? 'task' : 'tasks'} · {performanceSummary.remainingCertificates} {performanceSummary.remainingCertificates === 1 ? 'certificate' : 'certificates'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
       {/* main content area: c admin & submitter display assurance sets; other personas display fleet overview */}
       {activePersona === 'C Admin' ? (
         <div className="row g-4">
@@ -545,18 +596,25 @@ export const DashboardView: React.FC = () => {
                         >
                           Stage {renderSortIndicator(cAdminSortField, 'stage', cAdminSortDirection)}
                         </th>
+                        <th style={{ whiteSpace: 'nowrap' }}>On-Time</th>
+                        <th style={{ whiteSpace: 'nowrap' }}>Findings</th>
+                        <th style={{ whiteSpace: 'nowrap' }}>Remaining</th>
                         <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedCAdminSets.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="text-center py-4 text-muted">
+                          <td colSpan={7} className="text-center py-4 text-muted">
                             No assurance sets found.
                           </td>
                         </tr>
                       ) : (
-                        cAdminSetsPagination.pageItems.map((s) => (
+                        cAdminSetsPagination.pageItems.map((s) => {
+                          const onTime = getAssuranceSetOnTimeStatus(s);
+                          const openFindings = getAssuranceSetOpenFindingsCount(s, capaItems);
+                          const remaining = getAssuranceSetRemainingItems(s);
+                          return (
                           <tr
                             key={s.id}
                             onClick={() => setCurrentHashView('assurance-sets', s.id)}
@@ -572,6 +630,28 @@ export const DashboardView: React.FC = () => {
                                 {s.stage}
                               </span>
                             </td>
+                            <td>
+                              <span className={`badge font-mono-code ${onTime.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTime.detail}>
+                                {onTime.statusLabel}{!onTime.isOnTime && onTime.lateItemsCount > 0 ? ` (${onTime.lateItemsCount})` : ''}
+                              </span>
+                            </td>
+                            <td>
+                              {openFindings > 0 ? (
+                                <span className="badge bg-warning text-dark font-mono-code">
+                                  {openFindings} open
+                                </span>
+                              ) : (
+                                <span className="text-muted font-mono-code small">0</span>
+                              )}
+                            </td>
+                            <td>
+                              <div className="small font-mono-code text-dark">
+                                {remaining.remainingTasks} {remaining.remainingTasks === 1 ? 'task' : 'tasks'}
+                              </div>
+                              <div className="small text-muted" style={{ fontSize: '0.72rem' }}>
+                                {remaining.remainingCertificates} {remaining.remainingCertificates === 1 ? 'cert' : 'certs'}
+                              </div>
+                            </td>
                             <td className="text-end" onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
@@ -585,7 +665,8 @@ export const DashboardView: React.FC = () => {
                               </button>
                             </td>
                           </tr>
-                        ))
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -655,13 +736,16 @@ export const DashboardView: React.FC = () => {
                         >
                           Readiness {renderSortIndicator(submitterSortField, 'readinessScore', submitterSortDirection)}
                         </th>
+                        <th style={{ whiteSpace: 'nowrap' }}>On-Time</th>
+                        <th style={{ whiteSpace: 'nowrap' }}>Findings</th>
+                        <th style={{ whiteSpace: 'nowrap' }}>Remaining</th>
                         <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedSubmitterSets.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="text-center py-4 text-muted">
+                          <td colSpan={10} className="text-center py-4 text-muted">
                             No assurance sets found.
                           </td>
                         </tr>
@@ -705,6 +789,43 @@ export const DashboardView: React.FC = () => {
                               </td>
                               <td>
                                 <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />
+                              </td>
+                              <td>
+                                {(() => {
+                                  const onTime = getAssuranceSetOnTimeStatus(s);
+                                  return (
+                                    <span className={`badge font-mono-code ${onTime.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTime.detail}>
+                                      {onTime.statusLabel}{!onTime.isOnTime && onTime.lateItemsCount > 0 ? ` (${onTime.lateItemsCount})` : ''}
+                                    </span>
+                                  );
+                                })()}
+                              </td>
+                              <td>
+                                {(() => {
+                                  const openFindings = getAssuranceSetOpenFindingsCount(s, capaItems);
+                                  return openFindings > 0 ? (
+                                    <span className="badge bg-warning text-dark font-mono-code">
+                                      {openFindings} open
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted font-mono-code small">0</span>
+                                  );
+                                })()}
+                              </td>
+                              <td>
+                                {(() => {
+                                  const remaining = getAssuranceSetRemainingItems(s);
+                                  return (
+                                    <>
+                                      <div className="small font-mono-code text-dark">
+                                        {remaining.remainingTasks} {remaining.remainingTasks === 1 ? 'task' : 'tasks'}
+                                      </div>
+                                      <div className="small text-muted" style={{ fontSize: '0.72rem' }}>
+                                        {remaining.remainingCertificates} {remaining.remainingCertificates === 1 ? 'cert' : 'certs'}
+                                      </div>
+                                    </>
+                                  );
+                                })()}
                               </td>
                               <td className="text-end" onClick={(e) => e.stopPropagation()}>
                                 <div className="d-flex align-items-center justify-content-end gap-1.5">
