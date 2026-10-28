@@ -7,6 +7,10 @@
 import {
   AssuranceRequirement,
   AssuranceSet,
+  AssuranceObject,
+  DatePermissionGrant,
+  TargetDateChangeRecord,
+  TaskExemption,
   ThreePillarsCategory,
 } from "../types/assurance";
 import { AuditTrailEventDraft } from "../types/audit";
@@ -64,6 +68,12 @@ type EvidenceRow = {
   check: string;
   state: EvidenceState;
   issuingAuthority?: boolean;
+  notes?: string;
+  targetDate?: string;
+  targetObjectId?: string;
+  exemption?: TaskExemption;
+  attemptNumber?: number;
+  decisionTime?: string;
 };
 
 function evidenceDocument(
@@ -211,11 +221,73 @@ function buildEvidence(
           : row.state === "correction"
             ? "Correction Requested"
             : "Pending",
-      notes: row.issuingAuthority ? "Issuing-authority review" : undefined,
+      notes: row.notes || (row.issuingAuthority ? "Issuing-authority review" : undefined),
+      targetDate: row.targetDate,
+      targetObjectId: row.targetObjectId,
+      exemption: row.exemption,
+      attemptNumber: row.attemptNumber ?? (row.state === "correction" ? 2 : 1),
+      decisionTime: row.decisionTime ?? (row.state === "verified" ? "2026-10-10T04:00:00Z" : undefined),
     } satisfies AssuranceRequirement;
   });
   return { requirements, documents };
 }
+
+export const OIL_CO_PILOT_ASSURANCE_OBJECTS: AssuranceObject[] = [
+  {
+    id: "OBJ-PROC-LNG-AURORA-01",
+    type: "procedure",
+    name: "LNGC Northwind Aurora Cargo Handling & Boil-Off Gas Management Procedure",
+    ownerOrganization: NORTHWIND_ORG,
+    identifier: "SOP-NW-LNGC-2026",
+    description:
+      "Standard operating procedure for cryogenic cargo operations, boil-off gas handling, and emergency shutdown on Northwind Aurora",
+  },
+  {
+    id: "OBJ-METH-SIMOPS-AURORA",
+    type: "method",
+    name: "Aurora Field Simultaneous Operations (SIMOPS) Methodology",
+    ownerOrganization: OIL_CO_ORG,
+    identifier: "MOP-SIMOPS-017",
+    description:
+      "Method statement and hazard identification for simultaneous drilling, construction, and LNG export operations",
+  },
+  {
+    id: "OBJ-PROC-HARBOUR-ESD",
+    type: "procedure",
+    name: "Harbourline Terminal Emergency Shutdown (ESD) & Mooring Protocol",
+    ownerOrganization: HARBOURLINE_ORG,
+    identifier: "SOP-HT-ESD-02",
+    description:
+      "Terminal emergency shutdown linkage, quick-release mooring hook procedures, and berth monitoring protocol",
+  },
+  {
+    id: "OBJ-METH-BERTH-01",
+    type: "method",
+    name: "Harbourline Berth 2 Approach & Tandem Tug Assistance Methodology",
+    ownerOrganization: HARBOURLINE_ORG,
+    identifier: "MOP-BERTH-02",
+    description:
+      "Berthing and towage method statement for Q-Flex and membrane LNG carriers arriving at Harbourline Terminal Berth 2",
+  },
+  {
+    id: "OBJ-DOC-EXPORT-LIC",
+    type: "document",
+    name: "Offshore Petroleum Production & Export Licence Dossier",
+    ownerOrganization: OIL_CO_ORG,
+    identifier: "NOPTA-WA-LIC-2026",
+    description:
+      "Statutory environmental plan, production license, and regulatory compliance dossier for the Aurora LNG development",
+  },
+  {
+    id: "OBJ-ORG-NOPTA",
+    type: "organization",
+    name: "National Offshore Petroleum Safety and Environmental Management Authority (NOPSEMA)",
+    ownerOrganization: "NOPSEMA",
+    identifier: "REG-NOPSEMA-AU",
+    description:
+      "Independent statutory regulator for health and safety, structural integrity, and environmental management offshore Western Australia",
+  },
+];
 
 const ss01Rows: EvidenceRow[] = [
   {
@@ -300,6 +372,10 @@ const ss01Rows: EvidenceRow[] = [
     source: "Flag State / class",
     check: "Valid; not expiring within 6 months of the charter date.",
     state: "correction",
+    targetDate: "2026-11-12",
+    targetObjectId: OIL_CO_AURORA_ID,
+    attemptNumber: 2,
+    decisionTime: "2026-10-09T06:20:00Z",
   },
   {
     id: "REQ-SS01-11",
@@ -340,6 +416,14 @@ const ss01Rows: EvidenceRow[] = [
     source: NORTHWIND_ORG,
     check: "Covers LNG cargo operations and emergency response.",
     state: "pending",
+    targetDate: "2026-11-14",
+    targetObjectId: OIL_CO_AURORA_ID,
+    exemption: {
+      reason: "One-week extension granted by client for vendor HSE plan review",
+      grantedBy: `${OIL_CO_ADMIN} (${OIL_CO_ORG})`,
+      grantedAt: "2026-10-15T08:00:00Z",
+      newDate: "2026-11-22",
+    },
   },
   {
     id: "REQ-SS01-16",
@@ -348,6 +432,14 @@ const ss01Rows: EvidenceRow[] = [
     source: NORTHWIND_ORG,
     check: "Within the client threshold.",
     state: "pending",
+    targetDate: "2026-11-14",
+    targetObjectId: OIL_CO_AURORA_ID,
+    exemption: {
+      reason: "One-week extension granted by client for audited safety metrics submission",
+      grantedBy: `${OIL_CO_ADMIN} (${OIL_CO_ORG})`,
+      grantedAt: "2026-10-15T08:00:00Z",
+      newDate: "2026-11-22",
+    },
   },
   {
     id: "REQ-SS01-17",
@@ -372,6 +464,8 @@ const ss01Rows: EvidenceRow[] = [
     source: "Port / Northwind subcontractor",
     check: "Current edition; acknowledged by the Master.",
     state: "pending",
+    targetDate: "2026-11-14",
+    targetObjectId: "OBJ-PROC-LNG-AURORA-01",
   },
   {
     id: "REQ-SS01-20",
@@ -380,6 +474,9 @@ const ss01Rows: EvidenceRow[] = [
     source: "Inspection program",
     check: "Within the client age limit; observations closed.",
     state: "pending",
+    targetDate: "2026-11-14",
+    targetObjectId: OIL_CO_AURORA_ID,
+    notes: "Client updated requirement mid-set to require OCIMF SIRE 2.0 inspection format.",
   },
 ];
 
@@ -539,6 +636,7 @@ const ss03Rows: EvidenceRow[] = [
     source: HARBOURLINE_ORG,
     check: "Tested within the required interval; pass.",
     state: "missing",
+    targetObjectId: "OBJ-PROC-HARBOUR-ESD",
   },
   {
     id: "REQ-SS03-06",
@@ -580,6 +678,7 @@ const ss03Rows: EvidenceRow[] = [
     check: "Current edition.",
     state: "pending",
     issuingAuthority: true,
+    targetObjectId: "OBJ-METH-BERTH-01",
   },
   {
     id: "REQ-SS03-11",
@@ -1018,6 +1117,17 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
     charterer: OIL_CO_ORG,
     clientOrg: OIL_CO_ORG,
     serviceProviderOrg: NORTHWIND_ORG,
+    assuranceObjects: [
+      {
+        id: OIL_CO_AURORA_ID,
+        type: "vessel",
+        name: "LNGC Northwind Aurora",
+        ownerOrganization: NORTHWIND_ORG,
+        identifier: "IMO: 9694414",
+      },
+      OIL_CO_PILOT_ASSURANCE_OBJECTS[0],
+      OIL_CO_PILOT_ASSURANCE_OBJECTS[1],
+    ],
     parties: [
       { organization: OIL_CO_ORG, group: "Client" },
       { organization: NORTHWIND_ORG, group: "Vendor" },
@@ -1025,6 +1135,46 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
     ],
     charterWindowStart: "2026-11-15",
     complianceDeadline: "2026-11-15",
+    targetDate: "2026-11-15",
+    revisedCompletionDate: "2026-11-22",
+    datePermissionGrants: [
+      {
+        id: "DPG-SS01-01",
+        userId: "USR-228",
+        userName: OIL_CO_ADMIN,
+        grantedBy: `${OIL_CO_ADMIN} (${OIL_CO_ORG})`,
+        grantedAt: "2026-10-10T08:00:00Z",
+        expiresAt: "2026-11-30T00:00:00Z",
+        reason: "Pre-laycan target date adjustment permission granted to Set Manager",
+      },
+    ],
+    targetDateHistory: [
+      {
+        id: "TDH-SS01-01",
+        setId: OIL_CO_SS01_ID,
+        scope: "set",
+        targetType: "set",
+        oldDate: "2026-11-01",
+        newDate: "2026-11-15",
+        changedBy: `${OIL_CO_ADMIN} (${OIL_CO_ORG})`,
+        changedAt: "2026-10-10T09:30:00Z",
+        reason: "Aligned set deadline with contractual vessel laycan date",
+      },
+      {
+        id: "TDH-SS01-02",
+        setId: OIL_CO_SS01_ID,
+        taskId: "REQ-SS01-10",
+        requirementId: "REQ-SS01-10",
+        taskTitle: "SOLAS safety certificates (Construction, Equipment, Radio)",
+        scope: "task",
+        targetType: "task",
+        oldDate: "2026-11-01",
+        newDate: "2026-11-12",
+        changedBy: `${OIL_CO_ADMIN} (${OIL_CO_ORG})`,
+        changedAt: "2026-10-10T10:00:00Z",
+        reason: "Advance safety equipment review date ahead of set completion deadline",
+      },
+    ],
     charterWindowEnd: "2027-05-14",
     stage: "Verification",
     readinessScore: 48,
@@ -1130,6 +1280,17 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
     charterer: OIL_CO_ORG,
     clientOrg: OIL_CO_ORG,
     serviceProviderOrg: HARBOURLINE_ORG,
+    assuranceObjects: [
+      {
+        id: OIL_CO_AURORA_ID,
+        type: "vessel",
+        name: "LNGC Northwind Aurora",
+        ownerOrganization: NORTHWIND_ORG,
+        identifier: "IMO: 9694414",
+      },
+      OIL_CO_PILOT_ASSURANCE_OBJECTS[2],
+      OIL_CO_PILOT_ASSURANCE_OBJECTS[3],
+    ],
     parties: [
       { organization: OIL_CO_ORG, group: "Client" },
       { organization: HARBOURLINE_ORG, group: "Vendor" },
@@ -1178,7 +1339,7 @@ export const OIL_CO_PILOT_PROJECT: Project = {
   invitedOrganizations: [NORTHWIND_ORG, OIL_CO_ORG],
   location: "Aurora LNG Field, offshore Western Australia",
   description:
-    "Master project for the Oil Company LNG field development. SS-01 charters LNGC Northwind Aurora from Northwind Marine. SS-02 buys OSV Meridian Endeavour from Meridian Shipyards. SS-03 assures Harbourline Terminals can load that carrier. SS-04 and SS-05 are not seeded: Northwind creates the bunker set after Oil Company requests it, and Oil Company creates the control-systems set.",
+    "Master project for the Oil Company LNG field development. SS-01 charters LNGC Northwind Aurora from Northwind Marine. SS-02 buys OSV Meridian Endeavour from Meridian Shipyards. SS-03 assures Harbourline Terminals can load that carrier. SS-04 and SS-05 are not seeded: Northwind creates the bunker set after Oil Company requests it, and Oil Company creates the control-systems set. Helper organization scenario (AI-11: third-party vendor helper for submit-only delegation) is labeled pending stakeholder decision and is not built.",
   primaryVesselId: OIL_CO_AURORA_ID,
   riskProfile: "Elevated",
   workLocationType: "Mixed",
@@ -1191,6 +1352,7 @@ export const OIL_CO_PILOT_PROJECT: Project = {
     { organization: HARBOURLINE_ORG, group: "Vendor" },
     { organization: XY_MARINE_ORG, group: "Third party" },
     { organization: AUSTRAL_ORG, group: "Third party" },
+    { organization: "Apex Marine Logistics (Vendor Helper — Pending)", group: "Vendor" },
   ],
   projectValue: 240000000,
   currency: "AUD",
@@ -1290,6 +1452,61 @@ export const OIL_CO_PILOT_AUDIT: AuditTrailEventDraft[] = [
     justificationNotes:
       "Harbourline submitted the remaining terminal evidence, XY Marine verified it, and SS-03 is approved.",
   },
+  {
+    id: "AUD-90515",
+    timestampUtc: "2026-10-10T09:30:00Z",
+    userId: "USR-228",
+    userRole: "C Admin",
+    organization: OIL_CO_ORG,
+    action: "Changed Target Date",
+    targetAsset: "AS-2026-101 (LNG Transport Charter)",
+    justificationNotes:
+      "Aligned SS-01 target date from 2026-11-01 to 2026-11-15 under date permission DPG-SS01-01 to align with laycan.",
+  },
+  {
+    id: "AUD-90516",
+    timestampUtc: "2026-10-11T03:30:00Z",
+    userId: "USR-228",
+    userRole: "C Admin",
+    organization: OIL_CO_ORG,
+    action: "Updated Task on Open Set",
+    targetAsset: "AS-2026-101 (LNG Transport Charter) / REQ-SS01-20",
+    justificationNotes:
+      "Client updated vetting task REQ-SS01-20 mid-set to require OCIMF SIRE 2.0 inspection format after terminal review.",
+  },
+  {
+    id: "AUD-90517",
+    timestampUtc: "2026-10-12T01:00:00Z",
+    userId: "USR-228",
+    userRole: "C Admin",
+    organization: OIL_CO_ORG,
+    action: "Recorded Pending Helper Organization",
+    targetAsset: "MAP-PROJ-2026-MARINE-017 (Oil Company LNG Field Development)",
+    justificationNotes:
+      "Recorded Apex Marine Logistics as vendor helper organization request under pending status (AI-11 awaiting stakeholder confirmation; not enabled for submissions).",
+  },
+  {
+    id: "AUD-90518",
+    timestampUtc: "2026-10-15T08:00:00Z",
+    userId: "USR-228",
+    userRole: "C Admin",
+    organization: OIL_CO_ORG,
+    action: "Granted Task Exemption",
+    targetAsset: "AS-2026-101 (LNG Transport Charter) / REQ-SS01-15, REQ-SS01-16",
+    justificationNotes:
+      "Granted one-week extension exemption for HSE plan and safety statistics with revised completion date 2026-11-22.",
+  },
+  {
+    id: "AUD-90519",
+    timestampUtc: "2026-10-16T04:15:00Z",
+    userId: "USR-228",
+    userRole: "C Admin",
+    organization: OIL_CO_ORG,
+    action: "Self-Verified Assurance Object",
+    targetAsset: "OBJ-METH-SIMOPS-AURORA (Aurora Field SIMOPS Methodology)",
+    justificationNotes:
+      "Internal self-assurance: Oil Company verified own field SIMOPS methodology for pre-deployment readiness.",
+  },
 ];
 
 export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
@@ -1365,5 +1582,60 @@ export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
     assuranceSetId: OIL_CO_SS03_ID,
     vesselName: "LNGC Northwind Aurora",
     assignedRole: "Submitter",
+  },
+  {
+    id: "MAP-NTF-2026-TGTD-00035",
+    type: "target_date",
+    targetDateKind: "date_changed",
+    subject: "Target date changed for LNG Transport Charter",
+    message:
+      "Oil Company aligned the target date of AS-2026-101 to 15 Nov 2026 and task REQ-SS01-10 to 12 Nov 2026.",
+    recipientUserId: "USR-102",
+    senderUserId: "USR-228",
+    senderName: OIL_CO_ADMIN,
+    projectId: OIL_CO_LNG_PROJECT_ID,
+    projectName: "Oil Company LNG Field Development",
+    status: "unread",
+    createdAt: "2026-10-10T09:35:00.000Z",
+    assuranceSetId: OIL_CO_SS01_ID,
+    vesselName: "LNGC Northwind Aurora",
+    assignedRole: "Submitter",
+    targetDate: "2026-11-15",
+  },
+  {
+    id: "MAP-NTF-2026-ASGN-00036",
+    type: "stakeholder_assigned",
+    subject: "Task requirement updated mid-set on LNG Transport Charter",
+    message:
+      "Oil Company updated requirement REQ-SS01-20 to require OCIMF SIRE 2.0 inspection format.",
+    recipientUserId: "USR-102",
+    senderUserId: "USR-228",
+    senderName: OIL_CO_ADMIN,
+    projectId: OIL_CO_LNG_PROJECT_ID,
+    projectName: "Oil Company LNG Field Development",
+    status: "unread",
+    createdAt: "2026-10-11T03:35:00.000Z",
+    assuranceSetId: OIL_CO_SS01_ID,
+    vesselName: "LNGC Northwind Aurora",
+    assignedRole: "Submitter",
+  },
+  {
+    id: "MAP-NTF-2026-TGTD-00037",
+    type: "target_date",
+    targetDateKind: "date_changed",
+    subject: "Task exemption granted for HSE plan and safety statistics",
+    message:
+      "Oil Company granted a 1-week extension for REQ-SS01-15 and REQ-SS01-16 with revised completion date 22 Nov 2026.",
+    recipientUserId: "USR-102",
+    senderUserId: "USR-228",
+    senderName: OIL_CO_ADMIN,
+    projectId: OIL_CO_LNG_PROJECT_ID,
+    projectName: "Oil Company LNG Field Development",
+    status: "unread",
+    createdAt: "2026-10-15T08:05:00.000Z",
+    assuranceSetId: OIL_CO_SS01_ID,
+    vesselName: "LNGC Northwind Aurora",
+    assignedRole: "Submitter",
+    targetDate: "2026-11-22",
   },
 ];

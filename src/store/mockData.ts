@@ -10,11 +10,14 @@ import { isAssuranceSetScopeDisabled, INPEX_TASK_SECTIONS, inpexSectionTasks } f
 import { MasterDocument } from '../types/document';
 import { AuditTrailEvent, AuditTrailEventDraft, withStructuredAuditTarget } from '../types/audit';
 import {
+  OIL_CO_PILOT_ASSURANCE_OBJECTS,
   OIL_CO_PILOT_AUDIT,
   OIL_CO_PILOT_DOCUMENTS,
   OIL_CO_PILOT_USERS,
   OIL_CO_PILOT_VESSELS,
 } from './oilCoLngPilotMockData';
+
+export { OIL_CO_PILOT_ASSURANCE_OBJECTS };
 
 export const MOCK_VESSELS: Vessel[] = [
   {

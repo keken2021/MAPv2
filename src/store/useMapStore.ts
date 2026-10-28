@@ -42,6 +42,7 @@ import {
 } from "./mockData";
 import { MOCK_EQUIPMENT } from "./equipmentMockData";
 import { MOCK_CREW } from "./crewMockData";
+import { OIL_CO_PILOT_ASSURANCE_OBJECTS } from "./oilCoLngPilotMockData";
 import {
   isDuplicateVessel,
   isDuplicateEquipment,
@@ -1907,6 +1908,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     ...MOCK_CREW.map(crewToAssuranceObject),
     ...MOCK_EQUIPMENT.map(equipmentToAssuranceObject),
     ...SEEDED_OPERATIONAL_OBJECTS,
+    ...OIL_CO_PILOT_ASSURANCE_OBJECTS,
   ],
   registerAssuranceObject: (newObject: AssuranceObject) => {
     const existing = get().assuranceObjects;

@@ -512,6 +512,7 @@ export const MOCK_PROJECTS: Project[] = [
   },
   {
     id: 'MAP-PROJ-2026-MARINE-009',
+    onHireDate: '2026-09-15',
     name: 'Southern Basin Platform Support Charter',
     projectType: 'Charter / Voyage',
     requestingOrganization: 'Southern Basin Energy Pty Ltd',
@@ -543,6 +544,7 @@ export const MOCK_PROJECTS: Project[] = [
   },
   {
     id: 'MAP-PROJ-2026-MARINE-010',
+    onHireDate: '2026-11-15',
     name: 'Carnarvon ERRV Standby Charter',
     projectType: 'Charter / Voyage',
     requestingOrganization: 'Southern Basin Energy Pty Ltd',
@@ -610,6 +612,7 @@ export const MOCK_PROJECTS: Project[] = [
   },
   {
     id: 'MAP-PROJ-2026-MARINE-012',
+    onHireDate: '2026-10-01',
     name: 'Platform Alpha Security & Supply',
     projectType: 'Mixed / Composite',
     requestingOrganization: 'Southern Basin Energy Pty Ltd',
