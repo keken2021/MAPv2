@@ -46,6 +46,7 @@ export function useNotificationInbox(): NotificationInbox {
     rolePermissionDefaults,
     userPermissionOverrides,
     openNotification,
+    setFocusedRequirementId,
     markNotificationRead,
     setReturnToProjectId,
     setLockedProjectId,
@@ -116,12 +117,14 @@ export function useNotificationInbox(): NotificationInbox {
       }
 
       openNotification(notification.id);
+      setFocusedRequirementId(notification.taskId);
       setCurrentHashView(action.view, action.entityId);
     },
     [
       getAction,
       markNotificationRead,
       openNotification,
+      setFocusedRequirementId,
       setReturnToProjectId,
       setLockedProjectId,
       setPendingAssuranceRequestNotificationId,

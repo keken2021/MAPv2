@@ -4,14 +4,16 @@
   role in system: consumed by useMapStore.ts, App.tsx, NotificationPanel.tsx, NotificationsView.tsx and CreateAssuranceSetView.tsx.
 */
 
-import { AssuranceSet } from '../types/assurance';
+import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 import { CapaItem } from '../types/capa';
 import { MasterDocument } from '../types/document';
 import {
   AppNotification,
   NotificationCategory,
+  NotificationDraft,
   NotificationTab,
   NotificationType,
+  TargetDateNoticeKind,
 } from '../types/notification';
 import { Project } from '../types/project';
 import { UserProfile } from '../types/user';
@@ -23,6 +25,7 @@ import {
 import { getProjectClientOrganization } from './projectHelpers';
 import { orgFieldMatches } from './rbacHelpers';
 import { findUserByAssigneeLabel } from './userRoleHelpers';
+import { isTaskOpen } from './readinessHelpers';
 
 /**
   what: subject line for an invitation to create one assurance set.
@@ -239,6 +242,7 @@ export function getNotificationAction(
         disabledReason: capa ? undefined : 'This CAPA no longer exists.',
       });
     }
+    case 'target_date':
     case 'review_requested':
     case 'approval_decision':
     default:
@@ -332,6 +336,165 @@ export function resolveAssuranceRequestSetClient(
   how: the notification must be an open assurance set request addressed to that user.
   with what file: src/utils/notificationHelpers.ts used by App.tsx to grant request-scoped wizard access.
 */
+/** a reminder is 8 to 14 days out, a warning is within 7 days, and an escalation is overdue */
+export const TARGET_DATE_WARNING_DAYS = 7;
+export const TARGET_DATE_REMINDER_DAYS = 14;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function daysUntilTarget(targetDate: string, today: string): number {
+  const target = Date.parse(`${targetDate.slice(0, 10)}T00:00:00Z`);
+  const start = Date.parse(`${today.slice(0, 10)}T00:00:00Z`);
+  return Math.round((target - start) / DAY_MS);
+}
+
+/**
+  what: which notice a target date needs today.
+  how: overdue is an escalation, 7 days or fewer is a warning, 8 to 14 days is a reminder.
+  with what file: src/utils/notificationHelpers.ts used by useMapStore.ts.
+*/
+export function targetDateNoticeKind(targetDate: string | undefined, today: string): TargetDateNoticeKind | null {
+  if (!targetDate?.trim()) return null;
+  const days = daysUntilTarget(targetDate, today);
+  if (Number.isNaN(days)) return null;
+  if (days < 0) return 'escalation';
+  if (days <= TARGET_DATE_WARNING_DAYS) return 'warning';
+  if (days <= TARGET_DATE_REMINDER_DAYS) return 'reminder';
+  return null;
+}
+
+const noticeLabel: Record<TargetDateNoticeKind, string> = {
+  reminder: 'Reminder',
+  warning: 'Warning',
+  escalation: 'Escalation',
+  date_changed: 'Target date changed',
+};
+
+export function targetDateRecipientIds(
+  set: Pick<AssuranceSet, 'assignedSubmitter' | 'assignedVerifier' | 'assignedApprover'>,
+  users: UserProfile[],
+  actorUserId?: string,
+): string[] {
+  const ids = [set.assignedSubmitter, set.assignedVerifier, set.assignedApprover]
+    .map((label) => resolveNotificationRecipient(label, users)?.id)
+    .filter((id): id is string => Boolean(id));
+  if (actorUserId) ids.push(actorUserId);
+  return [...new Set(ids)];
+}
+
+function setStillOpen(set: Pick<AssuranceSet, 'stage' | 'approverDecision'>): boolean {
+  return set.stage !== 'Approved' && set.stage !== 'Certified' && set.approverDecision !== 'Approved';
+}
+
+/**
+  what: warning, escalation and reminder drafts for open sets and tasks, plus a notice when a date changes.
+  how: one draft per affected user. A changed date always notifies. A date inside the windows also raises that notice.
+  with what file: src/utils/notificationHelpers.ts used by useMapStore.ts.
+*/
+export function buildTargetDateNoticeDrafts(input: {
+  set: AssuranceSet;
+  users: UserProfile[];
+  today: string;
+  actorUserId?: string;
+  changed?: {
+    scope: 'set' | 'task';
+    taskId?: string;
+    taskTitle?: string;
+    oldDate?: string;
+    newDate: string;
+  };
+}): NotificationDraft[] {
+  const recipients = targetDateRecipientIds(input.set, input.users, input.actorUserId);
+  if (recipients.length === 0) return [];
+  const drafts: NotificationDraft[] = [];
+  const push = (kind: TargetDateNoticeKind, subject: string, message: string, taskId: string | undefined, targetDate: string) => {
+    recipients.forEach((recipientUserId) => {
+      drafts.push({
+        type: 'target_date',
+        targetDateKind: kind,
+        subject,
+        message,
+        recipientUserId,
+        senderName: 'MAP',
+        projectId: input.set.projectId,
+        projectName: input.set.projectName,
+        assuranceSetId: input.set.id,
+        taskId,
+        targetDate,
+        vesselName: input.set.vesselName,
+      });
+    });
+  };
+
+  if (input.changed) {
+    const name = input.changed.scope === 'task' ? input.changed.taskTitle || 'Task' : input.set.title;
+    const from = input.changed.oldDate && input.changed.oldDate !== '—' ? ` from ${input.changed.oldDate}` : '';
+    push(
+      'date_changed',
+      `${noticeLabel.date_changed}: ${name}`,
+      `${name} on ${input.set.id} moved${from} to ${input.changed.newDate}.`,
+      input.changed.taskId,
+      input.changed.newDate,
+    );
+  }
+
+  const items: { taskId?: string; title: string; date?: string; open: boolean }[] = [];
+  if (setStillOpen(input.set)) {
+    items.push({
+      title: input.set.title,
+      date: input.set.targetDate || input.set.complianceDeadline,
+      open: true,
+    });
+    input.set.requirements.forEach((task: AssuranceRequirement) => {
+      if (!isTaskOpen(task)) return;
+      items.push({ taskId: task.id, title: task.title, date: task.targetDate, open: true });
+    });
+  }
+  items.forEach((item) => {
+    const kind = targetDateNoticeKind(item.date, input.today);
+    if (!kind || !item.date) return;
+    const when = kind === 'escalation' ? `was due ${item.date}` : `is due ${item.date}`;
+    push(kind, `${noticeLabel[kind]}: ${item.title}`, `${item.title} on ${input.set.id} ${when}.`, item.taskId, item.date);
+  });
+  return drafts;
+}
+
+/**
+  what: inbox records for target dates already inside the reminder, warning or escalation window.
+  how: builds one unread notice per affected user and skips a notice that is already in the list.
+  with what file: src/utils/notificationHelpers.ts used by the initial state of useMapStore.ts.
+*/
+export function seedTargetDateNotices(
+  existing: AppNotification[],
+  sets: AssuranceSet[],
+  users: UserProfile[],
+  today: string,
+): AppNotification[] {
+  const all = [...existing];
+  sets.forEach((set) => {
+    buildTargetDateNoticeDrafts({ set, users, today }).forEach((draft) => {
+      const duplicate = all.some(
+        (notice) =>
+          notice.type === 'target_date' &&
+          notice.targetDateKind === draft.targetDateKind &&
+          notice.assuranceSetId === draft.assuranceSetId &&
+          (notice.taskId || '') === (draft.taskId || '') &&
+          notice.targetDate === draft.targetDate &&
+          notice.recipientUserId === draft.recipientUserId,
+      );
+      if (duplicate) return;
+      const notification: AppNotification = {
+        ...draft,
+        id: generateNotificationId(all, draft.type),
+        status: 'unread',
+        createdAt: `${today}T08:00:00.000Z`,
+      };
+      all.unshift(notification);
+    });
+  });
+  return all;
+}
+
 export function canOpenAssuranceRequestWizard(
   notification: AppNotification | undefined,
   sessionUser: Pick<UserProfile, 'id'> | undefined | null,

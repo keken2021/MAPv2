@@ -26,6 +26,7 @@ export const NOTIFICATION_TYPE_META: Record<NotificationType, NotificationTypeMe
   approval_decision: { category: 'Approval', idCode: 'APRV', actionLabel: 'Open Set' },
   capa_reinspection: { category: 'CAPA', idCode: 'CAPA', actionLabel: 'Open CAPA' },
   document_new_version: { category: 'Verification', idCode: 'VERF', actionLabel: 'Open Set' },
+  target_date: { category: 'Target Date', idCode: 'TGTD', actionLabel: 'Open Set' },
 };
 
 /* row action shown on an assurance set request once its set exists */
@@ -46,6 +47,7 @@ export const NOTIFICATION_CATEGORIES: NotificationCategory[] = [
   'Document Renewal',
   'Approval',
   'CAPA',
+  'Target Date',
 ];
 
 export const NOTIFICATION_STATUS_META: Record<NotificationStatus, NotificationStatusMeta> = {
@@ -56,7 +58,7 @@ export const NOTIFICATION_STATUS_META: Record<NotificationStatus, NotificationSt
 
 /* shown when the signed-in user has no notifications at all */
 export const NOTIFICATION_EMPTY_INBOX_TEXT =
-  'Requests, assignments and review updates addressed to you appear here.';
+  'Requests, assignments, target dates and review updates addressed to you appear here.';
 
 export const NOTIFICATION_TABS: { key: NotificationTab; label: string; emptyText: string }[] = [
   {

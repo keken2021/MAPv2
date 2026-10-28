@@ -121,9 +121,11 @@ import {
 import { MOCK_NOTIFICATIONS } from "./notificationMockData";
 import {
   assuranceInvitationSubject,
+  buildTargetDateNoticeDrafts,
   generateNotificationId,
   isNotificationActionedOnOpen,
   resolveNotificationRecipient,
+  seedTargetDateNotices,
 } from "../utils/notificationHelpers";
 import {
   buildDraftAssetLinkFromAssuranceSet,
@@ -204,6 +206,8 @@ export interface MapStoreState {
   setPendingAssuranceRequestNotificationId: (id?: string) => void;
 
   notifications: AppNotification[];
+  focusedRequirementId?: string;
+  setFocusedRequirementId: (requirementId: string | undefined) => void;
   /** raises a notification; returns its id, or undefined when there is no recipient or the recipient is the sender */
   pushNotification: (draft: NotificationDraft) => string | undefined;
   /** raises a document renewal notification for each expired, expiring or charter-short document on the given sets, or on every set; returns how many were raised */
@@ -958,6 +962,44 @@ function notifyAssignedStakeholders(
     });
 }
 
+function raiseTargetDateNotices(
+  get: () => {
+    users: UserProfile[];
+    activeSessionUserId?: string;
+    notifications: AppNotification[];
+    pushNotification: (draft: NotificationDraft) => string | undefined;
+  },
+  setRecord: AssuranceSet,
+  changed?: {
+    scope: "set" | "task";
+    taskId?: string;
+    taskTitle?: string;
+    oldDate?: string;
+    newDate: string;
+  },
+) {
+  const today = new Date().toISOString().slice(0, 10);
+  buildTargetDateNoticeDrafts({
+    set: setRecord,
+    users: get().users,
+    today,
+    actorUserId: get().activeSessionUserId,
+    changed,
+  }).forEach((draft) => {
+    const duplicate = get().notifications.some(
+      (notice) =>
+        notice.type === "target_date" &&
+        notice.targetDateKind === draft.targetDateKind &&
+        notice.assuranceSetId === draft.assuranceSetId &&
+        (notice.taskId || "") === (draft.taskId || "") &&
+        notice.targetDate === draft.targetDate &&
+        notice.recipientUserId === draft.recipientUserId &&
+        notice.status !== "actioned",
+    );
+    if (!duplicate) get().pushNotification(draft);
+  });
+}
+
 export const useMapStore = create<MapStoreState>((set, get) => ({
   isAuthenticated: false,
   login: (role) => {
@@ -1096,7 +1138,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   setPendingAssuranceRequestNotificationId: (id) =>
     set({ pendingAssuranceRequestNotificationId: id }),
 
-  notifications: MOCK_NOTIFICATIONS,
+  notifications: seedTargetDateNotices(
+    MOCK_NOTIFICATIONS,
+    [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS],
+    MOCK_USERS,
+    new Date().toISOString().slice(0, 10),
+  ),
+  focusedRequirementId: undefined as string | undefined,
+  setFocusedRequirementId: (requirementId: string | undefined) =>
+    set({ focusedRequirementId: requirementId }),
 
   pushNotification: (draft) => {
     if (!draft.recipientUserId || draft.recipientUserId === draft.senderUserId) {
@@ -2265,6 +2315,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetDateHistory: [...(setTarget.targetDateHistory || []), historyRow],
     };
     get().updateAssuranceSet(updatedSet);
+    raiseTargetDateNotices(get, updatedSet, {
+      scope: "task",
+      taskId,
+      taskTitle: task.title,
+      oldDate,
+      newDate: targetDate,
+    });
     return { success: true };
   },
   reviseAssuranceSetDeadline: (setId, revisedDate, actorName, reason) => {
@@ -2290,6 +2347,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetDateHistory: [...(setTarget.targetDateHistory || []), historyRow],
     };
     get().updateAssuranceSet(updatedSet);
+    raiseTargetDateNotices(get, updatedSet, {
+      scope: "set",
+      oldDate: oldDeadline,
+      newDate: revisedDate,
+    });
     get().logAuditEvent({
       action: "Revised Completion Date",
       targetAsset: setId,

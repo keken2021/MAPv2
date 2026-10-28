@@ -4,7 +4,7 @@
   role in system: deep-dive view rendered when an assurance set row is selected.
 */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, History, Key, ShieldCheck, Plus, Trash2 } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
@@ -91,6 +91,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     revokeDatePermission,
     updateTaskTargetDate,
     reviseAssuranceSetDeadline,
+    focusedRequirementId,
+    setFocusedRequirementId,
     exemptAssuranceTasks,
     partiallyCloseAssuranceSet,
     cancelAssuranceSet,
@@ -281,6 +283,25 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const pageOtherRequirements = requirementsPagination.pageItems.filter((r) => r.isOtherDocument);
   const isLastRequirementsPage =
     requirementsPagination.controls.page === requirementsPagination.controls.totalPages;
+
+  useEffect(() => {
+    if (!focusedRequirementId) return;
+    const items = [...mainRequirements, ...otherRequirements];
+    const index = items.findIndex((requirement) => requirement.id === focusedRequirementId);
+    if (index < 0) {
+      setFocusedRequirementId(undefined);
+      return;
+    }
+    const page = Math.floor(index / requirementsPagination.controls.pageSize) + 1;
+    if (requirementsPagination.controls.page !== page) {
+      requirementsPagination.controls.onPageChange(page);
+      return;
+    }
+    document
+      .querySelector(`[data-requirement-id="${focusedRequirementId}"]`)
+      ?.scrollIntoView({ block: 'center' });
+    setFocusedRequirementId(undefined);
+  }, [focusedRequirementId, requirementsPagination.controls.page, setFocusedRequirementId]);
 
   const sessionUser = useMemo(
     () =>
@@ -1700,7 +1721,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
                 if (isLinkedSubSet(req) && linkedChildSet) {
                   return (
-                    <tr key={req.id} className="table-light">
+                    <tr key={req.id} className="table-light" data-requirement-id={req.id}>
                       <td>
                         <div className="fw-semibold text-dark">{req.title}</div>
                         {renderTaskPlacement(req)}
@@ -1744,7 +1765,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 }
 
                 return (
-                  <tr key={req.id}>
+                  <tr key={req.id} data-requirement-id={req.id}>
                     <td>
                       <div className="fw-semibold text-dark">
                         {req.title}
@@ -1914,7 +1935,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
 
                   return (
-                    <tr key={req.id}>
+                    <tr key={req.id} data-requirement-id={req.id}>
                       <td className="fw-semibold text-dark">
                         {req.title}
                         {renderVersionBadge(req, docView)}

@@ -19,7 +19,11 @@ export type NotificationType =
   | 'approval_decision'
   | 'capa_reinspection'
   /* a new version of a document this set uses was submitted on another set; this set keeps its own decision */
-  | 'document_new_version';
+  | 'document_new_version'
+  | 'target_date';
+
+/** how close a set or task target date is, or that the date itself changed */
+export type TargetDateNoticeKind = 'reminder' | 'warning' | 'escalation' | 'date_changed';
 
 export type NotificationCategory =
   | 'Assurance Request'
@@ -27,7 +31,8 @@ export type NotificationCategory =
   | 'Verification'
   | 'Document Renewal'
   | 'Approval'
-  | 'CAPA';
+  | 'CAPA'
+  | 'Target Date';
 
 /** why a document on an assurance set must be renewed; present on document_renewal only */
 export type DocumentRenewalReason =
@@ -85,6 +90,12 @@ export interface AppNotification {
   assignedRole?: UserRolePersona;
   /** present on assurance_set_request only */
   request?: AssuranceSetRequestPayload;
+  /** present on target_date only */
+  targetDateKind?: TargetDateNoticeKind;
+  /** task the notice is about; absent when the notice is for the whole set */
+  taskId?: string;
+  /** the target date the notice was raised for */
+  targetDate?: string;
 }
 
 /** values a store action supplies when raising a notification; id, status and createdAt are assigned by the store */

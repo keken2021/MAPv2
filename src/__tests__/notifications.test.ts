@@ -19,6 +19,8 @@ import {
   filterNotificationsForUser,
   generateNotificationId,
   getNotificationAction,
+  seedTargetDateNotices,
+  targetDateNoticeKind,
   matchesNotificationSearch,
   resolveAssuranceRequestContext,
   resolveNotificationRecipient,
@@ -553,5 +555,74 @@ describe('store: workflow notifications', () => {
       message: 'Verify HRU replacement on board.',
       senderUserId: 'USR-201',
     });
+  });
+});
+
+describe('target date notices', () => {
+  it('uses a reminder at 8 to 14 days, a warning within 7 days, and an escalation once overdue', () => {
+    expect(targetDateNoticeKind('2026-11-11', '2026-10-28')).toBe('reminder');
+    expect(targetDateNoticeKind('2026-11-04', '2026-10-28')).toBe('warning');
+    expect(targetDateNoticeKind('2026-10-28', '2026-10-28')).toBe('warning');
+    expect(targetDateNoticeKind('2026-11-12', '2026-10-28')).toBeNull();
+    expect(targetDateNoticeKind('2026-10-20', '2026-10-28')).toBe('escalation');
+    expect(targetDateNoticeKind(undefined, '2026-10-28')).toBeNull();
+  });
+
+  it('opens the assurance set the notice belongs to', () => {
+    const state = useMapStore.getState();
+    const action = getNotificationAction(
+      {
+        id: 'MAP-NTF-2026-TGTD-00001',
+        type: 'target_date',
+        targetDateKind: 'warning',
+        subject: 'Warning: Certificate of Class',
+        recipientUserId: 'USR-102',
+        senderName: 'MAP',
+        status: 'unread',
+        createdAt: '2026-10-28T08:00:00.000Z',
+        assuranceSetId: 'AS-2026-001',
+        taskId: 'REQ-101',
+        targetDate: '2026-10-30',
+      },
+      {
+        assuranceSets: state.assuranceSets,
+        documents: state.documents,
+        capaItems: state.capaItems,
+        projects: state.projects,
+        canAccessView: () => true,
+      },
+    );
+    expect(action).toMatchObject({
+      label: 'Open Set',
+      view: 'assurance-sets',
+      entityId: 'AS-2026-001',
+    });
+  });
+
+  it('seeds a warning for an open set due within 7 days', () => {
+    const set = useMapStore.getState().assuranceSets.find((item) => item.id === 'AS-2026-001')!;
+    const seeded = seedTargetDateNotices([], [set], MOCK_USERS, '2026-10-28');
+    expect(seeded.some((notice) => notice.targetDateKind === 'warning' && notice.recipientUserId === 'USR-102' && !notice.taskId)).toBe(true);
+  });
+
+  it('notifies the actor when a task target date moves, and warns when the new date is inside 7 days', () => {
+    useMapStore.setState({
+      notifications: [],
+      activePersona: 'Administrator',
+      activeSessionUserId: 'USR-101',
+    });
+    const set = useMapStore.getState().assuranceSets.find((item) => item.id === 'AS-2026-001')!;
+    const task = set.requirements[0];
+    const today = new Date().toISOString().slice(0, 10);
+    const result = useMapStore.getState().updateTaskTargetDate(set.id, task.id, '2026-10-30', 'K. Osei', 'Brought forward');
+    expect(result.success, result.message).toBe(true);
+
+    const mine = inboxOf('USR-101');
+    expect(mine.some((notice) => notice.targetDateKind === 'date_changed' && notice.taskId === task.id)).toBe(true);
+    const expectedKind = targetDateNoticeKind('2026-10-30', today);
+    if (expectedKind) {
+      expect(mine.some((notice) => notice.targetDateKind === expectedKind && notice.taskId === task.id && notice.targetDate === '2026-10-30')).toBe(true);
+    }
+    expect(useMapStore.getState().focusedRequirementId).toBeUndefined();
   });
 });
