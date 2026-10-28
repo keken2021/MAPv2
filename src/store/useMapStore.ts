@@ -53,6 +53,7 @@ import {
   getAssuranceSetCreator,
   getAssuranceSetStakeholderLockReason,
   isViewAccessibleToPersona,
+  isClientUser,
   orgFieldMatches,
 } from "../utils/rbacHelpers";
 import { UserProfile } from "../types/user";
@@ -349,6 +350,19 @@ export interface MapStoreState {
     actorName: string,
     reason?: string,
   ) => { success: boolean; message?: string };
+  addAssuranceTask: (
+    setId: string,
+    task: Partial<AssuranceRequirement> & Pick<AssuranceRequirement, "title" | "category">,
+  ) => { success: boolean; message?: string; requirement?: AssuranceRequirement };
+  editAssuranceTask: (
+    setId: string,
+    taskId: string,
+    taskUpdates: Partial<AssuranceRequirement>,
+  ) => { success: boolean; message?: string };
+  removeAssuranceTask: (
+    setId: string,
+    taskId: string,
+  ) => { success: boolean; message?: string };
   updateTaskTargetDate: (
     setId: string,
     taskId: string,
@@ -573,6 +587,7 @@ function logAssuranceSetAuditDiff(
         target: { kind: "task", setId: nextSet.id, taskId },
         justificationNotes: `Added task ${task.title}.`,
       });
+      notifyVendorOfTaskChange(get, nextSet, "added", task.title);
       continue;
     }
     if (taskEditSnapshot(previous) === taskEditSnapshot(task)) continue;
@@ -587,6 +602,7 @@ function logAssuranceSetAuditDiff(
       },
       justificationNotes: `Edited task ${task.title}.`,
     });
+    notifyVendorOfTaskChange(get, nextSet, "edited", task.title);
   }
 
   for (const [taskId, task] of previousTasks) {
@@ -597,6 +613,7 @@ function logAssuranceSetAuditDiff(
       target: { kind: "task", setId: previousSet.id, taskId },
       justificationNotes: `Removed task ${task.title}.`,
     });
+    notifyVendorOfTaskChange(get, previousSet, "removed", task.title);
   }
 }
 
@@ -662,6 +679,71 @@ function notifyAssuranceSetUser(
 
 /* sender name of a notification the platform raises on its own */
 const SYSTEM_NOTIFICATION_SENDER = "MAP System";
+
+/**
+  what: notifies the vendor of a task change on an assurance set.
+  how: sends a review_requested notification to the assigned submitter and provider admins.
+  with what file: src/store/useMapStore.ts, called by logAssuranceSetAuditDiff.
+*/
+function notifyVendorOfTaskChange(
+  get: () => MapStoreState,
+  assuranceSet: AssuranceSet,
+  action: "added" | "edited" | "removed",
+  taskTitle: string,
+): void {
+  const state = get();
+  const notifiedUserIds = new Set<string>();
+
+  const submitterRecipient = resolveNotificationRecipient(assuranceSet.assignedSubmitter, state.users);
+  if (submitterRecipient) {
+    notifiedUserIds.add(submitterRecipient.id);
+    notifyAssuranceSetUser(get, assuranceSet, assuranceSet.assignedSubmitter, {
+      type: "review_requested",
+      subject: `Task ${action}: ${taskTitle} · ${assuranceSet.id}`,
+      message: `A task on assurance set ${assuranceSet.title} was ${action}: ${taskTitle}.`,
+    });
+  }
+
+  const providerOrg = assuranceSet.serviceProviderOrg;
+  if (providerOrg) {
+    state.users
+      .filter(
+        (u) =>
+          u.status === "Active" &&
+          (u.roles.includes("Administrator") || u.roles.includes("Submitter")) &&
+          orgFieldMatches(u.organization, providerOrg) &&
+          !notifiedUserIds.has(u.id),
+      )
+      .forEach((user) => {
+        notifiedUserIds.add(user.id);
+        state.pushNotification({
+          type: "review_requested",
+          subject: `Task ${action}: ${taskTitle} · ${assuranceSet.id}`,
+          message: `A task on assurance set ${assuranceSet.title} was ${action}: ${taskTitle}.`,
+          recipientUserId: user.id,
+          senderName: state.activePersona,
+          assuranceSetId: assuranceSet.id,
+          vesselName: assuranceSet.vesselName || undefined,
+        });
+      });
+  }
+
+  if (notifiedUserIds.size === 0) {
+    const creator = getAssuranceSetCreator(assuranceSet, state.users);
+    const creatorUser = creator.name ? state.users.find((u) => u.name === creator.name) : undefined;
+    if (creatorUser && (creatorUser.roles.includes("Administrator") || creatorUser.roles.includes("Submitter"))) {
+      state.pushNotification({
+        type: "review_requested",
+        subject: `Task ${action}: ${taskTitle} · ${assuranceSet.id}`,
+        message: `A task on assurance set ${assuranceSet.title} was ${action}: ${taskTitle}.`,
+        recipientUserId: creatorUser.id,
+        senderName: state.activePersona,
+        assuranceSetId: assuranceSet.id,
+        vesselName: assuranceSet.vesselName || undefined,
+      });
+    }
+  }
+}
 
 /**
   what: stakeholder label a document renewal goes to; inputs are the store getter, the set and the requirement the document meets.
@@ -1813,6 +1895,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
 
     /* a set covers exactly one asset: links and requirements of any other scope are dropped here */
+
     const computedSet = recalculateSetReadiness(
       toSingleAssetSet({
         ...newSet,
@@ -1938,8 +2021,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       projects: syncedProjects,
     });
 
-    /* a draft that is initiated notifies its stakeholders for the first time */
     const previousSet = state.assuranceSets.find((s) => s.id === updatedSet.id);
+
+    /* a draft that is initiated notifies its stakeholders for the first time */
     if (previousSet?.visibility === "draft" && computedSet.visibility !== "draft") {
       notifyAssignedStakeholders(get, computedSet);
       get().raiseDocumentRenewalNotifications([computedSet.id]);
@@ -1988,6 +2072,138 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetAsset: setId,
       justificationNotes: `Revoked target date change permission ${grantId}.`,
     });
+  },
+  addAssuranceTask: (setId, taskInput) => {
+    const state = get();
+    const sessionUser = getSessionUserForPersona(
+      state.activePersona,
+      state.users,
+      getDemoSessionContext(state),
+    );
+    const setTarget = state.assuranceSets.find((s) => s.id === setId);
+    if (!setTarget) {
+      return { success: false, message: "Assurance set not found." };
+    }
+
+    if (!isClientUser(sessionUser, setTarget, state.activePersona)) {
+      return { success: false, message: "Vendor users cannot edit tasks. Only client users are authorized." };
+    }
+
+    if (isClosedAssuranceSet(setTarget) || setTarget.stage === "Cancelled") {
+      return { success: false, message: "Tasks cannot be modified on a closed or cancelled assurance set." };
+    }
+
+    if (!taskInput.title?.trim() || !taskInput.category?.trim()) {
+      return { success: false, message: "Task title and category are required." };
+    }
+
+    const newTaskId = taskInput.id || `REQ-TASK-${Date.now().toString().slice(-6)}`;
+    const newRequirement: AssuranceRequirement = {
+      id: newTaskId,
+      category: taskInput.category,
+      title: taskInput.title.trim(),
+      description: taskInput.description?.trim() || "",
+      isMandatory: taskInput.isMandatory !== undefined ? taskInput.isMandatory : true,
+      isFulfilled: false,
+      ocrConfidence: 0,
+      verifierStatus: "Pending",
+      targetDate: taskInput.targetDate || setTarget.targetDate || setTarget.complianceDeadline,
+      assignedSubmitter: taskInput.assignedSubmitter || setTarget.assignedSubmitter,
+      assignedVerifier: taskInput.assignedVerifier || setTarget.assignedVerifier,
+      isSpecialized: taskInput.isSpecialized,
+      isOtherDocument: taskInput.isOtherDocument,
+      sectionId: taskInput.sectionId,
+      predecessorId: taskInput.predecessorId,
+      notes: taskInput.notes,
+    };
+
+    const updatedSet: AssuranceSet = {
+      ...setTarget,
+      requirements: [...setTarget.requirements, newRequirement],
+    };
+
+    get().updateAssuranceSet(updatedSet);
+
+    return { success: true, requirement: newRequirement };
+  },
+  editAssuranceTask: (setId, taskId, taskUpdates) => {
+    const state = get();
+    const sessionUser = getSessionUserForPersona(
+      state.activePersona,
+      state.users,
+      getDemoSessionContext(state),
+    );
+    const setTarget = state.assuranceSets.find((s) => s.id === setId);
+    if (!setTarget) {
+      return { success: false, message: "Assurance set not found." };
+    }
+
+    if (!isClientUser(sessionUser, setTarget, state.activePersona)) {
+      return { success: false, message: "Vendor users cannot edit tasks. Only client users are authorized." };
+    }
+
+    if (isClosedAssuranceSet(setTarget) || setTarget.stage === "Cancelled") {
+      return { success: false, message: "Tasks cannot be modified on a closed or cancelled assurance set." };
+    }
+
+    const taskIndex = setTarget.requirements.findIndex((r) => r.id === taskId);
+    if (taskIndex === -1) {
+      return { success: false, message: "Task not found on this assurance set." };
+    }
+
+    const previousTask = setTarget.requirements[taskIndex];
+    const updatedTask: AssuranceRequirement = {
+      ...previousTask,
+      ...taskUpdates,
+      id: taskId,
+    };
+
+    const updatedReqs = [...setTarget.requirements];
+    updatedReqs[taskIndex] = updatedTask;
+
+    const updatedSet: AssuranceSet = {
+      ...setTarget,
+      requirements: updatedReqs,
+    };
+
+    get().updateAssuranceSet(updatedSet);
+
+    return { success: true };
+  },
+  removeAssuranceTask: (setId, taskId) => {
+    const state = get();
+    const sessionUser = getSessionUserForPersona(
+      state.activePersona,
+      state.users,
+      getDemoSessionContext(state),
+    );
+    const setTarget = state.assuranceSets.find((s) => s.id === setId);
+    if (!setTarget) {
+      return { success: false, message: "Assurance set not found." };
+    }
+
+    if (!isClientUser(sessionUser, setTarget, state.activePersona)) {
+      return { success: false, message: "Vendor users cannot edit tasks. Only client users are authorized." };
+    }
+
+    if (isClosedAssuranceSet(setTarget) || setTarget.stage === "Cancelled") {
+      return { success: false, message: "Tasks cannot be modified on a closed or cancelled assurance set." };
+    }
+
+    const exists = setTarget.requirements.some((r) => r.id === taskId);
+    if (!exists) {
+      return { success: false, message: "Task not found on this assurance set." };
+    }
+
+    const updatedReqs = setTarget.requirements.filter((r) => r.id !== taskId);
+    const updatedSet: AssuranceSet = {
+      ...setTarget,
+      requirements: updatedReqs,
+    };
+
+    get().updateAssuranceSet(updatedSet);
+
+    return { success: true };
   },
   updateTaskTargetDate: (setId, taskId, targetDate, actorName, reason) => {
     const state = get();

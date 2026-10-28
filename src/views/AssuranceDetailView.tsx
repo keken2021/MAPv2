@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo, useRef } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, History, Key, ShieldCheck } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, History, Key, ShieldCheck, Plus, Trash2 } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -92,6 +92,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     exemptAssuranceTasks,
     partiallyCloseAssuranceSet,
     cancelAssuranceSet,
+    addAssuranceTask,
+    editAssuranceTask,
+    removeAssuranceTask,
   } = useMapStore();
   const [stakeholderError, setStakeholderError] = useState<string | null>(null);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
@@ -127,6 +130,32 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancellationReasonDraft, setCancellationReasonDraft] = useState('');
+
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [newTaskDraft, setNewTaskDraft] = useState({
+    title: '',
+    category: 'Statutory Certificate',
+    description: '',
+    isMandatory: true,
+    targetDate: '',
+    assignedSubmitter: '',
+    assignedVerifier: '',
+  });
+  const [newTaskError, setNewTaskError] = useState<string | null>(null);
+
+  const [editingTask, setEditingTask] = useState<AssuranceRequirement | null>(null);
+  const [editTaskDraft, setEditTaskDraft] = useState({
+    title: '',
+    category: 'Statutory Certificate',
+    description: '',
+    isMandatory: true,
+    targetDate: '',
+    assignedSubmitter: '',
+    assignedVerifier: '',
+  });
+  const [editTaskError, setEditTaskError] = useState<string | null>(null);
+
+  const [taskToDelete, setTaskToDelete] = useState<AssuranceRequirement | null>(null);
   const [shortCertificateConfirm, setShortCertificateConfirm] = useState<MasterDocument[] | null>(null);
   const confirmDialogRef = useRef<HTMLDivElement>(null);
   const [targetProjectId, setTargetProjectId] = useState('');
@@ -367,6 +396,109 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   /* the charter window stays editable for managers with date permission until the set is approved or certified */
   const isCharterWindowLocked = assuranceSet.stage === 'Approved' || assuranceSet.stage === 'Certified' || assuranceSet.stage === 'Cancelled';
   const canEditCharterWindow = roleActions.canManage && roleActions.canChangeDates && !isCharterWindowLocked;
+  const isSetOpen = !isClosedAssuranceSet(assuranceSet) && assuranceSet.stage !== 'Cancelled';
+  const canEditTasks = isClientUser(sessionUser, assuranceSet, activePersona) && isSetOpen;
+
+  const openAddTaskModal = () => {
+    setNewTaskDraft({
+      title: '',
+      category: 'Statutory Certificate',
+      description: '',
+      isMandatory: true,
+      targetDate: assuranceSet.targetDate || assuranceSet.complianceDeadline || '',
+      assignedSubmitter: assuranceSet.assignedSubmitter || '',
+      assignedVerifier: assuranceSet.assignedVerifier || '',
+    });
+    setNewTaskError(null);
+    setIsAddTaskModalOpen(true);
+  };
+
+  const handleSaveNewTask = () => {
+    if (!newTaskDraft.title.trim()) {
+      setNewTaskError('Task title is required.');
+      return;
+    }
+    if (!newTaskDraft.category.trim()) {
+      setNewTaskError('Task category is required.');
+      return;
+    }
+    const setLimit = assuranceSet.targetDate || assuranceSet.complianceDeadline;
+    if (setLimit && newTaskDraft.targetDate && newTaskDraft.targetDate > setLimit) {
+      setNewTaskError(`Target date cannot be after the set target date (${formatMaritimeDate(setLimit)}).`);
+      return;
+    }
+
+    const res = addAssuranceTask(assuranceSet.id, {
+      title: newTaskDraft.title.trim(),
+      category: newTaskDraft.category.trim(),
+      description: newTaskDraft.description.trim() || undefined,
+      isMandatory: newTaskDraft.isMandatory,
+      targetDate: newTaskDraft.targetDate || undefined,
+      assignedSubmitter: newTaskDraft.assignedSubmitter.trim() || undefined,
+      assignedVerifier: newTaskDraft.assignedVerifier.trim() || undefined,
+    });
+
+    if (!res.success) {
+      setNewTaskError(res.message || 'Failed to add task.');
+      return;
+    }
+
+    setIsAddTaskModalOpen(false);
+  };
+
+  const openEditTask = (req: AssuranceRequirement) => {
+    setEditingTask(req);
+    setEditTaskDraft({
+      title: req.title,
+      category: req.category,
+      description: req.description || '',
+      isMandatory: req.isMandatory,
+      targetDate: req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '',
+      assignedSubmitter: req.assignedSubmitter || assuranceSet.assignedSubmitter || '',
+      assignedVerifier: req.assignedVerifier || assuranceSet.assignedVerifier || '',
+    });
+    setEditTaskError(null);
+  };
+
+  const handleSaveEditTask = () => {
+    if (!editingTask) return;
+    if (!editTaskDraft.title.trim()) {
+      setEditTaskError('Task title is required.');
+      return;
+    }
+    if (!editTaskDraft.category.trim()) {
+      setEditTaskError('Task category is required.');
+      return;
+    }
+    const setLimit = assuranceSet.targetDate || assuranceSet.complianceDeadline;
+    if (setLimit && editTaskDraft.targetDate && editTaskDraft.targetDate > setLimit) {
+      setEditTaskError(`Target date cannot be after the set target date (${formatMaritimeDate(setLimit)}).`);
+      return;
+    }
+
+    const res = editAssuranceTask(assuranceSet.id, editingTask.id, {
+      title: editTaskDraft.title.trim(),
+      category: editTaskDraft.category.trim(),
+      description: editTaskDraft.description.trim() || undefined,
+      isMandatory: editTaskDraft.isMandatory,
+      targetDate: editTaskDraft.targetDate || undefined,
+      assignedSubmitter: editTaskDraft.assignedSubmitter.trim() || undefined,
+      assignedVerifier: editTaskDraft.assignedVerifier.trim() || undefined,
+    });
+
+    if (!res.success) {
+      setEditTaskError(res.message || 'Failed to edit task.');
+      return;
+    }
+
+    setEditingTask(null);
+  };
+
+  const handleConfirmDeleteTask = () => {
+    if (!taskToDelete) return;
+    removeAssuranceTask(assuranceSet.id, taskToDelete.id);
+    setTaskToDelete(null);
+  };
 
   /* earliest selectable day: tomorrow, since today and earlier are not allowed */
   const minCharterDate = (() => {
