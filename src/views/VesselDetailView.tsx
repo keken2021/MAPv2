@@ -80,6 +80,9 @@ import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
 import { MasterDocument } from '../types/document';
+import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
+import { filterDocumentsVisibleToOrganization } from '../utils/rbacHelpers';
+import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 
 
 interface VesselDetailViewProps {
@@ -405,6 +408,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   // Linked assurance sets, documents, crew, and audit items for this vessel
   const linkedSets = vessel ? assuranceSets.filter((s) => s.vesselId === vessel.id) : [];
   const linkedDocs = vessel ? documents.filter((d) => d.vesselId === vessel.id) : [];
+  const objectVerification = vessel
+    ? deriveObjectVerification(vessel.id, assuranceSets, activeDemoOrganization)
+    : null;
+  const visibleObjectDocuments = vessel
+    ? filterDocumentsVisibleToOrganization(linkedDocs, assuranceSets, activeDemoOrganization)
+    : [];
 
   useEffect(() => {
     if (linkedSets.length > 0 && !selectedAssuranceSetId) {
@@ -1109,6 +1118,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <span className="text-muted">•</span>
               <span className="text-muted">{vessel.flagState} ({vessel.portOfRegistry})</span>
             </div>
+            <ObjectVerificationBadge verification={objectVerification} />
+            {visibleObjectDocuments.length > 0 && (
+              <div className="small text-secondary mt-1">
+                Documents for {activeDemoOrganization}:{' '}
+                {visibleObjectDocuments.slice(0, 3).map((document) => document.title).join('; ')}
+                {visibleObjectDocuments.length > 3 ? ` and ${visibleObjectDocuments.length - 3} more` : ''}
+              </div>
+            )}
           </div>
         </div>
 

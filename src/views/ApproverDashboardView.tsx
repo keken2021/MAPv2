@@ -11,6 +11,9 @@ import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { formatMaritimeDate } from '../utils/formatters';
 import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
+import { getAssuranceSetObjects } from '../utils/assuranceTemplates';
+import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { canPerform } from '../utils/permissionHelpers';
 import { MasterDocument } from '../types/document';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
@@ -250,6 +253,13 @@ export const ApproverDashboardView: React.FC = () => {
             <span className="small text-secondary font-mono-code">
               {selectedSet.id} · {selectedSet.vesselName} (IMO {selectedSet.imoNumber})
             </span>
+            <ObjectVerificationBadge
+              verification={deriveObjectVerification(
+                getAssuranceSetObjects(selectedSet)[0]?.id || selectedSet.vesselId,
+                assuranceSets,
+                selectedSet.clientOrg || selectedSet.charterer || activeDemoOrganization,
+              )}
+            />
           </div>
           <div className="d-flex align-items-center gap-2">
             <span className="badge bg-light text-dark border font-mono-code">

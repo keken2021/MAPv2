@@ -35,6 +35,25 @@ export type AssuranceObjectType =
   | 'document'
   | 'method';
 
+/** how far an assurance object has been checked. A later status replaces the earlier one. */
+export type ObjectVerificationStatus =
+  | 'Uploaded, not externally verified'
+  | 'Submitted and tested'
+  | 'Tested externally'
+  | 'Used and tested by several entities over time';
+
+/** a client self-check reads as internal. A review by another organization reads as external. */
+export type ObjectVerificationChannel = 'internal' | 'external';
+
+/** the check one client can see on an object. It does not include another client's documents. */
+export interface ObjectVerification {
+  status: ObjectVerificationStatus;
+  channel?: ObjectVerificationChannel;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  clientOrganization: string;
+}
+
 export interface AssuranceObject {
   id: string;
   type: AssuranceObjectType;

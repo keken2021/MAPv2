@@ -34,6 +34,8 @@ import { canPerform } from '../../utils/permissionHelpers';
 import { calculateVesselReadiness } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
+import { deriveObjectVerification } from '../../utils/documentVersionSnapshot';
+import { ObjectVerificationBadge } from '../common/ObjectVerificationBadge';
 
 type VesselSortField =
   | 'imoNumber'
@@ -66,6 +68,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
     userPermissionOverrides,
     customScopes,
     users,
+    activeDemoOrganization,
   } = useMapStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [flagFilter, setFlagFilter] = useState('ALL');
@@ -430,6 +433,9 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                           <h6 className="mb-0 fw-bold text-dark text-truncate" style={{ fontSize: '1.05rem' }} title={v.name}>
                             {v.name}
                           </h6>
+                          <ObjectVerificationBadge
+                            verification={deriveObjectVerification(v.id, assuranceSets, activeDemoOrganization)}
+                          />
                           <button
                             type="button"
                             className="btn btn-link p-0 text-muted text-decoration-none border-0 flex-shrink-0"
@@ -534,6 +540,9 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                     </td>
                     <td>
                       <div className="fw-semibold text-dark">{v.name}</div>
+                      <ObjectVerificationBadge
+                        verification={deriveObjectVerification(v.id, assuranceSets, activeDemoOrganization)}
+                      />
                     </td>
                     <td className="small">
                       <div>{v.vesselSubtype || v.classNotation}</div>

@@ -5,9 +5,21 @@
 */
 
 import { VesselParticulars, VesselRegistrationStatus } from './vessel';
-import type { AssuranceObjectType, AssuranceObject } from './assurance';
+import type {
+  AssuranceObject,
+  AssuranceObjectType,
+  ObjectVerification,
+  ObjectVerificationChannel,
+  ObjectVerificationStatus,
+} from './assurance';
 
-export type { AssuranceObjectType, AssuranceObject };
+export type {
+  AssuranceObjectType,
+  AssuranceObject,
+  ObjectVerification,
+  ObjectVerificationChannel,
+  ObjectVerificationStatus,
+};
 
 export type AvailabilityStatus =
   | 'Available'

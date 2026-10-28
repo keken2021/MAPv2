@@ -15,7 +15,10 @@ import { FilterModal } from '../components/common/FilterModal';
 import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 
-import { filterDocumentsForVerifierQueue } from '../utils/rbacHelpers';
+import { filterDocumentsForVerifierQueue, filterDocumentsVisibleToOrganization } from '../utils/rbacHelpers';
+import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
+import { getAssuranceSetObjects } from '../utils/assuranceTemplates';
+import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
@@ -79,7 +82,11 @@ export const VerifierWorkspaceView: React.FC = () => {
   const activeFilterCount = activeChips.length;
 
   /* All documents in Verifier's queue (Pending, Correction Requested, Verified) */
-  const scopedDocs = filterDocumentsForVerifierQueue(documents, assuranceSets, activePersona, activeDemoOrganization);
+  const scopedDocs = filterDocumentsVisibleToOrganization(
+    filterDocumentsForVerifierQueue(documents, assuranceSets, activePersona, activeDemoOrganization),
+    assuranceSets,
+    activeDemoOrganization,
+  );
 
   /* Map each document to its associated Assurance Set & Vessel */
   const getAssuranceSetInfo = (docId: string) => {
@@ -318,6 +325,15 @@ export const VerifierWorkspaceView: React.FC = () => {
                     <td>
                       <div className="fw-semibold text-dark font-mono-code small">{info?.vesselName || 'Unlinked'}</div>
                       <div className="text-muted small">{doc.issuingAuthority}</div>
+                      {linkedSet && (
+                        <ObjectVerificationBadge
+                          verification={deriveObjectVerification(
+                            getAssuranceSetObjects(linkedSet)[0]?.id || linkedSet.vesselId,
+                            assuranceSets,
+                            linkedSet.clientOrg || linkedSet.charterer || activeDemoOrganization,
+                          )}
+                        />
+                      )}
                     </td>
                     <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
                     <td>

@@ -4,8 +4,15 @@
   role in system: used by useMapStore.ts (verify, approve, new version, seed data), AssuranceDetailView.tsx and DocumentReviewDrawer.tsx; a later version or a review on another set never changes an approved set.
 */
 
-import { AssuranceRequirement, AssuranceSet, RequirementVersionSnapshot } from '../types/assurance';
+import {
+  AssuranceRequirement,
+  AssuranceSet,
+  ObjectVerification,
+  ObjectVerificationChannel,
+  RequirementVersionSnapshot,
+} from '../types/assurance';
 import { MasterDocument } from '../types/document';
+import { getAssuranceSetObjects } from './assuranceTemplates';
 
 /* a finished set stays approved when a later set reuses one of its library documents */
 export function isClosedAssuranceSet(set: Pick<AssuranceSet, 'stage' | 'approverDecision'>): boolean {
@@ -148,5 +155,105 @@ export function getRequirementDocumentView(
     isLocked: true,
     snapshot,
     newerVersionLabel: doc.currentVersion !== label ? doc.currentVersion : undefined,
+  };
+}
+
+const sameOrganization = (left?: string, right?: string) => {
+  if (!left?.trim() || !right?.trim()) return false;
+  const a = left.trim().toLowerCase();
+  const b = right.trim().toLowerCase();
+  return a === b || a.includes(b) || b.includes(a);
+};
+
+const clientOf = (set: Pick<AssuranceSet, 'clientOrg' | 'charterer'>) =>
+  (set.clientOrg || set.charterer || '').trim();
+
+const organizationInLabel = (label?: string) => {
+  const match = label?.match(/\(([^)]+)\)\s*$/);
+  return match?.[1]?.trim();
+};
+
+/**
+  what: internal when the client checked its own set, external when another organization did.
+  how: an internal review mode, an internal deployment, or a verifier from the client organization is internal.
+  with what file: src/utils/documentVersionSnapshot.ts used by deriveObjectVerification.
+*/
+export function objectVerificationChannel(
+  set: Pick<AssuranceSet, 'clientOrg' | 'charterer' | 'reviewMode' | 'internalDeployment' | 'assignedVerifier' | 'stakeholders'>,
+): ObjectVerificationChannel {
+  const client = clientOf(set);
+  const verifierOrg = set.stakeholders?.verifierOrg || organizationInLabel(set.assignedVerifier);
+  if (set.reviewMode === 'internal' || set.internalDeployment) return 'internal';
+  if (verifierOrg && sameOrganization(verifierOrg, client)) return 'internal';
+  return 'external';
+}
+
+/**
+  what: client organizations whose sets link a document.
+  how: reads documentId and linkedDocumentId on each set's requirements.
+  with what file: src/utils/documentVersionSnapshot.ts used by rbacHelpers.ts.
+*/
+export function documentClientOrganizations(
+  documentId: string,
+  sets: Pick<AssuranceSet, 'clientOrg' | 'charterer' | 'requirements'>[],
+): string[] {
+  const organizations = new Set<string>();
+  for (const set of sets) {
+    const linked = set.requirements?.some(
+      (requirement) => requirement.documentId === documentId || requirement.linkedDocumentId === documentId,
+    );
+    if (!linked) continue;
+    const client = clientOf(set);
+    if (client) organizations.add(client);
+  }
+  return [...organizations];
+}
+
+/**
+  what: the verification one organization can see for an assurance object.
+  how: uses that organization's own sets for who, when and internal or external, then raises the status when another organization has also tested the object. The other organization's name and documents are not included.
+  with what file: src/utils/documentVersionSnapshot.ts used by the object list, VerifierWorkspaceView.tsx and ApproverDashboardView.tsx.
+*/
+export function deriveObjectVerification(
+  objectId: string,
+  sets: AssuranceSet[],
+  viewerOrganization: string,
+): ObjectVerification | null {
+  if (!objectId || !viewerOrganization.trim()) return null;
+  const covering = sets.filter((set) => getAssuranceSetObjects(set).some((object) => object.id === objectId));
+  if (covering.length === 0) return null;
+
+  const testedClients = new Set<string>();
+  for (const set of covering) {
+    const tested = set.requirements?.some((requirement) => requirement.verifierStatus === 'Verified');
+    const client = clientOf(set);
+    if (tested && client) testedClients.add(client.toLowerCase());
+  }
+
+  const ownSets = covering.filter((set) => sameOrganization(clientOf(set), viewerOrganization));
+  if (ownSets.length === 0) return null;
+
+  const testedSets = ownSets.filter((set) => set.requirements?.some((requirement) => requirement.verifierStatus === 'Verified'));
+  const uploaded = ownSets.some((set) =>
+    set.requirements?.some((requirement) => requirement.documentId || requirement.linkedDocumentId),
+  );
+  const externalSet = testedSets.find((set) => objectVerificationChannel(set) === 'external');
+  const internalSet = testedSets.find((set) => objectVerificationChannel(set) === 'internal');
+  const chosen = externalSet || internalSet;
+  const channel = chosen ? objectVerificationChannel(chosen) : undefined;
+
+  let status: ObjectVerification['status'] = 'Uploaded, not externally verified';
+  if (chosen && testedClients.size >= 2) status = 'Used and tested by several entities over time';
+  else if (externalSet) status = 'Tested externally';
+  else if (internalSet) status = 'Submitted and tested';
+  else if (!uploaded && testedSets.length === 0) status = 'Uploaded, not externally verified';
+
+  const snapshot = chosen?.requirements?.find((requirement) => requirement.verifiedVersion?.verifiedAt)?.verifiedVersion;
+  return {
+    status,
+    channel,
+    verifiedBy: snapshot?.verifiedBy || chosen?.stakeholders?.verifierName || chosen?.assignedVerifier,
+    verifiedAt: snapshot?.verifiedAt || chosen?.sentForReviewAt || chosen?.lockedAt,
+    clientOrganization: clientOf(ownSets[0]),
   };
 }

@@ -15,6 +15,7 @@ import { VIEW_TO_SCOPE, canPerform, isUserOverride, getEffectiveUserScopeFlags, 
 import { RolePermissionMatrix, UserPermissionOverrides } from "../types/permissions";
 import { UserProfile } from "../types/user";
 import { MOCK_PERSONA_SESSION_USER_IDS } from "../store/mockData";
+import { documentClientOrganizations } from "./documentVersionSnapshot";
 
 /**
   what: checks if an assurance set is assigned to the specified user persona role.
@@ -350,6 +351,37 @@ export function filterDocumentsForVerifierQueue(
 ): MasterDocument[] {
   const allowedIds = getVerifierQueueDocumentIds(assuranceSets, persona, organization);
   return documents.filter((d) => allowedIds.has(d.id));
+}
+
+/**
+  what: whether this organization may see a document that sits on an assurance object.
+  how: another client does not see it. The client who owns the set does, and so does that set's provider. A viewer who is not a client of any set is left to the existing assignment filter.
+  with what file: src/utils/rbacHelpers.ts used by the object list and VerifierWorkspaceView.tsx.
+*/
+export function isDocumentVisibleToOrganization(
+  documentId: string,
+  sets: AssuranceSet[],
+  viewerOrganization: string,
+): boolean {
+  const owners = documentClientOrganizations(documentId, sets);
+  if (owners.length === 0 || !viewerOrganization.trim()) return true;
+  if (owners.some((owner) => orgFieldMatches(viewerOrganization, owner))) return true;
+  const viewerIsClient = sets.some((set) => orgFieldMatches(viewerOrganization, set.clientOrg || set.charterer || ''));
+  if (!viewerIsClient) return true;
+  const viewerIsProvider = sets.some(
+    (set) =>
+      owners.some((owner) => orgFieldMatches(owner, set.clientOrg || set.charterer || '')) &&
+      orgFieldMatches(viewerOrganization, set.serviceProviderOrg || ''),
+  );
+  return viewerIsProvider;
+}
+
+export function filterDocumentsVisibleToOrganization(
+  documents: MasterDocument[],
+  sets: AssuranceSet[],
+  viewerOrganization: string,
+): MasterDocument[] {
+  return documents.filter((document) => isDocumentVisibleToOrganization(document.id, sets, viewerOrganization));
 }
 
 export type AssuranceSetStakeholderLockInput = Pick<
