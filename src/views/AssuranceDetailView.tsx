@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo, useRef } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, History, Key, ShieldCheck } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, History, Key, ShieldCheck } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -36,7 +36,7 @@ import {
   filterEligibleApproversForScope,
   getSessionUserForPersona,
 } from '../utils/userRoleHelpers';
-import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import { calculateAssuranceSetReadiness, summarizeTaskSections } from '../utils/readinessHelpers';
 import {
   canEditAssuranceSetStakeholders,
   getAssuranceSetRoleActions,
@@ -117,6 +117,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [uploadTargetRequirement, setUploadTargetRequirement] = useState<AssuranceRequirement | null>(null);
   const [replaceExistingDoc, setReplaceExistingDoc] = useState<MasterDocument | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [sectionsOpen, setSectionsOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<'Submitter' | 'Verifier' | 'Inspector' | 'Approver' | null>(null);
 
   type ReqSortField = 'title' | 'targetDate' | 'ocrConfidence' | 'status';
@@ -198,6 +199,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       }),
     [users, serviceProviderOrg, isCAdminPersona],
   );
+
+  const sectionSummaries = useMemo(() => summarizeTaskSections(assuranceSet), [assuranceSet]);
+  const sectionNameFor = (sectionId?: string) =>
+    assuranceSet.sections?.find((section) => section.id === sectionId)?.name;
+  const predecessorTitleFor = (taskId?: string) =>
+    assuranceSet.requirements.find((task) => task.id === taskId)?.title;
+  const renderTaskPlacement = (req: AssuranceRequirement) => {
+    const sectionName = sectionNameFor(req.sectionId);
+    const predecessor = predecessorTitleFor(req.predecessorId);
+    if (!sectionName && !predecessor) return null;
+    return (
+      <div className="small text-secondary fw-normal">
+        {sectionName}
+        {predecessor ? `${sectionName ? ' · ' : ''}After ${predecessor}` : ''}
+      </div>
+    );
+  };
 
   const mainRequirements = sortedRequirements.filter((r) => !r.isOtherDocument);
   const otherRequirements = sortedRequirements.filter((r) => r.isOtherDocument);
@@ -1215,6 +1233,52 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         </div>
       </div>
 
+      {/* task sections stay collapsed until opened, so a long list does not fill the page */}
+      {sectionSummaries.length > 0 && (
+        <div className="card map-card-custom">
+          <div className="card-header p-0">
+            <button
+              type="button"
+              className="btn btn-link text-decoration-none text-dark w-100 d-flex align-items-center gap-2 p-3 text-start"
+              aria-expanded={sectionsOpen}
+              onClick={() => setSectionsOpen((open) => !open)}
+            >
+              <ChevronDown
+                size={16}
+                className="flex-shrink-0"
+                style={{ transform: sectionsOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+              />
+              <span className="fw-bold">Task sections</span>
+              <span className="small text-secondary">
+                {sectionSummaries.length} {sectionSummaries.length === 1 ? 'section' : 'sections'}
+                {' · '}
+                {sectionSummaries.filter((section) => section.heavy).length} heavy
+              </span>
+            </button>
+          </div>
+          {sectionsOpen && (
+            <div className="card-body border-top">
+              <div className="small text-secondary mb-2">Open tasks and certificates in each section. A heavy section has three or more tasks still open.</div>
+              <div className="row g-2">
+                {sectionSummaries.map((section) => (
+                  <div className="col-md-6 col-xl-4" key={section.id}>
+                    <div className={`border rounded p-2 h-100 ${section.heavy ? 'border-warning bg-warning-subtle' : ''}`}>
+                      <div className="d-flex align-items-center justify-content-between gap-2">
+                        <span className="fw-semibold text-dark">{section.name}</span>
+                        {section.heavy && <span className="badge bg-warning text-dark">Heavy</span>}
+                      </div>
+                      <div className="small text-secondary mt-1">
+                        {section.remainingTasks} {section.remainingTasks === 1 ? 'task' : 'tasks'} open · {section.remainingCertificates} {section.remainingCertificates === 1 ? 'certificate' : 'certificates'} open
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Bottom Row: Requirements Register Table taking full 100% width across two columns */}
       <div className="card map-card-custom">
         <div className="card-header border-bottom p-3">
@@ -1321,6 +1385,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <tr key={req.id} className="table-light">
                       <td>
                         <div className="fw-semibold text-dark">{req.title}</div>
+                        {renderTaskPlacement(req)}
                         <div className="d-flex align-items-center gap-1.5 flex-wrap">
                           <span className="font-mono-code small text-primary">{linkedChildSet.id}</span>
                           <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.7rem' }}>
@@ -1366,6 +1431,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <div className="fw-semibold text-dark">
                         {req.title}
                         {renderVersionBadge(req, docView)}
+                        {renderTaskPlacement(req)}
                         {req.isSpecialized && (
                           <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
                             Custom
@@ -1525,6 +1591,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <td className="fw-semibold text-dark">
                         {req.title}
                         {renderVersionBadge(req, docView)}
+                        {renderTaskPlacement(req)}
                         {renderContractShortWarning(docView?.doc || linkedDoc)}
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>

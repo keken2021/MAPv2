@@ -4,7 +4,7 @@
   role in system: consumed by useMapStore, VesselTable, AssuranceTable, DashboardView, VesselDetailView, and AssuranceDetailView.
 */
 
-import { AssuranceRequirement, AssuranceSet, AssuranceStage } from '../types/assurance';
+import { AssuranceRequirement, AssuranceSet, AssuranceStage, TaskSection } from '../types/assurance';
 import { CrewComplianceStatus, CrewMember } from '../types/crew';
 import { MasterDocument } from '../types/document';
 import { EquipmentAsset } from '../types/equipment';
@@ -428,4 +428,67 @@ export function calculateEquipmentReadiness(
   if (linkedSets.length === 0) return null;
   const total = linkedSets.reduce((sum, s) => sum + calculateAssuranceSetReadiness(s, assuranceSets), 0);
   return Math.round(total / linkedSets.length);
+}
+
+/** a section with this many still-open tasks is flagged heavy */
+export const HEAVY_SECTION_OPEN_TASKS = 3;
+
+export interface TaskSectionSummary {
+  id: string;
+  name: string;
+  order: number;
+  remainingTasks: number;
+  remainingCertificates: number;
+  heavy: boolean;
+}
+
+/**
+  what: reports whether a task is still open.
+  how: a verified or fulfilled task is closed; every other task still counts as remaining.
+  with what file: src/utils/readinessHelpers.ts used by summarizeTaskSections.
+*/
+export function isTaskOpen(task: AssuranceRequirement): boolean {
+  return task.verifierStatus !== 'Verified' && !task.isFulfilled;
+}
+
+/**
+  what: reports whether an open task is a certificate.
+  how: matches the word certificate in the category or the title.
+  with what file: src/utils/readinessHelpers.ts used by summarizeTaskSections.
+*/
+export function isCertificateTask(task: AssuranceRequirement): boolean {
+  return /certificate/i.test(task.category) || /certificate/i.test(task.title);
+}
+
+/**
+  what: counts remaining tasks and certificates in each section and flags the heavy ones.
+  how: groups the set's tasks by sectionId, ignores other documents, and marks a section heavy at HEAVY_SECTION_OPEN_TASKS open tasks.
+  with what file: src/utils/readinessHelpers.ts used by AssuranceDetailView and ProjectDetailView.
+*/
+export function summarizeTaskSections(set: Pick<AssuranceSet, 'requirements' | 'sections'>): TaskSectionSummary[] {
+  const declared: TaskSection[] = set.sections?.length
+    ? [...set.sections]
+    : [{ id: 'general', name: 'General', order: 0 }];
+  const known = new Set(declared.map((section) => section.id));
+  const extras = new Map<string, TaskSection>();
+  for (const task of set.requirements) {
+    if (!task.sectionId || known.has(task.sectionId) || task.isOtherDocument) continue;
+    extras.set(task.sectionId, { id: task.sectionId, name: task.sectionId, order: declared.length + extras.size + 1 });
+  }
+  const sections = [...declared, ...extras.values()].sort((a, b) => a.order - b.order);
+  return sections.map((section) => {
+    const tasks = set.requirements.filter(
+      (task) => !task.isOtherDocument && (task.sectionId || 'general') === section.id,
+    );
+    const open = tasks.filter(isTaskOpen);
+    const openCertificates = open.filter(isCertificateTask);
+    return {
+      id: section.id,
+      name: section.name,
+      order: section.order,
+      remainingTasks: open.length,
+      remainingCertificates: openCertificates.length,
+      heavy: open.length >= HEAVY_SECTION_OPEN_TASKS,
+    };
+  });
 }

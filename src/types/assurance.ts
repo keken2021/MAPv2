@@ -139,6 +139,17 @@ export interface AssuranceRequirement {
   targetObjectId?: string;
   /** target date for this requirement/task (must fall on or before the set target date; BRD V4.2 change 6) */
   targetDate?: string;
+  /** section this task belongs to; matches TaskSection.id on the set */
+  sectionId?: string;
+  /** the one earlier task this task follows */
+  predecessorId?: string;
+}
+
+/** a named group of tasks on an assurance set; the critical-path chart is not part of this prototype */
+export interface TaskSection {
+  id: string;
+  name: string;
+  order: number;
 }
 
 /** short-term permission granted to a named client user to change target dates (BRD V4.2 change 6) */
@@ -271,6 +282,8 @@ export interface AssuranceSet {
   stage: AssuranceStage;
   readinessScore: number; // 0 - 100%
   requirements: AssuranceRequirement[];
+  /** ordered task groups; a task points at one of these with sectionId */
+  sections?: TaskSection[];
   verificationRequired?: boolean;
   mandatoryInspectionRequired: boolean;
   formalApprovalRequired?: boolean;

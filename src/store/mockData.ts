@@ -6,7 +6,7 @@
 
 import { Vessel } from '../types/vessel';
 import { AssuranceSet, AssuranceTemplate } from '../types/assurance';
-import { isAssuranceSetScopeDisabled } from '../utils/assuranceTemplates';
+import { isAssuranceSetScopeDisabled, INPEX_TASK_SECTIONS, inpexSectionTasks } from '../utils/assuranceTemplates';
 import { MasterDocument } from '../types/document';
 import { AuditTrailEvent, AuditTrailEventDraft, withStructuredAuditTarget } from '../types/audit';
 import {
@@ -1117,6 +1117,8 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     charterWindowStart: '2026-12-01',
     complianceDeadline: '2026-12-01',
     charterWindowEnd: '2027-06-01',
+    projectId: 'MAP-PROJ-2026-MARINE-016',
+    projectName: 'Ichthys Field Maintenance & Offloading Support',
     stage: 'Initiated',
     readinessScore: 10,
     mandatoryInspectionRequired: true,
@@ -1136,9 +1138,12 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         isFulfilled: false,
         ocrConfidence: 0,
         verifierStatus: 'Pending',
-        linkedDocumentId: ''
+        linkedDocumentId: '',
+        sectionId: 'sec-registry',
       },
+      ...inpexSectionTasks(),
     ],
+    sections: INPEX_TASK_SECTIONS,
     stakeholders: undefined,
     assignedStakeholders: undefined,
     createdByPersona: ''

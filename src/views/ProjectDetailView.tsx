@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Eye, Trash2, Plus, FolderPlus, Send } from "lucide-react";
+import { ChevronDown, Eye, Trash2, Plus, FolderPlus, Send } from "lucide-react";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { useMapStore } from "../store/useMapStore";
 import { ProjectAssetType } from "../types/project";
@@ -11,7 +11,7 @@ import {
   getStandaloneAssuranceSetsForAttach,
 } from "../utils/projectHelpers";
 import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
-import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
+import { calculateAssuranceSetReadiness, summarizeTaskSections } from "../utils/readinessHelpers";
 import { listCertificatesShortOfContract } from "../utils/documentRenewalHelpers";
 import { ProjectAddAssetModal } from "../components/modals/ProjectAddAssetModal";
 import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
@@ -53,6 +53,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [previewAssuranceSet, setPreviewAssuranceSet] =
     useState<AssuranceSet | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [openSectionSetId, setOpenSectionSetId] = useState<string | null>(null);
 
   const visibleProjects = useMemo(
     () =>
@@ -365,6 +366,68 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       )}
 
       {activeTab === "assurance" && (
+        <div className="d-flex flex-column gap-3">
+          {projectAssuranceSets.some((set) => (set.sections?.length ?? 0) > 0) && (
+            <div className="card map-card-custom">
+              <div className="card-header border-bottom p-3">
+                <div className="fw-bold text-dark">Task sections</div>
+                <div className="small text-secondary">
+                  Open a set to see its sections. A heavy section has three or more tasks still open.
+                </div>
+              </div>
+              <div className="list-group list-group-flush">
+                {projectAssuranceSets
+                  .filter((set) => (set.sections?.length ?? 0) > 0)
+                  .map((set) => {
+                    const sections = summarizeTaskSections(set);
+                    const open = openSectionSetId === set.id;
+                    const heavyCount = sections.filter((section) => section.heavy).length;
+                    return (
+                      <div key={set.id} className="list-group-item p-0">
+                        <button
+                          type="button"
+                          className="btn btn-link text-decoration-none text-dark w-100 d-flex align-items-center gap-2 p-3 text-start"
+                          aria-expanded={open}
+                          onClick={() => setOpenSectionSetId(open ? null : set.id)}
+                        >
+                          <ChevronDown
+                            size={16}
+                            className="flex-shrink-0"
+                            style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
+                          />
+                          <span className="font-mono-code text-primary">{set.id}</span>
+                          <span className="fw-semibold">{set.title}</span>
+                          <span className="small text-secondary">
+                            {sections.length} {sections.length === 1 ? "section" : "sections"}
+                            {" · "}
+                            {heavyCount} heavy
+                          </span>
+                        </button>
+                        {open && (
+                          <div className="px-3 pb-3">
+                            <div className="row g-2">
+                              {sections.map((section) => (
+                                <div className="col-md-6 col-xl-4" key={section.id}>
+                                  <div className={`border rounded p-2 h-100 ${section.heavy ? "border-warning bg-warning-subtle" : ""}`}>
+                                    <div className="d-flex align-items-center justify-content-between gap-2">
+                                      <span className="fw-semibold text-dark">{section.name}</span>
+                                      {section.heavy && <span className="badge bg-warning text-dark">Heavy</span>}
+                                    </div>
+                                    <div className="small text-secondary mt-1">
+                                      {section.remainingTasks} {section.remainingTasks === 1 ? "task" : "tasks"} open · {section.remainingCertificates} {section.remainingCertificates === 1 ? "certificate" : "certificates"} open
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
         <div className="card map-card-custom">
           <div className="table-responsive">
             <table className="table map-table-custom mb-0">
@@ -494,6 +557,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </div>
             </div>
           )}
+        </div>
         </div>
       )}
 

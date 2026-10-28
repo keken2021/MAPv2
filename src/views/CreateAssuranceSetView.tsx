@@ -60,6 +60,7 @@ import {
   equipmentToAssuranceObject,
   SEEDED_OPERATIONAL_OBJECTS,
   getAssuranceSetObjects,
+  placeTasksInSections,
 } from '../utils/assuranceTemplates';
 import {
   autoAttachDocumentsToRequirements,
@@ -1263,6 +1264,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     });
 
+    const placedTasks = placeTasksInSections(finalRequirements);
+    finalRequirements.splice(0, finalRequirements.length, ...placedTasks.requirements);
+
     const ownerOrg = charterer.trim() || clientOrg;
     const effectiveCharterer = ownerOrg;
     /* a request keeps the creating organization as initiator while the client is the project client */
@@ -1432,6 +1436,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       serviceProviderOrg: appointedProviderOrg,
       clientOrg: ownerOrg,
       requirements: effectiveRequirements,
+      sections: placedTasks.sections,
       stakeholders: appointedStakeholders,
       assignedStakeholders: undefined,
       createdByPersona: 'C Admin',
@@ -1576,6 +1581,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     });
 
+    const placedTasks = placeTasksInSections(finalRequirements);
+    finalRequirements.splice(0, finalRequirements.length, ...placedTasks.requirements);
+
     const ownerOrg = charterer.trim() || clientOrg;
     const effectiveCharterer = ownerOrg;
     /* a request keeps the creating organization as initiator while the client is the project client */
@@ -1703,6 +1711,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       serviceProviderOrg: appointedProviderOrg,
       clientOrg: ownerOrg,
       requirements: effectiveRequirements,
+      sections: placedTasks.sections,
       stakeholders: appointedStakeholders,
       assignedStakeholders: undefined,
       createdByPersona: 'C Admin',

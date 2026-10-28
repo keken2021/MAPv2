@@ -4,7 +4,7 @@
   role in system: consumed by CreateAssuranceSetView.tsx during assurance set initiation; a set covers one asset, or one or more crew members on a crew set (ADR 0004, amended by ADR 0023).
 */
 
-import { AssuranceSet, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory, AssuranceObject, AssuranceObjectType } from '../types/assurance';
+import { AssuranceSet, AssuranceRequirement, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory, AssuranceObject, AssuranceObjectType, TaskSection } from '../types/assurance';
 
 /* every scope the data model knows, in display order */
 const ALL_ASSURANCE_SCOPES: AssuranceSubtype[] = ['Vessel', 'Crew', 'Activity', 'Equipment'];
@@ -458,6 +458,122 @@ export interface SubtypeTemplate {
 }
 
 /** People and Process omit the vessel subtype so the category sets the pillar. Plant stays on the vessel. */
+const CATEGORY_SECTIONS: { match: RegExp; name: string }[] = [
+  { match: /class/i, name: 'Class' },
+  { match: /safety|lifesaving|equipment/i, name: 'Safety equipment' },
+  { match: /environment|iopp|marpol/i, name: 'Environmental' },
+  { match: /crew|competency|medical/i, name: 'Crew certificates' },
+  { match: /insurance/i, name: 'Insurance' },
+  { match: /emergency|contingency/i, name: 'Emergency' },
+  { match: /mooring|berth|towage/i, name: 'Berthing' },
+  { match: /operational|method|risk|simops|activity|plan/i, name: 'Operations' },
+  { match: /registry|statutory/i, name: 'Registry' },
+];
+
+/**
+  what: returns the section name for a task category.
+  how: matches the category against the section list and otherwise uses General.
+  with what file: src/utils/assuranceTemplates.ts used by placeTasksInSections.
+*/
+export function sectionNameForCategory(category: string): string {
+  return CATEGORY_SECTIONS.find((row) => row.match.test(category))?.name ?? 'General';
+}
+
+function sectionIdForName(name: string): string {
+  return `sec-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+}
+
+/**
+  what: places each task in a section and gives it one predecessor inside that section.
+  how: keeps a section and predecessor already stored on the task, and otherwise groups by category and points each later task at the previous one in the same section.
+  with what file: src/utils/assuranceTemplates.ts used by the create wizard.
+*/
+export function placeTasksInSections(requirements: AssuranceRequirement[]): {
+  requirements: AssuranceRequirement[];
+  sections: TaskSection[];
+} {
+  const sectionOrder: string[] = [];
+  const sectionNames = new Map<string, string>();
+  const drafted = requirements.map((task) => {
+    const name = task.sectionId
+      ? (sectionNames.get(task.sectionId) ?? task.sectionId)
+      : sectionNameForCategory(task.category);
+    const sectionId = task.sectionId ?? sectionIdForName(name);
+    if (!sectionNames.has(sectionId)) {
+      sectionNames.set(sectionId, task.sectionId ? name : sectionNameForCategory(task.category));
+      if (!task.sectionId) sectionNames.set(sectionId, name);
+      sectionOrder.push(sectionId);
+    }
+    return { ...task, sectionId };
+  });
+  const previousInSection = new Map<string, string>();
+  const placed = drafted.map((task) => {
+    const sectionId = task.sectionId as string;
+    const predecessorId = task.predecessorId ?? previousInSection.get(sectionId);
+    previousInSection.set(sectionId, task.id);
+    return predecessorId ? { ...task, predecessorId } : task;
+  });
+  const sections: TaskSection[] = sectionOrder.map((id, index) => ({
+    id,
+    name: sectionNames.get(id) ?? id,
+    order: index + 1,
+  }));
+  return { requirements: placed, sections };
+}
+
+/** ten sections for the Inpex inspection set, three of them heavy */
+export const INPEX_TASK_SECTIONS: TaskSection[] = [
+  { id: 'sec-registry', name: 'Registry', order: 1 },
+  { id: 'sec-class', name: 'Class', order: 2 },
+  { id: 'sec-safety', name: 'Safety equipment', order: 3 },
+  { id: 'sec-environmental', name: 'Environmental', order: 4 },
+  { id: 'sec-crew', name: 'Crew certificates', order: 5 },
+  { id: 'sec-medical', name: 'Medical', order: 6 },
+  { id: 'sec-insurance', name: 'Insurance', order: 7 },
+  { id: 'sec-operations', name: 'Operations', order: 8 },
+  { id: 'sec-emergency', name: 'Emergency', order: 9 },
+  { id: 'sec-berthing', name: 'Berthing', order: 10 },
+];
+
+/**
+  what: returns the extra tasks for the ten-section Inpex inspection set.
+  how: builds open tasks, three to a heavy section, and stores one predecessor on each task after the first in its section.
+  with what file: src/utils/assuranceTemplates.ts used by mockData.ts.
+*/
+export function inpexSectionTasks(): AssuranceRequirement[] {
+  const groups: { sectionId: string; category: AssuranceRequirementCategory; titles: string[] }[] = [
+    { sectionId: 'sec-class', category: 'Class Notation Certificate', titles: ['Class status report', 'Class notation endorsement', 'Machinery class survey'] },
+    { sectionId: 'sec-safety', category: 'Safety & Lifesaving Equipment', titles: ['Safety equipment certificate', 'Liferaft certificate', 'Fire appliance certificate'] },
+    { sectionId: 'sec-environmental', category: 'Environmental Certificate', titles: ['IOPP certificate'] },
+    { sectionId: 'sec-crew', category: 'Crew Credential', titles: ['Crew certificate list'] },
+    { sectionId: 'sec-medical', category: 'Medical Fitness Certificate', titles: ['Medical fitness certificate'] },
+    { sectionId: 'sec-insurance', category: 'Operational Plan', titles: ['P&I insurance cover'] },
+    { sectionId: 'sec-operations', category: 'Operational Plan', titles: ['Field method statement', 'Risk assessment', 'SIMOPS agreement'] },
+    { sectionId: 'sec-emergency', category: 'Emergency Contingency Protocol', titles: ['Emergency response plan'] },
+    { sectionId: 'sec-berthing', category: 'Mooring & Towage Analysis', titles: ['Berthing procedure'] },
+  ];
+  const tasks: AssuranceRequirement[] = [];
+  for (const group of groups) {
+    group.titles.forEach((title, index) => {
+      const id = `REQ-${group.sectionId}-${index + 1}`;
+      tasks.push({
+        id,
+        category: group.category,
+        title,
+        sectionId: group.sectionId,
+        predecessorId: index === 0 ? undefined : `REQ-${group.sectionId}-${index}`,
+        isMandatory: true,
+        isFulfilled: false,
+        ocrConfidence: 0,
+        verifierStatus: 'Pending',
+      });
+    });
+  }
+  const berthing = tasks.find((task) => task.id === 'REQ-sec-berthing-1');
+  if (berthing) berthing.predecessorId = 'REQ-sec-emergency-1';
+  return tasks;
+}
+
 export function customRequirementFields(task: TemplateCustomRequirement): {
   category: AssuranceRequirementCategory;
   requirementSubtype: AssuranceSubtype | null;
