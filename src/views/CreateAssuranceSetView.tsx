@@ -20,7 +20,6 @@ import { UserProfile } from '../types/user';
 import { CrewMember } from '../types/crew';
 import {
   filterCAdminAvailableToCharter,
-  filterVesselAdminAvailableToCharter,
   getClientAdminOrganization,
   orgFieldMatches,
 } from '../utils/rbacHelpers';
@@ -206,16 +205,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     requestContext?.assigneeName ||
     users.find((u) => u.id === activeSessionUserId)?.name ||
     users.find((u) => u.roles.includes(activePersona) && u.organization === activeDemoOrganization)?.name;
-  const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
   const clientOrg = getClientAdminOrganization(users, clientOrgHint);
 
-  const availableVessels = isClientAdmin
-    ? filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg)
-    : isVesselAdmin
-      ? filterVesselAdminAvailableToCharter(vessels)
-      : vessels;
+  const availableVessels = filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg);
 
-  const defaultCharterer = isClientAdmin ? clientOrg : 'Northwind Marine Pty Ltd';
+  const defaultCharterer = clientOrg;
   /* an invited organization creating from a request is the client; other requests keep the project client */
   const setClientOrg = resolveAssuranceRequestSetClient(defaultCharterer, requestContext);
   const titleOrg = setClientOrg;
@@ -1140,7 +1134,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     });
 
-    const ownerOrg = charterer.trim() || (isClientAdmin ? clientOrg : defaultCharterer);
+    const ownerOrg = charterer.trim() || clientOrg;
     const effectiveCharterer = ownerOrg;
     /* a request keeps the creating organization as initiator while the client is the project client */
     const initiatorOrg = requestContext ? defaultCharterer : ownerOrg;
@@ -1241,7 +1235,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       vesselName: effectiveAssetName,
       imoNumber: effectiveImo,
       initiatorOrg,
-      initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
+      initiatorRole: 'C Admin · Client Created',
       charterer: effectiveCharterer,
       charterWindowStart: startDate,
       charterWindowEnd: endDate,
@@ -1274,9 +1268,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       requirements: effectiveRequirements,
       stakeholders: appointedStakeholders,
       assignedStakeholders: undefined,
-      createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
+      createdByPersona: 'C Admin',
       createdByName: creatorName,
-      clientWorkflowStage: isClientAdmin ? 'draft' : undefined,
+      clientWorkflowStage: 'draft',
     };
 
     newSet.readinessScore = calculateAssuranceSetReadiness(newSet);
@@ -1413,7 +1407,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     });
 
-    const ownerOrg = charterer.trim() || (isClientAdmin ? clientOrg : defaultCharterer);
+    const ownerOrg = charterer.trim() || clientOrg;
     const effectiveCharterer = ownerOrg;
     /* a request keeps the creating organization as initiator while the client is the project client */
     const initiatorOrg = requestContext ? defaultCharterer : ownerOrg;
@@ -1497,7 +1491,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       vesselName: effectiveAssetName,
       imoNumber: effectiveImo,
       initiatorOrg,
-      initiatorRole: isClientAdmin ? 'C Admin · Client Created' : 'Vessel Provider Admin',
+      initiatorRole: 'C Admin · Client Created',
       charterer: effectiveCharterer,
       charterWindowStart: startDate || initialPeriod.start,
       charterWindowEnd: endDate || initialPeriod.end,
@@ -1530,9 +1524,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       requirements: effectiveRequirements,
       stakeholders: appointedStakeholders,
       assignedStakeholders: undefined,
-      createdByPersona: isClientAdmin ? 'C Admin' : 'Administrator',
+      createdByPersona: 'C Admin',
       createdByName: creatorName,
-      clientWorkflowStage: isClientAdmin ? 'draft' : undefined,
+      clientWorkflowStage: 'draft',
       internalDeployment: isInternalDeployment,
     };
 
@@ -1576,7 +1570,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       setCurrentHashView('project', lockedProjectId);
       return;
     }
-    setCurrentHashView(isClientAdmin || previousHashView === 'dashboard' ? 'dashboard' : 'assurance-sets');
+    setCurrentHashView(previousHashView === 'dashboard' ? 'dashboard' : 'assurance-sets');
   };
 
   /* label of an asset already contracted in the chosen period, with the dates of the set that holds it */

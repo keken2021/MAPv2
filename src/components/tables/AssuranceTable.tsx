@@ -79,7 +79,6 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const isReadOnly = isAssuranceSetsReadOnlyPersona(activePersona);
   const canInitiate =
     !isReadOnly &&
-    (activePersona === 'Administrator' ||
     canPerform(
       rolePermissionDefaults,
       userPermissionOverrides,
@@ -88,7 +87,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
       'assurance_sets',
       'create',
       customScopes,
-    ));
+    );
 
   const accessibleSets = assuranceSets.filter(
     (s) =>

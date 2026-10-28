@@ -835,9 +835,18 @@ export function isViewAccessibleToPersona(
     return persona === "Administrator";
   }
 
-  /* workflow roles never reach the creation wizard, whatever the matrix grants */
-  if (view === "create-assurance-set" && isAssuranceSetsReadOnlyPersona(persona)) {
-    return false;
+  /* creation wizard is client-only: requires create right on assurance_sets; workflow roles and vendors cannot access */
+  if (view === "create-assurance-set") {
+    if (isAssuranceSetsReadOnlyPersona(persona)) {
+      return false;
+    }
+    if (matrix) {
+      if (user && isUserOverride(overrides || {}, user.id, "assurance_sets", "create")) {
+        return getEffectiveUserScopeFlags(matrix, overrides || {}, user, "assurance_sets").create;
+      }
+      return getRoleScopeFlags(matrix, persona, "assurance_sets").create;
+    }
+    return persona === "C Admin";
   }
 
   /* marketplace is for vessel admin and client admin only, whatever the matrix grants */

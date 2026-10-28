@@ -269,7 +269,8 @@ function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
       return emptyCrud();
 
     case 'assurance_sets':
-      if (role === 'Administrator') return createReadUpdate();
+      /* only the client creates and administers a set; vendors see sets they must answer */
+      if (role === 'Administrator') return readOnly();
       if (role === 'C Admin') return createReadUpdate();
       if (role === 'Submitter' || role === 'Verifier' || role === 'Inspector' || role === 'Approver') return readOnly();
       return emptyCrud();

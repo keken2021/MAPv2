@@ -41,9 +41,9 @@ describe('assurance sets page access for workflow roles', () => {
     });
   });
 
-  it('keeps administrator and c admin access unchanged', () => {
+  it('allows C Admin to create assurance sets while keeping creation closed to Administrator', () => {
     expect(isViewAccessibleToPersona('assurance-sets', undefined, 'Administrator', matrix)).toBe(true);
-    expect(isViewAccessibleToPersona('create-assurance-set', undefined, 'Administrator', matrix)).toBe(true);
+    expect(isViewAccessibleToPersona('create-assurance-set', undefined, 'Administrator', matrix)).toBe(false);
     expect(isViewAccessibleToPersona('create-assurance-set', undefined, 'C Admin', matrix)).toBe(true);
     expect(isViewAccessibleToPersona('project', undefined, 'C Admin', matrix)).toBe(true);
   });

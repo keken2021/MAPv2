@@ -56,6 +56,19 @@ describe('permissionDefaults and helpers', () => {
     });
   });
 
+  it('restricts assurance_sets creation to client group (C Admin) and keeps Administrator read-only while allowing vessel/equipment registration', () => {
+    expect(getRoleScopeFlags(matrix, 'Administrator', 'assurance_sets')).toEqual({
+      create: false,
+      read: true,
+      update: false,
+      delete: false,
+    });
+    expect(isBrdHardDenied('Administrator', 'assurance_sets', 'create')).toBe(true);
+    // Vendor object registration remains allowed
+    expect(getRoleScopeFlags(matrix, 'Administrator', 'vessels').create).toBe(true);
+    expect(getRoleScopeFlags(matrix, 'Administrator', 'equipment').create).toBe(true);
+  });
+
   it('keeps Verifier post-inspection review as read-only; update stays locked', () => {
     expect(getRoleScopeFlags(matrix, 'Verifier', 'post_inspection_review')).toEqual({
       create: false,

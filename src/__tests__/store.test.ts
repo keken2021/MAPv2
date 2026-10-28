@@ -314,9 +314,9 @@ describe('Map Store State Management', () => {
     expect(updated?.readinessScore).toBe(100);
   });
 
-  it('should allow C Admin (Client Admin) to access create-assurance-set view', () => {
+  it('should allow C Admin (Client Admin) to access create-assurance-set view and deny vendor personas', () => {
     expect(isViewAccessibleToPersona('create-assurance-set', undefined, 'C Admin')).toBe(true);
-    expect(isViewAccessibleToPersona('create-assurance-set', undefined, 'Administrator')).toBe(true);
+    expect(isViewAccessibleToPersona('create-assurance-set', undefined, 'Administrator')).toBe(false);
     expect(isViewAccessibleToPersona('create-assurance-set', undefined, 'Submitter')).toBe(false);
     expect(isViewAccessibleToPersona('create-assurance-set', undefined, 'Verifier')).toBe(false);
   });
