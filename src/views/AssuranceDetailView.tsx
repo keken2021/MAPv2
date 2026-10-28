@@ -12,6 +12,7 @@ import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { formatMaritimeDate, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
+import { setOrganizationParties } from '../utils/projectHelpers';
 import {
   toIsoLocalDate,
   validateCharterWindow,
@@ -37,6 +38,7 @@ import {
   getSessionUserForPersona,
 } from '../utils/userRoleHelpers';
 import { calculateAssuranceSetReadiness, summarizeTaskSections } from '../utils/readinessHelpers';
+import TaskSectionCards from '../components/common/TaskSectionCards';
 import {
   canEditAssuranceSetStakeholders,
   getAssuranceSetRoleActions,
@@ -228,6 +230,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const clientOwnerOrg =
     assuranceSet?.clientOrg || assuranceSet?.charterer || assuranceSet?.initiatorOrg || '';
   const serviceProviderOrg = assuranceSet?.serviceProviderOrg;
+  const organizationParties = assuranceSet ? setOrganizationParties(assuranceSet) : [];
 
   const verifierCandidates = useMemo(
     () =>
@@ -1117,6 +1120,22 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <div className="fw-bold text-dark">{serviceProviderOrg}</div>
                     </div>
                   )}
+                  {organizationParties.length > 0 && (
+                    <div className="map-detail-row border-bottom pb-2">
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Organizations</div>
+                      <ul className="list-unstyled mb-0 mt-1">
+                        {organizationParties.map((party) => (
+                          <li
+                            key={`${party.organization}-${party.group}`}
+                            className="d-flex justify-content-between align-items-center gap-2 py-1"
+                          >
+                            <span className="fw-bold text-dark">{party.organization}</span>
+                            <span className="badge bg-light text-dark border">{party.group}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <div className="map-detail-row border-bottom pb-2">
                     <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Scope:</div>
                     <div className="fw-bold text-dark">{assuredAsset.typeLabel}</div>
@@ -1572,21 +1591,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           {sectionsOpen && (
             <div className="card-body border-top">
               <div className="small text-secondary mb-2">Open tasks and certificates in each section. A heavy section has three or more tasks still open.</div>
-              <div className="row g-2">
-                {sectionSummaries.map((section) => (
-                  <div className="col-md-6 col-xl-4" key={section.id}>
-                    <div className={`border rounded p-2 h-100 ${section.heavy ? 'border-warning bg-warning-subtle' : ''}`}>
-                      <div className="d-flex align-items-center justify-content-between gap-2">
-                        <span className="fw-semibold text-dark">{section.name}</span>
-                        {section.heavy && <span className="badge bg-warning text-dark">Heavy</span>}
-                      </div>
-                      <div className="small text-secondary mt-1">
-                        {section.remainingTasks} {section.remainingTasks === 1 ? 'task' : 'tasks'} open · {section.remainingCertificates} {section.remainingCertificates === 1 ? 'certificate' : 'certificates'} open
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <TaskSectionCards set={assuranceSet} />
             </div>
           )}
         </div>

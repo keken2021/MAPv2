@@ -4,7 +4,18 @@
   role in system: consumed by project views, store, and assurance rollup sync.
 */
 
-import { AssuranceProject } from './assurance';
+import { AssuranceProject, OrganizationGroup, OrganizationParty } from './assurance';
+
+export type { OrganizationGroup, OrganizationParty };
+
+/** place in the commercial chain. A head contractor's group is still Vendor. */
+export type ContractChainRole = 'client' | 'head_contractor' | 'vendor';
+
+export interface ContractParty extends OrganizationParty {
+  chainRole?: ContractChainRole;
+}
+
+export const PROJECT_CURRENCIES = ['AUD', 'USD', 'EUR', 'GBP'] as const;
 
 export type ProjectStatus =
   | 'Draft'
@@ -79,6 +90,19 @@ export interface Project extends AssuranceProject {
   invitedOrganizations?: string[];
   assetLinks: ProjectAssetLink[];
   readinessScore?: number;
+  /** client, head contractor, vendor, and any other party, each with a group */
+  contractParties?: ContractParty[];
+  /** commercial value of the project */
+  projectValue?: number | null;
+  currency?: string;
+  /** multi-year commercial term, separate from the operational project window */
+  multiYearStart?: string;
+  multiYearEnd?: string;
+  /**
+   * Shared on-hire date. A-02 is not confirmed, so the screen always marks this pending
+   * and does not copy it onto the project's sets.
+   */
+  onHireDate?: string;
   /** Service / rental projects */
   serviceProvider?: string;
   workOrderRef?: string;

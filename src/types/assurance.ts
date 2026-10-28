@@ -47,6 +47,14 @@ export interface AssuranceObject {
 
 export type ReviewMode = 'internal' | 'third_party' | 'issuing_authority' | 'mixed';
 export type ReviewChannel = 'internal' | 'third_party' | 'issuing_authority';
+
+/** group of an organization on a project or a set. Labels are not confirmed as final names. */
+export type OrganizationGroup = 'Client' | 'Vendor' | 'Third party';
+
+export interface OrganizationParty {
+  organization: string;
+  group: OrganizationGroup;
+}
 export type AuthorityValidationMethod = 'api' | 'direct_link' | 'manual';
 
 /** How a requirement is fulfilled: document upload or link to another assurance set */
@@ -315,6 +323,8 @@ export interface AssuranceSet {
   serviceProviderOrg?: string;
   /** initiating client organization that owns the assurance set */
   clientOrg?: string;
+  /** organizations on this set, each placed as Client, Vendor, or Third party */
+  parties?: OrganizationParty[];
   /** true when C Admin runs assurance on their own fleet (internal deployment, not third-party charter) */
   internalDeployment?: boolean;
   /** C Admin workflow: draft until sent for review; client owns final approval */

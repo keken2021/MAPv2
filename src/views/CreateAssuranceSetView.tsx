@@ -74,7 +74,7 @@ import {
   type ContractPeriodConflict,
 } from '../utils/assuranceOverlap';
 import { formatMaritimeDate } from '../utils/formatters';
-import { filterProjectsForPersona, projectToAssuranceProjectScope, withProjectVessels } from '../utils/projectHelpers';
+import { filterProjectsForPersona, projectToAssuranceProjectScope, setOrganizationParties, withProjectVessels } from '../utils/projectHelpers';
 import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
@@ -1435,6 +1435,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
       serviceProviderOrg: appointedProviderOrg,
       clientOrg: ownerOrg,
+      parties: setOrganizationParties({ clientOrg: ownerOrg, serviceProviderOrg: appointedProviderOrg }),
       requirements: effectiveRequirements,
       sections: placedTasks.sections,
       stakeholders: appointedStakeholders,
@@ -1710,6 +1711,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
       serviceProviderOrg: appointedProviderOrg,
       clientOrg: ownerOrg,
+      parties: setOrganizationParties({ clientOrg: ownerOrg, serviceProviderOrg: appointedProviderOrg }),
       requirements: effectiveRequirements,
       sections: placedTasks.sections,
       stakeholders: appointedStakeholders,

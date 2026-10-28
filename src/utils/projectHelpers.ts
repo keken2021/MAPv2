@@ -9,7 +9,10 @@ import { EXISTING_PROJECTS, getAssuranceSetCrewIds } from './assuranceTemplates'
 import { UserRolePersona } from '../types/audit';
 import { CrewMember } from '../types/crew';
 import { EquipmentAsset } from '../types/equipment';
+import { OrganizationParty } from '../types/assurance';
 import {
+  ContractChainRole,
+  ContractParty,
   Project,
   ProjectAssetLink,
   ProjectType,
@@ -71,6 +74,73 @@ export function getProjectEffectiveCharterer(project: Project): string {
 */
 export function getProjectClientOrganization(project: Project): string {
   return project.ownerOrganization?.trim() || getProjectEffectiveCharterer(project);
+}
+
+export const CONTRACT_CHAIN_LABELS: Record<ContractChainRole, string> = {
+  client: 'Client',
+  head_contractor: 'Head contractor',
+  vendor: 'Vendor',
+};
+
+const sameOrganization = (left: string, right: string) =>
+  left.trim().toLowerCase() === right.trim().toLowerCase();
+
+/**
+  what: builds the project party list from the chain and any extra organizations.
+  how: client, head contractor, and vendor are recorded once; a repeated name is kept on its first role.
+  with what file: src/utils/projectHelpers.ts used by CreateProjectView.tsx and useMapStore.ts.
+*/
+export function buildContractParties(input: {
+  client: string;
+  headContractor?: string;
+  vendor?: string;
+  extraParties?: OrganizationParty[];
+}): ContractParty[] {
+  const parties: ContractParty[] = [];
+  const add = (organization: string | undefined, group: OrganizationParty['group'], chainRole?: ContractChainRole) => {
+    const name = organization?.trim();
+    if (!name) return;
+    if (parties.some((party) => sameOrganization(party.organization, name))) return;
+    parties.push({ organization: name, group, ...(chainRole ? { chainRole } : {}) });
+  };
+  add(input.client, 'Client', 'client');
+  add(input.headContractor, 'Vendor', 'head_contractor');
+  add(input.vendor, 'Vendor', 'vendor');
+  for (const extra of input.extraParties ?? []) add(extra.organization, extra.group);
+  return parties;
+}
+
+export function contractPartyByRole(
+  parties: ContractParty[] | undefined,
+  role: ContractChainRole,
+): ContractParty | undefined {
+  return parties?.find((party) => party.chainRole === role);
+}
+
+/**
+  what: organizations on a set with their group.
+  how: uses the recorded party list, otherwise the client and the vendor already stored on the set.
+  with what file: src/utils/projectHelpers.ts used by AssuranceDetailView.tsx and CreateAssuranceSetView.tsx.
+*/
+export function setOrganizationParties(
+  set: Pick<AssuranceSet, 'parties' | 'clientOrg' | 'charterer' | 'serviceProviderOrg'>,
+): OrganizationParty[] {
+  if (set.parties?.length) return set.parties;
+  const parties: OrganizationParty[] = [];
+  const client = set.clientOrg?.trim() || set.charterer?.trim();
+  if (client) parties.push({ organization: client, group: 'Client' });
+  const vendor = set.serviceProviderOrg?.trim();
+  if (vendor && (!client || !sameOrganization(vendor, client))) {
+    parties.push({ organization: vendor, group: 'Vendor' });
+  }
+  return parties;
+}
+
+export function formatProjectValue(value: number | null | undefined, currency?: string): string {
+  if (value == null || Number.isNaN(value)) return '';
+  const code = currency?.trim() || 'USD';
+  const amount = new Intl.NumberFormat('en-AU', { maximumFractionDigits: 0 }).format(value);
+  return `${code} ${amount}`;
 }
 
 export function getProjectOrganizationForPersona(

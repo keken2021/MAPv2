@@ -90,6 +90,7 @@ import {
 } from "../utils/demoSessionHelpers";
 import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import {
+  ContractParty,
   Project,
   ProjectAssetLink,
   ProjectAssetType,
@@ -246,6 +247,12 @@ export interface MapStoreState {
     workOrderRef?: string;
     workLocationType?: WorkLocationType;
     primaryVesselId?: string;
+    contractParties?: ContractParty[];
+    projectValue?: number | null;
+    currency?: string;
+    multiYearStart?: string;
+    multiYearEnd?: string;
+    onHireDate?: string;
     assetLinks?: Omit<
       ProjectAssetLink,
       "id" | "projectId" | "addedAt" | "addedByPersona"
@@ -1355,6 +1362,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       status: "Composing",
       operatorOrganization: input.operatorOrganization,
       assetLinks,
+      contractParties: input.contractParties,
+      projectValue: input.projectValue ?? null,
+      currency: input.currency,
+      multiYearStart: input.multiYearStart,
+      multiYearEnd: input.multiYearEnd,
+      onHireDate: input.onHireDate,
       serviceProvider: input.serviceProvider,
       workOrderRef: input.workOrderRef,
       workLocationType: input.workLocationType,

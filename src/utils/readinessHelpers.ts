@@ -492,3 +492,29 @@ export function summarizeTaskSections(set: Pick<AssuranceSet, 'requirements' | '
     };
   });
 }
+
+/**
+  what: gives the plain status of an open task for the section card.
+  how: a task with no document is Not submitted; otherwise the verifier status is used, and Pending reads as Awaiting verification.
+  with what file: src/utils/readinessHelpers.ts used by TaskSectionCards.
+*/
+export function openTaskStatusLabel(task: AssuranceRequirement): string {
+  if (task.verifierStatus === 'Correction Requested') return 'Correction requested';
+  if (task.verifierStatus === 'Rejected') return 'Rejected';
+  if (!task.documentId && !task.linkedDocumentId && task.fulfillmentType !== 'assurance_set') return 'Not submitted';
+  return 'Awaiting verification';
+}
+
+/**
+  what: lists the tasks still open in one section, so a section count can be traced to its tasks.
+  how: uses the same section match and open rule as summarizeTaskSections.
+  with what file: src/utils/readinessHelpers.ts used by TaskSectionCards.
+*/
+export function listOpenTasksInSection(
+  set: Pick<AssuranceSet, 'requirements'>,
+  sectionId: string,
+): AssuranceRequirement[] {
+  return set.requirements.filter(
+    (task) => !task.isOtherDocument && (task.sectionId || 'general') === sectionId && isTaskOpen(task),
+  );
+}

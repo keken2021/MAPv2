@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { AssuranceRequirement } from '../types/assurance';
 import { placeTasksInSections } from '../utils/assuranceTemplates';
-import { summarizeTaskSections } from '../utils/readinessHelpers';
+import { listOpenTasksInSection, openTaskStatusLabel, summarizeTaskSections } from '../utils/readinessHelpers';
 import { MOCK_ASSURANCE_SETS } from '../store/mockData';
 
 function task(id: string, category: string): AssuranceRequirement {
@@ -73,5 +73,20 @@ describe('task sections and predecessors', () => {
     const berthing = set?.requirements.find((item) => item.id === 'REQ-sec-berthing-1');
     expect(berthing?.sectionId).toBe('sec-berthing');
     expect(berthing?.predecessorId).toBe('REQ-sec-emergency-1');
+  });
+
+  it('lists the open tasks behind a section count, with a plain status', () => {
+    const set = MOCK_ASSURANCE_SETS.find((item) => item.id === 'AS-2026-003')!;
+    const summary = summarizeTaskSections(set);
+
+    for (const section of summary) {
+      const open = listOpenTasksInSection(set, section.id);
+      expect(open).toHaveLength(section.remainingTasks);
+    }
+
+    const registryTask = listOpenTasksInSection(set, summary.find((s) => s.name === 'Registry')!.id)[0];
+    expect(['Not submitted', 'Awaiting verification', 'Correction requested', 'Rejected']).toContain(
+      openTaskStatusLabel(registryTask),
+    );
   });
 });

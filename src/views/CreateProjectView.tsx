@@ -10,6 +10,7 @@ import { useMapStore } from "../store/useMapStore";
 import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
 import { AssuranceSet } from "../types/assurance";
 import {
+  PROJECT_CURRENCIES,
   PROJECT_TYPE_OPTIONS,
   ProjectAssetType,
   ProjectRiskProfile,
@@ -18,6 +19,7 @@ import {
   WorkLocationType,
 } from "../types/project";
 import {
+  buildContractParties,
   buildDraftAssetLinksFromAssuranceSets,
   DraftProjectAssetLink,
   getAssuranceSetsForProjectCreation,
@@ -82,6 +84,33 @@ export const CreateProjectView: React.FC = () => {
     "Oceanic Subsea Services",
   );
   const [workOrderRef, setWorkOrderRef] = useState("WO-2026-MAR-0412");
+  const [headContractor, setHeadContractor] = useState("");
+  const [vendor, setVendor] = useState("");
+  /** vendors and third parties beyond the chain; each keeps the group it was added with */
+  const [otherParties, setOtherParties] = useState<
+    { organization: string; group: "Vendor" | "Third party" }[]
+  >([]);
+  const [otherPartyName, setOtherPartyName] = useState("");
+  const [otherPartyGroup, setOtherPartyGroup] = useState<"Vendor" | "Third party">("Third party");
+  const [otherPartyNote, setOtherPartyNote] = useState("");
+
+  const addOtherParty = () => {
+    const organization = otherPartyName.trim();
+    if (!organization) return;
+    const taken = [requestingOrganization, headContractor, vendor, ...otherParties.map((p) => p.organization)];
+    if (taken.some((name) => name.trim().toLowerCase() === organization.toLowerCase())) {
+      setOtherPartyNote(`${organization} is already on this project.`);
+      return;
+    }
+    setOtherParties((current) => [...current, { organization, group: otherPartyGroup }]);
+    setOtherPartyName("");
+    setOtherPartyNote("");
+  };
+  const [projectValue, setProjectValue] = useState("");
+  const [currency, setCurrency] = useState<(typeof PROJECT_CURRENCIES)[number]>("AUD");
+  const [multiYearStart, setMultiYearStart] = useState("");
+  const [multiYearEnd, setMultiYearEnd] = useState("");
+  const [onHireDate, setOnHireDate] = useState("");
   const [workLocationType, setWorkLocationType] =
     useState<WorkLocationType>("Onboard");
   const [primaryVesselId, setPrimaryVesselId] = useState("");
@@ -187,6 +216,18 @@ export const CreateProjectView: React.FC = () => {
     }
     if (!projectWindowStart || !projectWindowEnd) {
       setError("Project window start and end dates are required.");
+      return false;
+    }
+    if (projectValue.trim() && !Number.isFinite(Number(projectValue))) {
+      setError("Project value must be a number.");
+      return false;
+    }
+    if ((multiYearStart && !multiYearEnd) || (!multiYearStart && multiYearEnd)) {
+      setError("Enter both multi-year dates, or leave both empty.");
+      return false;
+    }
+    if (multiYearStart && multiYearEnd && multiYearEnd < multiYearStart) {
+      setError("The multi-year end date must be on or after the start date.");
       return false;
     }
     if (showRoute && !routeDescription.trim()) {
@@ -327,6 +368,17 @@ export const CreateProjectView: React.FC = () => {
         : undefined,
       workLocationType: showServiceFields ? workLocationType : undefined,
       primaryVesselId: primaryVesselId || undefined,
+      contractParties: buildContractParties({
+        client: requestingOrganization.trim(),
+        headContractor,
+        vendor: vendor.trim() || (showServiceFields ? serviceProvider.trim() : ""),
+        extraParties: otherParties,
+      }),
+      projectValue: projectValue.trim() ? Number(projectValue) : null,
+      currency,
+      multiYearStart: multiYearStart || undefined,
+      multiYearEnd: multiYearEnd || undefined,
+      onHireDate: onHireDate || undefined,
       assetLinks: draftLinks.map(
         ({
           assetType,
@@ -448,6 +500,147 @@ export const CreateProjectView: React.FC = () => {
                 value={projectWindowEnd}
                 onChange={(e) => setProjectWindowEnd(e.target.value)}
               />
+            </div>
+
+            <div className="col-12">
+              <div className="fw-semibold small">Contract</div>
+              <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                Record the chain and each organization's group. This is a party list, not a directory of accounts.
+              </div>
+            </div>
+            <div className="col-md-4">
+              <label className="form-label small fw-semibold">Head contractor</label>
+              <input
+                className="form-control form-control-sm"
+                value={headContractor}
+                onChange={(e) => setHeadContractor(e.target.value)}
+                placeholder="Organization contracted by the client"
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label small fw-semibold">Vendor</label>
+              <input
+                className="form-control form-control-sm"
+                value={vendor}
+                onChange={(e) => setVendor(e.target.value)}
+                placeholder="Organization that supplies what is checked"
+              />
+            </div>
+            <div className="col-12">
+              <label className="form-label small fw-semibold">Other parties</label>
+              <div className="d-flex flex-wrap gap-2 align-items-start">
+                <input
+                  className="form-control form-control-sm"
+                  style={{ maxWidth: "22rem" }}
+                  value={otherPartyName}
+                  onChange={(e) => {
+                    setOtherPartyName(e.target.value);
+                    setOtherPartyNote("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addOtherParty();
+                    }
+                  }}
+                  placeholder="Another vendor or an external reviewer"
+                  aria-label="Other party name"
+                />
+                <select
+                  className="form-select form-select-sm"
+                  style={{ maxWidth: "9rem" }}
+                  value={otherPartyGroup}
+                  onChange={(e) => setOtherPartyGroup(e.target.value as "Vendor" | "Third party")}
+                  aria-label="Other party group"
+                >
+                  <option value="Third party">Third party</option>
+                  <option value="Vendor">Vendor</option>
+                </select>
+                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={addOtherParty}>
+                  Add
+                </button>
+              </div>
+              {otherPartyNote && <div className="form-text text-danger">{otherPartyNote}</div>}
+              {otherParties.length > 0 && (
+                <ul className="list-inline mt-2 mb-0">
+                  {otherParties.map((party) => (
+                    <li className="list-inline-item mb-1" key={party.organization}>
+                      <span className="badge bg-light text-dark border fw-normal">
+                        {party.organization} <span className="text-secondary">· {party.group}</span>
+                        <button
+                          type="button"
+                          className="btn-close ms-2"
+                          style={{ fontSize: "0.5rem" }}
+                          aria-label={`Remove ${party.organization}`}
+                          onClick={() =>
+                            setOtherParties((current) => current.filter((p) => p.organization !== party.organization))
+                          }
+                        />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="form-text">Optional. Add as many as the contract has.</div>
+            </div>
+            <div className="col-md-4">
+              <label className="form-label small fw-semibold">Project value</label>
+              <input
+                className="form-control form-control-sm"
+                inputMode="decimal"
+                value={projectValue}
+                onChange={(e) => setProjectValue(e.target.value)}
+                placeholder="e.g. 240000000"
+              />
+            </div>
+            <div className="col-md-2">
+              <label className="form-label small fw-semibold">Currency</label>
+              <select
+                className="form-select form-select-sm"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as (typeof PROJECT_CURRENCIES)[number])}
+              >
+                {PROJECT_CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-12 text-muted small pt-1">
+              Multi-year dates are the commercial term across years. The project period above is the operating window.
+            </div>
+            <div className="col-md-3">
+              <label className="form-label small fw-semibold">Multi-year start</label>
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                value={multiYearStart}
+                onChange={(e) => setMultiYearStart(e.target.value)}
+              />
+            </div>
+            <div className="col-md-3">
+              <label className="form-label small fw-semibold">Multi-year end</label>
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                value={multiYearEnd}
+                onChange={(e) => setMultiYearEnd(e.target.value)}
+              />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label small fw-semibold">
+                On-hire date <span className="badge bg-warning text-dark ms-1">Pending</span>
+              </label>
+              <input
+                type="date"
+                className="form-control form-control-sm"
+                value={onHireDate}
+                onChange={(e) => setOnHireDate(e.target.value)}
+              />
+              <div className="form-text">
+                Not confirmed. Entering a date here does not apply it to the project's sets.
+              </div>
             </div>
 
             <div className="col-12">

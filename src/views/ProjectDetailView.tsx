@@ -1,17 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Eye, Trash2, Plus, FolderPlus, Send } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send } from "lucide-react";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { useMapStore } from "../store/useMapStore";
 import { ProjectAssetType } from "../types/project";
 import { AssuranceSet } from "../types/assurance";
 import {
+  CONTRACT_CHAIN_LABELS,
   calculateProjectReadiness,
+  contractPartyByRole,
   filterProjectsForPersona,
+  formatProjectValue,
   getProjectAssuranceSets,
   getStandaloneAssuranceSetsForAttach,
 } from "../utils/projectHelpers";
+import { ContractChainRole } from "../types/project";
 import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
 import { calculateAssuranceSetReadiness, summarizeTaskSections } from "../utils/readinessHelpers";
+import TaskSectionCards from "../components/common/TaskSectionCards";
 import { listCertificatesShortOfContract } from "../utils/documentRenewalHelpers";
 import { ProjectAddAssetModal } from "../components/modals/ProjectAddAssetModal";
 import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
@@ -235,6 +240,86 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       </div>
 
+      {(project.contractParties?.length ||
+        project.projectValue != null ||
+        project.multiYearStart ||
+        project.onHireDate) && (
+        <div className="card map-card-custom p-3">
+          <h3 className="h6 fw-bold text-dark mb-1">Contract</h3>
+          <p className="text-muted small mb-3">
+            The chain and each organization's group. This is a party list, not a directory of accounts.
+          </p>
+          <div className="d-flex flex-wrap align-items-stretch gap-2 mb-3">
+            {(["client", "head_contractor", "vendor"] as ContractChainRole[]).map((role, index) => {
+              const party = contractPartyByRole(project.contractParties, role);
+              return (
+                <React.Fragment key={role}>
+                  {index > 0 && (
+                    <span className="d-flex align-items-center text-secondary" aria-hidden="true">
+                      <ChevronRight size={18} />
+                    </span>
+                  )}
+                  <div className="border rounded px-3 py-2 flex-grow-1" style={{ minWidth: "12rem", flexBasis: 0 }}>
+                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>
+                      {CONTRACT_CHAIN_LABELS[role]}
+                    </div>
+                    {party ? (
+                      <>
+                        <div className="fw-semibold text-dark">{party.organization}</div>
+                        <span className="badge bg-light text-dark border">{party.group}</span>
+                      </>
+                    ) : (
+                      <div className="text-muted fst-italic">Not recorded</div>
+                    )}
+                  </div>
+                </React.Fragment>
+              );
+            })}
+          </div>
+          {(project.contractParties ?? []).some((party) => !party.chainRole) && (
+            <div className="mb-3">
+              <div className="text-secondary small mb-1">Other parties</div>
+              <ul className="list-group list-group-flush">
+                {(project.contractParties ?? [])
+                  .filter((party) => !party.chainRole)
+                  .map((party) => (
+                    <li
+                      key={`${party.organization}-${party.group}`}
+                      className="list-group-item px-0 py-2 d-flex justify-content-between align-items-center"
+                    >
+                      <span className="fw-semibold">{party.organization}</span>
+                      <span className="badge bg-light text-dark border">{party.group}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+          <div className="d-flex flex-wrap gap-4 small border-top pt-3">
+            <div>
+              <div className="text-secondary">Project value</div>
+              <div className="fw-semibold">
+                {formatProjectValue(project.projectValue, project.currency) || "Not recorded"}
+              </div>
+            </div>
+            <div>
+              <div className="text-secondary">Multi-year term</div>
+              <div className="fw-semibold font-mono-code">
+                {project.multiYearStart && project.multiYearEnd
+                  ? `${project.multiYearStart} → ${project.multiYearEnd}`
+                  : "Not recorded"}
+              </div>
+            </div>
+            <div>
+              <div className="text-secondary">
+                On-hire date <span className="badge bg-warning text-dark ms-1">Pending</span>
+              </div>
+              <div className="fw-semibold font-mono-code">{project.onHireDate || "Not set"}</div>
+              <div className="text-muted">Not confirmed with the client. Not applied to the project's sets.</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ul className="nav nav-tabs">
         {(["assurance", "roster"] as const).map((tab) => (
           <li className="nav-item" key={tab}>
@@ -405,21 +490,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                         </button>
                         {open && (
                           <div className="px-3 pb-3">
-                            <div className="row g-2">
-                              {sections.map((section) => (
-                                <div className="col-md-6 col-xl-4" key={section.id}>
-                                  <div className={`border rounded p-2 h-100 ${section.heavy ? "border-warning bg-warning-subtle" : ""}`}>
-                                    <div className="d-flex align-items-center justify-content-between gap-2">
-                                      <span className="fw-semibold text-dark">{section.name}</span>
-                                      {section.heavy && <span className="badge bg-warning text-dark">Heavy</span>}
-                                    </div>
-                                    <div className="small text-secondary mt-1">
-                                      {section.remainingTasks} {section.remainingTasks === 1 ? "task" : "tasks"} open · {section.remainingCertificates} {section.remainingCertificates === 1 ? "certificate" : "certificates"} open
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                            <TaskSectionCards set={set} />
                           </div>
                         )}
                       </div>
