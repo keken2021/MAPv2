@@ -13,8 +13,9 @@ import { formatMaritimeDateTime, getStatusDisplayLabel } from '../utils/formatte
 import { CapaItem, CapaStatus } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { FilterModal } from '../components/common/FilterModal';
-import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { CountTabs } from '../components/common/CountTabs';
+import { ListToolbar } from '../components/common/ListToolbar';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -104,7 +105,6 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
   /* filter, sort & search state */
   const [activeTab, setActiveTab] = useState<'All' | CapaStatus>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const [sortField, setSortField] = useState<CapaSortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
@@ -225,7 +225,6 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
       setId: exportSetId,
       detail: `${sortedCapas.length} findings`,
     });
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
@@ -245,7 +244,6 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
       setId: exportSetId,
       detail: `${sortedCapas.length} findings`,
     });
-    setIsExportOpen(false);
   };
 
   const getStatusBadgeClass = (status: CapaStatus) => {
@@ -264,96 +262,33 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
 
   const capasPagination = usePagination(sortedCapas, [activeTab, searchQuery, sortField, sortOrder]);
 
+  const capaTabs = [
+    { key: 'All', label: 'All', count: totalCount },
+    { key: 'Open', label: 'Open', count: openCount, tone: 'warn' as const },
+    { key: 'Under Re-Inspection', label: 'Re-Inspection', count: reInspectionCount },
+    { key: 'Verified & Closed', label: 'Closed', count: closedCount },
+  ];
+
   return (
     <div className="d-flex flex-column gap-4">
-      {/* CAPA Metric KPI Cards */}
-      <div className="row g-3">
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              CAPAs
-            </div>
-            <div className="map-kpi-value text-primary mt-1">{totalCount}</div>
-            <div className="map-kpi-subtitle mt-1">All CAPAs</div>
-          </div>
-        </div>
-
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Open
-            </div>
-            <div className="map-kpi-value text-danger mt-1">{openCount}</div>
-            <div className="map-kpi-subtitle mt-1">Waiting to be fixed</div>
-          </div>
-        </div>
-
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Re-Inspection
-            </div>
-            <div className="map-kpi-value text-warning mt-1">{reInspectionCount}</div>
-            <div className="map-kpi-subtitle mt-1">Waiting for the inspector</div>
-          </div>
-        </div>
-
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Closed
-            </div>
-            <div className="map-kpi-value text-success mt-1">{closedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Verified by the inspector</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main CAPA Master Table Card */}
       <div className="card map-card-custom">
-        {/* Controls Header: Search + Filter Button + Export */}
-        <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-          <div className="d-flex flex-wrap align-items-center gap-2">
-            {/* Search Input */}
-            <input
-              type="text"
-              className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search CAPAs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: '270px' }}
-            />
-
-            <FilterButton
-              onClick={() => setIsFilterModalOpen(true)}
-              activeCount={activeFilterCount}
-            />
-          </div>
-
-          <div className="dropdown position-relative ms-auto">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle ms-2"
-              onClick={() => setIsExportOpen(!isExportOpen)}
-            >
-              Export
-            </button>
-            {isExportOpen && (
-              <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    CSV
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    PDF
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
+        <div className="p-3 border-bottom">
+          <CountTabs
+            tabs={capaTabs}
+            active={activeTab}
+            onChange={(key) => setActiveTab(key as 'All' | CapaStatus)}
+            aria-label="CAPA tabs"
+          />
         </div>
+        <ListToolbar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search CAPAs..."
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFilterCount={activeFilterCount}
+          onExportCsv={handleExportCsv}
+          onExportPdf={handleExportPdf}
+        />
 
         {activeChips.length > 0 && (
           <div className="px-3 py-2 bg-light border-bottom">
@@ -367,8 +302,8 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
             <thead>
               <tr>
                 {renderSortHeader('CAPA ID', 'id')}
-                {renderSortHeader('Finding & Description', 'title')}
-                {renderSortHeader('Vessel Scope & Owner', 'vesselName')}
+                {renderSortHeader('Finding', 'title')}
+                {renderSortHeader('Vessel', 'vesselName')}
                 {renderSortHeader('Due Date', 'dueDate')}
                 {renderSortHeader('Status', 'status')}
                 <th className="text-end">Actions</th>
@@ -386,24 +321,18 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
                     </div>
                     {capa.flaggedForReinspection && (
                       <span className="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle mt-0.5" style={{ fontSize: '0.65rem' }}>
-                        Flagged for Re-Inspection
+                        Re-Inspection
                       </span>
                     )}
                   </td>
                   <td>
                     <div className="fw-semibold text-dark font-mono-code small">{capa.vesselName}</div>
-                    <div className="small text-secondary">{capa.owner}</div>
                   </td>
                   <td className="font-mono-code small">{capa.dueDate}</td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(capa.status)}`}>
                       {getStatusDisplayLabel(capa.status)}
                     </span>
-                    {capa.closedDate && (
-                      <div className="small text-secondary mt-1">
-                        Closed {formatMaritimeDateTime(capa.closedDate)}
-                      </div>
-                    )}
                   </td>
                   <td className="text-end">
                     <button

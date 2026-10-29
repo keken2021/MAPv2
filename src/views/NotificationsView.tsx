@@ -5,7 +5,7 @@
 */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CheckCheck, Inbox } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCheck, Eye, Inbox } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import {
   NOTIFICATION_CATEGORIES,
@@ -14,8 +14,9 @@ import {
 } from '../store/notificationMockData';
 import { AppNotification, NotificationCategory, NotificationTab } from '../types/notification';
 import { FilterModal } from '../components/common/FilterModal';
-import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { CountTabs } from '../components/common/CountTabs';
+import { ListToolbar } from '../components/common/ListToolbar';
 import { NotificationDetailModal } from '../components/modals/NotificationDetailModal';
 import { formatMaritimeDateTime } from '../utils/formatters';
 import {
@@ -117,60 +118,46 @@ export const NotificationsView: React.FC = () => {
 
   return (
     <div className="d-flex flex-column gap-3">
-      {confirmation && (
-        <div className="alert alert-success py-2 mb-0" role="status">
-          {confirmation}
-        </div>
-      )}
-
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-        <div className="nav nav-pills bg-light p-1 rounded-3 border" role="tablist" aria-label="Notification status">
-          {NOTIFICATION_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.key}
-              className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${activeTab === tab.key ? 'active bg-primary text-white fw-semibold' : 'text-secondary'
-                }`}
-              style={{ fontSize: '0.8rem' }}
-              onClick={() => {
-                setActiveTab(tab.key);
-                setSelectedId(null);
-              }}
-            >
-              {tab.label} ({tabCounts[tab.key]})
-            </button>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          className="btn btn-sm btn-primary d-inline-flex align-items-center gap-2"
-          onClick={handleMarkAllRead}
-          disabled={unreadCount === 0}
-          title={unreadCount === 0 ? 'Nothing is unread.' : undefined}
-        >
-          <CheckCheck size={18} />
-          <span>Mark All Read</span>
-        </button>
-      </div>
-
       <div className="card map-card-custom">
-        <div className="card-header d-flex flex-wrap align-items-center justify-content-between gap-3 p-3">
-          <div className="d-flex flex-wrap align-items-center gap-2 flex-grow-1">
-            <input
-              type="search"
-              className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search notifications..."
-              aria-label="Search notifications"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: 'min(280px, 100%)' }}
-            />
-            <FilterButton onClick={() => setIsFilterModalOpen(true)} activeCount={activeFilterCount} />
+        {confirmation && (
+          <div className="alert alert-success rounded-0 border-0 border-bottom py-2 mb-0" role="status">
+            {confirmation}
           </div>
+        )}
+        <div className="p-3 border-bottom">
+          <CountTabs
+            tabs={NOTIFICATION_TABS.map((tab) => ({
+              key: tab.key,
+              label: tab.label,
+              count: tabCounts[tab.key],
+            }))}
+            active={activeTab}
+            onChange={(key) => {
+              setActiveTab(key as NotificationTab);
+              setSelectedId(null);
+            }}
+            aria-label="Notification tabs"
+          />
         </div>
+        <ListToolbar
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search notifications..."
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFilterCount={activeFilterCount}
+          primaryAction={
+            <button
+              type="button"
+              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-2"
+              onClick={handleMarkAllRead}
+              disabled={unreadCount === 0}
+              title={unreadCount === 0 ? 'Nothing is unread.' : undefined}
+            >
+              <CheckCheck size={18} />
+              <span>Mark All Read</span>
+            </button>
+          }
+        />
 
         {activeChips.length > 0 && (
           <div className="px-3 py-2 bg-light border-bottom">
@@ -223,7 +210,6 @@ export const NotificationsView: React.FC = () => {
                 </tr>
               ) : (
                 notificationsPagination.pageItems.map((n) => {
-                  const action = getAction(n);
                   const statusMeta = NOTIFICATION_STATUS_META[n.status];
                   const isUnread = n.status === 'unread';
                   return (
@@ -270,15 +256,16 @@ export const NotificationsView: React.FC = () => {
                       <td className="text-end">
                         <button
                           type="button"
-                          className="btn btn-sm btn-outline-primary text-nowrap"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            runAction(n);
+                            handleOpenDetail(n);
                           }}
-                          disabled={Boolean(action.disabledReason)}
-                          title={action.disabledReason}
+                          title="View"
+                          aria-label="View"
                         >
-                          {action.label}
+                          <Eye size={16} />
                         </button>
                       </td>
                     </tr>
