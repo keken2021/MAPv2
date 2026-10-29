@@ -84,7 +84,6 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter Approver Dashboard: `src/__tests__/approverDashboardDeclutter.test.tsx` (CountTabs, Due column, 1 badge/action per row, detail view cleanup)
 - Unit tests for UI declutter shell header and sidebar: `src/__tests__/shellDeclutter.test.tsx` (title-only list views, detail back links, sidebar labels Inspections, CAPA, Approvals, dynamic verification queue count badge)
 - Unit tests for UI declutter Verifier and Inspector workspaces: `src/__tests__/workspacesDeclutter.test.tsx` (CountTabs default tabs and counts, Due column with late calculation, 1 badge/action per row, removed KPI cards)
-- Unit tests for UI declutter Submitter Dashboard: `src/__tests__/submitterDashboardDeclutter.test.tsx` (Performance strip, 7-column table, 1 badge/action per row, 1 Create button in client admin, shared Fleet toolbar)
 - Projects: `createProjectWizardOrganization.test.tsx`, `projectComposition.test.ts`, `projectNestedSets.test.ts`, `assuranceSetProjectRelationship.test.ts`, `mockDataConsistency.test.ts`, `notifications.test.ts`
 - User Management: `cAdminUserManagement.test.ts`, `userRoleHelpers.test.ts`, `store.test.ts`
 - Audit Trail: `permissionHelpers.test.ts`, `notifications.test.ts`, `mockDataBusinessRules.test.ts`, `store.test.ts`
