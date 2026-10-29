@@ -34,7 +34,7 @@ export function documentsForSessionVerifier(
   assuranceSets: AssuranceSet[],
   persona: UserRolePersona,
   organization: string | undefined,
-  user?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'>,
+  user?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null,
 ): MasterDocument[] {
   const org = organization?.trim() || undefined;
   const queued = persona === 'Verifier' && user?.name

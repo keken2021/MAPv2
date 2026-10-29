@@ -112,7 +112,7 @@ export const AppSidebar: React.FC = () => {
             assuranceSets,
             activePersona,
             activeDemoOrganization,
-            sessionUser,
+            sessionUser ?? undefined,
           )
         : filterDocumentsForVerifierQueue(
             documents,

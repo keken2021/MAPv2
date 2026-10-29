@@ -104,6 +104,9 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/plans/asset-detail-uniform-layout.md` : shared layout for the vessel, crew and equipment detail screens. Not built (was `docs/plan.md`)
 - `docs/plans/map-paper-gap-review-round-2.md` : second review against the paper (Ed. 2) and the certificate data-fields note (23 Oct 2026): status of E1 to G12, new R2-E/G/I/S findings, parked items. Round 1 is `docs/meetings/map-paper-gap-review-2026-10-23.md`
 - `docs/plans/brd-v4.2-gap-review.md` : gap review of the prototype against the BRD refinement session of 26 Oct 2026 (`docs/meetings/MAP_BRD_Refinement_Session_Summary_2026-10-26.docx`): 15 BRD V4.2 changes, schema entities, glossary and ADR conflicts, open stakeholder questions; checked against Peter Bengtsson's notes of the same session (P1 to P7, source differences)
+- `docs/plans/sprint-1-1-backlog-reuse-plan.md` : approved plan (29 Oct 2026) to reuse the Sprint 1.1 Features and User Stories for the v3 to MAP-1 migration, aligned to BRD V4.2: trace table, updates U1 to U9, per-Feature and per-story changes, 7 new Features and 25 new stories, Creishen 32 / Kurt 33 split. No board write made yet
+- `docs/plans/v3-prototype-ux-and-migration-gap-review.md` : v3 UX and visual critique (Part A), MAP-1 migration checklist (Part B), stakeholder questions (Part C); screenshots in `docs/plans/assets/v3-gap-review/`
+- `docs/work-items/v3-gap-fixes-prototype-tasks.md` : Part A prototype Tasks 5242 to 5268, split Creishen 14 / Kurt 13 with file ownership, 0.25 or 0.5 h each
 - `docs/plans/map-paper-gap-fixes-modular-plan.md` : modular execution plan and verification results for round 2 gap review fixes (Modules 1 to 5)
 - `docs/plans/australian-maritime-regulatory-gap-analysis.md` : AMSA, DAFF and research fields missing from the modals. Not built
 - `docs/changes/` : change summaries of work already done. New ones go here; remove one when nobody needs it
