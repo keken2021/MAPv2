@@ -18,7 +18,7 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
   describe('Assurance Sets List (AssuranceTable)', () => {
     it('places CountTabs and ListToolbar inside the main card container', () => {
       const { container } = render(
-        <AssuranceTable onSelectSet={() => {}} onInitiateSet={() => {}} />
+        <AssuranceTable onSelectSet={() => { }} onInitiateSet={() => { }} />
       );
 
       // Main card should contain CountTabs and ListToolbar
@@ -44,7 +44,7 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
     it('removes the Draft badge beside the set title in the table rows', () => {
       // Switch to drafts tab to view draft sets
       render(
-        <AssuranceTable onSelectSet={() => {}} onInitiateSet={() => {}} defaultTab="drafts" />
+        <AssuranceTable onSelectSet={() => { }} onInitiateSet={() => { }} defaultTab="drafts" />
       );
 
       const rows = screen.getAllByRole('row').slice(1);
@@ -61,7 +61,7 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
 
     it('merges Scope and Scope Type into one column on the Public tab without badges', () => {
       render(
-        <AssuranceTable onSelectSet={() => {}} onInitiateSet={() => {}} defaultTab="public" />
+        <AssuranceTable onSelectSet={() => { }} onInitiateSet={() => { }} defaultTab="public" />
       );
 
       // Verify column headers: Title, Scope, Created By, Actions (4 columns)
@@ -91,7 +91,7 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
   });
 
   describe('Assurance Sets Detail (AssuranceDetailView)', () => {
-    it('integrates DetailHeader with single status badge, metaItems, and backLink', () => {
+    it('integrates DetailHeader with single status badge and metaItems, and no back link of its own', () => {
       const state = useMapStore.getState();
       const openSet = state.assuranceSets.find(
         (s) => s.stage !== 'Cancelled' && s.visibility !== 'draft' && !s.closureType
@@ -102,8 +102,8 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       const detailHeader = container.querySelector('.map-detail-header');
       expect(detailHeader).not.toBeNull();
 
-      // Back link exists
-      expect(within(detailHeader as HTMLElement).getByText(/back to assurance sets/i)).toBeDefined();
+      // The top header holds the only back button
+      expect(within(detailHeader as HTMLElement).queryByText(/back to assurance sets/i)).toBeNull();
 
       // Title and meta items
       expect(within(detailHeader as HTMLElement).getByText(openSet.title)).toBeDefined();
@@ -113,6 +113,17 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       const headerBadges = detailHeader?.querySelectorAll('.map-status-badge');
       expect(headerBadges?.length).toBe(1);
       expect(headerBadges?.[0].textContent?.trim()).toBe(openSet.stage);
+    });
+
+    it('shows no back button on the draft screen; the top header holds it', () => {
+      const { assuranceSets } = useMapStore.getState();
+      const draftSet: AssuranceSet = { ...assuranceSets[0], id: 'AS-DRAFT-TEST', visibility: 'draft' };
+      useMapStore.setState({ assuranceSets: [...assuranceSets, draftSet] });
+
+      render(<AssuranceDetailView setId={draftSet.id} />);
+
+      expect(screen.getByText(/this assurance set is a draft/i)).toBeDefined();
+      expect(screen.queryByText(/back to assurance sets/i)).toBeNull();
     });
 
     it('shows Overdue badge and no alert banner for an overdue set', () => {
@@ -251,3 +262,4 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
     });
   });
 });
+

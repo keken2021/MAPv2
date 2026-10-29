@@ -111,13 +111,6 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
     return (
       <div className="alert alert-warning">
         Equipment not found.
-        <button
-          type="button"
-          className="btn btn-sm btn-link"
-          onClick={() => setCurrentHashView('equipment')}
-        >
-          Back to Equipment
-        </button>
       </div>
     );
   }

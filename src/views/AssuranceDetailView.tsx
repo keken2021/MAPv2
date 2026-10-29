@@ -335,13 +335,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             This assurance set is a draft. Finish setup to create it.
           </p>
           <div className="d-flex align-items-center justify-content-center gap-3">
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => setCurrentHashView('assurance-sets')}
-            >
-              Back to Assurance Sets
-            </button>
             {getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization, sessionUser).canManage && (
               <button
                 type="button"
@@ -419,12 +412,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const canAddToProject = roleActions.canManage && isAssuranceSetOrphaned(assuranceSet, projects);
   const attachableProjects = canAddToProject
     ? filterProjectsForPersona(
-        projects,
-        activePersona,
-        users,
-        assuranceSets,
-        activePersona === 'C Admin' ? activeDemoOrganization : undefined,
-      )
+      projects,
+      activePersona,
+      users,
+      assuranceSets,
+      activePersona === 'C Admin' ? activeDemoOrganization : undefined,
+    )
     : [];
   const creator = getAssuranceSetCreator(assuranceSet, users);
 
@@ -568,15 +561,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
     const historyRow: TargetDateChangeRecord | undefined = deadlineChanged
       ? {
-          id: `TDC-${Date.now()}-set`,
-          setId: assuranceSet.id,
-          scope: 'set',
-          oldDate: oldDeadline || '—',
-          newDate: deadlineDraft,
-          changedBy: sessionUser?.name || 'Client Admin',
-          changedAt: new Date().toISOString(),
-          reason: deadlineReasonDraft.trim() || undefined,
-        }
+        id: `TDC-${Date.now()}-set`,
+        setId: assuranceSet.id,
+        scope: 'set',
+        oldDate: oldDeadline || '—',
+        newDate: deadlineDraft,
+        changedBy: sessionUser?.name || 'Client Admin',
+        changedAt: new Date().toISOString(),
+        reason: deadlineReasonDraft.trim() || undefined,
+      }
       : undefined;
 
     updateAssuranceSet({
@@ -2584,7 +2577,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                     type="checkbox"
                                     className="form-check-input"
                                     checked={isSelected}
-                                    onChange={() => {}}
+                                    onChange={() => { }}
                                   />
                                 </td>
                                 <td className="fw-semibold text-dark">

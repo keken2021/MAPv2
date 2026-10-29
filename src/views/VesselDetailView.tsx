@@ -985,16 +985,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       <div className="container-fluid px-4 py-5 text-center">
         <div className="card map-card-custom p-5 mx-auto" style={{ maxWidth: '520px' }}>
           <h4 className="fw-bold text-dark mb-2">No Access</h4>
-          <p className="text-secondary small mb-4">
+          <p className="text-secondary small mb-0">
             You cannot view this vessel. Providers can only view vessels their organization owns or manages.
           </p>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm mx-auto"
-            onClick={() => setCurrentHashView('vessels')}
-          >
-            Back to Vessels
-          </button>
         </div>
       </div>
     );

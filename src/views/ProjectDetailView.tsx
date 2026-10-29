@@ -109,13 +109,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     return (
       <div className="alert alert-warning">
         Project not found.
-        <button
-          type="button"
-          className="btn btn-sm btn-link"
-          onClick={() => setCurrentHashView("project")}
-        >
-          Back to Projects
-        </button>
       </div>
     );
   }
