@@ -57,7 +57,7 @@ export function isAssuranceSetAssignedToPersona(
   set: AssuranceSet,
   persona: UserRolePersona,
   organization?: string,
-  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles">,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
 ): boolean {
   if (persona === "Administrator") {
     if (organization) {
@@ -176,6 +176,18 @@ export function isAssuranceSetAssignedToPersona(
   return true;
 }
 
+/** Filters assurance sets visible in the current session for the persona, organization, and user. */
+export function filterAssuranceSetsForSession(
+  sets: AssuranceSet[],
+  persona: UserRolePersona,
+  organization?: string,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
+): AssuranceSet[] {
+  return sets.filter((set) =>
+    isAssuranceSetAssignedToPersona(set, persona, organization, user),
+  );
+}
+
 /* workflow roles that get the assurance sets page read-only, with role actions on assigned sets only */
 export const ASSURANCE_SETS_READ_ONLY_ROLES: UserRolePersona[] = [
   "Submitter",
@@ -239,7 +251,7 @@ export function getAssuranceSetRoleActions(
   set: AssuranceSet,
   persona: UserRolePersona,
   organization?: string,
-  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles">,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
 ): AssuranceSetRoleActions {
   const isAssigned = isAssuranceSetAssignedToPersona(set, persona, organization, user);
 
@@ -265,7 +277,7 @@ export function getAssuranceSetRoleActions(
   const canApprove = persona === "Approver" && isAssigned;
 
   /* short-term permission given to named client users to change dates (BRD V4.2 change 6) */
-  const canChangeDates = canUserChangeAssuranceDates(user, set, persona);
+  const canChangeDates = canUserChangeAssuranceDates(user ?? undefined, set, persona);
 
   return {
     canManage,
@@ -350,9 +362,10 @@ export function getVerifierQueueDocumentIds(
   assuranceSets: AssuranceSet[],
   persona: UserRolePersona,
   organization?: string,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
 ): Set<string> {
   const assignedSets = assuranceSets.filter((set) =>
-    isAssuranceSetAssignedToPersona(set, persona, organization),
+    isAssuranceSetAssignedToPersona(set, persona, organization, user),
   );
   const ids = new Set<string>();
   assignedSets.forEach((set) => {
@@ -373,8 +386,9 @@ export function filterDocumentsForVerifierQueue(
   assuranceSets: AssuranceSet[],
   persona: UserRolePersona,
   organization?: string,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
 ): MasterDocument[] {
-  const allowedIds = getVerifierQueueDocumentIds(assuranceSets, persona, organization);
+  const allowedIds = getVerifierQueueDocumentIds(assuranceSets, persona, organization, user);
   return documents.filter((d) => allowedIds.has(d.id));
 }
 
@@ -455,7 +469,7 @@ export function canEditAssuranceSetStakeholders(
   assuranceSet: AssuranceSetStakeholderLockInput,
   persona: UserRolePersona,
   organization?: string,
-  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles">,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
 ): boolean {
   if (persona !== 'Administrator' && persona !== 'C Admin') {
     return false;

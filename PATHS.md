@@ -4,7 +4,7 @@
 > Paths are relative to the project root unless they start with `~` or a drive letter.
 > NEVER put secret values here, only where they are configured.
 
-Last verified: 2026-10-13 (`task-branch` Task notes added: `note` command, `--notes` argument, `.task-notes/` in the MAP-1 clone; same day, `task-branch` skill added: skill folder, ADR 0006, plan record, Skill Spec, MAP-1 clone entries; before that, 2026-10-12: Document Renewal notifications, one asset per set and provider terms added: plan, ADR 0004, glossary, 3 new source files; before that: `docs/` sorted into folders and 13 implemented records removed; colleague setup docs split into connection and comments-uploads sets; the rest as verified on 2026-10-10: docs, glossary, ADR, Marketplace and Vessels entries, Task list .docx files, board-comment skill)
+Last verified: 2026-10-29 ("Where new files go" section added; `.autopilot/` sorted by path-directory `organize.py`: Task folders 5193 to 5206 under story 5207, reports, state, scratch; BRD V4.2 PDF moved to `docs/brd/`; before that, 2026-10-13: `task-branch` Task notes added: `note` command, `--notes` argument, `.task-notes/` in the MAP-1 clone; same day, `task-branch` skill added: skill folder, ADR 0006, plan record, Skill Spec, MAP-1 clone entries; before that, 2026-10-12: Document Renewal notifications, one asset per set and provider terms added: plan, ADR 0004, glossary, 3 new source files; before that: `docs/` sorted into folders and 13 implemented records removed; colleague setup docs split into connection and comments-uploads sets; the rest as verified on 2026-10-10: docs, glossary, ADR, Marketplace and Vessels entries, Task list .docx files, board-comment skill)
 Last verified: 2026-10-13 (Task list check against the MAP branch documents and the local MAP clone added; before that: Document Renewal notifications, one asset per set and provider terms added: plan, ADR 0004, glossary, 3 new source files; before that: `docs/` sorted into folders and 13 implemented records removed; colleague setup docs split into connection and comments-uploads sets; the rest as verified on 2026-10-10: docs, glossary, ADR, Marketplace and Vessels entries, Task list .docx files, board-comment skill)
 Root: `C:\mapFiles\MAPv2`
 
@@ -33,6 +33,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/store/*MockData.ts` : mock data, one file per domain
 - `src/types/` : TypeScript types per domain
 - `src/utils/rbacHelpers.ts` : which role sees which set, asset and action
+- `src/utils/useSessionUser.ts` : hook returning the active demo session user profile for the current persona and organization
 - `src/utils/permissionHelpers.ts`, `src/utils/permissionDefaults.ts` : role permission matrix
 - `src/utils/issuerVerificationProfiles.ts` : confirmed digital verification portals and procedures for ROs and Flag Administrations (gap review R2-G4, R2-S8)
 - `src/config/featureFlags.ts` : feature flags
@@ -90,12 +91,21 @@ Root: `C:\mapFiles\MAPv2`
 - Audit Trail: `permissionHelpers.test.ts`, `notifications.test.ts`, `mockDataBusinessRules.test.ts`, `store.test.ts`
 - Switchers and side panel: `demoSessionHelpers.test.ts`, `approverAndSidebar.test.ts`, `store.test.ts`
 
+## Where new files go (path-directory `references/layout.md`; this section wins here)
+- One Task: `.autopilot/.task-notes/<story id>-<story name>/<task id>-<task name>/` : `plan.md` (+ `.docx`), `changes.md`, `next-steps.md`, `screens/`, other Task records as `<topic>.md`. Prototype Tasks 5193 to 5206 are under `.autopilot/.task-notes/5207-prototype-brd-v4-2-changes/`
+- One story: `.autopilot/.task-notes/<story id>-<story name>/story-recap-<date>.md`
+- Work with no Task: `.autopilot/plans/<yyyy-mm-dd>-<topic>/plan.md`
+- Reports: `.autopilot/reports/daily/`, `.autopilot/reports/weekly/`; script state: `.autopilot/state/`; loose or duplicate files: `.autopilot/scratch/`
+- Documents across Tasks: `docs/plans/` (not done yet), `docs/changes/` (done), `docs/architecture/`, `docs/adr/`, `docs/meetings/`, `docs/work-items/`, `docs/azure-boards/`, `docs/prototype-packs/`, `docs/brd/` (source documents from others). A `.docx`, `.html` or `.build.py` keeps the basename of its `.md` and sits beside it
+- Never at the `.autopilot/` or `docs/` root (only `docs/GLOSSARY.md`), and no `*.new.*` copies beside a real file
+- Tidy: `py ~/.claude/skills/path-directory/scripts/organize.py . --task-repo C:/mapFiles/MAP-1` (dry), then `--apply`
+
 ## Docs (`docs/` is gitignored, so these are local only)
 - The `docs/` root holds only `GLOSSARY.md` and folders. Do not save a file at the root. Layout set on 2026-10-12; record: `docs/plans/docs-declutter.md`
 - `docs/GLOSSARY.md` : domain terms (Administrator, Client, Vessel Provider, Crew Provider, Equipment Provider, Asset, Assurance Set, Document Renewal, Readiness and others; "Service Provider" is retired). Read it before wording a Task or a doc. It lives here, not at the repo root
 - `docs/adr/` : decision records, numbered `0001-...`. 0001 is the Task list layout, 0002 is the one Administrator role, 0003 limits board writes to discussion comments, 0004 is one asset per Assurance Set and the provider terms by asset type (amended by 0023: a Crew set may cover several crew members; reversed by 0029: assurance object model across multiple types), 0005 is one Task for list controls and a Testing entry in each Task, 0006 lets the `task-branch` skill write a Task state and its Branch link (amends 0003), 0027 lets autopilot's story mode post one story summary comment on a scoped User Story and then close it, each after the hook's prompt (amends 0003, 0015), 0028 is prototype tasks direct commit on v3, 0029 replaces single-asset scope with generic assurance objects (vessel, person, equipment, organization, procedure, document, method)
 - `docs/plans/` : plans and audits of work not yet done. New plans go here
-- `docs/plans/autopilot-story-recap-plan.md` : autopilot `story` mode (ADR 0027). References: `~/.claude/skills/autopilot/references/story-recap.md`, `~/.agents/skills/autopilot/references/story-recap-gemini.md`; drafts land in `<repo>/.autopilot/story-recaps/`
+- `docs/plans/autopilot-story-recap-plan.md` : autopilot `story` mode (ADR 0027). References: `~/.claude/skills/autopilot/references/story-recap.md`, `~/.agents/skills/autopilot/references/story-recap-gemini.md`; drafts land in the story folder, `<repo>/.autopilot/.task-notes/<story id>-<story name>/story-recap-<date>.md`
 - `docs/plans/autopilot-prototype-parity.md` : approved design (2026-10-27) for autopilot prototype packs (`docs/prototype-packs/<screen-id>/`, local only), the Phase 4 parity check (`pack.mjs`, `parity.mjs`, `board-comment/projects/MAP-1.json`), the context digest and plan-by-slice-size; both autopilot copies
 - `docs/plans/autopilot-prototype-mode.md` : autopilot prototype mode (ADR 0028, `docs/adr/0028-prototype-tasks-commit-to-mapv2-v3.md`): `Prototype - ` Tasks build in MAPv2 straight on `v3`, `task-branch` Direct mode. References: `~/.claude/skills/autopilot/references/prototype-task.md`, `~/.agents/skills/autopilot/references/prototype-task-gemini.md`
 - `docs/prototype-packs/create-assurance-set/` : wizard pack (local only): `pack.json` (15 slices by text anchor for Tasks 4662 to 4695, 6 states, curated copy, glossary substitutions), `pack.md` (slices, states, roles, component map), `shots/proto-<state>.png` and `.text.json`
@@ -110,6 +120,7 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/plans/map-paper-gap-fixes-modular-plan.md` : modular execution plan and verification results for round 2 gap review fixes (Modules 1 to 5)
 - `docs/plans/australian-maritime-regulatory-gap-analysis.md` : AMSA, DAFF and research fields missing from the modals. Not built
 - `docs/changes/` : change summaries of work already done. New ones go here; remove one when nobody needs it
+- `docs/changes/path-directory-file-layout.md` : the file layout, `organize.py`, the skills changed to follow it, and the cleanup of 2026-10-29
 - `docs/changes/EXPLANATION_OF_V3_CHANGES.html` : export that explains the v3 changes (2.9 MB; its `.md` source is gone)
 - `docs/architecture/MAP_Assurance_Project_Asset_Architecture.md` : how assurance sets, projects and assets relate
 - `docs/architecture/multi-org-multi-user-architecture.md` : multi-organization and multi-user model

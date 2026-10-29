@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { assigneeMatchesUser, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { act, renderHook } from '@testing-library/react';
+import {
+  assigneeMatchesUser,
+  isAssuranceSetAssignedToPersona,
+  filterAssuranceSetsForSession,
+  getVerifierQueueDocumentIds,
+  filterDocumentsForVerifierQueue,
+} from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
+import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
+import { MasterDocument } from '../types/document';
 import { MOCK_ASSURANCE_SETS } from '../store/mockData';
 
 describe('assigneeMatchesUser', () => {
@@ -197,5 +207,131 @@ describe('session visibility person-only matching per workflow role', () => {
       expect(isAssuranceSetAssignedToPersona(testSet, 'Approver', 'Chevron Australia Pty Ltd')).toBe(true);
       expect(isAssuranceSetAssignedToPersona(testSet, 'Approver', 'Unrelated Corp')).toBe(false);
     });
+  });
+});
+
+describe('useSessionUser hook', () => {
+  it('returns the active session user and switches when organization changes', () => {
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: undefined,
+    });
+
+    const { result } = renderHook(() => useSessionUser());
+    expect(result.current?.name).toBe('M. Chen');
+    expect(result.current?.organization).toBe('Northwind Marine Pty Ltd');
+
+    act(() => {
+      useMapStore.setState({
+        activeDemoOrganization: 'Meridian Marine Services Pty Ltd',
+      });
+    });
+
+    expect(result.current?.name).toBe('C. Sterling');
+    expect(result.current?.organization).toBe('Meridian Marine Services Pty Ltd');
+  });
+});
+
+describe('filterAssuranceSetsForSession', () => {
+  const setA: AssuranceSet = {
+    ...MOCK_ASSURANCE_SETS[0],
+    id: 'AS-TEST-1',
+    assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    initiatorOrg: 'Northwind Marine Pty Ltd',
+  };
+  const setB: AssuranceSet = {
+    ...MOCK_ASSURANCE_SETS[0],
+    id: 'AS-TEST-2',
+    assignedSubmitter: 'E. Ramirez (Northwind Marine Pty Ltd)',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    initiatorOrg: 'Northwind Marine Pty Ltd',
+  };
+
+  it('filters sets for workflow role by matching person when user is given', () => {
+    const user = {
+      id: 'USR-102',
+      name: 'M. Chen',
+      organization: 'Northwind Marine Pty Ltd',
+      roles: ['Submitter' as const],
+    };
+
+    const filtered = filterAssuranceSetsForSession([setA, setB], 'Submitter', 'Northwind Marine Pty Ltd', user);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].id).toBe('AS-TEST-1');
+  });
+
+  it('falls back to organization matching when no user is given', () => {
+    const filtered = filterAssuranceSetsForSession([setA, setB], 'Submitter', 'Northwind Marine Pty Ltd', null);
+    expect(filtered).toHaveLength(2);
+  });
+});
+
+describe('verifier queue helpers with session user', () => {
+  const set1: AssuranceSet = {
+    ...MOCK_ASSURANCE_SETS[0],
+    id: 'AS-V1',
+    assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+    stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate' },
+    requirements: [
+      {
+        id: 'REQ-1',
+        title: 'Req 1',
+        category: 'Vessel',
+        isMandatory: true,
+        ocrConfidence: 95,
+        verifierStatus: 'Pending',
+        isFulfilled: false,
+        documentId: 'DOC-1',
+      },
+    ],
+  };
+  const set2: AssuranceSet = {
+    ...MOCK_ASSURANCE_SETS[0],
+    id: 'AS-V2',
+    assignedVerifier: 'Other Verifier (Bureau Veritas Inspectorate)',
+    stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate' },
+    requirements: [
+      {
+        id: 'REQ-2',
+        title: 'Req 2',
+        category: 'Vessel',
+        isMandatory: true,
+        ocrConfidence: 95,
+        verifierStatus: 'Pending',
+        isFulfilled: false,
+        documentId: 'DOC-2',
+      },
+    ],
+  };
+
+  const docs = [
+    { id: 'DOC-1', title: 'Doc 1' },
+    { id: 'DOC-2', title: 'Doc 2' },
+  ] as MasterDocument[];
+
+  const userFontaine = {
+    id: 'USR-VER-1',
+    name: 'A. Fontaine',
+    organization: 'Bureau Veritas Inspectorate',
+    roles: ['Verifier' as const],
+  };
+
+  it('getVerifierQueueDocumentIds narrows IDs to the person when user is given', () => {
+    const ids = getVerifierQueueDocumentIds([set1, set2], 'Verifier', 'Bureau Veritas Inspectorate', userFontaine);
+    expect(ids.has('DOC-1')).toBe(true);
+    expect(ids.has('DOC-2')).toBe(false);
+  });
+
+  it('filterDocumentsForVerifierQueue returns only documents for the person when user is given', () => {
+    const filtered = filterDocumentsForVerifierQueue(docs, [set1, set2], 'Verifier', 'Bureau Veritas Inspectorate', userFontaine);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].id).toBe('DOC-1');
+  });
+
+  it('returns documents for all sets of the organization when no user is given', () => {
+    const filtered = filterDocumentsForVerifierQueue(docs, [set1, set2], 'Verifier', 'Bureau Veritas Inspectorate');
+    expect(filtered).toHaveLength(2);
   });
 });
