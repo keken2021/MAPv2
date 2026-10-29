@@ -981,7 +981,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         <div className="alert alert-success py-2 mb-0" role="status">{projectToast}</div>
       )}
 
-      {/* DetailHeader with 1 status badge, metaItems, backLink, and Export */}
+      {/* DetailHeader with 1 status badge, metaItems, and Export; the top header holds the back button */}
       <DetailHeader
         title={assuranceSet.title}
         status={headerStatus}
@@ -989,10 +989,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           assuranceSet.id,
           assuredAsset.name,
         ]}
-        backLink={{
-          label: 'Assurance Sets',
-          onClick: () => setCurrentHashView('assurance-sets'),
-        }}
         mainAction={detailHeaderActions}
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
