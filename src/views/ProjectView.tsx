@@ -8,10 +8,13 @@ import React, { useMemo, useState } from 'react';
 import { Eye } from 'lucide-react';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { FilterModal } from '../components/common/FilterModal';
-import { FilterButton } from '../components/common/FilterButton';
+import { CountTabs } from '../components/common/CountTabs';
+import { ListToolbar } from '../components/common/ListToolbar';
+import { StatusBadge } from '../components/common/StatusBadge';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { useMapStore } from '../store/useMapStore';
-import { calculateProjectReadiness, countProjectAssets, filterProjectsForPersona } from '../utils/projectHelpers';
+import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { calculateProjectReadiness, filterProjectsForPersona } from '../utils/projectHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -75,41 +78,85 @@ export const ProjectView: React.FC = () => {
 
   const projectsPagination = usePagination(filtered, [search, statusFilter, typeFilter]);
 
+  const projectStatuses = ['Draft', 'Composing', 'Assurance In Progress', 'Ready for Charter', 'Closed'] as const;
+  const projectTabs = [
+    { key: 'ALL', label: 'All', count: visibleProjects.length },
+    ...projectStatuses.map((status) => ({
+      key: status,
+      label: status,
+      count: visibleProjects.filter((project) => project.status === status).length,
+      tone: status === 'Assurance In Progress' ? ('warn' as const) : undefined,
+    })),
+  ];
+  const activeProjectTab = projectTabs.some((tab) => tab.key === statusFilter) ? statusFilter : '';
+
+  const handleExportCsv = () => {
+    exportToCsv(
+      'Projects',
+      filtered.map((project) => ({
+        ProjectId: project.id,
+        Name: project.name,
+        Type: project.projectType,
+        Period: `${project.charterWindowStart} → ${project.charterWindowEnd}`,
+        Readiness: `${calculateProjectReadiness(project, assuranceSets)}%`,
+        Status: project.status,
+      })),
+    );
+  };
+
+  const handleExportPdf = () => {
+    exportToPdf(
+      'Projects',
+      ['Project ID', 'Name', 'Type', 'Project Period', 'Readiness', 'Status'],
+      filtered.map((project) => [
+        project.id,
+        project.name,
+        project.projectType,
+        `${project.charterWindowStart} → ${project.charterWindowEnd}`,
+        `${calculateProjectReadiness(project, assuranceSets)}%`,
+        project.status,
+      ]),
+    );
+  };
+
   return (
     <div className="d-flex flex-column gap-3">
-      <div className="d-flex flex-wrap align-items-center justify-between gap-3">
-        <div className="d-flex flex-wrap align-items-center gap-2">
-          <input
-            type="text"
-            className="form-control form-control-sm"
-            placeholder="Search projects..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '280px' }}
-          />
-          <FilterButton
-            onClick={() => setIsFilterModalOpen(true)}
-            activeCount={activeFilterCount}
+      <div className="card map-card-custom">
+        <div className="p-3 border-bottom">
+          <CountTabs
+            tabs={projectTabs}
+            active={activeProjectTab}
+            onChange={setStatusFilter}
+            aria-label="Project tabs"
           />
         </div>
-        {canCreate && (
-          <button
-            type="button"
-            className="btn btn-sm btn-primary fw-semibold"
-            onClick={() => setCurrentHashView('project', 'new')}
-          >
-            Create Project
-          </button>
-        )}
-      </div>
+        <ListToolbar
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search projects..."
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFilterCount={activeFilterCount}
+          onExportCsv={handleExportCsv}
+          onExportPdf={handleExportPdf}
+          primaryAction={
+            canCreate ? (
+              <button
+                type="button"
+                className="btn btn-sm btn-primary fw-semibold"
+                onClick={() => setCurrentHashView('project', 'new')}
+              >
+                Create Project
+              </button>
+            ) : undefined
+          }
+        />
 
       {activeChips.length > 0 && (
-        <div className="px-3 py-2 bg-light rounded border">
+        <div className="px-3 py-2 bg-light border-bottom">
           <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
         </div>
       )}
 
-      <div className="card map-card-custom">
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
             <thead>
@@ -138,27 +185,20 @@ export const ProjectView: React.FC = () => {
                       style={{ cursor: 'pointer' }}
                       onClick={() => setCurrentHashView('project', p.id)}
                     >
-                      <td className="font-mono-code text-primary fw-semibold">{p.id}</td>
-                      <td>
-                        <div className="fw-semibold text-dark">{p.name}</div>
-                        <div className="small text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
-                          {countProjectAssets(p.assetLinks)} linked
-                        </div>
+                      <td className="font-mono-code text-primary fw-semibold text-nowrap">{p.id}</td>
+                      <td className="fw-semibold text-dark text-nowrap">{p.name}</td>
+                      <td className="small text-nowrap">
+                        {p.projectType}
+                        {p.requestingOrganization ? ` · ${p.requestingOrganization}` : ''}
                       </td>
-                      <td className="small">
-                        <div className="d-flex align-items-center gap-1.5 mb-0.5">
-                          <span className="badge bg-light text-dark border">{p.projectType}</span>
-                        </div>
-                        <div className="text-secondary small">{p.requestingOrganization}</div>
-                      </td>
-                      <td className="font-mono-code small">
+                      <td className="font-mono-code small text-nowrap">
                         {p.charterWindowStart} → {p.charterWindowEnd}
                       </td>
                       <td>
                         <ReadinessGauge score={calculateProjectReadiness(p, assuranceSets)} size="sm" />
                       </td>
                       <td>
-                        <span className="badge bg-secondary">{p.status}</span>
+                        <StatusBadge value={p.status} />
                       </td>
                       <td className="text-end">
                         <button

@@ -5,23 +5,7 @@
 */
 
 import React, { useState, useMemo } from 'react';
-import {
-  Search,
-  LayoutGrid,
-  Table as TableIcon,
-  Download,
-  Ship,
-  Wrench,
-  Users,
-  Briefcase,
-  Layers,
-  ArrowUpDown,
-  RotateCcw,
-  X,
-  ArrowRight,
-  ShieldCheck,
-  Eye,
-} from 'lucide-react';
+import { LayoutGrid, Table as TableIcon, ArrowUpDown, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { MarketplaceCategory, MarketplaceItem } from '../types/marketplace';
 import { getMarketplaceItems, filterMarketplaceItems, resolveMarketplaceCharterTarget } from '../utils/marketplaceHelpers';
@@ -33,7 +17,10 @@ import { getOrganizationLogo } from '../utils/vesselImageHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { formatReadinessScore, PROVIDER_GENERIC_LABEL } from '../utils/formatters';
 import { FilterModal } from '../components/common/FilterModal';
-import { FilterButton } from '../components/common/FilterButton';
+import { CountTabs } from '../components/common/CountTabs';
+import { ListToolbar } from '../components/common/ListToolbar';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
@@ -65,7 +52,6 @@ export const MarketplaceView: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   /* registered asset behind the open listing, or null when the listing is not linked to one */
@@ -173,14 +159,6 @@ export const MarketplaceView: React.FC = () => {
     setSortOrder('asc');
   };
 
-  const hasActiveFilters =
-    searchTerm.trim() !== '' ||
-    providerFilter !== 'ALL' ||
-    locationFilter !== 'ALL' ||
-    statusFilter !== 'ALL' ||
-    availableOn !== '' ||
-    activeCategory !== 'all';
-
   const activeChips = useMemo<FilterChip[]>(() => {
     const chips: FilterChip[] = [];
     if (providerFilter !== 'ALL') {
@@ -242,7 +220,6 @@ export const MarketplaceView: React.FC = () => {
       MobilizationLeadTime: item.mobilizationLeadTime || 'Standard',
     }));
     exportToCsv('Marketplace_Offerings_Registry', exportData);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
@@ -256,224 +233,71 @@ export const MarketplaceView: React.FC = () => {
       formatReadinessScore(item.complianceReadinessScore),
     ]);
     exportToPdf('Maritime Marketplace Offerings', headers, rows);
-    setIsExportOpen(false);
   };
 
   const itemsPagination = usePagination(filteredItems, [activeCategory, searchTerm, providerFilter, locationFilter, statusFilter, availableOn, sortBy, sortOrder]);
 
   return (
     <div className="d-flex flex-column gap-3.5">
-      {/* Top Unified Header: Category Navigation Pills + Action Controls */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-        {/* Category Navigation Pills with Universal Font and Counts */}
-        <div
-          className="nav nav-pills p-1 rounded-2 border d-inline-flex flex-wrap gap-1"
-          style={{
-            backgroundColor: '#F8FAFC',
-            borderColor: '#E2E8F0',
-          }}
-        >
-          <button
-            type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${
-              activeCategory === 'all'
-                ? 'active bg-primary text-white fw-semibold'
-                : 'text-secondary'
-            }`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setActiveCategory('all')}
-          >
-            All ({counts.all})
-          </button>
-
-          <button
-            type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${
-              activeCategory === 'vessel'
-                ? 'active bg-primary text-white fw-semibold'
-                : 'text-secondary'
-            }`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setActiveCategory('vessel')}
-          >
-            Vessels ({counts.vessel})
-          </button>
-
-          <button
-            type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${
-              activeCategory === 'equipment'
-                ? 'active bg-primary text-white fw-semibold'
-                : 'text-secondary'
-            }`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setActiveCategory('equipment')}
-          >
-            Equipment ({counts.equipment})
-          </button>
-
-          <button
-            type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${
-              activeCategory === 'crew'
-                ? 'active bg-primary text-white fw-semibold'
-                : 'text-secondary'
-            }`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setActiveCategory('crew')}
-          >
-            Crew ({counts.crew})
-          </button>
+      <div className="card map-card-custom overflow-hidden">
+        <div className="p-3 border-bottom">
+          <CountTabs
+            tabs={[
+              { key: 'all', label: 'All', count: counts.all },
+              { key: 'vessel', label: 'Vessels', count: counts.vessel },
+              { key: 'equipment', label: 'Equipment', count: counts.equipment },
+              { key: 'crew', label: 'Crew', count: counts.crew },
+            ]}
+            active={activeCategory}
+            onChange={(key) => setActiveCategory(key as MarketplaceCategory)}
+            aria-label="Marketplace tabs"
+          />
         </div>
-
-        {/* Right Action Controls: View Switcher & Export */}
-        <div className="d-flex align-items-center gap-2">
-          {/* View Mode Switcher */}
-          <div
-            className="btn-group border rounded-2 p-0.5 shadow-2xs"
-            style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}
+        <ListToolbar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search offerings..."
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFilterCount={activeFilterCount}
+          onExportCsv={handleExportCsv}
+          onExportPdf={handleExportPdf}
+        >
+          <select
+            className="form-select form-select-sm bg-white text-dark"
+            style={{ width: '160px', height: '36px' }}
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'name' | 'readiness' | 'provider' | 'category')}
+            aria-label="Sort"
           >
-            <button
-              type="button"
-              className={`btn btn-sm py-1 px-2.5 d-flex align-items-center gap-1 border-0 ${viewMode === 'grid' ? 'text-white' : 'text-secondary'
-                }`}
-              style={{
-                backgroundColor: viewMode === 'grid' ? '#0B1B2B' : 'transparent',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
-              }}
-              onClick={() => setViewMode('grid')}
-              title="Grid view"
-              aria-label="Grid view"
-            >
+            <option value="name">Sort: Name</option>
+            <option value="readiness">Sort: Readiness</option>
+            <option value="provider">Sort: {PROVIDER_GENERIC_LABEL}</option>
+            <option value="category">Sort: Category</option>
+          </select>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary text-dark px-2.5 d-flex align-items-center justify-content-center"
+            style={{ height: '36px' }}
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            title={`Sort direction: ${sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
+            aria-label="Sort direction"
+          >
+            <ArrowUpDown size={14} />
+          </button>
+          <div className="btn-group" role="group" aria-label="View mode">
+            <button type="button" className={`btn btn-sm ${viewMode === 'grid' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setViewMode('grid')} aria-label="Grid view" title="Grid view">
               <LayoutGrid size={15} />
             </button>
-            <button
-              type="button"
-              className={`btn btn-sm py-1 px-2.5 d-flex align-items-center gap-1 border-0 ${viewMode === 'table' ? 'text-white' : 'text-secondary'
-                }`}
-              style={{
-                backgroundColor: viewMode === 'table' ? '#0B1B2B' : 'transparent',
-                borderRadius: '4px',
-                fontSize: '0.8rem',
-              }}
-              onClick={() => setViewMode('table')}
-              title="Table view"
-              aria-label="Table view"
-            >
+            <button type="button" className={`btn btn-sm ${viewMode === 'table' ? 'btn-dark' : 'btn-outline-secondary'}`} onClick={() => setViewMode('table')} aria-label="Table view" title="Table view">
               <TableIcon size={15} />
             </button>
           </div>
-
-          {/* Export Action */}
-          <div className="dropdown position-relative">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5 px-3 py-1.5 text-dark"
-              style={{ fontSize: '0.82rem', height: '34px', borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}
-              onClick={() => setIsExportOpen(!isExportOpen)}
-            >
-              <Download size={14} />
-              <span>Export</span>
-            </button>
-
-            {isExportOpen && (
-              <ul
-                className="dropdown-menu dropdown-menu-end show position-absolute end-0 mt-1 shadow-sm border py-1"
-                style={{ minWidth: '150px', zIndex: 1000 }}
-              >
-                <li>
-                  <button type="button" className="dropdown-item small py-1.5" onClick={handleExportCsv}>
-                    CSV
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="dropdown-item small py-1.5" onClick={handleExportPdf}>
-                    PDF
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Container Card */}
-      <div
-        className="card map-card-custom overflow-hidden border shadow-2xs"
-        style={{ borderRadius: '8px', borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}
-      >
-        {/* Consolidated Search & Filter Toolbar Header */}
-        <div
-          className="card-header p-3 bg-white border-bottom d-flex flex-column gap-2.5"
-          style={{ borderBottomColor: '#E2E8F0' }}
-        >
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-2.5">
-            <div className="d-flex flex-wrap align-items-center gap-2.5 flex-grow-1">
-              {/* Search Input */}
-              <div className="position-relative" style={{ minWidth: '240px', maxWidth: '300px' }}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
-                  style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                  placeholder="Search offerings..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search size={14} className="position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" />
-              </div>
-
-              {/* Filter Button */}
-              <FilterButton
-                onClick={() => setIsFilterModalOpen(true)}
-                activeCount={activeFilterCount}
-              />
-
-              {/* Sort By Dropdown */}
-              <select
-                className="form-select form-select-sm bg-white text-dark font-sans"
-                style={{ width: '160px', borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                title="Sort"
-              >
-                <option value="name">Sort: Name</option>
-                <option value="readiness">Sort: Readiness</option>
-                <option value="provider">Sort: {PROVIDER_GENERIC_LABEL}</option>
-                <option value="category">Sort: Category</option>
-              </select>
-
-              {/* Sort Direction Toggle */}
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark px-2.5 d-flex align-items-center justify-content-center"
-                style={{ borderColor: '#E2E8F0', height: '34px', backgroundColor: '#FFFFFF' }}
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                title={`Sort direction: ${sortOrder === 'asc' ? 'Ascending' : 'Descending'}`}
-              >
-                <ArrowUpDown size={14} />
-              </button>
-            </div>
-
-            {/* Clear All Filters Button */}
-            {hasActiveFilters && (
-              <button
-                type="button"
-                className="btn btn-sm btn-link text-secondary d-flex align-items-center gap-1 text-decoration-none px-2 ms-auto"
-                onClick={handleResetFilters}
-                style={{ fontSize: '0.8rem', color: '#64748B' }}
-              >
-                <RotateCcw size={13} />
-                <span>Clear All</span>
-              </button>
-            )}
-          </div>
-
-          {/* Active Filter Chips Bar */}
-          {activeChips.length > 0 && (
+        </ListToolbar>
+        {activeChips.length > 0 && (
+          <div className="px-3 py-2 bg-light border-bottom">
             <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Content Area: Grid View vs Table View */}
         {viewMode === 'grid' ? (
@@ -486,17 +310,9 @@ export const MarketplaceView: React.FC = () => {
                 <div className="fw-semibold text-dark mb-1" style={{ fontSize: '1rem', color: '#0B1B2B' }}>
                   No offerings found
                 </div>
-                <div className="text-muted small mb-3" style={{ fontSize: '0.82rem' }}>
+                <div className="text-muted small" style={{ fontSize: '0.82rem' }}>
                   Try a different search or filter.
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary px-3 py-1.5"
-                  onClick={handleResetFilters}
-                  style={{ fontSize: '0.8rem' }}
-                >
-                  Clear All
-                </button>
               </div>
             ) : (
               <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
@@ -533,7 +349,7 @@ export const MarketplaceView: React.FC = () => {
                     Readiness
                   </th>
                   <th style={{ padding: '12px 16px', fontSize: '0.8rem', color: '#64748B', fontWeight: 500, textAlign: 'right' }}>
-                    Action
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -582,19 +398,8 @@ export const MarketplaceView: React.FC = () => {
                         </td>
 
                         {/* Column 2: Category Eyebrow Tag */}
-                        <td style={{ padding: '12px 16px' }}>
-                          <span
-                            className="badge rounded-pill border text-capitalize px-2.5 py-1"
-                            style={{
-                              backgroundColor: '#F8FAFC',
-                              borderColor: '#E2E8F0',
-                              color: '#334155',
-                              fontSize: '0.72rem',
-                              fontWeight: 500,
-                            }}
-                          >
-                            {item.subcategory || item.category}
-                          </span>
+                        <td className="text-nowrap" style={{ padding: '12px 16px' }}>
+                          {item.subcategory || item.category}
                         </td>
 
                         {/* Combined Column 3: Provider Logo + Name + Location */}
@@ -621,45 +426,24 @@ export const MarketplaceView: React.FC = () => {
                                 {orgInfo.initials}
                               </div>
                             )}
-                            <div className="d-flex flex-column min-w-0">
-                              <span className="fw-medium text-dark text-truncate" style={{ fontSize: '0.82rem' }}>
-                                {item.providerOrg}
-                              </span>
-                              <span className="text-secondary small text-truncate" style={{ fontSize: '0.72rem', color: '#64748B' }}>
-                                {item.location}
-                              </span>
-                            </div>
+                            <span className="text-dark text-truncate" style={{ fontSize: '0.82rem' }}>
+                              {item.providerOrg}
+                              {item.location ? ` · ${item.location}` : ''}
+                            </span>
                           </div>
                         </td>
 
                         {/* Column 4: Availability Status */}
                         <td style={{ padding: '12px 16px' }}>
-                          <span
-                            className="badge rounded-pill d-inline-flex align-items-center gap-1.5 px-2.5 py-1"
-                            style={{
-                              backgroundColor: `${item.availabilityTagColor}15`,
-                              color: item.availabilityTagColor,
-                              border: `1px solid ${item.availabilityTagColor}40`,
-                              fontSize: '0.72rem',
-                              fontWeight: 600,
-                            }}
-                          >
-                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: item.availabilityTagColor }} />
-                            {item.availabilityStatus}
-                          </span>
+                          <StatusBadge value={item.availabilityStatus} />
                         </td>
 
-                        {/* Column 5: Tabular Readiness Score in Mono */}
                         <td style={{ padding: '12px 16px' }}>
-                          <div className="d-flex align-items-center gap-1.5">
-                            <ShieldCheck size={14} className={item.complianceReadinessScore === null ? 'text-secondary' : 'text-primary'} />
-                            <span
-                              className={`font-mono-code ${item.complianceReadinessScore === null ? 'text-secondary' : 'fw-semibold text-dark'}`}
-                              style={{ fontSize: '0.88rem' }}
-                            >
-                              {formatReadinessScore(item.complianceReadinessScore)}
-                            </span>
-                          </div>
+                          {item.complianceReadinessScore === null ? (
+                            <span className="text-secondary">—</span>
+                          ) : (
+                            <ReadinessGauge score={item.complianceReadinessScore} size="sm" />
+                          )}
                         </td>
 
                         {/* Column 6: Streamlined Action */}

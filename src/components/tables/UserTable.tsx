@@ -8,16 +8,17 @@ import React, { useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Pencil, UserX, UserCheck } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { UserProfile, UserRolePersona } from '../../types/user';
-import { RoleName } from '../../types/permissions';
 import { FilterModal } from '../common/FilterModal';
-import { FilterButton } from '../common/FilterButton';
+import { CountTabs } from '../common/CountTabs';
+import { ListToolbar } from '../common/ListToolbar';
+import { StatusBadge } from '../common/StatusBadge';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { EditUserModal } from '../modals/EditUserModal';
 import { canPerform } from '../../utils/permissionHelpers';
 
 import { filterUsersForPersona } from '../../utils/rbacHelpers';
-import { formatUserRoles, getRoleDisplayLabel, userHasRole, userMatchesAnyRole } from '../../utils/userRoleHelpers';
+import { formatUserRoles, getRoleDisplayLabel, userHasRole } from '../../utils/userRoleHelpers';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
 
@@ -32,7 +33,6 @@ type UserSortField =
 
 interface UserTableProps {
   onAddUser?: () => void;
-  roleCategoryTab?: 'ALL' | 'Inspector' | 'Verifier' | 'AdminApprover';
 }
 
 /**
@@ -40,7 +40,7 @@ interface UserTableProps {
   how: filters users array by search query, persona isolation rules, role category tabs, and classification, with column sorting and export to CSV/PDF.
   with what file: src/components/tables/UserTable.tsx loaded by UserManagementView.tsx.
 */
-export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab = 'ALL' }) => {
+export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
   const {
     users,
     updateUserStatus,
@@ -57,7 +57,6 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<UserSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
 
   const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
@@ -100,16 +99,7 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
     const matchesType = typeFilter === 'ALL' || u.userType === typeFilter;
     const matchesStatus = statusFilter === 'ALL' || u.status === statusFilter;
 
-    let matchesRoleTab = true;
-    if (roleCategoryTab === 'Inspector') {
-      matchesRoleTab = userHasRole(u, 'Inspector');
-    } else if (roleCategoryTab === 'Verifier') {
-      matchesRoleTab = userHasRole(u, 'Verifier');
-    } else if (roleCategoryTab === 'AdminApprover') {
-      matchesRoleTab = userMatchesAnyRole(u, ['C Admin', 'Administrator', 'Approver']);
-    }
-
-    return matchesSearch && matchesRole && matchesType && matchesStatus && matchesRoleTab;
+    return matchesSearch && matchesRole && matchesType && matchesStatus;
   });
 
   const handleSort = (field: UserSortField) => {
@@ -148,27 +138,6 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
     return 0;
   });
 
-  const getRoleBadgeClass = (role: RoleName) => {
-    switch (role) {
-      case 'Administrator': return 'bg-dark text-white';
-      case 'C Admin': return 'bg-info text-dark';
-      case 'Submitter': return 'bg-primary text-white';
-      case 'Verifier': return 'bg-warning text-dark';
-      case 'Inspector': return 'bg-secondary text-white';
-      case 'Approver': return 'bg-success text-white';
-      default: return 'bg-light text-dark border';
-    }
-  };
-
-  const getStatusBadgeClass = (status: UserProfile['status']) => {
-    switch (status) {
-      case 'Active': return 'bg-success text-white';
-      case 'Pending Invitation': return 'bg-warning text-dark';
-      case 'Inactive': return 'bg-secondary text-white';
-      default: return 'bg-light text-dark border';
-    }
-  };
-
   const handleExportCsv = () => {
     const exportData = sortedUsers.map((u) => ({
       Name: u.name,
@@ -181,7 +150,6 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
       LastActive: u.lastActive,
     }));
     exportToCsv('Master_User_Directory', exportData);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
@@ -194,7 +162,6 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
       u.status,
     ]);
     exportToPdf('Master User Directory Log', headers, rows);
-    setIsExportOpen(false);
   };
 
   const activeFilterCount =
@@ -216,66 +183,47 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
 
   const usersPagination = usePagination(sortedUsers, [searchTerm, roleFilter, typeFilter, statusFilter, sortField, sortDirection]);
 
+  const userTabs = [
+    { key: 'ALL', label: 'All', count: visibleUsers.length },
+    {
+      key: 'Organization',
+      label: 'Organization',
+      count: visibleUsers.filter((user) => user.userType === 'Organization').length,
+    },
+    {
+      key: 'Third-Party',
+      label: 'Third-Party',
+      count: visibleUsers.filter((user) => user.userType === 'Third-Party').length,
+    },
+  ];
+  const activeUserTab = userTabs.some((tab) => tab.key === typeFilter) ? typeFilter : '';
+
   return (
     <div className="card map-card-custom">
-      {/* Table Header Controls Row: Grouped Search/Filters Left, Grouped Export/Add User Right */}
-      <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-        {/* Left Side: Search Box & Filter Button */}
-        <div className="d-flex flex-wrap align-items-center gap-2">
-          <input
-            type="text"
-            className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search users..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '260px' }}
-          />
-
-          <FilterButton
-            onClick={() => setIsFilterModalOpen(true)}
-            activeCount={activeFilterCount}
-          />
-        </div>
-
-        {/* Opposite (Right) Side: Export & Add User Buttons on corner right of the row */}
-        <div className="d-flex align-items-center gap-2 ms-auto">
-          {/* Export Dropdown */}
-          <div className="dropdown position-relative">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-              onClick={() => setIsExportOpen(!isExportOpen)}
-            >
-              Export
-            </button>
-            {isExportOpen && (
-              <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    CSV
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    PDF
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
-
-          {/* Add User Action Button */}
-          {canCreateUser && onAddUser && (
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={onAddUser}
-            >
+      <div className="p-3 border-bottom">
+        <CountTabs
+          tabs={userTabs}
+          active={activeUserTab}
+          onChange={setTypeFilter}
+          aria-label="User tabs"
+        />
+      </div>
+      <ListToolbar
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search users..."
+        onFilterClick={() => setIsFilterModalOpen(true)}
+        activeFilterCount={activeFilterCount}
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+        primaryAction={
+          canCreateUser && onAddUser ? (
+            <button type="button" className="btn btn-sm btn-primary" onClick={onAddUser}>
               Add User
             </button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {activeChips.length > 0 && (
         <div className="px-3 py-2 bg-light border-bottom">
@@ -316,31 +264,21 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser, roleCategoryTab
             ) : (
               usersPagination.pageItems.map((u) => (
                 <tr key={u.id}>
-                  <td className="font-mono-code fw-semibold text-primary">{u.id}</td>
-                  <td>
-                    <div className="fw-semibold text-dark">{u.name}</div>
-                    <div className="small font-mono-code text-muted">{u.email}</div>
+                  <td className="font-mono-code fw-semibold text-primary text-nowrap">{u.id}</td>
+                  <td className="text-nowrap">
+                    <span className="fw-semibold text-dark">{u.name}</span>
+                    <span className="small font-mono-code text-muted ms-2">{u.email}</span>
+                  </td>
+                  <td className="small text-nowrap">
+                    {formatUserRoles(u.roles)}
+                    {u.userType ? ` · ${u.userType}` : ''}
+                  </td>
+                  <td className="text-nowrap">
+                    <span className="fw-semibold text-dark">{u.organization}</span>
+                    {u.departmentOrScope ? <span className="text-muted"> · {u.departmentOrScope}</span> : null}
                   </td>
                   <td>
-                    <div className="d-flex flex-wrap align-items-center gap-1">
-                      {u.roles.map((role) => (
-                        <span key={role} className={`badge ${getRoleBadgeClass(role)}`}>
-                          {getRoleDisplayLabel(role)}
-                        </span>
-                      ))}
-                      <span className={`badge ${u.userType === 'Organization' ? 'bg-light text-secondary border' : 'bg-info-subtle text-info-emphasis border border-info-subtle'}`} style={{ fontSize: '0.7rem' }}>
-                        {u.userType}
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="fw-semibold text-dark">{u.organization}</div>
-                    <div className="small text-muted">{u.departmentOrScope}</div>
-                  </td>
-                  <td>
-                    <span className={`badge ${getStatusBadgeClass(u.status)}`}>
-                      {u.status}
-                    </span>
+                    <StatusBadge value={u.status} />
                   </td>
                   <td className="text-end">
                     {canUpdateUser && (
