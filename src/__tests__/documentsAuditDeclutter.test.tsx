@@ -117,10 +117,10 @@ describe('Documents and audit trail declutter', () => {
     expect(within(card).getAllByText(/Administrator/).length).toBeGreaterThan(0);
 
     within(card).getAllByRole('row').slice(1).forEach((row) => {
-      expect(row.querySelector('[title]')).toBeNull();
       expect(row.querySelectorAll('.badge')).toHaveLength(0);
-      row.querySelectorAll('td').forEach((cell) => {
+      row.querySelectorAll('td').forEach((cell, index) => {
         expect(cell.querySelector('div')).toBeNull();
+        if (index !== 5) expect(cell.querySelector('[title]')).toBeNull();
       });
     });
   });

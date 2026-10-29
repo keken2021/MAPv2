@@ -188,41 +188,41 @@ export const AuditTrailView: React.FC = () => {
 
         {/* Audit Log Table */}
         <div className="table-responsive">
-          <table className="table map-table-custom align-middle mb-0">
+          <table className="table map-table-custom align-middle mb-0" style={{ tableLayout: 'fixed', width: '100%' }}>
             <thead>
               <tr>
                 <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', width: '9.5rem' }}
                   onClick={() => handleSort('timestampUtc')}
                 >
                   Timestamp (UTC) {renderSortIndicator('timestampUtc')}
                 </th>
                 <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
                   onClick={() => handleSort('action')}
                 >
                   Action {renderSortIndicator('action')}
                 </th>
                 <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
                   onClick={() => handleSort('targetAsset')}
                 >
                   Target {renderSortIndicator('targetAsset')}
                 </th>
                 <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  style={{ cursor: 'pointer', userSelect: 'none', width: '13.5rem' }}
                   onClick={() => handleSort('userRole')}
                 >
                   Role {renderSortIndicator('userRole')}
                 </th>
                 <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  style={{ cursor: 'pointer', userSelect: 'none', width: '11rem' }}
                   onClick={() => handleSort('fieldDelta')}
                 >
                   Change {renderSortIndicator('fieldDelta')}
                 </th>
                 <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
                   onClick={() => handleSort('justificationNotes')}
                 >
                   Notes {renderSortIndicator('justificationNotes')}
@@ -237,25 +237,34 @@ export const AuditTrailView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                eventsPagination.pageItems.map((ev) => (
+                eventsPagination.pageItems.map((ev) => {
+                  const note = ev.justificationNotes?.trim() ?? '';
+                  return (
                   <tr key={ev.id}>
                     <td className="font-mono-code small text-nowrap">{formatMaritimeDate(ev.timestampUtc)}</td>
-                    <td className="fw-semibold text-primary text-nowrap">{ev.action}</td>
-                    <td className="text-dark text-nowrap">{formatAuditTarget(ev.target)}</td>
-                    <td className="small text-dark text-nowrap">
+                    <td className="fw-semibold text-primary">{ev.action}</td>
+                    <td className="text-dark">{formatAuditTarget(ev.target)}</td>
+                    <td className="small text-dark">
                       {getRoleDisplayLabel(ev.userRole)}
                       <span className="text-secondary"> · {ev.organization}</span>
                     </td>
-                    <td className="small text-dark text-nowrap">
+                    <td className="small text-dark">
                       {ev.fieldDelta
                         ? `${ev.fieldDelta.fieldName}: ${ev.fieldDelta.oldValue} → ${ev.fieldDelta.newValue}`
                         : 'No change'}
                     </td>
-                    <td className="small text-secondary text-nowrap">
-                      {ev.justificationNotes?.trim() ? ev.justificationNotes : '—'}
+                    <td className="small text-secondary">
+                      {note ? (
+                        <span className="d-block text-truncate" title={note} tabIndex={0}>
+                          {note}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
