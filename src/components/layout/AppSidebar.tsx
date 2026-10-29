@@ -16,6 +16,7 @@ import {
   isUserOverride,
 } from "../../utils/permissionHelpers";
 import {
+  filterDocumentsForVerifierQueue,
   MARKETPLACE_ROLES,
   isMarketplacePersona,
 } from "../../utils/rbacHelpers";
@@ -62,6 +63,8 @@ export const AppSidebar: React.FC = () => {
     userPermissionOverrides,
     users,
     customScopes,
+    documents,
+    assuranceSets,
   } = useMapStore();
   /* footer popover that is open; one at a time so the two never overlap */
   const [openMenu, setOpenMenu] = useState<"organization" | "user" | null>(null);
@@ -96,6 +99,17 @@ export const AppSidebar: React.FC = () => {
   const personasForOrganization = useMemo(
     () => getPersonasForOrganization(users, activeDemoOrganization),
     [users, activeDemoOrganization],
+  );
+
+  const verifierQueueCount = useMemo(
+    () =>
+      filterDocumentsForVerifierQueue(
+        documents,
+        assuranceSets,
+        activePersona,
+        activeDemoOrganization,
+      ).length,
+    [documents, assuranceSets, activePersona, activeDemoOrganization],
   );
 
   const sessionUser = useMemo(
@@ -202,21 +216,21 @@ export const AppSidebar: React.FC = () => {
       key: "verifier",
       label: "Verification Queue",
       allowedRoles: ["Administrator", "Submitter", "Verifier"],
-      badgeText: "2",
+      badgeText: verifierQueueCount > 0 ? String(verifierQueueCount) : undefined,
     },
     {
       key: "inspector",
-      label: "Physical Inspections",
+      label: "Inspections",
       allowedRoles: ["Administrator"],
     },
     {
       key: "approver",
-      label: "Approval Gate",
+      label: "Approvals",
       allowedRoles: ["Approver", "Verifier"],
     },
     {
       key: "capa",
-      label: "CAPA Tracker",
+      label: "CAPA",
       allowedRoles: ["C Admin", "Inspector"],
     },
     {
@@ -281,6 +295,10 @@ export const AppSidebar: React.FC = () => {
     const initialAllowed = item.allowedRoles.includes(activePersona);
 
     if (!ENABLE_ROLES_AND_PERMISSIONS) return initialAllowed;
+
+    if (["verifier", "approver", "capa", "inspector"].includes(item.key)) {
+      return initialAllowed;
+    }
 
     const scopeKey = VIEW_TO_SCOPE[item.key];
     if (!scopeKey) return initialAllowed;

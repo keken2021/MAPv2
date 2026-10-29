@@ -4,6 +4,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ApproverDashboardView } from '../views/ApproverDashboardView';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
+import { VesselInformation } from '../types/vessel';
 
 describe('ApproverDashboardView UI Declutter', () => {
   const initialStore = useMapStore.getState();
@@ -31,9 +32,13 @@ describe('ApproverDashboardView UI Declutter', () => {
           isMandatory: true,
           isFulfilled: true,
           verifierStatus: 'Verified',
+          ocrConfidence: 95,
         },
       ],
       assignedApprover: 'Approver User',
+      readinessScore: 85,
+      mandatoryInspectionRequired: false,
+      inspectionCompleted: true,
     },
     {
       id: 'AS-OVERDUE-01',
@@ -57,9 +62,13 @@ describe('ApproverDashboardView UI Declutter', () => {
           isMandatory: true,
           isFulfilled: true,
           verifierStatus: 'Verified',
+          ocrConfidence: 95,
         },
       ],
       assignedApprover: 'Approver User',
+      readinessScore: 70,
+      mandatoryInspectionRequired: false,
+      inspectionCompleted: false,
     },
     {
       id: 'AS-APPROVED-01',
@@ -77,6 +86,9 @@ describe('ApproverDashboardView UI Declutter', () => {
       verificationRequired: true,
       requirements: [],
       assignedApprover: 'Approver User',
+      readinessScore: 100,
+      mandatoryInspectionRequired: false,
+      inspectionCompleted: true,
     },
     {
       id: 'AS-RETURNED-01',
@@ -94,6 +106,9 @@ describe('ApproverDashboardView UI Declutter', () => {
       verificationRequired: true,
       requirements: [],
       assignedApprover: 'Approver User',
+      readinessScore: 65,
+      mandatoryInspectionRequired: false,
+      inspectionCompleted: false,
     },
   ];
 
@@ -102,7 +117,7 @@ describe('ApproverDashboardView UI Declutter', () => {
       activePersona: 'Approver',
       isAuthenticated: true,
       activeDemoOrganization: '',
-      currentEntityId: null,
+      currentEntityId: undefined,
       assuranceSets: mockAssuranceSets,
       vessels: [
         {
@@ -114,12 +129,11 @@ describe('ApproverDashboardView UI Declutter', () => {
           dynamicPositioningClass: 'DP2',
           flagState: 'Singapore',
           yearBuilt: 2020,
-          grossTonnage: 3500,
-          deadweightTonnage: 4200,
+          grossTonnageGT: 3500,
+          deadweightTonnageDWT: 4200,
           officialRegNumber: 'SG-12345',
           status: 'Active',
-          complianceScore: 98,
-        },
+        } as unknown as VesselInformation,
       ],
     });
   });

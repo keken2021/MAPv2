@@ -11,6 +11,16 @@ import { getPersonaOptionsForOrganization } from '../../utils/demoSessionHelpers
 import { getRoleDisplayLabel } from '../../utils/userRoleHelpers';
 import { NotificationPanel } from './NotificationPanel';
 
+const cleanBackLabel = (label: string): string => {
+  return label
+    .replace(/Seafarer Profile/g, 'Crew Detail')
+    .replace(/Seafarer/g, 'Crew')
+    .replace(/Assurance Campaign|Campaign/g, 'Assurance Set')
+    .replace(/Physical Inspections|Physical Inspection|Physical Audit|Visual Survey/g, 'Inspections')
+    .replace(/CAPA Tracker/g, 'CAPA')
+    .replace(/Approval Gate/g, 'Approvals');
+};
+
 /**
   what: renders top header bar with breadcrumb page title, scenario toggle, and viewing as persona pills matching the mockup design.
   how: computes open page title and context breadcrumb, manages scenario toggle state, and updates active persona on pill click.
@@ -50,12 +60,12 @@ export const HeaderBanner: React.FC = () => {
         return getBackButtonInfo('crew', 'Crew Directory', previousHashView, activePersona, previousEntityId);
       case 'inspection':
       case 'inspector':
-        return getBackButtonInfo('inspector', 'Physical Inspections', previousHashView, activePersona, previousEntityId);
+        return getBackButtonInfo('inspector', 'Inspections', previousHashView, activePersona, previousEntityId);
       case 'capa':
       case 'capas':
-        return getBackButtonInfo('capa', 'Physical Inspections', previousHashView, activePersona, previousEntityId);
+        return getBackButtonInfo('capa', 'CAPA', previousHashView, activePersona, previousEntityId);
       case 'approver':
-        return getBackButtonInfo('approver', 'Approval Gate', previousHashView, activePersona, previousEntityId);
+        return getBackButtonInfo('approver', 'Approvals', previousHashView, activePersona, previousEntityId);
       case 'roles-permissions':
         return getBackButtonInfo('roles-permissions', 'Roles & Permissions', previousHashView, activePersona, previousEntityId);
       case 'marketplace':
@@ -78,120 +88,120 @@ export const HeaderBanner: React.FC = () => {
     [users, activeDemoOrganization],
   );
 
-  /* compute active page title and breadcrumb text based on current view */
+  /* compute active page title based on current view */
   const getHeaderTitleDetails = (): { breadcrumb: string; title: string } => {
     switch (currentHashView) {
       case 'vessels': {
         if (currentEntityId) {
           const v = vessels.find((item) => item.id === currentEntityId);
           return {
-            breadcrumb: `IMO ${v?.imoNumber || 'FLEET'} · VESSEL PROFILE`,
+            breadcrumb: v?.imoNumber ? `IMO ${v.imoNumber}` : 'VESSELS',
             title: v ? v.name : 'Vessel Detail',
           };
         }
-        return { breadcrumb: 'FLEET MASTER · ASSET REGISTRY', title: 'Vessels' };
+        return { breadcrumb: 'VESSELS', title: 'Vessels' };
       }
       case 'equipment': {
         if (currentEntityId) {
           const eq = equipment.find((item) => item.id === currentEntityId);
           return {
-            breadcrumb: `${eq?.equipmentIdentifier || 'EQUIPMENT'} · ASSET PROFILE`,
+            breadcrumb: eq?.equipmentIdentifier || 'EQUIPMENT',
             title: eq ? eq.name : 'Equipment Detail',
           };
         }
-        return { breadcrumb: 'FLEET MASTER · EQUIPMENT REGISTRY', title: 'Equipment' };
+        return { breadcrumb: 'EQUIPMENT', title: 'Equipment' };
       }
       case 'project': {
         if (currentEntityId === 'new') {
-          return { breadcrumb: 'CHARTER COMPOSITION · NEW PROJECT', title: 'Create Project' };
+          return { breadcrumb: 'CREATE PROJECT', title: 'Create Project' };
         }
         if (currentEntityId) {
           const p = projects.find((item) => item.id === currentEntityId);
           return {
-            breadcrumb: `${p?.id || 'PROJECT'} · CHARTER COMPOSITION`,
+            breadcrumb: p?.id || 'PROJECT',
             title: p ? p.name : 'Project Detail',
           };
         }
-        return { breadcrumb: 'CHARTER COMPOSITION · PROJECT REGISTRY', title: 'Projects' };
+        return { breadcrumb: 'PROJECTS', title: 'Projects' };
       }
       case 'assurance-sets': {
         if (currentEntityId) {
           const s = assuranceSets.find((item) => item.id === currentEntityId);
           return {
-            breadcrumb: `${s?.id || 'CAMPAIGN'} · ASSURANCE SET`,
-            title: s ? s.title : 'Assurance Set Detail Page',
+            breadcrumb: s?.id ? `${s.id} · ASSURANCE SET` : 'ASSURANCE SET',
+            title: s ? s.title : 'Assurance Set Detail',
           };
         }
-        return { breadcrumb: 'ASSURANCE CAMPAIGN REGISTRY · FLEET OVERVIEW', title: 'Assurance Sets' };
+        return { breadcrumb: 'ASSURANCE SETS', title: 'Assurance Sets' };
       }
       case 'documents': {
         if (currentEntityId) {
           const d = documents.find((item) => item.id === currentEntityId);
           return {
-            breadcrumb: `CERT ${d?.certificateNo || 'VAULT'} · STATUTORY FILE`,
+            breadcrumb: d?.certificateNo ? `CERT ${d.certificateNo}` : 'DOCUMENT',
             title: d ? d.title : 'Document Detail',
           };
         }
-        return { breadcrumb: 'STATUTORY VAULT · COMPLIANCE EVIDENCE', title: 'Document Library' };
+        return { breadcrumb: 'DOCUMENTS', title: 'Document Library' };
       }
       case 'crew': {
         if (currentEntityId) {
           const c = crew ? crew.find((item) => item.id === currentEntityId) : null;
           return {
-            breadcrumb: `CREW ID ${c?.id || 'DIRECTORY'} · SEAFARER PROFILE`,
+            breadcrumb: c?.id ? `${c.id} · CREW` : 'CREW',
             title: c ? c.fullName : 'Crew Detail',
           };
         }
-        return { breadcrumb: 'SEAFARER DIRECTORY · CREW MANNING', title: 'Crew Directory' };
+        return { breadcrumb: 'CREW', title: 'Crew Directory' };
       }
       case 'users':
-        return { breadcrumb: 'USER DIRECTORY · ACCESS GOVERNANCE', title: 'User Management' };
+        return { breadcrumb: 'USERS', title: 'User Management' };
       case 'roles-permissions':
-        return { breadcrumb: 'ACCESS CONTROL · GOVERNANCE MATRIX', title: 'Roles & Permissions' };
+        return { breadcrumb: 'ROLES & PERMISSIONS', title: 'Roles & Permissions' };
       case 'verifier':
-        return { breadcrumb: 'SURVEYOR WORKSPACE · COMPLIANCE REVIEW', title: 'Verification Queue' };
+        return { breadcrumb: 'VERIFICATION QUEUE', title: 'Verification Queue' };
       case 'inspection':
       case 'inspector':
         if (currentEntityId) {
           return {
-            breadcrumb: 'PHYSICAL AUDIT · VISUAL SURVEY',
-            title: `${decodeURIComponent(currentEntityId)} Physical Inspection`,
+            breadcrumb: 'INSPECTIONS',
+            title: `${decodeURIComponent(currentEntityId)} Inspection`,
           };
         }
-        return { breadcrumb: 'PHYSICAL AUDIT · VISUAL SURVEY', title: 'Physical Inspections' };
+        return { breadcrumb: 'INSPECTIONS', title: 'Inspections' };
       case 'approver':
-        return { breadcrumb: 'CHARTER AUTHORITY · READINESS SIGN-OFF', title: 'Approval Gate' };
+        return { breadcrumb: 'APPROVALS', title: 'Approvals' };
       case 'capa':
       case 'capas':
         if (currentEntityId && currentEntityId !== 'ALL_FLEET' && currentEntityId !== 'ALL') {
           return {
-            breadcrumb: 'CORRECTIVE ACTIONS · PHYSICAL AUDIT',
-            title: `${decodeURIComponent(currentEntityId)} Physical Inspection CAPAs`,
+            breadcrumb: 'CAPA',
+            title: `${decodeURIComponent(currentEntityId)} CAPAs`,
           };
         }
-        return { breadcrumb: 'CORRECTIVE ACTION TRACKER · FLEET OVERVIEW', title: 'CAPA Tracker' };
+        return { breadcrumb: 'CAPA', title: 'CAPA' };
       case 'audit':
-        return { breadcrumb: 'IMMUTABLE LOGS · CRYPTOGRAPHIC AUDIT', title: 'Audit Trail' };
+        return { breadcrumb: 'AUDIT TRAIL', title: 'Audit Trail' };
       case 'create-assurance-set':
-        return { breadcrumb: 'NEW ASSURANCE CAMPAIGN · INITIATION', title: 'Create Assurance Set' };
+        return { breadcrumb: 'CREATE ASSURANCE SET', title: 'Create Assurance Set' };
       case 'marketplace':
-        return { breadcrumb: 'CHARTER & ASSET PROVISION · THIRD-PARTY MARKETPLACE', title: 'Marketplace' };
+        return { breadcrumb: 'MARKETPLACE', title: 'Marketplace' };
       case 'notifications':
-        return { breadcrumb: 'INBOX · REQUESTS & WORKFLOW UPDATES', title: 'Notifications' };
+        return { breadcrumb: 'NOTIFICATIONS', title: 'Notifications' };
       case 'dashboard':
       default:
-        return { breadcrumb: 'MARINE ASSURANCE PLATFORM · FLEET OVERVIEW', title: 'Dashboard' };
+        return { breadcrumb: 'DASHBOARD', title: 'Dashboard' };
     }
   };
 
-  const { breadcrumb, title } = getHeaderTitleDetails();
+  const { title } = getHeaderTitleDetails();
 
   return (
     <header
       className="map-top-banner d-flex align-items-center justify-content-between px-4 py-3 bg-white border-bottom"
       style={{ minHeight: '64px', borderColor: 'var(--map-border-color)' }}
     >
-      {/* left side: back button for any detail page or breadcrumb & page title */}
+      {/* left side: back button for any detail page or page title */}
       <div>
         {isDetailPage ? (
           <button
@@ -199,17 +209,12 @@ export const HeaderBanner: React.FC = () => {
             className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2 fw-semibold"
             onClick={() => setCurrentHashView(headerBackInfo.targetView, headerBackInfo.targetEntityId)}
           >
-            {headerBackInfo.label}
+            {cleanBackLabel(headerBackInfo.label)}
           </button>
         ) : (
-          <>
-            <div className="text-uppercase fw-medium font-mono-code mb-1" style={{ fontSize: '0.675rem', color: 'var(--map-text-muted)', letterSpacing: '0.06em' }}>
-              {breadcrumb}
-            </div>
-            <h1 className="map-page-title mb-0" style={{ fontSize: '1.25rem', letterSpacing: '-0.01em' }}>
-              {title}
-            </h1>
-          </>
+          <h1 className="map-page-title mb-0" style={{ fontSize: '1.25rem', letterSpacing: '-0.01em' }}>
+            {title}
+          </h1>
         )}
       </div>
 
