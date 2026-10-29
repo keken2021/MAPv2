@@ -233,6 +233,32 @@ describe('permissionDefaults and helpers', () => {
     expect(isViewAccessibleToPersona('approver', null, 'Verifier', customMatrix)).toBe(true);
   });
 
+  it('closes Submitter verification queue, Inspector fleet pages, and opens Verifier documents', () => {
+    expect(getRoleScopeFlags(matrix, 'Submitter', 'verification_queue')).toEqual({
+      create: false,
+      read: false,
+      update: false,
+      delete: false,
+    });
+    expect(isViewAccessibleToPersona('verifier', null, 'Submitter', matrix)).toBe(false);
+    expect(getRoleScopeFlags(matrix, 'Verifier', 'verification_queue').read).toBe(true);
+
+    expect(getRoleScopeFlags(matrix, 'Inspector', 'vessels').read).toBe(false);
+    expect(getRoleScopeFlags(matrix, 'Inspector', 'equipment').read).toBe(false);
+    expect(isViewAccessibleToPersona('vessels', null, 'Inspector', matrix)).toBe(false);
+    expect(isViewAccessibleToPersona('equipment', null, 'Inspector', matrix)).toBe(false);
+    expect(getRoleScopeFlags(matrix, 'Submitter', 'vessels').read).toBe(true);
+
+    expect(getRoleScopeFlags(matrix, 'Verifier', 'documents')).toEqual({
+      create: false,
+      read: true,
+      update: false,
+      delete: false,
+    });
+    expect(getRoleScopeFlags(matrix, 'Verifier', 'document_linking').read).toBe(false);
+    expect(isViewAccessibleToPersona('documents', null, 'Verifier', matrix)).toBe(true);
+  });
+
   it('still strips user overrides that are blank for every role the user holds', () => {
     const effective = getEffectiveUserScopeFlags(
       matrix,

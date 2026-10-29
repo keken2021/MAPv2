@@ -267,7 +267,8 @@ function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
     case 'vessels':
     case 'equipment':
       if (role === 'Administrator') return createReadUpdate();
-      if (role === 'C Admin' || role === 'Submitter' || role === 'Inspector') return readOnly();
+      /* inspector does not open the fleet pages */
+      if (role === 'C Admin' || role === 'Submitter') return readOnly();
       return emptyCrud();
 
     case 'vessel_status':
@@ -326,9 +327,13 @@ function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
       return emptyCrud();
 
     case 'documents':
+      if (role === 'Administrator' || role === 'Submitter') return createReadUpdate();
+      /* verifier reviews documents, so the library shows and opens */
+      if (role === 'Verifier') return readOnly();
+      return emptyCrud();
+
     case 'document_linking':
       if (role === 'Administrator' || role === 'Submitter') return createReadUpdate();
-
       return emptyCrud();
 
     case 'document_vault':
@@ -343,9 +348,8 @@ function flagsForRole(role: UserRolePersona, key: string): CrudFlags {
       return emptyCrud();
 
     case 'verification_queue':
-      if (role === 'Submitter' || role === 'Verifier') {
-        return readOnly();
-      }
+      /* submitter uploads documents; only the verifier opens the queue */
+      if (role === 'Verifier') return readOnly();
       return emptyCrud();
 
     case 'verification_decisions':
