@@ -10,15 +10,9 @@ import { useMapStore } from "../../store/useMapStore";
 import { UserRolePersona } from "../../types/audit";
 import { ENABLE_ROLES_AND_PERMISSIONS } from "../../config/featureFlags";
 import {
-  VIEW_TO_SCOPE,
-  getEffectiveUserScopeFlags,
-  getRoleScopeFlags,
-  isUserOverride,
-} from "../../utils/permissionHelpers";
-import {
   filterDocumentsForVerifierQueue,
-  MARKETPLACE_ROLES,
-  isMarketplacePersona,
+  isViewAccessibleToPersona,
+  SIDEBAR_HIDDEN_DUPLICATES,
 } from "../../utils/rbacHelpers";
 import { documentsForSessionVerifier } from "../../views/VerifierWorkspaceView";
 import {
@@ -37,7 +31,6 @@ import { OrganizationSwitcher } from "./OrganizationSwitcher";
 interface NavItem {
   key: string;
   label: string;
-  allowedRoles: UserRolePersona[];
   badgeText?: string;
   children?: NavItem[];
   isGroup?: boolean;
@@ -105,7 +98,9 @@ export const AppSidebar: React.FC = () => {
   const sessionUser = useMemo(
     () =>
       getSessionUserForPersona(activePersona, users, demoSessionContext) ??
-      pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona),
+      pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona) ??
+      users.find((u) => u.roles.includes(activePersona)) ??
+      null,
     [activePersona, users, demoSessionContext, activeDemoOrganization],
   );
 
@@ -140,132 +135,76 @@ export const AppSidebar: React.FC = () => {
     {
       key: "dashboard",
       label: "Dashboard",
-      allowedRoles: [
-        "Administrator",
-        "C Admin",
-        "Submitter",
-        "Verifier",
-        "Inspector",
-        "Approver",
-      ],
     },
     {
       key: "notifications",
       label: "Notifications",
-      allowedRoles: [
-        "Administrator",
-        "C Admin",
-        "Submitter",
-        "Verifier",
-        "Inspector",
-        "Approver",
-      ],
     },
     {
       key: "project",
       label: "Projects",
-      allowedRoles: [
-        "Administrator",
-        "C Admin",
-        "Submitter",
-        "Verifier",
-        "Inspector",
-        "Approver",
-      ],
     },
     {
       key: "marketplace",
       label: "Marketplace",
-      allowedRoles: MARKETPLACE_ROLES,
     },
     {
       key: "assets",
       label: "Assurance Objects",
       isGroup: true,
-      allowedRoles: ["Administrator", "C Admin", "Submitter"],
       children: [
         {
           key: "vessels",
           label: "Vessels",
-          allowedRoles: ["Administrator", "C Admin", "Submitter"],
         },
         {
           key: "equipment",
           label: "Equipment",
-          allowedRoles: ["Administrator", "C Admin"],
         },
         {
           key: "crew",
           label: "Crew Directory",
-          allowedRoles: ["Administrator", "C Admin"],
         },
       ],
     },
     {
       key: "assurance-sets",
       label: "Assurance Sets",
-      allowedRoles: [
-        "Administrator",
-        "Submitter",
-        "Verifier",
-        "Inspector",
-        "Approver",
-      ],
     },
     {
       key: "documents",
       label: "Document Library",
-      allowedRoles: ["Administrator", "Submitter", "Verifier"],
     },
-    // {
-    //   key: "crew",
-    //   label: "Crew Directory",
-    //   allowedRoles: ["Administrator"],
-    // },
     {
       key: "verifier",
       label: "Verification Queue",
-      allowedRoles: ["Administrator", "Submitter", "Verifier"],
       badgeText: verifierQueueCount > 0 ? String(verifierQueueCount) : undefined,
     },
     {
       key: "inspector",
       label: "Inspections",
-      allowedRoles: ["Administrator"],
     },
     {
       key: "approver",
       label: "Approvals",
-      allowedRoles: ["Approver", "Verifier"],
     },
     {
       key: "capa",
       label: "CAPA",
-      allowedRoles: ["C Admin", "Inspector"],
     },
     {
       key: "audit",
       label: "Audit Trail",
-      allowedRoles: [
-        "Administrator",
-        "C Admin",
-        "Submitter",
-        "Verifier",
-        "Inspector",
-        "Approver",
-      ],
     },
     {
       key: "users",
       label: "User Management",
-      allowedRoles: ["Administrator", "C Admin"],
     },
     ...(ENABLE_ROLES_AND_PERMISSIONS
       ? [
           {
             key: "roles-permissions",
             label: "Roles & Permissions",
-            allowedRoles: ["Administrator"] as UserRolePersona[],
           },
         ]
       : []),
@@ -279,59 +218,19 @@ export const AppSidebar: React.FC = () => {
   }, [currentHashView]);
 
   const isLeafItemVisible = (item: NavItem): boolean => {
-    if (
-      (activePersona === "Verifier" || activePersona === "Submitter") &&
-      item.key === "verifier"
-    )
+    const hiddenList = SIDEBAR_HIDDEN_DUPLICATES[activePersona];
+    if (hiddenList?.includes(item.key)) {
       return false;
-    if (activePersona === "Inspector" && item.key === "inspector") return false;
-    if (activePersona === "Approver" && item.key === "approver") return false;
-    if (activePersona === "C Admin" && item.key === "assurance-sets")
-      return false;
-    if (
-      (activePersona === "Administrator" || activePersona === "Submitter") &&
-      item.key === "capa"
-    )
-      return false;
-
-    if (item.key === "roles-permissions") {
-      return activePersona === "Administrator";
     }
 
-    /* marketplace stays hidden from workflow roles, whatever the matrix grants */
-    if (item.key === "marketplace" && !isMarketplacePersona(activePersona))
-      return false;
-
-    const initialAllowed = item.allowedRoles.includes(activePersona);
-
-    if (!ENABLE_ROLES_AND_PERMISSIONS) return initialAllowed;
-
-    if (["verifier", "approver", "capa", "inspector"].includes(item.key)) {
-      return initialAllowed;
-    }
-
-    const scopeKey = VIEW_TO_SCOPE[item.key];
-    if (!scopeKey) return initialAllowed;
-
-    if (
-      matchingUser &&
-      isUserOverride(userPermissionOverrides, matchingUser.id, scopeKey, "read")
-    ) {
-      return getEffectiveUserScopeFlags(
-        rolePermissionDefaults,
-        userPermissionOverrides,
-        matchingUser,
-        scopeKey,
-        customScopes,
-      ).read;
-    }
-
-    return getRoleScopeFlags(
-      rolePermissionDefaults,
+    return isViewAccessibleToPersona(
+      item.key,
+      null,
       activePersona,
-      scopeKey,
-      customScopes,
-    ).read;
+      ENABLE_ROLES_AND_PERMISSIONS ? rolePermissionDefaults : undefined,
+      ENABLE_ROLES_AND_PERMISSIONS ? userPermissionOverrides : undefined,
+      matchingUser,
+    );
   };
 
   const filterNavItems = (items: NavItem[]): NavItem[] =>

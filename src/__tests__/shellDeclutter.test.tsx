@@ -32,11 +32,11 @@ describe('Shell header and sidebar declutter suite', () => {
     expect(screen.queryByText('Physical Inspections')).toBeNull();
     unmountAdmin();
 
-    // Verifier sees Approvals (under allowedRoles: ["Approver", "Verifier"], Approver suppresses approver route)
+    // Verifier no longer sees Approvals
     cleanup();
     useMapStore.setState({ activePersona: 'Verifier' });
     const { unmount: unmountVerifier } = render(<AppSidebar />);
-    expect(screen.getByText('Approvals')).toBeDefined();
+    expect(screen.queryByText('Approvals')).toBeNull();
     expect(screen.queryByText('Approval Gate')).toBeNull();
     unmountVerifier();
 
@@ -79,12 +79,12 @@ describe('Shell header and sidebar declutter suite', () => {
 
     const currentDefaults = useMapStore.getState().rolePermissionDefaults;
     useMapStore.setState({
-      activePersona: 'Administrator',
+      activePersona: 'C Admin',
       activeDemoOrganization: 'Northwind Marine Pty Ltd',
       rolePermissionDefaults: {
         ...currentDefaults,
-        Administrator: {
-          ...currentDefaults.Administrator,
+        'C Admin': {
+          ...currentDefaults['C Admin'],
           verification_queue: { create: false, read: true, update: false, delete: false },
         },
       },
@@ -268,5 +268,90 @@ describe('Shell header and sidebar declutter suite', () => {
         expect(text).not.toMatch(/Approval Gate/i);
       });
     });
+  });
+
+  it('matches per-role sidebar navigation against design table', () => {
+    const getSidebarLabels = (persona: UserRolePersona): string[] => {
+      cleanup();
+      useMapStore.setState({
+        activePersona: persona,
+        currentHashView: 'dashboard',
+        currentEntityId: undefined,
+      });
+      const { container } = render(<AppSidebar />);
+      return Array.from(
+        container.querySelectorAll('.nav.flex-column button.nav-link .d-flex.align-items-center span:last-child')
+      ).map((s) => s.textContent?.trim() || '');
+    };
+
+    // Verifier: Dashboard (its queue), Notifications, Projects, Assurance Sets, Document Library, Audit Trail
+    // Note: No Approvals and no Verification Queue duplicate
+    const verifierLabels = getSidebarLabels('Verifier');
+    expect(verifierLabels).toContain('Dashboard');
+    expect(verifierLabels).toContain('Notifications');
+    expect(verifierLabels).toContain('Projects');
+    expect(verifierLabels).toContain('Assurance Sets');
+    expect(verifierLabels).toContain('Document Library');
+    expect(verifierLabels).toContain('Audit Trail');
+    expect(verifierLabels).not.toContain('Approvals');
+    expect(verifierLabels).not.toContain('Verification Queue');
+
+    // Inspector: Dashboard (its inspections), Notifications, Projects, Assurance Sets, CAPA, Audit Trail
+    // Note: No Inspections duplicate
+    const inspectorLabels = getSidebarLabels('Inspector');
+    expect(inspectorLabels).toContain('Dashboard');
+    expect(inspectorLabels).toContain('Notifications');
+    expect(inspectorLabels).toContain('Projects');
+    expect(inspectorLabels).toContain('Assurance Sets');
+    expect(inspectorLabels).toContain('CAPA');
+    expect(inspectorLabels).toContain('Audit Trail');
+    expect(inspectorLabels).not.toContain('Inspections');
+    expect(inspectorLabels).not.toContain('Approvals');
+
+    // Approver: Dashboard (its approvals), Notifications, Projects, Assurance Sets, Audit Trail
+    // Note: No Approvals duplicate
+    const approverLabels = getSidebarLabels('Approver');
+    expect(approverLabels).toContain('Dashboard');
+    expect(approverLabels).toContain('Notifications');
+    expect(approverLabels).toContain('Projects');
+    expect(approverLabels).toContain('Assurance Sets');
+    expect(approverLabels).toContain('Audit Trail');
+    expect(approverLabels).not.toContain('Approvals');
+
+    // Submitter: Dashboard, Notifications, Projects, Assurance Objects (Vessels, Equipment), Assurance Sets, Document Library, Audit Trail
+    const submitterLabels = getSidebarLabels('Submitter');
+    expect(submitterLabels).toContain('Dashboard');
+    expect(submitterLabels).toContain('Notifications');
+    expect(submitterLabels).toContain('Projects');
+    expect(submitterLabels).toContain('Vessels');
+    expect(submitterLabels).toContain('Assurance Sets');
+    expect(submitterLabels).toContain('Document Library');
+    expect(submitterLabels).toContain('Audit Trail');
+    expect(submitterLabels).not.toContain('Approvals');
+
+    // Administrator as client (C Admin): Dashboard, Notifications, Projects, Marketplace, Assurance Objects, CAPA, Audit Trail, User Management
+    // Note: Assurance Sets suppressed as duplicate of client dashboard
+    const cAdminLabels = getSidebarLabels('C Admin');
+    expect(cAdminLabels).toContain('Dashboard');
+    expect(cAdminLabels).toContain('Notifications');
+    expect(cAdminLabels).toContain('Projects');
+    expect(cAdminLabels).toContain('Marketplace');
+    expect(cAdminLabels).toContain('CAPA');
+    expect(cAdminLabels).toContain('Audit Trail');
+    expect(cAdminLabels).toContain('User Management');
+    expect(cAdminLabels).not.toContain('Assurance Sets');
+
+    // Administrator: Dashboard, Notifications, Projects, Marketplace, Assurance Objects, Assurance Sets, Document Library, Inspections, Audit Trail, User Management, Roles & Permissions
+    const adminLabels = getSidebarLabels('Administrator');
+    expect(adminLabels).toContain('Dashboard');
+    expect(adminLabels).toContain('Notifications');
+    expect(adminLabels).toContain('Projects');
+    expect(adminLabels).toContain('Marketplace');
+    expect(adminLabels).toContain('Assurance Sets');
+    expect(adminLabels).toContain('Document Library');
+    expect(adminLabels).toContain('Inspections');
+    expect(adminLabels).toContain('Audit Trail');
+    expect(adminLabels).toContain('User Management');
+    expect(adminLabels).toContain('Roles & Permissions');
   });
 });

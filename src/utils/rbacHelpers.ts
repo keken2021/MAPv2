@@ -40,6 +40,19 @@ export function assigneeMatchesUser(
   return namePart === userName;
 }
 
+/** Routes hidden from the sidebar because the role dashboard already is that screen. */
+export const SIDEBAR_HIDDEN_DUPLICATES: Record<string, readonly string[]> = {
+  Verifier: ['verifier'],
+  Inspector: ['inspector'],
+  Approver: ['approver'],
+  'C Admin': ['assurance-sets'],
+  'Administrator as client': ['assurance-sets'],
+};
+
+export function isSidebarHiddenDuplicate(persona: UserRolePersona, view: string): boolean {
+  return Boolean(SIDEBAR_HIDDEN_DUPLICATES[persona]?.includes(view));
+}
+
 export function isAssuranceSetAssignedToPersona(
   set: AssuranceSet,
   persona: UserRolePersona,
