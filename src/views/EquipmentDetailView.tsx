@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
+import { DetailHeader } from '../components/common/DetailHeader';
 import { getProjectOrganizationForPersona, isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
 import { getEquipmentAssetStatus, EquipmentAsset } from '../types/equipment';
 import { useMapStore } from '../store/useMapStore';
@@ -173,54 +174,30 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         </div>
       )}
 
-      {/* Top Header Card */}
-      <div className="card map-card-custom p-3">
-        <div className="d-flex flex-wrap justify-between align-items-start gap-3">
-          <div className="d-flex align-items-center gap-3">
-            <div>
-              <div className="text-uppercase text-secondary small fw-bold mb-0.5">Equipment</div>
-              <h2 className="h4 fw-bold text-dark mb-0.5">{item.name}</h2>
-              <div className="text-muted small font-mono-code">
-                {item.category} · ID {item.equipmentIdentifier}
-              </div>
-            </div>
-          </div>
-
-          <div className="d-flex align-items-center gap-2 ms-auto">
-            {parentVessel && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-primary"
-                onClick={() => setCurrentHashView('vessels', parentVessel.id)}
-              >
-                Vessel: {parentVessel.name}
-              </button>
-            )}
-            {canRentEquipment && (
-              <button
-                type="button"
-                className="btn btn-sm btn-primary fw-semibold"
-                onClick={() => {
-                  /* charter hand-off: lock the wizard to equipment scope and this item */
-                  setCreateAssuranceForAsset({ scope: 'Equipment', assetId: item.id });
-                  setCurrentHashView('create-assurance-set');
-                }}
-              >
-                Rent Equipment
-              </button>
-            )}
+      <DetailHeader
+        title={item.name}
+        status={status.complianceStatus}
+        metaItems={[
+          item.equipmentIdentifier,
+          item.category,
+          `Readiness: ${formatReadinessScore(calculateEquipmentReadiness(item, assuranceSets))}`,
+        ]}
+        mainAction={
+          canRentEquipment ? (
             <button
               type="button"
-              className="btn btn-sm btn-light border d-flex align-items-center justify-content-center"
-              style={{ width: '32px', height: '32px', borderRadius: '50%' }}
-              onClick={() => setCurrentHashView(previousHashView || 'equipment', previousEntityId)}
-              title="Close"
+              className="btn btn-sm btn-primary fw-semibold"
+              onClick={() => {
+                setCreateAssuranceForAsset({ scope: 'Equipment', assetId: item.id });
+                setCurrentHashView('create-assurance-set');
+              }}
             >
-              <X className="w-4 h-4" />
+              Rent Equipment
             </button>
-          </div>
-        </div>
-      </div>
+          ) : undefined
+        }
+        onClose={() => setCurrentHashView(previousHashView || 'equipment', previousEntityId)}
+      />
 
       <AssetStatusCard
         assetType="Equipment"
@@ -311,9 +288,8 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
             </div>
           )}
 
-          {/* Quick Action Buttons Row */}
-          <div className="d-flex align-items-center justify-content-between gap-1 mb-3">
-            {canManagePhotos && (
+          {canManagePhotos && (
+            <div className="d-flex align-items-center justify-content-between gap-1 mb-3">
               <button
                 type="button"
                 className="btn btn-sm btn-outline-primary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
@@ -323,29 +299,15 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                 <Camera className="w-3.5 h-3.5" />
                 <span style={{ fontSize: '0.68rem' }}>{modalPhotos.length > 1 ? 'Gallery' : 'Add Photo'}</span>
               </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
-              onClick={() => {
-                setShowCertModal(true);
-              }}
-              title="View Compliance Certificate (PDF)"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span style={{ fontSize: '0.68rem' }}>Certificate (PDF)</span>
-            </button>
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column: Particulars & Assurance */}
         <div className="col-12 col-lg-7 col-xl-7 d-flex flex-column gap-3">
           <div className="card map-card-custom">
-            <div className="card-header fw-bold bg-white d-flex align-items-center justify-between">
+            <div className="card-header fw-bold bg-white">
               <span>Details</span>
-              <span className="badge bg-light text-primary border font-mono-code">
-                Score: {formatReadinessScore(calculateEquipmentReadiness(item, assuranceSets))}
-              </span>
             </div>
             <div className="card-body">
               <div className="row g-3">
@@ -367,15 +329,23 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                 </div>
                 <div className="col-md-6">
                   <div className="text-secondary small">Vessel</div>
-                  <div className="fw-semibold">{parentVessel?.name ?? 'Unassigned'}</div>
+                  <div className="fw-semibold">
+                    {parentVessel ? (
+                      <button
+                        type="button"
+                        className="btn btn-link p-0 fw-semibold align-baseline"
+                        onClick={() => setCurrentHashView('vessels', parentVessel.id)}
+                      >
+                        {parentVessel.name}
+                      </button>
+                    ) : (
+                      'Unassigned'
+                    )}
+                  </div>
                 </div>
                 <div className="col-md-6">
                   <div className="text-secondary small">Class Status</div>
                   <div className="fw-semibold">{item.classStatus || 'In Class'}</div>
-                </div>
-                <div className="col-md-6">
-                  <div className="text-secondary small">Compliance</div>
-                  <div className="fw-semibold">{item.complianceStatus || 'Compliant'}</div>
                 </div>
               </div>
             </div>

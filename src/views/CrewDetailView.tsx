@@ -22,8 +22,8 @@ import {
 import { useMapStore } from '../store/useMapStore';
 import { STCWDocumentItem, CrewVesselAssignment, CrewMember } from '../types/crew';
 import { AssuranceObjectType } from '../types/assurance';
-import { ReadinessGauge } from '../components/common/ReadinessGauge';
-import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
+import { DetailHeader } from '../components/common/DetailHeader';
+import { formatMaritimeDate } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CrewDocumentUploadModal } from '../components/modals/CrewDocumentUploadModal';
 import { CrewDocumentViewerModal } from '../components/modals/CrewDocumentViewerModal';
@@ -61,7 +61,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const [isViewerModalOpen, setIsViewerModalOpen] = useState(false);
   const [viewingDoc, setViewingDoc] = useState<STCWDocumentItem | null>(null);
 
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [assignmentTargetId, setAssignmentTargetId] = useState('');
   const [assignmentStart, setAssignmentStart] = useState('2026-11-01');
@@ -234,7 +233,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
     }));
 
     exportToCsv(`${crewMember.id}_${crewMember.fullName.replace(/\s+/g, '_')}_STCW_Profile`, [...coreData, ...endorsementData]);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
@@ -261,7 +259,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
     ]);
 
     exportToPdf(`${crewMember.fullName} Crew Documents`, headers, [...coreRows, ...endorsementRows]);
-    setIsExportOpen(false);
   };
 
   const handleOpenUploadNew = (preferredLayer?: import('../types/crew').STCWLayer) => {
@@ -306,96 +303,36 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         </div>
       )}
 
-      {/* Main Profile Information & STCW Compliance Header Card */}
-      <div className="card map-card-custom p-4">
-        <div className="d-flex flex-wrap align-items-center justify-between gap-3 mb-3">
-          <div className="d-flex align-items-center gap-3">
-            <div>
-              <h3 className="fw-bold mb-0.5 text-primary">{crewMember.fullName}</h3>
-              <div className="text-secondary small font-mono-code d-flex align-items-center gap-2 flex-wrap">
-                <span>Vessel:</span>
-                {crewMember.currentVesselId ? (
-                  <button
-                    type="button"
-                    className="btn btn-link p-0 text-primary fw-bold border-0 bg-transparent text-decoration-underline font-mono-code align-baseline"
-                    onClick={() => setCurrentHashView('vessels', crewMember.currentVesselId)}
-                    title={`View ${crewMember.currentVesselName}`}
-                  >
-                    {crewMember.currentVesselName}
-                  </button>
-                ) : (
-                  <strong>{crewMember.currentVesselName || 'Unassigned / Ashore'}</strong>
-                )}
-                {currentAssignment && (
-                  <span>
-                    {formatMaritimeDate(currentAssignment.startDate)}
-                    {' → '}
-                    {currentAssignment.endDate ? formatMaritimeDate(currentAssignment.endDate) : 'Present'}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Opposite Corner Controls: STCW Score Gauge + Export Data Button + Close Button */}
-          <div className="d-flex align-items-center gap-3 ms-auto">
-            {canHireCrew && (
-              <button
-                type="button"
-                className="btn btn-sm btn-primary fw-semibold"
-                onClick={() => {
-                  /* charter hand-off: lock the wizard to crew scope and this seafarer */
-                  setCreateAssuranceForAsset({ scope: 'Crew', assetId: crewMember.id });
-                  setCurrentHashView('create-assurance-set');
-                }}
-              >
-                Hire Crew
-              </button>
-            )}
-            <div className="d-flex flex-column align-items-center">
-              <div className="text-secondary small fw-bold text-uppercase" style={{ fontSize: '0.65rem', letterSpacing: '0.05em' }}>
-                Readiness
-              </div>
-              <ReadinessGauge score={crewMember.overallComplianceScore} size="sm" />
-            </div>
-
-            <div className="dropdown position-relative">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                onClick={() => setIsExportOpen(!isExportOpen)}
-              >
-                Export
-              </button>
-              {isExportOpen && (
-                <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      CSV
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      PDF
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
-
+      <DetailHeader
+        title={crewMember.fullName}
+        status={crewMember.complianceStatus}
+        metaItems={[
+          crewMember.id,
+          crewMember.rank,
+          crewMember.currentVesselName || 'Unassigned',
+          `Readiness: ${crewMember.overallComplianceScore}%`,
+        ]}
+        mainAction={
+          canHireCrew ? (
             <button
               type="button"
-              className="btn btn-sm btn-light border d-flex align-items-center justify-content-center"
-              style={{ width: '32px', height: '32px', borderRadius: '50%' }}
-              onClick={() => setCurrentHashView(previousHashView || 'crew', previousEntityId)}
-              title="Close"
+              className="btn btn-sm btn-primary fw-semibold"
+              onClick={() => {
+                setCreateAssuranceForAsset({ scope: 'Crew', assetId: crewMember.id });
+                setCurrentHashView('create-assurance-set');
+              }}
             >
-              <X className="w-4 h-4" />
+              Hire Crew
             </button>
-          </div>
-        </div>
+          ) : undefined
+        }
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+        onClose={() => setCurrentHashView(previousHashView || 'crew', previousEntityId)}
+      />
 
-        {/* Content Section: Photo & Gallery Controls (Left) + Information Summary Box (Right) */}
+      {/* Photo and particulars. Identity and status stay in the header. */}
+      <div className="card map-card-custom p-4">
         <div className="row g-3">
           <div className="col-12 col-lg-4 col-xl-3">
             {/* Seafarer Photo Card with Square 1:1 Aspect Ratio Container */}
@@ -492,20 +429,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
             <div className="p-3 bg-light border rounded-3 font-mono-code small h-100">
               <div className="row g-2.5">
                 <div className="col-md-4 col-6">
-                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Crew ID</span>
-                  <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.id}</strong>
-                </div>
-                <div className="col-md-4 col-6">
-                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Rank</span>
-                  <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.rank}</strong>
-                </div>
-                <div className="col-md-4 col-6">
-                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Compliance</span>
-                  <span className={`badge ${crewMember.complianceStatus === 'Fully Compliant' ? 'bg-success text-white' : crewMember.complianceStatus === 'Expiring < 60 Days' ? 'bg-warning text-dark' : 'bg-danger text-white'}`}>
-                    {getStatusDisplayLabel(crewMember.complianceStatus)}
-                  </span>
-                </div>
-                <div className="col-md-4 col-6">
                   <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Organization</span>
                   <strong className={`text-dark text-truncate d-block${isJustLoaded ? ' map-autofill-animate' : ''}`}>{crewMember.organization || 'Northwind Marine Pty Ltd'}</strong>
                 </div>
@@ -541,12 +464,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                 <div className="col-md-4 col-6">
                   <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Last Audit</span>
                   <strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(crewMember.lastAuditedDate)}</strong>
-                </div>
-                <div className="col-md-4 col-6">
-                  <span className="text-secondary d-block" style={{ fontSize: '0.7rem' }}>Permissions</span>
-                  <span className={`badge ${canManageDocuments ? 'bg-info text-dark' : 'bg-secondary text-white'}`}>
-                    {canManageDocuments ? 'Admin / Submitter Full Access' : 'Read-Only Mode'}
-                  </span>
                 </div>
               </div>
             </div>
@@ -616,7 +533,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                   setToastMessage(result.success ? `Assigned to ${target.name}.` : result.message || 'Could not assign.');
                 }}
               >
-                Save assignment
+                Save
               </button>
             </div>
           </div>

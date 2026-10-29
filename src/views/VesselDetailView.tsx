@@ -14,6 +14,7 @@ import {
   VesselStatusDimension,
   VESSEL_STATUS_DIMENSION_LABELS,
 } from '../types/vessel';
+import { DetailHeader } from '../components/common/DetailHeader';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { formatMaritimeDate, getDaysUntilExpiry, getStatusDisplayLabel, getVesselStatusBadgeClass } from '../utils/formatters';
 import {
@@ -42,8 +43,6 @@ import {
 } from '../utils/vesselStatusHistoryHelpers';
 import { getFallbackPhysicalInspections } from '../store/inspectionMockData';
 import {
-  MapPin,
-  Download,
   Edit2,
   X,
   Camera,
@@ -135,7 +134,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<VesselInformation | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const [selectedCapaForDrawer, setSelectedCapaForDrawer] = useState<CapaItem | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
@@ -1061,149 +1059,86 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         </div>
       )}
 
-      {/* Top Header Navigation & Action Bar matching mockup */}
-      <div className="map-vessel-topbar d-flex flex-wrap align-items-center justify-content-between gap-3 shadow-sm mb-1">
-        <div className="d-flex align-items-center gap-3 min-w-0">
-
-          <div className="d-flex flex-column min-w-0">
-            <div className="d-flex align-items-center gap-2 flex-wrap">
-              <h3 className="fw-bold text-dark mb-0 text-truncate" style={{ fontSize: '1.35rem', letterSpacing: '0.02em' }}>
-                {vessel.name.toUpperCase()}
-              </h3>
-              {fieldEditable('status') ? (
-                <div className="d-flex align-items-center gap-1">
-                  <select
-                    className="form-select form-select-sm"
-                    style={{ width: 'auto' }}
-                    value={formData.status}
-                    onChange={(e) => handleInputChange('status', e.target.value as VesselRegistrationStatus)}
-                  >
-                    <option value="Active">Active</option>
-                    <option value="In Operations" disabled={!isAssuranceApproved}>
-                      In Operations {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
-                    </option>
-                    <option value="In Transit" disabled={!isAssuranceApproved}>
-                      In Transit {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
-                    </option>
-                    <option value="Port Stay">Port Stay</option>
-                    <option value="Under Charter" disabled={!isAssuranceApproved}>
-                      Under Charter {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
-                    </option>
-                    <option value="Standby">Standby</option>
-                    <option value="Maintenance">Maintenance</option>
-                    <option value="Dry Docking">Dry Docking</option>
-                    <option value="Lay-up">Lay-up</option>
-                    <option value="Decommissioned">Decommissioned</option>
-                  </select>
-                </div>
-              ) : (
-                <span className={`badge ${getVesselStatusBadgeClass(vessel.status)} text-uppercase`} style={{ fontSize: '0.75rem' }}>
-                  {vessel.status}
-                </span>
-              )}
-            </div>
-            <div className="d-flex align-items-center gap-2 text-secondary small mt-0.5 flex-wrap" style={{ fontSize: '0.84rem' }}>
-              <span className="fw-semibold text-dark font-mono-code">{vessel.imoNumber}</span>
-              <span className="d-inline-flex align-items-center text-danger">
-                <MapPin className="w-2.5 h-2.5 fill-current" />
-              </span>
-              <span className="text-secondary">{vessel.vesselSubtype || vessel.vesselType || 'Commercial Maritime Vessel'}</span>
-              <span className="text-muted">•</span>
-              <span className="text-muted">{vessel.flagState} ({vessel.portOfRegistry})</span>
-            </div>
-            <ObjectVerificationBadge verification={objectVerification} />
-            {visibleObjectDocuments.length > 0 && (
-              <div className="small text-secondary mt-1">
-                Documents for {activeDemoOrganization}:{' '}
-                {visibleObjectDocuments.slice(0, 3).map((document) => document.title).join('; ')}
-                {visibleObjectDocuments.length > 3 ? ` and ${visibleObjectDocuments.length - 3} more` : ''}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Action Controls & Close Button */}
-        <div className="d-flex align-items-center gap-2 ms-auto">
-          {canExport && (
-            <div className="position-relative">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5"
-                onClick={() => setIsExportOpen(!isExportOpen)}
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export</span>
-              </button>
-              {isExportOpen && (
-                <div className="dropdown-menu show position-absolute end-0 mt-1 shadow border p-1 z-3 bg-white" style={{ minWidth: '140px' }}>
-                  <button
-                    type="button"
-                    className="dropdown-item small py-1 px-2 border-0 bg-transparent text-start w-100"
-                    onClick={() => {
-                      handleExportCsv();
-                      setIsExportOpen(false);
-                    }}
-                  >
-                    CSV
-                  </button>
-                  <button
-                    type="button"
-                    className="dropdown-item small py-1 px-2 border-0 bg-transparent text-start w-100"
-                    onClick={() => {
-                      handleExportPdf();
-                      setIsExportOpen(false);
-                    }}
-                  >
-                    PDF
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {canShowEditButton && (
-            <div>
-              {isEditing ? (
-                <div className="d-flex gap-1">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-secondary"
-                    onClick={() => {
-                      setFormData(vessel);
-                      setIsEditing(false);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button type="button" className="btn btn-sm btn-success" onClick={handleSave}>
-                    Save
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1.5"
-                  onClick={() => setIsEditing(true)}
+      <DetailHeader
+        title={vessel.name}
+        status={isEditing && fieldEditable('status') ? undefined : vessel.status}
+        metaItems={[
+          `IMO: ${vessel.imoNumber}`,
+          vessel.vesselSubtype || vessel.vesselType || 'Commercial Maritime Vessel',
+          vessel.portOfRegistry ? `${vessel.flagState} · ${vessel.portOfRegistry}` : vessel.flagState,
+        ]}
+        mainAction={
+          canShowEditButton || (isEditing && fieldEditable('status')) ? (
+            <div className="d-flex align-items-center gap-1">
+              {isEditing && fieldEditable('status') && (
+                <select
+                  className="form-select form-select-sm"
+                  style={{ width: 'auto' }}
+                  aria-label="Operating Status"
+                  value={formData?.status ?? vessel.status}
+                  onChange={(e) => handleInputChange('status', e.target.value as VesselRegistrationStatus)}
                 >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  <span>{canEditFull ? 'Edit Information' : 'Update Status'}</span>
-                </button>
+                  <option value="Active">Active</option>
+                  <option value="In Operations" disabled={!isAssuranceApproved}>
+                    In Operations {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
+                  </option>
+                  <option value="In Transit" disabled={!isAssuranceApproved}>
+                    In Transit {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
+                  </option>
+                  <option value="Port Stay">Port Stay</option>
+                  <option value="Under Charter" disabled={!isAssuranceApproved}>
+                    Under Charter {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
+                  </option>
+                  <option value="Standby">Standby</option>
+                  <option value="Maintenance">Maintenance</option>
+                  <option value="Dry Docking">Dry Docking</option>
+                  <option value="Lay-up">Lay-up</option>
+                  <option value="Decommissioned">Decommissioned</option>
+                </select>
+              )}
+              {canShowEditButton && (
+                isEditing ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      onClick={() => {
+                        setFormData(vessel);
+                        setIsEditing(false);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button type="button" className="btn btn-sm btn-success" onClick={handleSave}>
+                      Save
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1.5"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>{canEditFull ? 'Edit Information' : 'Update Status'}</span>
+                  </button>
+                )
               )}
             </div>
-          )}
-
-          {/* Close / Return button */}
-          <button
-            type="button"
-            className="btn btn-sm btn-light border d-flex align-items-center justify-content-center ms-1"
-            style={{ width: '32px', height: '32px', borderRadius: '50%' }}
-            onClick={() => setCurrentHashView(previousHashView || 'vessels', previousEntityId)}
-            title="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          ) : undefined
+        }
+        onExportCsv={canExport ? handleExportCsv : undefined}
+        onExportPdf={canExport ? handleExportPdf : undefined}
+        onClose={() => setCurrentHashView(previousHashView || 'vessels', previousEntityId)}
+      />
+      <ObjectVerificationBadge verification={objectVerification} />
+      {visibleObjectDocuments.length > 0 && (
+        <div className="small text-secondary">
+          Documents for {activeDemoOrganization}:{' '}
+          {visibleObjectDocuments.slice(0, 3).map((document) => document.title).join('; ')}
+          {visibleObjectDocuments.length > 3 ? ` and ${visibleObjectDocuments.length - 3} more` : ''}
         </div>
-      </div>
+      )}
 
       <AssetStatusCard
         assetType="Vessel"
@@ -1413,18 +1348,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <span style={{ fontSize: '0.68rem' }}>{vessel.photos && vessel.photos.length > 1 ? 'Photos' : 'Add Photo'}</span>
                 </button>
               )}
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
-                onClick={() => {
-                  setToastMessage(`${vessel.name} is verified and active in the Master Fleet Registry.`);
-                  setTimeout(() => setToastMessage(null), 3500);
-                }}
-                title="Operating status"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span style={{ fontSize: '0.68rem' }}>Status</span>
-              </button>
             </div>
 
             {/* 3. Draught & Speed Metrics Row (Status is in header next to name) */}
@@ -1805,35 +1728,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       />
                     ) : (
                       <span className="map-datasheet-val">{vessel.portOfRegistry || 'MONROVIA'}</span>
-                    )}
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Operating Status</span>
-                    {fieldEditable('status') ? (
-                      <select
-                        className="form-select form-select-sm"
-                        value={formData.status}
-                        onChange={(e) => handleInputChange('status', e.target.value as VesselRegistrationStatus)}
-                      >
-                        <option value="Active">Active</option>
-                        <option value="In Operations" disabled={!isAssuranceApproved}>
-                          In Operations {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
-                        </option>
-                        <option value="In Transit" disabled={!isAssuranceApproved}>
-                          In Transit {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
-                        </option>
-                        <option value="Port Stay">Port Stay</option>
-                        <option value="Under Charter" disabled={!isAssuranceApproved}>
-                          Under Charter {!isAssuranceApproved ? '(needs an approved set for a current contract period)' : ''}
-                        </option>
-                        <option value="Standby">Standby</option>
-                        <option value="Maintenance">Maintenance</option>
-                        <option value="Dry Docking">Dry Docking</option>
-                        <option value="Lay-up">Lay-up</option>
-                        <option value="Decommissioned">Decommissioned</option>
-                      </select>
-                    ) : (
-                      <span className="map-datasheet-val">{vessel.status}</span>
                     )}
                   </div>
                 </div>
