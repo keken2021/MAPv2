@@ -9,7 +9,8 @@ import { ApproverDashboardView } from './ApproverDashboardView';
 import { Vessel } from '../types/vessel';
 import { AssuranceSet, AssuranceStage, AssuranceRequirement } from '../types/assurance';
 import { MasterDocument } from '../types/document';
-import { isAssuranceSetAssignedToPersona, filterVesselsForPersona } from '../utils/rbacHelpers';
+import { filterAssuranceSetsForSession, isAssuranceSetAssignedToPersona, filterVesselsForPersona } from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
 import {
   calculateAssuranceSetReadiness,
   calculateVesselReadiness,
@@ -44,6 +45,7 @@ export const DashboardView: React.FC = () => {
     activeDemoOrganization,
     setCurrentHashView,
   } = useMapStore();
+  const sessionUser = useSessionUser();
   const [cAdminSearchTerm, setCAdminSearchTerm] = useState('');
   const [cAdminProjectSearchTerm, setCAdminProjectSearchTerm] = useState('');
   const [cAdminSortField, setCAdminSortField] = useState<'title' | 'scope' | 'charterWindowStart' | 'stage'>('title');
@@ -91,8 +93,13 @@ export const DashboardView: React.FC = () => {
   const getScopeLabel = (s: AssuranceSet) => getAssuranceSetScopes(s).join(', ');
 
   /* submitter specific assurance sets */
-  const submitterAssuranceSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter', activeDemoOrganization));
-  const visibleSubmitterSets = submitterAssuranceSets.length > 0 ? submitterAssuranceSets : assuranceSets;
+  const submitterAssuranceSets = filterAssuranceSetsForSession(
+    assuranceSets,
+    'Submitter',
+    activeDemoOrganization,
+    sessionUser,
+  );
+  const visibleSubmitterSets = submitterAssuranceSets;
 
   const renderSortIndicator = (currentField: string, field: string, direction: 'asc' | 'desc') => {
     if (currentField !== field) {
@@ -264,7 +271,12 @@ export const DashboardView: React.FC = () => {
   /* compute role-specific top summary metrics for activePersona */
   const renderDashboardCards = () => {
     if (activePersona === 'Submitter') {
-      const assignedSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter', activeDemoOrganization));
+      const assignedSets = filterAssuranceSetsForSession(
+        assuranceSets,
+        'Submitter',
+        activeDemoOrganization,
+        sessionUser,
+      );
       const pendingUploads = documents.filter((d) => d.verificationStatus === 'Pending').length;
       const revisionsRequested = documents.filter(
         (d) => d.verificationStatus === 'Correction Requested' || d.verificationStatus === 'Rejected'
