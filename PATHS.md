@@ -27,7 +27,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
 - `src/components/modals/` : modals (centered)
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
-- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, DetailHeader)
+- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, DetailHeader, SearchableSelect)
 - `src/components/layout/` : sidebar, header, notification panel, organization switcher
 - `src/store/useMapStore.ts` : the single app store
 - `src/store/*MockData.ts` : mock data, one file per domain
