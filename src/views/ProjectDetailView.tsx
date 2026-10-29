@@ -16,6 +16,7 @@ import {
 } from "../utils/projectHelpers";
 import { ContractChainRole } from "../types/project";
 import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
+import { getDemoSessionContext, getSessionUserForPersona } from "../utils/userRoleHelpers";
 import { calculateAssuranceSetReadiness, summarizeTaskSections } from "../utils/readinessHelpers";
 import TaskSectionCards from "../components/common/TaskSectionCards";
 import { listCertificatesShortOfContract } from "../utils/documentRenewalHelpers";
@@ -46,8 +47,19 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     addAssetToProject,
     updateAssuranceSet,
     activeDemoOrganization,
+    activeSessionUserId,
     documents,
   } = useMapStore();
+
+  const sessionUser = useMemo(
+    () =>
+      getSessionUserForPersona(
+        activePersona,
+        users,
+        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+      ),
+    [activePersona, users, activeDemoOrganization, activeSessionUserId],
+  );
 
   const [activeTab, setActiveTab] = useState<"roster" | "assurance">(
     "assurance",
@@ -71,16 +83,23 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         users,
         assuranceSets,
         activeDemoOrganization,
+        sessionUser,
       ),
-    [projects, activePersona, activeDemoOrganization, users, assuranceSets],
+    [projects, activePersona, activeDemoOrganization, users, assuranceSets, sessionUser],
   );
 
   const project = visibleProjects.find((p) => p.id === projectId);
 
-  const projectAssuranceSets = useMemo(
-    () => (project ? getProjectAssuranceSets(project, assuranceSets) : []),
-    [project, assuranceSets],
-  );
+  const projectAssuranceSets = useMemo(() => {
+    if (!project) return [];
+    const sets = getProjectAssuranceSets(project, assuranceSets);
+    if (activePersona === "Administrator" || activePersona === "C Admin" || !sessionUser) {
+      return sets;
+    }
+    return sets.filter((set) =>
+      isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser),
+    );
+  }, [project, assuranceSets, activePersona, activeDemoOrganization, sessionUser]);
 
   const filteredLinks = useMemo(() => {
     if (!project) return [];
@@ -123,7 +142,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   };
 
   const canOpenSet = (set: AssuranceSet) =>
-    canManage || isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization);
+    canManage || isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser);
 
   return (
     <div className="d-flex flex-column gap-3">

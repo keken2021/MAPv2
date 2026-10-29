@@ -118,6 +118,55 @@ describe('nested project assurance sets (Req 3–4)', () => {
     expect(eligible.map((s) => s.id).sort()).toEqual(['AS-CHILD-C', 'AS-STANDALONE'].sort());
   });
 
+  it('hides a project from a verifier when every set names another verifier', () => {
+    const fontaine = {
+      id: 'USR-202',
+      name: 'A. Fontaine',
+      organization: 'Bureau Veritas Inspectorate',
+      roles: ['Verifier' as const],
+    };
+    const mine = {
+      ...childVesselSet,
+      id: 'AS-MINE',
+      projectId: 'PROJ-MINE',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+    } as AssuranceSet;
+    const theirs = {
+      ...childVesselSet,
+      id: 'AS-THEIRS',
+      projectId: 'PROJ-THEIRS',
+      assignedVerifier: 'D. Harrison (Harrison Marine Vetting Services)',
+    } as AssuranceSet;
+    const shared = {
+      ...childCrewSet,
+      id: 'AS-SHARED-OTHER',
+      projectId: 'PROJ-SHARED',
+      assignedVerifier: 'D. Harrison (Harrison Marine Vetting Services)',
+    } as AssuranceSet;
+    const sharedMine = {
+      ...childVesselSet,
+      id: 'AS-SHARED-MINE',
+      projectId: 'PROJ-SHARED',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+    } as AssuranceSet;
+    const projects = [
+      { id: 'PROJ-MINE', name: 'Fontaine project', assetLinks: [] },
+      { id: 'PROJ-THEIRS', name: 'Harrison project', assetLinks: [] },
+      { id: 'PROJ-SHARED', name: 'Shared project', assetLinks: [] },
+    ] as unknown as Project[];
+
+    const visible = filterProjectsForPersona(
+      projects,
+      'Verifier',
+      MOCK_USERS,
+      [mine, theirs, shared, sharedMine],
+      'Bureau Veritas Inspectorate',
+      fontaine,
+    );
+
+    expect(visible.map((project) => project.id).sort()).toEqual(['PROJ-MINE', 'PROJ-SHARED']);
+  });
+
   it('shows Southern Basin client projects to C Admin', () => {
     const visible = filterProjectsForPersona(MOCK_PROJECTS, 'C Admin', MOCK_USERS);
     expect(visible.some((p) => p.id === 'MAP-PROJ-2026-MARINE-009')).toBe(true);

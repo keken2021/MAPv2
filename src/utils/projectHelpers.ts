@@ -21,6 +21,7 @@ import {
 import { UserProfile } from '../types/user';
 import { VesselInformation } from '../types/vessel';
 import { calculateAssuranceSetReadiness, derivePipelineStage } from './readinessHelpers';
+import { getSessionUserForPersona } from './userRoleHelpers';
 import {
   filterVesselsForPersona,
   getClientAdminOrganization,
@@ -616,7 +617,23 @@ export function filterProjectsForPersona(
   users: UserProfile[],
   assuranceSets: AssuranceSet[] = [],
   sessionOrganization?: string,
+  sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'>,
 ): Project[] {
+  const resolvedUser =
+    sessionUser ??
+    getSessionUserForPersona(
+      persona,
+      users,
+      sessionOrganization ? { organization: sessionOrganization } : undefined,
+    );
+  const user =
+    resolvedUser &&
+    (!sessionOrganization ||
+      !resolvedUser.organization ||
+      orgFieldMatches(sessionOrganization, resolvedUser.organization))
+      ? resolvedUser
+      : undefined;
+
   if (persona === 'Administrator') return projects;
 
   if (persona === 'C Admin') {
@@ -626,7 +643,7 @@ export function filterProjectsForPersona(
       if (p.invitedOrganizations?.some((org) => orgFieldMatches(clientOrg, org))) return true;
       if (assuranceSets.length === 0) return false;
       return getProjectAssuranceSets(p, assuranceSets).some((set) =>
-        isAssuranceSetAssignedToPersona(set, persona, sessionOrganization),
+        isAssuranceSetAssignedToPersona(set, persona, sessionOrganization, user),
       );
     });
   }
@@ -647,7 +664,7 @@ export function filterProjectsForPersona(
         return true;
       }
       return getProjectAssuranceSets(p, assuranceSets).some((set) =>
-        isAssuranceSetAssignedToPersona(set, persona, sessionOrganization),
+        isAssuranceSetAssignedToPersona(set, persona, sessionOrganization, user),
       );
     });
   }
