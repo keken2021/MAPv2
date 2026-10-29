@@ -4,7 +4,7 @@
   role in system: main data table for AssuranceSetsView.tsx.
 */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Copy, Play, Eye } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { AssuranceSet, AssuranceStage, AssuranceTemplate } from '../../types/assurance';
@@ -12,6 +12,9 @@ import { ReadinessGauge } from '../common/ReadinessGauge';
 import { FilterModal } from '../common/FilterModal';
 import { FilterButton } from '../common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
+import { CountTabs, CountTab } from '../common/CountTabs';
+import { ListToolbar } from '../common/ListToolbar';
+import { StatusBadge } from '../common/StatusBadge';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 
@@ -111,6 +114,12 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const publicCount = (assuranceTemplates || []).length;
   const orgCount = accessibleSets.filter(isOrgSet).length;
   const draftsCount = accessibleSets.filter(isDraftSet).length;
+
+  const tabs: CountTab[] = useMemo(() => [
+    { key: 'public', label: 'Public', count: publicCount },
+    { key: 'organization', label: 'Organization', count: orgCount },
+    { key: 'drafts', label: 'Drafts', count: draftsCount },
+  ], [publicCount, orgCount, draftsCount]);
 
   // Filter public templates
   const filteredTemplates = (assuranceTemplates || []).filter((t) => {
@@ -323,99 +332,34 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
 
   return (
     <div className="d-flex flex-column gap-3">
-      {/* Universal Design Tabs: Public, Organization, and Drafts (Placed above card, matching Vessels layout) */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-        <div className="nav nav-pills bg-light p-1 rounded-3 border">
-          <button
-            type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${
-              activeTab === 'public' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'
-            }`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setActiveTab('public')}
-          >
-            Public ({publicCount})
-          </button>
-          <button
-            type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${
-              activeTab === 'organization' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'
-            }`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setActiveTab('organization')}
-          >
-            Organization ({orgCount})
-          </button>
-          <button
-            type="button"
-            className={`nav-link btn-sm font-mono-code px-3 py-1.5 ${
-              activeTab === 'drafts' ? 'active bg-primary text-white fw-semibold' : 'text-secondary'
-            }`}
-            style={{ fontSize: '0.8rem' }}
-            onClick={() => setActiveTab('drafts')}
-          >
-            Drafts ({draftsCount})
-          </button>
-        </div>
-      </div>
-
       <div className="card map-card-custom">
-        {/* Table Header Controls Row: Search/Filter on Left, Export & Initiate on Right */}
-        <div className="card-header d-flex flex-wrap align-items-center justify-content-between gap-3 p-3">
-          <div className="d-flex flex-wrap align-items-center gap-2 flex-grow-1">
-            <input
-              type="text"
-              className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search assurance sets..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ width: '260px' }}
-            />
-            <FilterButton
-              onClick={() => setIsFilterModalOpen(true)}
-              activeCount={activeFilterCount}
-            />
-          </div>
-
-          {/* Right Side: Export & Initiate Buttons */}
-          <div className="d-flex align-items-center gap-2 ms-auto">
-            {/* Export Dropdown */}
-            <div className="dropdown position-relative">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                onClick={() => setIsExportOpen(!isExportOpen)}
-              >
-                Export
-              </button>
-              {isExportOpen && (
-                <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border">
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      CSV
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      PDF
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
-
-            {/* Initiate Action Button */}
-            {canInitiate && onInitiateSet && (
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={onInitiateSet}
-              >
-                Create Assurance Set
-              </button>
-            )}
-          </div>
+        <div className="p-3 border-bottom">
+          <CountTabs
+            tabs={tabs}
+            active={activeTab}
+            onChange={(key) => setActiveTab(key as AssuranceViewTab)}
+            aria-label="Assurance set tabs"
+          />
         </div>
+
+        <ListToolbar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder={activeTab === 'public' ? 'Search templates...' : 'Search assurance sets...'}
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFilterCount={activeFilterCount}
+          onExportCsv={handleExportCsv}
+          onExportPdf={handleExportPdf}
+          primaryAction={canInitiate && onInitiateSet ? (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={onInitiateSet}
+            >
+              Create Assurance Set
+            </button>
+          ) : undefined}
+        />
 
         {activeChips.length > 0 && (
           <div className="px-3 py-2 bg-light border-bottom">
@@ -433,9 +377,6 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                 </th>
                 <th onClick={() => handleSort('scope')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   Scope {renderSortIndicator('scope')}
-                </th>
-                <th onClick={() => handleSort('scopeType')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                  Scope Type {renderSortIndicator('scopeType')}
                 </th>
                 <th onClick={() => handleSort('initiatorOrg')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   Created By {renderSortIndicator('initiatorOrg')}
@@ -470,7 +411,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
             {activeTab === 'public' ? (
               templatesPagination.pageItems.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center text-secondary py-4">
+                  <td colSpan={4} className="text-center text-secondary py-4">
                     No public assurance templates found.
                   </td>
                 </tr>
@@ -496,13 +437,9 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                       </div>
                     </td>
                     <td>
-                      <span className="badge bg-info-subtle text-dark border border-info-subtle font-mono-code">
+                      <span>
                         {t.scope || t.assuranceType || 'Vessel'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="badge bg-light text-dark border font-mono-code">
-                        {t.scopeType || 'General'}
+                        {t.scopeType ? ` · ${t.scopeType}` : ''}
                       </span>
                     </td>
                     <td>
@@ -550,14 +487,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                   >
                     <td className="font-mono-code fw-bold text-primary">{s.id}</td>
                     <td className="fw-semibold">
-                      <div className="d-flex align-items-center gap-2">
-                        <span>{s.title}</span>
-                        {isDraft && (
-                          <span className="badge bg-warning-subtle text-dark border border-warning-subtle font-mono-code" style={{ fontSize: '0.65rem' }}>
-                            Draft
-                          </span>
-                        )}
-                      </div>
+                      <span>{s.title}</span>
                     </td>
                     <td>
                       {getProjectId(s) ? (
@@ -571,7 +501,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                       <span title={s.initiatorOrg}>{getAssuranceSetCreatedByLabel(s, users, activePersona)}</span>
                     </td>
                     <td>
-                      <span className={`badge ${getStageBadgeClass(s.stage)}`}>{s.stage}</span>
+                      <StatusBadge value={s.stage} />
                     </td>
                     <td>
                       <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />

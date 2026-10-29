@@ -9,6 +9,7 @@ import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, Fi
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
+import { DetailHeader } from '../components/common/DetailHeader';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { formatMaritimeDate, formatMaritimeDateTime, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
@@ -936,10 +937,82 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     setIsExportOpen(false);
   };
 
+  /* DetailHeader status derivation: single badge only */
+  const headerStatus = useMemo(() => {
+    if (assuranceSet.stage === 'Cancelled') return undefined;
+    if (assuranceSet.closureType === 'partial') return 'Partially Closed';
+    if (complianceOverdue) return 'Overdue';
+    return assuranceSet.stage;
+  }, [assuranceSet.stage, assuranceSet.closureType, complianceOverdue]);
+
+  const canUseAsTemplate =
+    roleActions.canManage ||
+    ((isCAdmin || activePersona === 'Administrator') &&
+      (assuranceSet.visibility === 'public' || assuranceSet.templateSource === 'public'));
+
+  const detailHeaderActions = (
+    <div className="d-flex align-items-center gap-2">
+      {canUseAsTemplate && (
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-primary"
+          onClick={() => setCurrentHashView('create-assurance-set', assuranceSet.id)}
+        >
+          Use as Template
+        </button>
+      )}
+      {roleActions.canInspect && (
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          onClick={() => setCurrentHashView('inspector', assuranceSet.vesselName)}
+        >
+          Open Inspection
+        </button>
+      )}
+      {roleActions.canApprove && (
+        <button
+          type="button"
+          className="btn btn-sm btn-primary"
+          onClick={() => setCurrentHashView('approver', assuranceSet.id)}
+        >
+          Open Approval
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div className="d-flex flex-column gap-4">
       {projectToast && (
         <div className="alert alert-success py-2 mb-0" role="status">{projectToast}</div>
+      )}
+
+      {/* DetailHeader with 1 status badge, metaItems, backLink, and Export */}
+      <DetailHeader
+        title={assuranceSet.title}
+        status={headerStatus}
+        metaItems={[
+          assuranceSet.id,
+          assuredAsset.name,
+        ]}
+        backLink={{
+          label: 'Assurance Sets',
+          onClick: () => setCurrentHashView('assurance-sets'),
+        }}
+        mainAction={detailHeaderActions}
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+      />
+
+      {/* Cancelled set shows alert only, below header */}
+      {assuranceSet.stage === 'Cancelled' && (
+        <div className="alert alert-secondary mb-0" role="alert">
+          <span className="fw-semibold">Cancelled:</span>{' '}
+          This assurance set was cancelled on {formatMaritimeDate(assuranceSet.cancelledAt || '')}.
+          {assuranceSet.cancellationReason ? ` Reason: ${assuranceSet.cancellationReason}.` : ''}{' '}
+          This set cannot be restarted.
+        </div>
       )}
 
       {/* Top Row: Campaign Summary Information Card + Compact Stage Pipeline */}
@@ -947,168 +1020,28 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         {/* Left: Assurance Set Information & Stakeholder Role Assignments Card */}
         <div className="col-lg-8 col-md-7">
           <div className="card map-card-custom p-4 h-100">
-            <div className="d-flex flex-wrap align-items-center justify-between gap-3 mb-3">
-              <div>
-                <div className="d-flex align-items-center gap-2 flex-wrap">
-                  <h3 className="fw-bold mb-0 text-primary">{assuranceSet.title}</h3>
-                  {complianceOverdue && (
-                    <span className="badge bg-danger">Overdue</span>
-                  )}
-                  {assuranceSet.stage === 'Cancelled' && (
-                    <span className="badge bg-secondary">Cancelled</span>
-                  )}
-                  {assuranceSet.closureType === 'partial' && (
-                    <span className="badge bg-warning text-dark">Partially Closed</span>
-                  )}
-                  <span className={`badge font-mono-code ${onTimeStatus.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTimeStatus.detail}>
-                    {onTimeStatus.statusLabel}{!onTimeStatus.isOnTime && onTimeStatus.lateItemsCount > 0 ? ` (${onTimeStatus.lateItemsCount} late)` : ''}
+            {/* On-Time, Open Findings, and Remaining Items Badges inside Info Card */}
+            <div className="d-flex flex-wrap align-items-center gap-2 mb-3 pb-3 border-bottom">
+              <span className={`badge font-mono-code ${onTimeStatus.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTimeStatus.detail}>
+                {onTimeStatus.statusLabel}{!onTimeStatus.isOnTime && onTimeStatus.lateItemsCount > 0 ? ` (${onTimeStatus.lateItemsCount} late)` : ''}
+              </span>
+              {openFindings.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link p-0 text-decoration-none"
+                  onClick={() => setCurrentHashView('capa', assuranceSet.vesselName || assuranceSet.vesselId)}
+                >
+                  <span className="badge bg-warning text-dark font-mono-code">
+                    {openFindings.length} {openFindings.length === 1 ? 'Open Finding' : 'Open Findings'}
                   </span>
-                  {openFindings.length > 0 && (
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-link p-0 text-decoration-none"
-                      onClick={() => setCurrentHashView('capa', assuranceSet.vesselName || assuranceSet.vesselId)}
-                    >
-                      <span className="badge bg-warning text-dark font-mono-code">
-                        {openFindings.length} {openFindings.length === 1 ? 'Open Finding' : 'Open Findings'}
-                      </span>
-                    </button>
-                  )}
-                  <span className="badge bg-light text-secondary border font-mono-code">
-                    {remainingItems.remainingTasks} remaining tasks ({remainingItems.remainingCertificates} certs)
-                  </span>
-                </div>
-                {complianceOverdue && roleActions.canManage && assuranceSet.stage !== 'Cancelled' && assuranceSet.stage !== 'Approved' && (
-                  <div className="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3 mb-0" role="alert">
-                    <div>
-                      <div className="fw-semibold text-danger">Overdue Outcome Required</div>
-                      <div className="small text-danger-emphasis">
-                        This assurance set passed its deadline ({formatMaritimeDate(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}). Choose an outcome to proceed.
-                      </div>
-                    </div>
-                    <div className="d-flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => {
-                          setRevisedDateDraft(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '');
-                          setRevisedDateReason('');
-                          setRevisedDateError(null);
-                          setIsReviseDeadlineModalOpen(true);
-                        }}
-                      >
-                        Revise Completion Date
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => {
-                          setSelectedExemptTaskIds([]);
-                          setExemptionReasonDraft('');
-                          setExemptionGrantedByDraft(sessionUser?.name || 'Set Manager');
-                          setExemptionNewDateDraft('');
-                          setExemptionError(null);
-                          setIsExemptTasksModalOpen(true);
-                        }}
-                      >
-                        Exempt Tasks
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => {
-                          setPartialCloseNotes('');
-                          setIsPartialCloseModalOpen(true);
-                        }}
-                      >
-                        Partial Closure
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger text-white"
-                        onClick={() => {
-                          setCancellationReasonDraft('');
-                          setIsCancelModalOpen(true);
-                        }}
-                      >
-                        Cancel Set
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {assuranceSet.stage === 'Cancelled' && (
-                  <div className="alert alert-secondary mt-3 mb-0" role="alert">
-                    <span className="fw-semibold">Cancelled:</span>{' '}
-                    This assurance set was cancelled on {formatMaritimeDate(assuranceSet.cancelledAt || '')}.
-                    {assuranceSet.cancellationReason ? ` Reason: ${assuranceSet.cancellationReason}.` : ''}{' '}
-                    This set cannot be restarted.
-                  </div>
-                )}
-                {assuranceSet.closureType === 'partial' && (
-                  <div className="alert alert-warning mt-3 mb-0" role="alert">
-                    <span className="fw-semibold">Partially Closed:</span>{' '}
-                    This assurance set was partially closed on {formatMaritimeDate(assuranceSet.partiallyClosedAt || '')}.
-                    Exempted tasks remain open under their granted extension dates.
-                  </div>
-                )}
-               
-              </div>
-              {/* Top header action controls: Use as Template button & Export Data dropdown */}
-              <div className="d-flex align-items-center gap-2 ms-auto">
-                {(roleActions.canManage || ((isCAdmin || activePersona === 'Administrator') && (assuranceSet.visibility === 'public' || assuranceSet.templateSource === 'public'))) && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={() => setCurrentHashView('create-assurance-set', assuranceSet.id)}
-                  >
-                    Use as Template
-                  </button>
-                )}
-                {roleActions.canInspect && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-primary"
-                    onClick={() => setCurrentHashView('inspector', assuranceSet.vesselName)}
-                  >
-                    Open Inspection
-                  </button>
-                )}
-                {roleActions.canApprove && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-primary"
-                    onClick={() => setCurrentHashView('approver', assuranceSet.id)}
-                  >
-                    Open Approval
-                  </button>
-                )}
-                <div className="dropdown position-relative">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                    onClick={() => setIsExportOpen(!isExportOpen)}
-                  >
-                    Export
-                  </button>
-                  {isExportOpen && (
-                    <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                      <li>
-                        <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                          CSV
-                        </button>
-                      </li>
-                      <li>
-                        <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                          PDF
-                        </button>
-                      </li>
-                    </ul>
-                  )}
-                </div>
-              </div>
+                </button>
+              )}
+              <span className="badge bg-light text-secondary border font-mono-code">
+                {remainingItems.remainingTasks} remaining tasks ({remainingItems.remainingCertificates} certs)
+              </span>
             </div>
 
-            <div className="p-4 bg-light border rounded-3 font-mono-code small">
+            <div className="font-mono-code small">
               <div className="row g-4">
                 {/* Assurance Set Information */}
                 <div className="col-md-6 d-flex flex-column gap-3">
@@ -1350,6 +1283,60 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             Date Permissions ({(assuranceSet.datePermissionGrants || []).filter((g) => isDatePermissionActive(g)).length})
                           </button>
                         </div>
+                        {complianceOverdue && roleActions.canManage && assuranceSet.stage !== 'Cancelled' && assuranceSet.stage !== 'Approved' && (
+                          <div className="d-flex flex-wrap gap-2 mt-2 pt-2 border-top">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger py-0 px-2 font-mono-code"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => {
+                                setRevisedDateDraft(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '');
+                                setRevisedDateReason('');
+                                setRevisedDateError(null);
+                                setIsReviseDeadlineModalOpen(true);
+                              }}
+                            >
+                              Revise Completion Date
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger py-0 px-2 font-mono-code"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => {
+                                setSelectedExemptTaskIds([]);
+                                setExemptionReasonDraft('');
+                                setExemptionGrantedByDraft(sessionUser?.name || 'Set Manager');
+                                setExemptionNewDateDraft('');
+                                setExemptionError(null);
+                                setIsExemptTasksModalOpen(true);
+                              }}
+                            >
+                              Exempt Tasks
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger py-0 px-2 font-mono-code"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => {
+                                setPartialCloseNotes('');
+                                setIsPartialCloseModalOpen(true);
+                              }}
+                            >
+                              Partial Closure
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-danger text-white py-0 px-2 font-mono-code"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => {
+                                setCancellationReasonDraft('');
+                                setIsCancelModalOpen(true);
+                              }}
+                            >
+                              Cancel Set
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                     {roleActions.canManage && isCharterWindowLocked && (
@@ -1587,27 +1574,25 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
         {/* Right: Compact Stage Pipeline Stepper & Readiness Gauge */}
         <div className="col-lg-4 col-md-5">
-          <div className="card map-card-custom p-4 h-100">
-            <div className="p-4 bg-light border rounded-3 h-100 d-flex flex-column gap-4">
-              <div>
-                <div className="text-uppercase font-mono-code fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                  Stage
-                </div>
-                <PipelineStepper
-                  currentStage={assuranceSet.stage}
-                  readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
-                  assuranceSet={assuranceSet}
-                  orientation="vertical"
-                />
+          <div className="card map-card-custom p-4 h-100 d-flex flex-column gap-4">
+            <div>
+              <div className="text-uppercase font-mono-code fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                Stage
               </div>
+              <PipelineStepper
+                currentStage={assuranceSet.stage}
+                readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
+                assuranceSet={assuranceSet}
+                orientation="vertical"
+              />
+            </div>
 
-              {/* readiness index sits inside the pipeline panel, pinned to its bottom edge */}
-              <div className="mt-auto pt-3 border-top">
-                <div className="text-secondary text-uppercase font-mono-code fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                  Readiness
-                </div>
-                <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
+            {/* readiness index sits inside the pipeline panel, pinned to its bottom edge */}
+            <div className="mt-auto pt-3 border-top">
+              <div className="text-secondary text-uppercase font-mono-code fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                Readiness
               </div>
+              <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
             </div>
           </div>
         </div>
@@ -1655,29 +1640,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               </div>
             </div>
             <div className="d-flex align-items-center gap-2 ms-auto">
-              <div className="dropdown position-relative">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                  onClick={() => setIsExportOpen(!isExportOpen)}
-                >
-                  Export
-                </button>
-                {isExportOpen && (
-                  <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                    <li>
-                      <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                        CSV
-                      </button>
-                    </li>
-                    <li>
-                      <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                        PDF
-                      </button>
-                    </li>
-                  </ul>
-                )}
-              </div>
               {canUploadHere && (
                 <button
                   type="button"
