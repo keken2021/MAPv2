@@ -212,6 +212,17 @@ export const DashboardView: React.FC = () => {
   const submitterSetsPagination = usePagination(sortedSubmitterSets, [submitterSearchTerm, submitterSortField, submitterSortDirection]);
   const fleetPagination = usePagination(sortedFleetVessels, [fleetSortField, fleetSortDirection]);
 
+  const relevantSetsForPerformance = useMemo(() => {
+    if (activePersona === 'C Admin') return cAdminAssuranceSets;
+    if (activePersona === 'Submitter') return visibleSubmitterSets;
+    return assuranceSets;
+  }, [activePersona, cAdminAssuranceSets, visibleSubmitterSets, assuranceSets]);
+
+  const performanceSummary = useMemo(
+    () => getFleetPerformanceSummary(relevantSetsForPerformance, capaItems),
+    [relevantSetsForPerformance, capaItems],
+  );
+
   /* these roles get their own workspace; the check sits below every hook so the hook order never changes */
   if (activePersona === 'Verifier') {
     return <VerifierWorkspaceView />;
@@ -251,17 +262,6 @@ export const DashboardView: React.FC = () => {
         return 'bg-light text-dark border';
     }
   };
-
-  const relevantSetsForPerformance = useMemo(() => {
-    if (activePersona === 'C Admin') return cAdminAssuranceSets;
-    if (activePersona === 'Submitter') return visibleSubmitterSets;
-    return assuranceSets;
-  }, [activePersona, cAdminAssuranceSets, visibleSubmitterSets, assuranceSets]);
-
-  const performanceSummary = useMemo(
-    () => getFleetPerformanceSummary(relevantSetsForPerformance, capaItems),
-    [relevantSetsForPerformance, capaItems],
-  );
 
   /* compute role-specific top summary metrics for activePersona */
   const renderDashboardCards = () => {
