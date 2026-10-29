@@ -1,13 +1,14 @@
-import { ArrowUpDown, ArrowUp, ArrowDown, Eye, AlertTriangle } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
-import { formatMaritimeDate } from '../utils/formatters';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { ListToolbar } from '../components/common/ListToolbar';
 import { VerifierWorkspaceView } from './VerifierWorkspaceView';
 import { InspectorWorkspaceView } from './InspectorWorkspaceView';
 import { ApproverDashboardView } from './ApproverDashboardView';
 import { Vessel } from '../types/vessel';
-import { AssuranceSet, AssuranceStage, AssuranceRequirement } from '../types/assurance';
+import { AssuranceSet, AssuranceRequirement } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { isAssuranceSetAssignedToPersona, filterVesselsForPersona } from '../utils/rbacHelpers';
 import {
@@ -25,7 +26,6 @@ import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { filterProjectsForPersona } from '../utils/projectHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
-import { EXPIRY_WARNING_DAYS, isExpiringWithinWarning } from '../utils/expiryPolicy';
 
 /**
   what: renders the executive dashboard workspace view in light theme.
@@ -51,8 +51,9 @@ export const DashboardView: React.FC = () => {
   const [cAdminProjectSortField, setCAdminProjectSortField] = useState<'name' | 'status'>('name');
   const [cAdminProjectSortDirection, setCAdminProjectSortDirection] = useState<'asc' | 'desc'>('asc');
   const [submitterSearchTerm, setSubmitterSearchTerm] = useState('');
-  const [submitterSortField, setSubmitterSortField] = useState<'id' | 'title' | 'vesselName' | 'charterWindowStart' | 'stage' | 'readinessScore'>('id');
+  const [submitterSortField, setSubmitterSortField] = useState<'id' | 'title' | 'stage' | 'readinessScore'>('id');
   const [submitterSortDirection, setSubmitterSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [fleetSearchTerm, setFleetSearchTerm] = useState('');
   const [fleetSortField, setFleetSortField] = useState<'name' | 'imoNumber' | 'flagState' | 'classificationSociety' | 'status' | 'readiness'>('name');
   const [fleetSortDirection, setFleetSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -74,15 +75,6 @@ export const DashboardView: React.FC = () => {
   );
 
   const visibleVessels: Vessel[] = filterVesselsForPersona(vessels, assuranceSets, activePersona);
-
-  const totalVessels = visibleVessels.length;
-  const avgReadiness = Math.round(
-    visibleVessels.reduce(
-      (acc: number, v: Vessel) => acc + calculateVesselReadiness(v, assuranceSets, documents),
-      0
-    ) / (totalVessels || 1)
-  );
-  const activeAssurances = assuranceSets.filter((s) => s.stage !== 'Certified' && s.stage !== 'Approved').length;
 
   /* c admin specific assurance sets */
   const cAdminAssuranceSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'C Admin', activeDemoOrganization));
@@ -178,14 +170,12 @@ export const DashboardView: React.FC = () => {
     let comp = 0;
     if (submitterSortField === 'id') comp = a.id.localeCompare(b.id);
     else if (submitterSortField === 'title') comp = a.title.localeCompare(b.title);
-    else if (submitterSortField === 'vesselName') comp = a.vesselName.localeCompare(b.vesselName);
-    else if (submitterSortField === 'charterWindowStart') comp = (a.charterWindowStart || '').localeCompare(b.charterWindowStart || '');
     else if (submitterSortField === 'stage') comp = a.stage.localeCompare(b.stage);
     else if (submitterSortField === 'readinessScore') comp = calculateAssuranceSetReadiness(a) - calculateAssuranceSetReadiness(b);
     return submitterSortDirection === 'asc' ? comp : -comp;
   });
 
-  const handleSubmitterSort = (field: 'id' | 'title' | 'vesselName' | 'charterWindowStart' | 'stage' | 'readinessScore') => {
+  const handleSubmitterSort = (field: 'id' | 'title' | 'stage' | 'readinessScore') => {
     if (submitterSortField === field) {
       setSubmitterSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -194,21 +184,36 @@ export const DashboardView: React.FC = () => {
     }
   };
 
-  const sortedFleetVessels = [...visibleVessels].sort((a, b) => {
-    let comp = 0;
-    if (fleetSortField === 'name') comp = a.name.localeCompare(b.name);
-    else if (fleetSortField === 'imoNumber') comp = a.imoNumber.localeCompare(b.imoNumber);
-    else if (fleetSortField === 'flagState') comp = a.flagState.localeCompare(b.flagState);
-    else if (fleetSortField === 'classificationSociety') comp = a.classificationSociety.localeCompare(b.classificationSociety);
-    else if (fleetSortField === 'status') comp = a.status.localeCompare(b.status);
-    else if (fleetSortField === 'readiness') comp = calculateVesselReadiness(a, assuranceSets, documents) - calculateVesselReadiness(b, assuranceSets, documents);
-    return fleetSortDirection === 'asc' ? comp : -comp;
-  });
+  const filteredFleetVessels = useMemo(() => {
+    const term = fleetSearchTerm.toLowerCase();
+    if (!term) return visibleVessels;
+    return visibleVessels.filter(
+      (v) =>
+        v.name.toLowerCase().includes(term) ||
+        v.imoNumber.includes(term) ||
+        v.flagState.toLowerCase().includes(term) ||
+        v.classificationSociety.toLowerCase().includes(term) ||
+        v.status.toLowerCase().includes(term),
+    );
+  }, [visibleVessels, fleetSearchTerm]);
+
+  const sortedFleetVessels = useMemo(() => {
+    return [...filteredFleetVessels].sort((a, b) => {
+      let comp = 0;
+      if (fleetSortField === 'name') comp = a.name.localeCompare(b.name);
+      else if (fleetSortField === 'imoNumber') comp = a.imoNumber.localeCompare(b.imoNumber);
+      else if (fleetSortField === 'flagState') comp = a.flagState.localeCompare(b.flagState);
+      else if (fleetSortField === 'classificationSociety') comp = a.classificationSociety.localeCompare(b.classificationSociety);
+      else if (fleetSortField === 'status') comp = a.status.localeCompare(b.status);
+      else if (fleetSortField === 'readiness') comp = calculateVesselReadiness(a, assuranceSets, documents) - calculateVesselReadiness(b, assuranceSets, documents);
+      return fleetSortDirection === 'asc' ? comp : -comp;
+    });
+  }, [filteredFleetVessels, fleetSortField, fleetSortDirection, assuranceSets, documents]);
 
   const cAdminProjectsPagination = usePagination(sortedCAdminProjects, [cAdminProjectSearchTerm, cAdminProjectSortField, cAdminProjectSortDirection]);
   const cAdminSetsPagination = usePagination(sortedCAdminSets, [cAdminSearchTerm, cAdminSortField, cAdminSortDirection]);
   const submitterSetsPagination = usePagination(sortedSubmitterSets, [submitterSearchTerm, submitterSortField, submitterSortDirection]);
-  const fleetPagination = usePagination(sortedFleetVessels, [fleetSortField, fleetSortDirection]);
+  const fleetPagination = usePagination(sortedFleetVessels, [fleetSearchTerm, fleetSortField, fleetSortDirection]);
 
   const relevantSetsForPerformance = useMemo(() => {
     if (activePersona === 'C Admin') return cAdminAssuranceSets;
@@ -243,189 +248,39 @@ export const DashboardView: React.FC = () => {
     }
   };
 
-  const getStageBadgeClass = (stage: AssuranceStage) => {
-    switch (stage) {
-      case 'Approved':
-      case 'Certified':
-        return 'bg-success text-white';
-      case 'Approval':
-        return 'bg-info text-dark';
-      case 'Inspection':
-        return 'bg-primary text-white';
-      case 'Verification':
-        return 'bg-warning text-dark';
-      case 'Validation':
-        return 'bg-secondary text-white';
-      default:
-        return 'bg-light text-dark border';
-    }
-  };
-
-  /* compute role-specific top summary metrics for activePersona */
-  const renderDashboardCards = () => {
-    if (activePersona === 'Submitter') {
-      const assignedSets = assuranceSets.filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter', activeDemoOrganization));
-      const pendingUploads = documents.filter((d) => d.verificationStatus === 'Pending').length;
-      const revisionsRequested = documents.filter(
-        (d) => d.verificationStatus === 'Correction Requested' || d.verificationStatus === 'Rejected'
-      ).length;
-      const verifiedCerts = documents.filter((d) => d.verificationStatus === 'Verified').length;
-
-      return (
-        <div className="row g-3">
-          <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
-              <div className="map-kpi-label">
-                Assurance Sets
-              </div>
-              <div className="map-kpi-value text-primary mt-1">{assignedSets.length}</div>
-              <div className="map-kpi-subtitle mt-1">Assigned to you</div>
-            </div>
+  return (
+    <div className="d-flex flex-column gap-4">
+      {/* Performance strip: on-time completion, open findings, remaining tasks & certificates */}
+      <div className="card map-card-custom p-3 bg-white border">
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div className="d-flex align-items-center gap-2">
+            <span className="fw-bold text-dark font-mono-code" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>
+              PERFORMANCE
+            </span>
           </div>
-
-          <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
-              <div className="map-kpi-label">
-                Awaiting Upload
-              </div>
-              <div className="map-kpi-value text-warning mt-1">{pendingUploads}</div>
-              <div className="map-kpi-subtitle mt-1">Documents still to upload</div>
+          <div className="d-flex flex-wrap align-items-center gap-4 ms-auto small">
+            <div>
+              <span className="text-secondary me-1.5">On-Time Status:</span>
+              <span className={`fw-semibold font-mono-code ${performanceSummary.lateSets > 0 ? 'text-danger' : 'text-success'}`}>
+                {performanceSummary.onTimeSets} / {performanceSummary.totalSets} on time {performanceSummary.lateSets > 0 ? `(${performanceSummary.lateSets} late)` : ''}
+              </span>
             </div>
-          </div>
-
-          <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
-              <div className="map-kpi-label">
-                Returned for Correction
-              </div>
-              <div className="map-kpi-value text-danger mt-1">{revisionsRequested}</div>
-              <div className="map-kpi-subtitle mt-1">Documents to fix and upload again</div>
+            <div className="border-start ps-3">
+              <span className="text-secondary me-1.5">Open Findings:</span>
+              <span className={`fw-semibold font-mono-code ${performanceSummary.openFindings > 0 ? 'text-warning-emphasis' : 'text-success'}`}>
+                {performanceSummary.openFindings} {performanceSummary.openFindings === 1 ? 'finding' : 'findings'}
+              </span>
             </div>
-          </div>
-
-          <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
-              <div className="map-kpi-label">
-                Verified
-              </div>
-              <div className="map-kpi-value text-success mt-1">{verifiedCerts}</div>
-              <div className="map-kpi-subtitle mt-1">Verified documents</div>
+            <div className="border-start ps-3">
+              <span className="text-secondary me-1.5">Remaining Work:</span>
+              <span className="fw-semibold font-mono-code text-dark">
+                {performanceSummary.remainingTasks} {performanceSummary.remainingTasks === 1 ? 'task' : 'tasks'} · {performanceSummary.remainingCertificates} {performanceSummary.remainingCertificates === 1 ? 'certificate' : 'certificates'}
+              </span>
             </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (activePersona === 'C Admin') {
-      const totalCreated = cAdminAssuranceSets.length;
-      const activeCampaigns = cAdminAssuranceSets.filter((s) => s.stage !== 'Certified' && s.stage !== 'Approved').length;
-      const certifiedCampaigns = cAdminAssuranceSets.filter((s) => s.stage === 'Certified' || s.stage === 'Approved' || s.approverDecision === 'Approved').length;
-      const avgCampaignReadiness = Math.round(
-        cAdminAssuranceSets.reduce((acc: number, s) => acc + calculateAssuranceSetReadiness(s), 0) / (totalCreated || 1)
-      );
-
-      return (
-        <div className="row g-3">
-          <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
-              <div className="map-kpi-label">
-                Assurance Sets
-              </div>
-              <div className="map-kpi-value text-primary mt-1">{totalCreated}</div>
-              <div className="map-kpi-subtitle mt-1">Created by your organization</div>
-            </div>
-          </div>
-
-          <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
-              <div className="map-kpi-label">
-                Average Readiness
-              </div>
-              <div className="map-kpi-value text-success mt-1">{avgCampaignReadiness}%</div>
-              <div className="map-kpi-subtitle mt-1">Across your assurance sets</div>
-            </div>
-          </div>
-
-          <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
-              <div className="map-kpi-label">
-                In Progress
-              </div>
-              <div className="map-kpi-value text-warning mt-1">{activeCampaigns}</div>
-              <div className="map-kpi-subtitle mt-1">Being verified or reviewed</div>
-            </div>
-          </div>
-
-          <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
-              <div className="map-kpi-label">
-                Approved
-              </div>
-              <div className="map-kpi-value text-primary mt-1">{certifiedCampaigns}</div>
-              <div className="map-kpi-subtitle mt-1">Approved assurance sets</div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="row g-3">
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Vessels
-            </div>
-            <div className="map-kpi-value text-primary mt-1">{totalVessels}</div>
-            <div className="map-kpi-subtitle mt-1">In your fleet</div>
-          </div>
-        </div>
-
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Average Readiness
-            </div>
-            <div className="map-kpi-value text-success mt-1">{avgReadiness}%</div>
-            <div className="map-kpi-subtitle mt-1">Across your fleet</div>
-          </div>
-        </div>
-
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Assurance Sets
-            </div>
-            <div className="map-kpi-value text-warning mt-1">{activeAssurances}</div>
-            <div className="map-kpi-subtitle mt-1">In progress</div>
-          </div>
-        </div>
-
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Expiring Soon
-            </div>
-            {/* counted from the library, not a fixed number (gap review G3) */}
-            <div className="map-kpi-value text-danger mt-1">{documents.filter((d) => isExpiringWithinWarning(d.expiryDate)).length}</div>
-            <div className="map-kpi-subtitle mt-1">Documents expiring within {EXPIRY_WARNING_DAYS} days</div>
           </div>
         </div>
       </div>
-    );
-  };
 
-  const submitterRevisions =
-    activePersona === 'Submitter'
-      ? documents.filter(
-        (d) => d.verificationStatus === 'Correction Requested' || d.verificationStatus === 'Rejected'
-      ).length
-      : 0;
-
-  return (
-    <div className="d-flex flex-column gap-4">
-      {/* top banner kpi summary cards */}
-      {renderDashboardCards()}
       {/* main content area: c admin & submitter display assurance sets; other personas display fleet overview */}
       {activePersona === 'C Admin' ? (
         <div className="row g-4">
@@ -445,10 +300,10 @@ export const DashboardView: React.FC = () => {
                   />
                   <button
                     type="button"
-                    className="btn btn-sm btn-primary"
-                    onClick={() => setCurrentHashView('project', 'new')}
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => setCurrentHashView('project')}
                   >
-                    Create Project
+                    View All
                   </button>
                 </div>
               </div>
@@ -491,7 +346,7 @@ export const DashboardView: React.FC = () => {
                               <div className="small text-muted">{p.projectType}</div>
                             </td>
                             <td>
-                              <span className="badge bg-secondary">{p.status}</span>
+                              <StatusBadge value={p.status} />
                             </td>
                             <td className="text-end" onClick={(e) => e.stopPropagation()}>
                               <button
@@ -592,23 +447,17 @@ export const DashboardView: React.FC = () => {
                               </td>
                               <td>{getScopeLabel(s)}</td>
                               <td>
-                                <span className={`badge ${getStageBadgeClass(s.stage)} font-mono-code`}>
-                                  {s.stage}
-                                </span>
+                                <StatusBadge value={s.stage} />
                               </td>
                               <td>
-                                <span className={`badge font-mono-code ${onTime.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTime.detail}>
+                                <span className={`font-mono-code small ${onTime.isOnTime ? 'text-success' : 'text-danger'}`} title={onTime.detail}>
                                   {onTime.statusLabel}{!onTime.isOnTime && onTime.lateItemsCount > 0 ? ` (${onTime.lateItemsCount})` : ''}
                                 </span>
                               </td>
                               <td>
-                                {openFindings > 0 ? (
-                                  <span className="badge bg-warning text-dark font-mono-code">
-                                    {openFindings} open
-                                  </span>
-                                ) : (
-                                  <span className="text-muted font-mono-code small">0</span>
-                                )}
+                                <span className={`font-mono-code small ${openFindings > 0 ? 'text-warning-emphasis' : 'text-muted'}`}>
+                                  {openFindings > 0 ? `${openFindings} open` : '0'}
+                                </span>
                               </td>
                               <td>
                                 <div className="small font-mono-code text-dark">
@@ -680,18 +529,6 @@ export const DashboardView: React.FC = () => {
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleSubmitterSort('vesselName')}
-                        >
-                          Vessel {renderSortIndicator(submitterSortField, 'vesselName', submitterSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleSubmitterSort('charterWindowStart')}
-                        >
-                          Contract Period {renderSortIndicator(submitterSortField, 'charterWindowStart', submitterSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                           onClick={() => handleSubmitterSort('stage')}
                         >
                           Stage {renderSortIndicator(submitterSortField, 'stage', submitterSortDirection)}
@@ -704,30 +541,20 @@ export const DashboardView: React.FC = () => {
                         </th>
                         <th style={{ whiteSpace: 'nowrap' }}>On-Time</th>
                         <th style={{ whiteSpace: 'nowrap' }}>Findings</th>
-                        <th style={{ whiteSpace: 'nowrap' }}>Remaining</th>
                         <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedSubmitterSets.length === 0 ? (
                         <tr>
-                          <td colSpan={10} className="text-center py-4 text-muted">
+                          <td colSpan={7} className="text-center py-4 text-muted">
                             No assurance sets found.
                           </td>
                         </tr>
                       ) : (
                         submitterSetsPagination.pageItems.map((s) => {
-                          const returnedDocs = s.requirements.filter((r) => {
-                            const linkedDoc = documents.find((d) => d.id === r.documentId || (r.linkedDocumentId && d.id === r.linkedDocumentId));
-                            return (
-                              r.verifierStatus === 'Correction Requested' ||
-                              r.verifierStatus === 'Rejected' ||
-                              linkedDoc?.verificationStatus === 'Correction Requested' ||
-                              linkedDoc?.verificationStatus === 'Rejected'
-                            );
-                          });
-                          const returnedCount = returnedDocs.length;
-
+                          const onTime = getAssuranceSetOnTimeStatus(s);
+                          const openFindings = getAssuranceSetOpenFindingsCount(s, capaItems);
                           return (
                             <tr
                               key={s.id}
@@ -737,87 +564,38 @@ export const DashboardView: React.FC = () => {
                               <td className="fw-semibold text-primary font-mono-code">{s.id}</td>
                               <td>
                                 <div className="fw-semibold text-slate-900">{s.title}</div>
-                                <div className="small text-muted">{s.initiatorOrg || s.charterer}</div>
+                                <div className="small text-muted">{s.vesselName}</div>
                               </td>
                               <td>
-                                <div className="fw-semibold">{s.vesselName}</div>
-                                <div className="font-mono-code small text-muted">IMO {s.imoNumber}</div>
-                              </td>
-                              <td className="small font-mono-code text-muted">
-                                {s.charterWindowStart && s.charterWindowEnd
-                                  ? `${formatMaritimeDate(s.charterWindowStart)} – ${formatMaritimeDate(s.charterWindowEnd)}`
-                                  : 'Not specified'}
-                              </td>
-                              <td>
-                                <span className={`badge ${getStageBadgeClass(s.stage)} font-mono-code`}>
-                                  {s.stage}
-                                </span>
+                                <StatusBadge value={s.stage} />
                               </td>
                               <td>
                                 <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />
                               </td>
                               <td>
-                                {(() => {
-                                  const onTime = getAssuranceSetOnTimeStatus(s);
-                                  return (
-                                    <span className={`badge font-mono-code ${onTime.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTime.detail}>
-                                      {onTime.statusLabel}{!onTime.isOnTime && onTime.lateItemsCount > 0 ? ` (${onTime.lateItemsCount})` : ''}
-                                    </span>
-                                  );
-                                })()}
+                                <span
+                                  className={`font-mono-code small ${onTime.isOnTime ? 'text-success' : 'text-danger'}`}
+                                  title={onTime.detail}
+                                >
+                                  {onTime.statusLabel}{!onTime.isOnTime && onTime.lateItemsCount > 0 ? ` (${onTime.lateItemsCount})` : ''}
+                                </span>
                               </td>
                               <td>
-                                {(() => {
-                                  const openFindings = getAssuranceSetOpenFindingsCount(s, capaItems);
-                                  return openFindings > 0 ? (
-                                    <span className="badge bg-warning text-dark font-mono-code">
-                                      {openFindings} open
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted font-mono-code small">0</span>
-                                  );
-                                })()}
-                              </td>
-                              <td>
-                                {(() => {
-                                  const remaining = getAssuranceSetRemainingItems(s);
-                                  return (
-                                    <>
-                                      <div className="small font-mono-code text-dark">
-                                        {remaining.remainingTasks} {remaining.remainingTasks === 1 ? 'task' : 'tasks'}
-                                      </div>
-                                      <div className="small text-muted" style={{ fontSize: '0.72rem' }}>
-                                        {remaining.remainingCertificates} {remaining.remainingCertificates === 1 ? 'cert' : 'certs'}
-                                      </div>
-                                    </>
-                                  );
-                                })()}
+                                <span className={`font-mono-code small ${openFindings > 0 ? 'text-warning-emphasis' : 'text-muted'}`}>
+                                  {openFindings > 0 ? `${openFindings} open` : '0'}
+                                </span>
                               </td>
                               <td className="text-end" onClick={(e) => e.stopPropagation()}>
-                                <div className="d-flex align-items-center justify-content-end gap-1.5">
-                                  {returnedCount > 0 && (
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
-                                      style={{ width: '32px', height: '32px' }}
-                                      onClick={() => setSelectedReturnedSet(s)}
-                                      title={`View ${returnedCount} returned or rejected document(s)`}
-                                      aria-label={`View ${returnedCount} returned or rejected document(s)`}
-                                    >
-                                      <AlertTriangle size={16} />
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                    style={{ width: '32px', height: '32px' }}
-                                    onClick={() => setCurrentHashView('assurance-sets', s.id)}
-                                    title="View"
-                                    aria-label="View"
-                                  >
-                                    <Eye size={16} />
-                                  </button>
-                                </div>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                  style={{ width: '32px', height: '32px' }}
+                                  onClick={() => setCurrentHashView('assurance-sets', s.id)}
+                                  title="View"
+                                  aria-label="View"
+                                >
+                                  <Eye size={16} />
+                                </button>
                               </td>
                             </tr>
                           );
@@ -835,16 +613,23 @@ export const DashboardView: React.FC = () => {
         <div className="row g-4">
           <div className="col-12">
             <div className="card map-card-custom">
-              <div className="card-header d-flex align-items-center justify-between">
-                <span>Vessels</span>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={() => setCurrentHashView('vessels')}
-                >
-                  View All
-                </button>
+              <div className="card-header d-flex align-items-center justify-between p-3">
+                <span className="fw-bold text-dark">Fleet Overview</span>
               </div>
+              <ListToolbar
+                searchValue={fleetSearchTerm}
+                onSearchChange={setFleetSearchTerm}
+                searchPlaceholder="Search vessels..."
+                primaryAction={
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => setCurrentHashView('vessels')}
+                  >
+                    View All
+                  </button>
+                }
+              />
               <div className="card-body p-0">
                 <div className="table-responsive">
                   <table className="table map-table-custom align-middle mb-0">
@@ -889,26 +674,32 @@ export const DashboardView: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {fleetPagination.pageItems.map((v) => (
-                        <tr
-                          key={v.id}
-                          onClick={() => setCurrentHashView('vessels', v.id)}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
-                          <td className="fw-semibold text-dark">{v.name}</td>
-                          <td>{v.flagState}</td>
-                          <td>
-                            <span className="badge bg-light text-dark border">{v.classificationSociety}</span>
-                          </td>
-                          <td>
-                            <span className="badge bg-light text-dark border">{v.status}</span>
-                          </td>
-                          <td>
-                            <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
+                      {fleetPagination.pageItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="text-center py-4 text-muted">
+                            No vessels found.
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        fleetPagination.pageItems.map((v) => (
+                          <tr
+                            key={v.id}
+                            onClick={() => setCurrentHashView('vessels', v.id)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
+                            <td className="fw-semibold text-dark">{v.name}</td>
+                            <td>{v.flagState}</td>
+                            <td className="small text-muted">{v.classificationSociety}</td>
+                            <td>
+                              <StatusBadge value={v.status} />
+                            </td>
+                            <td>
+                              <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

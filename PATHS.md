@@ -84,6 +84,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter Approver Dashboard: `src/__tests__/approverDashboardDeclutter.test.tsx` (CountTabs, Due column, 1 badge/action per row, detail view cleanup)
 - Unit tests for UI declutter shell header and sidebar: `src/__tests__/shellDeclutter.test.tsx` (title-only list views, detail back links, sidebar labels Inspections, CAPA, Approvals, dynamic verification queue count badge)
 - Unit tests for UI declutter Verifier and Inspector workspaces: `src/__tests__/workspacesDeclutter.test.tsx` (CountTabs default tabs and counts, Due column with late calculation, 1 badge/action per row, removed KPI cards)
+- Unit tests for UI declutter Submitter Dashboard: `src/__tests__/submitterDashboardDeclutter.test.tsx` (Performance strip, 7-column table, 1 badge/action per row, 1 Create button in client admin, shared Fleet toolbar)
 - Projects: `createProjectWizardOrganization.test.tsx`, `projectComposition.test.ts`, `projectNestedSets.test.ts`, `assuranceSetProjectRelationship.test.ts`, `mockDataConsistency.test.ts`, `notifications.test.ts`
 - User Management: `cAdminUserManagement.test.ts`, `userRoleHelpers.test.ts`, `store.test.ts`
 - Audit Trail: `permissionHelpers.test.ts`, `notifications.test.ts`, `mockDataBusinessRules.test.ts`, `store.test.ts`
@@ -116,6 +117,7 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/work-items/assurance-sets-ui-tasks.md`, `.csv`, `.docx` : 43 Tasks for User Stories 4617 to 4621 under Feature 4583 (3 remove the prototype switchers), with flags and import steps
 - `docs/work-items/marketplace-ui-tasks.md`, `.csv`, `.docx` : 33 Tasks for User Stories 4612 to 4616 under Feature 4582, with flags and import steps
 - `docs/work-items/vessels-ui-tasks.md`, `.csv`, `.docx` : 44 Tasks for User Stories 4597 to 4601 under Feature 4579 (3 remove the prototype switchers, the same 3 as in the other two files), with flags and import steps
+- `docs/work-items/role-views-tasks.csv` : 11 Tasks (5231 to 5241, under User Story 5209) for per-person views and the sidebar, split between Creishen Ayuman and Kurt Grava, 0.75 or 1 h each. Design: `docs/plans/per-person-views-and-sidebar.md`
 - `docs/azure-boards/` : everything for the Azure Boards connection and the `board-comment` and `task-branch` skills (12 files)
 - `docs/azure-boards/task-branch-skill.md` : plan and build record of the `task-branch` skill and of its Task notes (decisions 1 to 20, files, what is tested and what is not)
 - `docs/azure-boards/task-branch-skill-spec.docx` : Skill Spec for `task-branch`. Rebuild with `docs/azure-boards/task-branch-skill-spec.build.py` (needs python-docx in a venv; arguments: `docs/azure-boards/board-comment-skill-spec.docx` as style base, then the output path)
