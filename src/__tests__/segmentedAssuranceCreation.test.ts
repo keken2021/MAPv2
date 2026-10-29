@@ -52,7 +52,6 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     expect(ASSURANCE_SCOPE_OPTIONS).not.toContain('Activity');
     expect(orderAssuranceScopes(['Activity', 'Crew'])).toEqual(['Crew']);
     expect(getPrimaryAssuranceScope(['Activity'])).toBe('Vessel');
-    expect(buildAssuranceWizardSteps(['Activity', 'Crew']).map((s) => s.label)).toEqual(['Scope', 'Crew', 'Review']);
 
     /* a saved set still reports its real scopes, so an activity set never counts as a vessel contract */
     expect(getAssuranceSetScopes({ assuranceType: 'Activity', subtypes: ['Activity'] })).toEqual(['Activity']);
@@ -64,18 +63,11 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     expect(useMapStore.getState().assuranceSets.some((s) => s.id === 'AS-ACT-2026-SURF-01')).toBe(false);
   });
 
-  it('builds one wizard tab for the chosen scope, titled with the scope type, between Scope and Review', () => {
-    const steps = buildAssuranceWizardSteps(['Crew']);
-    expect(steps.map((s) => s.label)).toEqual(['Scope', 'Crew', 'Review']);
-    expect(steps.map((s) => s.subtype)).toEqual([undefined, 'Crew', undefined]);
-    expect(new Set(steps.map((s) => s.id)).size).toBe(steps.length);
-
-    expect(buildAssuranceWizardSteps(['Equipment']).map((s) => s.label)).toEqual(['Scope', 'Equipment', 'Review']);
-    /* a set covers exactly one asset, so several scopes still give one scope tab: the first offered */
-    expect(buildAssuranceWizardSteps(['Crew', 'Vessel']).map((s) => s.label)).toEqual(['Scope', 'Vessel', 'Review']);
-    expect(buildAssuranceWizardSteps(ASSURANCE_SCOPE_OPTIONS).map((s) => s.label)).toEqual(['Scope', 'Vessel', 'Review']);
-    /* with no scope only the fixed tabs remain */
-    expect(buildAssuranceWizardSteps([]).map((s) => s.label)).toEqual(['Scope', 'Review']);
+  it('builds fixed wizard tabs: General, Objects, Requirements, Review, whatever objects the set covers', () => {
+    const steps = buildAssuranceWizardSteps();
+    expect(steps.map((s) => s.label)).toEqual(['General', 'Objects', 'Requirements', 'Review']);
+    expect(steps.map((s) => s.id)).toEqual(['step-general', 'step-objects', 'step-requirements', 'step-review']);
+    expect(steps.every((s) => s.subtype === undefined)).toBe(true);
   });
 
   it('provides all 4 standard operational subtypes with complete descriptions', () => {

@@ -1,6 +1,6 @@
 /*
   file summary: tests asset collision validation, demo-friendly date defaults, and itemized crew review UI in CreateAssuranceSetView.
-  responsibilities: verifies that the asset is picked on the Scope tab, that only an asset already contracted for the period is blocked (booked label, collision alert, next free dates), date pickers default to non-conflicting periods, and summary review renders itemized table rows.
+  responsibilities: verifies that assets are picked on the Objects tab, that only an asset already contracted for the period is blocked (booked label, collision alert, next free dates), date pickers default to non-conflicting periods, and summary review renders itemized table rows.
   role in system: validates requirements for the Assurance Set creation workflow.
 */
 
@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
+import { addObject, clickNext, objectItemSelect, objectRowIds, removeObjectRow } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -61,86 +62,92 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
     });
   };
 
-  it('picks the vessel on the Scope tab and blocks only the vessel already contracted for the period', () => {
+  it('picks the vessel on the Objects tab and blocks only the vessel already contracted for the period', () => {
     const { container } = render(<CreateAssuranceSetView />);
-    const vesselSelect = container.querySelector('#grid-target-asset-vessel') as HTMLSelectElement;
-    expect(vesselSelect).not.toBeNull();
-
-    const bookedVesselId = vesselSelect.value;
+    clickNext();
+    const [bookedVesselId] = objectRowIds(container);
+    expect(bookedVesselId).toBeTruthy();
     addConflictingSet('Vessel', bookedVesselId);
-
-    /* the booked vessel shows the set and dates that hold it */
-    const bookedOption = Array.from(vesselSelect.options).find((opt) => opt.value === bookedVesselId);
-    expect(bookedOption?.disabled).toBe(true);
-    expect(bookedOption?.text).toContain('Booked by AS-VESSEL-CONFLICT (01 MAR 2028');
     expect(screen.getByText(/Asset Collision:/)).toBeInTheDocument();
 
-    /* Next is blocked on the vessel, not on the dates */
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(/Contract period overlaps AS-VESSEL-CONFLICT/)).toBeInTheDocument();
-    expect((container.querySelector('#grid-charter-start') as HTMLInputElement).classList.contains('is-invalid')).toBe(false);
+    /* Next is blocked on the vessel row */
+    clickNext();
+    expect(container.querySelector('#covered-assurance-objects-card')).not.toBeNull();
+
+    /* once removed, the booked vessel shows the set and dates that hold it */
+    removeObjectRow(container, bookedVesselId);
+    const options = Array.from(objectItemSelect(container, 'vessel').options);
+    const bookedOption = options.find((opt) => opt.value === bookedVesselId);
+    expect(bookedOption?.disabled).toBe(true);
+    expect(bookedOption?.text).toContain('Booked by AS-VESSEL-CONFLICT (01 MAR 2028');
 
     /* another vessel takes the same overlapping period */
-    const freeOption = Array.from(vesselSelect.options).find((opt) => !opt.disabled && opt.value !== bookedVesselId);
+    const freeOption = options.find((opt) => opt.value && !opt.disabled);
     expect(freeOption).toBeTruthy();
-    fireEvent.change(vesselSelect, { target: { value: freeOption!.value } });
+    addObject(container, 'vessel', freeOption!.value);
     expect(screen.queryByText(/Asset Collision:/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    clickNext();
 
-    /* the vessel tab now holds only the required documents */
-    expect(container.querySelector('#grid-target-asset-vessel')).toBeNull();
+    /* the Requirements tab holds only the required documents */
+    expect(container.querySelector('#covered-assurance-objects-card')).toBeNull();
     expect(container.querySelector('#grid-charter-start')).toBeNull();
   });
 
   it("moves the dates to the booked vessel's next free period with one click", () => {
     const { container } = render(<CreateAssuranceSetView />);
-    const vesselSelect = container.querySelector('#grid-target-asset-vessel') as HTMLSelectElement;
-    addConflictingSet('Vessel', vesselSelect.value);
+    clickNext();
+    addConflictingSet('Vessel', objectRowIds(container)[0]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Use next free dates' }));
-    const startInput = container.querySelector('#grid-charter-start') as HTMLInputElement;
-    expect(startInput.value >= '2028-08-01').toBe(true);
     expect(screen.queryByText(/Asset Collision:/)).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(container.querySelector('#grid-target-asset-vessel')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^1\s*General/ }));
+    const startInput = container.querySelector('#grid-charter-start') as HTMLInputElement;
+    expect(startInput.value >= '2028-08-01').toBe(true);
   });
 
-  it('picks the equipment on the Scope tab and blocks only the equipment already contracted', () => {
+  it('picks the equipment on the Objects tab and blocks only the equipment already contracted', () => {
     const { container } = render(<CreateAssuranceSetView />);
-    fireEvent.change(screen.getByLabelText(/^Scope/), { target: { value: 'Equipment' } });
+    clickNext();
+    removeObjectRow(container, objectRowIds(container)[0]);
 
-    const eqSelect = container.querySelector('#grid-target-asset-equipment') as HTMLSelectElement;
-    expect(eqSelect).not.toBeNull();
-    const bookedId = eqSelect.value;
+    const firstEquipment = Array.from(objectItemSelect(container, 'equipment').options).find((opt) => opt.value && !opt.disabled);
+    expect(firstEquipment).toBeTruthy();
+    const bookedId = firstEquipment!.value;
+    addObject(container, 'equipment', bookedId);
     addConflictingSet('Equipment', bookedId);
+    expect(screen.getByText(/Asset Collision:/)).toBeInTheDocument();
+    clickNext();
+    expect(container.querySelector('#covered-assurance-objects-card')).not.toBeNull();
 
-    const bookedOption = Array.from(eqSelect.options).find((opt) => opt.value === bookedId);
+    removeObjectRow(container, bookedId);
+    const options = Array.from(objectItemSelect(container, 'equipment').options);
+    const bookedOption = options.find((opt) => opt.value === bookedId);
     expect(bookedOption?.disabled).toBe(true);
     expect(bookedOption?.text).toContain('Booked by AS-EQUIPMENT-CONFLICT');
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(/Contract period overlaps AS-EQUIPMENT-CONFLICT/)).toBeInTheDocument();
 
-    const freeOption = Array.from(eqSelect.options).find((opt) => !opt.disabled && opt.value !== bookedId);
+    const freeOption = options.find((opt) => opt.value && !opt.disabled);
     expect(freeOption).toBeTruthy();
-    fireEvent.change(eqSelect, { target: { value: freeOption!.value } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(container.querySelector('#grid-target-asset-equipment')).toBeNull();
+    addObject(container, 'equipment', freeOption!.value);
+    clickNext();
+    expect(container.querySelector('#covered-assurance-objects-card')).toBeNull();
   });
 
   it('renders itemized individual table rows for each selected crew member in review', () => {
     const { container } = render(<CreateAssuranceSetView />);
-    fireEvent.change(screen.getByLabelText(/^Scope/), { target: { value: 'Crew' } });
+    clickNext();
+    removeObjectRow(container, objectRowIds(container)[0]);
 
-    /* Select two crew members on the Scope tab */
-    const checkboxes = container.querySelectorAll<HTMLInputElement>('#grid-target-asset-crew input[type="checkbox"]:not(:disabled)');
-    expect(checkboxes.length).toBeGreaterThanOrEqual(2);
-    if (!checkboxes[0].checked) fireEvent.click(checkboxes[0]);
-    if (!checkboxes[1].checked) fireEvent.click(checkboxes[1]);
+    /* add two crew members on the Objects tab */
+    const free = Array.from(objectItemSelect(container, 'person').options).filter((opt) => opt.value && !opt.disabled);
+    expect(free.length).toBeGreaterThanOrEqual(2);
+    const [firstId, secondId] = [free[0].value, free[1].value];
+    addObject(container, 'person', firstId);
+    addObject(container, 'person', secondId);
 
-    /* Next to the Crew documents tab, then Review */
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    /* Next to Requirements, then Review */
+    clickNext();
+    clickNext();
 
     /* Verify Details card does not concatenate full crew list with commas */
     expect(screen.getByText(/Selected Crew Members \(itemized below\)/)).toBeInTheDocument();

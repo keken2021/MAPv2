@@ -1,7 +1,7 @@
 /*
   file summary: tests that a crew assurance set can cover several crew members.
-  responsibilities: verifies the crew helpers, that the store keeps every crew member of a new set, that non-crew sets carry no crew list, that each member counts as contracted, and that the wizard picks crew members with checkboxes on the Scope tab.
-  role in system: covers ADR 0023 in src/utils/assuranceTemplates.ts, useMapStore.ts addAssuranceSet, marketplaceHelpers.ts, projectHelpers.ts and the Scope tab of CreateAssuranceSetView.tsx.
+  responsibilities: verifies the crew helpers, that the store keeps every crew member of a new set, that non-crew sets carry no crew list, that each member counts as contracted, and that the wizard picks crew members on the Objects tab.
+  role in system: covers ADR 0023 in src/utils/assuranceTemplates.ts, useMapStore.ts addAssuranceSet, marketplaceHelpers.ts, projectHelpers.ts and the Objects tab of CreateAssuranceSetView.tsx.
 */
 
 import React from 'react';
@@ -18,6 +18,7 @@ import {
 import { isMarketplaceItemAvailableOnDate } from '../utils/marketplaceHelpers';
 import { getCharterAssuranceSetsForAsset } from '../utils/projectHelpers';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
+import { addObject, clickNext, objectItemSelect, objectRowIds, removeObjectRow } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -90,40 +91,39 @@ describe('multi-crew assurance sets', () => {
     expect(seeded && getAssuranceSetCrewIds(seeded)).toEqual(['CREW-102', 'CREW-103']);
   });
 
-  it('picks crew members with checkboxes on the Scope tab and blocks only a member already contracted', () => {
+  it('picks crew members on the Objects tab and blocks only a member already contracted', () => {
     useMapStore.setState({ isAuthenticated: true, activePersona: 'Administrator' });
     const { container } = render(<CreateAssuranceSetView />);
-    fireEvent.change(screen.getByLabelText(/^Scope/), { target: { value: 'Crew' } });
 
     /* Demo-friendly non-conflicting default dates */
-    const startInput = container.querySelector('#grid-charter-start') as HTMLInputElement;
-    const endInput = container.querySelector('#grid-charter-end') as HTMLInputElement;
-    expect(startInput.value).toBe('2028-01-01');
-    expect(endInput.value).toBe('2028-12-31');
+    expect((container.querySelector('#grid-charter-start') as HTMLInputElement).value).toBe('2028-01-01');
+    expect((container.querySelector('#grid-charter-end') as HTMLInputElement).value).toBe('2028-12-31');
 
-    const group = screen.getByRole('group', { name: /Crew Members/ });
-    expect(group.querySelector('select')).toBeNull();
-    const first = screen.getByRole('checkbox', { name: /Capt\. Alexander Wright/ }) as HTMLInputElement;
-    const fifth = screen.getByRole('checkbox', { name: /Liam O'Connor/ }) as HTMLInputElement;
-    expect(first.checked).toBe(true);
+    clickNext();
+    removeObjectRow(container, objectRowIds(container)[0]);
+    addObject(container, 'person', 'CREW-101');
+    expect(objectRowIds(container)).toEqual(['CREW-101']);
 
     /* a period overlapping Capt. Alexander Wright's set AS-CRW-101-01 blocks him, not the period */
+    fireEvent.click(screen.getByRole('button', { name: /^1\s*General/ }));
+    const startInput = container.querySelector('#grid-charter-start') as HTMLInputElement;
     fireEvent.change(startInput, { target: { value: '2026-11-01' } });
-    fireEvent.change(endInput, { target: { value: '2027-11-01' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(/Contract period overlaps AS-CRW-101-01/)).toBeInTheDocument();
-    expect(startInput.classList.contains('is-invalid')).toBe(false);
+    fireEvent.change(container.querySelector('#grid-charter-end') as HTMLInputElement, { target: { value: '2027-11-01' } });
+    clickNext();
+    expect(screen.getByText(/Asset Collision:/)).toBeInTheDocument();
+    expect(container.querySelector('#covered-assurance-objects-card')?.textContent).toContain('AS-CRW-101-01');
+    clickNext();
+    expect(container.querySelector('#covered-assurance-objects-card')).not.toBeNull();
 
-    /* the contracted member can still be unticked, and a free member takes the same period */
-    expect(first.disabled).toBe(false);
-    fireEvent.click(first);
-    expect(first.checked).toBe(false);
-    expect(first.disabled).toBe(true);
-    fireEvent.click(fifth);
-    expect(fifth.checked).toBe(true);
-    expect(screen.getByText('1 selected')).toBeInTheDocument();
+    /* the contracted member can still be removed, then not added back; a free member takes the same period */
+    removeObjectRow(container, 'CREW-101');
+    const captOption = Array.from(objectItemSelect(container, 'person').options).find((opt) => opt.value === 'CREW-101');
+    expect(captOption?.disabled).toBe(true);
+    expect(captOption?.text).toContain('Booked by AS-CRW-101-01');
+    addObject(container, 'person', 'CREW-105');
+    expect(objectRowIds(container)).toEqual(['CREW-105']);
 
-    /* a member already contracted for the period cannot be ticked */
+    /* a member already contracted for the period cannot be added */
     act(() => {
       useMapStore.setState((state) => ({
         assuranceSets: state.assuranceSets.map((set) =>
@@ -131,26 +131,26 @@ describe('multi-crew assurance sets', () => {
         ),
       }));
     });
-    const sarahCheckbox = screen.getByRole('checkbox', { name: /Sarah Jenkins/ }) as HTMLInputElement;
-    expect(sarahCheckbox.disabled).toBe(true);
-    expect(screen.getAllByText(/Booked by AS-CRW-102-01/)).toHaveLength(2);
+    const sarahOption = Array.from(objectItemSelect(container, 'person').options).find((opt) => /Sarah Jenkins/.test(opt.text));
+    expect(sarahOption?.disabled).toBe(true);
+    expect(sarahOption?.text).toContain('Booked by AS-CRW-102-01');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.queryByRole('group', { name: /Crew Members/ })).toBeNull();
+    clickNext();
+    expect(container.querySelector('#covered-assurance-objects-card')).toBeNull();
   });
 
   it('renders each selected crew as a distinct individual table row in the review step', () => {
     useMapStore.setState({ isAuthenticated: true, activePersona: 'Administrator' });
     const { container } = render(<CreateAssuranceSetView />);
-    fireEvent.change(screen.getByLabelText(/^Scope/), { target: { value: 'Crew' } });
-    /* Select a second crew member on the Scope tab */
-    const second = screen.getByRole('checkbox', { name: /Liam O'Connor/ });
-    fireEvent.click(second);
-    expect(screen.getByText('2 selected')).toBeInTheDocument();
+    clickNext();
+    removeObjectRow(container, objectRowIds(container)[0]);
+    addObject(container, 'person', 'CREW-101');
+    addObject(container, 'person', 'CREW-105');
+    expect(objectRowIds(container)).toEqual(['CREW-101', 'CREW-105']);
 
-    /* Advance through the Crew documents tab to Review */
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    /* Advance through the Requirements tab to Review */
+    clickNext();
+    clickNext();
 
     /* Summary review shows itemized table with distinct rows */
     expect(screen.getAllByText(/2 Selected Crew Member/)).toHaveLength(2);

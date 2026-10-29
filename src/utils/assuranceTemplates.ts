@@ -29,6 +29,11 @@ export function getPrimaryAssuranceScope(scopes: readonly AssuranceSubtype[]): A
   return orderAssuranceScopes(scopes)[0] || 'Vessel';
 }
 
+/* the asset type an assurance object stands for: vessel, person and equipment objects; other objects have none */
+export function getAssuranceObjectScope(type: AssuranceObjectType): AssuranceSubtype | undefined {
+  return type === 'vessel' ? 'Vessel' : type === 'person' ? 'Crew' : type === 'equipment' ? 'Equipment' : undefined;
+}
+
 /* the scope of a saved set as a one-entry list, including a scope no longer offered: its assuranceType, or its first subtype for a set saved without one; a set covers exactly one asset (ADR 0004) */
 export function getAssuranceSetScopes(set: Pick<AssuranceSet, 'assuranceType' | 'subtypes'>): AssuranceSubtype[] {
   if (set.assuranceType) return [set.assuranceType];
@@ -402,15 +407,12 @@ export interface AssuranceWizardStep {
   subtype?: AssuranceSubtype;
 }
 
-/* wizard tabs: Scope, then the tab of the one chosen scope titled with the scope type, then Review */
-export function buildAssuranceWizardSteps(scopes: readonly AssuranceSubtype[]): AssuranceWizardStep[] {
+/* wizard tabs: General, the objects the set covers, their required documents, then Review; every object is equal, so the tabs do not depend on the object types (ADR 0029) */
+export function buildAssuranceWizardSteps(): AssuranceWizardStep[] {
   return [
-    { id: 'step-scope', label: 'Scope' },
-    ...orderAssuranceScopes(scopes).slice(0, 1).map((scope) => ({
-      id: `step-${scope.toLowerCase()}`,
-      label: scope,
-      subtype: scope,
-    })),
+    { id: 'step-general', label: 'General' },
+    { id: 'step-objects', label: 'Objects' },
+    { id: 'step-requirements', label: 'Requirements' },
     { id: 'step-review', label: 'Review' },
   ];
 }
