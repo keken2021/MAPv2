@@ -1,13 +1,10 @@
-/* 
-  file summary: executive approval gate view presenting approval requests table and deep-dive approval detail page.
-  responsibilities: renders assigned vetting campaigns in a responsive table, displays 2-column assurance set information with vertically stacked executive readiness dial and certification controls, and enforces sign-off blocking logic.
-  role in system: primary operational workspace for Approvers (/approver and /approver/:setId).
-*/
-
 import React, { useState, useMemo } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
+import { CountTabs, CountTab } from '../components/common/CountTabs';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { ListToolbar } from '../components/common/ListToolbar';
 import { formatMaritimeDate } from '../utils/formatters';
 import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
@@ -18,18 +15,16 @@ import { canPerform } from '../utils/permissionHelpers';
 import { MasterDocument } from '../types/document';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
-import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, Search, FileCheck, RotateCcw, XCircle, Eye } from 'lucide-react';
+import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
+import { AssuranceSet } from '../types/assurance';
+import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, FileCheck, RotateCcw, XCircle, Eye } from 'lucide-react';
 import { FilterModal } from '../components/common/FilterModal';
-import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { usePagination } from '../utils/usePagination';
 import { Paginated, TablePagination } from '../components/common/TablePagination';
 
-/**
-  what: renders approval requests table list view or approval detail page.
-  how: checks store currentEntityId to switch between table list and 2-column detail page with stacked readiness dial and controls.
-  with what file: src/views/ApproverDashboardView.tsx loaded by App.tsx.
-*/
+export type ApproverTabKey = 'needs-decision' | 'overdue' | 'approved' | 'returned' | 'all';
+
 export const ApproverDashboardView: React.FC = () => {
   const {
     assuranceSets,
@@ -82,6 +77,7 @@ export const ApproverDashboardView: React.FC = () => {
   const usesApproverAssignment =
     activePersona === 'Approver' || (activePersona === 'Verifier' && canAccessApprovalGate);
 
+  const [activeTab, setActiveTab] = useState<ApproverTabKey>('needs-decision');
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('All');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -114,7 +110,7 @@ export const ApproverDashboardView: React.FC = () => {
   const [reqSortField, setReqSortField] = useState<ReqSortField>('category');
   const [reqSortDirection, setReqSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  type PipelineSortField = 'id' | 'title' | 'vesselName' | 'initiator' | 'status';
+  type PipelineSortField = 'id' | 'title' | 'vesselName' | 'initiator' | 'due' | 'status';
   const [pipelineSortField, setPipelineSortField] = useState<PipelineSortField>('id');
   const [pipelineSortDirection, setPipelineSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -206,8 +202,64 @@ export const ApproverDashboardView: React.FC = () => {
     setApproverNotes('');
   };
 
-  /* filtered assurance sets for table view */
+  const isNeedsDecision = (s: AssuranceSet) => {
+    if (s.stage === 'Approved' || s.stage === 'Certified' || s.stage === 'Cancelled') return false;
+    if (s.approverDecision === 'Approved' || s.approverDecision === 'Returned for Correction' || s.approverDecision === 'Rejected') {
+      return false;
+    }
+    return s.approverDecision === 'Pending' || s.stage === 'Approval';
+  };
+
+  const isOverdue = (s: AssuranceSet) => isComplianceDeadlineOverdue(s);
+  const isApproved = (s: AssuranceSet) => s.approverDecision === 'Approved' || s.stage === 'Approved' || s.stage === 'Certified';
+  const isReturned = (s: AssuranceSet) => s.approverDecision === 'Returned for Correction' || s.approverDecision === 'Rejected';
+
+  const needsDecisionCount = useMemo(() => assignedSets.filter(isNeedsDecision).length, [assignedSets]);
+  const overdueCount = useMemo(() => assignedSets.filter(isOverdue).length, [assignedSets]);
+  const approvedCount = useMemo(() => assignedSets.filter(isApproved).length, [assignedSets]);
+  const returnedCount = useMemo(() => assignedSets.filter(isReturned).length, [assignedSets]);
+  const allCount = assignedSets.length;
+
+  const tabs: CountTab[] = useMemo(() => [
+    { key: 'needs-decision', label: 'Needs Decision', count: needsDecisionCount },
+    { key: 'overdue', label: 'Overdue', count: overdueCount, tone: 'warn' },
+    { key: 'approved', label: 'Approved', count: approvedCount },
+    { key: 'returned', label: 'Returned', count: returnedCount },
+    { key: 'all', label: 'All', count: allCount },
+  ], [needsDecisionCount, overdueCount, approvedCount, returnedCount, allCount]);
+
+  const handleExportCsv = () => {
+    const headers = ['Set ID', 'Title', 'Vessel', 'IMO', 'Created By', 'Due', 'Decision'];
+    const rows = sortedSets.map((s) => {
+      const due = s.revisedCompletionDate || s.complianceDeadline || '';
+      return [
+        s.id,
+        `"${(s.title || '').replace(/"/g, '""')}"`,
+        `"${(s.vesselName || '').replace(/"/g, '""')}"`,
+        s.imoNumber || '',
+        `"${(s.assignedSubmitter || s.initiatorOrg || '').replace(/"/g, '""')}"`,
+        due,
+        s.approverDecision || s.stage,
+      ].join(',');
+    });
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `approver-queue-${toIsoLocalDate()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const filteredSets = assignedSets.filter((set) => {
+    if (activeTab === 'needs-decision' && !isNeedsDecision(set)) return false;
+    if (activeTab === 'overdue' && !isOverdue(set)) return false;
+    if (activeTab === 'approved' && !isApproved(set)) return false;
+    if (activeTab === 'returned' && !isReturned(set)) return false;
+
     const matchesSearch =
       set.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       set.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -226,17 +278,16 @@ export const ApproverDashboardView: React.FC = () => {
     else if (pipelineSortField === 'title') comp = a.title.localeCompare(b.title);
     else if (pipelineSortField === 'vesselName') comp = a.vesselName.localeCompare(b.vesselName);
     else if (pipelineSortField === 'initiator') comp = (a.assignedSubmitter || a.initiatorOrg || '').localeCompare(b.assignedSubmitter || b.initiatorOrg || '');
+    else if (pipelineSortField === 'due') {
+      const deadlineA = a.revisedCompletionDate || a.complianceDeadline || '';
+      const deadlineB = b.revisedCompletionDate || b.complianceDeadline || '';
+      comp = deadlineA.localeCompare(deadlineB);
+    }
     else if (pipelineSortField === 'status') comp = (a.approverDecision || a.stage).localeCompare(b.approverDecision || b.stage);
     return pipelineSortDirection === 'asc' ? comp : -comp;
   });
 
-  /* calculation of top summary stats */
-  const totalCampaigns = assignedSets.length;
-  const pendingApprovals = assignedSets.filter((s) => s.approverDecision === 'Pending' || s.stage === 'Approval').length;
-  const approvedCount = assignedSets.filter((s) => s.approverDecision === 'Approved' || s.stage === 'Approved').length;
-  const returnedCount = assignedSets.filter((s) => s.approverDecision === 'Returned for Correction' || s.approverDecision === 'Rejected').length;
-
-  const setsPagination = usePagination(sortedSets, [searchTerm, stageFilter, pipelineSortField, pipelineSortDirection]);
+  const setsPagination = usePagination(sortedSets, [activeTab, searchTerm, stageFilter, pipelineSortField, pipelineSortDirection]);
 
   /* render detail page if currentEntityId is present */
   if (selectedSet) {
@@ -262,21 +313,7 @@ export const ApproverDashboardView: React.FC = () => {
             />
           </div>
           <div className="d-flex align-items-center gap-2">
-            <span className="badge bg-light text-dark border font-mono-code">
-              Stage: {selectedSet.stage}
-            </span>
-            {selectedSet.approverDecision && (
-              <span
-                className={`badge font-mono-code ${selectedSet.approverDecision === 'Approved'
-                  ? 'bg-success text-white'
-                  : selectedSet.approverDecision === 'Returned for Correction'
-                    ? 'bg-warning text-dark'
-                    : 'bg-danger text-white'
-                  }`}
-              >
-                {selectedSet.approverDecision}
-              </span>
-            )}
+            <StatusBadge value={selectedSet.approverDecision || selectedSet.stage} />
           </div>
         </div>
 
@@ -288,7 +325,7 @@ export const ApproverDashboardView: React.FC = () => {
               {/* Assurance Set Information & stakeholder role assignments card */}
               <div className="card map-card-custom p-4">
                 <div className="text-uppercase font-mono-code fw-bold text-secondary mb-3 small">
-                  Details — {selectedSet.id}
+                  Details
                 </div>
                 <div className="row g-3 font-mono-code small mb-3">
                   <div className="col-md-6 border-end pr-3">
@@ -305,9 +342,14 @@ export const ApproverDashboardView: React.FC = () => {
                   </div>
 
                   <div className="col-md-6 pl-3">
-                    <div className="text-secondary mb-1">Vessel Type &amp; Class Society:</div>
+                    <div className="text-secondary mb-1">Vessel Type:</div>
                     <div className="fw-bold text-dark mb-2">
-                      {vessel?.vesselType || 'Offshore Support Vessel'} ({vessel?.classificationSociety || 'DNV'})
+                      {vessel?.vesselType || 'Offshore Support Vessel'}
+                    </div>
+
+                    <div className="text-secondary mb-1">Class Society:</div>
+                    <div className="fw-bold text-dark mb-2">
+                      {vessel?.classificationSociety || 'DNV'}
                     </div>
 
                     <div className="text-secondary mb-1">Dynamic Positioning:</div>
@@ -581,9 +623,8 @@ export const ApproverDashboardView: React.FC = () => {
 
                 {canCertifyAssuranceSet && (
                   isAlreadyApproved ? (
-                    <div className="alert alert-success py-2.5 px-3 small font-mono-code fw-semibold mb-0 d-flex align-items-center gap-2">
-                      <span className="badge bg-success text-white font-mono-code">Approved</span>
-                      <span>This assurance set is already approved.</span>
+                    <div className="alert alert-success py-2.5 px-3 small font-mono-code fw-semibold mb-0">
+                      This assurance set is already approved.
                     </div>
                   ) : (
                     <div className="d-flex flex-column gap-2">
@@ -623,7 +664,7 @@ export const ApproverDashboardView: React.FC = () => {
             <div className="map-photo-lightbox-content" onClick={(e) => e.stopPropagation()}>
               <div className="p-3 border-bottom d-flex align-items-center justify-between">
                 <h6 className="fw-bold mb-0 text-dark">
-                  Photo — {selectedSet.vesselName} ({selectedSet.id})
+                  Photo — {selectedSet.vesselName}
                 </h6>
                 <button
                   type="button"
@@ -676,74 +717,31 @@ export const ApproverDashboardView: React.FC = () => {
   /* render main approval requests list table view */
   return (
     <div className="d-flex flex-column gap-4">
-      {/* top statistics summary row */}
-      <div className="row g-3">
-        <div className="col-md-3 col-6">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Approval Requests
-            </div>
-            <div className="map-kpi-value text-primary mt-1">{totalCampaigns}</div>
-            <div className="map-kpi-subtitle mt-1">Assigned to you</div>
-          </div>
-        </div>
-        <div className="col-md-3 col-6">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Pending Approval
-            </div>
-            <div className="map-kpi-value text-warning mt-1">{pendingApprovals}</div>
-            <div className="map-kpi-subtitle mt-1">Waiting for your decision</div>
-          </div>
-        </div>
-        <div className="col-md-3 col-6">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Approved
-            </div>
-            <div className="map-kpi-value text-success mt-1">{approvedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Approved assurance sets</div>
-          </div>
-        </div>
-        <div className="col-md-3 col-6">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Returned or Rejected
-            </div>
-            <div className="map-kpi-value text-danger mt-1">{returnedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Returned for correction or rejected</div>
-          </div>
-        </div>
-      </div>
-
       {/* main approval requests table card */}
       <div className="card map-card-custom">
-        <div className="card-header d-flex flex-column gap-2.5 p-3">
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div className="d-flex flex-wrap align-items-center gap-2.5 flex-grow-1">
-              <div className="position-relative" style={{ minWidth: '240px', maxWidth: '320px' }}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
-                  style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                  placeholder="Search assurance sets..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search size={14} className="position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" />
-              </div>
-
-              <FilterButton
-                onClick={() => setIsFilterModalOpen(true)}
-                activeCount={activeFilterCount}
-              />
-            </div>
-          </div>
-
-          {activeChips.length > 0 && (
-            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
-          )}
+        <div className="p-3 border-bottom">
+          <CountTabs
+            tabs={tabs}
+            active={activeTab}
+            onChange={(key) => setActiveTab(key as ApproverTabKey)}
+            aria-label="Approver queue tabs"
+          />
         </div>
+
+        <ListToolbar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search assurance sets..."
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFilterCount={activeFilterCount}
+          onExportCsv={handleExportCsv}
+        />
+
+        {activeChips.length > 0 && (
+          <div className="px-3 py-2 bg-white border-bottom">
+            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+          </div>
+        )}
 
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
@@ -775,6 +773,12 @@ export const ApproverDashboardView: React.FC = () => {
                 </th>
                 <th
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  onClick={() => handlePipelineSort('due')}
+                >
+                  Due {renderSortIndicator(pipelineSortField, 'due', pipelineSortDirection)}
+                </th>
+                <th
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                   onClick={() => handlePipelineSort('status')}
                 >
                   Decision {renderSortIndicator(pipelineSortField, 'status', pipelineSortDirection)}
@@ -785,12 +789,22 @@ export const ApproverDashboardView: React.FC = () => {
             <tbody>
               {sortedSets.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-4 text-secondary font-mono-code">
+                  <td colSpan={7} className="text-center py-4 text-secondary font-mono-code">
                     No approval requests found.
                   </td>
                 </tr>
               ) : (
                 setsPagination.pageItems.map((set) => {
+                  const effectiveDeadline = set.revisedCompletionDate || set.complianceDeadline;
+                  const overdue = isComplianceDeadlineOverdue(set);
+                  let daysLate = 0;
+                  if (overdue && effectiveDeadline) {
+                    const deadlineMs = new Date(effectiveDeadline).getTime();
+                    const nowMs = new Date(toIsoLocalDate()).getTime();
+                    const diff = Math.round((nowMs - deadlineMs) / (1000 * 60 * 60 * 24));
+                    daysLate = Math.max(1, diff);
+                  }
+
                   return (
                     <tr
                       key={set.id}
@@ -808,25 +822,30 @@ export const ApproverDashboardView: React.FC = () => {
                       <td className="small font-mono-code text-secondary">
                         {set.assignedSubmitter || set.initiatorOrg}
                       </td>
-                      <td>
-                        {set.approverDecision === 'Approved' ? (
-                          <span className="badge bg-success text-white font-mono-code">Approved</span>
-                        ) : set.approverDecision === 'Returned for Correction' ? (
-                          <span className="badge bg-warning text-dark font-mono-code">Returned for Correction</span>
-                        ) : set.approverDecision === 'Rejected' ? (
-                          <span className="badge bg-danger text-white font-mono-code">Rejected</span>
+                      <td className="font-mono-code small due-cell">
+                        {overdue ? (
+                          <span className="text-danger fw-semibold">
+                            {daysLate} {daysLate === 1 ? 'day' : 'days'} late
+                          </span>
+                        ) : effectiveDeadline ? (
+                          <span className="text-secondary">
+                            {formatMaritimeDate(effectiveDeadline)}
+                          </span>
                         ) : (
-                          <span className="badge bg-info text-dark font-mono-code">Pending</span>
+                          <span className="text-muted">—</span>
                         )}
+                      </td>
+                      <td>
+                        <StatusBadge value={set.approverDecision || set.stage} />
                       </td>
                       <td className="text-end" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
-                          className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center p-0 text-white"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                           style={{ width: '32px', height: '32px' }}
                           onClick={() => setCurrentHashView('approver', set.id)}
-                          title="Review"
-                          aria-label="Review"
+                          title="View"
+                          aria-label="View"
                         >
                           <Eye size={16} />
                         </button>
