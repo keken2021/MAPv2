@@ -74,7 +74,7 @@ export const InspectorWorkspaceView: React.FC = () => {
         status: '—',
         portOfRegistry: '',
         flagState: '',
-      } as VesselInformation;
+      } as unknown as VesselInformation;
     };
 
     if (activePersona !== 'Inspector' || !sessionUser?.name) {

@@ -14,7 +14,12 @@ describe('session workspace queues', () => {
     );
     const named = sets.filter(
       (set) =>
-        isAssuranceSetAssignedToPersona(set, 'Inspector', 'Meridian Marine Surveyors', { name: 'N. Technical' }) &&
+        isAssuranceSetAssignedToPersona(set, 'Inspector', 'Meridian Marine Surveyors', {
+          id: 'USR-203',
+          name: 'N. Technical',
+          organization: 'Meridian Marine Surveyors',
+          roles: ['Inspector'],
+        }) &&
         Boolean(set.assignedInspector?.includes('N. Technical')),
     );
     expect(orgWide.length).toBe(16);

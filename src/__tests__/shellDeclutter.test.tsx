@@ -162,7 +162,7 @@ describe('Shell header and sidebar declutter suite', () => {
       [fontaineSet, otherSet],
       'Verifier',
       'Bureau Veritas Inspectorate',
-      { name: 'A. Fontaine' },
+      { id: 'USR-202', name: 'A. Fontaine', organization: 'Bureau Veritas Inspectorate', roles: ['Verifier'] },
     ).length;
     expect(queueLength).toBe(1);
 
