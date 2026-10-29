@@ -1,51 +1,36 @@
-/* 
-  file summary: single unified verifier workspace table view displaying all statutory evidence (pending & verified) with assurance set context, sortable headers, and filter controls in light theme.
-  responsibilities: combines assurance set details and verification queue into a single sortable, filterable master table and launches DocumentReviewDrawer split-screen viewer.
-  role in system: primary operational workspace for Verifiers (/verifier).
-*/
-
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, FileCheck } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { MasterDocument } from '../types/document';
-import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
 import { FilterModal } from '../components/common/FilterModal';
-import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
-
+import { CountTabs, CountTab } from '../components/common/CountTabs';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { ListToolbar } from '../components/common/ListToolbar';
 import { filterDocumentsForVerifierQueue, filterDocumentsVisibleToOrganization } from '../utils/rbacHelpers';
-import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
-import { getAssuranceSetObjects } from '../utils/assuranceTemplates';
-import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
+import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
+
+export type VerifierTabKey = 'to-verify' | 'overdue' | 'verified' | 'returned' | 'all';
 
 type SortField =
   | 'assuranceSet'
-  | 'vesselName'
   | 'title'
-  | 'entityType'
-  | 'certificateNo'
-  | 'issuingAuthority'
+  | 'vesselName'
   | 'expiryDate'
-  | 'ocrConfidence'
+  | 'due'
   | 'verificationStatus';
 
-/**
-  what: renders single master verification table for verifiers in light theme with search, filters, sorting, and export capabilities.
-  how: aggregates scoped documents (pending and verified) with assurance set context into one unified sortable table.
-  with what file: src/views/VerifierWorkspaceView.tsx loaded by App.tsx.
-*/
 export const VerifierWorkspaceView: React.FC = () => {
   const { documents, assuranceSets, activePersona, activeDemoOrganization } = useMapStore();
   const [selectedDoc, setSelectedDoc] = useState<MasterDocument | null>(null);
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
-  /* Search, Filter & Sort State for Single Master Table */
+  const [activeTab, setActiveTab] = useState<VerifierTabKey>('to-verify');
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -81,14 +66,12 @@ export const VerifierWorkspaceView: React.FC = () => {
 
   const activeFilterCount = activeChips.length;
 
-  /* All documents in Verifier's queue (Pending, Correction Requested, Verified) */
   const scopedDocs = filterDocumentsVisibleToOrganization(
     filterDocumentsForVerifierQueue(documents, assuranceSets, activePersona, activeDemoOrganization),
     assuranceSets,
     activeDemoOrganization,
   );
 
-  /* Map each document to its associated Assurance Set & Vessel */
   const getAssuranceSetInfo = (docId: string) => {
     for (const set of assuranceSets) {
       const requirement = set.requirements?.find((r) => r.documentId === docId || r.linkedDocumentId === docId);
@@ -106,25 +89,72 @@ export const VerifierWorkspaceView: React.FC = () => {
     return null;
   };
 
-  /* the queue row opens the review on the set and requirement it belongs to */
   const selectedDocSetInfo = selectedDoc ? getAssuranceSetInfo(selectedDoc.id) : null;
 
-  /* Filter Logic */
+  const isToVerify = (d: MasterDocument) => {
+    return d.verificationStatus === 'Pending';
+  };
+
+  const isDocOverdue = (d: MasterDocument) => {
+    if (d.verificationStatus === 'Verified') return false;
+    const info = getAssuranceSetInfo(d.id);
+    const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
+    if (!linkedSet) return false;
+    if (linkedSet.stage === 'Approved' || linkedSet.stage === 'Certified' || linkedSet.stage === 'Cancelled') return false;
+    if (isComplianceDeadlineOverdue(linkedSet)) return true;
+    const req = linkedSet.requirements?.find((r) => r.documentId === d.id || r.linkedDocumentId === d.id);
+    const deadline = req?.targetDate || linkedSet.revisedCompletionDate || linkedSet.complianceDeadline || linkedSet.targetDate;
+    if (!deadline) return false;
+    return deadline < toIsoLocalDate();
+  };
+
+  const isVerified = (d: MasterDocument) => {
+    return d.verificationStatus === 'Verified';
+  };
+
+  const isReturned = (d: MasterDocument) => {
+    return (
+      d.verificationStatus === 'Correction Requested' ||
+      d.verificationStatus === 'Rejected'
+    );
+  };
+
+  const toVerifyCount = useMemo(() => scopedDocs.filter(isToVerify).length, [scopedDocs]);
+  const overdueCount = useMemo(() => scopedDocs.filter(isDocOverdue).length, [scopedDocs, assuranceSets]);
+  const verifiedCount = useMemo(() => scopedDocs.filter(isVerified).length, [scopedDocs]);
+  const returnedCount = useMemo(() => scopedDocs.filter(isReturned).length, [scopedDocs]);
+  const allCount = scopedDocs.length;
+
+  const tabs: CountTab[] = useMemo(
+    () => [
+      { key: 'to-verify', label: 'To Verify', count: toVerifyCount },
+      { key: 'overdue', label: 'Overdue', count: overdueCount, tone: 'warn' },
+      { key: 'verified', label: 'Verified', count: verifiedCount },
+      { key: 'returned', label: 'Returned', count: returnedCount },
+      { key: 'all', label: 'All', count: allCount },
+    ],
+    [toVerifyCount, overdueCount, verifiedCount, returnedCount, allCount],
+  );
+
   const filteredDocs = scopedDocs.filter((d) => {
+    if (activeTab === 'to-verify' && !isToVerify(d)) return false;
+    if (activeTab === 'overdue' && !isDocOverdue(d)) return false;
+    if (activeTab === 'verified' && !isVerified(d)) return false;
+    if (activeTab === 'returned' && !isReturned(d)) return false;
+
     const setInfo = getAssuranceSetInfo(d.id);
     const setContext = setInfo ? `${setInfo.setId} ${setInfo.setTitle} ${setInfo.vesselName}` : '';
     const searchTarget = `${d.title} ${d.certificateNo} ${d.issuingAuthority} ${d.entityType} ${setContext}`.toLowerCase();
 
-    const matchesSearch = searchTarget.includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || searchTarget.includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'ALL' || d.entityType === typeFilter;
     const matchesStatus = statusFilter === 'ALL' || d.verificationStatus === statusFilter;
     return matchesSearch && matchesType && matchesStatus;
   });
 
-  /* Sort Logic */
   const sortedDocs = [...filteredDocs].sort((a, b) => {
-    let valA: any = '';
-    let valB: any = '';
+    let valA: string = '';
+    let valB: string = '';
 
     if (sortField === 'assuranceSet') {
       const infoA = getAssuranceSetInfo(a.id);
@@ -136,12 +166,18 @@ export const VerifierWorkspaceView: React.FC = () => {
       const infoB = getAssuranceSetInfo(b.id);
       valA = infoA ? infoA.vesselName : '';
       valB = infoB ? infoB.vesselName : '';
-    } else if (sortField === 'ocrConfidence') {
-      valA = Number(a.ocrConfidence) || 0;
-      valB = Number(b.ocrConfidence) || 0;
+    } else if (sortField === 'due') {
+      const getDueDeadline = (doc: MasterDocument) => {
+        const info = getAssuranceSetInfo(doc.id);
+        const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
+        const req = linkedSet?.requirements?.find((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id);
+        return req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate || '';
+      };
+      valA = getDueDeadline(a);
+      valB = getDueDeadline(b);
     } else {
-      valA = a[sortField as keyof MasterDocument] ?? '';
-      valB = b[sortField as keyof MasterDocument] ?? '';
+      valA = (a[sortField as keyof MasterDocument] ?? '') as string;
+      valB = (b[sortField as keyof MasterDocument] ?? '') as string;
     }
 
     if (typeof valA === 'string') {
@@ -182,110 +218,69 @@ export const VerifierWorkspaceView: React.FC = () => {
   const handleExportCsv = () => {
     const exportData = sortedDocs.map((d) => {
       const info = getAssuranceSetInfo(d.id);
+      const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
+      const req = linkedSet?.requirements?.find((r) => r.documentId === d.id || r.linkedDocumentId === d.id);
+      const effectiveDeadline = req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate || '';
       return {
         SetID: info ? info.setId : 'N/A',
-        Vessel: info ? info.vesselName : 'N/A',
         Title: d.title,
-        IssuingAuthority: d.issuingAuthority,
+        Vessel: info ? info.vesselName : 'N/A',
         ExpiryDate: d.expiryDate,
-        OcrConfidence: `${d.ocrConfidence}%`,
+        Due: effectiveDeadline,
         Status: getStatusDisplayLabel(d.verificationStatus),
       };
     });
     exportToCsv('Verification_Queue', exportData);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
-    const headers = ['Set ID', 'Vessel', 'Title', 'Issuing Authority', 'Expiry Date', 'OCR Confidence', 'Status'];
+    const headers = ['Set ID', 'Title', 'Vessel', 'Expiry Date', 'Due', 'Status'];
     const rows = sortedDocs.map((d) => {
       const info = getAssuranceSetInfo(d.id);
+      const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
+      const req = linkedSet?.requirements?.find((r) => r.documentId === d.id || r.linkedDocumentId === d.id);
+      const effectiveDeadline = req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate || '—';
       return [
         info ? info.setId : 'N/A',
-        info ? info.vesselName : 'N/A',
         d.title,
-        d.issuingAuthority,
+        info ? info.vesselName : 'N/A',
         d.expiryDate,
-        `${d.ocrConfidence}%`,
+        effectiveDeadline,
         getStatusDisplayLabel(d.verificationStatus),
       ];
     });
     exportToPdf('Verification Queue', headers, rows);
-    setIsExportOpen(false);
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'Verified':
-        return 'bg-success text-white';
-      case 'Correction Requested':
-        return 'bg-warning text-dark';
-      case 'Rejected':
-        return 'bg-danger text-white';
-      case 'Pending':
-      default:
-        return 'bg-info text-dark';
-    }
-  };
-
-  const docsPagination = usePagination(sortedDocs, [searchTerm, typeFilter, statusFilter, sortField, sortOrder]);
+  const docsPagination = usePagination(sortedDocs, [activeTab, searchTerm, typeFilter, statusFilter, sortField, sortOrder]);
 
   return (
     <div className="d-flex flex-column gap-4">
-      {/* Single Master Verification Table */}
       <div className="card map-card-custom">
-        {/* Table Header Controls: Search & Filters Left, Export Button Right */}
-        <div className="card-header d-flex flex-column gap-2.5 p-3">
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div className="d-flex flex-wrap align-items-center gap-2.5 flex-grow-1">
-              <div className="position-relative" style={{ minWidth: '240px', maxWidth: '320px' }}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
-                  style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                  placeholder="Search documents..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                <Search size={14} className="position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" />
-              </div>
-
-              <FilterButton
-                onClick={() => setIsFilterModalOpen(true)}
-                activeCount={activeFilterCount}
-              />
-            </div>
-
-            <div className="dropdown position-relative ms-auto">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                style={{ fontSize: '0.82rem', height: '34px', borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}
-                onClick={() => setIsExportOpen(!isExportOpen)}
-              >
-                Export
-              </button>
-              {isExportOpen && (
-                <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      CSV
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      PDF
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {activeChips.length > 0 && (
-            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
-          )}
+        <div className="p-3 border-bottom">
+          <CountTabs
+            tabs={tabs}
+            active={activeTab}
+            onChange={(key) => setActiveTab(key as VerifierTabKey)}
+            aria-label="Verifier queue tabs"
+          />
         </div>
+
+        <ListToolbar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search documents..."
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFilterCount={activeFilterCount}
+          onExportCsv={handleExportCsv}
+          onExportPdf={handleExportPdf}
+        />
+
+        {activeChips.length > 0 && (
+          <div className="px-3 py-2 bg-white border-bottom">
+            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+          </div>
+        )}
 
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
@@ -293,79 +288,79 @@ export const VerifierWorkspaceView: React.FC = () => {
               <tr>
                 {renderSortHeader('Set ID', 'assuranceSet')}
                 {renderSortHeader('Title', 'title')}
-                {renderSortHeader('Vessel', 'issuingAuthority')}
+                {renderSortHeader('Vessel', 'vesselName')}
                 {renderSortHeader('Expiry Date', 'expiryDate')}
+                {renderSortHeader('Due', 'due')}
                 {renderSortHeader('Verification', 'verificationStatus')}
-                <th className="text-end">Actions</th>
+                <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {docsPagination.pageItems.map((doc) => {
                 const info = getAssuranceSetInfo(doc.id);
                 const linkedSet = info ? assuranceSets.find((s) => s.id === info.setId) : undefined;
-                const isSetApproved = linkedSet?.stage === 'Approved' || linkedSet?.approverDecision === 'Approved';
+                const req = linkedSet?.requirements?.find((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id);
+                const effectiveDeadline = req?.targetDate || linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate;
+                const overdue = isDocOverdue(doc);
+                let daysLate = 0;
+                if (overdue && effectiveDeadline) {
+                  const deadlineMs = new Date(effectiveDeadline).getTime();
+                  const nowMs = new Date(toIsoLocalDate()).getTime();
+                  const diff = Math.round((nowMs - deadlineMs) / (1000 * 60 * 60 * 24));
+                  daysLate = Math.max(1, diff);
+                }
 
                 return (
                   <tr key={doc.id} onClick={() => setSelectedDoc(doc)} style={{ cursor: 'pointer' }}>
                     <td>
-                      {info ? (
-                        <span className="badge bg-light text-primary border font-mono-code fw-bold" style={{ fontSize: '0.725rem' }}>
-                          {info.setId}
-                        </span>
-                      ) : (
-                        <span className="font-mono-code text-primary fw-semibold small">{doc.certificateNo}</span>
-                      )}
+                      <span className="font-mono-code text-primary fw-semibold small">
+                        {info ? info.setId : doc.certificateNo}
+                      </span>
                     </td>
                     <td>
-                      <div className="fw-semibold text-dark">{doc.title}</div>
-                      <div className="small font-mono-code text-secondary">
-                        {doc.certificateNo} &middot; {doc.entityType}
-                      </div>
+                      <span className="fw-semibold text-dark">{doc.title}</span>
                     </td>
                     <td>
-                      <div className="fw-semibold text-dark font-mono-code small">{info?.vesselName || 'Unlinked'}</div>
-                      <div className="text-muted small">{doc.issuingAuthority}</div>
-                      {linkedSet && (
-                        <ObjectVerificationBadge
-                          verification={deriveObjectVerification(
-                            getAssuranceSetObjects(linkedSet)[0]?.id || linkedSet.vesselId,
-                            assuranceSets,
-                            linkedSet.clientOrg || linkedSet.charterer || activeDemoOrganization,
-                          )}
-                        />
-                      )}
+                      <span className="font-mono-code text-secondary small">
+                        {info?.vesselName || 'Unlinked'}
+                      </span>
                     </td>
                     <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
-                    <td>
-                      {(() => {
-                        if (doc.verificationStatus === 'Verified') {
-                          if (isSetApproved) {
-                            return <span className="badge bg-success text-white">Approved</span>;
-                          }
-                          return <span className="badge bg-info text-dark">Verified</span>;
-                        }
-                        if (doc.verificationStatus === 'Correction Requested') {
-                          return <span className="badge bg-warning text-dark">Returned for Correction</span>;
-                        }
-                        if (doc.verificationStatus === 'Rejected') {
-                          return <span className="badge bg-danger text-white">Rejected</span>;
-                        }
-                        return <span className="badge bg-primary text-white">Submitted</span>;
-                      })()}
+                    <td className="font-mono-code small due-cell">
+                      {overdue ? (
+                        <span className="text-danger fw-semibold">
+                          {daysLate} {daysLate === 1 ? 'day' : 'days'} late
+                        </span>
+                      ) : effectiveDeadline ? (
+                        <span className="text-secondary">
+                          {formatMaritimeDate(effectiveDeadline)}
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
                     </td>
-                    <td className="text-end">
+                    <td>
+                      <StatusBadge
+                        value={
+                          doc.verificationStatus === 'Verified' &&
+                          (linkedSet?.stage === 'Approved' || linkedSet?.approverDecision === 'Approved')
+                            ? 'Approved'
+                            : doc.verificationStatus === 'Pending'
+                            ? 'Submitted'
+                            : (doc.verificationStatus || 'Pending')
+                        }
+                      />
+                    </td>
+                    <td className="text-end" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        className="btn btn-sm btn-primary d-inline-flex align-items-center justify-content-center p-0 text-white"
+                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                         style={{ width: '32px', height: '32px' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedDoc(doc);
-                        }}
-                        title="Review"
-                        aria-label="Review"
+                        onClick={() => setSelectedDoc(doc)}
+                        title="View"
+                        aria-label="View"
                       >
-                        <FileCheck size={16} />
+                        <Eye size={16} />
                       </button>
                     </td>
                   </tr>
@@ -374,7 +369,7 @@ export const VerifierWorkspaceView: React.FC = () => {
 
               {sortedDocs.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center text-muted py-4 fst-italic">
+                  <td colSpan={7} className="text-center text-muted py-4 fst-italic">
                     No documents found.
                   </td>
                 </tr>
@@ -385,7 +380,6 @@ export const VerifierWorkspaceView: React.FC = () => {
         <TablePagination {...docsPagination.controls} />
       </div>
 
-      {/* Split-Screen Review Drawer */}
       <DocumentReviewDrawer
         document={selectedDoc}
         onClose={() => setSelectedDoc(null)}
@@ -394,7 +388,6 @@ export const VerifierWorkspaceView: React.FC = () => {
         requirementVerifierStatus={selectedDocSetInfo?.requirementVerifierStatus}
       />
 
-      {/* Dedicated Filter Modal */}
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
@@ -403,7 +396,6 @@ export const VerifierWorkspaceView: React.FC = () => {
         activeCount={activeFilterCount}
       >
         <div className="d-flex flex-column gap-3">
-          {/* Entity Type Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
               Type
@@ -420,7 +412,6 @@ export const VerifierWorkspaceView: React.FC = () => {
             </select>
           </div>
 
-          {/* Verification Status Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
               Verification

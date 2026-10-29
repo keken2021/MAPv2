@@ -1,32 +1,27 @@
-/* 
-  file summary: inspector workspace page displaying physical survey queue and survey checklist triggers in light theme.
-  responsibilities: presents inspector role KPI summary cards, vessel survey inspection items assigned to active persona with column sorting, and routes to full-page InspectionChecklistView.
-  role in system: primary operational workspace for Inspectors (/inspector).
-*/
-
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, Eye, AlertTriangle } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselInformation } from '../types/vessel';
 import { filterVesselsForPersona } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
-import { FilterButton } from '../components/common/FilterButton';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { CountTabs, CountTab } from '../components/common/CountTabs';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { ListToolbar } from '../components/common/ListToolbar';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
+import { formatMaritimeDate } from '../utils/formatters';
+import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
 
-type InspectorSortField = 'name' | 'imoNumber' | 'campaignTitle' | 'status';
+export type InspectorTabKey = 'to-inspect' | 'overdue' | 'completed' | 'all';
 
-/**
-  what: renders inspector operational workspace view in light theme with inspector-specific KPI summary metrics, column sorting, and survey schedule export capabilities.
-  how: aggregates inspector stats, filters and sorts assigned vessels by sortField, and lists survey schedule with export functionality.
-  with what file: src/views/InspectorWorkspaceView.tsx loaded by App.tsx.
-*/
+type InspectorSortField = 'name' | 'imoNumber' | 'campaignTitle' | 'due' | 'status';
+
 export const InspectorWorkspaceView: React.FC = () => {
-  const { vessels, assuranceSets, capaItems, activePersona, setCurrentHashView } = useMapStore();
-  const [isExportOpen, setIsExportOpen] = useState(false);
+  const { vessels, assuranceSets, activePersona, setCurrentHashView } = useMapStore();
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<InspectorTabKey>('to-inspect');
   const [sortField, setSortField] = useState<InspectorSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,12 +49,43 @@ export const InspectorWorkspaceView: React.FC = () => {
 
   const assignedVessels = filterVesselsForPersona(vessels, assuranceSets, activePersona);
 
-  const assignedCount = assignedVessels.length;
-  const pendingCount = assuranceSets.filter(
-    (s) => s.mandatoryInspectionRequired && s.stage !== 'Certified'
-  ).length;
-  const openCapaCount = capaItems ? capaItems.filter((c) => c.status !== 'Verified & Closed').length : 0;
-  const completedCount = assuranceSets.filter((s) => s.stage === 'Certified').length;
+  const isCompleted = (v: VesselInformation) => {
+    const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
+    return Boolean(linkedSet?.inspectionCompleted || linkedSet?.stage === 'Certified');
+  };
+
+  const isToInspect = (v: VesselInformation) => {
+    const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
+    if (!linkedSet) return false;
+    if (linkedSet.stage === 'Certified' || linkedSet.stage === 'Cancelled') return false;
+    return !linkedSet.inspectionCompleted;
+  };
+
+  const isVesselOverdue = (v: VesselInformation) => {
+    if (isCompleted(v)) return false;
+    const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
+    if (!linkedSet) return false;
+    if (linkedSet.stage === 'Approved' || linkedSet.stage === 'Certified' || linkedSet.stage === 'Cancelled') return false;
+    if (isComplianceDeadlineOverdue(linkedSet)) return true;
+    const deadline = linkedSet.revisedCompletionDate || linkedSet.complianceDeadline || linkedSet.targetDate;
+    if (!deadline) return false;
+    return deadline < toIsoLocalDate();
+  };
+
+  const toInspectCount = useMemo(() => assignedVessels.filter(isToInspect).length, [assignedVessels, assuranceSets]);
+  const overdueCount = useMemo(() => assignedVessels.filter(isVesselOverdue).length, [assignedVessels, assuranceSets]);
+  const completedCount = useMemo(() => assignedVessels.filter(isCompleted).length, [assignedVessels, assuranceSets]);
+  const allCount = assignedVessels.length;
+
+  const tabs: CountTab[] = useMemo(
+    () => [
+      { key: 'to-inspect', label: 'To Inspect', count: toInspectCount },
+      { key: 'overdue', label: 'Overdue', count: overdueCount, tone: 'warn' },
+      { key: 'completed', label: 'Completed', count: completedCount },
+      { key: 'all', label: 'All', count: allCount },
+    ],
+    [toInspectCount, overdueCount, completedCount, allCount],
+  );
 
   const handleSort = (field: InspectorSortField) => {
     if (sortField === field) {
@@ -81,8 +107,11 @@ export const InspectorWorkspaceView: React.FC = () => {
     );
   };
 
-  /* apply search and status filters before sorting */
   const filteredAssignedVessels = assignedVessels.filter((v) => {
+    if (activeTab === 'to-inspect' && !isToInspect(v)) return false;
+    if (activeTab === 'overdue' && !isVesselOverdue(v)) return false;
+    if (activeTab === 'completed' && !isCompleted(v)) return false;
+
     const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
     const q = searchQuery.toLowerCase();
     const matchesSearch =
@@ -97,17 +126,24 @@ export const InspectorWorkspaceView: React.FC = () => {
   });
 
   const sortedAssignedVessels = [...filteredAssignedVessels].sort((a, b) => {
-    let valA: any = '';
-    let valB: any = '';
+    let valA: string = '';
+    let valB: string = '';
 
     if (sortField === 'campaignTitle') {
       const linkedSetA = assuranceSets.find((s) => s.vesselId === a.id || s.vesselName === a.name);
       const linkedSetB = assuranceSets.find((s) => s.vesselId === b.id || s.vesselName === b.name);
       valA = linkedSetA ? linkedSetA.title : '';
       valB = linkedSetB ? linkedSetB.title : '';
+    } else if (sortField === 'due') {
+      const getDueDeadline = (v: VesselInformation) => {
+        const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
+        return linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate || '';
+      };
+      valA = getDueDeadline(a);
+      valB = getDueDeadline(b);
     } else {
-      valA = a[sortField] ?? '';
-      valB = b[sortField] ?? '';
+      valA = (a[sortField] ?? '') as string;
+      valB = (b[sortField] ?? '') as string;
     }
 
     if (typeof valA === 'string') {
@@ -120,171 +156,107 @@ export const InspectorWorkspaceView: React.FC = () => {
     return 0;
   });
 
-  /* derive unique vessel statuses for the filter dropdown */
   const vesselStatuses = Array.from(new Set(assignedVessels.map((v) => v.status))).sort();
 
   const handleExportCsv = () => {
     const exportData = sortedAssignedVessels.map((v) => {
       const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
+      const effectiveDeadline = linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate || '';
       return {
-        VesselName: v.name,
         ImoNumber: v.imoNumber,
-        FlagState: v.flagState,
+        VesselName: v.name,
         AssuranceCampaign: linkedSet ? linkedSet.title : 'N/A',
-        Stage: linkedSet ? linkedSet.stage : 'N/A',
-        Inspector: linkedSet?.assignedInspector || 'Unassigned',
+        Due: effectiveDeadline,
         Status: v.status,
       };
     });
     exportToCsv('Inspections', exportData);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
-    const headers = ['Vessel', 'IMO Number', 'Flag State', 'Assurance Set', 'Stage', 'Operating Status'];
+    const headers = ['IMO Number', 'Vessel', 'Assurance Set', 'Due', 'Operating Status'];
     const rows = sortedAssignedVessels.map((v) => {
       const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
+      const effectiveDeadline = linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate || '—';
       return [
-        v.name,
         v.imoNumber,
-        v.flagState,
+        v.name,
         linkedSet ? linkedSet.title : 'N/A',
-        linkedSet ? linkedSet.stage : 'N/A',
+        effectiveDeadline,
         v.status,
       ];
     });
     exportToPdf('Inspections', headers, rows);
-    setIsExportOpen(false);
   };
 
-  const vesselsPagination = usePagination(sortedAssignedVessels, [searchQuery, statusFilter, sortField, sortDirection]);
+  const vesselsPagination = usePagination(sortedAssignedVessels, [
+    activeTab,
+    searchQuery,
+    statusFilter,
+    sortField,
+    sortDirection,
+  ]);
 
   return (
     <div className="d-flex flex-column gap-4">
-      {/* Inspector Role KPI Summary Cards */}
-      <div className="row g-3">
-        <div className="col-md-3 d-flex">
-          <div className="card map-kpi-card shadow-2xs w-100">
-            <div className="map-kpi-label">
-              Inspections
-            </div>
-            <div className="map-kpi-value text-primary mt-1">{assignedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Vessels</div>
-          </div>
-        </div>
-
-        <div className="col-md-3 d-flex">
-          <div className="card map-kpi-card shadow-2xs w-100">
-            <div className="map-kpi-label">
-              Pending Inspections
-            </div>
-            <div className="map-kpi-value text-warning mt-1">{pendingCount}</div>
-            <div className="map-kpi-subtitle mt-1">Awaiting inspection</div>
-          </div>
-        </div>
-
-        <div className="col-md-3 d-flex">
-          <div
-            className="card map-kpi-card shadow-2xs w-100"
-            onClick={() => setCurrentHashView('capa')}
-            style={{ cursor: 'pointer' }}
-            title="View CAPAs"
-          >
-            <div className="map-kpi-label">
-              Open CAPAs
-            </div>
-            <div className="map-kpi-value text-danger mt-1">{openCapaCount}</div>
-            <div className="map-kpi-subtitle mt-1">Open CAPAs</div>
-          </div>
-        </div>
-
-        <div className="col-md-3 d-flex">
-          <div className="card map-kpi-card shadow-2xs w-100">
-            <div className="map-kpi-label">
-              Completed Inspections
-            </div>
-            <div className="map-kpi-value text-success mt-1">{completedCount}</div>
-            <div className="map-kpi-subtitle mt-1">Outcome submitted</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Survey Schedule Table */}
       <div className="card map-card-custom">
-
-        {/* controls header: search input + FilterButton + export */}
-        <div className="card-header d-flex flex-column gap-2.5 p-3">
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div className="d-flex flex-wrap align-items-center gap-2.5 flex-grow-1">
-              <div className="position-relative" style={{ minWidth: '240px', maxWidth: '320px' }}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm bg-white text-dark ps-4 font-sans"
-                  style={{ borderColor: '#E2E8F0', fontSize: '0.82rem', height: '34px' }}
-                  placeholder="Search vessels..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <Search size={14} className="position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" />
-              </div>
-
-              <FilterButton
-                onClick={() => setIsFilterModalOpen(true)}
-                activeCount={activeFilterCount}
-              />
-            </div>
-
-            {/* result count + export */}
-            <div className="d-flex align-items-center gap-3 ms-auto">
-              <span className="text-muted small">
-                {sortedAssignedVessels.length} of {assignedVessels.length} vessels
-              </span>
-              <div className="dropdown position-relative">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                  style={{ fontSize: '0.82rem', height: '34px', borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' }}
-                  onClick={() => setIsExportOpen(!isExportOpen)}
-                >
-                  Export
-                </button>
-              {isExportOpen && (
-                <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      CSV
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      PDF
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
-          </div>
+        <div className="p-3 border-bottom">
+          <CountTabs
+            tabs={tabs}
+            active={activeTab}
+            onChange={(key) => setActiveTab(key as InspectorTabKey)}
+            aria-label="Inspector queue tabs"
+          />
         </div>
+
+        <ListToolbar
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search vessels..."
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFilterCount={activeFilterCount}
+          onExportCsv={handleExportCsv}
+          onExportPdf={handleExportPdf}
+        />
 
         {activeChips.length > 0 && (
-          <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+          <div className="px-3 py-2 bg-white border-bottom">
+            <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
+          </div>
         )}
-      </div>
 
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0">
             <thead>
               <tr>
-                <th onClick={() => handleSort('imoNumber')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                <th
+                  onClick={() => handleSort('imoNumber')}
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >
                   IMO Number {renderSortIndicator('imoNumber')}
                 </th>
-                <th onClick={() => handleSort('name')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                <th
+                  onClick={() => handleSort('name')}
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >
                   Vessel {renderSortIndicator('name')}
                 </th>
-                <th onClick={() => handleSort('campaignTitle')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                <th
+                  onClick={() => handleSort('campaignTitle')}
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >
                   Assurance Set {renderSortIndicator('campaignTitle')}
                 </th>
-                <th onClick={() => handleSort('status')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                <th
+                  onClick={() => handleSort('due')}
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >
+                  Due {renderSortIndicator('due')}
+                </th>
+                <th
+                  onClick={() => handleSort('status')}
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >
                   Operating Status {renderSortIndicator('status')}
                 </th>
                 <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
@@ -293,9 +265,16 @@ export const InspectorWorkspaceView: React.FC = () => {
             <tbody>
               {vesselsPagination.pageItems.map((v: VesselInformation) => {
                 const linkedSet = assuranceSets.find((s) => s.vesselId === v.id || s.vesselName === v.name);
-                const totalCapaCountForVessel = capaItems.filter(
-                  (c) => c.vesselName.toLowerCase() === v.name.toLowerCase() || c.vesselId === v.id
-                ).length;
+                const effectiveDeadline = linkedSet?.revisedCompletionDate || linkedSet?.complianceDeadline || linkedSet?.targetDate;
+                const overdue = isVesselOverdue(v);
+                let daysLate = 0;
+                if (overdue && effectiveDeadline) {
+                  const deadlineMs = new Date(effectiveDeadline).getTime();
+                  const nowMs = new Date(toIsoLocalDate()).getTime();
+                  const diff = Math.round((nowMs - deadlineMs) / (1000 * 60 * 60 * 24));
+                  daysLate = Math.max(1, diff);
+                }
+
                 return (
                   <tr
                     key={v.id}
@@ -304,53 +283,44 @@ export const InspectorWorkspaceView: React.FC = () => {
                   >
                     <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
                     <td>
-                      <div className="fw-semibold text-dark">{v.name}</div>
-                      <div className="small text-secondary">{v.flagState} · {v.portOfRegistry}</div>
+                      <span className="fw-semibold text-dark">{v.name}</span>
                     </td>
                     <td>
                       {linkedSet ? (
-                        <div>
-                          <div className="fw-semibold text-dark">{linkedSet.title}</div>
-                          <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.7rem' }}>
-                            {linkedSet.id} · {linkedSet.stage}
-                          </span>
-                        </div>
+                        <span className="font-mono-code text-secondary small">
+                          {linkedSet.id} · {linkedSet.title}
+                        </span>
                       ) : (
-                        <span className="text-secondary small">No assurance set</span>
+                        <span className="text-muted small">—</span>
+                      )}
+                    </td>
+                    <td className="font-mono-code small due-cell">
+                      {overdue ? (
+                        <span className="text-danger fw-semibold">
+                          {daysLate} {daysLate === 1 ? 'day' : 'days'} late
+                        </span>
+                      ) : effectiveDeadline ? (
+                        <span className="text-secondary">
+                          {formatMaritimeDate(effectiveDeadline)}
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
                       )}
                     </td>
                     <td>
-                      <span className="badge bg-light text-dark border">{v.status}</span>
+                      <StatusBadge value={v.status} />
                     </td>
-                    <td className="text-end">
-                      <div className="d-flex align-items-center justify-content-end gap-1.5">
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${totalCapaCountForVessel > 0 ? 'btn-outline-danger' : 'btn-outline-secondary'} d-inline-flex align-items-center justify-content-center p-0`}
-                          style={{ width: '32px', height: '32px' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCurrentHashView('capa', v.name);
-                          }}
-                          title={`View ${totalCapaCountForVessel} CAPAs for ${v.name}`}
-                          aria-label={`View ${totalCapaCountForVessel} CAPAs for ${v.name}`}
-                        >
-                          <AlertTriangle size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                          style={{ width: '32px', height: '32px' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCurrentHashView('inspector', v.name);
-                          }}
-                          title={`View inspection for ${v.name}`}
-                          aria-label={`View inspection for ${v.name}`}
-                        >
-                          <Eye size={16} />
-                        </button>
-                      </div>
+                    <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                        style={{ width: '32px', height: '32px' }}
+                        onClick={() => setCurrentHashView('inspector', v.name)}
+                        title="View"
+                        aria-label="View"
+                      >
+                        <Eye size={16} />
+                      </button>
                     </td>
                   </tr>
                 );
@@ -358,7 +328,7 @@ export const InspectorWorkspaceView: React.FC = () => {
 
               {sortedAssignedVessels.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="text-center text-muted py-4 fst-italic">
+                  <td colSpan={6} className="text-center text-muted py-4 fst-italic">
                     No vessels found.
                   </td>
                 </tr>
@@ -369,7 +339,6 @@ export const InspectorWorkspaceView: React.FC = () => {
         <TablePagination {...vesselsPagination.controls} />
       </div>
 
-      {/* Dedicated Filter Modal */}
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
@@ -378,7 +347,6 @@ export const InspectorWorkspaceView: React.FC = () => {
         activeCount={activeFilterCount}
       >
         <div className="d-flex flex-column gap-3">
-          {/* Status Filter */}
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
               Operating Status
@@ -402,4 +370,3 @@ export const InspectorWorkspaceView: React.FC = () => {
     </div>
   );
 };
-
