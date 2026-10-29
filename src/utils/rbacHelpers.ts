@@ -208,6 +208,18 @@ export function isMarketplacePersona(persona: UserRolePersona): boolean {
   return MARKETPLACE_ROLES.includes(persona);
 }
 
+/**
+  what: true when an Administrator is opening Verification Queue or Inspections to follow the organization's work.
+  how: those two screens stay open for the Administrator and show no decision controls.
+  with what file: src/utils/rbacHelpers.ts used by isViewAccessibleToPersona, VerifierWorkspaceView.tsx and InspectorWorkspaceView.tsx.
+*/
+export function isAdminReadOnlyWorkView(view: string, persona: UserRolePersona): boolean {
+  return (
+    persona === "Administrator" &&
+    (view === "verifier" || view === "inspector" || view === "inspection")
+  );
+}
+
 export interface AssuranceSetRoleActions {
   canManage: boolean;
   canUpload: boolean;
@@ -1100,6 +1112,11 @@ export function isViewAccessibleToPersona(
   };
 
   const initialAllowed = getInitialAllowed();
+
+  /* the administrator follows verification and inspection work on a read-only screen */
+  if (isAdminReadOnlyWorkView(view, persona)) {
+    return true;
+  }
 
   /* if permission matrix is supplied, check for user override or role matrix override */
   if (matrix) {

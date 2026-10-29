@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselInformation } from '../types/vessel';
-import { filterVesselsForPersona, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { filterVesselsForPersona, getAssuranceSetRoleActions, isAdminReadOnlyWorkView, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
@@ -76,6 +76,17 @@ export const InspectorWorkspaceView: React.FC = () => {
         flagState: '',
       } as unknown as VesselInformation;
     };
+
+    if (isAdminReadOnlyWorkView('inspector', activePersona)) {
+      return assuranceSets
+        .filter(
+          (set) =>
+            Boolean(set.mandatoryInspectionRequired && set.assignedInspector) &&
+            isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization) &&
+            !getAssuranceSetRoleActions(set, activePersona, activeDemoOrganization, sessionUser).canInspect,
+        )
+        .map((set) => ({ set, vessel: vesselForSet(set) }));
+    }
 
     if (activePersona !== 'Inspector' || !sessionUser?.name) {
       return filterVesselsForPersona(vessels, assuranceSets, activePersona).map((vessel) => ({
@@ -230,8 +241,15 @@ export const InspectorWorkspaceView: React.FC = () => {
     sortDirection,
   ]);
 
+  const adminReadOnly = isAdminReadOnlyWorkView('inspector', activePersona);
+
   return (
     <div className="d-flex flex-column gap-4">
+      {adminReadOnly && (
+        <div className="alert alert-info py-2 mb-0 small">
+          Read-only view of your organization's inspection work
+        </div>
+      )}
       <div className="card map-card-custom">
         <div className="p-3 border-bottom">
           <CountTabs

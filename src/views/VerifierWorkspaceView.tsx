@@ -9,7 +9,7 @@ import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilter
 import { CountTabs, CountTab } from '../components/common/CountTabs';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
-import { filterDocumentsForVerifierQueue, filterDocumentsVisibleToOrganization, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { filterDocumentsForVerifierQueue, filterDocumentsVisibleToOrganization, getAssuranceSetRoleActions, isAdminReadOnlyWorkView, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { AssuranceSet } from '../types/assurance';
@@ -140,6 +140,13 @@ export const VerifierWorkspaceView: React.FC = () => {
   };
 
   const selectedDocSetInfo = selectedDoc ? getAssuranceSetInfo(selectedDoc.id) : null;
+  const adminReadOnly = isAdminReadOnlyWorkView('verifier', activePersona);
+  const selectedSet = selectedDocSetInfo
+    ? assuranceSets.find((set) => set.id === selectedDocSetInfo.setId)
+    : undefined;
+  const selectedActions = selectedSet
+    ? getAssuranceSetRoleActions(selectedSet, activePersona, activeDemoOrganization, sessionUser)
+    : undefined;
 
   const isToVerify = (d: MasterDocument) => {
     return d.verificationStatus === 'Pending';
@@ -306,6 +313,11 @@ export const VerifierWorkspaceView: React.FC = () => {
 
   return (
     <div className="d-flex flex-column gap-4">
+      {adminReadOnly && (
+        <div className="alert alert-info py-2 mb-0 small">
+          Read-only view of your organization's verification work
+        </div>
+      )}
       <div className="card map-card-custom">
         <div className="p-3 border-bottom">
           <CountTabs
@@ -436,6 +448,8 @@ export const VerifierWorkspaceView: React.FC = () => {
         assuranceSetId={selectedDocSetInfo?.setId}
         requirementId={selectedDocSetInfo?.requirementId}
         requirementVerifierStatus={selectedDocSetInfo?.requirementVerifierStatus}
+        allowVerify={adminReadOnly ? false : selectedActions?.canVerify ?? true}
+        allowSubmit={adminReadOnly ? false : selectedActions?.canUpload ?? true}
       />
 
       <FilterModal
