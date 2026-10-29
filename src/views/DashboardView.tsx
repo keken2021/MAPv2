@@ -23,11 +23,9 @@ import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer
 import { ReturnedDocumentsDrawer } from '../components/drawers/ReturnedDocumentsDrawer';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { filterProjectsForPersona } from '../utils/projectHelpers';
-import { countDocumentsByExpiry } from '../utils/documentRenewalHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { EXPIRY_WARNING_DAYS, isExpiringWithinWarning } from '../utils/expiryPolicy';
-import { averageDaysToClearance, countReVerifications, countReusedDocuments } from '../utils/valueMetrics';
 
 /**
   what: renders the executive dashboard workspace view in light theme.
@@ -428,38 +426,6 @@ export const DashboardView: React.FC = () => {
     <div className="d-flex flex-column gap-4">
       {/* top banner kpi summary cards */}
       {renderDashboardCards()}
-
-      {/* Delivery Performance Summary: on-time completion, open findings, remaining tasks & certificates */}
-      <div className="card map-card-custom p-3 bg-light border">
-        <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-          <div className="d-flex align-items-center gap-2">
-            <span className="fw-bold text-dark font-mono-code" style={{ fontSize: '0.8rem', letterSpacing: '0.05em' }}>
-              PERFORMANCE
-            </span>
-            <span className="badge bg-secondary-subtle text-dark border">Delivery metrics</span>
-          </div>
-          <div className="d-flex flex-wrap align-items-center gap-4 ms-auto small">
-            <div>
-              <span className="text-secondary me-1.5">On-Time Status:</span>
-              <span className={`fw-semibold font-mono-code ${performanceSummary.lateSets > 0 ? 'text-danger' : 'text-success'}`}>
-                {performanceSummary.onTimeSets} / {performanceSummary.totalSets} on time {performanceSummary.lateSets > 0 ? `(${performanceSummary.lateSets} late)` : ''}
-              </span>
-            </div>
-            <div className="border-start ps-3">
-              <span className="text-secondary me-1.5">Open Findings:</span>
-              <span className={`fw-semibold font-mono-code ${performanceSummary.openFindings > 0 ? 'text-warning-emphasis' : 'text-success'}`}>
-                {performanceSummary.openFindings} {performanceSummary.openFindings === 1 ? 'finding' : 'findings'}
-              </span>
-            </div>
-            <div className="border-start ps-3">
-              <span className="text-secondary me-1.5">Remaining Work:</span>
-              <span className="fw-semibold font-mono-code text-dark">
-                {performanceSummary.remainingTasks} {performanceSummary.remainingTasks === 1 ? 'task' : 'tasks'} · {performanceSummary.remainingCertificates} {performanceSummary.remainingCertificates === 1 ? 'certificate' : 'certificates'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
       {/* main content area: c admin & submitter display assurance sets; other personas display fleet overview */}
       {activePersona === 'C Admin' ? (
         <div className="row g-4">
@@ -615,56 +581,56 @@ export const DashboardView: React.FC = () => {
                           const openFindings = getAssuranceSetOpenFindingsCount(s, capaItems);
                           const remaining = getAssuranceSetRemainingItems(s);
                           return (
-                          <tr
-                            key={s.id}
-                            onClick={() => setCurrentHashView('assurance-sets', s.id)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <td>
-                              <div className="fw-semibold text-slate-900">{s.title}</div>
-                              <div className="small text-muted">{s.initiatorOrg}</div>
-                            </td>
-                            <td>{getScopeLabel(s)}</td>
-                            <td>
-                              <span className={`badge ${getStageBadgeClass(s.stage)} font-mono-code`}>
-                                {s.stage}
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`badge font-mono-code ${onTime.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTime.detail}>
-                                {onTime.statusLabel}{!onTime.isOnTime && onTime.lateItemsCount > 0 ? ` (${onTime.lateItemsCount})` : ''}
-                              </span>
-                            </td>
-                            <td>
-                              {openFindings > 0 ? (
-                                <span className="badge bg-warning text-dark font-mono-code">
-                                  {openFindings} open
+                            <tr
+                              key={s.id}
+                              onClick={() => setCurrentHashView('assurance-sets', s.id)}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              <td>
+                                <div className="fw-semibold text-slate-900">{s.title}</div>
+                                <div className="small text-muted">{s.initiatorOrg}</div>
+                              </td>
+                              <td>{getScopeLabel(s)}</td>
+                              <td>
+                                <span className={`badge ${getStageBadgeClass(s.stage)} font-mono-code`}>
+                                  {s.stage}
                                 </span>
-                              ) : (
-                                <span className="text-muted font-mono-code small">0</span>
-                              )}
-                            </td>
-                            <td>
-                              <div className="small font-mono-code text-dark">
-                                {remaining.remainingTasks} {remaining.remainingTasks === 1 ? 'task' : 'tasks'}
-                              </div>
-                              <div className="small text-muted" style={{ fontSize: '0.72rem' }}>
-                                {remaining.remainingCertificates} {remaining.remainingCertificates === 1 ? 'cert' : 'certs'}
-                              </div>
-                            </td>
-                            <td className="text-end" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                style={{ width: '32px', height: '32px' }}
-                                onClick={() => setCurrentHashView('assurance-sets', s.id)}
-                                title="View"
-                                aria-label="View"
-                              >
-                                <Eye size={16} />
-                              </button>
-                            </td>
-                          </tr>
+                              </td>
+                              <td>
+                                <span className={`badge font-mono-code ${onTime.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTime.detail}>
+                                  {onTime.statusLabel}{!onTime.isOnTime && onTime.lateItemsCount > 0 ? ` (${onTime.lateItemsCount})` : ''}
+                                </span>
+                              </td>
+                              <td>
+                                {openFindings > 0 ? (
+                                  <span className="badge bg-warning text-dark font-mono-code">
+                                    {openFindings} open
+                                  </span>
+                                ) : (
+                                  <span className="text-muted font-mono-code small">0</span>
+                                )}
+                              </td>
+                              <td>
+                                <div className="small font-mono-code text-dark">
+                                  {remaining.remainingTasks} {remaining.remainingTasks === 1 ? 'task' : 'tasks'}
+                                </div>
+                                <div className="small text-muted" style={{ fontSize: '0.72rem' }}>
+                                  {remaining.remainingCertificates} {remaining.remainingCertificates === 1 ? 'cert' : 'certs'}
+                                </div>
+                              </td>
+                              <td className="text-end" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                  style={{ width: '32px', height: '32px' }}
+                                  onClick={() => setCurrentHashView('assurance-sets', s.id)}
+                                  title="View"
+                                  aria-label="View"
+                                >
+                                  <Eye size={16} />
+                                </button>
+                              </td>
+                            </tr>
                           );
                         })
                       )}
