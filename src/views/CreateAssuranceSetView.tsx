@@ -260,7 +260,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Step 1: Scope & General Information */
   const [title, setTitle] = useState(
-    () => `${titleOrg} - ${initialSubjectName} Charter Vetting`,
+    () => `${titleOrg} - ${initialSubjectName} Assurance Set`,
   );
   const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || '');
   /* Covered Assurance Objects (ADR 0029): the only place the set's vessels, crew, equipment and other objects are chosen; every object is equal */
@@ -723,7 +723,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       .replace(/^Inpex( Operations Australia)?\s*[-–:]*\s*/i, '')
       .trim();
 
-    const cleanSubject = baseSubject || `${vesselDisplayName} Charter Vetting`;
+    const cleanSubject = baseSubject || `${vesselDisplayName} Assurance Set`;
     setTitle(`${templateCharterer} - ${cleanSubject}`);
 
     /* match requirements */
@@ -756,7 +756,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           const templateObjects = getTemplateObjects(templateScope);
           if (templateObjects.length > 0) setSelectedAssuranceObjects(templateObjects);
         }
-        setTitle(`${defaultCharterer} - ${publicTmpl.scopeType || initialSubjectName} Charter Vetting`);
+        setTitle(`${defaultCharterer} - ${publicTmpl.scopeType || initialSubjectName} Assurance Set`);
         setTemplatePrivacy('organization');
         setVerificationRequired(publicTmpl.verificationRequired ?? true);
         setInspectionRequired(publicTmpl.mandatoryInspectionRequired ?? true);
@@ -1852,7 +1852,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         <div className="card border shadow-sm rounded-3 bg-white">
           <div className="card-header bg-light border-bottom px-4 py-3">
             <h5 className="fw-bold text-slate-900 m-0 fs-6">
-              Required Documents &amp; Information
+              Required Documents
             </h5>
             <p className="text-muted small m-0 mt-1">
               Mark each document as required or not.
@@ -1987,7 +1987,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
               <div className="col-12">
                 <label className="form-label text-secondary small fw-semibold">
-                  Document Description &amp; Compliance Context
+                  Document Description
                 </label>
                 <textarea
                   className="form-control bg-white text-dark border-secondary-subtle"
@@ -2135,16 +2135,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               );
             })}
           </div>
-          <div className="progress mt-2.5" style={{ height: '4px' }}>
-            <div
-              className="progress-bar bg-primary"
-              role="progressbar"
-              style={{ width: `${(currentStep / totalSteps) * 100}%`, transition: 'width 0.3s ease' }}
-              aria-valuenow={(currentStep / totalSteps) * 100}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            />
-          </div>
         </div>
 
         {/* Wizard Main Content Body */}
@@ -2156,7 +2146,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <div className="card border shadow-2xs rounded-3 bg-white">
                 <div className="card-header bg-light border-bottom px-4 py-3">
                   <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    1. Assurance Set Identification
+                    Identification
                   </h5>
                 </div>
                 <div className="card-body p-4">
@@ -2170,7 +2160,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         id="grid-campaign-title"
                         type="text"
                         className={`form-control bg-white text-dark border-secondary-subtle${animatingFields.has('grid-campaign-title') ? ' map-autofill-animate' : ''}${isDuplicateCampaignTitle(title, assuranceSets).isDuplicate || fieldErrors.title || (hasAttemptedSubmit && !title.trim()) ? ' is-invalid border-danger' : ''}`}
-                        placeholder="e.g. Chevron Gorgon Charter Vetting 2026"
+                        placeholder="e.g. Chevron Gorgon 2026"
                         value={title}
                         onChange={(e) => {
                           setTitle(e.target.value);
@@ -2336,7 +2326,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      2. Template Privacy &amp; Distribution Scope
+                      Template Privacy
                     </h5>
                     <div className="text-muted small">
                       Choose who can reuse this assurance set as a template.
@@ -2416,7 +2406,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      3. Governance &amp; Stakeholder Assignments
+                      Stakeholders
                     </h5>
                     <div className="text-muted small">
                       Choose who reviews and who is assigned.
@@ -2442,7 +2432,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         <div className="p-4 bg-light border rounded-3 d-flex flex-column gap-3.5">
                           <div>
                             <strong className="text-dark small d-block mb-1.5" style={{ fontSize: '0.85rem' }}>
-                              Review Channel &amp; Authority Governance
+                              Review Channel
                             </strong>
                             <div className="text-muted small" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
                               The client chooses who reviews: its own staff, a third party, the issuing authority, or a mix.
@@ -2508,7 +2498,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <div className="p-4 px-4 bg-white border rounded-3 d-flex flex-column gap-3 shadow-2xs">
                             <div>
                               <strong className="text-dark small d-block mb-1" style={{ fontSize: '0.825rem' }}>
-                                Checks &amp; Stages
+                                Checks
                               </strong>
                               <div className="text-muted small" style={{ fontSize: '0.76rem', lineHeight: '1.35' }}>
                                 Choose which checks and stages apply.
@@ -2853,7 +2843,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             ...selectedAssuranceObjects.filter((o) => lockedObjectIds.includes(o.id) && !portSetObjects.some((p) => p.id === o.id)),
                             ...portSetObjects,
                           ]);
-                          setTitle((prev) => prev.includes('Port Entry') ? prev : `${clientOrg} - Port Entry & Arrival Assurance Set`);
+                          setTitle((prev) => prev.includes('Port Entry') ? prev : `${clientOrg} - Port Entry Assurance Set`);
                         }}
                       >
                         <Sparkles className="w-3.5 h-3.5" />
@@ -3136,7 +3126,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (selectedApprover ? `${selectedApprover.name} (${selectedApprover.organization})` : 'Pending') : 'N/A'}</div>
 
                           <div className="pt-2 mt-2 border-top">
-                            <strong className="text-dark small d-block mb-1">Review &amp; Checks</strong>
+                            <strong className="text-dark small d-block mb-1">Review</strong>
                             <div className="d-flex flex-wrap gap-1.5 mb-1">
                               <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
                                 Review: {reviewMode === 'internal' ? 'Internal' : reviewMode === 'third_party' ? 'Third Party' : reviewMode === 'issuing_authority' ? 'Issuing Authority' : 'Mixed Multi-Channel'}
@@ -3270,7 +3260,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                                 <div className="d-flex align-items-center gap-2">
                                   <FileCheck className="text-primary" style={{ width: '18px', height: '18px' }} />
-                                  <strong className="text-dark small">Required &amp; Added Documents ({allNeededDocs.length})</strong>
+                                  <strong className="text-dark small">Required Documents ({allNeededDocs.length})</strong>
                                 </div>
                                 <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.75rem' }}>
                                   {standardCount} Required · {addedCount} Added

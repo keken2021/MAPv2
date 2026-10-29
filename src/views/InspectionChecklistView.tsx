@@ -6,6 +6,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useMapStore } from '../store/useMapStore';
+import { DetailHeader } from '../components/common/DetailHeader';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { getStatusDisplayLabel } from '../utils/formatters';
 import { CapaItem } from '../types/capa';
@@ -31,7 +32,7 @@ interface InspectionChecklistViewProps {
 */
 export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = ({ vesselName = 'MV Pacific Endeavour' }) => {
   const cleanVesselName = decodeURIComponent(vesselName || 'MV Pacific Endeavour');
-  const { capaItems, addCapaItem, logAuditEvent, activePersona, setCurrentHashView, completeVesselInspection } = useMapStore();
+  const { capaItems, addCapaItem, logAuditEvent, activePersona, setCurrentHashView, previousHashView, previousEntityId, completeVesselInspection } = useMapStore();
 
   const [items, setItems] = useState<InspectionItem[]>(DEFAULT_INSPECTION_CHECKLIST_ITEMS);
 
@@ -66,8 +67,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   const [newCapaTitle, setNewCapaTitle] = useState('');
   const [newCapaOwner, setNewCapaOwner] = useState('Northwind Marine Technical');
   const [newCapaDueDate, setNewCapaDueDate] = useState('30 Sep 2026');
-  const [isExportOpen, setIsExportOpen] = useState(false);
-
   const isInspector = activePersona === 'Inspector';
 
   /* calculate recommended outcome dynamically */
@@ -105,7 +104,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
     }));
 
     exportToCsv(`${vesselName.replace(/\s+/g, '_')}_Complete_Inspection_Report`, [summaryRow, ...itemRows, ...capaRows]);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
@@ -132,7 +130,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
     ]);
 
     exportToPdf(`${vesselName} Complete Visual Physical Inspection Report`, headers, [summaryRow, ...itemRows, ...capaRows]);
-    setIsExportOpen(false);
   };
 
   const handleStatusChange = (id: string, newStatus: 'Satisfactory' | 'Observation' | 'Deficiency') => {
@@ -445,63 +442,25 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
         onChange={handleCameraFileChange}
       />
 
-      {/* Top Navigation & Context Header Banner */}
-      <div className="card map-card-custom map-checklist-card bg-white">
-        <div className="d-flex flex-wrap align-items-center justify-between gap-3">
-          <div className="d-flex align-items-center gap-3">
-            <div>
-              <h5 className="fw-bold text-dark m-0" style={{ fontSize: '1.25rem' }}>
-                Inspection
-              </h5>
-              <div className="font-mono-code small text-muted" style={{ fontSize: '0.75rem' }}>
-                AS-2041 · {vesselName} · Berth 4, Fremantle · 18 Sep 2026
-              </div>
-            </div>
-          </div>
-
-          {/* Opposite Corner Controls: Status Badge + CAPA link + Export Data Button */}
-          <div className="d-flex align-items-center gap-3 ms-auto">
-            <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle font-mono-code px-3 py-2" style={{ fontSize: '0.8rem' }}>
-              Inspection In Progress
-            </span>
-
-            {isInspector && (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-primary fw-bold"
-                onClick={() => setCurrentHashView('capa', vesselName)}
-              >
-                Manage CAPAs
-              </button>
-            )}
-
-            {/* Export Data Button in opposite corner */}
-            <div className="dropdown position-relative">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                onClick={() => setIsExportOpen(!isExportOpen)}
-              >
-                Export
-              </button>
-              {isExportOpen && (
-                <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      CSV
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      PDF
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <DetailHeader
+        title={cleanVesselName}
+        status="Inspection In Progress"
+        metaItems={['AS-2041', 'Berth 4, Fremantle', '18 Sep 2026']}
+        mainAction={
+          isInspector ? (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary fw-bold"
+              onClick={() => setCurrentHashView('capa', vesselName)}
+            >
+              Manage CAPAs
+            </button>
+          ) : undefined
+        }
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+        onClose={() => setCurrentHashView(previousHashView || 'inspector', previousEntityId)}
+      />
 
       {/* Main Grid: Left side Checklist Items, Right side Outcome & CAPA Logger */}
       <div className="row g-4">

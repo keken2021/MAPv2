@@ -407,18 +407,45 @@ export const CreateProjectView: React.FC = () => {
     }
   };
 
-  const stepLabels = [
-    "Details",
-    "Assurance Sets (optional)",
-    "Assets (optional)",
-  ];
+  const stepLabels = ["Details", "Assurance Sets", "Assets"];
 
   return (
     <div className="d-flex flex-column gap-3">
-      <div className="d-flex align-items-center justify-content-end">
-        <span className="badge bg-primary-subtle text-primary font-mono-code">
-          Step {step} of 3 — {stepLabels[step - 1]}
-        </span>
+      <div className="card border shadow-sm rounded-3 bg-white overflow-hidden">
+        <div className="bg-light px-4 py-3 border-bottom">
+          <div className="d-flex align-items-center justify-content-between flex-nowrap overflow-x-auto text-nowrap gap-2">
+            {stepLabels.map((label, idx) => {
+              const stepNum = idx + 1;
+              const isCurrent = step === stepNum;
+              const isPast = step > stepNum;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  className={`btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 text-nowrap ${
+                    isCurrent ? 'text-primary fw-bold' : isPast ? 'text-dark fw-semibold' : 'text-muted'
+                  }`}
+                  style={{ fontSize: '0.8125rem' }}
+                  onClick={() => {
+                    if (stepNum === 1) setStep(1);
+                    else if (stepNum === 2 && (isPast || validateStep1())) setStep(2);
+                    else if (stepNum === 3 && isPast) setStep(3);
+                  }}
+                >
+                  <span
+                    className={`d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0 ${
+                      isCurrent ? 'bg-primary text-white' : isPast ? 'bg-success text-white' : 'bg-white text-secondary border'
+                    }`}
+                    style={{ width: '22px', height: '22px', fontSize: '0.725rem', fontWeight: 700 }}
+                  >
+                    {stepNum}
+                  </span>
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div className="card map-card-custom p-4">
@@ -659,7 +686,7 @@ export const CreateProjectView: React.FC = () => {
             {showCharterFields && (
               <div className="col-md-6">
                 <label className="form-label small fw-semibold">
-                  Charterer
+                  Client
                 </label>
                 <input
                   className="form-control form-control-sm"

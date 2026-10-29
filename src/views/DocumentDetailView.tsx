@@ -5,10 +5,11 @@
 */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, FileText, Printer, X } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
-import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
+import { DetailHeader } from '../components/common/DetailHeader';
+import { formatMaritimeDate } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { exportDocumentAsPdf } from '../utils/documentTemplateHelpers';
 import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
@@ -31,7 +32,6 @@ interface DocumentDetailViewProps {
 */
 export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ documentId }) => {
   const { documents, setCurrentHashView, previousHashView, previousEntityId, activePersona, notifications } = useMapStore();
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
   const [selectedVersionForModal, setSelectedVersionForModal] = useState<DocumentVersion | null>(null);
@@ -151,80 +151,40 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
     }));
 
     exportToCsv(`${doc.certificateNo}_Complete_Document_Detail`, [...metaRows, ...versionRows]);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
     exportDocumentAsPdf(doc);
-    setIsExportOpen(false);
   };
 
   return (
     <div className="d-flex flex-column gap-4">
       {/* Unified Main Info & Extracted Attributes Card */}
+      <DetailHeader
+        title={doc.title}
+        status={doc.verificationStatus}
+        metaItems={[doc.certificateNo]}
+        mainAction={
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+            style={{ width: '32px', height: '32px' }}
+            onClick={() => {
+              setSelectedVersionForModal(null);
+              setIsCertModalOpen(true);
+            }}
+            title="Certificate Layout & PDF Review"
+            aria-label="Certificate Layout & PDF Review"
+          >
+            <FileText size={16} />
+          </button>
+        }
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+        onClose={() => setCurrentHashView(previousHashView || 'documents', previousEntityId)}
+      />
+
       <div className="card map-card-custom">
-        {/* Card Header / Title Row */}
-        <div className="card-header p-4 bg-white border-bottom d-flex flex-wrap align-items-center justify-between gap-3">
-          <div className="d-flex align-items-center gap-3">
-            <h3 className="fw-bold mb-0 text-primary">{doc.title}</h3>
-            <span
-              className={`badge p-2 ${doc.verificationStatus === 'Verified'
-                ? 'bg-success text-white'
-                : doc.verificationStatus === 'Correction Requested'
-                  ? 'bg-warning text-dark'
-                  : doc.verificationStatus === 'Rejected'
-                    ? 'bg-danger text-white'
-                    : 'bg-secondary text-white'
-                }`}
-              style={{ fontSize: '0.825rem' }}
-            >
-              {getStatusDisplayLabel(doc.verificationStatus)}
-            </span>
-          </div>
-
-          {/* Actions & Export */}
-          <div className="d-flex align-items-center gap-2 ms-auto">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-              style={{ width: '32px', height: '32px' }}
-              onClick={() => {
-                setSelectedVersionForModal(null);
-                setIsCertModalOpen(true);
-              }}
-              title="Certificate Layout & PDF Review"
-              aria-label="Certificate Layout & PDF Review"
-            >
-              <FileText size={16} />
-            </button>
-
-            {/* Export Data Button */}
-            <div className="dropdown position-relative">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-              onClick={() => setIsExportOpen(!isExportOpen)}
-            >
-              Export
-            </button>
-            {isExportOpen && (
-              <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    CSV
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    PDF
-                  </button>
-                </li>
-              </ul>
-            )}
-            </div>
-          </div>
-        </div>
-
         {/* Card Body: Extracted Metadata Attributes Grid */}
         <div className="card-body p-4">
           {/* what MAP records and what it does not (gap review G2) */}
@@ -277,7 +237,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 <div>
                   {/* the badge follows the stored check, and says so when no check has run (gap review E7) */}
                   {doc.validationRules.rulesNotChecked ? (
-                    <span className="badge bg-secondary-subtle text-secondary-emphasis border">Not Checked</span>
+                    <span className="text-muted">—</span>
                   ) : doc.vesselAttributes.assetMatchFlag ? (
                     <span className="badge bg-success text-white">Match</span>
                   ) : (

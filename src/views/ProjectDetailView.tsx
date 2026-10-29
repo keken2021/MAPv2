@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send } from "lucide-react";
+import { DetailHeader } from "../components/common/DetailHeader";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { useMapStore } from "../store/useMapStore";
 import { ProjectAssetType } from "../types/project";
@@ -37,6 +38,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     activePersona,
     users,
     setCurrentHashView,
+    previousHashView,
+    previousEntityId,
     setReturnToProjectId,
     setLockedProjectId,
     removeAssetFromProject,
@@ -132,104 +135,79 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       )}
 
+      <DetailHeader
+        title={project.name}
+        status={project.status}
+        metaItems={[
+          project.id,
+          project.projectType,
+          project.riskProfile || "",
+          `Client: ${
+            project.ownerOrganization ||
+            project.charterer ||
+            project.requestingOrganization
+          }${
+            project.charterer &&
+            project.charterer !== project.requestingOrganization
+              ? ` · ${project.charterer}`
+              : ""
+          }`,
+          project.serviceProvider ? `Service Provider: ${project.serviceProvider}` : "",
+          `${project.charterWindowStart} → ${project.charterWindowEnd}`,
+        ].filter(Boolean)}
+        mainAction={
+          canManage ? (
+            <div className="d-flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                onClick={() => setIsAddAssetModalOpen(true)}
+              >
+                <Plus size={15} />
+                <span>Add Asset</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                onClick={openCreateAssuranceSet}
+              >
+                <FolderPlus size={15} />
+                <span>Create Assurance Set</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5"
+                onClick={() => setIsRequestModalOpen(true)}
+              >
+                <Send size={15} />
+                <span>Request Assurance Set</span>
+              </button>
+            </div>
+          ) : undefined
+        }
+        onClose={() => setCurrentHashView(previousHashView || "project", previousEntityId)}
+      />
+
       <div className="card map-card-custom p-3">
-        <div className="d-flex flex-wrap justify-between align-items-start gap-3">
+        <div className="d-flex flex-wrap justify-content-between align-items-start gap-3">
           <div>
-            <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
-              <span className="badge bg-primary font-mono-code">
-                {project.id}
-              </span>
-              <span className="badge bg-info text-dark">
-                {project.projectType}
-              </span>
-              {project.riskProfile && (
-                <span
-                  className={`badge ${
-                    project.riskProfile.includes("High") ||
-                    project.riskProfile.includes("Armed")
-                      ? "bg-danger"
-                      : "bg-warning text-dark"
-                  }`}
-                >
-                  {project.riskProfile}
-                </span>
-              )}
-              <span className="badge bg-secondary">{project.status}</span>
-            </div>
-            <h2 className="h4 fw-bold text-dark mb-1">{project.name}</h2>
-            <div className="text-muted small">
-              Client:{" "}
-              {project.ownerOrganization ||
-                project.charterer ||
-                project.requestingOrganization}
-              {project.charterer &&
-                project.charterer !== project.requestingOrganization && (
-                  <> · Charterer: {project.charterer}</>
-                )}
-            </div>
-            {project.serviceProvider && (
-              <div className="text-muted small mt-1">
-                Provider: {project.serviceProvider}
-              </div>
-            )}
             {project.description && (
-              <div className="text-muted small mt-1">{project.description}</div>
+              <div className="text-muted small">{project.description}</div>
             )}
             {project.routeDescription && (
-              <div className="text-muted small mt-1">
-                {project.routeDescription}
-              </div>
+              <div className="text-muted small mt-1">{project.routeDescription}</div>
             )}
             <div className="d-flex flex-wrap gap-3 font-mono-code small mt-1">
-              <span>
-                {project.charterWindowStart} → {project.charterWindowEnd}
-              </span>
-              {project.workLocationType && (
-                <span className="text-secondary">
-                  · {project.workLocationType}
-                </span>
-              )}
+              {project.workLocationType && <span>{project.workLocationType}</span>}
               {project.workOrderRef && (
-                <span className="text-secondary">
-                  · WO: {project.workOrderRef}
-                </span>
+                <span className="text-secondary">WO: {project.workOrderRef}</span>
               )}
             </div>
           </div>
-          <div className="text-end">
-            <ReadinessGauge
-              score={calculateProjectReadiness(project, assuranceSets)}
-              size="md"
-            />
-            {canManage && (
-              <div className="d-flex flex-wrap gap-2 justify-content-end mt-2">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-                  onClick={() => setIsAddAssetModalOpen(true)}
-                >
-                  <Plus size={15} />
-                  <span>Add Asset</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-                  onClick={openCreateAssuranceSet}
-                >
-                  <FolderPlus size={15} />
-                  <span>Create Assurance Set</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5"
-                  onClick={() => setIsRequestModalOpen(true)}
-                >
-                  <Send size={15} />
-                  <span>Request Assurance Set</span>
-                </button>
-              </div>
-            )}
-          </div>
+          <ReadinessGauge
+            score={calculateProjectReadiness(project, assuranceSets)}
+            size="md"
+          />
         </div>
       </div>
 
@@ -348,7 +326,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   <th>Asset ID</th>
                   <th>Name</th>
                   <th>Type</th>
-                  <th>Provider</th>
+                  <th>Service Provider</th>
                   <th>Assurance Set</th>
                   <th className="text-end">Actions</th>
                 </tr>
