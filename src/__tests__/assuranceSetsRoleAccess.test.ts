@@ -8,11 +8,15 @@ import { describe, expect, it } from 'vitest';
 import {
   ASSURANCE_SETS_READ_ONLY_ROLES,
   canEditAssuranceSetStakeholders,
+  filterAssuranceSetsForSession,
+  filterVesselsForPersona,
   getAssuranceSetRoleActions,
   isAssuranceSetAssignedToPersona,
   isAssuranceSetCreatedByCAdmin,
   isViewAccessibleToPersona,
 } from '../utils/rbacHelpers';
+import { MOCK_VESSELS } from '../store/mockData';
+import { VesselInformation } from '../types/vessel';
 import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
 import { MOCK_ASSURANCE_SETS } from '../store/mockData';
 import { AssuranceSet } from '../types/assurance';
@@ -215,5 +219,106 @@ describe('assurance set role actions', () => {
     expect(isAssuranceSetAssignedToPersona(assignedSet, 'Verifier', undefined, assignedUser)).toBe(true);
     expect(isAssuranceSetAssignedToPersona(assignedSet, 'Verifier', unassignedUser.organization, unassignedUser)).toBe(false);
     expect(isAssuranceSetAssignedToPersona(assignedSet, 'Verifier', undefined, unassignedUser)).toBe(false);
+  });
+
+  it('ensures two Verifiers of the same organization see different Assurance Sets lists', () => {
+    const verifier1 = {
+      id: 'USR-VER-1',
+      name: 'A. Fontaine',
+      organization: 'Bureau Veritas Inspectorate',
+      roles: ['Verifier' as const],
+    };
+    const verifier2 = {
+      id: 'USR-VER-2',
+      name: 'J. Dupont',
+      organization: 'Bureau Veritas Inspectorate',
+      roles: ['Verifier' as const],
+    };
+
+    const setForVerifier1: AssuranceSet = {
+      ...baseSet,
+      id: 'SET-VER-1',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate' },
+    };
+    const setForVerifier2: AssuranceSet = {
+      ...baseSet,
+      id: 'SET-VER-2',
+      assignedVerifier: 'J. Dupont (Bureau Veritas Inspectorate)',
+      stakeholders: { verifierOrg: 'Bureau Veritas Inspectorate' },
+    };
+    const testSets = [setForVerifier1, setForVerifier2];
+
+    const setsForV1 = filterAssuranceSetsForSession(testSets, 'Verifier', verifier1.organization, verifier1);
+    const setsForV2 = filterAssuranceSetsForSession(testSets, 'Verifier', verifier2.organization, verifier2);
+
+    expect(setsForV1.map((s) => s.id)).toEqual(['SET-VER-1']);
+    expect(setsForV2.map((s) => s.id)).toEqual(['SET-VER-2']);
+    expect(setsForV1).not.toEqual(setsForV2);
+  });
+
+  it('ensures a Submitter sees only vessels on their own sets', () => {
+    const submitterChen = {
+      id: 'USR-SUB-1',
+      name: 'M. Chen',
+      organization: 'Northwind Marine Pty Ltd',
+      roles: ['Submitter' as const],
+    };
+    const submitterRamirez = {
+      id: 'USR-SUB-2',
+      name: 'E. Ramirez',
+      organization: 'Northwind Marine Pty Ltd',
+      roles: ['Submitter' as const],
+    };
+
+    const vesselA: VesselInformation = {
+      id: 'VESSEL-001',
+      name: 'MV Northwind Alpha',
+      registeredOwner: 'Northwind Marine Pty Ltd',
+    } as VesselInformation;
+    const vesselB: VesselInformation = {
+      id: 'VESSEL-002',
+      name: 'MV Northwind Beta',
+      registeredOwner: 'Northwind Marine Pty Ltd',
+    } as VesselInformation;
+
+    const setForChen: AssuranceSet = {
+      ...baseSet,
+      id: 'SET-SUB-1',
+      vesselId: 'VESSEL-001',
+      vesselName: 'MV Northwind Alpha',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+    };
+    const setForRamirez: AssuranceSet = {
+      ...baseSet,
+      id: 'SET-SUB-2',
+      vesselId: 'VESSEL-002',
+      vesselName: 'MV Northwind Beta',
+      assignedSubmitter: 'E. Ramirez (Northwind Marine Pty Ltd)',
+    };
+    const vessels = [vesselA, vesselB];
+    const sets = [setForChen, setForRamirez];
+
+    const chenVessels = filterVesselsForPersona(vessels, sets, 'Submitter', submitterChen.organization, submitterChen);
+    const ramirezVessels = filterVesselsForPersona(vessels, sets, 'Submitter', submitterRamirez.organization, submitterRamirez);
+
+    expect(chenVessels.map((v) => v.id)).toEqual(['VESSEL-001']);
+    expect(ramirezVessels.map((v) => v.id)).toEqual(['VESSEL-002']);
+
+    const mockChenVessels = filterVesselsForPersona(
+      MOCK_VESSELS,
+      MOCK_ASSURANCE_SETS,
+      'Submitter',
+      submitterChen.organization,
+      submitterChen,
+    );
+    const chenAssignedSetVesselIds = new Set(
+      MOCK_ASSURANCE_SETS
+        .filter((s) => isAssuranceSetAssignedToPersona(s, 'Submitter', submitterChen.organization, submitterChen))
+        .map((s) => s.vesselId)
+        .filter(Boolean),
+    );
+    expect(mockChenVessels.length).toBeGreaterThan(0);
+    expect(mockChenVessels.every((v) => chenAssignedSetVesselIds.has(v.id))).toBe(true);
   });
 });

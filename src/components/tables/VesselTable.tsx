@@ -22,6 +22,7 @@ import {
   getOrganizationLogo,
 } from '../../utils/vesselImageHelpers';
 
+import { useSessionUser } from '../../utils/useSessionUser';
 import {
   filterCAdminActiveCharters,
   filterVesselAdminChartered,
@@ -85,11 +86,12 @@ export const VesselTable: React.FC<VesselTableProps> = ({
   const [sortField, setSortField] = useState<VesselSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const sessionUser = useSessionUser();
   const [internalFilterMode, setInternalFilterMode] = useState<FleetRegistryTab>(
     activePersona === 'C Admin' ? 'chartered' : 'owned',
   );
   const filterMode = filterModeProp ?? internalFilterMode;
-  const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
+  const isVesselAdmin = activePersona === 'Administrator';
   const isClientAdmin = activePersona === 'C Admin';
 
   useEffect(() => {
@@ -99,14 +101,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({
   const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
 
   const availableAssuranceSets = useMemo(() => {
-    if (activePersona === 'C Admin') {
-      return assuranceSets.filter((set) => isAssuranceSetAssignedToPersona(set, 'C Admin'));
-    }
-    if (activePersona === 'Administrator' || activePersona === 'Submitter') {
-      return assuranceSets.filter((set) => isAssuranceSetAssignedToPersona(set, activePersona));
-    }
-    return assuranceSets;
-  }, [assuranceSets, activePersona]);
+    return assuranceSets.filter((set) =>
+      isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser),
+    );
+  }, [assuranceSets, activePersona, activeDemoOrganization, sessionUser]);
 
   const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
   const canRegister =
@@ -126,7 +124,9 @@ export const VesselTable: React.FC<VesselTableProps> = ({
   const viewerOrg = matchingUser?.organization;
   const ownedVessels = isClientAdmin
     ? vessels.filter((vessel) => isVesselOwnedByClientOrg(vessel, viewerOrg ?? ''))
-    : vessels.filter(isVesselOwned);
+    : activePersona === 'Submitter'
+      ? filterVesselsForPersona(vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser)
+      : vessels.filter(isVesselOwned);
   const charteredVessels = isClientAdmin
     ? filterCAdminActiveCharters(vessels, assuranceSets)
     : filterVesselAdminChartered(vessels, assuranceSets, viewerOrg);
@@ -136,15 +136,15 @@ export const VesselTable: React.FC<VesselTableProps> = ({
       ? filterMode === 'owned'
         ? ownedVessels
         : charteredVessels
-      : activePersona === 'Administrator' || activePersona === 'Submitter'
+      : activePersona === 'Administrator'
         ? filterMode === 'chartered'
           ? charteredVessels
           : filterMode === 'all'
           ? vessels.filter((v) => !isVesselOwned(v) && v.status !== 'Under Charter')
           : filterMode === 'owned'
             ? ownedVessels
-            : filterVesselsForPersona(vessels, assuranceSets, activePersona)
-        : filterVesselsForPersona(vessels, assuranceSets, activePersona);
+            : filterVesselsForPersona(vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser)
+        : filterVesselsForPersona(vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser);
 
   /* empty-state copy: an empty chartered list is explained, a filtered-out list points at the filters */
   const isCharteredEmpty = filterMode === 'chartered' && baseVessels.length === 0;

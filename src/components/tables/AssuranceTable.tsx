@@ -18,6 +18,7 @@ import { StatusBadge } from '../common/StatusBadge';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 
+import { useSessionUser } from '../../utils/useSessionUser';
 import {
   getAssuranceSetCreatedByLabel,
   isAssuranceSetAssignedToPersona,
@@ -77,6 +78,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
 
+  const sessionUser = useSessionUser();
   const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
   /* workflow roles get the list read-only: no create, template, or draft editing */
   const isReadOnly = isAssuranceSetsReadOnlyPersona(activePersona);
@@ -94,7 +96,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
 
   const accessibleSets = assuranceSets.filter(
     (s) =>
-      isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization) &&
+      isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser) &&
       !(isReadOnly && s.visibility === 'draft'),
   );
 
@@ -105,7 +107,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const viewerOrg = activeDemoOrganization || matchingUser?.organization;
   const isOrgSet = (s: AssuranceSet) =>
     (isAssuranceSetOwnedOrInitiatedByOrganization(s, viewerOrg) ||
-      isAssuranceSetAssignedToPersona(s, activePersona, viewerOrg)) &&
+      isAssuranceSetAssignedToPersona(s, activePersona, viewerOrg, sessionUser)) &&
     !isDraftSet(s);
 
   /* project id shown in the project column; empty for an orphaned set */

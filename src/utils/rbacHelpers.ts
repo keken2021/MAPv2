@@ -681,6 +681,8 @@ export function filterVesselsForPersona(
   vessels: VesselInformation[],
   assuranceSets: AssuranceSet[],
   persona: UserRolePersona,
+  organization?: string,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
 ): VesselInformation[] {
   if (persona === "C Admin") return vessels;
 
@@ -699,7 +701,7 @@ export function filterVesselsForPersona(
     });
   }
 
-  if (persona === "Submitter") {
+  if (persona === "Submitter" && !user) {
     /* vessel admin / submitter can only see their own vessels (owned/managed by their organization) */
     return vessels.filter((v) => {
       const ownerLower = (v.registeredOwner || "").toLowerCase();
@@ -717,13 +719,22 @@ export function filterVesselsForPersona(
     });
   }
 
-  const assignedSetVesselIds = new Set(
-    assuranceSets
-      .filter((set) => isAssuranceSetAssignedToPersona(set, persona))
-      .map((set) => set.vesselId),
+  const assignedSets = assuranceSets.filter((set) =>
+    isAssuranceSetAssignedToPersona(set, persona, organization, user),
   );
 
-  return vessels.filter((v) => assignedSetVesselIds.has(v.id));
+  const assignedSetVesselIds = new Set(
+    assignedSets.map((set) => set.vesselId).filter(Boolean),
+  );
+  const assignedSetVesselNames = new Set(
+    assignedSets.map((set) => set.vesselName?.toLowerCase().trim()).filter(Boolean),
+  );
+
+  return vessels.filter(
+    (v) =>
+      assignedSetVesselIds.has(v.id) ||
+      (v.name && assignedSetVesselNames.has(v.name.toLowerCase().trim())),
+  );
 }
 
 /**
