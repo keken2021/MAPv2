@@ -6,7 +6,7 @@ import { CountTabs, CountTab } from '../components/common/CountTabs';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { formatMaritimeDate } from '../utils/formatters';
-import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
+import { getDemoSessionContext, getRoleDisplayLabel, getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
 import { getAssuranceSetObjects } from '../utils/assuranceTemplates';
@@ -40,9 +40,20 @@ export const ApproverDashboardView: React.FC = () => {
     users,
     customScopes,
     activeDemoOrganization,
+    activeSessionUserId,
   } = useMapStore();
 
-  const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
+  const sessionUser = useMemo(
+    () =>
+      getSessionUserForPersona(
+        activePersona,
+        users,
+        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+      ),
+    [activePersona, users, activeDemoOrganization, activeSessionUserId],
+  );
+
+  const matchingUser = sessionUser ?? users.find((u) => u.roles.includes(activePersona)) ?? null;
 
   const canDecideRequirements = canPerform(
     rolePermissionDefaults,
@@ -145,9 +156,11 @@ export const ApproverDashboardView: React.FC = () => {
 
   /* filter assigned sets that are verified and awaiting approval */
   const assignedSets = assuranceSets.filter((s) => {
+    const assignmentUser = activePersona === 'Approver' ? sessionUser : undefined;
     const isAssigned = usesApproverAssignment
-      ? isAssuranceSetAssignedToPersona(s, 'Approver', activeDemoOrganization)
-      : isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization);
+      ? isAssuranceSetAssignedToPersona(s, 'Approver', activeDemoOrganization, assignmentUser) &&
+        (!assignmentUser?.name || Boolean(s.assignedApprover?.toLowerCase().includes(assignmentUser.name.toLowerCase())))
+      : isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, assignmentUser);
     if (usesApproverAssignment) {
       const isVerificationReq = s.verificationRequired !== false;
       const isVerifiedAndReady =

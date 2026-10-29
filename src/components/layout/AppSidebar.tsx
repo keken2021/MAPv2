@@ -20,6 +20,7 @@ import {
   MARKETPLACE_ROLES,
   isMarketplacePersona,
 } from "../../utils/rbacHelpers";
+import { documentsForSessionVerifier } from "../../views/VerifierWorkspaceView";
 import {
   getOrganizationSwitcherOptions,
   getPersonasForOrganization,
@@ -101,22 +102,31 @@ export const AppSidebar: React.FC = () => {
     [users, activeDemoOrganization],
   );
 
-  const verifierQueueCount = useMemo(
-    () =>
-      filterDocumentsForVerifierQueue(
-        documents,
-        assuranceSets,
-        activePersona,
-        activeDemoOrganization,
-      ).length,
-    [documents, assuranceSets, activePersona, activeDemoOrganization],
-  );
-
   const sessionUser = useMemo(
     () =>
       getSessionUserForPersona(activePersona, users, demoSessionContext) ??
       pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona),
     [activePersona, users, demoSessionContext, activeDemoOrganization],
+  );
+
+  const verifierQueueCount = useMemo(
+    () =>
+      (activePersona === "Verifier"
+        ? documentsForSessionVerifier(
+            documents,
+            assuranceSets,
+            activePersona,
+            activeDemoOrganization,
+            sessionUser,
+          )
+        : filterDocumentsForVerifierQueue(
+            documents,
+            assuranceSets,
+            activePersona,
+            activeDemoOrganization,
+          )
+      ).length,
+    [documents, assuranceSets, activePersona, activeDemoOrganization, sessionUser],
   );
 
   const userInfo = {

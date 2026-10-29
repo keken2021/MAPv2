@@ -9,11 +9,46 @@ import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilter
 import { CountTabs, CountTab } from '../components/common/CountTabs';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
-import { filterDocumentsForVerifierQueue, filterDocumentsVisibleToOrganization } from '../utils/rbacHelpers';
+import { filterDocumentsForVerifierQueue, filterDocumentsVisibleToOrganization, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
+import { AssuranceSet } from '../types/assurance';
+import { UserRolePersona } from '../types/audit';
+import { UserProfile } from '../types/user';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
+
+function namesSessionUser(label: string | undefined, userName: string | undefined): boolean {
+  const name = userName?.trim().toLowerCase();
+  if (!name || !label?.trim()) return false;
+  return label.toLowerCase().includes(name);
+}
+
+/**
+  what: documents in the verification queue for this session user.
+  how: a verifier only keeps documents on sets that name them; every other persona keeps the existing assignment filter.
+*/
+export function documentsForSessionVerifier(
+  documents: MasterDocument[],
+  assuranceSets: AssuranceSet[],
+  persona: UserRolePersona,
+  organization: string | undefined,
+  user?: Pick<UserProfile, 'name'>,
+): MasterDocument[] {
+  const org = organization?.trim() || undefined;
+  const queued = persona === 'Verifier' && user?.name
+    ? documents.filter((doc) => {
+        const namedSets = assuranceSets.filter(
+          (set) =>
+            isAssuranceSetAssignedToPersona(set, persona, org, user) &&
+            namesSessionUser(set.assignedVerifier, user.name),
+        );
+        return namedSets.some((set) => set.requirements?.some((req) => req.documentId === doc.id));
+      })
+    : filterDocumentsForVerifierQueue(documents, assuranceSets, persona, org);
+  return org ? filterDocumentsVisibleToOrganization(queued, assuranceSets, org) : queued;
+}
 
 export type VerifierTabKey = 'to-verify' | 'overdue' | 'verified' | 'returned' | 'all';
 
@@ -26,7 +61,16 @@ type SortField =
   | 'verificationStatus';
 
 export const VerifierWorkspaceView: React.FC = () => {
-  const { documents, assuranceSets, activePersona, activeDemoOrganization } = useMapStore();
+  const { documents, assuranceSets, activePersona, activeDemoOrganization, users, activeSessionUserId } = useMapStore();
+  const sessionUser = useMemo(
+    () =>
+      getSessionUserForPersona(
+        activePersona,
+        users,
+        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+      ),
+    [activePersona, users, activeDemoOrganization, activeSessionUserId],
+  );
   const [selectedDoc, setSelectedDoc] = useState<MasterDocument | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
@@ -66,10 +110,16 @@ export const VerifierWorkspaceView: React.FC = () => {
 
   const activeFilterCount = activeChips.length;
 
-  const scopedDocs = filterDocumentsVisibleToOrganization(
-    filterDocumentsForVerifierQueue(documents, assuranceSets, activePersona, activeDemoOrganization),
-    assuranceSets,
-    activeDemoOrganization,
+  const scopedDocs = useMemo(
+    () =>
+      documentsForSessionVerifier(
+        documents,
+        assuranceSets,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+      ),
+    [documents, assuranceSets, activePersona, activeDemoOrganization, sessionUser],
   );
 
   const getAssuranceSetInfo = (docId: string) => {

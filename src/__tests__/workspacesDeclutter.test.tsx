@@ -48,8 +48,8 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
           targetDate: '2026-11-12',
         },
       ],
-      assignedVerifier: 'Creishen Ayuman',
-      assignedInspector: 'Inspector User',
+      assignedVerifier: 'A. Fontaine',
+      assignedInspector: 'N. Technical',
       readinessScore: 75,
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
@@ -81,8 +81,8 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
           targetDate: '2026-10-14',
         },
       ],
-      assignedVerifier: 'Creishen Ayuman',
-      assignedInspector: 'Inspector User',
+      assignedVerifier: 'A. Fontaine',
+      assignedInspector: 'N. Technical',
       readinessScore: 60,
       mandatoryInspectionRequired: true,
       inspectionCompleted: false,
@@ -114,8 +114,8 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
           targetDate: '2026-11-18',
         },
       ],
-      assignedVerifier: 'Creishen Ayuman',
-      assignedInspector: 'Inspector User',
+      assignedVerifier: 'A. Fontaine',
+      assignedInspector: 'N. Technical',
       readinessScore: 50,
       mandatoryInspectionRequired: true,
       inspectionCompleted: true,
@@ -135,11 +135,44 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
       approverDecision: 'Approved',
       verificationRequired: true,
       requirements: [],
-      assignedVerifier: 'Creishen Ayuman',
-      assignedInspector: 'Inspector User',
+      assignedVerifier: 'A. Fontaine',
+      assignedInspector: 'N. Technical',
       readinessScore: 100,
       mandatoryInspectionRequired: true,
       inspectionCompleted: true,
+    },
+    {
+      id: 'AS-OTHER-01',
+      title: 'Another Person Set',
+      vesselId: 'VESSEL-05',
+      vesselName: 'Shaw Vessel',
+      imoNumber: '9234571',
+      initiatorOrg: 'Other Org',
+      initiatorRole: 'Vessel Provider',
+      charterWindowStart: '2026-11-01',
+      charterWindowEnd: '2026-12-01',
+      complianceDeadline: '2026-11-20',
+      stage: 'Verification',
+      approverDecision: 'Pending',
+      verificationRequired: true,
+      requirements: [
+        {
+          id: 'REQ-DOC-05',
+          category: 'Statutory Certificate',
+          title: 'Other Person Certificate',
+          documentId: 'DOC-OTHER-01',
+          isMandatory: true,
+          isFulfilled: false,
+          verifierStatus: 'Pending',
+          ocrConfidence: 90,
+          targetDate: '2026-11-18',
+        },
+      ],
+      assignedVerifier: 'D. Harrison',
+      assignedInspector: 'Capt. Robert Shaw',
+      readinessScore: 40,
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
     },
   ];
 
@@ -198,6 +231,21 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
       issuingAuthority: 'Lloyds',
       expiryDate: '2027-03-01',
       verificationStatus: 'Correction Requested',
+      ocrConfidence: 90,
+      complianceState: 'Valid',
+      currentVersion: 'v1.0',
+      versions: [],
+      validationRules: { charterBufferPassed: true, assetMatch100Percent: true, iacsAuthorityValid: true, overallValid: true },
+    },
+    {
+      id: 'DOC-OTHER-01',
+      title: 'Other Person Certificate',
+      entityType: 'Vessel Certificate',
+      vesselId: 'VESSEL-05',
+      certificateNo: 'OTH-2026-005',
+      issuingAuthority: 'DNV',
+      expiryDate: '2027-04-01',
+      verificationStatus: 'Pending',
       ocrConfidence: 90,
       complianceState: 'Valid',
       currentVersion: 'v1.0',
@@ -267,6 +315,21 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
       officialRegNumber: 'PA-11223',
       status: 'Mobilization Ready',
     } as unknown as VesselInformation,
+    {
+      id: 'VESSEL-05',
+      name: 'Shaw Vessel',
+      imoNumber: '9234571',
+      vesselType: 'Anchor Handling Tug',
+      classificationSociety: 'DNV',
+      dynamicPositioningClass: 'DP2',
+      flagState: 'Panama',
+      portOfRegistry: 'Panama City',
+      yearBuilt: 2019,
+      grossTonnageGT: 3000,
+      deadweightTonnageDWT: 3600,
+      officialRegNumber: 'PA-55667',
+      status: 'Active',
+    } as unknown as VesselInformation,
   ];
 
   beforeEach(() => {
@@ -333,12 +396,13 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
       expect(rows).toHaveLength(1);
       expect(screen.getByText('Load Line Certificate')).toBeInTheDocument();
 
-      // 5. All tab: all 4 docs (count = 4)
+      // 5. All tab: the session verifier's 4 docs; the other person's document stays out
       const allTab = within(tablist).getByRole('tab', { name: /all/i });
       expect(allTab.textContent).toContain('(4)');
       fireEvent.click(allTab);
       rows = screen.getAllByRole('row').slice(1);
       expect(rows).toHaveLength(4);
+      expect(screen.queryByText('Other Person Certificate')).toBeNull();
     });
 
     it('displays Due column with lateness in red text for overdue items', () => {
@@ -428,12 +492,13 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
       rows = screen.getAllByRole('row').slice(1);
       expect(rows).toHaveLength(2);
 
-      // 4. All tab: all 4 vessels (count = 4)
+      // 4. All tab: the session inspector's 4 vessels; the other inspector's vessel stays out
       const allTab = within(tablist).getByRole('tab', { name: /all/i });
       expect(allTab.textContent).toContain('(4)');
       fireEvent.click(allTab);
       rows = screen.getAllByRole('row').slice(1);
       expect(rows).toHaveLength(4);
+      expect(screen.queryByText('Shaw Vessel')).toBeNull();
     });
 
     it('displays Due column with lateness in red text for overdue vessels', () => {

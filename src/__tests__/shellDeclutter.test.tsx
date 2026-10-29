@@ -5,6 +5,7 @@ import { HeaderBanner } from '../components/layout/HeaderBanner';
 import { AppSidebar } from '../components/layout/AppSidebar';
 import { useMapStore } from '../store/useMapStore';
 import { filterDocumentsForVerifierQueue } from '../utils/rbacHelpers';
+import { documentsForSessionVerifier } from '../views/VerifierWorkspaceView';
 import { UserRolePersona } from '../types/audit';
 import { AssuranceSet } from '../types/assurance';
 import { MOCK_ASSURANCE_SETS } from '../store/mockData';
@@ -107,6 +108,69 @@ describe('Shell header and sidebar declutter suite', () => {
     const { container: emptyContainer } = render(<AppSidebar />);
     const emptyBadge = emptyContainer.querySelector('.badge.rounded-pill');
     expect(emptyBadge).toBeNull();
+  });
+
+  it('sets the verification queue badge to the session verifier document count', () => {
+    const fontaineSet: AssuranceSet = {
+      ...MOCK_ASSURANCE_SETS[0],
+      id: 'AS-FONTAINE',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      requirements: [
+        {
+          id: 'REQ-F',
+          documentId: 'DOC-F',
+          category: 'Statutory Certificate',
+          title: 'Fontaine Certificate',
+          isMandatory: true,
+          isFulfilled: false,
+          verifierStatus: 'Pending',
+          ocrConfidence: 90,
+        },
+      ],
+    };
+    const otherSet: AssuranceSet = {
+      ...MOCK_ASSURANCE_SETS[0],
+      id: 'AS-OTHER',
+      assignedVerifier: 'M. Chen (Bureau Veritas Inspectorate)',
+      requirements: [
+        {
+          id: 'REQ-O',
+          documentId: 'DOC-O',
+          category: 'Statutory Certificate',
+          title: 'Other Certificate',
+          isMandatory: true,
+          isFulfilled: false,
+          verifierStatus: 'Pending',
+          ocrConfidence: 90,
+        },
+      ],
+    };
+    const documents = [
+      { id: 'DOC-F', title: 'Fontaine Certificate' },
+      { id: 'DOC-O', title: 'Other Certificate' },
+    ] as any;
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+      assuranceSets: [fontaineSet, otherSet],
+      documents,
+    });
+
+    const queueLength = documentsForSessionVerifier(
+      documents,
+      [fontaineSet, otherSet],
+      'Verifier',
+      'Bureau Veritas Inspectorate',
+      { name: 'A. Fontaine' },
+    ).length;
+    expect(queueLength).toBe(1);
+
+    const { container } = render(<AppSidebar />);
+    const badge = container.querySelector('.badge.rounded-pill');
+    /* the verifier opens this queue from the dashboard, so the sidebar link stays hidden */
+    expect(badge).toBeNull();
+    expect(filterDocumentsForVerifierQueue(documents, [fontaineSet, otherSet], 'Verifier', 'Bureau Veritas Inspectorate').length).toBeGreaterThan(queueLength);
   });
 
   it('shows title only on list screens without breadcrumb element repeating page title', () => {
