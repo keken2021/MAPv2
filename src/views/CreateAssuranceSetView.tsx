@@ -79,6 +79,7 @@ import { filterProjectsForPersona, projectToAssuranceProjectScope, setOrganizati
 import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
 
 interface SpecializedDoc {
   id: string;
@@ -635,6 +636,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     return initial;
   });
 
+  /* Subtype Standard Documents Required Map: { [docId]: boolean } */
+  const [docRequired, setDocRequired] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    Object.values(SUBTYPE_STANDARD_DOCS).forEach((docList) => {
+      docList.forEach((d) => {
+        initial[d.id] = d.isMandatory;
+      });
+    });
+    return initial;
+  });
+
   /* Selected Templates per Subtype: { [subtype]: templateId } */
   const [selectedSubtypeTemplates, setSelectedSubtypeTemplates] = useState<Record<string, string>>({
     Vessel: '',
@@ -645,19 +657,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Specialized Custom Documents added by the user */
   const [specializedDocs, setSpecializedDocs] = useState<SpecializedDoc[]>([]);
-
-  /* Specialized Document Form Inputs (tracked per subtype) */
-  const [specializedInputs, setSpecializedInputs] = useState<Record<AssuranceSubtype, {
-    title: string;
-    description: string;
-    category: AssuranceRequirementCategory;
-    isMandatory: boolean;
-  }>>({
-    Vessel: { title: '', description: '', category: SUBTYPE_CATEGORIES.Vessel[0], isMandatory: true },
-    Crew: { title: '', description: '', category: SUBTYPE_CATEGORIES.Crew[0], isMandatory: true },
-    Activity: { title: '', description: '', category: SUBTYPE_CATEGORIES.Activity[0], isMandatory: true },
-    Equipment: { title: '', description: '', category: SUBTYPE_CATEGORIES.Equipment[0], isMandatory: true },
-  });
 
   /* Wizard tabs: General, Objects, Requirements, Review */
   const steps = buildAssuranceWizardSteps();
@@ -764,15 +763,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         if (publicTmpl.reviewMode) setReviewMode(publicTmpl.reviewMode);
 
         const updatedToggles: Record<string, boolean> = {};
+        const updatedRequired: Record<string, boolean> = {};
         Object.values(SUBTYPE_STANDARD_DOCS).flat().forEach((doc) => {
-          const matched = publicTmpl.requirements.some(
+          const matched = publicTmpl.requirements.find(
             (r) => r.title.toLowerCase().includes(doc.title.toLowerCase()) || doc.title.toLowerCase().includes(r.title.toLowerCase()),
           );
           if (matched) {
             updatedToggles[doc.id] = true;
+            updatedRequired[doc.id] = matched.isMandatory;
           }
         });
         setDocToggles((prev) => ({ ...prev, ...updatedToggles }));
+        setDocRequired((prev) => ({ ...prev, ...updatedRequired }));
 
         const customReqs: SpecializedDoc[] = publicTmpl.requirements
           .filter((r) => !Object.values(SUBTYPE_STANDARD_DOCS).flat().some((d) => d.title.toLowerCase() === r.title.toLowerCase()))
@@ -833,15 +835,20 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
           // Restore doc toggles precisely
           const updatedToggles: Record<string, boolean> = {};
+          const updatedRequired: Record<string, boolean> = {};
           Object.values(SUBTYPE_STANDARD_DOCS).forEach((list) => {
             list.forEach((doc) => {
-              const matched = target.requirements.some(
+              const matchedReq = target.requirements.find(
                 (r) => !r.isSpecialized && (r.title.toLowerCase().includes(doc.title.toLowerCase()) || doc.title.toLowerCase().includes(r.title.toLowerCase()))
               );
-              updatedToggles[doc.id] = matched;
+              updatedToggles[doc.id] = Boolean(matchedReq);
+              if (matchedReq) {
+                updatedRequired[doc.id] = matchedReq.isMandatory;
+              }
             });
           });
           setDocToggles(updatedToggles);
+          setDocRequired((prev) => ({ ...prev, ...updatedRequired }));
 
           // Restore specialized custom requirements
           const customReqs: SpecializedDoc[] = target.requirements
@@ -911,55 +918,54 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setSelectedProjectId(projId);
   };
 
-  /* Toggle individual standard document */
-  const handleToggleStandardDoc = (docId: string) => {
+  /* Add catalogue standard document back to list */
+  const handleAddCatalogueDoc = (docId: string) => {
     setDocToggles((prev) => ({
       ...prev,
-      [docId]: !prev[docId],
+      [docId]: true,
     }));
   };
 
-  /* Handle adding a specialized custom document */
-  const handleAddSpecializedDoc = (subtype: AssuranceSubtype) => {
-    const input = specializedInputs[subtype];
-    if (!input.title.trim()) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        [`specialized_${subtype}`]: `Document title is required for specialized ${subtype.toLowerCase()} document.`,
-      }));
-      return;
-    }
-
-    const newSpecializedDoc: SpecializedDoc = {
-      id: `spec-${subtype.toLowerCase()}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+  /* Create custom document from searchable picker */
+  const handleCreateCustomDoc = (subtype: AssuranceSubtype, titleText: string) => {
+    const newDoc: SpecializedDoc = {
+      id: `custom-doc-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       subtype,
-      title: input.title.trim(),
-      category: input.category,
-      description: input.description.trim() || `Custom requirement for ${subtype} assurance.`,
-      isMandatory: input.isMandatory,
+      title: titleText.trim(),
+      category: SUBTYPE_CATEGORIES[subtype][0],
+      description: `Custom requirement for ${subtype} assurance.`,
+      isMandatory: true,
       isEnabled: true,
     };
-
-    setSpecializedDocs((prev) => [...prev, newSpecializedDoc]);
-    setSpecializedInputs((prev) => ({
-      ...prev,
-      [subtype]: {
-        title: '',
-        description: '',
-        category: SUBTYPE_CATEGORIES[subtype][0],
-        isMandatory: true,
-      },
-    }));
-    setFieldErrors((prev) => {
-      const u = { ...prev };
-      delete u[`specialized_${subtype}`];
-      return u;
-    });
-    setErrorMessage('');
+    setSpecializedDocs((prev) => [...prev, newDoc]);
   };
 
-  const handleRemoveSpecializedDoc = (id: string) => {
-    setSpecializedDocs((prev) => prev.filter((d) => d.id !== id));
+  /* Toggle Required / Optional for standard doc */
+  const handleToggleStandardDocRequired = (docId: string, currentVal: boolean) => {
+    setDocRequired((prev) => ({
+      ...prev,
+      [docId]: !currentVal,
+    }));
+  };
+
+  /* Toggle Required / Optional for custom doc */
+  const handleToggleCustomDocRequired = (specId: string) => {
+    setSpecializedDocs((prev) =>
+      prev.map((spec) => (spec.id === specId ? { ...spec, isMandatory: !spec.isMandatory } : spec))
+    );
+  };
+
+  /* Remove standard doc from list (can be re-added via search) */
+  const handleRemoveStandardDoc = (docId: string) => {
+    setDocToggles((prev) => ({
+      ...prev,
+      [docId]: false,
+    }));
+  };
+
+  /* Remove custom doc */
+  const handleRemoveCustomDoc = (specId: string) => {
+    setSpecializedDocs((prev) => prev.filter((spec) => spec.id !== specId));
   };
 
   const handleToggleSpecializedDoc = (id: string) => {
@@ -1178,7 +1184,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             title: doc.title,
             description: doc.description,
             subtype: doc.subtype,
-            isMandatory: doc.isMandatory,
+            isMandatory: docRequired[doc.id] ?? doc.isMandatory,
             isFulfilled: false,
             ocrConfidence: 0,
             verifierStatus: 'Pending',
@@ -1496,7 +1502,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             title: doc.title,
             description: doc.description,
             subtype: doc.subtype,
-            isMandatory: doc.isMandatory,
+            isMandatory: docRequired[doc.id] ?? doc.isMandatory,
             isFulfilled: false,
             ocrConfidence: 0,
             verifierStatus: 'Pending',
@@ -1765,19 +1771,28 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const publicTemplates = SUBTYPE_TEMPLATES.filter((t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'public');
     const orgTemplates = SUBTYPE_TEMPLATES.filter((t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'organization');
     const activeTemplateId = selectedSubtypeTemplates[subtype] || '';
-    const specializedList = specializedDocs.filter((d: { subtype: string; }) => d.subtype === subtype);
-    const specInput = specializedInputs[subtype];
-    /* Section label: for standalone (non-project) scopes use neutral 'Documents' label */
-    const sectionLabel = 'Documents';
+    const activeTemplate = SUBTYPE_TEMPLATES.find((t) => t.id === activeTemplateId);
+
+    const activeStandardDocs = standardDocs.filter((d) => docToggles[d.id]);
+    const activeSpecializedDocs = specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled);
+    const totalActiveCount = activeStandardDocs.length + activeSpecializedDocs.length;
+
+    const availableSearchItems: SearchableSelectItem[] = standardDocs
+      .filter((d) => !docToggles[d.id])
+      .map((d) => ({
+        id: d.id,
+        label: d.title,
+        hint: d.category,
+      }));
 
     return (
-      <div className="d-flex flex-column gap-4" id={`subtype-docs-container-${subtype}`}>
-        {/* Template Selector Card (Optional) */}
-        <div className="card border shadow-sm rounded-3 bg-white">
+      <div className="d-flex flex-column gap-3" id={`subtype-docs-container-${subtype}`}>
+        {/* Template Selector Card */}
+        <div className="card border shadow-2xs rounded-3 bg-white">
           <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
               <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                {sectionLabel} Assurance Templates (Optional)
+                Assurance Templates <span className="text-secondary fw-normal fs-7">(Optional)</span>
               </h5>
               <div className="text-muted small mt-0.5">
                 Start from a template to fill in the required documents.
@@ -1791,39 +1806,35 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           </div>
           <div className="card-body p-4">
             <div className="row g-3">
-              <div className="col-12 col-md-6">
-                <label className="form-label text-secondary small fw-semibold">
-                  Public Templates
+              <div className="col-12 col-md-8 col-lg-6">
+                <label className="form-label text-secondary small fw-semibold" htmlFor={`template-select-${subtype}`}>
+                  Select Template
                 </label>
                 <select
+                  id={`template-select-${subtype}`}
                   className="form-select bg-white text-dark border-secondary-subtle"
-                  value={publicTemplates.some((t) => t.id === activeTemplateId) ? activeTemplateId : ''}
+                  value={activeTemplateId}
                   onChange={(e) => handleSelectSubtypeTemplate(subtype, e.target.value)}
                 >
-                  <option value="">Select a public template</option>
-                  {publicTemplates.map((tmpl) => (
-                    <option key={tmpl.id} value={tmpl.id}>
-                      {tmpl.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="col-12 col-md-6">
-                <label className="form-label text-secondary small fw-semibold">
-                  Organization Templates
-                </label>
-                <select
-                  className="form-select bg-white text-dark border-secondary-subtle"
-                  value={orgTemplates.some((t) => t.id === activeTemplateId) ? activeTemplateId : ''}
-                  onChange={(e) => handleSelectSubtypeTemplate(subtype, e.target.value)}
-                >
-                  <option value="">Select an organization template</option>
-                  {orgTemplates.map((tmpl) => (
-                    <option key={tmpl.id} value={tmpl.id}>
-                      {tmpl.name} ({tmpl.organizationName || 'Corporate'})
-                    </option>
-                  ))}
+                  <option value="">Select a template...</option>
+                  {publicTemplates.length > 0 && (
+                    <optgroup label="Public Templates">
+                      {publicTemplates.map((tmpl) => (
+                        <option key={tmpl.id} value={tmpl.id}>
+                          {tmpl.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {orgTemplates.length > 0 && (
+                    <optgroup label="Organization Templates">
+                      {orgTemplates.map((tmpl) => (
+                        <option key={tmpl.id} value={tmpl.id}>
+                          {tmpl.name} ({tmpl.organizationName || 'Corporate'})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
             </div>
@@ -1832,9 +1843,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <div className="mt-3 p-3 bg-light-subtle border border-primary-subtle rounded-2 d-flex align-items-center justify-content-between">
                 <div className="small text-secondary">
                   <strong className="text-primary d-block">
-                    Active: {SUBTYPE_TEMPLATES.find((t) => t.id === activeTemplateId)?.name}
+                    Active: {activeTemplate?.name}
                   </strong>
-                  <span>{SUBTYPE_TEMPLATES.find((t) => t.id === activeTemplateId)?.description}</span>
+                  <span>{activeTemplate?.description}</span>
                 </div>
                 <button
                   type="button"
@@ -1848,232 +1859,139 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           </div>
         </div>
 
-        {/* Standard Required Documents List with Descriptions */}
-        <div className="card border shadow-sm rounded-3 bg-white">
-          <div className="card-header bg-light border-bottom px-4 py-3">
-            <h5 className="fw-bold text-slate-900 m-0 fs-6">
-              Required Documents
-            </h5>
-            <p className="text-muted small m-0 mt-1">
-              Mark each document as required or not.
-            </p>
-          </div>
-          <div className="card-body p-4">
-            <div className="d-flex flex-column gap-3">
-              {standardDocs.map((doc) => {
-                const isEnabled = Boolean(docToggles[doc.id]);
-
-                return (
-                  <div
-                    key={doc.id}
-                    className={`p-3 border rounded-3 transition-all ${isEnabled ? 'bg-white border-primary-subtle shadow-2xs' : 'bg-light border-light-subtle opacity-75'
-                      }`}
-                  >
-                    <div className="d-flex align-items-start justify-content-between gap-3">
-                      <div className="d-flex align-items-start gap-3 flex-grow-1">
-                        <div className="form-check form-switch m-0 fs-5 mt-0.5">
-                          <input
-                            className="form-check-input cursor-pointer"
-                            type="checkbox"
-                            checked={isEnabled}
-                            onChange={() => handleToggleStandardDoc(doc.id)}
-                            id={`toggle-${doc.id}`}
-                            style={{ width: '2.5rem', height: '1.35rem', cursor: 'pointer' }}
-                          />
-                        </div>
-                        <div className="flex-grow-1">
-                          <div className="d-flex align-items-center gap-2 flex-wrap">
-                            <label
-                              htmlFor={`toggle-${doc.id}`}
-                              className="fw-bold text-dark mb-0 d-block small cursor-pointer"
-                            >
-                              {doc.title}
-                            </label>
-                          </div>
-                          <p className="text-secondary small mb-0 mt-1" style={{ lineHeight: '1.45', fontSize: '0.8125rem' }}>
-                            {doc.description}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div>
-                        {isEnabled ? (
-                          <span
-                            className="badge rounded-pill fw-semibold px-3 py-1"
-                            style={{ backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', fontSize: '0.75rem' }}
-                          >
-                            Required
-                          </span>
-                        ) : (
-                          <span
-                            className="badge rounded-pill fw-semibold px-3 py-1 text-secondary"
-                            style={{ backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', fontSize: '0.75rem' }}
-                          >
-                            Off
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Specialized Custom Document Input with Description */}
-        <div className="card border shadow-sm rounded-3 bg-white">
+        {/* Required Documents List & Searchable Picker Card */}
+        <div className="card border shadow-2xs rounded-3 bg-white">
           <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
               <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                Add Document <span className="text-secondary fw-normal fs-7">(optional)</span>
+                Documents ({totalActiveCount})
               </h5>
-              <p className="text-muted small m-0 mt-1">
-                Add any other documents this assurance set needs.
-              </p>
+              <div className="text-muted small mt-0.5">
+                Set each document as required or optional, or search to add more.
+              </div>
             </div>
           </div>
-          <div className="card-body p-4">
-            <div className="row g-3">
-              <div className="col-12 col-md-8">
-                <label className="form-label text-secondary small fw-semibold">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  className={`form-control bg-white text-dark border-secondary-subtle${fieldErrors[`specialized_${subtype}`] ? ' is-invalid border-danger' : ''}`}
-                  placeholder={`e.g. ${subtype} Verification Report`}
-                  value={specInput.title}
-                  onChange={(e) => {
-                    setSpecializedInputs((prev) => ({
-                      ...prev,
-                      [subtype]: { ...prev[subtype], title: e.target.value },
-                    }));
-                    setFieldErrors((prev) => {
-                      const u = { ...prev };
-                      delete u[`specialized_${subtype}`];
-                      return u;
-                    });
-                  }}
-                />
-                {fieldErrors[`specialized_${subtype}`] && (
-                  <div className="text-danger small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                    {fieldErrors[`specialized_${subtype}`]}
-                  </div>
-                )}
-              </div>
-
-              <div className="col-12 col-md-4">
-                <label className="form-label text-secondary small fw-semibold">
-                  {subtype} Document Category
-                </label>
-                <select
-                  className="form-select bg-white text-dark border-secondary-subtle"
-                  value={specInput.category}
-                  onChange={(e) =>
-                    setSpecializedInputs((prev) => ({
-                      ...prev,
-                      [subtype]: { ...prev[subtype], category: e.target.value as AssuranceRequirementCategory },
-                    }))
-                  }
-                >
-                  {(SUBTYPE_CATEGORIES[subtype] || []).map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="col-12">
-                <label className="form-label text-secondary small fw-semibold">
-                  Document Description
-                </label>
-                <textarea
-                  className="form-control bg-white text-dark border-secondary-subtle"
-                  rows={2}
-                  placeholder="Why this document is needed"
-                  value={specInput.description}
-                  onChange={(e) =>
-                    setSpecializedInputs((prev) => ({
-                      ...prev,
-                      [subtype]: { ...prev[subtype], description: e.target.value },
-                    }))
-                  }
-                />
-              </div>
-
-              <div className="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div className="form-check form-switch m-0">
-                  <input
-                    className="form-check-input cursor-pointer"
-                    type="checkbox"
-                    checked={specInput.isMandatory}
-                    onChange={(e) =>
-                      setSpecializedInputs((prev) => ({
-                        ...prev,
-                        [subtype]: { ...prev[subtype], isMandatory: e.target.checked },
-                      }))
-                    }
-                    id={`spec-mand-toggle-${subtype}`}
-                  />
-                  <label htmlFor={`spec-mand-toggle-${subtype}`} className="form-check-label text-secondary small fw-semibold cursor-pointer">
-                    Required for Approval
-                  </label>
-                </div>
-
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary text-white fw-semibold d-inline-flex align-items-center gap-1.5"
-                  onClick={() => handleAddSpecializedDoc(subtype)}
-                >
-                  Add Document
-                </button>
-              </div>
+          <div className="card-body p-4 d-flex flex-column gap-3">
+            {/* Searchable document picker */}
+            <div>
+              <label className="form-label text-secondary small fw-semibold" htmlFor={`search-docs-${subtype}`}>
+                Add Document
+              </label>
+              <SearchableSelect
+                id={`search-docs-${subtype}`}
+                items={availableSearchItems}
+                placeholder={`Search ${subtype.toLowerCase()} documents to add...`}
+                aria-label={`Search ${subtype.toLowerCase()} documents`}
+                onSelect={(item) => handleAddCatalogueDoc(item.id)}
+                onCreate={(customTitle) => handleCreateCustomDoc(subtype, customTitle)}
+                createLabel={(text) => `Add '${text}' as a custom document`}
+              />
             </div>
 
-            {/* List of Added Specialized Documents for this subtype */}
-            {specializedList.length > 0 && (
-              <div className="mt-4 border-top pt-3">
-                <h6 className="fw-bold text-dark small mb-2">
-                  Added Documents ({specializedList.length})
-                </h6>
-                <div className="d-flex flex-column gap-2">
-                  {specializedList.map((spec: SpecializedDoc) => (
+            {/* Document rows or empty state */}
+            {totalActiveCount === 0 ? (
+              <div className="p-4 text-center text-secondary small bg-light rounded-2 border border-dashed">
+                No {subtype} documents. Search to add one.
+              </div>
+            ) : (
+              <div className="d-flex flex-column gap-2" id={`docs-list-${subtype}`}>
+                {activeStandardDocs.map((doc) => {
+                  const isRequired = docRequired[doc.id] ?? doc.isMandatory;
+                  return (
                     <div
-                      key={spec.id}
-                      className="p-3 border rounded-2 bg-light-subtle d-flex align-items-start justify-content-between gap-2"
+                      key={doc.id}
+                      className="p-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
                     >
-                      <div className="d-flex align-items-start gap-2.5">
-                        <div className="form-check form-switch m-0 mt-0.5">
+                      <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                        <span className="fw-semibold text-dark small text-truncate">
+                          {doc.title}
+                        </span>
+                      </div>
+                      <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                        <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
                           <input
                             className="form-check-input cursor-pointer"
                             type="checkbox"
-                            checked={spec.isEnabled}
-                            onChange={() => handleToggleSpecializedDoc(spec.id)}
+                            id={`req-toggle-${doc.id}`}
+                            checked={isRequired}
+                            onChange={() => handleToggleStandardDocRequired(doc.id, isRequired)}
+                            style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
                           />
+                          <label
+                            htmlFor={`req-toggle-${doc.id}`}
+                            className={`small fw-semibold m-0 cursor-pointer ${
+                              isRequired ? 'text-success' : 'text-secondary'
+                            }`}
+                            style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                          >
+                            {isRequired ? 'Required' : 'Optional'}
+                          </label>
                         </div>
-                        <div>
-                          <div className="d-flex align-items-center gap-2">
-                            <strong className="text-dark small">{spec.title}</strong>
-                          </div>
-                          <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem' }}>
-                            {spec.description}
-                          </div>
-                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                          title="Remove document"
+                          aria-label={`Remove ${doc.title}`}
+                          onClick={() => handleRemoveStandardDoc(doc.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger py-0 px-2 text-danger"
-                        style={{ fontSize: '0.75rem' }}
-                        onClick={() => handleRemoveSpecializedDoc(spec.id)}
-                        title="Remove"
-                      >
-                        Remove
-                      </button>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+
+                {activeSpecializedDocs.map((spec) => {
+                  const isRequired = spec.isMandatory;
+                  return (
+                    <div
+                      key={spec.id}
+                      className="p-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
+                    >
+                      <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                        <span className="fw-semibold text-dark small text-truncate">
+                          {spec.title}
+                        </span>
+                        <span
+                          className="badge bg-secondary-subtle text-dark border font-mono-code"
+                          style={{ fontSize: '0.675rem' }}
+                        >
+                          Custom
+                        </span>
+                      </div>
+                      <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                        <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                          <input
+                            className="form-check-input cursor-pointer"
+                            type="checkbox"
+                            id={`req-toggle-${spec.id}`}
+                            checked={isRequired}
+                            onChange={() => handleToggleCustomDocRequired(spec.id)}
+                            style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                          />
+                          <label
+                            htmlFor={`req-toggle-${spec.id}`}
+                            className={`small fw-semibold m-0 cursor-pointer ${
+                              isRequired ? 'text-success' : 'text-secondary'
+                            }`}
+                            style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                          >
+                            {isRequired ? 'Required' : 'Optional'}
+                          </label>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                          title="Remove document"
+                          aria-label={`Remove ${spec.title}`}
+                          onClick={() => handleRemoveCustomDoc(spec.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -3237,7 +3155,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 subtype,
                                 title: doc.title,
                                 isCustom: false,
-                                isMandatory: doc.isMandatory,
+                                isMandatory: docRequired[doc.id] ?? doc.isMandatory,
                               });
                             }
                           });
@@ -3289,10 +3207,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                             >
                                               <span className="text-dark fw-medium">{doc.title}</span>
                                               <span
-                                                className={`badge ${doc.isCustom ? 'bg-primary-subtle text-primary border border-primary-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`}
+                                                className={`badge ${doc.isCustom ? 'bg-primary-subtle text-primary border border-primary-subtle' : doc.isMandatory ? 'bg-secondary-subtle text-dark border' : 'bg-light text-secondary border'} font-mono-code`}
                                                 style={{ fontSize: '0.7rem' }}
                                               >
-                                                {doc.isCustom ? 'Added' : 'Required'}
+                                                {doc.isCustom ? 'Added' : doc.isMandatory ? 'Required' : 'Optional'}
                                               </span>
                                             </div>
                                           ))}
