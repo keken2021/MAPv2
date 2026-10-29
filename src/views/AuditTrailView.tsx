@@ -18,7 +18,7 @@ import {
 } from '../utils/userRoleHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
-import { FilterButton } from '../components/common/FilterButton';
+import { ListToolbar } from '../components/common/ListToolbar';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
@@ -43,7 +43,6 @@ export const AuditTrailView: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [targetKindFilter, setTargetKindFilter] = useState<'ALL' | 'set' | 'task' | 'date'>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const sessionUser = useMemo(
     () =>
@@ -133,7 +132,6 @@ export const AuditTrailView: React.FC = () => {
       setId: exportSetId,
       detail: `${sortedEvents.length} events`,
     });
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
@@ -152,7 +150,6 @@ export const AuditTrailView: React.FC = () => {
       setId: exportSetId,
       detail: `${sortedEvents.length} events`,
     });
-    setIsExportOpen(false);
   };
 
   const activeFilterCount = (roleFilter !== 'ALL' ? 1 : 0) + (targetKindFilter !== 'ALL' ? 1 : 0);
@@ -173,52 +170,15 @@ export const AuditTrailView: React.FC = () => {
     <div className="d-flex flex-column gap-4">
       {/* Main Audit Card */}
       <div className="card map-card-custom">
-        {/* Controls Row */}
-        <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-          <div className="d-flex flex-wrap align-items-center gap-2">
-            <input
-              type="text"
-              className="form-control form-control-sm bg-white text-dark border-secondary"
-              placeholder="Search audit trail..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ width: '320px' }}
-            />
-            <FilterButton
-              onClick={() => setIsFilterModalOpen(true)}
-              activeCount={activeFilterCount}
-            />
-          </div>
-
-          <div className="d-flex align-items-center gap-3 ms-auto">
-            <div className="text-secondary small">
-              Showing <strong className="text-dark">{filteredEvents.length}</strong> of {visibleEvents.length} logs
-            </div>
-            <div className="dropdown position-relative">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-                onClick={() => setIsExportOpen(!isExportOpen)}
-              >
-                Export
-              </button>
-              {isExportOpen && (
-                <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border">
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                      CSV
-                    </button>
-                  </li>
-                  <li>
-                    <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                      PDF
-                    </button>
-                  </li>
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
+        <ListToolbar
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search audit trail..."
+          onFilterClick={() => setIsFilterModalOpen(true)}
+          activeFilterCount={activeFilterCount}
+          onExportCsv={handleExportCsv}
+          onExportPdf={handleExportPdf}
+        />
 
         {activeChips.length > 0 && (
           <div className="px-3 py-2 bg-light border-bottom">
@@ -280,34 +240,19 @@ export const AuditTrailView: React.FC = () => {
                 eventsPagination.pageItems.map((ev) => (
                   <tr key={ev.id}>
                     <td className="font-mono-code small text-nowrap">{formatMaritimeDate(ev.timestampUtc)}</td>
-                    <td>
-                      <span className="fw-semibold text-primary">{ev.action}</span>
+                    <td className="fw-semibold text-primary text-nowrap">{ev.action}</td>
+                    <td className="text-dark text-nowrap">{formatAuditTarget(ev.target)}</td>
+                    <td className="small text-dark text-nowrap">
+                      {getRoleDisplayLabel(ev.userRole)}
+                      <span className="text-secondary"> · {ev.organization}</span>
                     </td>
-                    <td>
-                      <strong className="text-slate-900">{formatAuditTarget(ev.target)}</strong>
-                      <div className="small text-secondary">{ev.targetAsset}</div>
+                    <td className="small text-dark text-nowrap">
+                      {ev.fieldDelta
+                        ? `${ev.fieldDelta.fieldName}: ${ev.fieldDelta.oldValue} → ${ev.fieldDelta.newValue}`
+                        : 'No change'}
                     </td>
-                    <td>
-                      <div className="d-flex align-items-center gap-2">
-                        <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {getRoleDisplayLabel(ev.userRole)}
-                        </span>
-                        <span className="text-secondary small">{ev.organization}</span>
-                      </div>
-                    </td>
-                    <td>
-                      {ev.fieldDelta ? (
-                        <div className="p-2 bg-light rounded font-mono-code small border border-secondary" style={{ fontSize: '0.75rem' }}>
-                          <div className="fw-bold text-dark">Field: {ev.fieldDelta.fieldName}</div>
-                          <div className="text-danger">Old: {ev.fieldDelta.oldValue}</div>
-                          <div className="text-success">New: {ev.fieldDelta.newValue}</div>
-                        </div>
-                      ) : (
-                        <span className="text-muted small">No change</span>
-                      )}
-                    </td>
-                    <td className="small text-secondary fst-italic">
-                      {ev.justificationNotes ? `"${ev.justificationNotes}"` : 'N/A'}
+                    <td className="small text-secondary text-nowrap">
+                      {ev.justificationNotes?.trim() ? ev.justificationNotes : '—'}
                     </td>
                   </tr>
                 ))

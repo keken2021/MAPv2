@@ -5,13 +5,12 @@
 */
 
 import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Eye, FileText, ExternalLink } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, ComplianceState } from '../../types/document';
-import { ConfidenceBadge } from '../common/ConfidenceBadge';
-import { UniversalDocumentPreviewModal } from '../modals/UniversalDocumentPreviewModal';
 import { FilterModal } from '../common/FilterModal';
-import { FilterButton } from '../common/FilterButton';
+import { CountTabs } from '../common/CountTabs';
+import { ListToolbar } from '../common/ListToolbar';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
@@ -66,8 +65,6 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [isExportOpen, setIsExportOpen] = useState(false);
-  const [pdfPreviewDoc, setPdfPreviewDoc] = useState<MasterDocument | null>(null);
 
   const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
   const canUpload =
@@ -167,7 +164,6 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
       Verification: getStatusDisplayLabel(d.verificationStatus),
     }));
     exportToCsv('Document_Library', exportData);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
@@ -182,70 +178,52 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
       d.currentVersion,
     ]);
     exportToPdf('Document Library', headers, rows);
-    setIsExportOpen(false);
   };
 
   const docsPagination = usePagination(sortedDocs, [searchTerm, typeFilter, statusFilter, verificationFilter, sortField, sortDirection]);
 
+  const documentTabs = [
+    { key: 'ALL', label: 'All', count: documents.length },
+    {
+      key: 'Expiring < 6 Mos',
+      label: 'Expiring Soon',
+      count: documents.filter((d) => d.complianceState === 'Expiring < 6 Mos').length,
+      tone: 'warn' as const,
+    },
+    {
+      key: 'Expired',
+      label: 'Expired',
+      count: documents.filter((d) => d.complianceState === 'Expired').length,
+    },
+  ];
+  const activeDocumentTab = documentTabs.some((tab) => tab.key === statusFilter) ? statusFilter : '';
+
   return (
     <div className="card map-card-custom">
-      {/* Table Header Controls Row: Grouped Search/Filter/Sort Left, Grouped Export/Upload Right */}
-      <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-        {/* Group 1 (Left): Search Box & Filter Button */}
-        <div className="d-flex flex-wrap align-items-center gap-2">
-          <input
-            type="text"
-            className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search documents..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '240px' }}
-          />
-          <FilterButton
-            onClick={() => setIsFilterModalOpen(true)}
-            activeCount={activeFilterCount}
-          />
-        </div>
-
-        {/* Group 2 (Right): Export & Upload Action Buttons on corner right of the row */}
-        <div className="d-flex align-items-center gap-2 ms-auto">
-          {/* Export Dropdown */}
-          <div className="dropdown position-relative">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-              onClick={() => setIsExportOpen(!isExportOpen)}
-            >
-              Export
-            </button>
-            {isExportOpen && (
-              <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border">
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    CSV
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    PDF
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
-
-          {/* Upload Document Action Button */}
-          {canUpload && onUploadDocument && (
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={onUploadDocument}
-            >
+      <div className="p-3 border-bottom">
+        <CountTabs
+          tabs={documentTabs}
+          active={activeDocumentTab}
+          onChange={setStatusFilter}
+          aria-label="Document tabs"
+        />
+      </div>
+      <ListToolbar
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search documents..."
+        onFilterClick={() => setIsFilterModalOpen(true)}
+        activeFilterCount={activeFilterCount}
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+        primaryAction={
+          canUpload && onUploadDocument ? (
+            <button type="button" className="btn btn-sm btn-primary" onClick={onUploadDocument}>
               Upload Document
             </button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {activeChips.length > 0 && (
         <div className="px-3 py-2 bg-light border-bottom">
@@ -282,54 +260,29 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                 onClick={() => onSelectDocument(doc)}
                 style={{ cursor: 'pointer' }}
               >
-                <td className="font-mono-code fw-semibold text-primary">{doc.certificateNo}</td>
-                <td>
-                  <div className="fw-semibold text-dark">{doc.title}</div>
-                  <div className="small font-mono-code text-secondary">
-                    v{doc.currentVersion}
-                  </div>
-                </td>
-                <td>
-                  <span className="badge bg-light text-dark border" style={{ fontSize: '0.75rem' }}>
-                    {doc.entityType}
-                  </span>
-                  <div className="small text-muted mt-0.5">{doc.issuingAuthority}</div>
-                </td>
-                <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
+                <td className="font-mono-code fw-semibold text-primary text-nowrap">{doc.certificateNo}</td>
+                <td className="fw-semibold text-dark text-nowrap">{doc.title}</td>
+                <td className="text-dark text-nowrap">{doc.entityType}</td>
+                <td className="font-mono-code small text-nowrap">{formatMaritimeDate(doc.expiryDate)}</td>
                 <td>
                   <span className={`badge ${getComplianceBadgeClass(doc.complianceState)}`}>
                     {getStatusDisplayLabel(doc.complianceState)}
                   </span>
                 </td>
                 <td className="text-end">
-                  <div className="d-inline-flex align-items-center gap-1.5">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
-                      style={{ width: '32px', height: '32px' }}
-                      title="PDF Review"
-                      aria-label="PDF Review"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPdfPreviewDoc(doc);
-                      }}
-                    >
-                      <FileText size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                      style={{ width: '32px', height: '32px' }}
-                      title="View Details"
-                      aria-label="View Details"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSelectDocument(doc);
-                      }}
-                    >
-                      <Eye size={16} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                    style={{ width: '32px', height: '32px' }}
+                    title="View"
+                    aria-label="View"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectDocument(doc);
+                    }}
+                  >
+                    <Eye size={16} />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -395,29 +348,6 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
           </div>
         </div>
       </FilterModal>
-
-      {/* Universal Document Preview Modal */}
-      <UniversalDocumentPreviewModal
-        isOpen={Boolean(pdfPreviewDoc)}
-        document={pdfPreviewDoc}
-        onClose={() => setPdfPreviewDoc(null)}
-        extraAction={
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-            style={{ width: '32px', height: '32px' }}
-            title="Open Full Detail View"
-            aria-label="Open Full Detail View"
-            onClick={() => {
-              const target = pdfPreviewDoc;
-              setPdfPreviewDoc(null);
-              if (target) onSelectDocument(target);
-            }}
-          >
-            <ExternalLink size={16} />
-          </button>
-        }
-      />
     </div>
   );
 };
