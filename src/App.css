@@ -1772,3 +1772,110 @@ div.map-autofill-animate {
   border-radius: 8px;
 }
 
+.map-count-tabs {
+  padding: 4px 0;
+}
+
+.map-count-tab {
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  line-height: 1.2;
+  color: var(--map-text-muted);
+  background-color: transparent;
+  transition: all 0.15s ease-in-out;
+}
+
+.map-count-tab:hover {
+  background-color: rgba(11, 27, 43, 0.05);
+  color: var(--map-primary-blue);
+}
+
+.map-count-tab.is-active {
+  background-color: var(--map-primary-blue);
+  color: #ffffff;
+  border-color: var(--map-primary-blue);
+}
+
+.map-count-tab.is-active .map-count-tab-count {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.map-count-tab-count {
+  font-weight: 500;
+}
+
+.map-count-tab-count.is-warn,
+.map-count-tab-warn {
+  color: var(--map-warning-text) !important;
+  font-weight: 600;
+}
+
+.map-count-tab.is-active .map-count-tab-count.is-warn,
+.map-count-tab.is-active .map-count-tab-warn {
+  color: #fbbf24 !important;
+}
+
+/* StatusBadge: 4 semantic tones */
+.map-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.map-status-badge--success {
+  background-color: var(--map-success-bg);
+  color: var(--map-success-text);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+}
+
+.map-status-badge--warning {
+  background-color: var(--map-warning-bg);
+  color: var(--map-warning-text);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+.map-status-badge--danger {
+  background-color: var(--map-danger-bg);
+  color: var(--map-danger-text);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.map-status-badge--neutral {
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid var(--map-border-color);
+}
+
+/* ListToolbar */
+.map-list-toolbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--map-border-color);
+  padding: 12px 16px;
+}
+
+.map-list-toolbar .form-control:focus {
+  border-color: var(--map-focus-ring);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+}
+
+/* DetailHeader */
+.map-detail-header {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--map-border-color);
+  padding: 20px 24px;
+}
+
+.map-detail-header-meta {
+  color: var(--map-text-muted);
+}
+
+

@@ -27,7 +27,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
 - `src/components/modals/` : modals (centered)
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
-- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper)
+- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, DetailHeader)
 - `src/components/layout/` : sidebar, header, notification panel, organization switcher
 - `src/store/useMapStore.ts` : the single app store
 - `src/store/*MockData.ts` : mock data, one file per domain
@@ -80,6 +80,7 @@ Root: `C:\mapFiles\MAPv2`
 
 ## Unit tests named in the Task lists
 - `src/__tests__/` : all prototype tests. Run a subset with `npx vitest run src/__tests__/<file>`
+- Unit tests for UI declutter shared pieces: `src/__tests__/sharedPieces.test.tsx` (CountTabs, StatusBadge, ListToolbar, DetailHeader)
 - Projects: `createProjectWizardOrganization.test.tsx`, `projectComposition.test.ts`, `projectNestedSets.test.ts`, `assuranceSetProjectRelationship.test.ts`, `mockDataConsistency.test.ts`, `notifications.test.ts`
 - User Management: `cAdminUserManagement.test.ts`, `userRoleHelpers.test.ts`, `store.test.ts`
 - Audit Trail: `permissionHelpers.test.ts`, `notifications.test.ts`, `mockDataBusinessRules.test.ts`, `store.test.ts`
@@ -146,6 +147,8 @@ Root: `C:\mapFiles\MAPv2`
 - `.gitignore` : ignores `docs/`, `dist/`, `node_modules/` and `.env*`
 - `.claude/settings.local.json` : local Claude Code permissions. Allows the Azure Boards comment tool, denies the other 6 write tools (ADR 0003)
 - `~/.gemini/config/mcp_config.json` : Antigravity global MCP server configuration (includes `azure-devops` for AIUN)
+- `~/.gemini/GEMINI.md` : Gemini (Antigravity) global profile; `GEMINI.md.bak3` is the copy before the context and memory rules (2026-10-29). The old `~/.agents/gemini.md` is retired as `gemini.md.bak`
+- `~/.agents/skills/using-superpowers/references/memory-gemini.md` : shared memory rules, imported by `~/.gemini/GEMINI.md`. Gemini and Claude both read and write `~/.claude/projects/<slug>/memory/` (MAPv2: `c--mapFiles-MAPv2`)
 
 ## Credentials & tokens (locations only, never values)
 - Azure DevOps (AIUN) : no token in the repo. The `azure-devops` MCP server signs in through the browser with the Entra work account. Registered at local scope for MAPv2 and for `C:\mapFiles\MAP-1`, both drive-letter spellings each. Setup: `docs/azure-boards/azure-boards-connection-runbook.md`

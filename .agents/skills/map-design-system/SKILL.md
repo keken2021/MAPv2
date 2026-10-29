@@ -265,3 +265,24 @@ const crewPagination = usePagination(sortedCrew, [searchTerm, rankFilter, status
 ### Exceptions
 
 Not paginated, because they are not record lists: the permissions grid (`PermissionMatrix.tsx`), fixed reference tables with hand-written rows, and tables generated for print or PDF export.
+
+---
+
+## 11. UI Declutter & Scannability Standards (R1–R10)
+
+These rules govern page scannability, visual hierarchy, and element density across all queue screens, dashboards, and detail views.
+
+- **R1 Top:** Page title (from `HeaderBanner`), then one card holding the tab row (`CountTabs`), the toolbar (`ListToolbar`: search, Filter, Export, primary action), and the table. Nothing sits between the title and the card. The Submitter Dashboard Performance strip is the single exception.
+- **R2 Breadcrumb:** Removed when it repeats the page title. Breadcrumbs are retained exclusively on detail pages as a link back to the parent list.
+- **R3 Cells:** One line per table cell. The muted second line is removed; it is retained only for an identifier users scan for (such as IMO or MAP ID), formatted in IBM Plex Mono.
+- **R4 Row badges:** At most one badge per table row, reserved strictly for status. Class, type, category, User Type, and Draft indicators become plain text or are removed.
+- **R5 Status colour:** One canonical status-to-color mapping through `StatusBadge`, using display labels from `getStatusDisplayLabel` (`src/utils/formatters.ts`). The four semantic tones are: `success`, `warning`, `danger`, and `neutral`.
+- **R6 Due and late:** A Due column on work queue tables. Lateness is indicated with red monospace text (e.g., `"2 days late"`), never as an extra badge.
+- **R7 Row actions:** One "View" icon per row. Secondary or destructive actions move into the detail page or slide-out drawer.
+- **R8 Detail header:** Standardized header via `DetailHeader`: title, exactly one `StatusBadge`, an IBM Plex Mono metadata line, and action controls in fixed order: main action, Export, Close.
+- **R9 Once only:**
+  - Each fact appears in exactly one place per screen.
+  - Badge-plus-alert pairs collapse to one (Cancelled displays as an alert; Overdue and Partially Closed display as the header's single status badge with no duplicate alert).
+  - No card inside a card; use `.map-drawer-inset` or plain sections instead.
+- **R10 Copy:** Enforce §9 terminology across all screens and shell headers. Eliminate helper paragraphs that merely restate a field label, and remove hardcoded counters.
+
