@@ -17,14 +17,10 @@ import { CrewMember, STCWLayer } from '../types/crew';
   with what file: src/views/CrewView.tsx loaded by App.tsx router.
 */
 export const CrewView: React.FC = () => {
-  const { crew, setCurrentHashView } = useMapStore();
+  const { setCurrentHashView } = useMapStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [uploadingDocCrew, setUploadingDocCrew] = useState<CrewMember | null>(null);
   const [uploadingDocLayer, setUploadingDocLayer] = useState<STCWLayer | undefined>(undefined);
-
-  const fullyCompliantCount = crew.filter((c) => c.complianceStatus === 'Fully Compliant').length;
-  const expiringCount = crew.filter((c) => c.complianceStatus === 'Expiring < 60 Days').length;
-  const deficientCount = crew.filter((c) => c.complianceStatus === 'Document Deficient').length;
 
   const handleOpenUploadDoc = (crewMember: CrewMember, layer?: STCWLayer) => {
     setUploadingDocCrew(crewMember);
@@ -33,50 +29,6 @@ export const CrewView: React.FC = () => {
 
   return (
     <div className="d-flex flex-column gap-4">
-      {/* Top STCW Compliance Summary KPI Cards */}
-      <div className="row g-3">
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Crew
-            </div>
-            <div className="map-kpi-value text-primary mt-1">{crew.length}</div>
-            <div className="map-kpi-subtitle mt-1">All crew</div>
-          </div>
-        </div>
-
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Compliant
-            </div>
-            <div className="map-kpi-value text-success mt-1">{fullyCompliantCount}</div>
-            <div className="map-kpi-subtitle mt-1">All documents valid</div>
-          </div>
-        </div>
-
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Expiring Soon
-            </div>
-            <div className="map-kpi-value text-warning mt-1">{expiringCount}</div>
-            <div className="map-kpi-subtitle mt-1">Within 60 days</div>
-          </div>
-        </div>
-
-        <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
-            <div className="map-kpi-label">
-              Non-Compliant
-            </div>
-            <div className="map-kpi-value text-danger mt-1">{deficientCount}</div>
-            <div className="map-kpi-subtitle mt-1">Expired or missing documents</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Master Crew Directory Table matching Assurance Sets table grid format */}
       <CrewTable
         onSelectCrew={(selectedCrew) => {
           setCurrentHashView('crew', selectedCrew.id);

@@ -7,14 +7,15 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Eye, FilePlus } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
-import { CrewMember, CrewComplianceStatus } from '../../types/crew';
+import { CrewMember } from '../../types/crew';
 import { FilterModal } from '../common/FilterModal';
-import { FilterButton } from '../common/FilterButton';
+import { CountTabs } from '../common/CountTabs';
+import { ListToolbar } from '../common/ListToolbar';
+import { StatusBadge } from '../common/StatusBadge';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
-import { getCrewStockPhoto } from '../../utils/vesselImageHelpers';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
 import { maskRestrictedValue } from '../../utils/restrictedData';
@@ -59,7 +60,6 @@ export const CrewTable: React.FC<CrewTableProps> = ({
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<CrewSortField>('id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [isExportOpen, setIsExportOpen] = useState(false);
 
   const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
   const canRegisterCrew =
@@ -164,15 +164,6 @@ export const CrewTable: React.FC<CrewTableProps> = ({
     return 0;
   });
 
-  const getComplianceBadgeClass = (status: CrewComplianceStatus) => {
-    switch (status) {
-      case 'Fully Compliant': return 'bg-success text-white';
-      case 'Expiring < 60 Days': return 'bg-warning text-dark';
-      case 'Document Deficient': return 'bg-danger text-white';
-      default: return 'bg-light text-dark border';
-    }
-  };
-
   const handleExportCsv = () => {
     const exportData = sortedCrew.map((c) => ({
       CrewID: c.id,
@@ -188,7 +179,6 @@ export const CrewTable: React.FC<CrewTableProps> = ({
       LastAuditedDate: c.lastAuditedDate,
     }));
     exportToCsv('Master_Crew_Directory', exportData);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
@@ -202,71 +192,57 @@ export const CrewTable: React.FC<CrewTableProps> = ({
       `${c.overallComplianceScore}%`,
     ]);
     exportToPdf('Crew Directory', headers, rows);
-    setIsExportOpen(false);
   };
 
   const crewPagination = usePagination(sortedCrew, [searchTerm, rankFilter, statusFilter, vesselFilter, sortField, sortDirection]);
 
+  const crewTabs = [
+    { key: 'ALL', label: 'All', count: crew.length },
+    {
+      key: 'Fully Compliant',
+      label: 'Compliant',
+      count: crew.filter((member) => member.complianceStatus === 'Fully Compliant').length,
+    },
+    {
+      key: 'Expiring < 60 Days',
+      label: 'Expiring Soon',
+      count: crew.filter((member) => member.complianceStatus === 'Expiring < 60 Days').length,
+      tone: 'warn' as const,
+    },
+    {
+      key: 'Document Deficient',
+      label: 'Non-Compliant',
+      count: crew.filter((member) => member.complianceStatus === 'Document Deficient').length,
+    },
+  ];
+  const activeCrewTab = crewTabs.some((tab) => tab.key === statusFilter) ? statusFilter : '';
+
   return (
     <div className="card map-card-custom">
-      {/* Table Header Controls Row: Grouped Search/Filters Left, Grouped Export/Register Right */}
-      <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-        {/* Left Side: Search Box & Filter Button */}
-        <div className="d-flex flex-wrap align-items-center gap-2">
-          <input
-            type="text"
-            className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search crew..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '270px' }}
-          />
-
-          <FilterButton
-            onClick={() => setIsFilterModalOpen(true)}
-            activeCount={activeFilterCount}
-          />
-        </div>
-
-        {/* Opposite (Right) Side: Export & Register Buttons on corner right of the row */}
-        <div className="d-flex align-items-center gap-2 ms-auto">
-          {/* Export Dropdown */}
-          <div className="dropdown position-relative">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-              onClick={() => setIsExportOpen(!isExportOpen)}
-            >
-              Export
-            </button>
-            {isExportOpen && (
-              <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border" style={{ zIndex: 1050 }}>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    CSV
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    PDF
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
-
-          {/* register crew member action button - hidden for submitter persona */}
-          {canRegisterCrew && onRegisterCrew && (
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={onRegisterCrew}
-            >
+      <div className="p-3 border-bottom">
+        <CountTabs
+          tabs={crewTabs}
+          active={activeCrewTab}
+          onChange={setStatusFilter}
+          aria-label="Crew tabs"
+        />
+      </div>
+      <ListToolbar
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search crew..."
+        onFilterClick={() => setIsFilterModalOpen(true)}
+        activeFilterCount={activeFilterCount}
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+        primaryAction={
+          canRegisterCrew && onRegisterCrew ? (
+            <button type="button" className="btn btn-sm btn-primary" onClick={onRegisterCrew}>
               Add Crew
             </button>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {activeChips.length > 0 && (
         <div className="px-3 py-2 bg-light border-bottom">
@@ -312,43 +288,14 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                   style={{ cursor: 'pointer' }}
                 >
                   <td className="font-mono-code fw-semibold text-primary">{c.id}</td>
-                  <td>
-                    <div className="d-flex align-items-center gap-2.5">
-                      <div
-                        className="rounded-2 overflow-hidden border border-secondary-subtle flex-shrink-0 bg-dark"
-                        style={{ width: '38px', height: '38px', aspectRatio: '1 / 1' }}
-                      >
-                        <img
-                          src={getCrewStockPhoto(c.id, c.fullName, c.rank, c.imageUrl)}
-                          alt={c.fullName}
-                          className="w-100 h-100 object-fit-cover"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src =
-                              'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80';
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <div className="fw-semibold text-dark">{c.fullName}</div>
-                        <div className="small text-secondary">{c.rank}</div>
-                      </div>
-                    </div>
+                  <td className="fw-semibold text-dark text-nowrap">{c.fullName}</td>
+                  <td className="text-nowrap">{c.currentVesselName || 'Unassigned'}</td>
+                  <td className="text-nowrap">
+                    {c.nationality}
+                    <span className="font-mono-code text-secondary ms-2">{c.seamansBookNo}</span>
                   </td>
                   <td>
-                    {c.currentVesselName ? (
-                      <div className="fw-semibold text-primary">{c.currentVesselName}</div>
-                    ) : (
-                      <span className="badge bg-light text-dark border">Unassigned</span>
-                    )}
-                  </td>
-                  <td>
-                    <div>{c.nationality}</div>
-                    <div className="small font-mono-code text-muted">{c.seamansBookNo}</div>
-                  </td>
-                  <td>
-                    <span className={`badge ${getComplianceBadgeClass(c.complianceStatus)}`}>
-                      {getStatusDisplayLabel(c.complianceStatus)}
-                    </span>
+                    <StatusBadge value={c.complianceStatus} />
                   </td>
                   <td className="text-end">
                     <div className="d-flex align-items-center justify-content-end gap-1.5">

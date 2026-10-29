@@ -10,8 +10,11 @@ import { useMapStore } from '../store/useMapStore';
 import { AssetHierarchyView } from '../components/assets/AssetHierarchyView';
 import { EquipmentModal } from '../components/modals/EquipmentModal';
 import { FilterModal } from '../components/common/FilterModal';
-import { FilterButton } from '../components/common/FilterButton';
+import { CountTabs } from '../components/common/CountTabs';
+import { ListToolbar } from '../components/common/ListToolbar';
+import { StatusBadge } from '../components/common/StatusBadge';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
+import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { filterEquipmentForPersona } from '../utils/rbacHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
@@ -94,26 +97,87 @@ export const EquipmentView: React.FC = () => {
 
   const equipmentPagination = usePagination(filteredEquipment, [searchTerm, categoryFilter, vesselFilter, availabilityFilter, complianceFilter]);
 
+  const equipmentTabs = [
+    { key: 'ALL', label: 'All', count: visibleEquipment.length },
+    {
+      key: 'Compliant',
+      label: 'Compliant',
+      count: visibleEquipment.filter((item) => item.complianceStatus === 'Compliant').length,
+    },
+    {
+      key: 'Expiring Soon',
+      label: 'Expiring Soon',
+      count: visibleEquipment.filter((item) => item.complianceStatus === 'Expiring Soon').length,
+      tone: 'warn' as const,
+    },
+    {
+      key: 'Non-Compliant',
+      label: 'Non-Compliant',
+      count: visibleEquipment.filter((item) => item.complianceStatus === 'Non-Compliant').length,
+    },
+  ];
+  const activeEquipmentTab = equipmentTabs.some((tab) => tab.key === complianceFilter) ? complianceFilter : '';
+
+  const handleExportCsv = () => {
+    exportToCsv(
+      'Equipment_Registry',
+      filteredEquipment.map((item) => ({
+        EquipmentId: item.equipmentIdentifier,
+        Name: item.name,
+        Category: item.category,
+        Vessel: vessels.find((vessel) => vessel.id === item.parentVesselId)?.name ?? '',
+        Availability: item.availabilityStatus,
+        Compliance: item.complianceStatus,
+      })),
+    );
+  };
+
+  const handleExportPdf = () => {
+    exportToPdf(
+      'Equipment Registry',
+      ['Equipment ID', 'Name', 'Category', 'Vessel', 'Availability', 'Compliance'],
+      filteredEquipment.map((item) => [
+        item.equipmentIdentifier,
+        item.name,
+        item.category,
+        vessels.find((vessel) => vessel.id === item.parentVesselId)?.name ?? '—',
+        item.availabilityStatus,
+        item.complianceStatus,
+      ]),
+    );
+  };
+
   return (
     <div className="d-flex flex-column gap-3">
-      {/* Top Controls Row */}
-      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-        <div className="d-flex flex-wrap align-items-center gap-2">
-          <input
-            type="text"
-            className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search equipment..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '280px' }}
-          />
-          <FilterButton
-            onClick={() => setIsFilterModalOpen(true)}
-            activeCount={activeFilterCount}
-          />
-        </div>
-
-        <div className="d-flex align-items-center gap-2">
+      <div className="card map-card-custom">
+      <div className="p-3 border-bottom">
+        <CountTabs
+          tabs={equipmentTabs}
+          active={activeEquipmentTab}
+          onChange={setComplianceFilter}
+          aria-label="Equipment tabs"
+        />
+      </div>
+      <ListToolbar
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search equipment..."
+        onFilterClick={() => setIsFilterModalOpen(true)}
+        activeFilterCount={activeFilterCount}
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+        primaryAction={
+          canRegister ? (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary fw-semibold"
+              onClick={() => setIsModalOpen(true)}
+            >
+              Add Equipment
+            </button>
+          ) : undefined
+        }
+      >
           <div className="dropdown position-relative">
             <button
               type="button"
@@ -166,33 +230,24 @@ export const EquipmentView: React.FC = () => {
               </ul>
             )}
           </div>
-
-          {canRegister && (
-            <button
-              type="button"
-              className="btn btn-sm btn-primary fw-semibold"
-              onClick={() => setIsModalOpen(true)}
-            >
-              Add Equipment
-            </button>
-          )}
-        </div>
-      </div>
+      </ListToolbar>
 
       {activeChips.length > 0 && (
-        <div className="px-3 py-2 bg-light rounded border">
+        <div className="px-3 py-2 bg-light border-bottom">
           <ActiveFilterChips chips={activeChips} onClearAll={handleResetFilters} />
         </div>
       )}
 
       {viewMode === 'tree' ? (
-        <AssetHierarchyView
-          defaultAssetTypeFilter="equipment"
-          onSelectVessel={(id) => setCurrentHashView('vessels', id)}
-          onSelectEquipment={(id) => setCurrentHashView('equipment', id)}
-        />
+        <div className="p-3">
+          <AssetHierarchyView
+            defaultAssetTypeFilter="equipment"
+            onSelectVessel={(id) => setCurrentHashView('vessels', id)}
+            onSelectEquipment={(id) => setCurrentHashView('equipment', id)}
+          />
+        </div>
       ) : (
-        <div className="card map-card-custom">
+        <>
           <div className="table-responsive">
             <table className="table map-table-custom align-middle mb-0">
               <thead>
@@ -222,15 +277,13 @@ export const EquipmentView: React.FC = () => {
                       style={{ cursor: 'pointer' }}
                       onClick={() => setCurrentHashView('equipment', item.id)}
                     >
-                      <td className="font-mono-code fw-semibold text-primary">{item.equipmentIdentifier}</td>
-                      <td className="fw-semibold text-dark">{item.name}</td>
-                      <td className="small">{item.category}</td>
-                      <td className="small">{parent?.name ?? '—'}</td>
+                      <td className="font-mono-code fw-semibold text-primary text-nowrap">{item.equipmentIdentifier}</td>
+                      <td className="fw-semibold text-dark text-nowrap">{item.name}</td>
+                      <td className="small text-nowrap">{item.category}</td>
+                      <td className="small text-nowrap">{parent?.name ?? '—'}</td>
+                      <td className="text-nowrap">{item.availabilityStatus}</td>
                       <td>
-                        <span className="badge bg-light text-dark border">{item.availabilityStatus}</span>
-                      </td>
-                      <td>
-                        <span className="badge bg-light text-dark border">{item.complianceStatus}</span>
+                        <StatusBadge value={item.complianceStatus} />
                       </td>
                       <td className="text-end">
                         <button
@@ -254,8 +307,9 @@ export const EquipmentView: React.FC = () => {
             </table>
           </div>
           <TablePagination {...equipmentPagination.controls} />
-        </div>
+        </>
       )}
+      </div>
 
       {/* Equipment Filter Modal */}
       <FilterModal

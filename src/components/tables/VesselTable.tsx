@@ -4,16 +4,17 @@
   role in system: main data table for FleetRegistryView.tsx.
 */
 
-import React, { useState, useMemo } from 'react';
-import { LayoutGrid, Table as TableIcon, Check, MoreHorizontal, Download, ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { LayoutGrid, Table as TableIcon, Check, MoreHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { VesselInformation } from '../../types/vessel';
 import { ReadinessGauge } from '../common/ReadinessGauge';
 import { FilterModal } from '../common/FilterModal';
-import { FilterButton } from '../common/FilterButton';
+import { CountTabs } from '../common/CountTabs';
+import { ListToolbar } from '../common/ListToolbar';
+import { StatusBadge } from '../common/StatusBadge';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
-import { getVesselStatusBadgeClass } from '../../utils/formatters';
 import {
   getVesselStockPhoto,
   getVesselListingContact,
@@ -27,6 +28,7 @@ import {
   filterVesselsForPersona,
   isAssuranceSetAssignedToPersona,
   isVesselOwnedByAdmin,
+  isVesselOwnedByClientOrg,
   matchesVesselSearch,
 } from '../../utils/rbacHelpers';
 import type { FleetRegistryTab } from '../../utils/rbacHelpers';
@@ -57,7 +59,11 @@ interface VesselTableProps {
   how: filters and sorts base vessels by persona and sortField, rendering interactive table rows and header controls.
   with what file: src/components/tables/VesselTable.tsx loaded by FleetRegistryView.tsx.
 */
-export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegisterVessel, filterMode }) => {
+export const VesselTable: React.FC<VesselTableProps> = ({
+  onSelectVessel,
+  onRegisterVessel,
+  filterMode: filterModeProp,
+}) => {
   const {
     vessels,
     assuranceSets,
@@ -78,8 +84,18 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [sortField, setSortField] = useState<VesselSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [isExportOpen, setIsExportOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [internalFilterMode, setInternalFilterMode] = useState<FleetRegistryTab>(
+    activePersona === 'C Admin' ? 'chartered' : 'owned',
+  );
+  const filterMode = filterModeProp ?? internalFilterMode;
+  const isVesselAdmin = activePersona === 'Administrator' || activePersona === 'Submitter';
+  const isClientAdmin = activePersona === 'C Admin';
+
+  useEffect(() => {
+    if (filterModeProp) return;
+    setInternalFilterMode(isClientAdmin ? 'chartered' : isVesselAdmin ? 'owned' : 'all');
+  }, [activePersona, filterModeProp, isClientAdmin, isVesselAdmin]);
   const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
 
   const availableAssuranceSets = useMemo(() => {
@@ -107,17 +123,26 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
 
   const isVesselOwned = isVesselOwnedByAdmin;
 
+  const viewerOrg = matchingUser?.organization;
+  const ownedVessels = isClientAdmin
+    ? vessels.filter((vessel) => isVesselOwnedByClientOrg(vessel, viewerOrg ?? ''))
+    : vessels.filter(isVesselOwned);
+  const charteredVessels = isClientAdmin
+    ? filterCAdminActiveCharters(vessels, assuranceSets)
+    : filterVesselAdminChartered(vessels, assuranceSets, viewerOrg);
+
   const baseVessels =
     activePersona === 'C Admin'
-      ? /* client admin sees only the vessels it has chartered */
-        filterCAdminActiveCharters(vessels, assuranceSets)
+      ? filterMode === 'owned'
+        ? ownedVessels
+        : charteredVessels
       : activePersona === 'Administrator' || activePersona === 'Submitter'
         ? filterMode === 'chartered'
-          ? filterVesselAdminChartered(vessels, assuranceSets, matchingUser?.organization)
+          ? charteredVessels
           : filterMode === 'all'
           ? vessels.filter((v) => !isVesselOwned(v) && v.status !== 'Under Charter')
           : filterMode === 'owned'
-            ? vessels.filter(isVesselOwned)
+            ? ownedVessels
             : filterVesselsForPersona(vessels, assuranceSets, activePersona)
         : filterVesselsForPersona(vessels, assuranceSets, activePersona);
 
@@ -215,7 +240,6 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
       ReadinessScore: `${calculateVesselReadiness(v, assuranceSets, documents)}%`,
     }));
     exportToCsv('Master_Fleet_Registry', exportData);
-    setIsExportOpen(false);
   };
 
   const handleExportPdf = () => {
@@ -231,7 +255,6 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
       `${calculateVesselReadiness(v, assuranceSets, documents)}%`,
     ]);
     exportToPdf('Master Fleet Registry', headers, rows);
-    setIsExportOpen(false);
   };
 
   const activeFilterCount =
@@ -254,32 +277,41 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
     setAssuranceSetFilter('ALL');
   };
 
-  const vesselsPagination = usePagination(sortedVessels, [searchTerm, flagFilter, classFilter, statusFilter, assuranceSetFilter, sortField, sortDirection]);
+  const vesselsPagination = usePagination(sortedVessels, [searchTerm, flagFilter, classFilter, statusFilter, assuranceSetFilter, filterMode, sortField, sortDirection]);
+
+  const vesselTabs = (isVesselAdmin || isClientAdmin)
+    ? [
+        { key: 'owned', label: 'Own', count: ownedVessels.length },
+        { key: 'chartered', label: 'Chartered', count: charteredVessels.length },
+      ]
+    : [{ key: 'all', label: 'All', count: baseVessels.length }];
 
   return (
     <div className="card map-card-custom">
-      {/* Table Controls Header */}
-      <div className="card-header d-flex flex-wrap align-items-center justify-content-between gap-3 p-3">
-        {/* Left: Search & Filter Button */}
-        <div className="d-flex flex-wrap align-items-center gap-2">
-          <input
-            type="text"
-            className="form-control form-control-sm bg-white text-dark border-secondary"
-            placeholder="Search vessels..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '280px' }}
-          />
-
-          <FilterButton
-            onClick={() => setIsFilterModalOpen(true)}
-            activeCount={activeFilterCount}
-          />
-        </div>
-
-        {/* Right: View Mode Dropdown (Icons only), Export & Register */}
-        <div className="d-flex align-items-center gap-2 ms-auto">
-          {/* View Mode Icon Dropdown */}
+      <div className="p-3 border-bottom">
+        <CountTabs
+          tabs={vesselTabs}
+          active={filterMode}
+          onChange={(key) => setInternalFilterMode(key as FleetRegistryTab)}
+          aria-label="Vessel tabs"
+        />
+      </div>
+      <ListToolbar
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search vessels..."
+        onFilterClick={() => setIsFilterModalOpen(true)}
+        activeFilterCount={activeFilterCount}
+        onExportCsv={handleExportCsv}
+        onExportPdf={handleExportPdf}
+        primaryAction={
+          canRegister && onRegisterVessel ? (
+            <button type="button" className="btn btn-sm btn-primary" onClick={onRegisterVessel}>
+              Add Vessel
+            </button>
+          ) : undefined
+        }
+      >
           <div className="dropdown position-relative">
             <button
               type="button"
@@ -333,42 +365,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
               </ul>
             )}
           </div>
-
-          <div className="dropdown position-relative">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary text-dark dropdown-toggle"
-              onClick={() => setIsExportOpen(!isExportOpen)}
-            >
-              Export
-            </button>
-            {isExportOpen && (
-              <ul className="dropdown-menu dropdown-menu-light show position-absolute end-0 mt-1 shadow border">
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportCsv}>
-                    CSV
-                  </button>
-                </li>
-                <li>
-                  <button type="button" className="dropdown-item small" onClick={handleExportPdf}>
-                    PDF
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
-
-          {canRegister && onRegisterVessel && (
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={onRegisterVessel}
-            >
-              Add Vessel
-            </button>
-          )}
-        </div>
-      </div>
+      </ListToolbar>
 
       {activeChips.length > 0 && (
         <div className="px-3 py-2 bg-light border-bottom">
@@ -535,28 +532,19 @@ export const VesselTable: React.FC<VesselTableProps> = ({ onSelectVessel, onRegi
                     }}
                     style={{ cursor: 'pointer' }}
                   >
+                    <td className="font-mono-code fw-semibold text-primary text-nowrap">{v.imoNumber}</td>
+                    <td className="fw-semibold text-dark text-nowrap">{v.name}</td>
+                    <td className="small text-nowrap">
+                      {v.vesselSubtype || v.classNotation}
+                      {v.classificationSociety ? ` · ${v.classificationSociety}` : ''}
+                    </td>
+                    <td className="text-nowrap">
+                      {v.flagState}
+                      {v.portOfRegistry ? ` · ${v.portOfRegistry}` : ''}
+                    </td>
+                    <td className="small fw-semibold text-dark text-nowrap">{v.registeredOwner}</td>
                     <td>
-                      <span className="font-mono-code fw-semibold text-primary">{v.imoNumber}</span>
-                    </td>
-                    <td>
-                      <div className="fw-semibold text-dark">{v.name}</div>
-                      <ObjectVerificationBadge
-                        verification={deriveObjectVerification(v.id, assuranceSets, activeDemoOrganization)}
-                      />
-                    </td>
-                    <td className="small">
-                      <div>{v.vesselSubtype || v.classNotation}</div>
-                      <span className="badge bg-light text-dark border mt-1">{v.classificationSociety}</span>
-                    </td>
-                    <td>
-                      <div>{v.flagState}</div>
-                      <div className="small text-muted">{v.portOfRegistry}</div>
-                    </td>
-                    <td className="small">
-                      <div className="fw-semibold text-dark">{v.registeredOwner}</div>
-                    </td>
-                    <td>
-                      <span className={`badge ${getVesselStatusBadgeClass(v.status)} text-uppercase`}>{v.status}</span>
+                      <StatusBadge value={v.status} />
                     </td>
                     <td>
                       <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
