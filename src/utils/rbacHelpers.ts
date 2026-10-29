@@ -28,6 +28,18 @@ function pilotPartyMatches(organization: string, ...fields: Array<string | undef
   return fields.some((field) => Boolean(field) && field!.toLowerCase().includes(org));
 }
 
+/** Matches an assigned stakeholder against a user by name, ignoring case and organization suffix. */
+export function assigneeMatchesUser(
+  assigned: string | undefined,
+  user?: { name?: string } | null,
+): boolean {
+  if (!assigned || !user?.name) return false;
+  const userName = user.name.trim().toLowerCase();
+  if (!userName) return false;
+  const namePart = assigned.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
+  return namePart === userName;
+}
+
 export function isAssuranceSetAssignedToPersona(
   set: AssuranceSet,
   persona: UserRolePersona,
@@ -73,8 +85,8 @@ export function isAssuranceSetAssignedToPersona(
     return isNorthwindVessel || isNorthwindStakeholder || isMadeByAdmin;
   }
   if (persona === "Submitter") {
-    if (user?.name && set.assignedSubmitter && set.assignedSubmitter.toLowerCase().includes(user.name.toLowerCase())) {
-      return true;
+    if (user) {
+      return assigneeMatchesUser(set.assignedSubmitter, user);
     }
     /* submitter / vessel admin can only access assurance sets for their own organization */
     const isAssignedToOrg = Boolean(
@@ -99,8 +111,8 @@ export function isAssuranceSetAssignedToPersona(
     return isAssignedToOrg;
   }
   if (persona === "Verifier") {
-    if (user?.name && set.assignedVerifier && set.assignedVerifier.toLowerCase().includes(user.name.toLowerCase())) {
-      return true;
+    if (user) {
+      return assigneeMatchesUser(set.assignedVerifier, user);
     }
     if (organization) {
       return pilotPartyMatches(organization, set.assignedVerifier, set.stakeholders?.verifierOrg);
@@ -110,8 +122,8 @@ export function isAssuranceSetAssignedToPersona(
   if (persona === "Inspector") {
     const assigned = Boolean(set.mandatoryInspectionRequired && set.assignedInspector);
     if (!assigned) return false;
-    if (user?.name && set.assignedInspector && set.assignedInspector.toLowerCase().includes(user.name.toLowerCase())) {
-      return true;
+    if (user) {
+      return assigneeMatchesUser(set.assignedInspector, user);
     }
     if (!organization) return assigned;
     return assigned && pilotPartyMatches(organization, set.assignedInspector, set.stakeholders?.inspectorOrg);
@@ -128,8 +140,8 @@ export function isAssuranceSetAssignedToPersona(
         ));
     const awaiting = Boolean(set.assignedApprover && isVerifiedAndAwaitingApproval);
     if (!awaiting) return false;
-    if (user?.name && set.assignedApprover && set.assignedApprover.toLowerCase().includes(user.name.toLowerCase())) {
-      return true;
+    if (user) {
+      return assigneeMatchesUser(set.assignedApprover, user);
     }
     if (!organization) return awaiting;
     return awaiting && pilotPartyMatches(organization, set.assignedApprover, set.stakeholders?.approverOrg);

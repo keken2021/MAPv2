@@ -213,6 +213,7 @@ describe('assurance set role actions', () => {
     };
 
     expect(isAssuranceSetAssignedToPersona(assignedSet, 'Verifier', undefined, assignedUser)).toBe(true);
-    expect(isAssuranceSetAssignedToPersona(assignedSet, 'Verifier', 'Unrelated Org', unassignedUser)).toBe(false);
+    expect(isAssuranceSetAssignedToPersona(assignedSet, 'Verifier', unassignedUser.organization, unassignedUser)).toBe(false);
+    expect(isAssuranceSetAssignedToPersona(assignedSet, 'Verifier', undefined, unassignedUser)).toBe(false);
   });
 });
