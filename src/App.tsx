@@ -4,7 +4,7 @@
   role in system: primary application shell mounted by main.tsx.
 */
 
-import React, { Suspense, useEffect } from 'react';
+import React, { Suspense, useEffect, useMemo } from 'react';
 import { useMapStore } from './store/useMapStore';
 import { HeaderBanner } from './components/layout/HeaderBanner';
 import { AppSidebar } from './components/layout/AppSidebar';
@@ -36,6 +36,7 @@ import { CreateProjectView } from './views/CreateProjectView';
 import { MarketplaceView } from './views/MarketplaceView';
 import './App.css';
 
+import { AccessDeniedState } from './components/common/AccessDeniedState';
 import { isViewAccessibleToPersona } from './utils/rbacHelpers';
 import { canOpenAssuranceRequestWizard } from './utils/notificationHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from './utils/userRoleHelpers';
@@ -61,7 +62,6 @@ export const App: React.FC = () => {
     rolePermissionDefaults,
     userPermissionOverrides,
     users,
-    customScopes,
     notifications,
     pendingAssuranceRequestNotificationId,
     setPendingAssuranceRequestNotificationId,
@@ -98,9 +98,8 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [isAuthenticated, setCurrentHashView]);
 
-  /* enforce RBAC route restriction across all active user personas */
-  useEffect(() => {
-    if (!isAuthenticated) return;
+  const routeAllowed = useMemo(() => {
+    if (!isAuthenticated || currentHashView === 'login') return true;
 
     const demoContext = getDemoSessionContext({
       activeDemoOrganization,
@@ -132,11 +131,7 @@ export const App: React.FC = () => {
         getSessionUserForPersona(activePersona, users, demoContext),
       );
 
-    const allowed = allowedByRole || allowedByRequest;
-
-    if (!allowed) {
-      setCurrentHashView('dashboard');
-    }
+    return allowedByRole || allowedByRequest;
   }, [
     activePersona,
     activeDemoOrganization,
@@ -144,11 +139,9 @@ export const App: React.FC = () => {
     currentHashView,
     currentEntityId,
     isAuthenticated,
-    setCurrentHashView,
     rolePermissionDefaults,
     userPermissionOverrides,
     users,
-    customScopes,
     notifications,
     pendingAssuranceRequestNotificationId,
   ]);
@@ -171,6 +164,10 @@ export const App: React.FC = () => {
 
   /* view router lookup */
   const renderCurrentView = () => {
+    if (!routeAllowed) {
+      return <AccessDeniedState onBack={() => setCurrentHashView('dashboard')} />;
+    }
+
     switch (currentHashView) {
       case 'vessels':
         return currentEntityId ? <VesselDetailView vesselId={currentEntityId} /> : <FleetRegistryView />;
