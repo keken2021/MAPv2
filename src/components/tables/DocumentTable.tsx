@@ -34,6 +34,7 @@ interface DocumentTableProps {
   onUploadDocument?: () => void;
   statusFilter?: string;
   onStatusFilterChange?: (value: string) => void;
+  documents?: MasterDocument[];
 }
 
 /**
@@ -47,15 +48,17 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   onUploadDocument,
   statusFilter: statusFilterProp,
   onStatusFilterChange,
+  documents: documentsProp,
 }) => {
   const {
-    documents,
+    documents: storeDocuments,
     activePersona,
     rolePermissionDefaults,
     userPermissionOverrides,
     customScopes,
     users,
   } = useMapStore();
+  const documents = documentsProp ?? storeDocuments;
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [internalStatusFilter, setInternalStatusFilter] = useState('ALL');
