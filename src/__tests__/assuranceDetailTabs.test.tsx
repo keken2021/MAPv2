@@ -40,7 +40,7 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(within(tabList).queryByRole('tab', { name: /stage/i })).toBeNull();
   });
 
-  it('Details tab opens by default and holds summary card, stage pipeline stepper, and readiness gauge', () => {
+  it('Details tab opens by default and holds summary card', () => {
     const { container } = render(<AssuranceDetailView setId="AS-2026-001" />);
 
     const detailsTab = screen.getByRole('tab', { name: /^details$/i });
@@ -49,25 +49,25 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     // Summary info card is visible
     expect(container.querySelector('.col-lg-8 .card.map-card-custom')).not.toBeNull();
 
-    // Stage pipeline stepper is visible inside Details tab
-    expect(screen.getByText('Stage')).toBeDefined();
-    expect(container.querySelector('.pipeline-stepper, [data-testid="pipeline-stepper"], .d-flex.flex-column')).not.toBeNull();
-
-    // Readiness gauge is visible inside Details tab
-    expect(screen.getByText('Readiness')).toBeDefined();
-
     // Requirements table is not rendered while Details tab is active
     expect(screen.queryByText(/Requirements Register/i)).toBeNull();
     expect(screen.queryByRole('table', { name: /requirements/i })).toBeNull();
   });
 
-  it('Requirements tab displays requirements register table unchanged', () => {
-    render(<AssuranceDetailView setId="AS-2026-001" />);
+  it('Requirements tab displays Stage & Readiness section and requirements register table', () => {
+    const { container } = render(<AssuranceDetailView setId="AS-2026-001" />);
 
     fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
 
     const reqTab = screen.getByRole('tab', { name: /requirements/i });
     expect(reqTab.getAttribute('aria-selected')).toBe('true');
+
+    // Stage pipeline stepper is visible inside Requirements tab
+    expect(screen.getByText('Stage')).toBeDefined();
+    expect(container.querySelector('.pipeline-stepper, [data-testid="pipeline-stepper"], .d-flex.flex-column')).not.toBeNull();
+
+    // Readiness gauge is visible inside Requirements tab
+    expect(screen.getByText('Readiness')).toBeDefined();
 
     // Requirements header inside card
     const reqElements = screen.getAllByText('Requirements');
