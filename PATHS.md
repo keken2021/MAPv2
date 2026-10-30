@@ -88,6 +88,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter Verifier and Inspector workspaces: `src/__tests__/workspacesDeclutter.test.tsx` (CountTabs default tabs and counts, Due column with late calculation, 1 badge/action per row, removed KPI cards)
 - Unit tests for UI declutter Assurance Sets list and detail: `src/__tests__/assuranceSetsDeclutter.test.tsx` (CountTabs and ListToolbar in card, Draft badge removed beside title, Public tab merged scope column, DetailHeader single badge, cancelled alert only, overdue badge only, info card badges, single Export, removed inner boxes)
 - Unit tests for UI declutter Assurance Sets and Vessels per person: `src/__tests__/tablesPerPersonSession.test.tsx` (per-person filtering with useSessionUser for AssuranceTable and VesselTable)
+- Unit tests for UI declutter role access check across organizations: `src/__tests__/roleAccessAcrossOrganizations.test.ts` (walks every organization and persona, checks sidebar links, workflow role scoping, admin org scoping)
 - Projects: `createProjectWizardOrganization.test.tsx`, `projectComposition.test.ts`, `projectNestedSets.test.ts`, `assuranceSetProjectRelationship.test.ts`, `mockDataConsistency.test.ts`, `notifications.test.ts`
 - User Management: `cAdminUserManagement.test.ts`, `userRoleHelpers.test.ts`, `store.test.ts`
 - Audit Trail: `permissionHelpers.test.ts`, `notifications.test.ts`, `mockDataBusinessRules.test.ts`, `store.test.ts`
