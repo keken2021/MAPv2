@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { getRequirementDocumentView, isClosedAssuranceSet } from '../utils/documentVersionSnapshot';
 import { AssuranceDetailView } from '../views/AssuranceDetailView';
@@ -97,6 +97,7 @@ describe('document version snapshot', () => {
     const lockedLabel = getReqForDoc('AS-2026-004', SHARED_DOC).verifiedVersion!.versionLabel;
 
     render(<AssuranceDetailView setId="AS-2026-004" />);
+    fireEvent.click(screen.getByRole('tab', { name: /^requirements$/i }));
 
     const row = screen.getAllByLabelText('Locked version')[0].closest('tr')!;
     expect(within(row).getByText(lockedLabel)).toBeInTheDocument();

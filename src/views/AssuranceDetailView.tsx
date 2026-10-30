@@ -1226,7 +1226,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         {/* Top Row: Information & Readiness Cards */}
       <div className="row g-4 align-items-stretch">
         {/* Left: Assurance Set Information & Stakeholder Role Assignments Card */}
-        <div className="col-lg-8 col-md-7">
+        <div className="col-12 col-lg-8 col-md-7 w-100">
           <div className="card map-card-custom p-4 h-100">
             {showApproverDecisionBar && (
               <ApproverDecisionBar
@@ -1782,29 +1782,31 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           </div>
         </div>
 
-        {/* Right: Readiness Gauge Card */}
-        <div className="col-lg-4 col-md-5">
-          <div className="card map-card-custom p-4 h-100 d-flex flex-column justify-content-center">
-            <div className="text-secondary text-uppercase fw-bold mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-              Readiness
-            </div>
-            <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
-          </div>
-        </div>
       </div>
 
-      {/* Bottom Row: Stage Pipeline Stepper */}
+      {/* Bottom Section: Stage & Readiness */}
       <div className="card map-card-custom p-4">
-        <div className="text-uppercase fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-          Stage
+        {/* Stage Pipeline Stepper */}
+        <div className="mb-4">
+          <div className="text-uppercase fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+            Stage
+          </div>
+          <PipelineStepper
+            currentStage={assuranceSet.stage}
+            readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
+            assuranceSet={assuranceSet}
+            orientation="horizontal"
+            className="border-0 p-0 mb-0 bg-transparent flex-wrap gap-3"
+          />
         </div>
-        <PipelineStepper
-          currentStage={assuranceSet.stage}
-          readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
-          assuranceSet={assuranceSet}
-          orientation="horizontal"
-          className="border-0 p-0 mb-0 bg-transparent flex-wrap gap-3"
-        />
+
+        {/* Readiness Index */}
+        <div className="pt-3 border-top">
+          <div className="text-secondary text-uppercase fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+            Readiness
+          </div>
+          <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
+        </div>
       </div>
       </div>
       )}
