@@ -844,10 +844,10 @@ export const ApproverDashboardView: React.FC = () => {
                         <div className="fw-semibold text-dark">{set.vesselName}</div>
                         <div className="text-secondary small font-mono-code">IMO {set.imoNumber}</div>
                       </td>
-                      <td className="small font-mono-code text-secondary">
+                      <td className="small text-secondary">
                         {set.assignedSubmitter || set.initiatorOrg}
                       </td>
-                      <td className="font-mono-code small due-cell">
+                      <td className="small due-cell">
                         {overdue ? (
                           <span className="text-danger fw-semibold">
                             {daysLate} {daysLate === 1 ? 'day' : 'days'} late

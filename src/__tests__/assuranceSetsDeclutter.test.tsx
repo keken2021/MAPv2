@@ -260,6 +260,33 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       const nestedBoxes = topRow?.querySelectorAll('.p-4.bg-light.border.rounded-3');
       expect(nestedBoxes?.length).toBe(0);
     });
+
+    it('keeps font-mono-code for Set ID while Stakeholders values use body font', () => {
+      const state = useMapStore.getState();
+      const openSet = state.assuranceSets.find((s) => s.visibility !== 'draft') || state.assuranceSets[0];
+
+      const { container } = render(<AssuranceDetailView setId={openSet.id} />);
+
+      const infoCard = container.querySelector('.col-lg-8 .card.map-card-custom');
+      expect(infoCard).not.toBeNull();
+
+      // Set ID has font-mono-code
+      const setIdEl = within(infoCard as HTMLElement).getByText(openSet.id);
+      expect(setIdEl).toHaveClass('font-mono-code');
+
+      // Stakeholders values do not have font-mono-code
+      const submitterText = openSet.assignedSubmitter || 'M. Chen (Northwind Marine Pty Ltd)';
+      const submitterEl = within(infoCard as HTMLElement).getByText(submitterText);
+      expect(submitterEl).not.toHaveClass('font-mono-code');
+      expect(submitterEl.closest('.font-mono-code')).toBeNull();
+
+      const verifierText = openSet.verificationRequired === false
+        ? 'N/A (Verification Bypassed)'
+        : (openSet.assignedVerifier || 'A. Fontaine (Bureau Veritas Inspectorate)');
+      const verifierEl = within(infoCard as HTMLElement).getByText(verifierText);
+      expect(verifierEl).not.toHaveClass('font-mono-code');
+      expect(verifierEl.closest('.font-mono-code')).toBeNull();
+    });
   });
 });
 

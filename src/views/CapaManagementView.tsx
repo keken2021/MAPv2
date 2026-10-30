@@ -329,9 +329,9 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
                     )}
                   </td>
                   <td>
-                    <div className="fw-semibold text-dark font-mono-code small">{capa.vesselName}</div>
+                    <div className="fw-semibold text-dark small">{capa.vesselName}</div>
                   </td>
-                  <td className="font-mono-code small">{capa.dueDate}</td>
+                  <td className="small">{capa.dueDate}</td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(capa.status)}`}>
                       {getStatusDisplayLabel(capa.status)}

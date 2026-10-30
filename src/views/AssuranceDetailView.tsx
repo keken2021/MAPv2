@@ -327,7 +327,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     return (
       <div className="card map-card-custom p-4 text-center my-4">
         <div className="py-4">
-          <div className="badge bg-warning-subtle text-dark border border-warning-subtle px-3 py-1.5 mb-3 font-mono-code">
+          <div className="badge bg-warning-subtle text-dark border border-warning-subtle px-3 py-1.5 mb-3">
             Draft
           </div>
           <h4 className="fw-bold text-dark">{assuranceSet.title}</h4>
@@ -815,7 +815,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const renderRequirementStatus = (req: AssuranceRequirement) => {
     if (!req.documentId) {
       return (
-        <span className="badge bg-secondary text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
+        <span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
           Awaiting Upload
         </span>
       );
@@ -824,15 +824,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
     if (req.verifierStatus === 'Verified') {
       if (isSetApproved) {
-        return <span className="badge bg-success text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Approved</span>;
+        return <span className="badge bg-success text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Approved</span>;
       }
-      return <span className="badge bg-info text-dark font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Verified</span>;
+      return <span className="badge bg-info text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Verified</span>;
     }
     if (req.verifierStatus === 'Correction Requested') {
-      return <span className="badge bg-warning text-dark font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Returned for Correction</span>;
+      return <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Returned for Correction</span>;
     }
     if (req.verifierStatus === 'Rejected') {
-      return <span className="badge bg-danger text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Rejected</span>;
+      return <span className="badge bg-danger text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Rejected</span>;
     }
     const isInspectionDoc =
       (req.category as string).toLowerCase().includes('inspection') ||
@@ -841,11 +841,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       req.title.toLowerCase().includes('audit');
 
     if (isInspectionDoc) {
-      return <span className="badge bg-warning text-dark font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>To Inspect</span>;
+      return <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>To Inspect</span>;
     }
 
     return (
-      <span className="badge bg-primary text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
+      <span className="badge bg-primary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
         Submitted
       </span>
     );
@@ -869,7 +869,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     return (
       <>
         <span
-          className="badge bg-light text-secondary border font-mono-code ms-2 d-inline-flex align-items-center gap-1"
+          className="badge bg-light text-secondary border ms-2 d-inline-flex align-items-center gap-1"
           style={{ fontSize: '0.7rem' }}
           title={docView?.isLocked ? `Approved version${lockedOn ? `, locked ${formatMaritimeDate(lockedOn)}` : ''}` : undefined}
         >
@@ -877,7 +877,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           {label}
         </span>
         {docView?.newerVersionLabel && (
-          <span className="text-secondary font-mono-code ms-1.5 fw-normal" style={{ fontSize: '0.7rem' }}>
+          <span className="text-secondary ms-1.5 fw-normal" style={{ fontSize: '0.7rem' }}>
             {docView.newerVersionLabel} available
           </span>
         )}
@@ -1011,7 +1011,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           <div className="card map-card-custom p-4 h-100">
             {/* On-Time, Open Findings, and Remaining Items Badges inside Info Card */}
             <div className="d-flex flex-wrap align-items-center gap-2 mb-3 pb-3 border-bottom">
-              <span className={`badge font-mono-code ${onTimeStatus.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTimeStatus.detail}>
+              <span className={`badge ${onTimeStatus.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTimeStatus.detail}>
                 {onTimeStatus.statusLabel}{!onTimeStatus.isOnTime && onTimeStatus.lateItemsCount > 0 ? ` (${onTimeStatus.lateItemsCount} late)` : ''}
               </span>
               {openFindings.length > 0 && (
@@ -1020,17 +1020,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   className="btn btn-sm btn-link p-0 text-decoration-none"
                   onClick={() => setCurrentHashView('capa', assuranceSet.vesselName || assuranceSet.vesselId)}
                 >
-                  <span className="badge bg-warning text-dark font-mono-code">
+                  <span className="badge bg-warning text-dark">
                     {openFindings.length} {openFindings.length === 1 ? 'Open Finding' : 'Open Findings'}
                   </span>
                 </button>
               )}
-              <span className="badge bg-light text-secondary border font-mono-code">
+              <span className="badge bg-light text-secondary border">
                 {remainingItems.remainingTasks} remaining tasks ({remainingItems.remainingCertificates} certs)
               </span>
             </div>
 
-            <div className="font-mono-code small">
+            <div className="small">
               <div className="row g-4">
                 {/* Assurance Set Information */}
                 <div className="col-md-6 d-flex flex-column gap-3">
@@ -1041,7 +1041,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </div>
                   <div className="map-detail-row border-bottom pb-2">
                     <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Set ID:</div>
-                    <div className="fw-bold text-dark">{assuranceSet.id}</div>
+                    <div className="fw-bold text-dark font-mono-code">{assuranceSet.id}</div>
                   </div>
                   <div className="map-detail-row border-bottom pb-2">
                     <div className="d-flex align-items-center justify-content-between">
@@ -1049,7 +1049,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       {canAddToProject && (
                         <button
                           type="button"
-                          className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
+                          className="btn btn-link p-0 text-decoration-none small ms-auto"
                           style={{ fontSize: '0.7rem', color: '#0284c7' }}
                           onClick={() => setIsAddToProjectOpen(true)}
                         >
@@ -1159,7 +1159,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       {canEditCharterWindow && (
                         <button
                           type="button"
-                          className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
+                          className="btn btn-link p-0 text-decoration-none small ms-auto"
                           style={{ fontSize: '0.7rem', color: '#0284c7' }}
                           onClick={isEditingCharterWindow ? cancelCharterWindowEdit : startCharterWindowEdit}
                         >
@@ -1255,7 +1255,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         <div className="d-flex align-items-center gap-2 mt-2">
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-secondary py-0 px-2 d-inline-flex align-items-center gap-1 font-mono-code"
+                            className="btn btn-sm btn-outline-secondary py-0 px-2 d-inline-flex align-items-center gap-1"
                             style={{ fontSize: '0.72rem' }}
                             onClick={() => setIsDateHistoryModalOpen(true)}
                           >
@@ -1264,7 +1264,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           </button>
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1 font-mono-code"
+                            className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
                             style={{ fontSize: '0.72rem' }}
                             onClick={() => setIsDatePermissionsModalOpen(true)}
                           >
@@ -1276,7 +1276,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           <div className="d-flex flex-wrap gap-2 mt-2 pt-2 border-top">
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-danger py-0 px-2 font-mono-code"
+                              className="btn btn-sm btn-outline-danger py-0 px-2"
                               style={{ fontSize: '0.72rem' }}
                               onClick={() => {
                                 setRevisedDateDraft(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '');
@@ -1289,7 +1289,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             </button>
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-danger py-0 px-2 font-mono-code"
+                              className="btn btn-sm btn-outline-danger py-0 px-2"
                               style={{ fontSize: '0.72rem' }}
                               onClick={() => {
                                 setSelectedExemptTaskIds([]);
@@ -1304,7 +1304,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             </button>
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-danger py-0 px-2 font-mono-code"
+                              className="btn btn-sm btn-outline-danger py-0 px-2"
                               style={{ fontSize: '0.72rem' }}
                               onClick={() => {
                                 setPartialCloseNotes('');
@@ -1315,7 +1315,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             </button>
                             <button
                               type="button"
-                              className="btn btn-sm btn-danger text-white py-0 px-2 font-mono-code"
+                              className="btn btn-sm btn-danger text-white py-0 px-2"
                               style={{ fontSize: '0.72rem' }}
                               onClick={() => {
                                 setCancellationReasonDraft('');
@@ -1363,7 +1363,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       {canEditStakeholders && (
                         <button
                           type="button"
-                          className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
+                          className="btn btn-link p-0 text-decoration-none small ms-auto"
                           style={{ fontSize: '0.7rem', color: '#0284c7' }}
                           onClick={() => setEditingRole(editingRole === 'Submitter' ? null : 'Submitter')}
                         >
@@ -1374,7 +1374,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     {editingRole === 'Submitter' ? (
                       <div className="mt-1 d-flex flex-column gap-1">
                         <select
-                          className="form-select form-select-sm font-mono-code"
+                          className="form-select form-select-sm"
                           style={{ fontSize: '0.75rem' }}
                           value={assuranceSet.assignedSubmitter || ''}
                           onChange={(e) => {
@@ -1392,7 +1392,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         </select>
                         <button
                           type="button"
-                          className="btn btn-xs btn-outline-primary font-mono-code align-self-start mt-1"
+                          className="btn btn-xs btn-outline-primary align-self-start mt-1"
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
@@ -1411,7 +1411,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       {canEditStakeholders && (
                         <button
                           type="button"
-                          className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
+                          className="btn btn-link p-0 text-decoration-none small ms-auto"
                           style={{ fontSize: '0.7rem', color: '#0284c7' }}
                           onClick={() => setEditingRole(editingRole === 'Verifier' ? null : 'Verifier')}
                         >
@@ -1422,7 +1422,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     {editingRole === 'Verifier' ? (
                       <div className="mt-1 d-flex flex-column gap-1">
                         <select
-                          className="form-select form-select-sm font-mono-code"
+                          className="form-select form-select-sm"
                           style={{ fontSize: '0.75rem' }}
                           value={assuranceSet.assignedVerifier || ''}
                           onChange={(e) => {
@@ -1438,7 +1438,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         </select>
                         <button
                           type="button"
-                          className="btn btn-xs btn-outline-primary font-mono-code align-self-start mt-1"
+                          className="btn btn-xs btn-outline-primary align-self-start mt-1"
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
@@ -1461,7 +1461,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       {canEditStakeholders && (
                         <button
                           type="button"
-                          className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
+                          className="btn btn-link p-0 text-decoration-none small ms-auto"
                           style={{ fontSize: '0.7rem', color: '#0284c7' }}
                           onClick={() => setEditingRole(editingRole === 'Inspector' ? null : 'Inspector')}
                         >
@@ -1472,7 +1472,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     {editingRole === 'Inspector' ? (
                       <div className="mt-1 d-flex flex-column gap-1">
                         <select
-                          className="form-select form-select-sm font-mono-code"
+                          className="form-select form-select-sm"
                           style={{ fontSize: '0.75rem' }}
                           value={assuranceSet.assignedInspector || ''}
                           onChange={(e) => {
@@ -1490,7 +1490,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         </select>
                         <button
                           type="button"
-                          className="btn btn-xs btn-outline-primary font-mono-code align-self-start mt-1"
+                          className="btn btn-xs btn-outline-primary align-self-start mt-1"
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
@@ -1513,7 +1513,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       {canEditStakeholders && (
                         <button
                           type="button"
-                          className="btn btn-link p-0 text-decoration-none small font-mono-code ms-auto"
+                          className="btn btn-link p-0 text-decoration-none small ms-auto"
                           style={{ fontSize: '0.7rem', color: '#0284c7' }}
                           onClick={() => setEditingRole(editingRole === 'Approver' ? null : 'Approver')}
                         >
@@ -1524,7 +1524,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     {editingRole === 'Approver' ? (
                       <div className="mt-1 d-flex flex-column gap-1">
                         <select
-                          className="form-select form-select-sm font-mono-code"
+                          className="form-select form-select-sm"
                           style={{ fontSize: '0.75rem' }}
                           value={assuranceSet.assignedApprover || ''}
                           onChange={(e) => {
@@ -1540,7 +1540,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         </select>
                         <button
                           type="button"
-                          className="btn btn-xs btn-outline-primary font-mono-code align-self-start mt-1"
+                          className="btn btn-xs btn-outline-primary align-self-start mt-1"
                           style={{ fontSize: '0.675rem' }}
                           onClick={() => setCurrentHashView('users')}
                         >
@@ -1565,7 +1565,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         <div className="col-lg-4 col-md-5">
           <div className="card map-card-custom p-4 h-100 d-flex flex-column gap-4">
             <div>
-              <div className="text-uppercase font-mono-code fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+              <div className="text-uppercase fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
                 Stage
               </div>
               <PipelineStepper
@@ -1578,7 +1578,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
             {/* readiness index sits inside the pipeline panel, pinned to its bottom edge */}
             <div className="mt-auto pt-3 border-top">
-              <div className="text-secondary text-uppercase font-mono-code fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+              <div className="text-secondary text-uppercase fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
                 Readiness
               </div>
               <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
@@ -1632,7 +1632,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               {canUploadHere && (
                 <button
                   type="button"
-                  className="btn btn-sm btn-primary text-white font-mono-code"
+                  className="btn btn-sm btn-primary text-white"
                   onClick={() => {
                     setUploadTargetRequirement(null);
                     setReplaceExistingDoc(null);
@@ -1705,7 +1705,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         {renderTaskPlacement(req)}
                         <div className="d-flex align-items-center gap-1.5 flex-wrap">
                           <span className="font-mono-code small text-primary">{linkedChildSet.id}</span>
-                          <span className="badge bg-info text-dark font-mono-code" style={{ fontSize: '0.7rem' }}>
+                          <span className="badge bg-info text-dark" style={{ fontSize: '0.7rem' }}>
                             Linked Sub-Set
                           </span>
                         </div>
@@ -1714,7 +1714,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         )}
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        <span className="font-mono-code small text-dark">
+                        <span className="small text-dark">
                           {formatMaritimeDate(req.targetDate || linkedChildSet.complianceDeadline || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
                         </span>
                       </td>
@@ -1722,7 +1722,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         <span className="text-muted small">—</span>
                       </td>
                       <td>
-                        <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'} font-mono-code`}>
+                        <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'}`}>
                           {linkedChildSet.stage}
                         </span>
                       </td>
@@ -1749,13 +1749,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         {req.title}
                         {renderVersionBadge(req, docView)}
                         {req.attemptNumber && (
-                          <span className="badge bg-light text-secondary border font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
+                          <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
                             Attempt {req.attemptNumber}
                           </span>
                         )}
                         {req.exemption && (
                           <span
-                            className="badge bg-warning text-dark font-mono-code ms-1.5"
+                            className="badge bg-warning text-dark ms-1.5"
                             style={{ fontSize: '0.65rem' }}
                             title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
                           >
@@ -1764,7 +1764,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         )}
                         {renderTaskPlacement(req)}
                         {req.isSpecialized && (
-                          <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
+                          <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1.5" style={{ fontSize: '0.65rem' }}>
                             Custom
                           </span>
                         )}
@@ -1776,7 +1776,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         </div>
                       )}
                       {(req.assignedSubmitter || req.assignedVerifier) && (
-                        <div className="font-mono-code text-muted mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
+                        <div className="text-muted mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
                           {req.assignedSubmitter && (
                             <span><span className="text-secondary fw-semibold">Submitter:</span> {req.assignedSubmitter.split(' (')[0]}</span>
                           )}
@@ -1800,7 +1800,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           <div className="mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
                             <span className={`badge border ${tone}`}>{validity.label}</span>
                             {validity.state !== 'valid_through_period' && validity.expiryDate && (
-                              <span className="font-mono-code text-muted">
+                              <span className="text-muted">
                                 {formatMaritimeDate(validity.expiryDate)}
                                 {/* a lapse names the issuer and the party responsible for renewal (paper 16.1) */}
                                 {validity.state === 'lapsed' && (
@@ -1815,13 +1815,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         );
                       })()}
                       {req.decisionTime && (
-                        <div className="font-mono-code text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                        <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
                           <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
                         </div>
                       )}
                       {/* how this set's verifier confirmed the document (gap review G1) */}
                       {req.verifierStatus === 'Verified' && (
-                        <div className="font-mono-code text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                        <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
                           <span className="text-secondary fw-semibold">Method:</span> {req.verificationMethod || 'Not recorded'}
                           {req.overrideReason && (
                             <span className="ms-2 text-warning-emphasis" title={req.overrideReason}>· Override</span>
@@ -1831,7 +1831,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <div className="d-flex align-items-center gap-2">
-                        <span className="font-mono-code small text-dark">
+                        <span className="small text-dark">
                           {formatMaritimeDate(req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
                         </span>
                         {roleActions.canChangeDates && !isCharterWindowLocked && (
@@ -1892,7 +1892,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             <Upload size={16} />
                           </button>
                         ) : (
-                          <span className="text-secondary small font-mono-code">No Document</span>
+                          <span className="text-secondary small">No Document</span>
                         )}
                       </div>
                     </td>
@@ -1905,7 +1905,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 <tr className="bg-light border-top border-bottom">
                   <td colSpan={4} className="py-2.5 px-3">
                     <div className="d-flex align-items-center justify-content-between">
-                      <span className="fw-bold text-secondary text-uppercase font-mono-code" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                      <span className="fw-bold text-secondary text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
                         Other Documents
                       </span>
                     </div>
@@ -1928,13 +1928,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         {req.title}
                         {renderVersionBadge(req, docView)}
                         {req.attemptNumber && (
-                          <span className="badge bg-light text-secondary border font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
+                          <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
                             Attempt {req.attemptNumber}
                           </span>
                         )}
                         {renderTaskPlacement(req)}
                         {req.decisionTime && (
-                          <div className="font-mono-code text-muted mt-0.5" style={{ fontSize: '0.7rem' }}>
+                          <div className="text-muted mt-0.5" style={{ fontSize: '0.7rem' }}>
                             <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
                           </div>
                         )}
@@ -1942,7 +1942,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       </td>
                       <td style={{ whiteSpace: 'nowrap' }}>
                         <div className="d-flex align-items-center gap-2">
-                          <span className="font-mono-code small text-dark">
+                          <span className="small text-dark">
                             {formatMaritimeDate(req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
                           </span>
                           {roleActions.canChangeDates && !isCharterWindowLocked && (
@@ -2003,7 +2003,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                               <Upload size={16} />
                             </button>
                           ) : (
-                            <span className="text-secondary small font-mono-code">No Document</span>
+                            <span className="text-secondary small">No Document</span>
                           )}
                         </div>
                       </td>
@@ -2013,7 +2013,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               ) : (
                 isLastRequirementsPage && (
                   <tr>
-                    <td colSpan={4} className="text-center text-muted py-3 small font-mono-code">
+                    <td colSpan={4} className="text-center text-muted py-3 small">
                       No other documents yet.
                     </td>
                   </tr>
@@ -2249,7 +2249,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       </div>
                     ) : (
                       <div className="table-responsive">
-                        <table className="table table-sm table-bordered align-middle mb-0 font-mono-code" style={{ fontSize: '0.78rem' }}>
+                        <table className="table table-sm table-bordered align-middle mb-0" style={{ fontSize: '0.78rem' }}>
                           <thead className="table-light">
                             <tr>
                               <th>Client User</th>
@@ -2395,7 +2395,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     </div>
                   ) : (
                     <div className="table-responsive">
-                      <table className="table table-sm table-striped align-middle mb-0 font-mono-code" style={{ fontSize: '0.78rem' }}>
+                      <table className="table table-sm table-striped align-middle mb-0" style={{ fontSize: '0.78rem' }}>
                         <thead className="table-light">
                           <tr>
                             <th>Scope</th>
@@ -2470,7 +2470,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <input
                       id="revised-deadline-input"
                       type="date"
-                      className="form-control form-control-sm font-mono-code"
+                      className="form-control form-control-sm"
                       value={revisedDateDraft}
                       onChange={(e) => {
                         setRevisedDateDraft(e.target.value);
@@ -2579,12 +2579,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 <td className="fw-semibold text-dark">
                                   {req.title}
                                   {req.exemption && (
-                                    <span className="badge bg-warning text-dark font-mono-code ms-1.5" style={{ fontSize: '0.65rem' }}>
+                                    <span className="badge bg-warning text-dark ms-1.5" style={{ fontSize: '0.65rem' }}>
                                       Already Exempted
                                     </span>
                                   )}
                                 </td>
-                                <td className="font-mono-code text-muted">
+                                <td className="text-muted">
                                   {formatMaritimeDate(req.targetDate || req.exemption?.newDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '')}
                                 </td>
                                 <td>
@@ -2620,7 +2620,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <input
                         id="exemption-new-date"
                         type="date"
-                        className="form-control form-control-sm font-mono-code"
+                        className="form-control form-control-sm"
                         value={exemptionNewDateDraft}
                         onChange={(e) => {
                           setExemptionNewDateDraft(e.target.value);
