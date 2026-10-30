@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { UserRolePersona } from '../types/audit';
 import { useMapStore } from '../store/useMapStore';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
@@ -154,5 +154,86 @@ describe('assurance objects list', () => {
     });
     expect(screen.getByTestId('empty-state')).toBeTruthy();
     expect(screen.getByText('No matches')).toBeTruthy();
+  });
+
+  it('opens a drawer for each type that has no detail page', () => {
+    signIn('C Admin');
+    render(<AssuranceObjectsView />);
+    const samples = [
+      { name: 'Fremantle Port Authority', assignments: false },
+      { name: 'James Okello', assignments: true },
+      { name: 'Emergency Response Procedure', assignments: false },
+      { name: 'Bridging Document', assignments: false },
+      { name: 'Lift Plan', assignments: false },
+    ];
+
+    samples.forEach((sample) => {
+      fireEvent.change(screen.getByPlaceholderText('Search name or identifier...'), {
+        target: { value: sample.name },
+      });
+      fireEvent.click(screen.getByRole('button', { name: `View ${sample.name}` }));
+      const dialog = screen.getByRole('dialog', { name: sample.name });
+      expect(within(dialog).getByRole('heading', { name: 'Owner' })).toBeTruthy();
+      expect(within(dialog).getByRole('heading', { name: 'Description' })).toBeTruthy();
+      expect(within(dialog).getByRole('heading', { name: 'Verification' })).toBeTruthy();
+      expect(within(dialog).getByRole('heading', { name: 'Used in' })).toBeTruthy();
+      expect(Boolean(within(dialog).queryByRole('heading', { name: 'Assignments' }))).toBe(sample.assignments);
+      if (sample.assignments) {
+        expect(within(dialog).getByText(/01 MAR 2026 to 02 MAR 2026/)).toBeTruthy();
+      }
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+  });
+
+  it('shows a client admin only their own verification', () => {
+    signIn('C Admin');
+    render(<AssuranceObjectsView />);
+    fireEvent.change(screen.getByPlaceholderText('Search name or identifier...'), {
+      target: { value: 'Emergency Response Procedure' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'View Emergency Response Procedure' }));
+    const dialog = screen.getByRole('dialog', { name: 'Emergency Response Procedure' });
+    const checks = within(dialog).getAllByTestId('object-verification');
+    expect(checks).toHaveLength(1);
+    expect(checks[0].textContent).toContain('Northwind Marine Pty Ltd');
+    expect(within(dialog).queryByText(/Chevron/)).toBeNull();
+    expect(within(dialog).queryByText(/Woodside/)).toBeNull();
+  });
+
+  it('shows an administrator each client verification without another client’s documents', () => {
+    render(<AssuranceObjectsView />);
+    fireEvent.change(screen.getByPlaceholderText('Search name or identifier...'), {
+      target: { value: 'Emergency Response Procedure' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'View Emergency Response Procedure' }));
+    const dialog = screen.getByRole('dialog', { name: 'Emergency Response Procedure' });
+    expect(within(dialog).getByText('Chevron Australia Pty Ltd')).toBeTruthy();
+    expect(within(dialog).getByText('Woodside Energy Ltd')).toBeTruthy();
+    expect(within(dialog).queryByText(/documentId/i)).toBeNull();
+  });
+
+  it('returns focus to the row on Escape and opens the set from Used in', () => {
+    signIn('C Admin');
+    render(<AssuranceObjectsView />);
+    fireEvent.change(screen.getByPlaceholderText('Search name or identifier...'), {
+      target: { value: 'James Okello' },
+    });
+    const row = screen.getByRole('row', { name: 'James Okello' });
+    fireEvent.click(screen.getByRole('button', { name: 'View James Okello' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(row).toHaveFocus();
+
+    fireEvent.change(screen.getByPlaceholderText('Search name or identifier...'), {
+      target: { value: 'Emergency Response Procedure' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'View Emergency Response Procedure' }));
+    const dialog = screen.getByRole('dialog', { name: 'Emergency Response Procedure' });
+    const setLink = within(dialog).getAllByRole('button').find((button) => button.className.includes('btn-link'));
+    expect(setLink).toBeTruthy();
+    fireEvent.click(setLink!);
+    expect(useMapStore.getState().currentHashView).toBe('assurance-sets');
+    expect(useMapStore.getState().currentEntityId).toBeTruthy();
   });
 });

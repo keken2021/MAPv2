@@ -23,6 +23,12 @@ import { EmptyState } from '../components/common/EmptyState';
 import { FilterModal } from '../components/common/FilterModal';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { TablePagination } from '../components/common/TablePagination';
+import {
+  AssuranceObjectDrawer,
+  objectOpensInDrawer,
+  setsForObjectDrawer,
+  verificationsForViewer,
+} from '../components/drawers/AssuranceObjectDrawer';
 
 export const OBJECTS_LIST_PERSONAS: UserRolePersona[] = [
   'Administrator',
@@ -194,6 +200,7 @@ export const AssuranceObjectsView: React.FC = () => {
   const [verificationStatus, setVerificationStatus] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [draftOwner, setDraftOwner] = useState('');
+  const [drawerObjectId, setDrawerObjectId] = useState<string | null>(null);
   const [draftStatus, setDraftStatus] = useState('');
 
   const sessionUser = useMemo(
@@ -290,10 +297,23 @@ export const AssuranceObjectsView: React.FC = () => {
     setActiveType('all');
   };
 
-  const openDetail = (row: ObjectRow) => {
-    if (!row.detailView) return;
-    setCurrentHashView(row.detailView, row.object.id);
+  const openDetail = (row: ObjectRow, rowElement?: HTMLElement | null) => {
+    if (row.detailView) {
+      setCurrentHashView(row.detailView, row.object.id);
+      return;
+    }
+    if (!objectOpensInDrawer(row.object.type, crewIds.has(row.object.id))) return;
+    rowElement?.focus();
+    setDrawerObjectId(row.object.id);
   };
+
+  const drawerObject = rows.find((row) => row.object.id === drawerObjectId)?.object || null;
+  const drawerVerifications = drawerObject
+    ? verificationsForViewer(drawerObject, assuranceSets, activePersona, organization)
+    : [];
+  const drawerSets = drawerObject
+    ? setsForObjectDrawer(drawerObject.id, assuranceSets, activePersona, organization, sessionUser)
+    : [];
 
   const exportRows = visibleRows.map((row) => ({
     Type: TYPE_LABEL[row.object.type],
@@ -371,8 +391,10 @@ export const AssuranceObjectsView: React.FC = () => {
                 <tr
                   key={row.object.id}
                   data-testid="assurance-object-row"
-                  onClick={() => openDetail(row)}
-                  style={{ cursor: row.detailView ? 'pointer' : 'default' }}
+                  tabIndex={objectOpensInDrawer(row.object.type, crewIds.has(row.object.id)) ? 0 : undefined}
+                  aria-label={row.object.name}
+                  onClick={(event) => openDetail(row, event.currentTarget)}
+                  style={{ cursor: row.detailView || objectOpensInDrawer(row.object.type, crewIds.has(row.object.id)) ? 'pointer' : 'default' }}
                 >
                   <td className="small">{TYPE_LABEL[row.object.type]}</td>
                   <td>
@@ -392,14 +414,14 @@ export const AssuranceObjectsView: React.FC = () => {
                   </td>
                   <td className="small">{row.usedIn}</td>
                   <td className="text-end">
-                    {row.detailView && (
+                    {(row.detailView || objectOpensInDrawer(row.object.type, crewIds.has(row.object.id))) && (
                       <button
                         type="button"
                         className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                         style={{ width: '32px', height: '32px' }}
                         onClick={(event) => {
                           event.stopPropagation();
-                          openDetail(row);
+                          openDetail(row, event.currentTarget.closest('tr'));
                         }}
                         title="View"
                         aria-label={`View ${row.object.name}`}
@@ -431,6 +453,19 @@ export const AssuranceObjectsView: React.FC = () => {
         </div>
         <TablePagination {...pagination.controls} />
       </div>
+
+      {drawerObject && (
+        <AssuranceObjectDrawer
+          object={drawerObject}
+          verifications={drawerVerifications}
+          sets={drawerSets}
+          onClose={() => setDrawerObjectId(null)}
+          onOpenSet={(setId) => {
+            setDrawerObjectId(null);
+            setCurrentHashView('assurance-sets', setId);
+          }}
+        />
+      )}
 
       <FilterModal
         isOpen={isFilterOpen}
