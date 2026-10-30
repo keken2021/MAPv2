@@ -23,7 +23,7 @@ import {
   isTaskOpen,
 } from '../utils/readinessHelpers';
 import { toIsoLocalDate } from '../utils/validation';
-import { getAssuranceSetScopes } from '../utils/assuranceTemplates';
+import { getAssuranceSetScopes, getAssuranceSetObjects } from '../utils/assuranceTemplates';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { ReturnedDocumentsDrawer } from '../components/drawers/ReturnedDocumentsDrawer';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
@@ -60,8 +60,6 @@ export const DashboardView: React.FC = () => {
   const [submitterSearchTerm, setSubmitterSearchTerm] = useState('');
   const [submitterSortField, setSubmitterSortField] = useState<'id' | 'title' | 'vesselName' | 'charterWindowStart' | 'stage' | 'readinessScore'>('id');
   const [submitterSortDirection, setSubmitterSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [fleetSortField, setFleetSortField] = useState<'name' | 'imoNumber' | 'flagState' | 'classificationSociety' | 'status' | 'readiness'>('name');
-  const [fleetSortDirection, setFleetSortDirection] = useState<'asc' | 'desc'>('asc');
   const [submitterTableFilter, setSubmitterTableFilter] = useState<'ALL' | 'awaiting_upload' | 'returned' | 'due_this_week'>('ALL');
   const [cAdminStageFilter, setCAdminStageFilter] = useState<'ALL' | 'in_progress' | 'approved'>('ALL');
 
@@ -251,21 +249,9 @@ export const DashboardView: React.FC = () => {
     }
   };
 
-  const sortedFleetVessels = [...visibleVessels].sort((a, b) => {
-    let comp = 0;
-    if (fleetSortField === 'name') comp = a.name.localeCompare(b.name);
-    else if (fleetSortField === 'imoNumber') comp = a.imoNumber.localeCompare(b.imoNumber);
-    else if (fleetSortField === 'flagState') comp = a.flagState.localeCompare(b.flagState);
-    else if (fleetSortField === 'classificationSociety') comp = a.classificationSociety.localeCompare(b.classificationSociety);
-    else if (fleetSortField === 'status') comp = a.status.localeCompare(b.status);
-    else if (fleetSortField === 'readiness') comp = calculateVesselReadiness(a, assuranceSets, documents) - calculateVesselReadiness(b, assuranceSets, documents);
-    return fleetSortDirection === 'asc' ? comp : -comp;
-  });
-
   const cAdminProjectsPagination = usePagination(sortedCAdminProjects, [cAdminProjectSearchTerm, cAdminProjectSortField, cAdminProjectSortDirection]);
   const cAdminSetsPagination = usePagination(sortedCAdminSets, [cAdminSearchTerm, cAdminStageFilter, cAdminSortField, cAdminSortDirection]);
   const submitterSetsPagination = usePagination(sortedSubmitterSets, [submitterSearchTerm, submitterTableFilter, submitterSortField, submitterSortDirection]);
-  const fleetPagination = usePagination(sortedFleetVessels, [fleetSortField, fleetSortDirection]);
 
   const relevantSetsForPerformance = useMemo(() => {
     if (activePersona === 'C Admin') return cAdminAssuranceSets;
@@ -287,10 +273,12 @@ export const DashboardView: React.FC = () => {
     interface ActionRowItem {
       id: string;
       kind: 'expiring_certificate' | 'returned_document' | 'overdue_capa';
+      typeBadge: 'CAPA' | 'Document' | 'Certificate';
       kindLabel: string;
       title: string;
       vesselId?: string;
       vesselName: string;
+      objectName: string;
       dateStr: string;
       dateMs: number;
       isExpiry: boolean;
@@ -299,17 +287,66 @@ export const DashboardView: React.FC = () => {
       actionEntityId?: string;
     }
 
+    const resolveObjectForDocument = (docId: string, fallbackVessel: string, doc?: MasterDocument): string => {
+      for (const s of assuranceSets) {
+        const req = s.requirements?.find((r) => r.documentId === docId || r.linkedDocumentId === docId);
+        if (req) {
+          const objs = getAssuranceSetObjects(s);
+          if (req.targetObjectId) {
+            const matched = objs.find((o) => o.id === req.targetObjectId);
+            if (matched?.name) return matched.name;
+          }
+          if (doc?.crewAttributes?.crewName) {
+            const matched = objs.find((o) => o.type === 'person' && o.name === doc.crewAttributes?.crewName);
+            if (matched?.name) return matched.name;
+          }
+          if (s.equipmentId) {
+            const matched = objs.find((o) => o.type === 'equipment' || o.id === s.equipmentId);
+            if (matched?.name) return matched.name;
+          }
+          if (s.vesselId) {
+            const matched = objs.find((o) => o.type === 'vessel' || o.id === s.vesselId);
+            if (matched?.name) return matched.name;
+          }
+          if (objs.length > 0) {
+            const primary = objs.find((o) => o.type === 'vessel' || o.type === 'equipment' || o.type === 'person');
+            if (primary?.name) return primary.name;
+          }
+        }
+      }
+      return fallbackVessel;
+    };
+
+    const resolveObjectForCapa = (capa: typeof capaItems[0], fallbackVessel: string): string => {
+      if (capa.assuranceSetId) {
+        const s = assuranceSets.find((set) => set.id === capa.assuranceSetId);
+        if (s) {
+          const objs = getAssuranceSetObjects(s);
+          if (capa.vesselId) {
+            const matched = objs.find((o) => o.id === capa.vesselId);
+            if (matched?.name) return matched.name;
+          }
+          const primary = objs.find((o) => o.type === 'vessel' || o.type === 'equipment' || o.type === 'person');
+          if (primary?.name) return primary.name;
+        }
+      }
+      return fallbackVessel;
+    };
+
     const expCerts: ActionRowItem[] = [];
     documents.forEach((d) => {
       if (isExpiringWithinWarning(d.expiryDate) && d.vesselId && adminVesselIds.has(d.vesselId)) {
         const v = visibleVessels.find((ves) => ves.id === d.vesselId);
+        const vesselName = v?.name || d.vesselAttributes?.vesselName || 'Unknown Vessel';
         expCerts.push({
           id: d.id,
           kind: 'expiring_certificate',
+          typeBadge: 'Certificate',
           kindLabel: 'Expiring Certificate',
           title: d.title,
           vesselId: d.vesselId,
-          vesselName: v?.name || d.vesselAttributes?.vesselName || 'Unknown Vessel',
+          vesselName,
+          objectName: resolveObjectForDocument(d.id, vesselName, d),
           dateStr: d.expiryDate,
           dateMs: new Date(d.expiryDate).getTime(),
           isExpiry: true,
@@ -332,13 +369,16 @@ export const DashboardView: React.FC = () => {
         !expCertDocIds.has(d.id)
       ) {
         const v = visibleVessels.find((ves) => ves.id === d.vesselId);
+        const vesselName = v?.name || d.vesselAttributes?.vesselName || 'Unknown Vessel';
         returnedDocs.push({
           id: d.id,
           kind: 'returned_document',
+          typeBadge: 'Document',
           kindLabel: 'Returned for Correction',
           title: d.title,
           vesselId: d.vesselId,
-          vesselName: v?.name || d.vesselAttributes?.vesselName || 'Unknown Vessel',
+          vesselName,
+          objectName: resolveObjectForDocument(d.id, vesselName, d),
           dateStr: d.expiryDate,
           dateMs: new Date(d.expiryDate).getTime(),
           isExpiry: true,
@@ -356,13 +396,16 @@ export const DashboardView: React.FC = () => {
       if (c.vesselId && adminVesselIds.has(c.vesselId) && c.status !== 'Verified & Closed') {
         const dateMs = new Date(c.dueDate).getTime();
         if (!Number.isNaN(dateMs) && dateMs < now) {
+          const vesselName = c.vesselName || 'Unknown Vessel';
           overdueCapas.push({
             id: c.id,
             kind: 'overdue_capa',
+            typeBadge: 'CAPA',
             kindLabel: 'Overdue CAPA',
             title: c.title,
             vesselId: c.vesselId,
-            vesselName: c.vesselName,
+            vesselName,
+            objectName: resolveObjectForCapa(c, vesselName),
             dateStr: c.dueDate,
             dateMs,
             isExpiry: false,
@@ -395,7 +438,7 @@ export const DashboardView: React.FC = () => {
 
     selected.sort((a, b) => a.dateMs - b.dateMs);
     return selected.slice(0, targetCount);
-  }, [documents, capaItems, adminVesselIds, visibleVessels]);
+  }, [documents, capaItems, adminVesselIds, visibleVessels, assuranceSets]);
 
   /* these roles get their own workspace; the check sits below every hook so the hook order never changes */
   if (activePersona === 'Verifier') {
@@ -409,15 +452,6 @@ export const DashboardView: React.FC = () => {
   if (activePersona === 'Approver') {
     return <ApproverDashboardView />;
   }
-
-  const handleFleetSort = (field: 'name' | 'imoNumber' | 'flagState' | 'classificationSociety' | 'status' | 'readiness') => {
-    if (fleetSortField === field) {
-      setFleetSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setFleetSortField(field);
-      setFleetSortDirection('asc');
-    }
-  };
 
   /* compute role-specific top summary metrics for activePersona */
   const renderDashboardCards = () => {
@@ -1108,9 +1142,9 @@ export const DashboardView: React.FC = () => {
                     <table className="table map-table-custom align-middle mb-0" aria-label="Needs action items">
                       <thead>
                         <tr>
-                          <th style={{ whiteSpace: 'nowrap' }}>Identifier</th>
+                          <th style={{ whiteSpace: 'nowrap' }}>Type</th>
                           <th style={{ whiteSpace: 'nowrap' }}>Item</th>
-                          <th style={{ whiteSpace: 'nowrap' }}>Vessel</th>
+                          <th style={{ whiteSpace: 'nowrap' }}>Object</th>
                           <th style={{ whiteSpace: 'nowrap' }}>Due / Expiry</th>
                           <th style={{ whiteSpace: 'nowrap' }}>Status</th>
                           <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
@@ -1124,12 +1158,13 @@ export const DashboardView: React.FC = () => {
                             onClick={() => setCurrentHashView(item.actionView, item.actionEntityId)}
                             style={{ cursor: 'pointer' }}
                           >
-                            <td className="font-mono-code fw-semibold text-primary">{item.id}</td>
                             <td>
-                              <div className="fw-semibold text-slate-900">{item.title}</div>
-                              <div className="small text-muted">{item.kindLabel}</div>
+                              <span className="badge bg-light text-dark border">{item.typeBadge}</span>
                             </td>
-                            <td className="fw-medium text-dark">{item.vesselName}</td>
+                            <td>
+                              <span className="fw-semibold text-slate-900">{item.title}</span>
+                            </td>
+                            <td className="fw-medium text-dark">{item.objectName}</td>
                             <td>
                               <DueCell
                                 date={item.dateStr}
@@ -1158,90 +1193,6 @@ export const DashboardView: React.FC = () => {
                     </table>
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
-
-          <div className="col-12">
-            <div className="card map-card-custom">
-              <div className="card-header d-flex align-items-center justify-between">
-                <span>Vessels</span>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={() => setCurrentHashView('vessels')}
-                >
-                  View All
-                </button>
-              </div>
-              <div className="card-body p-0">
-                <div className="table-responsive">
-                  <table className="table map-table-custom align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleFleetSort('imoNumber')}
-                        >
-                          IMO Number {renderSortIndicator(fleetSortField, 'imoNumber', fleetSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleFleetSort('name')}
-                        >
-                          Name {renderSortIndicator(fleetSortField, 'name', fleetSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleFleetSort('flagState')}
-                        >
-                          Flag State {renderSortIndicator(fleetSortField, 'flagState', fleetSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleFleetSort('classificationSociety')}
-                        >
-                          Class Society {renderSortIndicator(fleetSortField, 'classificationSociety', fleetSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleFleetSort('status')}
-                        >
-                          Operating Status {renderSortIndicator(fleetSortField, 'status', fleetSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleFleetSort('readiness')}
-                        >
-                          Readiness {renderSortIndicator(fleetSortField, 'readiness', fleetSortDirection)}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {fleetPagination.pageItems.map((v) => (
-                        <tr
-                          key={v.id}
-                          onClick={() => setCurrentHashView('vessels', v.id)}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
-                          <td className="fw-semibold text-dark">{v.name}</td>
-                          <td>{v.flagState}</td>
-                          <td>
-                            <span className="badge bg-light text-dark border">{v.classificationSociety}</span>
-                          </td>
-                          <td>
-                            <span className="badge bg-light text-dark border">{v.status}</span>
-                          </td>
-                          <td>
-                            <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <TablePagination {...fleetPagination.controls} />
               </div>
             </div>
           </div>

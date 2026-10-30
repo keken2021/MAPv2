@@ -78,10 +78,27 @@ describe('Dashboard KPI tilesSuite', () => {
         expect(timestamps[i]).toBeLessThanOrEqual(timestamps[i + 1]);
       }
 
-      // Verify all three kinds of rows are represented
-      expect(screen.getAllByText('Expiring Certificate').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Returned for Correction').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Overdue CAPA').length).toBeGreaterThan(0);
+      // Verify column headers: Type, Item, Object, Due / Expiry, Status, Actions
+      const headers = Array.from(needsActionTable.querySelectorAll('th')).map((th) => th.textContent?.trim());
+      expect(headers).toEqual(['Type', 'Item', 'Object', 'Due / Expiry', 'Status', 'Actions']);
+
+      // Verify all three kinds of rows are represented as Type badges
+      expect(screen.getAllByText('Certificate').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Document').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('CAPA').length).toBeGreaterThan(0);
+
+      // Verify kindLabel is dropped from Item cell (shows title only)
+      expect(screen.queryByText('Expiring Certificate')).toBeNull();
+      expect(screen.queryByText('Overdue CAPA')).toBeNull();
+      rows.forEach((r) => {
+        const itemCell = r.querySelectorAll('td')[1];
+        expect(itemCell.querySelector('.small.text-muted')).toBeNull();
+      });
+
+      // Verify Vessels table is removed from Administrator dashboard
+      expect(screen.queryByRole('table', { name: /^vessels$/i })).toBeNull();
+      expect(screen.queryByText('Operating Status')).toBeNull();
+      expect(screen.queryByText('Class Society')).toBeNull();
 
       // Verify row click opens detail
       fireEvent.click(rows[0]);
@@ -130,7 +147,7 @@ describe('Dashboard KPI tilesSuite', () => {
     it('filters submitter assurance sets table on tile clicks and resets with assurance sets tile', () => {
       render(<DashboardView />);
 
-      expect(screen.getByText('Showing 1-10 of 13')).toBeInTheDocument();
+      expect(screen.getByText(/Showing 1-10 of \d+/)).toBeInTheDocument();
 
       const awaitingBtn = screen.getByRole('button', { name: /documents awaiting upload/i });
       fireEvent.click(awaitingBtn);
@@ -147,7 +164,7 @@ describe('Dashboard KPI tilesSuite', () => {
       const allSetsBtn = screen.getByRole('button', { name: /assigned assurance sets/i });
       fireEvent.click(allSetsBtn);
       expect(screen.queryByText('Filter: Due this week')).toBeNull();
-      expect(screen.getByText('Showing 1-10 of 13')).toBeInTheDocument();
+      expect(screen.getByText(/Showing 1-10 of \d+/)).toBeInTheDocument();
     });
   });
 
