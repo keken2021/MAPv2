@@ -108,7 +108,7 @@ describe('Documents and audit trail declutter', () => {
     expect(within(card).queryByText('Field:')).toBeNull();
     expect(within(card).queryByText(/^Old:/)).toBeNull();
     expect(within(card).queryByText(/^New:/)).toBeNull();
-    expect(within(card).getByText('Deadline: 01 May → 01 Jun')).toBeInTheDocument();
+    expect(within(card).getByText('Deadline: 01 May to 01 Jun')).toBeInTheDocument();
     expect(within(card).getByText('No change')).toBeInTheDocument();
     expect(within(card).getByText('Charter moved')).toBeInTheDocument();
     expect(within(card).getByText('—')).toBeInTheDocument();

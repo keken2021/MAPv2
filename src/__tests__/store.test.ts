@@ -16,15 +16,15 @@ describe('Map Store State Management', () => {
     useMapStore.getState().setActivePersona('Administrator');
   });
 
-  it('should switch active persona and log audit trail event', () => {
+  it('should switch active persona without logging the prototype switch', () => {
     const store = useMapStore.getState();
+    const before = store.auditEvents.length;
     store.setActiveDemoOrganization('Southern Basin Energy Pty Ltd');
     store.setActivePersona('C Admin');
 
     expect(useMapStore.getState().activePersona).toBe('C Admin');
-    const latestAudit = useMapStore.getState().auditEvents[0];
-    expect(latestAudit.action).toBe('Switched Active User Persona');
-    expect(latestAudit.justificationNotes).toContain('C Admin');
+    expect(useMapStore.getState().auditEvents).toHaveLength(before);
+    expect(useMapStore.getState().auditEvents.some((event) => event.action === 'Switched Active User Persona')).toBe(false);
   });
 
   it('should block duplicate vessel registration', () => {

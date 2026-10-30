@@ -40,6 +40,7 @@ import {
   MOCK_AUDIT_TRAIL,
   MOCK_USERS,
 } from "./mockData";
+import { SEEDED_AUDIT_EVENTS } from "./auditMockData";
 import { MOCK_EQUIPMENT } from "./equipmentMockData";
 import { MOCK_CREW } from "./crewMockData";
 import { OIL_CO_PILOT_ASSURANCE_OBJECTS } from "./oilCoLngPilotMockData";
@@ -592,7 +593,7 @@ function logAssuranceSetAuditDiff(
       targetAsset: `${nextSet.id} (${nextSet.title})`,
       target: { kind: "date", setId: nextSet.id, dateField: field },
       fieldDelta: {
-        fieldName: auditDateFieldLabel(field),
+        fieldName: field === "targetDate" ? "Target date" : auditDateFieldLabel(field),
         oldValue: oldValue || "—",
         newValue: newValue || "—",
       },
@@ -614,7 +615,23 @@ function logAssuranceSetAuditDiff(
       notifyVendorOfTaskChange(get, nextSet, "added", task.title);
       continue;
     }
-    if (taskEditSnapshot(previous) === taskEditSnapshot(task)) continue;
+    const targetDateChanged = (previous.targetDate ?? "") !== (task.targetDate ?? "");
+    if (targetDateChanged) {
+      get().logAuditEvent({
+        action: "Changed date",
+        targetAsset: `${nextSet.id} · ${task.title}`,
+        target: { kind: "date", setId: nextSet.id, dateField: "targetDate", taskId },
+        fieldDelta: {
+          fieldName: "Target date",
+          oldValue: previous.targetDate || "—",
+          newValue: task.targetDate || "—",
+        },
+      });
+    }
+    if (taskEditSnapshot({ ...previous, targetDate: task.targetDate }) === taskEditSnapshot(task)) {
+      if (targetDateChanged) notifyVendorOfTaskChange(get, nextSet, "edited", task.title);
+      continue;
+    }
     get().logAuditEvent({
       action: "Edited task",
       targetAsset: `${nextSet.id} · ${task.title}`,
@@ -1021,18 +1038,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       activeSessionUserId: sessionUser?.id,
       currentHashView: targetView,
     });
-    get().logAuditEvent({
-      action: "Authenticated User Session",
-      targetAsset: "Authentication Gateway",
-      justificationNotes: `Logged in as ${role}`,
-    });
   },
   logout: () => {
-    get().logAuditEvent({
-      action: "Terminated User Session",
-      targetAsset: "Authentication Gateway",
-      justificationNotes: "User signed out.",
-    });
     window.location.hash = "#/login";
     set({ isAuthenticated: false, currentHashView: "login" });
   },
@@ -1062,11 +1069,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       activePersona: nextPersona,
       activeSessionUserId: sessionUser?.id,
     });
-    get().logAuditEvent({
-      action: "Switched Demo Organization",
-      targetAsset: "Global System Context",
-      justificationNotes: `Demo organization set to ${organization}`,
-    });
   },
   setActivePersona: (persona) => {
     const organization = get().activeDemoOrganization;
@@ -1086,11 +1088,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
 
     set({ activePersona: persona, activeSessionUserId: sessionUser?.id });
-    get().logAuditEvent({
-      action: "Switched Active User Persona",
-      targetAsset: "Global System Context",
-      justificationNotes: `Persona set to ${persona}`,
-    });
   },
 
   currentHashView: "login",
@@ -2357,6 +2354,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     get().logAuditEvent({
       action: "Revised Completion Date",
       targetAsset: setId,
+      target: { kind: "date", setId, dateField: "targetDate" },
+      fieldDelta: {
+        fieldName: "Target date",
+        oldValue: oldDeadline,
+        newValue: revisedDate,
+      },
       justificationNotes: `Revised completion date from ${oldDeadline} to ${revisedDate} by ${actorName}.${reason ? ` Reason: ${reason}` : ""}`,
     });
     return { success: true };
@@ -2521,9 +2524,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         return s;
       }),
     }));
+    const previousAssignee =
+      role === "Submitter"
+        ? assuranceSet.assignedSubmitter
+        : role === "Verifier"
+          ? assuranceSet.assignedVerifier
+          : role === "Inspector"
+            ? assuranceSet.assignedInspector
+            : role === "Approver"
+              ? assuranceSet.assignedApprover
+              : undefined;
     get().logAuditEvent({
       action: `Assigned Vessel ${role}`,
       targetAsset: `${setId} · ${assigneeName}`,
+      target: { kind: "set", setId },
+      fieldDelta: {
+        fieldName: role,
+        oldValue: previousAssignee || "—",
+        newValue: assigneeName,
+      },
       justificationNotes: `Assigned ${role.toLowerCase()} ${assigneeName} to assurance campaign ${setId}`,
     });
     notifyAssuranceSetUser(get, assuranceSet, assigneeName, {
@@ -2579,6 +2598,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   updateRequirementStatus: (setId, reqId, status, notes) => {
     const reviewedAt = new Date().toISOString();
     const reviewerId = getSessionActor(get).userId;
+    const previousStatus = get()
+      .assuranceSets.find((set) => set.id === setId)
+      ?.requirements.find((requirement) => requirement.id === reqId)?.verifierStatus;
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -2653,6 +2675,12 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     get().logAuditEvent({
       action: `Requirement Verification: ${status}${actionTag}`,
       targetAsset: `${setId} / Requirement ${reqId}`,
+      target: { kind: "task", setId, taskId: reqId },
+      fieldDelta: {
+        fieldName: "Status",
+        oldValue: previousStatus || "—",
+        newValue: status,
+      },
       justificationNotes:
         notes ||
         `Verifier status set to ${status}${isDenial ? " — Submitter revision required." : ""}`,
@@ -3239,7 +3267,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   // Audit Events
-  auditEvents: MOCK_AUDIT_TRAIL,
+  auditEvents: [...SEEDED_AUDIT_EVENTS, ...MOCK_AUDIT_TRAIL],
   logAuditEvent: (eventData) => {
     const actor = getSessionActor(get);
     const newEvent = withStructuredAuditTarget({

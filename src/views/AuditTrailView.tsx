@@ -7,8 +7,8 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
-import { formatMaritimeDate } from '../utils/formatters';
-import { auditEventMatchesSearch, formatAuditTarget } from '../types/audit';
+import { formatMaritimeDate, formatMaritimeDateTime } from '../utils/formatters';
+import { AuditTrailEvent, auditEventMatchesSearch, formatAuditTarget } from '../types/audit';
 import { filterAuditTrailForPersona } from '../utils/rbacHelpers';
 import {
   getDemoSessionContext,
@@ -22,6 +22,28 @@ import { ListToolbar } from '../components/common/ListToolbar';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
+
+function displayAuditValue(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}/.test(value)) return value;
+  const formatted = formatMaritimeDate(value);
+  return formatted === 'N/A' ? value : formatted;
+}
+
+function displayAuditTarget(event: AuditTrailEvent): string {
+  return formatAuditTarget(event.target)
+    .split('Set unscoped').join('No assurance set')
+    .split('Date targetDate').join('Target date');
+}
+
+function displayAuditChange(event: AuditTrailEvent): string {
+  if (event.fieldDelta) {
+    return `${event.fieldDelta.fieldName}: ${displayAuditValue(event.fieldDelta.oldValue)} to ${displayAuditValue(event.fieldDelta.newValue)}`;
+  }
+  if (event.documentStatusDelta) {
+    return `Status: ${event.documentStatusDelta.oldStatus} to ${event.documentStatusDelta.newStatus}`;
+  }
+  return 'No change';
+}
 
 /**
   what: renders the full-page Audit Trail view in clean light theme with data export capabilities.
@@ -119,7 +141,8 @@ export const AuditTrailView: React.FC = () => {
     const exportData = sortedEvents.map((ev) => ({
       TimestampUtc: ev.timestampUtc,
       Action: ev.action,
-      Target: formatAuditTarget(ev.target),
+      Target: displayAuditTarget(ev),
+      Change: displayAuditChange(ev),
       TargetAsset: ev.targetAsset,
       UserRole: ev.userRole,
       Organization: ev.organization,
@@ -139,7 +162,7 @@ export const AuditTrailView: React.FC = () => {
     const rows = sortedEvents.map((ev) => [
       ev.timestampUtc,
       ev.action,
-      formatAuditTarget(ev.target),
+      displayAuditTarget(ev),
       `${getRoleDisplayLabel(ev.userRole)} (${ev.organization})`,
       ev.justificationNotes || '-',
     ]);
@@ -241,18 +264,14 @@ export const AuditTrailView: React.FC = () => {
                   const note = ev.justificationNotes?.trim() ?? '';
                   return (
                   <tr key={ev.id}>
-                    <td className="font-mono-code small text-nowrap">{formatMaritimeDate(ev.timestampUtc)}</td>
+                    <td className="font-mono-code small">{formatMaritimeDateTime(ev.timestampUtc)}</td>
                     <td className="fw-semibold text-primary">{ev.action}</td>
-                    <td className="text-dark">{formatAuditTarget(ev.target)}</td>
+                    <td className="text-dark">{displayAuditTarget(ev)}</td>
                     <td className="small text-dark">
                       {getRoleDisplayLabel(ev.userRole)}
                       <span className="text-secondary"> · {ev.organization}</span>
                     </td>
-                    <td className="small text-dark">
-                      {ev.fieldDelta
-                        ? `${ev.fieldDelta.fieldName}: ${ev.fieldDelta.oldValue} → ${ev.fieldDelta.newValue}`
-                        : 'No change'}
-                    </td>
+                    <td className="small text-dark">{displayAuditChange(ev)}</td>
                     <td className="small text-secondary">
                       {note ? (
                         <span className="d-block text-truncate" title={note} tabIndex={0}>
