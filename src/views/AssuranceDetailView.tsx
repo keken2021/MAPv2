@@ -1027,7 +1027,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 </button>
               )}
               <span className="badge bg-light text-secondary border">
-                {remainingItems.remainingTasks} remaining tasks ({remainingItems.remainingCertificates} certs)
+                {remainingItems.label}
               </span>
             </div>
 

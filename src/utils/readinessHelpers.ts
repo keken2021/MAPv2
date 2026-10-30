@@ -609,15 +609,89 @@ export function getAssuranceSetOpenFindingsCount(
   how: counts open tasks and tests each with isCertificateTask.
   with what file: src/utils/readinessHelpers.ts used by DashboardView and AssuranceDetailView.
 */
+export interface AssuranceSetRemainingItems {
+  remainingTasks: number;
+  remainingCertificates: number;
+  missingShare?: string;
+  label: string;
+}
+
+/**
+  what: counts remaining open tasks and certificates, and provides a clear summary label.
+  how: counts open tasks and certificates; when zero tasks remain but readiness is under 100%, names the missing stage (e.g. awaiting approval).
+  with what file: src/utils/readinessHelpers.ts used by DashboardView and AssuranceDetailView.
+*/
 export function getAssuranceSetRemainingItems(
-  set: Pick<AssuranceSet, 'requirements'>,
-): { remainingTasks: number; remainingCertificates: number } {
+  set: Partial<AssuranceSet>,
+  readinessScore?: number,
+): AssuranceSetRemainingItems {
   const openTasks = (set.requirements || []).filter((r) => !r.isOtherDocument && isTaskOpen(r));
   const openCertificates = openTasks.filter(isCertificateTask);
+  const remainingTasks = openTasks.length;
+  const remainingCertificates = openCertificates.length;
+
+  if (remainingTasks > 0) {
+    const taskUnit = remainingTasks === 1 ? 'task' : 'tasks';
+    const certUnit = remainingCertificates === 1 ? 'cert' : 'certs';
+    return {
+      remainingTasks,
+      remainingCertificates,
+      label: `${remainingTasks} remaining ${taskUnit} (${remainingCertificates} ${certUnit})`,
+    };
+  }
+
+  const score =
+    typeof readinessScore === 'number'
+      ? readinessScore
+      : typeof set.readinessScore === 'number'
+        ? set.readinessScore
+        : set.requirements
+          ? calculateAssuranceSetReadiness(set as AssuranceSet)
+          : 100;
+
+  const isCompleted =
+    score >= 100 ||
+    set.stage === 'Approved' ||
+    set.stage === 'Certified' ||
+    set.approverDecision === 'Approved';
+
+  if (isCompleted) {
+    return {
+      remainingTasks: 0,
+      remainingCertificates: 0,
+      label: '0 remaining tasks (0 certs)',
+    };
+  }
+
+  let missingShare = 'awaiting approval';
+  if (set.stage === 'Inspection' || (set.mandatoryInspectionRequired && !set.inspectionCompleted)) {
+    missingShare = 'awaiting inspection';
+  } else if (set.stage === 'Approval' || set.formalApprovalRequired !== false) {
+    missingShare = 'awaiting approval';
+  } else if (set.stage === 'Verification') {
+    missingShare = 'awaiting verification';
+  } else if (set.stage === 'Validation') {
+    missingShare = 'awaiting validation';
+  }
+
   return {
-    remainingTasks: openTasks.length,
-    remainingCertificates: openCertificates.length,
+    remainingTasks: 0,
+    remainingCertificates: 0,
+    missingShare,
+    label: `0 remaining tasks (${missingShare})`,
   };
+}
+
+/**
+  what: returns the remaining tasks badge label for an assurance set.
+  how: delegates to getAssuranceSetRemainingItems and returns its label.
+  with what file: src/utils/readinessHelpers.ts used by AssuranceDetailView.
+*/
+export function getAssuranceSetRemainingLabel(
+  set: Partial<AssuranceSet>,
+  readinessScore?: number,
+): string {
+  return getAssuranceSetRemainingItems(set, readinessScore).label;
 }
 
 /**

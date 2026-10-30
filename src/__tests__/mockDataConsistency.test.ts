@@ -12,6 +12,7 @@ import { MOCK_CREW } from '../store/crewMockData';
 import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
 import {
   calculateAssuranceSetReadiness,
+  getAssuranceSetRemainingItems,
   calculateCrewComplianceScore,
   calculateEquipmentReadiness,
   calculateVesselReadiness,
@@ -167,5 +168,33 @@ describe('Seeded rollups are averages of the level below', () => {
         if (quoted) expect(Number(quoted[1]), `${item.id} metric "${metric.value}"`).toBe(item.complianceReadinessScore);
       });
     });
+  });
+
+  it('ensures readiness index and remaining tasks summary agree across all sets', () => {
+    ALL_SETS.forEach((set) => {
+      const readiness = calculateAssuranceSetReadiness(set, ALL_SETS);
+      const remaining = getAssuranceSetRemainingItems(set, readiness);
+
+      if (remaining.remainingTasks === 0) {
+        if (readiness >= 100) {
+          expect(remaining.missingShare, `${set.id} 100% ready has no missing share`).toBeUndefined();
+          expect(remaining.label, `${set.id} 100% ready label`).toBe('0 remaining tasks (0 certs)');
+        } else {
+          expect(remaining.missingShare, `${set.id} readiness ${readiness}% with 0 tasks must name missing share`).toBeDefined();
+          expect(remaining.label, `${set.id} label`).toContain(remaining.missingShare);
+          expect(remaining.label, `${set.id} label`).not.toBe('0 remaining tasks (0 certs)');
+        }
+      } else {
+        expect(readiness, `${set.id} with ${remaining.remainingTasks} remaining tasks cannot be 100%`).toBeLessThan(100);
+        expect(remaining.label, `${set.id} label`).toMatch(/remaining task/);
+      }
+    });
+
+    const as001 = ALL_SETS.find((s) => s.id === 'AS-2026-001')!;
+    const as001Remaining = getAssuranceSetRemainingItems(as001);
+    expect(as001.readinessScore).toBe(70);
+    expect(as001Remaining.remainingTasks).toBe(0);
+    expect(as001Remaining.missingShare).toBe('awaiting approval');
+    expect(as001Remaining.label).toBe('0 remaining tasks (awaiting approval)');
   });
 });
