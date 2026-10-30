@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Copy, Play, Eye } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Copy, Play, Eye, Search, ShieldCheck, FileText } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { AssuranceSet, AssuranceTemplate } from '../../types/assurance';
 import { ReadinessGauge } from '../common/ReadinessGauge';
@@ -15,6 +15,7 @@ import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTabs, CountTab } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
 import { StatusBadge } from '../common/StatusBadge';
+import { EmptyState } from '../common/EmptyState';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 
@@ -206,7 +207,15 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     setStageFilter('ALL');
     setScopeFilter('ALL');
     setProjectFilter('ALL');
+    setSearchTerm('');
   };
+
+  const isFiltered = Boolean(
+    searchTerm.trim() ||
+    stageFilter !== 'ALL' ||
+    scopeFilter !== 'ALL' ||
+    projectFilter !== 'ALL'
+  );
 
   const handleSort = (field: AssuranceSortField) => {
     if (sortField === field) {
@@ -401,8 +410,12 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
             {activeTab === 'public' ? (
               templatesPagination.pageItems.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center text-secondary py-4">
-                    No public assurance templates found.
+                  <td colSpan={4} className="p-0">
+                    <EmptyState
+                      icon={FileText}
+                      title={searchTerm.trim() ? 'No matches' : 'No public assurance templates found'}
+                      action={searchTerm.trim() ? { label: 'Clear filters', onClick: () => setSearchTerm('') } : undefined}
+                    />
                   </td>
                 </tr>
               ) : (
@@ -550,12 +563,19 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
             )}
             {activeTab !== 'public' && sortedSets.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-secondary py-4">
-                  {accessibleSets.length > 0
-                    ? 'No assurance sets found.'
-                    : isReadOnly
-                      ? 'No assurance sets yet.'
-                      : 'No assurance sets yet.'}
+                <td colSpan={7} className="p-0">
+                  <EmptyState
+                    icon={isFiltered ? Search : ShieldCheck}
+                    title={isFiltered ? 'No matches' : 'No assurance sets yet'}
+                    description={isFiltered ? undefined : 'Create an assurance set to start tracking vessel compliance'}
+                    action={
+                      isFiltered
+                        ? { label: 'Clear filters', onClick: handleResetFilters }
+                        : canInitiate
+                          ? { label: 'Initiate Assurance Set', onClick: () => setCurrentHashView('create-assurance-set') }
+                          : undefined
+                    }
+                  />
                 </td>
               </tr>
             )}

@@ -17,11 +17,12 @@ import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
 import { AssuranceSet } from '../types/assurance';
-import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, FileCheck, RotateCcw, XCircle, Eye } from 'lucide-react';
+import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, FileCheck, RotateCcw, XCircle, Eye, Search, Inbox } from 'lucide-react';
 import { FilterModal } from '../components/common/FilterModal';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { usePagination } from '../utils/usePagination';
 import { Paginated, TablePagination } from '../components/common/TablePagination';
+import { EmptyState } from '../components/common/EmptyState';
 
 export type ApproverTabKey = 'needs-decision' | 'overdue' | 'approved' | 'returned' | 'all';
 
@@ -101,6 +102,8 @@ export const ApproverDashboardView: React.FC = () => {
     setStageFilter('All');
     setSearchTerm('');
   };
+
+  const isFiltered = Boolean(searchTerm.trim() || stageFilter !== 'All');
 
   const activeChips = useMemo<FilterChip[]>(() => {
     const chips: FilterChip[] = [];
@@ -477,8 +480,12 @@ export const ApproverDashboardView: React.FC = () => {
                             <tbody>
                               {verifiedRequirements.length === 0 ? (
                                 <tr>
-                                  <td colSpan={5} className="text-center text-secondary py-4 font-mono-code">
-                                    No verified documents yet.
+                                  <td colSpan={5} className="p-0">
+                                    <EmptyState
+                                      icon={FileCheck}
+                                      title="No verified documents yet"
+                                      description="Documents verified by a verifier will appear here"
+                                    />
                                   </td>
                                 </tr>
                               ) : (
@@ -802,8 +809,13 @@ export const ApproverDashboardView: React.FC = () => {
             <tbody>
               {sortedSets.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-4 text-secondary font-mono-code">
-                    No approval requests found.
+                  <td colSpan={7} className="p-0">
+                    <EmptyState
+                      icon={isFiltered ? Search : Inbox}
+                      title={isFiltered ? 'No matches' : 'No approval requests found'}
+                      description={isFiltered ? undefined : 'Assurance sets will appear here when submitted for approval'}
+                      action={isFiltered ? { label: 'Clear filters', onClick: handleResetFilters } : undefined}
+                    />
                   </td>
                 </tr>
               ) : (

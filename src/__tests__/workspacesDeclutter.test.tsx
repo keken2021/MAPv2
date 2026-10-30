@@ -434,6 +434,35 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
         expect(actionButtons[0]).toHaveAttribute('title', 'View');
       });
     });
+
+    it('displays EmptyState with Nothing to verify and helpful text when queue is empty', () => {
+      useMapStore.setState({
+        documents: [],
+        assuranceSets: [],
+      });
+
+      render(<VerifierWorkspaceView />);
+
+      expect(screen.getByText('Nothing to verify')).toBeInTheDocument();
+      expect(
+        screen.getByText('Documents appear here when a submitter uploads them'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('No documents found.')).toBeNull();
+    });
+
+    it('displays No matches and Clear filters button when search query hides all queue items', () => {
+      render(<VerifierWorkspaceView />);
+
+      const searchInput = screen.getByRole('textbox', { name: /search/i });
+      fireEvent.change(searchInput, { target: { value: 'NON_EXISTENT_DOC_XYZ' } });
+
+      expect(screen.getByText('No matches')).toBeInTheDocument();
+      const clearBtn = screen.getByRole('button', { name: 'Clear filters' });
+      expect(clearBtn).toBeInTheDocument();
+
+      fireEvent.click(clearBtn);
+      expect(screen.queryByText('No matches')).toBeNull();
+    });
   });
 
   describe('InspectorWorkspaceView', () => {

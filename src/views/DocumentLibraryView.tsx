@@ -5,10 +5,12 @@
 */
 
 import React, { useMemo, useState } from 'react';
+import { FileText } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { DocumentTable } from '../components/tables/DocumentTable';
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
+import { EmptyState } from '../components/common/EmptyState';
 import { MasterDocument } from '../types/document';
 import { AssuranceSet } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
@@ -83,16 +85,26 @@ export const DocumentLibraryView: React.FC = () => {
 
   return (
     <div className="d-flex flex-column gap-3">
-      <DocumentTable
-        documents={visibleDocuments}
-        onSelectDocument={(doc) => {
-          setCurrentHashView('documents', doc.id);
-        }}
-        onOpenVersionHistory={(doc) => {
-          setSelectedVersionDoc(doc);
-        }}
-        onUploadDocument={() => setIsUploadOpen(true)}
-      />
+      {visibleDocuments.length === 0 ? (
+        <div className="card shadow-sm border-0 p-4">
+          <EmptyState
+            icon={FileText}
+            title="No documents yet"
+            description="Documents appear here when uploaded or linked to assurance sets"
+          />
+        </div>
+      ) : (
+        <DocumentTable
+          documents={visibleDocuments}
+          onSelectDocument={(doc) => {
+            setCurrentHashView('documents', doc.id);
+          }}
+          onOpenVersionHistory={(doc) => {
+            setSelectedVersionDoc(doc);
+          }}
+          onUploadDocument={() => setIsUploadOpen(true)}
+        />
+      )}
 
       {/* Version History Drawer */}
       <VersionHistoryDrawer
