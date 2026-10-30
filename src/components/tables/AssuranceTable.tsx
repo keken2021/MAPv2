@@ -7,7 +7,7 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Copy, Play, Eye } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
-import { AssuranceSet, AssuranceStage, AssuranceTemplate } from '../../types/assurance';
+import { AssuranceSet, AssuranceTemplate } from '../../types/assurance';
 import { ReadinessGauge } from '../common/ReadinessGauge';
 import { FilterModal } from '../common/FilterModal';
 import { FilterButton } from '../common/FilterButton';
@@ -260,18 +260,6 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
     return 0;
   });
-
-  const getStageBadgeClass = (stage: AssuranceStage) => {
-    switch (stage) {
-      case 'Approved':
-      case 'Certified': return 'bg-success text-white';
-      case 'Approval': return 'bg-info text-dark';
-      case 'Inspection': return 'bg-primary text-white';
-      case 'Verification': return 'bg-warning text-dark';
-      case 'Validation': return 'bg-secondary text-white';
-      default: return 'bg-light text-dark border';
-    }
-  };
 
   const handleExportCsv = () => {
     if (activeTab === 'public') {

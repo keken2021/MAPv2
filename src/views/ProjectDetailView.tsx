@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send } from "lucide-react";
 import { DetailHeader } from "../components/common/DetailHeader";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
+import { StatusBadge } from "../components/common/StatusBadge";
 import { useMapStore } from "../store/useMapStore";
 import { ProjectAssetType } from "../types/project";
 import { AssuranceSet } from "../types/assurance";
@@ -530,7 +531,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                         </td>
                         <td>{s.assuranceType || "Asset"}</td>
                         <td>
-                          <span className="badge bg-secondary">{s.stage}</span>
+                          <StatusBadge value={s.stage} />
                         </td>
                         <td>
                           <ReadinessGauge

@@ -2,7 +2,14 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CountTabs, CountTab } from '../components/common/CountTabs';
-import { StatusBadge, getStatusTone, STATUS_TONE_MAP, StatusTone } from '../components/common/StatusBadge';
+import {
+  StatusBadge,
+  getStatusTone,
+  STATUS_TONE_MAP,
+  ASSURANCE_STAGE_TONE_MAP,
+  VERDICT_TONE_MAP,
+  StatusTone,
+} from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { getStatusDisplayLabel } from '../utils/formatters';
@@ -117,6 +124,34 @@ describe('StatusBadge', () => {
     const { container } = render(<StatusBadge value="Draft" tone="danger" />);
     expect(screen.getByText('Draft')).toBeInTheDocument();
     expect(container.querySelector('.map-status-badge--danger')).toBeInTheDocument();
+  });
+
+  it('maps each assurance set stage to neutral tone and each verdict to its semantic colour', () => {
+    const stages = ['Initiated', 'Validation', 'Verification', 'Inspection', 'Approval'];
+    stages.forEach((stage) => {
+      expect(getStatusTone(stage)).toBe('neutral');
+      expect(ASSURANCE_STAGE_TONE_MAP[stage]).toBe('neutral');
+    });
+
+    const verdicts: Record<string, StatusTone> = {
+      Certified: 'success',
+      Approved: 'success',
+      Overdue: 'warning',
+      Rejected: 'danger',
+      Cancelled: 'danger',
+    };
+    Object.entries(verdicts).forEach(([verdict, tone]) => {
+      expect(getStatusTone(verdict)).toBe(tone);
+      expect(VERDICT_TONE_MAP[verdict]).toBe(tone);
+    });
+
+    const { container, rerender } = render(<StatusBadge value="Validation" />);
+    expect(screen.getByText('Validation')).toBeInTheDocument();
+    expect(container.querySelector('.map-status-badge--neutral')).toBeInTheDocument();
+
+    rerender(<StatusBadge value="Certified" />);
+    expect(screen.getByText('Certified')).toBeInTheDocument();
+    expect(container.querySelector('.map-status-badge--success')).toBeInTheDocument();
   });
 });
 

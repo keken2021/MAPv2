@@ -3,6 +3,22 @@ import { getStatusDisplayLabel } from '../../utils/formatters';
 
 export type StatusTone = 'success' | 'warning' | 'danger' | 'neutral';
 
+export const ASSURANCE_STAGE_TONE_MAP: Record<string, StatusTone> = {
+  'Initiated': 'neutral',
+  'Validation': 'neutral',
+  'Verification': 'neutral',
+  'Inspection': 'neutral',
+  'Approval': 'neutral',
+};
+
+export const VERDICT_TONE_MAP: Record<string, StatusTone> = {
+  'Certified': 'success',
+  'Approved': 'success',
+  'Overdue': 'warning',
+  'Rejected': 'danger',
+  'Cancelled': 'danger',
+};
+
 export const STATUS_TONE_MAP: Record<string, StatusTone> = {
   // Success
   'Available': 'success',
@@ -38,11 +54,6 @@ export const STATUS_TONE_MAP: Record<string, StatusTone> = {
   'Draft': 'warning',
   'Pending': 'warning',
   'Pending Invitation': 'warning',
-  'Initiated': 'warning',
-  'Validation': 'warning',
-  'Verification': 'warning',
-  'Inspection': 'warning',
-  'Approval': 'warning',
   'Expiring': 'warning',
   'Expiring Soon': 'warning',
   'Expiring < 60 Days': 'warning',
@@ -75,6 +86,11 @@ export const STATUS_TONE_MAP: Record<string, StatusTone> = {
   'Withdrawn': 'danger',
 
   // Neutral
+  'Initiated': 'neutral',
+  'Validation': 'neutral',
+  'Verification': 'neutral',
+  'Inspection': 'neutral',
+  'Approval': 'neutral',
   'Closed': 'neutral',
   'Unknown': 'neutral',
   'Not assessed': 'neutral',

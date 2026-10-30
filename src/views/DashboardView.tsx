@@ -2,12 +2,13 @@ import { ArrowUpDown, ArrowUp, ArrowDown, Eye, AlertTriangle } from 'lucide-reac
 import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
+import { StatusBadge } from '../components/common/StatusBadge';
 import { formatMaritimeDate } from '../utils/formatters';
 import { VerifierWorkspaceView } from './VerifierWorkspaceView';
 import { InspectorWorkspaceView } from './InspectorWorkspaceView';
 import { ApproverDashboardView } from './ApproverDashboardView';
 import { Vessel } from '../types/vessel';
-import { AssuranceSet, AssuranceStage, AssuranceRequirement } from '../types/assurance';
+import { AssuranceSet, AssuranceRequirement } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { filterAssuranceSetsForSession, isAssuranceSetAssignedToPersona, filterVesselsForPersona } from '../utils/rbacHelpers';
 import { useSessionUser } from '../utils/useSessionUser';
@@ -247,24 +248,6 @@ export const DashboardView: React.FC = () => {
     } else {
       setFleetSortField(field);
       setFleetSortDirection('asc');
-    }
-  };
-
-  const getStageBadgeClass = (stage: AssuranceStage) => {
-    switch (stage) {
-      case 'Approved':
-      case 'Certified':
-        return 'bg-success text-white';
-      case 'Approval':
-        return 'bg-info text-dark';
-      case 'Inspection':
-        return 'bg-primary text-white';
-      case 'Verification':
-        return 'bg-warning text-dark';
-      case 'Validation':
-        return 'bg-secondary text-white';
-      default:
-        return 'bg-light text-dark border';
     }
   };
 
@@ -604,9 +587,7 @@ export const DashboardView: React.FC = () => {
                               </td>
                               <td>{getScopeLabel(s)}</td>
                               <td>
-                                <span className={`badge ${getStageBadgeClass(s.stage)} font-mono-code`}>
-                                  {s.stage}
-                                </span>
+                                <StatusBadge value={s.stage} />
                               </td>
                               <td>
                                 <span className={`badge font-mono-code ${onTime.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTime.detail}>
@@ -761,9 +742,7 @@ export const DashboardView: React.FC = () => {
                                   : 'Not specified'}
                               </td>
                               <td>
-                                <span className={`badge ${getStageBadgeClass(s.stage)} font-mono-code`}>
-                                  {s.stage}
-                                </span>
+                                <StatusBadge value={s.stage} />
                               </td>
                               <td>
                                 <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />
