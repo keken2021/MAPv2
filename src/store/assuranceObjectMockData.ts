@@ -50,30 +50,30 @@ export function objectVerifications(object: AssuranceObject): ObjectVerification
 
 /** procedures, methods, documents and the original port-authority organization */
 const ORIGINAL_OPERATIONAL_OBJECTS: AssuranceObject[] = [
-  {
+  withChecks({
     id: 'OBJ-PROC-PORT-01',
     type: 'procedure',
     name: 'Port Entry & Berthing Procedure',
     ownerOrganization: 'Fremantle Port Authority',
     identifier: 'SOP-PORT-2026',
     description: 'Navigation, pilot boarding and tug escort operating procedure for port arrival',
-  },
-  {
+  }, 20),
+  withChecks({
     id: 'OBJ-METH-TOW-01',
     type: 'method',
     name: 'Mooring & Towage Method Statement (MOP)',
     ownerOrganization: 'Tidewater Marine',
     identifier: 'MOP-TOW-004',
     description: 'Detailed operational method for tandem mooring and harbour towage assistance',
-  },
-  {
+  }, 21),
+  withChecks({
     id: 'OBJ-DOC-CLR-01',
     type: 'document',
     name: 'Port Clearance & Customs Declaration',
     ownerOrganization: 'Australian Border Force',
     identifier: 'PCD-WA-8812',
     description: 'Statutory vessel border entry clearance and bio-security verification documentation',
-  },
+  }, 22),
   {
     id: 'OBJ-ORG-PPA-01',
     type: 'organization',
@@ -82,6 +82,101 @@ const ORIGINAL_OPERATIONAL_OBJECTS: AssuranceObject[] = [
     identifier: 'PPA-PORT-AUTH',
     description: 'Regional port authority and harbour master oversight organization',
   },
+];
+
+/** procedures a set can cover besides the vessel, crew, and equipment */
+export const SEEDED_PROCEDURE_OBJECTS: AssuranceObject[] = [
+  ORIGINAL_OPERATIONAL_OBJECTS[0],
+  withChecks({
+    id: 'OBJ-PROC-EMERG-01',
+    type: 'procedure',
+    name: 'Emergency Response Procedure',
+    ownerOrganization: 'Northwind Marine Pty Ltd',
+    identifier: 'SOP-ERP-2026',
+    description: 'Muster, fire, and abandon-ship response for port and field operations',
+  }, 10),
+  withChecks({
+    id: 'OBJ-PROC-SIMOPS-01',
+    type: 'procedure',
+    name: 'Simultaneous Operations Procedure',
+    ownerOrganization: 'Chevron Australia Pty Ltd',
+    identifier: 'SOP-SIMOPS-2026',
+    description: 'Controls for drilling, construction, and vessel operations at the same time',
+  }, 11),
+  withChecks({
+    id: 'OBJ-PROC-CRANE-01',
+    type: 'procedure',
+    name: 'Crane Lift Procedure',
+    ownerOrganization: 'Woodside Energy Ltd',
+    identifier: 'SOP-LIFT-014',
+    description: 'Deck crane lift procedure, including exclusion zones and communications',
+  }, 12),
+  withChecks({
+    id: 'OBJ-PROC-HELI-01',
+    type: 'procedure',
+    name: 'Helideck Operations Procedure',
+    ownerOrganization: 'DNV Maritime Inspection',
+    identifier: 'SOP-HELI-009',
+    description: 'Helideck approach, landing, and refuelling procedure',
+  }, 13),
+];
+
+/** documents a set can cover that are not a vessel certificate in the library */
+export const SEEDED_DOCUMENT_OBJECTS: AssuranceObject[] = [
+  ORIGINAL_OPERATIONAL_OBJECTS[2],
+  withChecks({
+    id: 'OBJ-DOC-BRIDGE-01',
+    type: 'document',
+    name: 'Bridging Document',
+    ownerOrganization: 'Bureau Veritas Inspectorate',
+    identifier: 'BD-NW-2026-04',
+    description: 'Bridging document between the client safety system and the vessel safety system',
+  }, 14),
+  withChecks({
+    id: 'OBJ-DOC-MWS-01',
+    type: 'document',
+    name: 'Marine Warranty Certificate of Approval',
+    ownerOrganization: 'Meridian Marine Surveyors',
+    identifier: 'MWS-COA-2026-17',
+    description: 'Marine warranty surveyor certificate of approval for the voyage or lift',
+  }, 15),
+  withChecks({
+    id: 'OBJ-DOC-SEC-01',
+    type: 'document',
+    name: 'Security Plan',
+    ownerOrganization: 'Gulf Security Services Pty Ltd',
+    identifier: 'ISPS-SSP-088',
+    description: 'Ship and port security plan for the call, including restricted areas',
+  }, 16),
+];
+
+/** methods a set can cover: how a job is done, separate from the procedure */
+export const SEEDED_METHOD_OBJECTS: AssuranceObject[] = [
+  ORIGINAL_OPERATIONAL_OBJECTS[1],
+  withChecks({
+    id: 'OBJ-METH-LIFT-01',
+    type: 'method',
+    name: 'Lift Plan',
+    ownerOrganization: 'Southern Basin Energy Pty Ltd',
+    identifier: 'MOP-LIFT-221',
+    description: 'Lift plan with loads, rigging, and crane capacity for the cargo operation',
+  }, 17),
+  withChecks({
+    id: 'OBJ-METH-DP-01',
+    type: 'method',
+    name: 'DP Trials Method',
+    ownerOrganization: 'Northwind Marine Pty Ltd',
+    identifier: 'MOP-DP-TRIAL-06',
+    description: 'Method for annual dynamic positioning trials and failure-mode tests',
+  }, 18),
+  withChecks({
+    id: 'OBJ-METH-ROUTE-01',
+    type: 'method',
+    name: 'Tow Route Assessment',
+    ownerOrganization: 'Chevron Australia Pty Ltd',
+    identifier: 'MOP-TOW-ROUTE-03',
+    description: 'Route, weather window, and tug power assessment for an ocean tow',
+  }, 19),
 ];
 
 /** third-party organizations that can be assured without being a vessel, crew member, or piece of equipment */
@@ -239,6 +334,9 @@ export const SEEDED_STANDALONE_PERSONS: AssuranceObject[] = [
 
 export const SEEDED_OPERATIONAL_OBJECTS: AssuranceObject[] = [
   ...ORIGINAL_OPERATIONAL_OBJECTS,
+  ...SEEDED_PROCEDURE_OBJECTS.slice(1),
+  ...SEEDED_DOCUMENT_OBJECTS.slice(1),
+  ...SEEDED_METHOD_OBJECTS.slice(1),
   ...SEEDED_ORGANIZATION_OBJECTS,
   ...SEEDED_STANDALONE_PERSONS,
 ];

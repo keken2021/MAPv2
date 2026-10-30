@@ -7,6 +7,20 @@
 import { AssuranceSet } from '../types/assurance';
 import { Project } from '../types/project';
 import { OIL_CO_PILOT_ASSURANCE_SETS, OIL_CO_PILOT_PROJECT } from './oilCoLngPilotMockData';
+import {
+  SEEDED_DOCUMENT_OBJECTS,
+  SEEDED_METHOD_OBJECTS,
+  SEEDED_ORGANIZATION_OBJECTS,
+  SEEDED_PROCEDURE_OBJECTS,
+  SEEDED_STANDALONE_PERSONS,
+} from './assuranceObjectMockData';
+
+/* the seeded object with this id, copied onto a set */
+function seededObject(objects: { id: string }[], id: string) {
+  const found = objects.find((object) => object.id === id);
+  if (!found) throw new Error(`Missing seeded assurance object ${id}`);
+  return found as (typeof SEEDED_PROCEDURE_OBJECTS)[number];
+}
 
 export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
   {
@@ -79,27 +93,52 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
     reviewMode: 'internal',
     reviewChannels: ['internal'],
+    assuranceObjects: [
+      {
+        id: 'VESSEL-005',
+        type: 'vessel',
+        name: 'MV Atlantic Ocean',
+        ownerOrganization: 'Northwind Marine Pty Ltd',
+        identifier: 'IMO: 9712046',
+      },
+      seededObject(SEEDED_STANDALONE_PERSONS, 'OBJ-PER-MWS-01'),
+      seededObject(SEEDED_ORGANIZATION_OBJECTS, 'OBJ-ORG-FPA-01'),
+      {
+        id: 'EQ-001',
+        type: 'equipment',
+        name: 'Fixed CO2 Fire Suppression System',
+        ownerOrganization: 'Northwind Marine Pty Ltd',
+        identifier: 'FFE-PE-001',
+        description: 'Fire-Fighting Equipment (FFE)',
+      },
+      seededObject(SEEDED_PROCEDURE_OBJECTS, 'OBJ-PROC-CRANE-01'),
+      seededObject(SEEDED_METHOD_OBJECTS, 'OBJ-METH-DP-01'),
+    ],
     requirements: [
       {
         id: 'REQ-SBE-012-V1',
         subtype: 'Vessel',
         category: 'Statutory Certificate',
         title: 'Certificate of Class',
+        description: 'Person · Helen Ward. Organization · Fremantle Port Authority. Equipment · Fixed CO2 Fire Suppression System.',
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 95,
         documentId: 'MAP-VES-2026-STAT-00009',
         verifierStatus: 'Verified',
+        targetObjectId: 'OBJ-PER-MWS-01',
       },
       {
         id: 'REQ-SBE-012-V2',
         subtype: 'Vessel',
         category: 'Statutory Certificate',
         title: 'Cargo Ship Safety Equipment',
+        description: 'Procedure · Crane Lift Procedure. Method · DP Trials Method.',
         isMandatory: true,
         isFulfilled: false,
         ocrConfidence: 0,
         verifierStatus: 'Pending',
+        targetObjectId: 'OBJ-PROC-CRANE-01',
       },
     ],
     createdByPersona: 'C Admin',
@@ -133,38 +172,59 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
     reviewMode: 'mixed',
     reviewChannels: ['third_party', 'issuing_authority'],
+    assuranceObjects: [
+      {
+        id: 'VESSEL-001',
+        type: 'vessel',
+        name: 'MV Pacific Endeavour',
+        ownerOrganization: 'Northwind Marine Pty Ltd',
+        identifier: 'IMO: 9123453',
+      },
+      seededObject(SEEDED_PROCEDURE_OBJECTS, 'OBJ-PROC-PORT-01'),
+      seededObject(SEEDED_PROCEDURE_OBJECTS, 'OBJ-PROC-EMERG-01'),
+      seededObject(SEEDED_DOCUMENT_OBJECTS, 'OBJ-DOC-BRIDGE-01'),
+      seededObject(SEEDED_DOCUMENT_OBJECTS, 'OBJ-DOC-CLR-01'),
+      seededObject(SEEDED_METHOD_OBJECTS, 'OBJ-METH-LIFT-01'),
+      seededObject(SEEDED_METHOD_OBJECTS, 'OBJ-METH-TOW-01'),
+    ],
     requirements: [
       {
         id: 'REQ-V001-1',
         subtype: 'Vessel',
         category: 'Statutory Certificate',
         title: 'Cert1 — Certificate of Class',
+        description: 'Procedure · Port Entry & Berthing Procedure. Procedure · Emergency Response Procedure.',
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 98,
         documentId: 'MAP-VES-2026-STAT-00001',
         verifierStatus: 'Verified',
+        targetObjectId: 'OBJ-PROC-PORT-01',
       },
       {
         id: 'REQ-V001-2',
         subtype: 'Vessel',
         category: 'Statutory Certificate',
         title: 'Cert2 — Cargo Ship Safety Equipment',
+        description: 'Document · Bridging Document. Document · Port Clearance & Customs Declaration.',
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 96,
         documentId: 'MAP-VES-2026-STAT-00002',
         verifierStatus: 'Verified',
+        targetObjectId: 'OBJ-DOC-BRIDGE-01',
       },
       {
         id: 'REQ-V001-3',
         subtype: 'Vessel',
         category: 'Environmental Certificate',
         title: 'Cert3 — IOPP Certificate Annex I',
+        description: 'Method · Lift Plan. Method · Mooring & Towage Method Statement (MOP).',
         isMandatory: true,
         isFulfilled: false,
         ocrConfidence: 0,
         verifierStatus: 'Pending',
+        targetObjectId: 'OBJ-METH-LIFT-01',
       },
     ],
     createdByPersona: 'Administrator',

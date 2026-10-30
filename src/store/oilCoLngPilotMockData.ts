@@ -19,6 +19,17 @@ import { AppNotification } from "../types/notification";
 import { Project } from "../types/project";
 import { UserProfile } from "../types/user";
 import { Vessel } from "../types/vessel";
+import {
+  SEEDED_DOCUMENT_OBJECTS,
+  SEEDED_METHOD_OBJECTS,
+  SEEDED_PROCEDURE_OBJECTS,
+} from "./assuranceObjectMockData";
+
+function seededObject<T extends { id: string }>(objects: T[], id: string): T {
+  const found = objects.find((object) => object.id === id);
+  if (!found) throw new Error(`Missing seeded assurance object ${id}`);
+  return found;
+}
 
 export const OIL_CO_ORG = "Oil Company";
 export const NORTHWIND_ORG = "Northwind Marine Pty Ltd";
@@ -390,24 +401,27 @@ const ss01Rows: EvidenceRow[] = [
     pillar: "Plant",
     title: "IOPP, IAPP and Ballast Water Management certificates",
     source: "Flag State / class",
-    check: "Valid.",
+    check: "Valid. Procedure · Simultaneous Operations Procedure.",
     state: "pending",
+    targetObjectId: "OBJ-PROC-SIMOPS-01",
   },
   {
     id: "REQ-SS01-13",
     pillar: "Plant",
     title: "Maritime Labour Certificate",
     source: "Flag State / RO",
-    check: "Valid.",
+    check: "Valid. Procedure · Helideck Operations Procedure.",
     state: "pending",
+    targetObjectId: "OBJ-PROC-HELI-01",
   },
   {
     id: "REQ-SS01-14",
     pillar: "Process",
     title: "Document of Compliance and Safety Management Certificate (ISM)",
     source: "Flag State / RO",
-    check: "Valid; company name matches the operator.",
+    check: "Valid; company name matches the operator. Method · Tow Route Assessment.",
     state: "verified",
+    targetObjectId: "OBJ-METH-ROUTE-01",
   },
   {
     id: "REQ-SS01-15",
@@ -446,23 +460,26 @@ const ss01Rows: EvidenceRow[] = [
     pillar: "Process",
     title: "P&I certificate of entry and Hull & Machinery insurance",
     source: "Gard P&I / insurer",
-    check: "Valid for the charter period; cover meets the client minimum.",
+    check: "Valid for the charter period; cover meets the client minimum. Document · Security Plan.",
     state: "pending",
+    targetObjectId: "OBJ-DOC-SEC-01",
   },
   {
     id: "REQ-SS01-18",
     pillar: "Process",
     title: "Management of change procedure",
     source: NORTHWIND_ORG,
-    check: "Current revision; approved.",
+    check: "Current revision; approved. Document · Marine Warranty Certificate of Approval.",
     state: "pending",
+    notes: "Document · Marine Warranty Certificate of Approval",
+    targetObjectId: "OBJ-DOC-MWS-01",
   },
   {
     id: "REQ-SS01-19",
     pillar: "Process",
     title: "Fremantle Port procedures",
     source: "Port / Northwind subcontractor",
-    check: "Current edition; acknowledged by the Master.",
+    check: "Current edition; acknowledged by the Master. Procedure · LNGC Northwind Aurora Cargo Handling & Boil-Off Gas Management Procedure. Method · Aurora Field Simultaneous Operations (SIMOPS) Methodology.",
     state: "pending",
     targetDate: "2026-11-14",
     targetObjectId: "OBJ-PROC-LNG-AURORA-01",
@@ -1127,6 +1144,11 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
       },
       OIL_CO_PILOT_ASSURANCE_OBJECTS[0],
       OIL_CO_PILOT_ASSURANCE_OBJECTS[1],
+      seededObject(SEEDED_PROCEDURE_OBJECTS, "OBJ-PROC-SIMOPS-01"),
+      seededObject(SEEDED_PROCEDURE_OBJECTS, "OBJ-PROC-HELI-01"),
+      seededObject(SEEDED_DOCUMENT_OBJECTS, "OBJ-DOC-MWS-01"),
+      seededObject(SEEDED_DOCUMENT_OBJECTS, "OBJ-DOC-SEC-01"),
+      seededObject(SEEDED_METHOD_OBJECTS, "OBJ-METH-ROUTE-01"),
     ],
     parties: [
       { organization: OIL_CO_ORG, group: "Client" },

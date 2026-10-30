@@ -5,6 +5,9 @@ import { MOCK_CREW } from '../store/crewMockData';
 import {
   SEEDED_OPERATIONAL_OBJECTS,
   SEEDED_ORGANIZATION_OBJECTS,
+  SEEDED_PROCEDURE_OBJECTS,
+  SEEDED_DOCUMENT_OBJECTS,
+  SEEDED_METHOD_OBJECTS,
   SEEDED_STANDALONE_PERSONS,
   objectVerifications,
 } from '../store/assuranceObjectMockData';
@@ -83,5 +86,42 @@ describe('assurance object mock data', () => {
       ids.indexOf(SEEDED_STANDALONE_PERSONS[SEEDED_STANDALONE_PERSONS.length - 1].id),
     );
     expect(lastVessel).toBeGreaterThan(0);
+  });
+
+  it('uses every object type on a seeded set and points requirements at objects of that set', () => {
+    const mixedIds = ['AS-01-V001', 'AS-SBE-012-V001', 'AS-2026-101'];
+    const sets = useMapStore.getState().assuranceSets.filter((set) => mixedIds.includes(set.id));
+    expect(sets).toHaveLength(3);
+    expect(new Set(sets.map((set) => set.clientOrg)).size).toBeGreaterThanOrEqual(2);
+
+    const storeIds = new Set(useMapStore.getState().assuranceObjects.map((object) => object.id));
+    const types = new Set<string>();
+    sets.forEach((set) => {
+      const objects = set.assuranceObjects ?? [];
+      const objectIds = new Set(objects.map((object) => object.id));
+      expect(new Set(objects.map((object) => object.type)).size).toBeGreaterThanOrEqual(3);
+      objects.forEach((object) => {
+        types.add(object.type);
+        expect(storeIds.has(object.id), object.id).toBe(true);
+      });
+      const pointed = set.requirements.filter((requirement) => requirement.targetObjectId);
+      expect(pointed.length).toBeGreaterThan(0);
+      pointed.forEach((requirement) => {
+        expect(objectIds.has(requirement.targetObjectId!), `${set.id} ${requirement.id}`).toBe(true);
+      });
+    });
+    ['vessel', 'person', 'equipment', 'procedure', 'method', 'document', 'organization'].forEach((type) => {
+      expect(types.has(type), type).toBe(true);
+    });
+
+    expect(SEEDED_PROCEDURE_OBJECTS.length).toBeGreaterThanOrEqual(5);
+    expect(SEEDED_DOCUMENT_OBJECTS.length).toBeGreaterThanOrEqual(4);
+    expect(SEEDED_METHOD_OBJECTS.length).toBeGreaterThanOrEqual(4);
+    [...SEEDED_PROCEDURE_OBJECTS, ...SEEDED_DOCUMENT_OBJECTS, ...SEEDED_METHOD_OBJECTS].forEach((object) => {
+      expect(object.ownerOrganization).toBeTruthy();
+      expect(object.identifier).toBeTruthy();
+      expect(object.description).toBeTruthy();
+      expect(objectVerifications(object).length).toBeGreaterThanOrEqual(1);
+    });
   });
 });
