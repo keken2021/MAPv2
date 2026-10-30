@@ -85,6 +85,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter shared pieces: `src/__tests__/sharedPieces.test.tsx` (CountTabs, StatusBadge, ListToolbar, DetailHeader)
 - Unit tests for UI declutter Approver Dashboard: `src/__tests__/approverDashboardDeclutter.test.tsx` (CountTabs, Due column, 1 badge/action per row, detail view cleanup)
 - Unit tests for UI declutter Submitter Dashboard: `src/__tests__/dashboardSubmitterSession.test.tsx` (per-person filtering with useSessionUser, 13 sets for M. Chen)
+- Unit tests for UI declutter dashboard KPI tiles: `src/__tests__/dashboardTiles.test.tsx` (tile navigation to filtered lists and table filtering for Administrator, Submitter, and C Admin)
 - Unit tests for UI declutter shell header and sidebar: `src/__tests__/shellDeclutter.test.tsx` (title-only list views, detail back links, sidebar labels Inspections, CAPA, Approvals, dynamic verification queue count badge)
 - Unit tests for UI declutter Verifier and Inspector workspaces: `src/__tests__/workspacesDeclutter.test.tsx` (CountTabs default tabs and counts, Due column with late calculation, 1 badge/action per row, removed KPI cards, Document Library 1440 px header count)
 - Unit tests for DueCell and getDueStatus: `src/__tests__/dueCell.test.tsx` (open past due, closed past due, future, expiring window, expired status)

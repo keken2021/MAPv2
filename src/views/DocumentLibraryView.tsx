@@ -50,7 +50,23 @@ export function documentsForSessionLibrary(
   how: displays DocumentTable and controls VersionHistoryDrawer and DocumentUploadModal forms.
   with what file: src/views/DocumentLibraryView.tsx loaded by App.tsx.
 */
-export const DocumentLibraryView: React.FC = () => {
+export interface DocumentLibraryViewProps {
+  initialTab?: string;
+}
+
+export function normalizeDocumentTab(tab: string | null | undefined): string {
+  if (!tab) return 'ALL';
+  const lower = tab.toLowerCase();
+  if (lower.includes('expir') && !lower.includes('expired')) {
+    return 'Expiring < 6 Mos';
+  }
+  if (lower === 'expired') {
+    return 'Expired';
+  }
+  return tab;
+}
+
+export const DocumentLibraryView: React.FC<DocumentLibraryViewProps> = ({ initialTab }) => {
   const {
     setCurrentHashView,
     documents,
@@ -62,6 +78,38 @@ export const DocumentLibraryView: React.FC = () => {
   } = useMapStore();
   const [selectedVersionDoc, setSelectedVersionDoc] = useState<MasterDocument | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  const getInitialTab = () => {
+    if (initialTab) return normalizeDocumentTab(initialTab);
+    const windowPreselect = typeof window !== 'undefined' ? (window as any).__MAP_DOC_TAB_PRESELECT : undefined;
+    if (windowPreselect) {
+      (window as any).__MAP_DOC_TAB_PRESELECT = undefined;
+      return normalizeDocumentTab(windowPreselect);
+    }
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const stored = sessionStorage.getItem('map_doc_tab_preselect');
+        if (stored) {
+          sessionStorage.removeItem('map_doc_tab_preselect');
+          return normalizeDocumentTab(stored);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash;
+      const queryPart = hash.includes('?') ? hash.split('?')[1] : '';
+      if (queryPart) {
+        const params = new URLSearchParams(queryPart);
+        const tabParam = params.get('tab') || params.get('status');
+        if (tabParam) return normalizeDocumentTab(tabParam);
+      }
+    }
+    return 'ALL';
+  };
+
+  const [statusFilter, setStatusFilter] = useState<string>(getInitialTab);
   const sessionUser = useMemo(
     () =>
       getSessionUserForPersona(
@@ -96,6 +144,8 @@ export const DocumentLibraryView: React.FC = () => {
       ) : (
         <DocumentTable
           documents={visibleDocuments}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
           onSelectDocument={(doc) => {
             setCurrentHashView('documents', doc.id);
           }}

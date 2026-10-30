@@ -20,7 +20,9 @@ import {
   getAssuranceSetOpenFindingsCount,
   getAssuranceSetRemainingItems,
   getFleetPerformanceSummary,
+  isTaskOpen,
 } from '../utils/readinessHelpers';
+import { toIsoLocalDate } from '../utils/validation';
 import { getAssuranceSetScopes } from '../utils/assuranceTemplates';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { ReturnedDocumentsDrawer } from '../components/drawers/ReturnedDocumentsDrawer';
@@ -59,6 +61,8 @@ export const DashboardView: React.FC = () => {
   const [submitterSortDirection, setSubmitterSortDirection] = useState<'asc' | 'desc'>('asc');
   const [fleetSortField, setFleetSortField] = useState<'name' | 'imoNumber' | 'flagState' | 'classificationSociety' | 'status' | 'readiness'>('name');
   const [fleetSortDirection, setFleetSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [submitterTableFilter, setSubmitterTableFilter] = useState<'ALL' | 'awaiting_upload' | 'returned' | 'due_this_week'>('ALL');
+  const [cAdminStageFilter, setCAdminStageFilter] = useState<'ALL' | 'in_progress' | 'approved'>('ALL');
 
   /* returned documents drawer state for submitter */
   const [selectedReturnedSet, setSelectedReturnedSet] = useState<AssuranceSet | null>(null);
@@ -115,6 +119,11 @@ export const DashboardView: React.FC = () => {
   };
 
   const filteredCAdminSets = cAdminAssuranceSets.filter((s) => {
+    if (cAdminStageFilter === 'in_progress') {
+      if (s.stage === 'Certified' || s.stage === 'Approved') return false;
+    } else if (cAdminStageFilter === 'approved') {
+      if (s.stage !== 'Certified' && s.stage !== 'Approved' && s.approverDecision !== 'Approved') return false;
+    }
     const term = cAdminSearchTerm.toLowerCase();
     return (
       s.id.toLowerCase().includes(term) ||
@@ -171,7 +180,45 @@ export const DashboardView: React.FC = () => {
     }
   };
 
+  const isSetAwaitingUpload = (s: AssuranceSet) =>
+    (s.requirements || []).some((r) => {
+      const linkedDoc = documents.find((d) => d.id === r.documentId || (r.linkedDocumentId && d.id === r.linkedDocumentId));
+      return (
+        (!r.documentId && !r.linkedDocumentId && !r.isFulfilled) ||
+        r.verifierStatus === 'Pending' ||
+        linkedDoc?.verificationStatus === 'Pending'
+      );
+    });
+
+  const isSetReturnedForCorrection = (s: AssuranceSet) =>
+    (s.requirements || []).some((r) => {
+      const linkedDoc = documents.find((d) => d.id === r.documentId || (r.linkedDocumentId && d.id === r.linkedDocumentId));
+      return (
+        r.verifierStatus === 'Correction Requested' ||
+        r.verifierStatus === 'Rejected' ||
+        linkedDoc?.verificationStatus === 'Correction Requested' ||
+        linkedDoc?.verificationStatus === 'Rejected'
+      );
+    });
+
+  const isSetDueThisWeek = (s: AssuranceSet, today: Date = new Date()) => {
+    if (s.stage === 'Approved' || s.stage === 'Certified' || s.stage === 'Cancelled') return false;
+    const todayMs = new Date(toIsoLocalDate(today)).getTime();
+    return (s.requirements || []).some((r) => {
+      if (!isTaskOpen(r)) return false;
+      const target = r.targetDate || s.targetDate || s.complianceDeadline;
+      if (!target) return false;
+      const targetMs = new Date(toIsoLocalDate(new Date(target))).getTime();
+      const diffDays = Math.round((targetMs - todayMs) / (1000 * 60 * 60 * 24));
+      return diffDays <= 7;
+    });
+  };
+
   const filteredSubmitterSets = visibleSubmitterSets.filter((s) => {
+    if (submitterTableFilter === 'awaiting_upload' && !isSetAwaitingUpload(s)) return false;
+    if (submitterTableFilter === 'returned' && !isSetReturnedForCorrection(s)) return false;
+    if (submitterTableFilter === 'due_this_week' && !isSetDueThisWeek(s)) return false;
+
     const term = submitterSearchTerm.toLowerCase();
     return (
       s.id.toLowerCase().includes(term) ||
@@ -215,8 +262,8 @@ export const DashboardView: React.FC = () => {
   });
 
   const cAdminProjectsPagination = usePagination(sortedCAdminProjects, [cAdminProjectSearchTerm, cAdminProjectSortField, cAdminProjectSortDirection]);
-  const cAdminSetsPagination = usePagination(sortedCAdminSets, [cAdminSearchTerm, cAdminSortField, cAdminSortDirection]);
-  const submitterSetsPagination = usePagination(sortedSubmitterSets, [submitterSearchTerm, submitterSortField, submitterSortDirection]);
+  const cAdminSetsPagination = usePagination(sortedCAdminSets, [cAdminSearchTerm, cAdminStageFilter, cAdminSortField, cAdminSortDirection]);
+  const submitterSetsPagination = usePagination(sortedSubmitterSets, [submitterSearchTerm, submitterTableFilter, submitterSortField, submitterSortDirection]);
   const fleetPagination = usePagination(sortedFleetVessels, [fleetSortField, fleetSortDirection]);
 
   const relevantSetsForPerformance = useMemo(() => {
@@ -265,48 +312,72 @@ export const DashboardView: React.FC = () => {
       const revisionsRequested = documents.filter(
         (d) => d.verificationStatus === 'Correction Requested' || d.verificationStatus === 'Rejected'
       ).length;
-      const verifiedCerts = documents.filter((d) => d.verificationStatus === 'Verified').length;
+      const dueThisWeekSetsCount = assignedSets.filter((s) => isSetDueThisWeek(s)).length;
 
       return (
         <div className="row g-3">
           <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
+            <button
+              type="button"
+              className={`card map-kpi-card map-kpi-clickable shadow-2xs ${submitterTableFilter === 'ALL' ? 'map-kpi-selected' : ''}`}
+              onClick={() => setSubmitterTableFilter('ALL')}
+              aria-label={`Open ${assignedSets.length} assigned assurance sets`}
+              aria-pressed={submitterTableFilter === 'ALL'}
+            >
               <div className="map-kpi-label">
                 Assurance Sets
               </div>
               <div className="map-kpi-value text-primary mt-1">{assignedSets.length}</div>
               <div className="map-kpi-subtitle mt-1">Assigned to you</div>
-            </div>
+            </button>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
+            <button
+              type="button"
+              className={`card map-kpi-card map-kpi-clickable shadow-2xs ${submitterTableFilter === 'awaiting_upload' ? 'map-kpi-selected' : ''}`}
+              onClick={() => setSubmitterTableFilter((p) => p === 'awaiting_upload' ? 'ALL' : 'awaiting_upload')}
+              aria-label={`Open ${pendingUploads} documents awaiting upload`}
+              aria-pressed={submitterTableFilter === 'awaiting_upload'}
+            >
               <div className="map-kpi-label">
                 Awaiting Upload
               </div>
               <div className="map-kpi-value text-warning mt-1">{pendingUploads}</div>
               <div className="map-kpi-subtitle mt-1">Documents still to upload</div>
-            </div>
+            </button>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
+            <button
+              type="button"
+              className={`card map-kpi-card map-kpi-clickable shadow-2xs ${submitterTableFilter === 'returned' ? 'map-kpi-selected' : ''}`}
+              onClick={() => setSubmitterTableFilter((p) => p === 'returned' ? 'ALL' : 'returned')}
+              aria-label={`Open ${revisionsRequested} documents returned for correction`}
+              aria-pressed={submitterTableFilter === 'returned'}
+            >
               <div className="map-kpi-label">
                 Returned for Correction
               </div>
               <div className="map-kpi-value text-danger mt-1">{revisionsRequested}</div>
               <div className="map-kpi-subtitle mt-1">Documents to fix and upload again</div>
-            </div>
+            </button>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
+            <button
+              type="button"
+              className={`card map-kpi-card map-kpi-clickable shadow-2xs ${submitterTableFilter === 'due_this_week' ? 'map-kpi-selected' : ''}`}
+              onClick={() => setSubmitterTableFilter((p) => p === 'due_this_week' ? 'ALL' : 'due_this_week')}
+              aria-label={`Open ${dueThisWeekSetsCount} assurance sets due this week`}
+              aria-pressed={submitterTableFilter === 'due_this_week'}
+            >
               <div className="map-kpi-label">
-                Verified
+                Due this week
               </div>
-              <div className="map-kpi-value text-success mt-1">{verifiedCerts}</div>
-              <div className="map-kpi-subtitle mt-1">Verified documents</div>
-            </div>
+              <div className="map-kpi-value text-warning mt-1">{dueThisWeekSetsCount}</div>
+              <div className="map-kpi-subtitle mt-1">Sets with a requirement due in 7 days</div>
+            </button>
           </div>
         </div>
       );
@@ -323,13 +394,19 @@ export const DashboardView: React.FC = () => {
       return (
         <div className="row g-3">
           <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
+            <button
+              type="button"
+              className={`card map-kpi-card map-kpi-clickable shadow-2xs ${cAdminStageFilter === 'ALL' ? 'map-kpi-selected' : ''}`}
+              onClick={() => setCAdminStageFilter('ALL')}
+              aria-label={`Open ${totalCreated} assurance sets`}
+              aria-pressed={cAdminStageFilter === 'ALL'}
+            >
               <div className="map-kpi-label">
                 Assurance Sets
               </div>
               <div className="map-kpi-value text-primary mt-1">{totalCreated}</div>
               <div className="map-kpi-subtitle mt-1">Created by your organization</div>
-            </div>
+            </button>
           </div>
 
           <div className="col-md-3">
@@ -343,38 +420,57 @@ export const DashboardView: React.FC = () => {
           </div>
 
           <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
+            <button
+              type="button"
+              className={`card map-kpi-card map-kpi-clickable shadow-2xs ${cAdminStageFilter === 'in_progress' ? 'map-kpi-selected' : ''}`}
+              onClick={() => setCAdminStageFilter((p) => p === 'in_progress' ? 'ALL' : 'in_progress')}
+              aria-label={`Open ${activeCampaigns} in progress assurance sets`}
+              aria-pressed={cAdminStageFilter === 'in_progress'}
+            >
               <div className="map-kpi-label">
                 In Progress
               </div>
               <div className="map-kpi-value text-warning mt-1">{activeCampaigns}</div>
               <div className="map-kpi-subtitle mt-1">Being verified or reviewed</div>
-            </div>
+            </button>
           </div>
 
           <div className="col-md-3">
-            <div className="card map-kpi-card shadow-2xs">
+            <button
+              type="button"
+              className={`card map-kpi-card map-kpi-clickable shadow-2xs ${cAdminStageFilter === 'approved' ? 'map-kpi-selected' : ''}`}
+              onClick={() => setCAdminStageFilter((p) => p === 'approved' ? 'ALL' : 'approved')}
+              aria-label={`Open ${certifiedCampaigns} approved assurance sets`}
+              aria-pressed={cAdminStageFilter === 'approved'}
+            >
               <div className="map-kpi-label">
                 Approved
               </div>
               <div className="map-kpi-value text-primary mt-1">{certifiedCampaigns}</div>
               <div className="map-kpi-subtitle mt-1">Approved assurance sets</div>
-            </div>
+            </button>
           </div>
         </div>
       );
     }
 
+    const expiringDocsCount = documents.filter((d) => isExpiringWithinWarning(d.expiryDate)).length;
+
     return (
       <div className="row g-3">
         <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
+          <button
+            type="button"
+            className="card map-kpi-card map-kpi-clickable shadow-2xs"
+            onClick={() => setCurrentHashView('vessels')}
+            aria-label={`Open ${totalVessels} vessels in your fleet`}
+          >
             <div className="map-kpi-label">
               Vessels
             </div>
             <div className="map-kpi-value text-primary mt-1">{totalVessels}</div>
             <div className="map-kpi-subtitle mt-1">In your fleet</div>
-          </div>
+          </button>
         </div>
 
         <div className="col-md-3">
@@ -388,24 +484,41 @@ export const DashboardView: React.FC = () => {
         </div>
 
         <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
+          <button
+            type="button"
+            className="card map-kpi-card map-kpi-clickable shadow-2xs"
+            onClick={() => setCurrentHashView('assurance-sets')}
+            aria-label={`Open ${activeAssurances} in progress assurance sets`}
+          >
             <div className="map-kpi-label">
               Assurance Sets
             </div>
             <div className="map-kpi-value text-warning mt-1">{activeAssurances}</div>
             <div className="map-kpi-subtitle mt-1">In progress</div>
-          </div>
+          </button>
         </div>
 
         <div className="col-md-3">
-          <div className="card map-kpi-card shadow-2xs">
+          <button
+            type="button"
+            className="card map-kpi-card map-kpi-clickable shadow-2xs"
+            onClick={() => {
+              try {
+                sessionStorage.setItem('map_doc_tab_preselect', 'Expiring < 6 Mos');
+              } catch {
+                /* ignore */
+              }
+              (window as any).__MAP_DOC_TAB_PRESELECT = 'Expiring < 6 Mos';
+              setCurrentHashView('documents');
+            }}
+            aria-label={`Open ${expiringDocsCount} documents expiring soon`}
+          >
             <div className="map-kpi-label">
               Expiring Soon
             </div>
-            {/* counted from the library, not a fixed number (gap review G3) */}
-            <div className="map-kpi-value text-danger mt-1">{documents.filter((d) => isExpiringWithinWarning(d.expiryDate)).length}</div>
+            <div className="map-kpi-value text-danger mt-1">{expiringDocsCount}</div>
             <div className="map-kpi-subtitle mt-1">Documents expiring within {EXPIRY_WARNING_DAYS} days</div>
-          </div>
+          </button>
         </div>
       </div>
     );
@@ -420,6 +533,28 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="d-flex flex-column gap-4">
+      <style>{`
+        .map-kpi-clickable {
+          cursor: pointer;
+          text-align: left;
+          width: 100%;
+          border: 1px solid var(--map-border-color, #e2e8f0);
+          background-color: var(--map-bg-card, #ffffff);
+          transition: transform 0.1s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+        .map-kpi-clickable:hover {
+          border-color: #cbd5e1;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .map-kpi-clickable:focus-visible {
+          outline: 2px solid var(--map-focus-ring, rgb(56, 189, 248));
+          outline-offset: var(--map-focus-ring-offset, 2px);
+        }
+        .map-kpi-clickable.map-kpi-selected {
+          border-color: var(--map-focus-ring, rgb(56, 189, 248));
+          box-shadow: 0 0 0 1px var(--map-focus-ring, rgb(56, 189, 248));
+        }
+      `}</style>
       {/* top banner kpi summary cards */}
       {renderDashboardCards()}
       {/* main content area: c admin & submitter display assurance sets; other personas display fleet overview */}
@@ -516,7 +651,21 @@ export const DashboardView: React.FC = () => {
           <div className="col-lg-6">
             <div className="card map-card-custom h-100">
               <div className="card-header d-flex flex-wrap align-items-center justify-between gap-2">
-                <span className="fw-bold text-dark">Assurance Sets</span>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="fw-bold text-dark">Assurance Sets</span>
+                  {cAdminStageFilter !== 'ALL' && (
+                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 font-mono-code">
+                      {cAdminStageFilter === 'in_progress' ? 'Filter: In progress' : 'Filter: Approved'}
+                      <button
+                        type="button"
+                        className="btn-close"
+                        style={{ fontSize: '0.5rem' }}
+                        aria-label="Clear stage filter"
+                        onClick={() => setCAdminStageFilter('ALL')}
+                      />
+                    </span>
+                  )}
+                </div>
                 <div className="d-flex align-items-center gap-2 ms-auto">
                   <input
                     type="text"
@@ -641,8 +790,24 @@ export const DashboardView: React.FC = () => {
           <div className="col-12">
             <div className="card map-card-custom">
               <div className="card-header d-flex flex-wrap align-items-center justify-between gap-2 p-3">
-                <div className="fw-bold text-dark">
-                  Assurance Sets
+                <div className="d-flex align-items-center gap-2">
+                  <div className="fw-bold text-dark">
+                    Assurance Sets
+                  </div>
+                  {submitterTableFilter !== 'ALL' && (
+                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 font-mono-code">
+                      {submitterTableFilter === 'awaiting_upload' && 'Filter: Awaiting upload'}
+                      {submitterTableFilter === 'returned' && 'Filter: Returned for correction'}
+                      {submitterTableFilter === 'due_this_week' && 'Filter: Due this week'}
+                      <button
+                        type="button"
+                        className="btn-close"
+                        style={{ fontSize: '0.5rem' }}
+                        aria-label="Clear filter"
+                        onClick={() => setSubmitterTableFilter('ALL')}
+                      />
+                    </span>
+                  )}
                 </div>
                 <div className="d-flex align-items-center gap-2 ms-auto">
                   <input
