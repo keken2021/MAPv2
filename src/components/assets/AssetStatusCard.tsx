@@ -13,6 +13,8 @@ interface AssetStatusCardProps {
   status: AssetStatusFields;
   canEditAvailability: boolean;
   onAvailabilityChange?: (value: AvailabilityStatus) => void;
+  /** flag and port of registry, shown in place of the operating status */
+  registrationFact?: string;
 }
 
 export const AssetStatusCard: React.FC<AssetStatusCardProps> = ({
@@ -20,6 +22,7 @@ export const AssetStatusCard: React.FC<AssetStatusCardProps> = ({
   status,
   canEditAvailability,
   onAvailabilityChange,
+  registrationFact,
 }) => {
   const statusBadgeClass = (value: string): string => {
     const lower = value.toLowerCase();
@@ -47,7 +50,7 @@ export const AssetStatusCard: React.FC<AssetStatusCardProps> = ({
     isAvailability?: boolean;
   }[] = [
     {
-      label: 'Availability',
+      label: assetType === 'Vessel' ? 'Charter availability' : 'Availability',
       value: status.availabilityStatus,
       updatedAt: status.availabilityUpdatedAt,
       readOnly: !canEditAvailability,
@@ -55,7 +58,7 @@ export const AssetStatusCard: React.FC<AssetStatusCardProps> = ({
     },
     {
       label: 'Registration',
-      value: status.registrationStatus,
+      value: registrationFact || status.registrationStatus,
       updatedAt: status.registrationUpdatedAt,
       readOnly: !canEditAvailability,
     },
@@ -90,6 +93,7 @@ export const AssetStatusCard: React.FC<AssetStatusCardProps> = ({
               {field.isAvailability && canEditAvailability && onAvailabilityChange ? (
                 <select
                   className="form-select form-select-sm mb-1"
+                  aria-label={field.label}
                   value={status.availabilityStatus}
                   onChange={(e) => onAvailabilityChange(e.target.value as AvailabilityStatus)}
                 >

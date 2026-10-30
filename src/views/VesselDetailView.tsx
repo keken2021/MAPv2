@@ -1142,6 +1142,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       <AssetStatusCard
         assetType="Vessel"
         status={getVesselAssetStatus(vessel)}
+        registrationFact={vessel.portOfRegistry ? `${vessel.flagState} · ${vessel.portOfRegistry}` : vessel.flagState}
         canEditAvailability={canEditStatus}
         onAvailabilityChange={(value) => updateVesselAvailability(vessel.id, value)}
       />
