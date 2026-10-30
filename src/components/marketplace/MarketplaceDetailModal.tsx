@@ -30,7 +30,8 @@ import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 import { exportToPdf } from '../../utils/exportHelpers';
 import { formatReadinessScore, getFieldDisplayLabel, getProviderLabel } from '../../utils/formatters';
-import { getMarketplaceCharterLabel } from '../../utils/marketplaceHelpers';
+import { earliestCertificateExpiry, formatListingDate, getMarketplaceCharterLabel } from '../../utils/marketplaceHelpers';
+import { getDueStatus } from '../common/DueCell';
 
 interface MarketplaceDetailModalProps {
   item: MarketplaceItem | null;
@@ -51,7 +52,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
   onCharter,
   charterDisabledReason,
 }) => {
-  const { documents } = useMapStore();
+  const { documents, vessels, crew } = useMapStore();
   const [activeTab, setActiveTab] = useState<'specs' | 'capabilities' | 'compliance' | 'provider'>('specs');
   const [inquirySent, setInquirySent] = useState(false);
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string>('');
@@ -78,6 +79,9 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
   if (!isOpen || !item) return null;
 
   const orgInfo = getOrganizationLogo(item.providerOrg);
+  const earliestExpiry = earliestCertificateExpiry(item, vessels, documents, crew);
+  const expiryDue = earliestExpiry ? getDueStatus(earliestExpiry, { today: new Date() }) : undefined;
+  const expiryIsLate = expiryDue?.state === 'late' || expiryDue?.state === 'expired';
   const activePhoto = selectedPhotoUrl || item.imageUrl;
 
   const getCategoryIcon = () => {
@@ -560,6 +564,18 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
             <div className="p-3" style={{ minHeight: '240px' }}>
               {activeTab === 'specs' && (
                 <div>
+                  <div
+                    className="d-flex flex-wrap align-items-center gap-2 mb-3"
+                    data-testid="earliest-certificate-expiry"
+                  >
+                    <span className="small text-secondary">Earliest certificate expiry</span>
+                    <span className="fw-semibold font-mono-code small">
+                      {earliestExpiry ? formatListingDate(earliestExpiry) : '—'}
+                    </span>
+                    {expiryIsLate && expiryDue && (
+                      <span className={expiryDue.textClass}>{expiryDue.label}</span>
+                    )}
+                  </div>
                   <div className="d-flex align-items-center justify-content-between mb-3">
                     <h6 className="fw-bold mb-0" style={{ fontSize: '0.92rem', color: '#0B1B2B' }}>
                       Specifications

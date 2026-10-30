@@ -7,6 +7,7 @@
 import React from 'react';
 import { Camera, MoreHorizontal } from 'lucide-react';
 import { MarketplaceItem } from '../../types/marketplace';
+import { formatListingAvailability } from '../../utils/marketplaceHelpers';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 import { formatReadinessScore, getFieldDisplayLabel, getProviderLabel } from '../../utils/formatters';
 
@@ -276,6 +277,14 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
             >
               <MoreHorizontal size={18} />
             </button>
+          </div>
+
+          <div
+            className="mt-1"
+            data-listing-availability
+            style={{ fontSize: '0.8rem', color: '#334155', fontWeight: 500 }}
+          >
+            {formatListingAvailability(item)}
           </div>
 
           {/* Subtitle / Subcategory */}

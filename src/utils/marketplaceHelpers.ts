@@ -52,6 +52,84 @@ export function isItemOwnedByCurrentOrganization(
   return false;
 }
 
+const LISTING_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+/* windows assigned to assets that are built from the registries rather than marketplaceMockData */
+const GENERATED_WINDOWS: [string, string][] = [
+  ['2026-12-01', '2027-03-31'],
+  ['2026-11-01', '2027-02-28'],
+  ['2027-04-01', '2027-06-30'],
+  ['2026-10-01', '2026-12-15'],
+  ['2027-01-15', '2027-05-31'],
+  ['2026-09-01', '2026-11-30'],
+];
+
+/* a stable window for a generated listing, so the same asset always shows the same dates */
+export function availabilityWindowForId(id: string): { availableFrom: string; availableTo: string } {
+  const slot = [...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % GENERATED_WINDOWS.length;
+  const [availableFrom, availableTo] = GENERATED_WINDOWS[slot];
+  return { availableFrom, availableTo };
+}
+
+/* calendar date without a timezone shift, e.g. "01 DEC 2026" */
+export function formatListingDate(iso: string): string {
+  const [year, month, day] = iso.slice(0, 10).split('-');
+  const monthName = LISTING_MONTHS[Number(month) - 1];
+  if (!year || !monthName || !day) return iso;
+  return `${day} ${monthName} ${year}`;
+}
+
+/* port or region shown after the window: the part before a comma */
+export function listingPlace(location: string): string {
+  return location.split(',')[0].trim();
+}
+
+/* "Available 01 DEC 2026 to 31 MAR 2027 · Fremantle" */
+export function formatListingAvailability(
+  item: Pick<MarketplaceItem, 'availableFrom' | 'availableTo' | 'location'>,
+): string {
+  return `Available ${formatListingDate(item.availableFrom)} to ${formatListingDate(item.availableTo)} · ${listingPlace(item.location)}`;
+}
+
+/* true when the listing window overlaps the filter range; a blank end is open */
+export function listingOverlapsAvailability(
+  item: Pick<MarketplaceItem, 'availableFrom' | 'availableTo'>,
+  from?: string,
+  to?: string,
+): boolean {
+  if (!from && !to) return true;
+  if (!item.availableFrom || !item.availableTo) return false;
+  if (from && item.availableTo < from) return false;
+  if (to && item.availableFrom > to) return false;
+  return true;
+}
+
+/* earliest certificate date on the linked vessel, its library documents, or the crew member */
+export function earliestCertificateExpiry(
+  item: Pick<MarketplaceItem, 'linkedEntityId' | 'linkedEntityType'>,
+  vessels: Pick<VesselInformation, 'id' | 'statutoryCertificates'>[],
+  documents: Pick<MasterDocument, 'vesselId' | 'expiryDate'>[],
+  crew: Pick<CrewMember, 'id' | 'layer1CoreDocuments' | 'layer2Endorsements'>[] = [],
+): string | undefined {
+  const id = item.linkedEntityId;
+  if (!id) return undefined;
+  const dates: string[] = [];
+  const keep = (value?: string) => {
+    if (value) dates.push(value.slice(0, 10));
+  };
+  if (item.linkedEntityType === 'vessel') {
+    vessels.find((vessel) => vessel.id === id)?.statutoryCertificates?.forEach((certificate) => keep(certificate.expiryDate));
+    documents.filter((document) => document.vesselId === id).forEach((document) => keep(document.expiryDate));
+  }
+  if (item.linkedEntityType === 'crew') {
+    const member = crew.find((person) => person.id === id);
+    member?.layer1CoreDocuments?.forEach((document) => keep(document.expiryDate));
+    member?.layer2Endorsements?.forEach((document) => keep(document.expiryDate));
+  }
+  if (dates.length === 0) return undefined;
+  return [...dates].sort()[0];
+}
+
 /* rewrites the "nn% ready" text of a metric so it repeats the calculated score instead of a typed one */
 function withReadinessMetric(metrics: MarketplaceItem['metrics'], score: number | null): MarketplaceItem['metrics'] {
   if (score === null) return metrics;
@@ -128,6 +206,7 @@ export function getMarketplaceItems(
         subcategory: v.vesselSubtype || v.vesselType || 'Offshore Vessel',
         providerOrg: v.registeredOwner || 'Verified Marine Provider',
         location: v.portOfRegistry || 'Western Australia',
+        ...availabilityWindowForId(v.id),
         availabilityStatus: v.status === 'Under Charter' ? 'Under Charter' : 'Available for Charter',
         availabilityTagColor: v.status === 'Under Charter' ? '#3b82f6' : '#059669',
         imageUrl: photoUrl,
@@ -192,6 +271,7 @@ export function getMarketplaceItems(
         subcategory: eq.category,
         providerOrg: eq.owningOrganization,
         location: 'Western Australia Shorebase',
+        ...availabilityWindowForId(eq.id),
         availabilityStatus: eq.availabilityStatus === 'Available' ? 'Available for Lease' : eq.availabilityStatus,
         availabilityTagColor: '#059669',
         imageUrl: photoUrl,
@@ -247,6 +327,7 @@ export function getMarketplaceItems(
         subcategory: c.rank,
         providerOrg: c.organization,
         location: c.currentVesselName || 'Western Australia',
+        ...availabilityWindowForId(c.id),
         availabilityStatus: c.currentVesselId ? 'On Assignment' : 'Available for Hire',
         availabilityTagColor: c.currentVesselId ? '#3b82f6' : '#059669',
         imageUrl: photoUrl,
@@ -325,6 +406,9 @@ export function filterMarketplaceItems(
     locationFilter?: string;
     statusFilter?: string;
     availableOn?: string;
+    /* iso dates; keep a listing whose availableFrom/availableTo window overlaps this range */
+    availableFrom?: string;
+    availableTo?: string;
     /* iso date the Available date is checked against; defaults to the current date */
     today?: string;
     assuranceSets?: AssuranceSet[];
@@ -339,6 +423,8 @@ export function filterMarketplaceItems(
     locationFilter = 'ALL',
     statusFilter = 'ALL',
     availableOn = '',
+    availableFrom = '',
+    availableTo = '',
     today = toIsoLocalDate(),
     assuranceSets = [],
     sortBy = 'name',
@@ -364,6 +450,10 @@ export function filterMarketplaceItems(
 
     // 3. Location Filter
     if (locationFilter !== 'ALL' && !item.location.toLowerCase().includes(locationFilter.toLowerCase())) {
+      return false;
+    }
+
+    if (!listingOverlapsAvailability(item, availableFrom, availableTo)) {
       return false;
     }
 

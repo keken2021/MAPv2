@@ -31,6 +31,10 @@ export interface MarketplaceItem {
   subcategory: string;
   providerOrg: string;
   location: string;
+  /** first day the offering can be chartered, hired, or leased (ISO date) */
+  availableFrom: string;
+  /** last day the offering can be chartered, hired, or leased (ISO date) */
+  availableTo: string;
   availabilityStatus: string;
   availabilityTagColor: string;
   imageUrl: string;
@@ -57,6 +61,10 @@ export interface MarketplaceFilterState {
   statusFilter: string;
   /** ISO date; listings busy on this date are hidden, and a charter end date stays available */
   availableOn?: string;
+  /** ISO date; keep listings whose window overlaps this start */
+  availableFrom?: string;
+  /** ISO date; keep listings whose window overlaps this end */
+  availableTo?: string;
   sortBy: 'name' | 'readiness' | 'provider' | 'category';
   sortOrder: 'asc' | 'desc';
 }

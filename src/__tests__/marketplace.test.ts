@@ -14,7 +14,12 @@ import {
   isItemOwnedByCurrentOrganization,
   getMarketplaceCharterLabel,
   resolveMarketplaceCharterTarget,
+  formatListingAvailability,
+  formatListingDate,
+  earliestCertificateExpiry,
 } from '../utils/marketplaceHelpers';
+import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
+import { MarketplaceDetailModal } from '../components/marketplace/MarketplaceDetailModal';
 import {
   ASSURANCE_SETS_READ_ONLY_ROLES,
   isMarketplacePersona,
@@ -176,6 +181,8 @@ describe('Marketplace Module & Segregation', () => {
       subcategory: 'OSV',
       providerOrg: 'AquaClean Marine Services Pty Ltd',
       location: 'Dampier',
+      availableFrom: '2026-10-01',
+      availableTo: '2027-06-30',
       availabilityStatus: 'Under Charter',
       availabilityTagColor: '#3b82f6',
       imageUrl: '',
@@ -229,6 +236,8 @@ describe('Marketplace Module & Segregation', () => {
       subcategory: '',
       providerOrg: 'AquaClean Marine Services Pty Ltd',
       location: 'Dampier',
+      availableFrom: '2026-10-01',
+      availableTo: '2027-06-30',
       availabilityStatus: 'Available',
       availabilityTagColor: '#059669',
       imageUrl: '',
@@ -458,5 +467,71 @@ describe('Marketplace Module & Segregation', () => {
     statValues.forEach((node) => {
       expect(node.className).not.toMatch(/text-truncate/);
     });
+  });
+
+  it('gives every listing an availability window and a location', () => {
+    const items = getMarketplaceItems(
+      MOCK_VESSELS,
+      MOCK_EQUIPMENT,
+      'C Admin',
+      mockUsers,
+      MOCK_CREW,
+      MOCK_ASSURANCE_SETS,
+      MOCK_DOCUMENTS,
+    );
+    [...MOCK_MARKETPLACE_ITEMS, ...items].forEach((item) => {
+      expect(item.availableFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(item.availableTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(item.availableFrom <= item.availableTo).toBe(true);
+      expect(item.location.trim().length).toBeGreaterThan(0);
+    });
+  });
+
+  it('filters by an availability window overlap and by location', () => {
+    const items = getMarketplaceItems(
+      MOCK_VESSELS,
+      MOCK_EQUIPMENT,
+      'C Admin',
+      mockUsers,
+      MOCK_CREW,
+      MOCK_ASSURANCE_SETS,
+      MOCK_DOCUMENTS,
+    );
+    const inMay = filterMarketplaceItems(items, { availableFrom: '2027-05-01', availableTo: '2027-05-31' });
+    expect(inMay.length).toBeGreaterThan(0);
+    expect(inMay.length).toBeLessThan(items.length);
+    expect(inMay.some((item) => item.location.startsWith('Broome'))).toBe(true);
+    expect(inMay.some((item) => item.name.includes('Austral Horizon'))).toBe(false);
+
+    const fremantle = filterMarketplaceItems(items, { locationFilter: 'Fremantle' });
+    expect(fremantle.length).toBeGreaterThan(0);
+    expect(fremantle.length).toBeLessThan(items.length);
+    fremantle.forEach((item) => expect(item.location.toLowerCase()).toContain('fremantle'));
+  });
+
+  it('shows the availability window under the card title and the earliest expiry on the detail', () => {
+    const items = getMarketplaceItems(
+      MOCK_VESSELS,
+      MOCK_EQUIPMENT,
+      'C Admin',
+      mockUsers,
+      MOCK_CREW,
+      MOCK_ASSURANCE_SETS,
+      MOCK_DOCUMENTS,
+    );
+    const horizon = items.find((item) => item.name.includes('Austral Horizon'))!;
+    render(React.createElement(MarketplaceCard, { item: horizon, onSelect: () => undefined }));
+    expect(screen.getByText('Available 01 DEC 2026 to 31 MAR 2027 · Fremantle')).toBeInTheDocument();
+    expect(formatListingAvailability(horizon)).toBe('Available 01 DEC 2026 to 31 MAR 2027 · Fremantle');
+
+    const tasman = items.find((item) => item.linkedEntityId === 'VESSEL-003')!;
+    const expiry = earliestCertificateExpiry(tasman, MOCK_VESSELS, MOCK_DOCUMENTS, MOCK_CREW);
+    expect(expiry).toBeTruthy();
+    expect(expiry! < '2026-10-30').toBe(true);
+    render(React.createElement(MarketplaceDetailModal, { item: tasman, isOpen: true, onClose: () => undefined }));
+    const line = screen.getByTestId('earliest-certificate-expiry');
+    expect(line.textContent).toContain('Earliest certificate expiry');
+    expect(line.textContent).toContain(formatListingDate(expiry!));
+    expect(line.textContent).toMatch(/late|Expired/);
   });
 });

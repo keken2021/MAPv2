@@ -8,7 +8,7 @@ import React, { useState, useMemo } from 'react';
 import { LayoutGrid, Table as TableIcon, ArrowUpDown, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { MarketplaceCategory, MarketplaceItem } from '../types/marketplace';
-import { getMarketplaceItems, filterMarketplaceItems, resolveMarketplaceCharterTarget } from '../utils/marketplaceHelpers';
+import { getMarketplaceItems, filterMarketplaceItems, formatListingAvailability, resolveMarketplaceCharterTarget } from '../utils/marketplaceHelpers';
 import { toIsoLocalDate } from '../utils/validation';
 import { filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, getClientAdminOrganization } from '../utils/rbacHelpers';
 import { MarketplaceCard } from '../components/marketplace/MarketplaceCard';
@@ -45,6 +45,8 @@ export const MarketplaceView: React.FC = () => {
   const [locationFilter, setLocationFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [availableOn, setAvailableOn] = useState('');
+  const [availableFrom, setAvailableFrom] = useState('');
+  const [availableTo, setAvailableTo] = useState('');
   /* earliest Available date the filter accepts */
   const todayIso = toIsoLocalDate();
   const [sortBy, setSortBy] = useState<'name' | 'readiness' | 'provider' | 'category'>('name');
@@ -137,11 +139,13 @@ export const MarketplaceView: React.FC = () => {
       locationFilter,
       statusFilter,
       availableOn,
+      availableFrom,
+      availableTo,
       assuranceSets,
       sortBy,
       sortOrder,
     });
-  }, [allMarketplaceItems, activeCategory, searchTerm, providerFilter, locationFilter, statusFilter, availableOn, assuranceSets, sortBy, sortOrder]);
+  }, [allMarketplaceItems, activeCategory, searchTerm, providerFilter, locationFilter, statusFilter, availableOn, availableFrom, availableTo, assuranceSets, sortBy, sortOrder]);
 
   const handleSelectItem = (item: MarketplaceItem) => {
     setSelectedItem(item);
@@ -155,6 +159,8 @@ export const MarketplaceView: React.FC = () => {
     setLocationFilter('ALL');
     setStatusFilter('ALL');
     setAvailableOn('');
+    setAvailableFrom('');
+    setAvailableTo('');
     setSortBy('name');
     setSortOrder('asc');
   };
@@ -185,6 +191,19 @@ export const MarketplaceView: React.FC = () => {
         onRemove: () => setStatusFilter('ALL'),
       });
     }
+    if (availableFrom || availableTo) {
+      const fromLabel = availableFrom || 'any';
+      const toLabel = availableTo || 'any';
+      chips.push({
+        id: 'availability-window',
+        label: 'Availability window',
+        value: `${fromLabel} to ${toLabel}`,
+        onRemove: () => {
+          setAvailableFrom('');
+          setAvailableTo('');
+        },
+      });
+    }
     if (availableOn) {
       chips.push({
         id: 'availableOn',
@@ -202,7 +221,7 @@ export const MarketplaceView: React.FC = () => {
       });
     }
     return chips;
-  }, [providerFilter, locationFilter, statusFilter, availableOn, activeCategory]);
+  }, [providerFilter, locationFilter, statusFilter, availableOn, availableFrom, availableTo, activeCategory]);
 
   const activeFilterCount = activeChips.length;
 
@@ -235,7 +254,7 @@ export const MarketplaceView: React.FC = () => {
     exportToPdf('Maritime Marketplace Offerings', headers, rows);
   };
 
-  const itemsPagination = usePagination(filteredItems, [activeCategory, searchTerm, providerFilter, locationFilter, statusFilter, availableOn, sortBy, sortOrder]);
+  const itemsPagination = usePagination(filteredItems, [activeCategory, searchTerm, providerFilter, locationFilter, statusFilter, availableOn, availableFrom, availableTo, sortBy, sortOrder]);
 
   return (
     <div className="d-flex flex-column gap-3.5">
@@ -392,6 +411,9 @@ export const MarketplaceView: React.FC = () => {
                                 title={item.name}
                               >
                                 {item.name}
+                              </span>
+                              <span className="text-secondary text-truncate" style={{ maxWidth: '280px', fontSize: '0.75rem' }}>
+                                {formatListingAvailability(item)}
                               </span>
                             </div>
                           </div>
@@ -576,6 +598,36 @@ export const MarketplaceView: React.FC = () => {
             />
             <div className="text-muted small mt-1">
               Shows assets with no contract on this date. A contracted asset is listed again on its contract end date.
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label text-secondary fw-semibold small mb-1" htmlFor="marketplace-available-from" style={{ fontSize: '0.8rem' }}>
+              Availability window
+            </label>
+            <div className="d-flex align-items-center gap-2">
+              <input
+                id="marketplace-available-from"
+                type="date"
+                aria-label="Available from"
+                className="form-control form-control-sm bg-white text-dark font-sans"
+                style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+                value={availableFrom}
+                onChange={(e) => setAvailableFrom(e.target.value)}
+              />
+              <span className="text-muted small">to</span>
+              <input
+                id="marketplace-available-to"
+                type="date"
+                aria-label="Available to"
+                className="form-control form-control-sm bg-white text-dark font-sans"
+                style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
+                value={availableTo}
+                onChange={(e) => setAvailableTo(e.target.value)}
+              />
+            </div>
+            <div className="text-muted small mt-1">
+              Keeps offerings whose availability window overlaps these dates.
             </div>
           </div>
 
