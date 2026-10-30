@@ -87,9 +87,17 @@ export const App: React.FC = () => {
       if (hash && hash !== 'login') {
         const pathPart = hash.split('?')[0];
         const parts = pathPart.split('/');
-        setCurrentHashView(parts[0], parts[1] ? decodeURIComponent(parts[1]) : undefined);
+        const newView = parts[0];
+        const newEntityId = parts[1] ? decodeURIComponent(parts[1]) : undefined;
+        const state = useMapStore.getState();
+        if (state.currentHashView !== newView || state.currentEntityId !== newEntityId) {
+          setCurrentHashView(newView, newEntityId);
+        }
       } else {
-        setCurrentHashView('dashboard');
+        const state = useMapStore.getState();
+        if (state.currentHashView !== 'dashboard') {
+          setCurrentHashView('dashboard');
+        }
       }
     };
 

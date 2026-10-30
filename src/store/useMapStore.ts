@@ -1106,7 +1106,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       prevId = currentId;
     }
 
-    window.location.hash = entityId ? `#/${view}/${entityId}` : `#/${view}`;
+    const targetHash = entityId ? `#/${view}/${entityId}` : `#/${view}`;
+    if (typeof window !== "undefined" && window.location.hash.split("?")[0] !== targetHash) {
+      window.location.hash = targetHash;
+    }
     set({
       previousHashView: prevView,
       previousEntityId: prevId,

@@ -1808,49 +1808,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       )}
 
 
-      {/* Tab: Tasks */}
-      {activeTab === 'tasks' && (
-        sectionSummaries.length > 0 ? (
-          <div className="card map-card-custom">
-            <div className="card-header p-0">
-              <button
-                type="button"
-                className="btn btn-link text-decoration-none text-dark w-100 d-flex align-items-center gap-2 p-3 text-start"
-                aria-expanded={sectionsOpen}
-                onClick={() => setSectionsOpen((open) => !open)}
-              >
-                <ChevronDown
-                  size={16}
-                  className="flex-shrink-0"
-                  style={{ transform: sectionsOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-                />
-                <span className="fw-bold">Task sections</span>
-                <span className="small text-secondary">
-                  {sectionSummaries.length} {sectionSummaries.length === 1 ? 'section' : 'sections'}
-                  {sectionSummaries.filter((section) => section.heavy).length > 0 && (
-                    <> &middot; {sectionSummaries.filter((section) => section.heavy).length} with 3+ open tasks</>
-                  )}
-                </span>
-              </button>
-            </div>
-            {sectionsOpen && (
-              <div className="card-body border-top">
-                <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
-                <TaskSectionCards set={assuranceSet} />
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="card map-card-custom p-4">
-            <EmptyState
-              title="No task sections"
-              description="No task sections have been defined for this assurance set."
-            />
-          </div>
-        )
-      )}
-
-      {/* Bottom Row: Requirements Register Table taking full 100% width across two columns */}
       {/* Tab: Requirements */}
       {activeTab === 'requirements' && (
       <div className="card map-card-custom">
@@ -2258,6 +2215,51 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         <TablePagination {...requirementsPagination.controls} />
       </div>
       )}
+
+      {/* Tab: Tasks */}
+      {activeTab === 'tasks' && (
+        sectionSummaries.length > 0 ? (
+          <div className="card map-card-custom">
+            <div className="card-header p-0">
+              <button
+                type="button"
+                className="btn btn-link text-decoration-none text-dark w-100 d-flex align-items-center gap-2 p-3 text-start"
+                aria-expanded={sectionsOpen}
+                onClick={() => setSectionsOpen((open) => !open)}
+              >
+                <ChevronDown
+                  size={16}
+                  className="flex-shrink-0"
+                  style={{ transform: sectionsOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                />
+                <span className="fw-bold">Task sections</span>
+                <span className="small text-secondary">
+                  {sectionSummaries.length} {sectionSummaries.length === 1 ? 'section' : 'sections'}
+                  {sectionSummaries.filter((section) => section.heavy).length > 0 && (
+                    <> &middot; {sectionSummaries.filter((section) => section.heavy).length} with 3+ open tasks</>
+                  )}
+                </span>
+              </button>
+            </div>
+            {sectionsOpen && (
+              <div className="card-body border-top">
+                <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
+                <TaskSectionCards set={assuranceSet} />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="card map-card-custom p-4">
+            <EmptyState
+              title="No task sections"
+              description="No task sections have been defined for this assurance set."
+            />
+          </div>
+        )
+      )}
+
+      {/* Bottom Row: Requirements Register Table taking full 100% width across two columns */}
+
 
       {/* Tab: Audit Trail */}
       {activeTab === 'audit' && (
