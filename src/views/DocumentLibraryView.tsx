@@ -17,6 +17,7 @@ import { UserRolePersona } from '../types/audit';
 import { UserProfile } from '../types/user';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
+import { isExpiringWithinWarning } from '../utils/expiryPolicy';
 
 /**
   what: documents a Submitter or Verifier may see in the library.
@@ -119,17 +120,21 @@ export const DocumentLibraryView: React.FC<DocumentLibraryViewProps> = ({ initia
       ),
     [activePersona, users, activeDemoOrganization, activeSessionUserId],
   );
-  const visibleDocuments = useMemo(
-    () =>
-      documentsForSessionLibrary(
-        documents,
-        assuranceSets,
-        activePersona,
-        activeDemoOrganization,
-        sessionUser,
-      ),
-    [documents, assuranceSets, activePersona, activeDemoOrganization, sessionUser],
-  );
+  const visibleDocuments = useMemo(() => {
+    const raw = documentsForSessionLibrary(
+      documents,
+      assuranceSets,
+      activePersona,
+      activeDemoOrganization,
+      sessionUser,
+    );
+    return raw.map((doc) => {
+      if (doc.complianceState === 'Expiring < 6 Mos' && !isExpiringWithinWarning(doc.expiryDate)) {
+        return { ...doc, complianceState: 'Valid' as const };
+      }
+      return doc;
+    });
+  }, [documents, assuranceSets, activePersona, activeDemoOrganization, sessionUser]);
 
   return (
     <div className="d-flex flex-column gap-3">

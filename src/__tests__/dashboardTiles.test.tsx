@@ -48,6 +48,56 @@ describe('Dashboard KPI tilesSuite', () => {
       const expiringTab = screen.getByRole('tab', { name: /expiring soon/i });
       expect(expiringTab).toHaveAttribute('aria-selected', 'true');
     });
+
+    it('renders Needs action card with at most 8 rows sorted by date, and counts agree with Documents tab', () => {
+      const setCurrentHashView = vi.fn();
+      useMapStore.setState({
+        activePersona: 'Administrator',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        setCurrentHashView,
+      });
+
+      const { unmount } = render(<DashboardView />);
+
+      // Needs action card exists
+      expect(screen.getByText('Needs action')).toBeInTheDocument();
+
+      // Check rows in Needs action table
+      const needsActionTable = screen.getByRole('table', { name: /needs action items/i });
+      expect(needsActionTable).toBeInTheDocument();
+
+      const tbody = needsActionTable.querySelector('tbody');
+      const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows.length).toBeLessThanOrEqual(8);
+      expect(rows.length).toBe(8);
+
+      // Verify rows are sorted chronologically by date (most urgent first)
+      const timestamps = rows.map((r) => Number(r.getAttribute('data-date-ms')));
+      for (let i = 0; i < timestamps.length - 1; i++) {
+        expect(timestamps[i]).toBeLessThanOrEqual(timestamps[i + 1]);
+      }
+
+      // Verify all three kinds of rows are represented
+      expect(screen.getAllByText('Expiring Certificate').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Returned for Correction').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Overdue CAPA').length).toBeGreaterThan(0);
+
+      // Verify row click opens detail
+      fireEvent.click(rows[0]);
+      expect(setCurrentHashView).toHaveBeenCalled();
+
+      // Expiring soon tile on dashboard shows 2
+      const expiringBtn = screen.getByRole('button', { name: /documents expiring soon/i });
+      expect(expiringBtn).toHaveTextContent('2');
+
+      // Unmount and render DocumentLibraryView to verify Expiring Soon tab count agrees
+      unmount();
+
+      render(<DocumentLibraryView />);
+      const expiringTab = screen.getByRole('tab', { name: /expiring soon/i });
+      expect(expiringTab).toHaveTextContent('2');
+    });
   });
 
   describe('Submitter dashboard', () => {
