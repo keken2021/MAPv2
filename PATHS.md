@@ -37,6 +37,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/permissionHelpers.ts`, `src/utils/permissionDefaults.ts` : role permission matrix
 - `src/utils/issuerVerificationProfiles.ts` : confirmed digital verification portals and procedures for ROs and Flag Administrations (gap review R2-G4, R2-S8)
 - `src/config/featureFlags.ts` : feature flags
+- `src/config/readinessScale.ts` : unified readiness scale cut-offs, tones, and CSS class helpers
 - `src/utils/formatters.ts` : dates, status labels, and `getProviderLabel` (Vessel Provider, Crew Provider, Equipment Provider, or Provider)
 
 ## Notifications
