@@ -53,7 +53,10 @@ import {
   getAssuranceSetStakeholderLockReason,
   isClientUser,
   getUserActiveDatePermission,
+  assigneeMatchesUser,
 } from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
+import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
 import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
 import { useOverlayBehavior } from '../utils/useOverlayBehavior';
 import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetScopes } from '../utils/assuranceTemplates';
@@ -314,12 +317,20 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     setFocusedRequirementId(undefined);
   }, [focusedRequirementId, requirementsPagination.controls.page, setFocusedRequirementId]);
 
-  const sessionUser = useMemo(
-    () =>
-      users.find((u) => u.id === activeSessionUserId) ||
-      getSessionUserForPersona(activePersona, users, { organization: activeDemoOrganization, sessionUserId: activeSessionUserId }),
-    [users, activeSessionUserId, activeDemoOrganization, activePersona],
-  );
+  const activeUser = useSessionUser();
+  const sessionUser = activeUser ?? undefined;
+
+  const isApproverViewer = activePersona === 'Approver';
+  const isNamedApprover =
+    isApproverViewer &&
+    Boolean(sessionUser) &&
+    assigneeMatchesUser(assuranceSet?.assignedApprover, sessionUser);
+  const isApprovalStage =
+    assuranceSet?.stage === 'Approval' &&
+    assuranceSet?.approverDecision !== 'Approved' &&
+    assuranceSet?.approverDecision !== 'Returned for Correction' &&
+    assuranceSet?.approverDecision !== 'Rejected';
+  const showApproverDecisionBar = isNamedApprover && isApprovalStage;
 
   if (!assuranceSet) return <div>Assurance Set not found.</div>;
 
@@ -1010,6 +1021,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         {/* Left: Assurance Set Information & Stakeholder Role Assignments Card */}
         <div className="col-lg-8 col-md-7">
           <div className="card map-card-custom p-4 h-100">
+            {showApproverDecisionBar && (
+              <ApproverDecisionBar
+                assuranceSet={assuranceSet}
+                openFindingsCount={openFindings.length}
+                onDecisionSubmitted={(decision) => {
+                  setProjectToast(`Assurance set ${assuranceSet.id} updated to ${decision}.`);
+                }}
+              />
+            )}
             {/* On-Time, Open Findings, and Remaining Items Badges inside Info Card */}
             <div className="d-flex flex-wrap align-items-center gap-2 mb-3 pb-3 border-bottom">
               <span className={`badge ${onTimeStatus.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTimeStatus.detail}>

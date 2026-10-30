@@ -27,7 +27,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
 - `src/components/modals/` : modals (centered)
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
-- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, DetailHeader, SearchableSelect, EmptyState, DueCell)
+- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, DetailHeader, SearchableSelect, EmptyState, DueCell, ApproverDecisionBar)
 - `src/components/layout/` : sidebar, header, notification panel, organization switcher
 - `src/store/useMapStore.ts` : the single app store
 - `src/store/*MockData.ts` : mock data, one file per domain
@@ -93,6 +93,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter Assurance Sets and Vessels per person: `src/__tests__/tablesPerPersonSession.test.tsx` (per-person filtering with useSessionUser for AssuranceTable and VesselTable)
 - Unit tests for UI declutter role access check across organizations: `src/__tests__/roleAccessAcrossOrganizations.test.ts` (walks every organization and persona, checks sidebar links, workflow role scoping, admin org scoping)
 - Unit tests for UI declutter Northwind Verifier persona and queue: `src/__tests__/northwindVerifierQueue.test.tsx` (sidebar persona switch, at least 4 To Verify items, 1 Overdue item, no submitter == verifier)
+- Unit tests for Approver decision bar on set detail: `src/__tests__/approverDecisionBar.test.tsx` (bar shown only for named approver at Approval, reason required for Return and Reject, Approve disabled with open findings)
 - Projects: `createProjectWizardOrganization.test.tsx`, `projectComposition.test.ts`, `projectDetailHeader.test.tsx`, `projectNestedSets.test.ts`, `assuranceSetProjectRelationship.test.ts`, `mockDataConsistency.test.ts`, `notifications.test.ts`
 - User Management: `cAdminUserManagement.test.ts`, `userRoleHelpers.test.ts`, `store.test.ts`
 - Audit Trail: `permissionHelpers.test.ts`, `notifications.test.ts`, `mockDataBusinessRules.test.ts`, `store.test.ts`
