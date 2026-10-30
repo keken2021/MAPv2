@@ -156,6 +156,18 @@ describe('Seeded assurance sets keep client, service provider and assurance grou
     });
   });
 
+  it('never assigns the same person as submitter and verifier on any set', () => {
+    ALL_SETS.forEach((set) => {
+      if (set.assignedSubmitter && set.assignedVerifier) {
+        const sub = findUserByAssigneeLabel(MOCK_USERS, set.assignedSubmitter);
+        const ver = findUserByAssigneeLabel(MOCK_USERS, set.assignedVerifier);
+        if (sub && ver) {
+          expect(sub.id, `${set.id} submitter !== verifier`).not.toBe(ver.id);
+        }
+      }
+    });
+  });
+
   it('approves a set only after verification, inspection and a recorded decision', () => {
     ALL_SETS.filter(
       (set) => set.stage === 'Approved' || set.stage === 'Certified' || set.approverDecision === 'Approved',

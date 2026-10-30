@@ -94,4 +94,22 @@ describe('demoSessionHelpers', () => {
       'Administrator',
     );
   });
+
+  it('resolves Northwind Verifier to S. Girard differing from Submitter M. Chen', () => {
+    const submitter = pickSessionUserForOrgPersona(
+      MOCK_USERS,
+      'Northwind Marine Pty Ltd',
+      'Submitter',
+    );
+    const verifier = pickSessionUserForOrgPersona(
+      MOCK_USERS,
+      'Northwind Marine Pty Ltd',
+      'Verifier',
+    );
+    expect(submitter?.id).toBe('USR-102');
+    expect(submitter?.name).toBe('M. Chen');
+    expect(verifier?.id).toBe('USR-244');
+    expect(verifier?.name).toBe('S. Girard');
+    expect(verifier?.id).not.toBe(submitter?.id);
+  });
 });

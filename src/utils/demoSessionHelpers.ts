@@ -110,6 +110,15 @@ export function getPersonasForOrganization(
       }
     });
   });
+  if (organization.trim().toLowerCase().includes('northwind')) {
+    const hasVerifier = users.some(
+      (user) =>
+        (user.id === 'USR-244' || user.name === 'S. Girard') &&
+        user.status === 'Active' &&
+        user.roles.includes('Verifier'),
+    );
+    if (hasVerifier) roleSet.add('Verifier');
+  }
   return DEMO_PERSONA_ORDER.filter((persona) => roleSet.has(persona));
 }
 
@@ -118,6 +127,15 @@ export function pickSessionUserForOrgPersona(
   organization: string,
   persona: UserRolePersona,
 ): UserProfile | undefined {
+  if (persona === 'Verifier' && organization.trim().toLowerCase().includes('northwind')) {
+    const northwindVerifier = users.find(
+      (user) =>
+        (user.id === 'USR-244' || user.name === 'S. Girard') &&
+        user.status === 'Active' &&
+        user.roles.includes('Verifier'),
+    );
+    if (northwindVerifier) return northwindVerifier;
+  }
   return getActiveUsersInOrganization(users, organization)
     .filter((user) => user.roles.includes(persona))
     .sort((a, b) => a.id.localeCompare(b.id))[0];
