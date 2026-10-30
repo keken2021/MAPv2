@@ -117,9 +117,9 @@ import {
   crewToAssuranceObject,
   personObjectAssignments,
   equipmentToAssuranceObject,
-  SEEDED_OPERATIONAL_OBJECTS,
   getAssuranceSetObjects,
 } from "../utils/assuranceTemplates";
+import { SEEDED_OPERATIONAL_OBJECTS } from "./assuranceObjectMockData";
 import { MOCK_NOTIFICATIONS } from "./notificationMockData";
 import {
   assuranceInvitationSubject,

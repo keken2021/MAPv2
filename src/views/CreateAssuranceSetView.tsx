@@ -401,7 +401,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         list = vesselChoices.map(vesselToAssuranceObject);
         break;
       case 'person':
-        list = crew.map(crewToAssuranceObject);
+        list = [
+          ...crew.map(crewToAssuranceObject),
+          ...storeAssuranceObjects.filter((o) => o.type === 'person'),
+        ];
         break;
       case 'equipment':
         list = equipment.map(equipmentToAssuranceObject);

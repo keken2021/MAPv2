@@ -208,41 +208,8 @@ export function equipmentToAssuranceObject(item: {
   };
 }
 
-/** seeded operational procedures, methods, documents and organizations for multi-object sets (ADR 0029) */
-export const SEEDED_OPERATIONAL_OBJECTS: AssuranceObject[] = [
-  {
-    id: 'OBJ-PROC-PORT-01',
-    type: 'procedure',
-    name: 'Port Entry & Berthing Procedure',
-    ownerOrganization: 'Fremantle Port Authority',
-    identifier: 'SOP-PORT-2026',
-    description: 'Navigation, pilot boarding and tug escort operating procedure for port arrival',
-  },
-  {
-    id: 'OBJ-METH-TOW-01',
-    type: 'method',
-    name: 'Mooring & Towage Method Statement (MOP)',
-    ownerOrganization: 'Tidewater Marine',
-    identifier: 'MOP-TOW-004',
-    description: 'Detailed operational method for tandem mooring and harbour towage assistance',
-  },
-  {
-    id: 'OBJ-DOC-CLR-01',
-    type: 'document',
-    name: 'Port Clearance & Customs Declaration',
-    ownerOrganization: 'Australian Border Force',
-    identifier: 'PCD-WA-8812',
-    description: 'Statutory vessel border entry clearance and bio-security verification documentation',
-  },
-  {
-    id: 'OBJ-ORG-PPA-01',
-    type: 'organization',
-    name: 'Pilbara Ports Authority',
-    ownerOrganization: 'Pilbara Ports Authority',
-    identifier: 'PPA-PORT-AUTH',
-    description: 'Regional port authority and harbour master oversight organization',
-  },
-];
+/** seeded procedures, methods, documents, organizations and standalone persons (ADR 0029) */
+export { SEEDED_OPERATIONAL_OBJECTS } from '../store/assuranceObjectMockData';
 
 /** returns all assurance objects for a set, synthesizing from legacy fields if unpopulated (ADR 0029) */
 export function getAssuranceSetObjects(
