@@ -1862,6 +1862,12 @@ div.map-autofill-animate {
   padding: 12px 16px;
 }
 
+.map-list-toolbar .map-list-toolbar-search-input,
+.map-list-toolbar .form-control.map-list-toolbar-search-input,
+.map-list-toolbar-search-input {
+  padding-left: 36px !important;
+}
+
 .map-list-toolbar .form-control:focus {
   border-color: var(--map-focus-ring);
   box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);

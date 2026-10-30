@@ -62,12 +62,13 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
         >
           <Search
             size={16}
+            aria-hidden="true"
             className="position-absolute top-50 translate-middle-y text-muted"
             style={{ left: '12px', pointerEvents: 'none' }}
           />
           <input
             type="text"
-            className="form-control form-control-sm"
+            className="form-control form-control-sm map-list-toolbar-search-input"
             style={{
               paddingLeft: '36px',
               paddingRight: searchValue ? '32px' : '12px',
@@ -87,7 +88,7 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
               onClick={() => onSearchChange('')}
               aria-label="Clear search"
             >
-              <X size={14} />
+              <X size={14} aria-hidden="true" />
             </button>
           )}
         </div>

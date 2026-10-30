@@ -162,6 +162,23 @@ describe('CountTabs', () => {
 });
 
 describe('ListToolbar', () => {
+  it('renders decorative search icon with aria-hidden and search input with left padding class', () => {
+    const { container } = render(
+      <ListToolbar
+        searchValue=""
+        onSearchChange={vi.fn()}
+        searchPlaceholder="Search assurance sets..."
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Search assurance sets...');
+    expect(input).toHaveClass('map-list-toolbar-search-input');
+
+    const searchIcon = container.querySelector('.position-relative > svg');
+    expect(searchIcon).toBeInTheDocument();
+    expect(searchIcon).toHaveAttribute('aria-hidden', 'true');
+  });
+
   it('renders search input with placeholder, value, and triggers onSearchChange', () => {
     const handleSearch = vi.fn();
     render(
