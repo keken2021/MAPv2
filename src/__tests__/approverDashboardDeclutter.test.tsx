@@ -205,7 +205,7 @@ describe('ApproverDashboardView UI Declutter', () => {
     expect(rows).toHaveLength(4);
   });
 
-  it('renders Due column with red mono lateness text for overdue sets', () => {
+  it('renders Due column with red lateness text using body font for overdue sets', () => {
     render(<ApproverDashboardView />);
 
     // On default Needs Decision tab, AS-OVERDUE-01 is present
@@ -218,7 +218,7 @@ describe('ApproverDashboardView UI Declutter', () => {
     const lateText = screen.getByText(/late/i);
     expect(lateText).toBeInTheDocument();
     expect(lateText).toHaveClass('text-danger');
-    expect(lateText.parentElement).toHaveClass('font-mono-code');
+    expect(lateText.parentElement).not.toHaveClass('font-mono-code');
   });
 
   it('renders exactly 1 badge and 1 action per row', () => {
