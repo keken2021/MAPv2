@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { VerifierWorkspaceView } from '../views/VerifierWorkspaceView';
 import { InspectorWorkspaceView } from '../views/InspectorWorkspaceView';
+import { DocumentLibraryView } from '../views/DocumentLibraryView';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
 import { MasterDocument } from '../types/document';
@@ -558,6 +559,23 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
         expect(actionButtons).toHaveLength(1);
         expect(actionButtons[0]).toHaveAttribute('title', 'View');
       });
+    });
+  });
+
+  describe('Document Library Header Count (1440 px fit)', () => {
+    it('fits 1440 px screen with exactly 5 column headers after moving Type under Title', () => {
+      render(<DocumentLibraryView />);
+      const table = screen.getByRole('table');
+      const headers = within(table).getAllByRole('columnheader');
+      expect(headers).toHaveLength(5);
+      const headerLabels = headers.map((h) => h.textContent?.replace(/\s+/g, ' ').trim());
+      expect(headerLabels).toEqual([
+        expect.stringMatching(/Certificate No\./),
+        expect.stringMatching(/Title/),
+        expect.stringMatching(/Expiry Date/),
+        expect.stringMatching(/Compliance/),
+        expect.stringMatching(/Actions/),
+      ]);
     });
   });
 });

@@ -17,6 +17,7 @@ import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilter
 import { CountTabs } from '../components/common/CountTabs';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { EmptyState } from '../components/common/EmptyState';
+import { DueCell } from '../components/common/DueCell';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -331,7 +332,9 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
                   <td>
                     <div className="fw-semibold text-dark small">{capa.vesselName}</div>
                   </td>
-                  <td className="small">{capa.dueDate}</td>
+                  <td className="small due-cell">
+                    <DueCell date={capa.dueDate} status={capa.status} />
+                  </td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(capa.status)}`}>
                       {getStatusDisplayLabel(capa.status)}

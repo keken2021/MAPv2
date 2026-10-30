@@ -11,6 +11,7 @@ import { MasterDocument, ComplianceState } from '../../types/document';
 import { FilterModal } from '../common/FilterModal';
 import { CountTabs } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
+import { DueCell } from '../common/DueCell';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
@@ -244,9 +245,6 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
               <th onClick={() => handleSort('title')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Title {renderSortIndicator('title')}
               </th>
-              <th onClick={() => handleSort('entityType')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
-                Type {renderSortIndicator('entityType')}
-              </th>
               <th onClick={() => handleSort('expiryDate')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                 Expiry Date {renderSortIndicator('expiryDate')}
               </th>
@@ -264,9 +262,13 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                 style={{ cursor: 'pointer' }}
               >
                 <td className="font-mono-code fw-semibold text-primary text-nowrap">{doc.certificateNo}</td>
-                <td className="fw-semibold text-dark text-nowrap">{doc.title}</td>
-                <td className="text-dark text-nowrap">{doc.entityType}</td>
-                <td className="font-mono-code small text-nowrap">{formatMaritimeDate(doc.expiryDate)}</td>
+                <td>
+                  <div className="fw-semibold text-dark text-nowrap">{doc.title}</div>
+                  <div className="text-secondary small">{doc.entityType}</div>
+                </td>
+                <td className="font-mono-code small text-nowrap due-cell">
+                  <DueCell date={doc.expiryDate} isExpiry />
+                </td>
                 <td>
                   <span className={`badge ${getComplianceBadgeClass(doc.complianceState)}`}>
                     {getStatusDisplayLabel(doc.complianceState)}
