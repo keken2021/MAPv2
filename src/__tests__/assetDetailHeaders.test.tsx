@@ -21,7 +21,7 @@ describe('asset detail headers', () => {
     expect(headerBadges(container)).toHaveLength(1);
     expect(header.querySelector('.detail-header-action-main')).toBeTruthy();
     expect(header.querySelector('.detail-header-action-export')).toBeTruthy();
-    expect(header.querySelector('.detail-header-action-close')).toBeTruthy();
+    expect(header.querySelector('.detail-header-action-close')).toBeNull();
     expect(screen.queryByRole('button', { name: /operating status/i })).toBeNull();
     expect(screen.queryByText('Operating Status')).toBeNull();
   });

@@ -1,29 +1,45 @@
 /* 
-  file summary: header banner component matching mockup layout with breadcrumb title, scenario filter pills, and viewing as persona pills.
-  responsibilities: presents top navigation header with active workspace breadcrumb, scenario toggle, and persona role selector pills.
+  file summary: header banner component matching mockup layout with page title or back button, scenario filter pills, and viewing as persona pills.
+  responsibilities: presents top navigation header with the page title on lists and a back button to the parent list on detail pages, plus the persona role selector pills.
   role in system: top layout header loaded at the root of the app shell.
 */
 
 import React, { useMemo } from 'react';
 import { useMapStore } from '../../store/useMapStore';
-import { getBackButtonInfo } from '../../utils/rbacHelpers';
 import { getPersonaOptionsForOrganization } from '../../utils/demoSessionHelpers';
 import { getRoleDisplayLabel } from '../../utils/userRoleHelpers';
 import { NotificationPanel } from './NotificationPanel';
 
-const cleanBackLabel = (label: string): string => {
-  return label
-    .replace(/Seafarer Profile/g, 'Crew Detail')
-    .replace(/Seafarer/g, 'Crew')
-    .replace(/Assurance Campaign|Campaign/g, 'Assurance Set')
-    .replace(/Physical Inspections|Physical Inspection|Physical Audit|Visual Survey/g, 'Inspections')
-    .replace(/CAPA Tracker/g, 'CAPA')
-    .replace(/Approval Gate/g, 'Approvals');
+const detailSection = (view: string): { label: string; listView: string } => {
+  switch (view) {
+    case 'vessels':
+      return { label: 'Vessels', listView: 'vessels' };
+    case 'equipment':
+      return { label: 'Equipment', listView: 'equipment' };
+    case 'project':
+      return { label: 'Projects', listView: 'project' };
+    case 'documents':
+      return { label: 'Document Library', listView: 'documents' };
+    case 'crew':
+      return { label: 'Crew Directory', listView: 'crew' };
+    case 'inspection':
+    case 'inspector':
+      return { label: 'Inspections', listView: 'inspector' };
+    case 'capa':
+    case 'capas':
+      return { label: 'CAPA', listView: 'capa' };
+    case 'approver':
+      return { label: 'Approvals', listView: 'approver' };
+    case 'create-assurance-set':
+    case 'assurance-sets':
+    default:
+      return { label: 'Assurance Sets', listView: 'assurance-sets' };
+  }
 };
 
 /**
-  what: renders top header bar with breadcrumb page title, scenario toggle, and viewing as persona pills matching the mockup design.
-  how: computes open page title and context breadcrumb, manages scenario toggle state, and updates active persona on pill click.
+  what: renders top header bar with the page title on lists, a back button to the parent list on detail pages, and viewing as persona pills.
+  how: computes the open page title, sends detail pages back to their list, and updates the active persona on pill click.
   with what file: src/components/layout/HeaderBanner.tsx loaded by App.tsx.
 */
 export const HeaderBanner: React.FC = () => {
@@ -33,8 +49,6 @@ export const HeaderBanner: React.FC = () => {
     activeDemoOrganization,
     users,
     currentHashView,
-    previousHashView,
-    previousEntityId,
     currentEntityId,
     setCurrentHashView,
     vessels,
@@ -45,43 +59,11 @@ export const HeaderBanner: React.FC = () => {
     projects,
   } = useMapStore();
 
-  /* compute dynamic back button info based on active detail view */
-  const getHeaderBackInfo = () => {
-    switch (currentHashView) {
-      case 'vessels':
-        return getBackButtonInfo('vessels', 'Vessels', previousHashView, activePersona, previousEntityId);
-      case 'equipment':
-        return getBackButtonInfo('equipment', 'Equipment', previousHashView, activePersona, previousEntityId);
-      case 'project':
-        return getBackButtonInfo('project', 'Projects', previousHashView, activePersona, previousEntityId);
-      case 'documents':
-        return getBackButtonInfo('documents', 'Document Library', previousHashView, activePersona, previousEntityId);
-      case 'crew':
-        return getBackButtonInfo('crew', 'Crew Directory', previousHashView, activePersona, previousEntityId);
-      case 'inspection':
-      case 'inspector':
-        return getBackButtonInfo('inspector', 'Inspections', previousHashView, activePersona, previousEntityId);
-      case 'capa':
-      case 'capas':
-        return getBackButtonInfo('capa', 'CAPA', previousHashView, activePersona, previousEntityId);
-      case 'approver':
-        return getBackButtonInfo('approver', 'Approvals', previousHashView, activePersona, previousEntityId);
-      case 'roles-permissions':
-        return getBackButtonInfo('roles-permissions', 'Roles & Permissions', previousHashView, activePersona, previousEntityId);
-      case 'marketplace':
-        return getBackButtonInfo('marketplace', 'Marketplace', previousHashView, activePersona, previousEntityId);
-      case 'create-assurance-set':
-      case 'assurance-sets':
-      default:
-        return getBackButtonInfo('assurance-sets', 'Assurance Sets', previousHashView, activePersona, previousEntityId);
-    }
-  };
-
   const isDetailPage =
     Boolean(currentEntityId) ||
     currentHashView === 'create-assurance-set' ||
     (currentHashView === 'project' && currentEntityId === 'new');
-  const headerBackInfo = getHeaderBackInfo();
+  const section = detailSection(currentHashView);
 
   const rolesList = useMemo(
     () => getPersonaOptionsForOrganization(users, activeDemoOrganization),
@@ -201,15 +183,15 @@ export const HeaderBanner: React.FC = () => {
       className="map-top-banner d-flex align-items-center justify-content-between px-4 py-3 bg-white border-bottom"
       style={{ minHeight: '64px', borderColor: 'var(--map-border-color)' }}
     >
-      {/* left side: back button for any detail page or page title */}
-      <div>
+      {/* left side: back to the parent list on a detail page, or the page title on a list */}
+      <div className="min-w-0">
         {isDetailPage ? (
           <button
             type="button"
             className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2 fw-semibold"
-            onClick={() => setCurrentHashView(headerBackInfo.targetView, headerBackInfo.targetEntityId)}
+            onClick={() => setCurrentHashView(section.listView)}
           >
-            {cleanBackLabel(headerBackInfo.label)}
+            {`Back to ${section.label}`}
           </button>
         ) : (
           <h1 className="map-page-title mb-0" style={{ fontSize: '1.25rem', letterSpacing: '-0.01em' }}>

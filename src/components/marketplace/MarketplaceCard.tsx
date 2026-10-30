@@ -15,15 +15,122 @@ interface MarketplaceCardProps {
   onSelect: (item: MarketplaceItem) => void;
 }
 
-export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect }) => {
-  const orgInfo = getOrganizationLogo(item.providerOrg);
+/* vessel and crew photos that must not appear on an equipment listing, including the container-ship photo stored against the helideck */
+const OTHER_ASSET_PHOTO_IDS = [
+  'premium_photo-1661879449050',
+  'premium_photo-1661962278758',
+  'premium_photo-1664298003939',
+  'premium_photo-1661880889658',
+  'premium_photo-1661881151268',
+  'photo-1583857671904',
+  'photo-1519074069444',
+  'photo-1507003211169',
+  'photo-1560250097',
+  'photo-1500648767791',
+  'photo-1573496359142',
+  'photo-1506794778202',
+  'photo-1522075469751',
+  'photo-1537368910025',
+  'photo-1573497019940',
+  'photo-1566492031773',
+  'photo-1539571696357',
+  'photo-1508214751196',
+  'photo-1580489944761',
+  'photo-1472099645785',
+];
 
-  // Derive metric values with fallbacks
-  const metric1Label = getFieldDisplayLabel(item.metrics?.[0]?.label || (item.category === 'vessel' ? 'Capacity (DWT)' : item.category === 'crew' ? 'Experience' : 'Capacity'));
-  const metric1Value = item.metrics?.[0]?.value || (item.category === 'vessel' ? '4,400 MT' : item.category === 'crew' ? '12+ Years' : 'Standard');
+const EQUIPMENT_PHOTO_SET = [
+  'photo-1682687220063',
+  'photo-1541888946425',
+  'photo-1550751827',
+  'photo-1559136555',
+  'photo-1517524008697',
+  'photo-1581092335397',
+  'photo-1509228468518',
+  'photo-1581092580497',
+  'photo-1504307651254',
+  'photo-1544551763',
+  'photo-1581092162384',
+  'photo-1526374965328',
+];
 
+const NEUTRAL_EQUIPMENT_PLACEHOLDER =
+  'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=1000&q=80';
+
+const EQUIPMENT_PLACEHOLDERS: { test: RegExp; url: string }[] = [
+  { test: /helideck|foam|fire|ffe/i, url: 'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=1000&q=80' },
+  { test: /life-saving|lifesaving|rescue/i, url: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80' },
+  { test: /navigation|bridge|ecdis/i, url: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1000&q=80' },
+  { test: /rov|robot/i, url: 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1000&q=80' },
+  { test: /crane|lifting|machinery|rigging|winch/i, url: 'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=1000&q=80' },
+];
+
+const CREW_PLACEHOLDER =
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80';
+
+const VESSEL_PLACEHOLDER =
+  'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
+
+export const equipmentCardPhoto = (item: Pick<MarketplaceItem, 'name' | 'subcategory'>): string => {
+  const haystack = `${item.subcategory} ${item.name}`;
+  return EQUIPMENT_PLACEHOLDERS.find((entry) => entry.test.test(haystack))?.url ?? NEUTRAL_EQUIPMENT_PLACEHOLDER;
+};
+
+export const resolveMarketplaceCardImage = (
+  item: Pick<MarketplaceItem, 'category' | 'imageUrl' | 'name' | 'subcategory'>,
+): string => {
+  if (item.category !== 'equipment') return item.imageUrl;
+  const fromEquipmentSet = EQUIPMENT_PHOTO_SET.some((id) => item.imageUrl?.includes(id));
+  const fromAnotherAsset = OTHER_ASSET_PHOTO_IDS.some((id) => item.imageUrl?.includes(id));
+  if (fromEquipmentSet && !fromAnotherAsset) return item.imageUrl;
+  return equipmentCardPhoto(item);
+};
+
+export const marketplaceCardStats = (
+  item: MarketplaceItem,
+): { label: string; value: string }[] => {
+  let metric1Label = getFieldDisplayLabel(item.metrics?.[0]?.label || (item.category === 'vessel' ? 'Capacity (DWT)' : item.category === 'crew' ? 'Experience' : 'Capacity'));
+  let metric1Value = item.metrics?.[0]?.value || (item.category === 'vessel' ? '4,400 MT' : item.category === 'crew' ? '12+ Years' : 'Standard');
   const metric2Label = getFieldDisplayLabel(item.metrics?.[1]?.label || (item.category === 'vessel' ? 'Assurance / Class' : 'Assurance / Readiness'));
   const metric2Value = item.metrics?.[1]?.value || formatReadinessScore(item.complianceReadinessScore);
+
+  const repeatsRank = item.category === 'crew' && (/rank/i.test(metric1Label) || metric1Value === item.subcategory);
+  if (repeatsRank) {
+    const nationality = item.detailedSpecs?.find((spec) => /nationality/i.test(spec.label))?.value;
+    const yearsAtSea = item.detailedSpecs?.find((spec) => /sea service|years at sea/i.test(spec.label))?.value;
+    if (nationality) {
+      metric1Label = 'Nationality';
+      metric1Value = nationality;
+    } else {
+      metric1Label = 'Years at sea';
+      metric1Value = yearsAtSea || '—';
+    }
+  }
+
+  return [
+    { label: metric1Label, value: metric1Value },
+    { label: metric2Label, value: metric2Value },
+  ];
+};
+
+const statValueStyle: React.CSSProperties = {
+  fontSize: '1.05rem',
+  color: '#0B1B2B',
+  fontFamily: "'IBM Plex Sans', sans-serif",
+  lineHeight: 1.25,
+  whiteSpace: 'normal',
+  overflowWrap: 'anywhere',
+};
+
+export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect }) => {
+  const orgInfo = getOrganizationLogo(item.providerOrg);
+  const imageSrc = resolveMarketplaceCardImage(item);
+  const [metric1, metric2] = marketplaceCardStats(item);
+  const imageFallback = item.category === 'crew'
+    ? CREW_PLACEHOLDER
+    : item.category === 'equipment'
+      ? equipmentCardPhoto(item)
+      : VESSEL_PLACEHOLDER;
 
   return (
     <div
@@ -65,7 +172,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
         }}
       >
         <img
-          src={item.imageUrl}
+          src={imageSrc}
           alt={item.name}
           className="w-100 h-100 object-fit-cover"
           loading="lazy"
@@ -74,10 +181,8 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
             transition: 'transform 0.35s ease',
           }}
           onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src =
-              item.category === 'crew'
-                ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=80'
-                : 'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D';
+            const image = e.currentTarget as HTMLImageElement;
+            if (image.src !== imageFallback) image.src = imageFallback;
           }}
         />
 
@@ -193,16 +298,12 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
               <span
                 className="text-secondary text-truncate mb-0.5"
                 style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 500 }}
-                title={metric1Label}
+                title={metric1.label}
               >
-                {metric1Label}
+                {metric1.label}
               </span>
-              <span
-                className="fw-bold text-truncate"
-                style={{ fontSize: '1.05rem', color: '#0B1B2B', fontFamily: "'IBM Plex Sans', sans-serif" }}
-                title={metric1Value}
-              >
-                {metric1Value}
+              <span className="fw-bold" data-stat-value style={statValueStyle}>
+                {metric1.value}
               </span>
             </div>
 
@@ -211,16 +312,12 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
               <span
                 className="text-secondary text-truncate mb-0.5"
                 style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 500 }}
-                title={metric2Label}
+                title={metric2.label}
               >
-                {metric2Label}
+                {metric2.label}
               </span>
-              <span
-                className="fw-bold text-truncate"
-                style={{ fontSize: '1.05rem', color: '#0B1B2B', fontFamily: "'IBM Plex Sans', sans-serif" }}
-                title={metric2Value}
-              >
-                {metric2Value}
+              <span className="fw-bold" data-stat-value style={statValueStyle}>
+                {metric2.value}
               </span>
             </div>
           </div>

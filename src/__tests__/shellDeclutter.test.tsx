@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { HeaderBanner } from '../components/layout/HeaderBanner';
 import { AppSidebar } from '../components/layout/AppSidebar';
 import { useMapStore } from '../store/useMapStore';
@@ -198,26 +198,35 @@ describe('Shell header and sidebar declutter suite', () => {
     });
   });
 
-  it('keeps one link back to parent list on detail pages with clean labels', () => {
+  it('shows a back button to the parent list on detail pages', () => {
     const detailViews = [
-      { view: 'vessels', entityId: 'VESSEL-001', expectedText: 'Back to Vessels' },
-      { view: 'inspector', entityId: 'INSP-001', expectedText: 'Back to Inspections' },
-      { view: 'capa', entityId: 'CAPA-001', expectedText: 'Back to CAPA' },
-      { view: 'approver', entityId: 'APP-001', expectedText: 'Back to Approvals' },
-      { view: 'create-assurance-set', entityId: undefined, expectedText: 'Back to Assurance Sets' },
+      { view: 'assurance-sets', entityId: 'AS-2026-001', section: 'Assurance Sets', list: 'assurance-sets' },
+      { view: 'project', entityId: 'PROJ-001', section: 'Projects', list: 'project' },
+      { view: 'vessels', entityId: 'VESSEL-001', section: 'Vessels', list: 'vessels' },
+      { view: 'crew', entityId: 'CREW-001', section: 'Crew Directory', list: 'crew' },
+      { view: 'equipment', entityId: 'EQP-001', section: 'Equipment', list: 'equipment' },
+      { view: 'documents', entityId: 'DOC-001', section: 'Document Library', list: 'documents' },
+      { view: 'inspector', entityId: 'INSP-001', section: 'Inspections', list: 'inspector' },
+      { view: 'capa', entityId: 'CAPA-001', section: 'CAPA', list: 'capa' },
+      { view: 'approver', entityId: 'APP-001', section: 'Approvals', list: 'approver' },
+      { view: 'create-assurance-set', entityId: undefined, section: 'Assurance Sets', list: 'assurance-sets' },
     ];
 
-    detailViews.forEach(({ view, entityId, expectedText }) => {
+    detailViews.forEach(({ view, entityId, section, list }) => {
       cleanup();
       useMapStore.setState({
         currentHashView: view,
         currentEntityId: entityId,
-        previousHashView: undefined,
+        previousHashView: 'dashboard',
       });
       render(<HeaderBanner />);
 
-      const backBtn = screen.getByRole('button', { name: new RegExp(expectedText, 'i') });
-      expect(backBtn).toBeDefined();
+      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).toBeNull();
+      expect(screen.queryByRole('button', { name: /back to dashboard/i })).toBeNull();
+      const backButton = screen.getByRole('button', { name: `Back to ${section}` });
+      fireEvent.click(backButton);
+      expect(useMapStore.getState().currentHashView).toBe(list);
+      expect(useMapStore.getState().currentEntityId).toBeUndefined();
     });
   });
 

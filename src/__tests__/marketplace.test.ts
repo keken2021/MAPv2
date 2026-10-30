@@ -4,7 +4,9 @@
   role in system: validates marketplace compliance with business rules and rbac requirements.
 */
 
+import React from 'react';
 import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import {
   getMarketplaceItems,
   filterMarketplaceItems,
@@ -25,6 +27,7 @@ import { MOCK_EQUIPMENT } from '../store/equipmentMockData';
 import { MOCK_CREW } from '../store/crewMockData';
 import { UserProfile } from '../types/user';
 import { MarketplaceItem } from '../types/marketplace';
+import { MarketplaceCard, marketplaceCardStats, resolveMarketplaceCardImage } from '../components/marketplace/MarketplaceCard';
 import { AssuranceSet } from '../types/assurance';
 
 describe('Marketplace Module & Segregation', () => {
@@ -392,5 +395,68 @@ describe('Marketplace Module & Segregation', () => {
     const targetWith = itemsWithClientSets.find((i) => i.linkedEntityId === 'VESSEL-008');
     expect(targetWithout?.complianceReadinessScore).toBeDefined();
     expect(targetWithout?.complianceReadinessScore).toBe(targetWith?.complianceReadinessScore);
+  });
+
+  it('gives every equipment listing an equipment photo or a category placeholder', () => {
+    const items = getMarketplaceItems(
+      MOCK_VESSELS,
+      MOCK_EQUIPMENT,
+      'C Admin',
+      mockUsers,
+      MOCK_CREW,
+      MOCK_ASSURANCE_SETS,
+      MOCK_DOCUMENTS,
+    );
+    const equipment = items.filter((item) => item.category === 'equipment');
+    expect(equipment.length).toBeGreaterThan(0);
+
+    equipment.forEach((item) => {
+      const src = resolveMarketplaceCardImage(item);
+      expect(src).not.toMatch(/premium_photo-|photo-1583857671904|photo-1519074069444|photo-1507003211169/);
+      expect(src).toMatch(/images\.unsplash\.com\/photo-/);
+    });
+
+    const helideck = equipment.find((item) => item.name.includes('Aviation Helideck'));
+    expect(helideck).toBeDefined();
+    expect(resolveMarketplaceCardImage(helideck!)).not.toBe(helideck!.imageUrl);
+    expect(resolveMarketplaceCardImage(helideck!)).toContain('photo-1517524008697');
+  });
+
+  it('shows the crew rank once and lets the stat values wrap', () => {
+    const items = getMarketplaceItems(
+      MOCK_VESSELS,
+      MOCK_EQUIPMENT,
+      'C Admin',
+      mockUsers,
+      MOCK_CREW,
+      MOCK_ASSURANCE_SETS,
+      MOCK_DOCUMENTS,
+    );
+
+    items.filter((item) => item.category === 'crew').forEach((item) => {
+      const stats = marketplaceCardStats(item);
+      const sourceRepeatsRank = /rank/i.test(item.metrics?.[0]?.label || '') || item.metrics?.[0]?.value === item.subcategory;
+      expect(stats.some((stat) => stat.label === 'Rank')).toBe(false);
+      expect(stats.some((stat) => stat.value === item.subcategory)).toBe(false);
+      if (sourceRepeatsRank) {
+        expect(stats[0].label === 'Nationality' || stats[0].label === 'Years at sea').toBe(true);
+      }
+    });
+
+    const rankedCrew = items.find((item) => item.category === 'crew' && item.metrics?.[0]?.label === 'Rank')!;
+    render(React.createElement(MarketplaceCard, { item: rankedCrew, onSelect: () => undefined }));
+    expect(screen.getAllByText(rankedCrew.subcategory)).toHaveLength(1);
+    expect(screen.queryByText('Rank')).toBeNull();
+    expect(screen.getByText('Nationality')).toBeInTheDocument();
+
+    const helideck = items.find((item) => item.name.includes('Aviation Helideck'))!;
+    render(React.createElement(MarketplaceCard, { item: helideck, onSelect: () => undefined }));
+    const statValues = document.querySelectorAll('[data-stat-value]');
+    expect(Array.from(statValues).map((node) => node.textContent)).toEqual(
+      expect.arrayContaining(['Life-Saving Appliances', 'Not assessed']),
+    );
+    statValues.forEach((node) => {
+      expect(node.className).not.toMatch(/text-truncate/);
+    });
   });
 });

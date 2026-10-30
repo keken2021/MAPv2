@@ -1129,7 +1129,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         }
         onExportCsv={canExport ? handleExportCsv : undefined}
         onExportPdf={canExport ? handleExportPdf : undefined}
-        onClose={() => setCurrentHashView(previousHashView || 'vessels', previousEntityId)}
       />
       <ObjectVerificationBadge verification={objectVerification} />
       {visibleObjectDocuments.length > 0 && (

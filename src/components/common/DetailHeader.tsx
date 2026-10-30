@@ -61,7 +61,7 @@ export const DetailHeader: React.FC<DetailHeaderProps> = ({
 
   return (
     <div className={`map-detail-header bg-white border-bottom p-4 ${className}`}>
-      {/* Back link / list breadcrumb if present */}
+      {/* Back link if present */}
       {backLink && (
         <div className="mb-2">
           <button
