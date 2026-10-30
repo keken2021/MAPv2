@@ -137,6 +137,30 @@ export const DEFAULT_INSPECTION_CAPA_ITEMS: InspectionCapaActionItem[] = [
   },
 ];
 
+export interface InspectionListProgress {
+  assuranceSetId: string;
+  location: string;
+  checklistCompleted: number;
+  checklistTotal: number;
+}
+
+/** one location and one checklist count for each inspection on the Meridian surveyor's list */
+export const INSPECTION_LIST_PROGRESS: InspectionListProgress[] = [
+  { assuranceSetId: 'AS-2026-001', location: 'Fremantle, WA', checklistCompleted: 30, checklistTotal: 30 },
+  { assuranceSetId: 'AS-2026-004', location: 'Dampier, WA', checklistCompleted: 30, checklistTotal: 30 },
+  { assuranceSetId: 'AS-2026-005', location: 'Port Hedland, WA', checklistCompleted: 30, checklistTotal: 30 },
+  { assuranceSetId: 'AS-2026-008', location: 'Henderson, WA', checklistCompleted: 12, checklistTotal: 30 },
+  { assuranceSetId: 'AS-2026-011', location: 'Fremantle, WA', checklistCompleted: 30, checklistTotal: 30 },
+  { assuranceSetId: 'AS-ACT-2026-SURF-01', location: 'Wheatstone field', checklistCompleted: 18, checklistTotal: 30 },
+  { assuranceSetId: 'AS-EQP-005-01', location: 'Australian Marine Complex', checklistCompleted: 30, checklistTotal: 30 },
+  { assuranceSetId: 'AS-01-V001', location: 'Fremantle Berth 2', checklistCompleted: 4, checklistTotal: 30 },
+  { assuranceSetId: 'AS-SBE-011-V001', location: 'Geographe field', checklistCompleted: 0, checklistTotal: 30 },
+  { assuranceSetId: 'AS-EQP-007-01', location: 'Gorgon field', checklistCompleted: 30, checklistTotal: 30 },
+];
+
+export const inspectionProgressForSet = (assuranceSetId: string): InspectionListProgress | undefined =>
+  INSPECTION_LIST_PROGRESS.find((row) => row.assuranceSetId === assuranceSetId);
+
 export const getFallbackPhysicalInspections = (vesselName: string): PhysicalInspectionRecord[] => [
   {
     id: 'INSP-2026-001',

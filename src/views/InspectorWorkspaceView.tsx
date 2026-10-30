@@ -8,13 +8,14 @@ import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { CountTabs, CountTab } from '../components/common/CountTabs';
-import { StatusBadge } from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { formatMaritimeDate } from '../utils/formatters';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
 import { AssuranceSet } from '../types/assurance';
+import { inspectionProgressForSet } from '../store/inspectionMockData';
+import { EmptyState } from '../components/common/EmptyState';
 
 type InspectionRow = {
   set: AssuranceSet;
@@ -23,7 +24,7 @@ type InspectionRow = {
 
 export type InspectorTabKey = 'to-inspect' | 'overdue' | 'completed' | 'all';
 
-type InspectorSortField = 'name' | 'imoNumber' | 'campaignTitle' | 'due' | 'status';
+type InspectorSortField = 'name' | 'imoNumber' | 'campaignTitle' | 'due' | 'location' | 'checklist';
 
 export const InspectorWorkspaceView: React.FC = () => {
   const { vessels, assuranceSets, activePersona, setCurrentHashView, users, activeDemoOrganization, activeSessionUserId } = useMapStore();
@@ -41,25 +42,25 @@ export const InspectorWorkspaceView: React.FC = () => {
   const [sortField, setSortField] = useState<InspectorSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [locationFilter, setLocationFilter] = useState<string>('All');
 
   const handleResetFilters = () => {
-    setStatusFilter('All');
+    setLocationFilter('All');
     setSearchQuery('');
   };
 
   const activeChips = useMemo<FilterChip[]>(() => {
     const chips: FilterChip[] = [];
-    if (statusFilter !== 'All') {
+    if (locationFilter !== 'All') {
       chips.push({
-        id: 'status',
-        label: 'Status',
-        value: statusFilter,
-        onRemove: () => setStatusFilter('All'),
+        id: 'location',
+        label: 'Location',
+        value: locationFilter,
+        onRemove: () => setLocationFilter('All'),
       });
     }
     return chips;
-  }, [statusFilter]);
+  }, [locationFilter]);
 
   const activeFilterCount = activeChips.length;
 
@@ -170,9 +171,11 @@ export const InspectorWorkspaceView: React.FC = () => {
       v.imoNumber.toLowerCase().includes(q) ||
       (v.portOfRegistry || '').toLowerCase().includes(q) ||
       (v.flagState || '').toLowerCase().includes(q) ||
-      row.set.title.toLowerCase().includes(q);
-    const matchesStatus = statusFilter === 'All' || v.status === statusFilter;
-    return matchesSearch && matchesStatus;
+      row.set.title.toLowerCase().includes(q) ||
+      (inspectionProgressForSet(row.set.id)?.location || '').toLowerCase().includes(q);
+    const location = inspectionProgressForSet(row.set.id)?.location || '';
+    const matchesLocation = locationFilter === 'All' || location === locationFilter;
+    return matchesSearch && matchesLocation;
   });
 
   const sortedAssignedVessels = [...filteredAssignedVessels].sort((a, b) => {
@@ -187,6 +190,12 @@ export const InspectorWorkspaceView: React.FC = () => {
         row.set.revisedCompletionDate || row.set.complianceDeadline || row.set.targetDate || '';
       valA = dueOf(a);
       valB = dueOf(b);
+    } else if (sortField === 'location') {
+      valA = inspectionProgressForSet(a.set.id)?.location || '';
+      valB = inspectionProgressForSet(b.set.id)?.location || '';
+    } else if (sortField === 'checklist') {
+      valA = String(inspectionProgressForSet(a.set.id)?.checklistCompleted ?? -1);
+      valB = String(inspectionProgressForSet(b.set.id)?.checklistCompleted ?? -1);
     } else {
       valA = (a.vessel[sortField] ?? '') as string;
       valB = (b.vessel[sortField] ?? '') as string;
@@ -202,7 +211,9 @@ export const InspectorWorkspaceView: React.FC = () => {
     return 0;
   });
 
-  const vesselStatuses = Array.from(new Set(inspectionRows.map((row) => row.vessel.status).filter(Boolean))).sort();
+  const locations = Array.from(
+    new Set(inspectionRows.map((row) => inspectionProgressForSet(row.set.id)?.location).filter(Boolean) as string[]),
+  ).sort();
 
   const handleExportCsv = () => {
     const exportData = sortedAssignedVessels.map((row) => {
@@ -212,22 +223,28 @@ export const InspectorWorkspaceView: React.FC = () => {
         VesselName: row.vessel.name,
         AssuranceCampaign: row.set.title,
         Due: effectiveDeadline,
-        Status: row.vessel.status,
+        Location: inspectionProgressForSet(row.set.id)?.location || '',
+        Checklist: (() => {
+          const progress = inspectionProgressForSet(row.set.id);
+          return progress ? `${progress.checklistCompleted} / ${progress.checklistTotal}` : '';
+        })(),
       };
     });
     exportToCsv('Inspections', exportData);
   };
 
   const handleExportPdf = () => {
-    const headers = ['IMO Number', 'Vessel', 'Assurance Set', 'Due', 'Operating Status'];
+    const headers = ['IMO Number', 'Vessel', 'Assurance Set', 'Due', 'Location', 'Checklist'];
     const rows = sortedAssignedVessels.map((row) => {
       const effectiveDeadline = row.set.revisedCompletionDate || row.set.complianceDeadline || row.set.targetDate || '—';
+      const progress = inspectionProgressForSet(row.set.id);
       return [
         row.vessel.imoNumber,
         row.vessel.name,
         row.set.title,
         effectiveDeadline,
-        row.vessel.status,
+        progress?.location || '—',
+        progress ? `${progress.checklistCompleted} / ${progress.checklistTotal}` : '—',
       ];
     });
     exportToPdf('Inspections', headers, rows);
@@ -236,7 +253,7 @@ export const InspectorWorkspaceView: React.FC = () => {
   const vesselsPagination = usePagination(sortedAssignedVessels, [
     activeTab,
     searchQuery,
-    statusFilter,
+    locationFilter,
     sortField,
     sortDirection,
   ]);
@@ -305,10 +322,16 @@ export const InspectorWorkspaceView: React.FC = () => {
                   Due {renderSortIndicator('due')}
                 </th>
                 <th
-                  onClick={() => handleSort('status')}
+                  onClick={() => handleSort('location')}
                   style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                 >
-                  Operating Status {renderSortIndicator('status')}
+                  Location {renderSortIndicator('location')}
+                </th>
+                <th
+                  onClick={() => handleSort('checklist')}
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                >
+                  Checklist {renderSortIndicator('checklist')}
                 </th>
                 <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
@@ -339,14 +362,15 @@ export const InspectorWorkspaceView: React.FC = () => {
                     </td>
                     <td>
                       {linkedSet ? (
-                        <span className="font-mono-code text-secondary small">
-                          {linkedSet.id} · {linkedSet.title}
+                        <span className="text-secondary small">
+                          <span className="font-mono-code">{linkedSet.id}</span>
+                          {` · ${linkedSet.title}`}
                         </span>
                       ) : (
                         <span className="text-muted small">—</span>
                       )}
                     </td>
-                    <td className="font-mono-code small due-cell">
+                    <td className="small due-cell">
                       {overdue ? (
                         <span className="text-danger fw-semibold">
                           {daysLate} {daysLate === 1 ? 'day' : 'days'} late
@@ -359,8 +383,12 @@ export const InspectorWorkspaceView: React.FC = () => {
                         <span className="text-muted">—</span>
                       )}
                     </td>
+                    <td>{inspectionProgressForSet(linkedSet.id)?.location || '—'}</td>
                     <td>
-                      <StatusBadge value={v.status} />
+                      {(() => {
+                        const progress = inspectionProgressForSet(linkedSet.id);
+                        return progress ? `${progress.checklistCompleted} / ${progress.checklistTotal}` : '—';
+                      })()}
                     </td>
                     <td className="text-end" onClick={(e) => e.stopPropagation()}>
                       <button
@@ -380,8 +408,8 @@ export const InspectorWorkspaceView: React.FC = () => {
 
               {sortedAssignedVessels.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center text-muted py-4 fst-italic">
-                    No vessels found.
+                  <td colSpan={7} className="p-0">
+                    <EmptyState title="No inspections" description="No vessels match this queue." />
                   </td>
                 </tr>
               )}
@@ -401,18 +429,18 @@ export const InspectorWorkspaceView: React.FC = () => {
         <div className="d-flex flex-column gap-3">
           <div>
             <label className="form-label text-secondary fw-semibold small mb-1" style={{ fontSize: '0.8rem' }}>
-              Operating Status
+              Location
             </label>
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
             >
-              <option value="All">All Statuses ({vesselStatuses.length})</option>
-              {vesselStatuses.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              <option value="All">All locations ({locations.length})</option>
+              {locations.map((place) => (
+                <option key={place} value={place}>
+                  {place}
                 </option>
               ))}
             </select>
