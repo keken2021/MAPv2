@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send, Link2 } from "lucide-react";
 import { DetailHeader } from "../components/common/DetailHeader";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -160,8 +160,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         status={project.status}
         metaItems={[
           project.id,
-          project.projectType,
-          project.riskProfile || "",
           `Client: ${
             project.ownerOrganization ||
             project.charterer ||
@@ -211,6 +209,18 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       <div className="card map-card-custom p-3">
         <div className="d-flex flex-wrap justify-content-between align-items-start gap-3">
           <div>
+            {(project.projectType || project.riskProfile) && (
+              <div className="text-secondary small mb-1">
+                {[
+                  project.projectType,
+                  project.riskProfile
+                    ? project.riskProfile.charAt(0).toUpperCase() + project.riskProfile.slice(1).toLowerCase()
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </div>
+            )}
             {project.description && (
               <div className="text-muted small">{project.description}</div>
             )}
@@ -615,7 +625,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     }
                   }}
                 >
-                  <Eye size={14} />
+                  <Link2 size={14} />
                   Attach
                 </button>
               </div>
