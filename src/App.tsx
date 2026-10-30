@@ -34,6 +34,7 @@ import { ProjectView } from './views/ProjectView';
 import { ProjectDetailView } from './views/ProjectDetailView';
 import { CreateProjectView } from './views/CreateProjectView';
 import { MarketplaceView } from './views/MarketplaceView';
+import { AssuranceObjectsView, canOpenObjectsList } from './views/AssuranceObjectsView';
 import './App.css';
 
 import { AccessDeniedState } from './components/common/AccessDeniedState';
@@ -112,7 +113,9 @@ export const App: React.FC = () => {
 
     /* roles-permissions is persona-gated (Administrator settings); skip matrix revoke on blank role_rights */
     const allowedByRole =
-      currentHashView === 'roles-permissions'
+      currentHashView === 'objects'
+        ? canOpenObjectsList(activePersona)
+        : currentHashView === 'roles-permissions'
         ? isViewAccessibleToPersona(currentHashView, currentEntityId, activePersona)
         : isViewAccessibleToPersona(
           currentHashView,
@@ -169,6 +172,8 @@ export const App: React.FC = () => {
     }
 
     switch (currentHashView) {
+      case 'objects':
+        return <AssuranceObjectsView />;
       case 'vessels':
         return currentEntityId ? <VesselDetailView vesselId={currentEntityId} /> : <FleetRegistryView />;
       case 'equipment':

@@ -27,6 +27,7 @@ import {
   getSessionUserForPersona,
 } from "../../utils/userRoleHelpers";
 import { OrganizationSwitcher } from "./OrganizationSwitcher";
+import { canOpenObjectsList } from "../../views/AssuranceObjectsView";
 
 interface NavItem {
   key: string;
@@ -36,7 +37,7 @@ interface NavItem {
   isGroup?: boolean;
 }
 
-const ASSETS_CHILD_KEYS = ["vessels", "equipment", "crew"];
+const ASSETS_CHILD_KEYS = ["objects", "vessels", "equipment", "crew"];
 
 /**
   what: renders fixed dark navy sidepanel matching mockup design with organisation card and dot navigation.
@@ -154,6 +155,10 @@ export const AppSidebar: React.FC = () => {
       isGroup: true,
       children: [
         {
+          key: "objects",
+          label: "All Objects",
+        },
+        {
           key: "vessels",
           label: "Vessels",
         },
@@ -218,6 +223,10 @@ export const AppSidebar: React.FC = () => {
   }, [currentHashView]);
 
   const isLeafItemVisible = (item: NavItem): boolean => {
+    if (item.key === "objects") {
+      return canOpenObjectsList(activePersona);
+    }
+
     const hiddenList = SIDEBAR_HIDDEN_DUPLICATES[activePersona];
     if (hiddenList?.includes(item.key)) {
       return false;

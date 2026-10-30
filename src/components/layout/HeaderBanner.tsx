@@ -170,6 +170,8 @@ export const HeaderBanner: React.FC = () => {
         return { breadcrumb: 'MARKETPLACE', title: 'Marketplace' };
       case 'notifications':
         return { breadcrumb: 'NOTIFICATIONS', title: 'Notifications' };
+      case 'objects':
+        return { breadcrumb: 'ALL OBJECTS', title: 'All Objects' };
       case 'dashboard':
       default:
         return { breadcrumb: 'DASHBOARD', title: 'Dashboard' };
