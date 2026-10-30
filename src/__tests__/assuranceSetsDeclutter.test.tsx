@@ -88,6 +88,24 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
         expect(scopeCell.querySelector('.badge')).toBeNull();
       });
     });
+
+    it('displays "No project" instead of "Orphaned" on sets without a project and in project filter', () => {
+      render(
+        <AssuranceTable onSelectSet={() => { }} onInitiateSet={() => { }} defaultTab="organization" />
+      );
+
+      // Verify "Orphaned" is never displayed on screen
+      expect(screen.queryByText(/orphaned/i)).toBeNull();
+
+      // Check project filter dropdown option in filter modal
+      fireEvent.click(screen.getByTitle('Filters'));
+      const projectSelect = screen.getByLabelText(/project/i);
+      expect(within(projectSelect).getByRole('option', { name: 'No project' })).toBeDefined();
+
+      // Ensure at least one table row has "No project"
+      const noProjectCells = screen.getAllByText('No project');
+      expect(noProjectCells.length).toBeGreaterThan(0);
+    });
   });
 
   describe('Assurance Sets Detail (AssuranceDetailView)', () => {
@@ -286,6 +304,63 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       const verifierEl = within(infoCard as HTMLElement).getByText(verifierText);
       expect(verifierEl).not.toHaveClass('font-mono-code');
       expect(verifierEl.closest('.font-mono-code')).toBeNull();
+    });
+
+    it('replaces "Date Permissions (0)" with domain wording and hides it when empty for non-admin', () => {
+      // Submitter persona on AS-2026-001 (0 grants)
+      useMapStore.setState({ activePersona: 'Submitter' });
+      const { rerender } = render(<AssuranceDetailView setId="AS-2026-001" />);
+
+      // "Date Permissions (0)" must not exist
+      expect(screen.queryByText(/date permissions/i)).toBeNull();
+      // Empty button is hidden for non-admin
+      expect(screen.queryByRole('button', { name: /date grants/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /grant date access/i })).toBeNull();
+
+      // C Admin persona on AS-2026-001 sees actionable "Grant date access"
+      useMapStore.setState({ activePersona: 'C Admin' });
+      rerender(<AssuranceDetailView setId="AS-2026-001" />);
+      expect(screen.queryByText(/date permissions/i)).toBeNull();
+      expect(screen.getByRole('button', { name: /grant date access/i })).toBeDefined();
+
+      // When active grants exist, it displays "Date grants (N)"
+      const state = useMapStore.getState();
+      useMapStore.setState({
+        assuranceSets: state.assuranceSets.map((s) =>
+          s.id === 'AS-2026-001'
+            ? {
+                ...s,
+                datePermissionGrants: [
+                  {
+                    id: 'DPG-01',
+                    userId: 'USR-CLIENT-01',
+                    userName: 'John Doe',
+                    grantedBy: 'Admin',
+                    grantedAt: '2026-10-30T00:00:00Z',
+                    expiresAt: '2026-12-31T23:59:59Z',
+                    reason: 'Testing',
+                  },
+                ],
+              }
+            : s,
+        ),
+      });
+
+      useMapStore.setState({ activePersona: 'Submitter' });
+      rerender(<AssuranceDetailView setId="AS-2026-001" />);
+      expect(screen.getByRole('button', { name: /date grants \(1\)/i })).toBeDefined();
+    });
+
+    it('replaces "Task sections 1 section · 0 heavy" by hiding 0 heavy and avoiding internal jargon', () => {
+      render(<AssuranceDetailView setId="AS-2026-001" />);
+
+      // Neither "0 heavy" nor "heavy" in section header
+      expect(screen.queryByText(/0 heavy/i)).toBeNull();
+      expect(screen.queryByText(/· 0 heavy/i)).toBeNull();
+
+      // Displays plain section count
+      expect(screen.getByText('Task sections')).toBeDefined();
+      expect(screen.getByText('1 section')).toBeDefined();
     });
   });
 });

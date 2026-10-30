@@ -426,6 +426,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const canEditCharterWindow = roleActions.canManage && roleActions.canChangeDates && !isCharterWindowLocked;
   const isSetOpen = !isClosedAssuranceSet(assuranceSet) && assuranceSet.stage !== 'Cancelled';
   const canEditTasks = isClientUser(sessionUser, assuranceSet, activePersona) && isSetOpen;
+  const activeDateGrantsCount = (assuranceSet.datePermissionGrants || []).filter((g) => isDatePermissionActive(g)).length;
 
   const openAddTaskModal = () => {
     setNewTaskDraft({
@@ -1262,15 +1263,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             <History size={12} />
                             Date History ({(assuranceSet.targetDateHistory || []).length})
                           </button>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
-                            style={{ fontSize: '0.72rem' }}
-                            onClick={() => setIsDatePermissionsModalOpen(true)}
-                          >
-                            <Key size={12} />
-                            Date Permissions ({(assuranceSet.datePermissionGrants || []).filter((g) => isDatePermissionActive(g)).length})
-                          </button>
+                          {(activeDateGrantsCount > 0 || activePersona === 'C Admin') && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => setIsDatePermissionsModalOpen(true)}
+                            >
+                              <Key size={12} />
+                              {activeDateGrantsCount > 0 ? `Date grants (${activeDateGrantsCount})` : 'Grant date access'}
+                            </button>
+                          )}
                         </div>
                         {complianceOverdue && roleActions.canManage && assuranceSet.stage !== 'Cancelled' && assuranceSet.stage !== 'Approved' && (
                           <div className="d-flex flex-wrap gap-2 mt-2 pt-2 border-top">
@@ -1605,14 +1608,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               <span className="fw-bold">Task sections</span>
               <span className="small text-secondary">
                 {sectionSummaries.length} {sectionSummaries.length === 1 ? 'section' : 'sections'}
-                {' · '}
-                {sectionSummaries.filter((section) => section.heavy).length} heavy
+                {sectionSummaries.filter((section) => section.heavy).length > 0 && (
+                  <> &middot; {sectionSummaries.filter((section) => section.heavy).length} with 3+ open tasks</>
+                )}
               </span>
             </button>
           </div>
           {sectionsOpen && (
             <div className="card-body border-top">
-              <div className="small text-secondary mb-2">Open tasks and certificates in each section. A heavy section has three or more tasks still open.</div>
+              <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
               <TaskSectionCards set={assuranceSet} />
             </div>
           )}
@@ -2235,7 +2239,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               <div className="modal-content">
                 <div className="modal-header">
                   <div>
-                    <h5 className="modal-title fs-6 fw-bold" id="date-permissions-title">Target Date Permissions</h5>
+                    <h5 className="modal-title fs-6 fw-bold" id="date-permissions-title">Target Date Grants</h5>
                     <div className="text-muted small">Short-term permissions granted to named client users to change target dates (BRD V4.2 change 6).</div>
                   </div>
                   <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsDatePermissionsModalOpen(false)} />
@@ -2245,7 +2249,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <h6 className="fw-bold text-dark small mb-2">Active & Recent Grants</h6>
                     {(!assuranceSet.datePermissionGrants || assuranceSet.datePermissionGrants.length === 0) ? (
                       <div className="alert alert-light border small text-muted mb-0">
-                        No named client users have date modification permissions on this set.
+                        No named client users have date modification grants on this set.
                       </div>
                     ) : (
                       <div className="table-responsive">
@@ -2305,7 +2309,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
                   {activePersona === 'C Admin' && (
                     <div className="card bg-light-subtle border p-3 rounded-2">
-                      <h6 className="fw-bold text-dark small mb-2">Grant Short-Term Date Permission</h6>
+                      <h6 className="fw-bold text-dark small mb-2">Grant Short-Term Date Access</h6>
                       <div className="row g-2">
                         <div className="col-12 col-md-5">
                           <label className="form-label text-secondary small mb-1">Select Client User</label>

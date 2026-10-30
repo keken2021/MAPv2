@@ -26,7 +26,7 @@ import {
   isAssuranceSetOwnedOrInitiatedByOrganization,
   isAssuranceSetsReadOnlyPersona,
 } from '../../utils/rbacHelpers';
-import { getProjectForAssuranceSet, ORPHANED_ASSURANCE_SET_LABEL as ORPHANED_LABEL } from '../../utils/projectHelpers';
+import { getProjectForAssuranceSet } from '../../utils/projectHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { ASSURANCE_SCOPE_OPTIONS } from '../../utils/assuranceTemplates';
@@ -111,7 +111,9 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
       isAssuranceSetAssignedToPersona(s, activePersona, viewerOrg, sessionUser)) &&
     !isDraftSet(s);
 
-  /* project id shown in the project column; empty for an orphaned set */
+  const NO_PROJECT_LABEL = 'No project';
+
+  /* project id shown in the project column; empty for a set with no project */
   const getProjectId = (s: AssuranceSet) => getProjectForAssuranceSet(s, projects)?.id ?? '';
 
   const publicCount = (assuranceTemplates || []).length;
@@ -167,7 +169,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     const matchesSearch =
       s.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (getProjectId(s) || ORPHANED_LABEL).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (getProjectId(s) || NO_PROJECT_LABEL).toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.initiatorOrg && s.initiatorOrg.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStage = stageFilter === 'ALL' || s.stage === stageFilter;
     const matchesScope = scopeFilter === 'ALL' || s.assuranceType === scopeFilter || (s.subtypes && s.subtypes.includes(scopeFilter as any));
@@ -197,7 +199,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
       ? [{
           id: 'project',
           label: 'Project',
-          value: projectFilter === 'ORPHANED' ? ORPHANED_LABEL : projectFilter,
+          value: projectFilter === 'ORPHANED' ? NO_PROJECT_LABEL : projectFilter,
           onRemove: () => setProjectFilter('ALL'),
         }]
       : []),
@@ -240,13 +242,13 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const sortedSets = [...filteredSets].sort((a, b) => {
     let valA: any =
       sortField === 'project'
-        ? getProjectId(a) || ORPHANED_LABEL
+        ? getProjectId(a) || NO_PROJECT_LABEL
         : sortField === 'scope'
           ? a.assuranceType || ''
           : a[sortField as keyof AssuranceSet] ?? '';
     let valB: any =
       sortField === 'project'
-        ? getProjectId(b) || ORPHANED_LABEL
+        ? getProjectId(b) || NO_PROJECT_LABEL
         : sortField === 'scope'
           ? b.assuranceType || ''
           : b[sortField as keyof AssuranceSet] ?? '';
@@ -287,7 +289,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     const exportData = sortedSets.map((s) => ({
       SetID: s.id,
       Title: s.title,
-      Project: getProjectId(s) || ORPHANED_LABEL,
+      Project: getProjectId(s) || NO_PROJECT_LABEL,
       CreatedBy: getAssuranceSetCreatedByLabel(s, users, activePersona),
       Organization: s.initiatorOrg,
       Stage: s.stage,
@@ -317,7 +319,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     const rows = sortedSets.map((s) => [
       s.id,
       s.title,
-      getProjectId(s) || ORPHANED_LABEL,
+      getProjectId(s) || NO_PROJECT_LABEL,
       s.initiatorOrg,
       s.stage,
       `${calculateAssuranceSetReadiness(s)}%`,
@@ -496,7 +498,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                       {getProjectId(s) ? (
                         <span className="font-mono-code">{getProjectId(s)}</span>
                       ) : (
-                        <span className="text-secondary">{ORPHANED_LABEL}</span>
+                        <span className="text-secondary">{NO_PROJECT_LABEL}</span>
                       )}
                     </td>
                     <td>
@@ -637,7 +639,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
                 onChange={(e) => setProjectFilter(e.target.value)}
               >
                 <option value="ALL">All Projects</option>
-                <option value="ORPHANED">{ORPHANED_LABEL}</option>
+                <option value="ORPHANED">{NO_PROJECT_LABEL}</option>
                 {projectFilterOptions.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.id} &mdash; {p.name}
