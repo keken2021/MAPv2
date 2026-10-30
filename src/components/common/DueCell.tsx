@@ -143,8 +143,8 @@ export const DueCell: React.FC<DueCellProps> = ({
   const titleText = statusInfo.state === 'expired'
     ? `Expired (${statusInfo.formattedDate})`
     : statusInfo.state === 'expiring_soon' && statusInfo.daysRemaining !== undefined
-    ? `Expires in ${statusInfo.daysRemaining} days`
-    : undefined;
+      ? `Expires in ${statusInfo.daysRemaining} days`
+      : undefined;
 
   const content = (
     <span className={`${statusInfo.textClass} ${className}`.trim()} title={titleText}>

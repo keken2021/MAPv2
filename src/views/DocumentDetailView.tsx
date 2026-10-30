@@ -1,9 +1,3 @@
-/* 
-  file summary: master document deep-dive view presenting complete 13 vessel or 11 crew attributes and versioning timeline in light theme.
-  responsibilities: displays extracted metadata fields, charter buffer validation rules, and file version history.
-  role in system: deep-dive view rendered when a document row is selected.
-*/
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
@@ -25,11 +19,6 @@ interface DocumentDetailViewProps {
   documentId: string;
 }
 
-/**
-  what: renders document deep-dive detail view in light theme with version history export controls and submitter version upload triggers.
-  how: fetches document from store by documentId, displays 13 vessel or 11 crew extracted attributes, and handles new version uploads for Submitter role.
-  with what file: src/views/DocumentDetailView.tsx loaded by App.tsx.
-*/
 export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ documentId }) => {
   const { documents, setCurrentHashView, previousHashView, previousEntityId, activePersona, notifications } = useMapStore();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -295,18 +284,6 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
             <span>Version History</span>
           </div>
           <div className="d-flex align-items-center gap-2 ms-auto">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-              onClick={() => {
-                setSelectedVersionForModal(null);
-                setIsCertModalOpen(true);
-              }}
-              title="Show active certificate in PDF review modal"
-            >
-              <FileText size={14} />
-              <span>Certificate Layout &amp; PDF Review</span>
-            </button>
             {canUpload && (
               <button
                 type="button"

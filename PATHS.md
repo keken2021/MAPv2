@@ -27,7 +27,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
 - `src/components/modals/` : modals (centered)
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
-- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, DetailHeader, SearchableSelect, EmptyState)
+- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, DetailHeader, SearchableSelect, EmptyState, DueCell)
 - `src/components/layout/` : sidebar, header, notification panel, organization switcher
 - `src/store/useMapStore.ts` : the single app store
 - `src/store/*MockData.ts` : mock data, one file per domain
@@ -86,7 +86,8 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter Approver Dashboard: `src/__tests__/approverDashboardDeclutter.test.tsx` (CountTabs, Due column, 1 badge/action per row, detail view cleanup)
 - Unit tests for UI declutter Submitter Dashboard: `src/__tests__/dashboardSubmitterSession.test.tsx` (per-person filtering with useSessionUser, 13 sets for M. Chen)
 - Unit tests for UI declutter shell header and sidebar: `src/__tests__/shellDeclutter.test.tsx` (title-only list views, detail back links, sidebar labels Inspections, CAPA, Approvals, dynamic verification queue count badge)
-- Unit tests for UI declutter Verifier and Inspector workspaces: `src/__tests__/workspacesDeclutter.test.tsx` (CountTabs default tabs and counts, Due column with late calculation, 1 badge/action per row, removed KPI cards)
+- Unit tests for UI declutter Verifier and Inspector workspaces: `src/__tests__/workspacesDeclutter.test.tsx` (CountTabs default tabs and counts, Due column with late calculation, 1 badge/action per row, removed KPI cards, Document Library 1440 px header count)
+- Unit tests for DueCell and getDueStatus: `src/__tests__/dueCell.test.tsx` (open past due, closed past due, future, expiring window, expired status)
 - Unit tests for UI declutter Assurance Sets list and detail: `src/__tests__/assuranceSetsDeclutter.test.tsx` (CountTabs and ListToolbar in card, Draft badge removed beside title, Public tab merged scope column, DetailHeader single badge, cancelled alert only, overdue badge only, info card badges, single Export, removed inner boxes)
 - Unit tests for UI declutter Assurance Sets and Vessels per person: `src/__tests__/tablesPerPersonSession.test.tsx` (per-person filtering with useSessionUser for AssuranceTable and VesselTable)
 - Unit tests for UI declutter role access check across organizations: `src/__tests__/roleAccessAcrossOrganizations.test.ts` (walks every organization and persona, checks sidebar links, workflow role scoping, admin org scoping)
@@ -96,7 +97,7 @@ Root: `C:\mapFiles\MAPv2`
 - Switchers and side panel: `demoSessionHelpers.test.ts`, `approverAndSidebar.test.ts`, `store.test.ts`
 
 ## Where new files go (path-directory `references/layout.md`; this section wins here)
-- One Task: `.autopilot/.task-notes/<story id>-<story name>/<task id>-<task name>/` : `plan.md` (+ `.docx`), `changes.md`, `next-steps.md`, `screens/`, other Task records as `<topic>.md`. Prototype Tasks 5193 to 5206 are under `.autopilot/.task-notes/5207-prototype-brd-v4-2-changes/`
+- One Task: `.autopilot/.task-notes/<story id>-<story name>/<task id>-<task name>/` : `plan.md` (+ `.docx`), `changes.md`, `next-steps.md`, `screens/`, other Task records as `<topic>.md`. Prototype Tasks 5193 to 5206 are under `.autopilot/.task-notes/5207-prototype-brd-v4-2-changes/`; Tasks 5242 to 5251 under `.autopilot/.task-notes/5209-prototype-ui-declutter/`
 - One story: `.autopilot/.task-notes/<story id>-<story name>/story-recap-<date>.md`
 - Work with no Task: `.autopilot/plans/<yyyy-mm-dd>-<topic>/plan.md`
 - Reports: `.autopilot/reports/daily/`, `.autopilot/reports/weekly/`; script state: `.autopilot/state/`; loose or duplicate files: `.autopilot/scratch/`
