@@ -19,6 +19,7 @@ interface PipelineStepperProps {
     mandatoryInspectionRequired?: boolean;
     formalApprovalRequired?: boolean;
   };
+  className?: string;
 }
 
 /**
@@ -38,6 +39,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
   orientation = 'horizontal',
   assuranceSet,
   workflowConfig,
+  className,
 }) => {
   const hasUploadedDocs =
     assuranceSet?.requirements && assuranceSet.requirements.length > 0
@@ -148,7 +150,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
 
   if (orientation === 'vertical') {
     return (
-      <div className="d-flex flex-column gap-2 py-1">
+      <div className={`d-flex flex-column gap-2 py-1 pipeline-stepper ${className || ''}`} data-testid="pipeline-stepper">
         {stages.map((s, idx) => {
           const isCompleted = isFullyApproved || idx < currentIdx;
           const isActive = !isFullyApproved && idx === currentIdx;
@@ -198,7 +200,7 @@ export const PipelineStepper: React.FC<PipelineStepperProps> = ({
   }
 
   return (
-    <div className="map-stepper-container">
+    <div className={`map-stepper-container pipeline-stepper ${className || ''}`} data-testid="pipeline-stepper">
       {stages.map((s, idx) => {
         const isCompleted = isFullyApproved || idx < currentIdx;
         const isActive = !isFullyApproved && idx === currentIdx;
