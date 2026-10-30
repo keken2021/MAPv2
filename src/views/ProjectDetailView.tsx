@@ -224,10 +224,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               )}
             </div>
           </div>
-          <ReadinessGauge
-            score={calculateProjectReadiness(project, assuranceSets)}
-            size="md"
-          />
+          <div style={{ minWidth: '220px' }}>
+            <ReadinessGauge
+              score={calculateProjectReadiness(project, assuranceSets)}
+              size="md"
+            />
+          </div>
         </div>
       </div>
 

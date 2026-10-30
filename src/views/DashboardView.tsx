@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { getReadinessTextClass } from '../config/readinessScale';
 import { formatMaritimeDate } from '../utils/formatters';
 import { VerifierWorkspaceView } from './VerifierWorkspaceView';
 import { InspectorWorkspaceView } from './InspectorWorkspaceView';
@@ -336,7 +337,7 @@ export const DashboardView: React.FC = () => {
               <div className="map-kpi-label">
                 Average Readiness
               </div>
-              <div className="map-kpi-value text-success mt-1">{avgCampaignReadiness}%</div>
+              <div className={`map-kpi-value ${getReadinessTextClass(avgCampaignReadiness)} mt-1`}>{avgCampaignReadiness}%</div>
               <div className="map-kpi-subtitle mt-1">Across your assurance sets</div>
             </div>
           </div>
@@ -381,7 +382,7 @@ export const DashboardView: React.FC = () => {
             <div className="map-kpi-label">
               Average Readiness
             </div>
-            <div className="map-kpi-value text-success mt-1">{avgReadiness}%</div>
+            <div className={`map-kpi-value ${getReadinessTextClass(avgReadiness)} mt-1`}>{avgReadiness}%</div>
             <div className="map-kpi-subtitle mt-1">Across your fleet</div>
           </div>
         </div>
