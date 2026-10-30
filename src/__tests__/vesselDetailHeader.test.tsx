@@ -31,14 +31,13 @@ describe('vessel detail status shown once', () => {
   });
 
   it('shows a short verification label and keeps the long status as the tooltip', () => {
-    const verification = {
-      objectId: 'VESSEL-001',
-      objectType: 'vessel',
+    const verification: ObjectVerification = {
       status: LONG_STATUS,
       channel: 'external',
       verifiedBy: 'XY Marine Assurance',
       verifiedAt: '2026-06-01T00:00:00.000Z',
-    } as ObjectVerification;
+      clientOrganization: 'Northwind Marine Pty Ltd',
+    };
 
     render(<ObjectVerificationBadge verification={verification} />);
     expect(screen.getByText('Proven')).toBeInTheDocument();
