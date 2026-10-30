@@ -12,6 +12,13 @@ import {
 } from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { ReadinessGauge } from '../components/common/ReadinessGauge';
+import {
+  getReadinessTone,
+  getReadinessBgClass,
+  getReadinessTextClass,
+  READINESS_CUTOFFS,
+} from '../config/readinessScale';
 import { getStatusDisplayLabel } from '../utils/formatters';
 
 const ALL_MOCK_DATA_STATUSES = [
@@ -370,5 +377,54 @@ describe('DetailHeader', () => {
 
     fireEvent.click(backBtn);
     expect(handleBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('readinessScale and ReadinessGauge', () => {
+  it('maps scores to danger (<50), warning (50-84), and success (85+) across boundaries 49, 50, 84, 85', () => {
+    expect(READINESS_CUTOFFS.warning).toBe(50);
+    expect(READINESS_CUTOFFS.success).toBe(85);
+
+    expect(getReadinessTone(49)).toBe('danger');
+    expect(getReadinessBgClass(49)).toBe('bg-danger');
+    expect(getReadinessTextClass(49)).toBe('text-danger');
+
+    expect(getReadinessTone(50)).toBe('warning');
+    expect(getReadinessBgClass(50)).toBe('bg-warning');
+    expect(getReadinessTextClass(50)).toBe('text-warning');
+
+    expect(getReadinessTone(84)).toBe('warning');
+    expect(getReadinessBgClass(84)).toBe('bg-warning');
+    expect(getReadinessTextClass(84)).toBe('text-warning');
+
+    expect(getReadinessTone(85)).toBe('success');
+    expect(getReadinessBgClass(85)).toBe('bg-success');
+    expect(getReadinessTextClass(85)).toBe('text-success');
+  });
+
+  it('renders ReadinessGauge with correct tone classes and data-tone attribute at boundaries', () => {
+    const { container, rerender } = render(<ReadinessGauge score={49} />);
+    expect(screen.getByText('49%')).toHaveClass('text-danger');
+    expect(container.querySelector('.progress-bar')).toHaveClass('bg-danger');
+    expect(container.querySelector('[data-tone="danger"]')).toBeInTheDocument();
+
+    rerender(<ReadinessGauge score={50} />);
+    expect(screen.getByText('50%')).toHaveClass('text-warning');
+    expect(container.querySelector('.progress-bar')).toHaveClass('bg-warning');
+    expect(container.querySelector('[data-tone="warning"]')).toBeInTheDocument();
+
+    rerender(<ReadinessGauge score={84} />);
+    expect(screen.getByText('84%')).toHaveClass('text-warning');
+    expect(container.querySelector('.progress-bar')).toHaveClass('bg-warning');
+    expect(container.querySelector('[data-tone="warning"]')).toBeInTheDocument();
+
+    rerender(<ReadinessGauge score={85} />);
+    expect(screen.getByText('85%')).toHaveClass('text-success');
+    expect(container.querySelector('.progress-bar')).toHaveClass('bg-success');
+    expect(container.querySelector('[data-tone="success"]')).toBeInTheDocument();
+
+    rerender(<ReadinessGauge score={50} size="lg" />);
+    expect(screen.getByText('50%')).toHaveClass('text-warning');
+    expect(container.querySelector('.progress-bar')).toHaveClass('bg-warning');
   });
 });

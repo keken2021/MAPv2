@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { getReadinessTextClass } from '../config/readinessScale';
 import { formatMaritimeDate } from '../utils/formatters';
 import { VerifierWorkspaceView } from './VerifierWorkspaceView';
 import { InspectorWorkspaceView } from './InspectorWorkspaceView';
@@ -336,7 +337,7 @@ export const DashboardView: React.FC = () => {
               <div className="map-kpi-label">
                 Average Readiness
               </div>
-              <div className="map-kpi-value text-success mt-1">{avgCampaignReadiness}%</div>
+              <div className={`map-kpi-value ${getReadinessTextClass(avgCampaignReadiness)} mt-1`}>{avgCampaignReadiness}%</div>
               <div className="map-kpi-subtitle mt-1">Across your assurance sets</div>
             </div>
           </div>
@@ -381,7 +382,7 @@ export const DashboardView: React.FC = () => {
             <div className="map-kpi-label">
               Average Readiness
             </div>
-            <div className="map-kpi-value text-success mt-1">{avgReadiness}%</div>
+            <div className={`map-kpi-value ${getReadinessTextClass(avgReadiness)} mt-1`}>{avgReadiness}%</div>
             <div className="map-kpi-subtitle mt-1">Across your fleet</div>
           </div>
         </div>
@@ -666,16 +667,10 @@ export const DashboardView: React.FC = () => {
                           Set ID {renderSortIndicator(submitterSortField, 'id', submitterSortDirection)}
                         </th>
                         <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', minWidth: '280px' }}
                           onClick={() => handleSubmitterSort('title')}
                         >
                           Title {renderSortIndicator(submitterSortField, 'title', submitterSortDirection)}
-                        </th>
-                        <th
-                          style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                          onClick={() => handleSubmitterSort('vesselName')}
-                        >
-                          Vessel {renderSortIndicator(submitterSortField, 'vesselName', submitterSortDirection)}
                         </th>
                         <th
                           style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -696,15 +691,13 @@ export const DashboardView: React.FC = () => {
                           Readiness {renderSortIndicator(submitterSortField, 'readinessScore', submitterSortDirection)}
                         </th>
                         <th style={{ whiteSpace: 'nowrap' }}>On-Time</th>
-                        <th style={{ whiteSpace: 'nowrap' }}>Findings</th>
-                        <th style={{ whiteSpace: 'nowrap' }}>Remaining</th>
                         <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sortedSubmitterSets.length === 0 ? (
                         <tr>
-                          <td colSpan={10} className="text-center py-4 text-muted">
+                          <td colSpan={7} className="text-center py-4 text-muted">
                             No assurance sets found.
                           </td>
                         </tr>
@@ -720,6 +713,8 @@ export const DashboardView: React.FC = () => {
                             );
                           });
                           const returnedCount = returnedDocs.length;
+                          const openFindings = getAssuranceSetOpenFindingsCount(s, capaItems);
+                          const remaining = getAssuranceSetRemainingItems(s);
 
                           return (
                             <tr
@@ -728,13 +723,20 @@ export const DashboardView: React.FC = () => {
                               style={{ cursor: 'pointer' }}
                             >
                               <td className="fw-semibold text-primary font-mono-code">{s.id}</td>
-                              <td>
+                              <td style={{ minWidth: '280px' }}>
                                 <div className="fw-semibold text-slate-900">{s.title}</div>
-                                <div className="small text-muted">{s.initiatorOrg || s.charterer}</div>
-                              </td>
-                              <td>
-                                <div className="fw-semibold">{s.vesselName}</div>
-                                <div className="font-mono-code small text-muted">IMO {s.imoNumber}</div>
+                                <div className="small text-muted mt-0.5 d-flex flex-wrap align-items-center gap-1.5">
+                                  <span className="fw-medium text-dark">{s.vesselName}</span>
+                                  {s.imoNumber && <span className="font-mono-code">· IMO {s.imoNumber}</span>}
+                                  <span>·</span>
+                                  <span className={openFindings > 0 ? 'text-warning-emphasis fw-medium font-mono-code' : 'font-mono-code'}>
+                                    {openFindings} {openFindings === 1 ? 'finding' : 'findings'}
+                                  </span>
+                                  <span>·</span>
+                                  <span className="font-mono-code">
+                                    {remaining.remainingTasks} {remaining.remainingTasks === 1 ? 'task' : 'tasks'}, {remaining.remainingCertificates} {remaining.remainingCertificates === 1 ? 'cert' : 'certs'} remaining
+                                  </span>
+                                </div>
                               </td>
                               <td className="small font-mono-code text-muted">
                                 {s.charterWindowStart && s.charterWindowEnd
@@ -754,33 +756,6 @@ export const DashboardView: React.FC = () => {
                                     <span className={`badge font-mono-code ${onTime.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTime.detail}>
                                       {onTime.statusLabel}{!onTime.isOnTime && onTime.lateItemsCount > 0 ? ` (${onTime.lateItemsCount})` : ''}
                                     </span>
-                                  );
-                                })()}
-                              </td>
-                              <td>
-                                {(() => {
-                                  const openFindings = getAssuranceSetOpenFindingsCount(s, capaItems);
-                                  return openFindings > 0 ? (
-                                    <span className="badge bg-warning text-dark font-mono-code">
-                                      {openFindings} open
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted font-mono-code small">0</span>
-                                  );
-                                })()}
-                              </td>
-                              <td>
-                                {(() => {
-                                  const remaining = getAssuranceSetRemainingItems(s);
-                                  return (
-                                    <>
-                                      <div className="small font-mono-code text-dark">
-                                        {remaining.remainingTasks} {remaining.remainingTasks === 1 ? 'task' : 'tasks'}
-                                      </div>
-                                      <div className="small text-muted" style={{ fontSize: '0.72rem' }}>
-                                        {remaining.remainingCertificates} {remaining.remainingCertificates === 1 ? 'cert' : 'certs'}
-                                      </div>
-                                    </>
                                   );
                                 })()}
                               </td>
