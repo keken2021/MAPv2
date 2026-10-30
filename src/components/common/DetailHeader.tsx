@@ -80,10 +80,14 @@ export const DetailHeader: React.FC<DetailHeaderProps> = ({
       {/* Main Title Row */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
         {/* Title and Status Badge */}
-        <div className="d-flex flex-wrap align-items-center gap-2.5 min-w-0">
+        <div
+          className="d-flex flex-wrap align-items-center gap-2.5 min-w-0"
+          style={{ flex: '1 1 0', minWidth: 0 }}
+        >
           <h1
-            className="h3 mb-0 fw-bold text-dark text-truncate"
-            style={{ letterSpacing: '-0.01em' }}
+            className="h3 mb-0 fw-bold text-dark map-detail-header-title line-clamp-2"
+            style={{ letterSpacing: '-0.01em', fontSize: 'clamp(1.125rem, 2vw + 0.5rem, 1.75rem)' }}
+            title={title}
           >
             {title}
           </h1>
@@ -91,7 +95,10 @@ export const DetailHeader: React.FC<DetailHeaderProps> = ({
         </div>
 
         {/* Actions slot in strict order: 1. main action, 2. Export, 3. Close */}
-        <div className="d-flex align-items-center gap-2 ms-auto">
+        <div
+          className="d-flex align-items-center gap-2 ms-auto flex-shrink-0"
+          style={{ flexShrink: 0 }}
+        >
           {/* 1. Main Action */}
           {mainAction && <div className="detail-header-action-main">{mainAction}</div>}
 
@@ -177,7 +184,7 @@ export const DetailHeader: React.FC<DetailHeaderProps> = ({
           {formattedMeta.map((meta, index) => (
             <React.Fragment key={index}>
               {index > 0 && <span className="opacity-50">·</span>}
-              <span>{meta}</span>
+              <span className="text-break">{meta}</span>
             </React.Fragment>
           ))}
         </div>

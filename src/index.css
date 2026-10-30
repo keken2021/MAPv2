@@ -781,3 +781,15 @@ select.form-control {
   border: 0;
   line-height: 24px;
 }
+
+/* ==========================================================================
+   Detail header: title clamping and word wrapping
+   ========================================================================== */
+
+.map-detail-header-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
