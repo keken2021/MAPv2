@@ -60,6 +60,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/assuranceOverlap.ts` : contract period overlap check between sets on the same asset (half-open periods, drafts skipped); used by the create wizard's Scope tab (asset picked next to the dates) and the detail Contract Period edit; tests `src/__tests__/assuranceOverlap.test.ts`
 - `src/utils/documentVersionSnapshot.ts` : `isClosedAssuranceSet`, version snapshot on verify (`verifiedVersion`), lock on approval (`lockedAt`), seed freeze, `getRequirementDocumentView` (version-pinned document for an approved set); tests `src/__tests__/documentVersionSnapshot.test.tsx`
 - `getAssuranceSetCrewIds`, `getAssuranceSetCrewNames`, `getAssuranceSetAssets` in `src/utils/assuranceTemplates.ts` : every crew member of a crew set (`crewIds`, ADR 0023); tests `src/__tests__/multiCrewScope.test.tsx` (includes the wizard checkbox list)
+- `src/__tests__/assuranceDetailTabs.test.tsx` : tests for assurance set detail tab layout and audit trail integration (Task 5269)
 
 ## Marketplace screens
 - `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)
@@ -90,6 +91,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter Verifier and Inspector workspaces: `src/__tests__/workspacesDeclutter.test.tsx` (CountTabs default tabs and counts, Due column with late calculation, 1 badge/action per row, removed KPI cards, Document Library 1440 px header count)
 - Unit tests for DueCell and getDueStatus: `src/__tests__/dueCell.test.tsx` (open past due, closed past due, future, expiring window, expired status)
 - Unit tests for UI declutter Assurance Sets list and detail: `src/__tests__/assuranceSetsDeclutter.test.tsx` (CountTabs and ListToolbar in card, Draft badge removed beside title, Public tab merged scope column, DetailHeader single badge, cancelled alert only, overdue badge only, info card badges, single Export, removed inner boxes)
+- Unit tests for UI declutter Assurance Set detail tabs and audit trail: `src/__tests__/assuranceDetailTabs.test.tsx` (Details, Requirements, Tasks, and Audit Trail tabs, URL sync, date event deduplication, empty state)
 - Unit tests for UI declutter Assurance Sets and Vessels per person: `src/__tests__/tablesPerPersonSession.test.tsx` (per-person filtering with useSessionUser for AssuranceTable and VesselTable)
 - Unit tests for UI declutter role access check across organizations: `src/__tests__/roleAccessAcrossOrganizations.test.ts` (walks every organization and persona, checks sidebar links, workflow role scoping, admin org scoping)
 - Unit tests for UI declutter Northwind Verifier persona and queue: `src/__tests__/northwindVerifierQueue.test.tsx` (sidebar persona switch, at least 4 To Verify items, 1 Overdue item, no submitter == verifier)

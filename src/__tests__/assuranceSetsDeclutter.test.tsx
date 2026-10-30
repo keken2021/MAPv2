@@ -353,6 +353,7 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
 
     it('replaces "Task sections 1 section · 0 heavy" by hiding 0 heavy and avoiding internal jargon', () => {
       render(<AssuranceDetailView setId="AS-2026-001" />);
+      fireEvent.click(screen.getByRole('tab', { name: /tasks/i }));
 
       // Neither "0 heavy" nor "heavy" in section header
       expect(screen.queryByText(/0 heavy/i)).toBeNull();

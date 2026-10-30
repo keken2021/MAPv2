@@ -85,7 +85,8 @@ export const App: React.FC = () => {
 
       const hash = window.location.hash.replace(/^#\/?/, '');
       if (hash && hash !== 'login') {
-        const parts = hash.split('/');
+        const pathPart = hash.split('?')[0];
+        const parts = pathPart.split('/');
         setCurrentHashView(parts[0], parts[1] ? decodeURIComponent(parts[1]) : undefined);
       } else {
         setCurrentHashView('dashboard');

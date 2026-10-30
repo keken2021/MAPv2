@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, History, Key, ShieldCheck, Plus, Trash2 } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2 } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -54,6 +54,7 @@ import {
   isClientUser,
   getUserActiveDatePermission,
   assigneeMatchesUser,
+  filterAuditTrailForPersona,
 } from '../utils/rbacHelpers';
 import { useSessionUser } from '../utils/useSessionUser';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
@@ -69,6 +70,58 @@ import {
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { getValidityInContractPeriod } from '../utils/expiryPolicy';
+import { EmptyState } from '../components/common/EmptyState';
+import { AuditTrailEvent } from '../types/audit';
+import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
+
+export type AssuranceDetailTab = 'details' | 'requirements' | 'tasks' | 'audit';
+
+function parseTabFromUrl(): AssuranceDetailTab {
+  if (typeof window === 'undefined') return 'details';
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+
+  let tabParam: string | null = null;
+  if (hash.includes('?')) {
+    const params = new URLSearchParams(hash.split('?')[1]);
+    tabParam = params.get('tab');
+  }
+  if (!tabParam && search) {
+    const params = new URLSearchParams(search);
+    tabParam = params.get('tab');
+  }
+  if (!tabParam) {
+    const clean = hash.replace(/^#\/?/, '').split('?')[0];
+    const parts = clean.split('/');
+    if (parts.length >= 3) {
+      tabParam = parts[2];
+    }
+  }
+  if (tabParam) {
+    const lower = tabParam.toLowerCase();
+    if (lower === 'requirements') return 'requirements';
+    if (lower === 'tasks') return 'tasks';
+    if (lower === 'audit' || lower === 'audit-trail' || lower === 'audittrail') return 'audit';
+    if (lower === 'details') return 'details';
+  }
+  return 'details';
+}
+
+function displayAuditValue(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}/.test(value)) return value;
+  const formatted = formatMaritimeDate(value);
+  return formatted === 'N/A' ? value : formatted;
+}
+
+function displayAuditChange(event: AuditTrailEvent): string {
+  if (event.fieldDelta) {
+    return `${event.fieldDelta.fieldName}: ${displayAuditValue(event.fieldDelta.oldValue)} to ${displayAuditValue(event.fieldDelta.newValue)}`;
+  }
+  if (event.documentStatusDelta) {
+    return `Status: ${event.documentStatusDelta.oldStatus} to ${event.documentStatusDelta.newStatus}`;
+  }
+  return 'No change';
+}
 
 interface AssuranceDetailViewProps {
   setId: string;
@@ -83,6 +136,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const {
     assuranceSets,
     vessels,
+    auditEvents,
     updateRequirementStatus,
     updateAssuranceStakeholder,
     updateAssuranceInspector,
@@ -122,7 +176,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [selectedGranteeId, setSelectedGranteeId] = useState('');
   const [grantDurationHours, setGrantDurationHours] = useState('24');
   const [grantReasonDraft, setGrantReasonDraft] = useState('');
-  const [isDateHistoryModalOpen, setIsDateHistoryModalOpen] = useState(false);
+  // Date history moved to Audit Trail tab
   const [editingTaskDate, setEditingTaskDate] = useState<{ reqId: string; title: string; currentDate: string } | null>(null);
   const [taskDateDraft, setTaskDateDraft] = useState('');
   const [taskDateReasonDraft, setTaskDateReasonDraft] = useState('');
@@ -182,7 +236,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [uploadTargetRequirement, setUploadTargetRequirement] = useState<AssuranceRequirement | null>(null);
   const [replaceExistingDoc, setReplaceExistingDoc] = useState<MasterDocument | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [sectionsOpen, setSectionsOpen] = useState(false);
+  const [sectionsOpen, setSectionsOpen] = useState(true);
   const [editingRole, setEditingRole] = useState<'Submitter' | 'Verifier' | 'Inspector' | 'Approver' | null>(null);
 
   type ReqSortField = 'title' | 'targetDate' | 'ocrConfidence' | 'status';
@@ -213,7 +267,37 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     }
   };
 
-  const assuranceSet = assuranceSets.find((s) => s.id === setId) || assuranceSets[0];
+  const cleanSetId = setId ? setId.split('?')[0].split('/')[0] : '';
+  const assuranceSet = assuranceSets.find((s) => s.id === cleanSetId || s.id === setId) || assuranceSets[0];
+
+  const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(() => parseTabFromUrl());
+
+  const handleTabChange = (tab: AssuranceDetailTab) => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const baseHash = `#/assurance-sets/${assuranceSet.id}`;
+      const tabParam = tab === 'audit' ? 'audit-trail' : tab;
+      const targetHash = tab === 'details' ? baseHash : `${baseHash}?tab=${tabParam}`;
+      if (window.location.hash !== targetHash) {
+        window.location.hash = targetHash;
+      }
+    }
+  };
+
+  useEffect(() => {
+    const onHashChange = () => {
+      const tabFromUrl = parseTabFromUrl();
+      setActiveTab((prev) => (prev !== tabFromUrl ? tabFromUrl : prev));
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  useEffect(() => {
+    if (focusedRequirementId) {
+      setActiveTab('requirements');
+    }
+  }, [focusedRequirementId]);
   const sortedRequirements = useMemo(() => {
     if (!assuranceSet?.requirements) return [];
     return [...assuranceSet.requirements].sort((a, b) => {
@@ -319,6 +403,77 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const activeUser = useSessionUser();
   const sessionUser = activeUser ?? undefined;
+  const currentUserId = sessionUser?.id || activeSessionUserId;
+
+  const visibleEvents = useMemo(
+    () => filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels, currentUserId),
+    [auditEvents, activePersona, assuranceSets, vessels, currentUserId],
+  );
+
+  const setAuditEvents = useMemo(() => {
+    const rawSetEvents = visibleEvents.filter((ev) => {
+      const target = ev.target;
+      return (
+        target &&
+        (target.kind === 'set' || target.kind === 'task' || target.kind === 'date') &&
+        target.setId === assuranceSet.id
+      );
+    });
+
+    const dateHistoryEvents: AuditTrailEvent[] = (assuranceSet.targetDateHistory || []).map((row) => {
+      const matchingUser = users.find((u) => u.name === row.changedBy || u.id === row.changedBy || row.changedBy.startsWith(u.name) || row.changedBy.startsWith(u.id));
+      return {
+      id: row.id,
+      timestampUtc: row.changedAt,
+      userId: matchingUser ? matchingUser.id : row.changedBy,
+      userRole: (matchingUser?.roles?.[0] as import('../types/audit').UserRolePersona) || 'Administrator',
+      organization: matchingUser?.organization || assuranceSet.clientOrg || assuranceSet.initiatorOrg || 'Client Organization',
+      action: 'Changed date',
+      targetAsset: `${assuranceSet.id} (${assuranceSet.title})`,
+      target: {
+        kind: 'date',
+        setId: assuranceSet.id,
+        dateField: row.scope === 'set' ? 'complianceDeadline' : 'targetDate',
+        taskId: row.scope === 'task' ? (row.taskId || row.requirementId) : undefined,
+      },
+      fieldDelta: {
+        fieldName: row.scope === 'set' ? 'Compliance deadline' : (row.taskTitle || row.taskId || 'Task target date'),
+        oldValue: row.oldDate,
+        newValue: row.newDate,
+      },
+      justificationNotes: row.reason,
+    }; });
+
+    const visibleDateHistory = filterAuditTrailForPersona(
+      dateHistoryEvents,
+      activePersona,
+      assuranceSets,
+      vessels,
+      currentUserId,
+    );
+
+    const all = [...rawSetEvents, ...visibleDateHistory];
+    all.sort((a, b) => new Date(b.timestampUtc).getTime() - new Date(a.timestampUtc).getTime());
+
+    const seenIds = new Set<string>();
+    const seenDateDeltas = new Set<string>();
+    const deduplicated: AuditTrailEvent[] = [];
+
+    for (const ev of all) {
+      if (seenIds.has(ev.id)) continue;
+      seenIds.add(ev.id);
+
+      if (ev.action === 'Changed date' || ev.target?.kind === 'date') {
+        const deltaKey = `${ev.timestampUtc.slice(0, 19)}_${ev.fieldDelta?.oldValue}_${ev.fieldDelta?.newValue}`;
+        if (seenDateDeltas.has(deltaKey)) continue;
+        seenDateDeltas.add(deltaKey);
+      }
+
+      deduplicated.push(ev);
+    }
+
+    return deduplicated;
+  }, [visibleEvents, assuranceSet, activePersona, assuranceSets, vessels, currentUserId]);
 
   const isApproverViewer = activePersona === 'Approver';
   const isNamedApprover =
@@ -1017,6 +1172,56 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       )}
 
       {/* Top Row: Campaign Summary Information Card + Compact Stage Pipeline */}
+      {/* Assurance Set Detail Tabs */}
+      <ul className="nav nav-tabs border-bottom mb-3" role="tablist">
+        <li className="nav-item" role="presentation">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'details'}
+            className={`nav-link ${activeTab === 'details' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => handleTabChange('details')}
+          >
+            Details
+          </button>
+        </li>
+        <li className="nav-item" role="presentation">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'requirements'}
+            className={`nav-link ${activeTab === 'requirements' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => handleTabChange('requirements')}
+          >
+            Requirements
+          </button>
+        </li>
+        <li className="nav-item" role="presentation">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'tasks'}
+            className={`nav-link ${activeTab === 'tasks' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => handleTabChange('tasks')}
+          >
+            Tasks
+          </button>
+        </li>
+        <li className="nav-item" role="presentation">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'audit'}
+            className={`nav-link ${activeTab === 'audit' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => handleTabChange('audit')}
+          >
+            Audit Trail
+          </button>
+        </li>
+      </ul>
+
+      {/* Tab: Details */}
+      {activeTab === 'details' && (
       <div className="row g-4 align-items-stretch">
         {/* Left: Assurance Set Information & Stakeholder Role Assignments Card */}
         <div className="col-lg-8 col-md-7">
@@ -1274,15 +1479,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           <span>Compliance deadline: {formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}</span>
                         </div>
                         <div className="d-flex align-items-center gap-2 mt-2">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-secondary py-0 px-2 d-inline-flex align-items-center gap-1"
-                            style={{ fontSize: '0.72rem' }}
-                            onClick={() => setIsDateHistoryModalOpen(true)}
-                          >
-                            <History size={12} />
-                            Date History ({(assuranceSet.targetDateHistory || []).length})
-                          </button>
                           {(activeDateGrantsCount > 0 || activePersona === 'C Admin') && (
                             <button
                               type="button"
@@ -1609,41 +1805,54 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           </div>
         </div>
       </div>
+      )}
 
-      {/* task sections stay collapsed until opened, so a long list does not fill the page */}
-      {sectionSummaries.length > 0 && (
-        <div className="card map-card-custom">
-          <div className="card-header p-0">
-            <button
-              type="button"
-              className="btn btn-link text-decoration-none text-dark w-100 d-flex align-items-center gap-2 p-3 text-start"
-              aria-expanded={sectionsOpen}
-              onClick={() => setSectionsOpen((open) => !open)}
-            >
-              <ChevronDown
-                size={16}
-                className="flex-shrink-0"
-                style={{ transform: sectionsOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-              />
-              <span className="fw-bold">Task sections</span>
-              <span className="small text-secondary">
-                {sectionSummaries.length} {sectionSummaries.length === 1 ? 'section' : 'sections'}
-                {sectionSummaries.filter((section) => section.heavy).length > 0 && (
-                  <> &middot; {sectionSummaries.filter((section) => section.heavy).length} with 3+ open tasks</>
-                )}
-              </span>
-            </button>
-          </div>
-          {sectionsOpen && (
-            <div className="card-body border-top">
-              <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
-              <TaskSectionCards set={assuranceSet} />
+
+      {/* Tab: Tasks */}
+      {activeTab === 'tasks' && (
+        sectionSummaries.length > 0 ? (
+          <div className="card map-card-custom">
+            <div className="card-header p-0">
+              <button
+                type="button"
+                className="btn btn-link text-decoration-none text-dark w-100 d-flex align-items-center gap-2 p-3 text-start"
+                aria-expanded={sectionsOpen}
+                onClick={() => setSectionsOpen((open) => !open)}
+              >
+                <ChevronDown
+                  size={16}
+                  className="flex-shrink-0"
+                  style={{ transform: sectionsOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                />
+                <span className="fw-bold">Task sections</span>
+                <span className="small text-secondary">
+                  {sectionSummaries.length} {sectionSummaries.length === 1 ? 'section' : 'sections'}
+                  {sectionSummaries.filter((section) => section.heavy).length > 0 && (
+                    <> &middot; {sectionSummaries.filter((section) => section.heavy).length} with 3+ open tasks</>
+                  )}
+                </span>
+              </button>
             </div>
-          )}
-        </div>
+            {sectionsOpen && (
+              <div className="card-body border-top">
+                <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
+                <TaskSectionCards set={assuranceSet} />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="card map-card-custom p-4">
+            <EmptyState
+              title="No task sections"
+              description="No task sections have been defined for this assurance set."
+            />
+          </div>
+        )
       )}
 
       {/* Bottom Row: Requirements Register Table taking full 100% width across two columns */}
+      {/* Tab: Requirements */}
+      {activeTab === 'requirements' && (
       <div className="card map-card-custom">
         <div className="card-header border-bottom p-3">
           <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
@@ -2048,6 +2257,67 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         </div>
         <TablePagination {...requirementsPagination.controls} />
       </div>
+      )}
+
+      {/* Tab: Audit Trail */}
+      {activeTab === 'audit' && (
+        <div className="card map-card-custom p-4">
+          <div className="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <h5 className="fw-bold text-dark mb-1">Audit Trail</h5>
+              <div className="small text-secondary">
+                Immutable ledger of changes to this assurance set, its tasks, and target dates.
+              </div>
+            </div>
+          </div>
+          {setAuditEvents.length === 0 ? (
+            <EmptyState
+              title="No audit events recorded"
+              description="There are no audit events recorded for this assurance set."
+            />
+          ) : (
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>
+                <thead className="table-light">
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>User &amp; Role</th>
+                    <th>Action</th>
+                    <th>Change Details</th>
+                    <th>Justification</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {setAuditEvents.map((ev) => {
+                    const note = ev.justificationNotes?.trim() ?? '';
+                    return (
+                      <tr key={ev.id} data-event-id={ev.id}>
+                        <td className="font-mono-code small">{formatMaritimeDateTime(ev.timestampUtc)}</td>
+                        <td className="small text-dark">
+                          <div className="fw-semibold">{ev.userId}</div>
+                          <span className="text-secondary">{getRoleDisplayLabel(ev.userRole)} &middot; {ev.organization}</span>
+                        </td>
+                        <td className="fw-semibold text-primary">{ev.action}</td>
+                        <td className="small text-dark">{displayAuditChange(ev)}</td>
+                        <td className="small text-secondary">
+                          {note ? (
+                            <span className="d-block text-truncate" title={note} tabIndex={0}>
+                              {note}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
 
       {/* Document Review Drawer */}
       <DocumentReviewDrawer
@@ -2398,74 +2668,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         </>
       )}
 
-      {/* Target Date Change History Modal */}
-      {isDateHistoryModalOpen && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="date-history-title">
-            <div className="modal-dialog modal-dialog-centered modal-lg">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <div>
-                    <h5 className="modal-title fs-6 fw-bold" id="date-history-title">Target Date Change History</h5>
-                    <div className="text-muted small">Full historical audit ledger of target date modifications for this assurance set and its tasks.</div>
-                  </div>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsDateHistoryModalOpen(false)} />
-                </div>
-                <div className="modal-body">
-                  {(!assuranceSet.targetDateHistory || assuranceSet.targetDateHistory.length === 0) ? (
-                    <div className="alert alert-light border small text-muted mb-0">
-                      No target date changes have been recorded on this assurance set yet.
-                    </div>
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="table table-sm table-striped align-middle mb-0" style={{ fontSize: '0.78rem' }}>
-                        <thead className="table-light">
-                          <tr>
-                            <th>Scope</th>
-                            <th>Previous Date</th>
-                            <th>New Date</th>
-                            <th>Changed By</th>
-                            <th>Changed At</th>
-                            <th>Reason</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {assuranceSet.targetDateHistory.map((row) => (
-                            <tr key={row.id}>
-                              <td>
-                                {row.scope === 'set' ? (
-                                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                    Assurance Set
-                                  </span>
-                                ) : (
-                                  <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle" title={row.taskTitle}>
-                                    Task: {row.taskTitle || row.taskId}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="text-muted">{formatMaritimeDate(row.oldDate)}</td>
-                              <td className="fw-semibold text-dark">{formatMaritimeDate(row.newDate)}</td>
-                              <td>{row.changedBy}</td>
-                              <td>{new Date(row.changedAt).toLocaleString()}</td>
-                              <td className="text-secondary">{row.reason || '—'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsDateHistoryModalOpen(false)}>
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
       {/* Overdue Outcome Modal: Revise Completion Date */}
       {isReviseDeadlineModalOpen && (
         <>
