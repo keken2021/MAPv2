@@ -363,4 +363,63 @@ describe('Shell header and sidebar declutter suite', () => {
     expect(adminLabels).toContain('User Management');
     expect(adminLabels).toContain('Roles & Permissions');
   });
+
+  it('returns user to originating assurance set when pressing Back on CAPA after clicking open findings', () => {
+    useMapStore.setState({
+      currentHashView: 'capa',
+      currentEntityId: 'MV Ocean Pioneer',
+      previousHashView: 'assurance-sets',
+      previousEntityId: 'AS-2026-001',
+    });
+    render(<HeaderBanner />);
+
+    const backButton = screen.getByRole('button', { name: 'Back to Assurance Set' });
+    expect(backButton).toBeTruthy();
+    fireEvent.click(backButton);
+    expect(useMapStore.getState().currentHashView).toBe('assurance-sets');
+    expect(useMapStore.getState().currentEntityId).toBe('AS-2026-001');
+  });
+
+  it('preserves contextual return across other screens with referring entity', () => {
+    const crossScreenCases = [
+      {
+        currentView: 'capa',
+        currentId: 'MV Ocean Pioneer',
+        prevView: 'vessels',
+        prevId: 'VESSEL-001',
+        expectedLabel: 'Back to Vessel Detail',
+      },
+      {
+        currentView: 'documents',
+        currentId: 'DOC-001',
+        prevView: 'assurance-sets',
+        prevId: 'AS-2026-002',
+        expectedLabel: 'Back to Assurance Set',
+      },
+      {
+        currentView: 'assurance-sets',
+        currentId: 'AS-2026-003',
+        prevView: 'project',
+        prevId: 'PROJ-001',
+        expectedLabel: 'Back to Project Detail',
+      },
+    ];
+
+    crossScreenCases.forEach(({ currentView, currentId, prevView, prevId, expectedLabel }) => {
+      cleanup();
+      useMapStore.setState({
+        currentHashView: currentView,
+        currentEntityId: currentId,
+        previousHashView: prevView,
+        previousEntityId: prevId,
+      });
+      render(<HeaderBanner />);
+
+      const backButton = screen.getByRole('button', { name: expectedLabel });
+      expect(backButton).toBeTruthy();
+      fireEvent.click(backButton);
+      expect(useMapStore.getState().currentHashView).toBe(prevView);
+      expect(useMapStore.getState().currentEntityId).toBe(prevId);
+    });
+  });
 });
