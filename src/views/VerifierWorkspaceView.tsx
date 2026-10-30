@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye, Search, Inbox } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { MasterDocument } from '../types/document';
@@ -9,6 +9,7 @@ import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilter
 import { CountTabs, CountTab } from '../components/common/CountTabs';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
+import { EmptyState } from '../components/common/EmptyState';
 import { filterDocumentsForVerifierQueue, filterDocumentsVisibleToOrganization, getAssuranceSetRoleActions, isAdminReadOnlyWorkView, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
@@ -86,6 +87,8 @@ export const VerifierWorkspaceView: React.FC = () => {
     setStatusFilter('ALL');
     setSearchTerm('');
   };
+
+  const isFiltered = Boolean(searchTerm.trim() || typeFilter !== 'ALL' || statusFilter !== 'ALL');
 
   const activeChips = useMemo<FilterChip[]>(() => {
     const chips: FilterChip[] = [];
@@ -431,8 +434,13 @@ export const VerifierWorkspaceView: React.FC = () => {
 
               {sortedDocs.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted py-4 fst-italic">
-                    No documents found.
+                  <td colSpan={7} className="p-0">
+                    <EmptyState
+                      icon={isFiltered ? Search : Inbox}
+                      title={isFiltered ? 'No matches' : 'Nothing to verify'}
+                      description={isFiltered ? undefined : 'Documents appear here when a submitter uploads them'}
+                      action={isFiltered ? { label: 'Clear filters', onClick: handleResetFilters } : undefined}
+                    />
                   </td>
                 </tr>
               )}

@@ -5,7 +5,7 @@
 */
 
 import React, { useState } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Eye, Search, AlertCircle } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { filterVesselsForPersona } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
@@ -16,6 +16,7 @@ import { FilterModal } from '../components/common/FilterModal';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { CountTabs } from '../components/common/CountTabs';
 import { ListToolbar } from '../components/common/ListToolbar';
+import { EmptyState } from '../components/common/EmptyState';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 
@@ -115,6 +116,8 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
       setCurrentHashView('capas', 'ALL_FLEET');
     }
   };
+
+  const isFiltered = Boolean(searchQuery.trim() || activeTab !== 'All' || !isFleetOverview);
 
   const activeChips: FilterChip[] = [
     ...(!isFleetOverview ? [{ id: 'vessel', label: 'Vessel', value: selectedVesselName, onRemove: () => setCurrentHashView('capas', 'ALL_FLEET') }] : []),
@@ -354,8 +357,13 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
 
               {sortedCapas.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center text-muted py-4 fst-italic">
-                    No CAPAs found.
+                  <td colSpan={6} className="p-0">
+                    <EmptyState
+                      icon={isFiltered ? Search : AlertCircle}
+                      title={isFiltered ? 'No matches' : 'No CAPAs found'}
+                      description={isFiltered ? undefined : 'Corrective action plans will appear here when raised during inspections'}
+                      action={isFiltered ? { label: 'Clear filters', onClick: handleResetFilters } : undefined}
+                    />
                   </td>
                 </tr>
               )}

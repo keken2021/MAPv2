@@ -38,7 +38,7 @@ describe('vessel detail status shown once', () => {
       channel: 'external',
       verifiedBy: 'XY Marine Assurance',
       verifiedAt: '2026-06-01T00:00:00.000Z',
-    } as ObjectVerification;
+    } as unknown as ObjectVerification;
 
     render(<ObjectVerificationBadge verification={verification} />);
     expect(screen.getByText('Proven')).toBeInTheDocument();

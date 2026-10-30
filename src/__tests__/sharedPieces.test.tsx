@@ -13,6 +13,8 @@ import {
 import { ListToolbar } from '../components/common/ListToolbar';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
+import { EmptyState } from '../components/common/EmptyState';
+import { Search, AlertCircle, FileText } from 'lucide-react';
 import {
   getReadinessTone,
   getReadinessBgClass,
@@ -426,5 +428,62 @@ describe('readinessScale and ReadinessGauge', () => {
     rerender(<ReadinessGauge score={50} size="lg" />);
     expect(screen.getByText('50%')).toHaveClass('text-warning');
     expect(container.querySelector('.progress-bar')).toHaveClass('bg-warning');
+  });
+
+  describe('EmptyState', () => {
+    it('renders icon at 32px in muted slate and required title', () => {
+      const { container } = render(<EmptyState title="Nothing to verify" />);
+
+      expect(screen.getByText('Nothing to verify')).toBeInTheDocument();
+      const icon = container.querySelector('[data-testid="empty-state-icon"]');
+      expect(icon).toBeInTheDocument();
+      expect(icon).toHaveAttribute('width', '32');
+      expect(icon).toHaveAttribute('height', '32');
+      expect(icon).toHaveClass('text-secondary');
+      expect(icon).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('renders custom icon when provided', () => {
+      const { container } = render(<EmptyState icon={Search} title="No matches" />);
+
+      expect(screen.getByText('No matches')).toBeInTheDocument();
+      const icon = container.querySelector('[data-testid="empty-state-icon"]');
+      expect(icon).toBeInTheDocument();
+      expect(icon).toHaveAttribute('width', '32');
+    });
+
+    it('renders optional description only when given', () => {
+      const { rerender } = render(<EmptyState title="Nothing to verify" />);
+      expect(screen.queryByText(/documents appear here/i)).toBeNull();
+
+      rerender(
+        <EmptyState
+          title="Nothing to verify"
+          description="Documents appear here when a submitter uploads them"
+        />,
+      );
+      expect(
+        screen.getByText('Documents appear here when a submitter uploads them'),
+      ).toBeInTheDocument();
+    });
+
+    it('renders action button only when provided and triggers onClick handler', () => {
+      const handleAction = vi.fn();
+      const { rerender } = render(<EmptyState title="No matches" />);
+
+      expect(screen.queryByRole('button')).toBeNull();
+
+      rerender(
+        <EmptyState
+          title="No matches"
+          action={{ label: 'Clear filters', onClick: handleAction }}
+        />,
+      );
+
+      const actionBtn = screen.getByRole('button', { name: 'Clear filters' });
+      expect(actionBtn).toBeInTheDocument();
+      fireEvent.click(actionBtn);
+      expect(handleAction).toHaveBeenCalledTimes(1);
+    });
   });
 });
