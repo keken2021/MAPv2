@@ -42,6 +42,8 @@ import {
   statusHistoryBadgeClass,
 } from '../utils/vesselStatusHistoryHelpers';
 import { getFallbackPhysicalInspections } from '../store/inspectionMockData';
+import { VesselActivityTab } from '../components/vessels/VesselActivityTab';
+import { VesselActivityEntry } from '../utils/vesselActivityHelpers';
 import {
   Edit2,
   X,
@@ -119,7 +121,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const vessel = isAccessible ? vessels.find((v) => v.id === vesselId) : undefined;
 
   const [activeTab, setActiveTab] = useState<
-    'Information' | 'vault' | 'assurance' | 'clients' | 'crew' | 'audit' | 'inspections' | 'statusHistory'
+    'Information' | 'vault' | 'assurance' | 'clients' | 'crew' | 'audit' | 'inspections' | 'statusHistory' | 'activity'
   >('Information');
 
   const linkedCapas = vessel
@@ -506,7 +508,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           (entry.previousValue && entry.previousValue.toLowerCase().includes(search)) ||
           (entry.notes && entry.notes.toLowerCase().includes(search)) ||
           entry.changedBy.toLowerCase().includes(search) ||
-          dimensionLabel(entry.dimension).toLowerCase().includes(search);
+          dimensionLabel(entry.dimension).toLowerCase().includes(search) ||
+          entry.id.toLowerCase().includes(search);
         return matchesDimension && matchesCurrent && matchesSearch;
       })
       .sort((a, b) => {
@@ -1218,6 +1221,15 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             Status History ({linkedStatusHistory.length})
           </button>
         </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link ${activeTab === 'activity' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => setActiveTab('activity')}
+          >
+            Activity
+          </button>
+        </li>
         {isAdmin && isOwned && (
           <li className="nav-item">
             <button
@@ -1252,6 +1264,35 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           </li>
         )}
       </ul>
+
+      {activeTab === 'activity' && vessel && (
+        <VesselActivityTab
+          vesselId={vessel.id}
+          statusHistory={linkedStatusHistory}
+          inspections={physicalInspections}
+          capaItems={linkedCapas}
+          assuranceSets={linkedSets}
+          onOpen={(entry: VesselActivityEntry) => {
+            if (entry.kind === 'status') {
+              setStatusHistorySearch(entry.recordId);
+              setStatusHistoryDimensionFilter('ALL');
+              setStatusHistoryCurrentOnly(false);
+              setActiveTab('statusHistory');
+              return;
+            }
+            if (entry.kind === 'inspection') {
+              const inspection = physicalInspections.find((item) => item.id === entry.recordId);
+              if (inspection) setSelectedInspectionForDetail(inspection);
+              return;
+            }
+            if (entry.kind === 'capa') {
+              setCurrentHashView('capa', entry.recordId);
+              return;
+            }
+            setCurrentHashView('assurance-sets', entry.recordId);
+          }}
+        />
+      )}
 
       {/* Tab 1: 3-Column Technical Breakdown Layout matching Mockup */}
       {activeTab === 'Information' && (
