@@ -5,7 +5,7 @@
 */
 
 import { AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype } from '../types/assurance';
-import { EXISTING_PROJECTS, getAssuranceSetCrewIds } from './assuranceTemplates';
+import { EXISTING_PROJECTS, getAssuranceSetCrewIds, getThreePillarsCategory } from './assuranceTemplates';
 import { UserRolePersona } from '../types/audit';
 import { CrewMember } from '../types/crew';
 import { EquipmentAsset } from '../types/equipment';
@@ -874,6 +874,30 @@ export function syncAllAffectedProjectRollups(
   }
 
   return { updatedProjects: curProjects, updatedAssuranceSets: assuranceSets };
+}
+
+export type PppPillar = 'People' | 'Plant' | 'Process';
+
+/**
+  what: whether an assurance set belongs under a People, Plant or Process pill.
+  how: All keeps every set. A pillar keeps a set that has one requirement whose category is that pillar, or whose category maps to that pillar. A set with no requirements matches only All.
+  with what file: src/utils/projectHelpers.ts used by ProjectDetailView.tsx.
+*/
+export function assuranceSetMatchesPpp(
+  set: { requirements?: { category?: string; subtype?: string }[] },
+  pillar: PppPillar | 'All',
+): boolean {
+  if (pillar === 'All') return true;
+  const target = pillar.toLowerCase();
+  return (set.requirements ?? []).some((requirement) => {
+    const category = (requirement.category ?? '').trim();
+    const categoryKey = category.toLowerCase();
+    if (categoryKey === 'people' || categoryKey === 'plant' || categoryKey === 'process') {
+      return categoryKey === target;
+    }
+    if (!category && !requirement.subtype) return false;
+    return getThreePillarsCategory(requirement.subtype, category || undefined).toLowerCase() === target;
+  });
 }
 
 /* label shown wherever a set has no project */

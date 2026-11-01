@@ -12,8 +12,10 @@ import {
   contractPartyByRole,
   filterProjectsForPersona,
   formatProjectValue,
+  assuranceSetMatchesPpp,
   getProjectAssuranceSets,
   getStandaloneAssuranceSetsForAttach,
+  PppPillar,
 } from "../utils/projectHelpers";
 import { ContractChainRole } from "../types/project";
 import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
@@ -68,6 +70,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
     "All",
   );
+  const [pppFilter, setPppFilter] = useState<"All" | PppPillar>("All");
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [attachSetId, setAttachSetId] = useState("");
@@ -125,8 +128,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setActiveTab("assurance");
   }, [projectId]);
 
+  const visibleAssuranceSets = useMemo(
+    () => projectAssuranceSets.filter((set) => assuranceSetMatchesPpp(set, pppFilter)),
+    [projectAssuranceSets, pppFilter],
+  );
+
   const assetsPagination = usePagination(filteredLinks, [assetFilter]);
-  const setsPagination = usePagination(projectAssuranceSets, []);
+  const setsPagination = usePagination(visibleAssuranceSets, [pppFilter]);
 
   if (!project) {
     return (
@@ -503,6 +511,18 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </div>
           )}
         <div className="card map-card-custom">
+          <div className="card-header d-flex gap-2 p-3" aria-label="Assurance pillar filter">
+            {(["All", "People", "Plant", "Process"] as const).map((pillar) => (
+              <button
+                key={pillar}
+                type="button"
+                className={`btn btn-sm ${pppFilter === pillar ? "btn-primary" : "btn-outline-secondary"}`}
+                onClick={() => setPppFilter(pillar)}
+              >
+                {pillar}
+              </button>
+            ))}
+          </div>
           <div className="table-responsive">
             <table className="table map-table-custom mb-0">
               <thead>
@@ -516,10 +536,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {projectAssuranceSets.length === 0 ? (
+                {visibleAssuranceSets.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="text-center py-4 text-muted">
-                      No assurance sets yet.
+                      {pppFilter === "All"
+                        ? "No assurance sets yet."
+                        : `No assurance sets tagged ${pppFilter} on this project.`}
                     </td>
                   </tr>
                 ) : (
