@@ -32,7 +32,7 @@ interface InspectionChecklistViewProps {
 */
 export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = ({ vesselName = 'MV Pacific Endeavour' }) => {
   const cleanVesselName = decodeURIComponent(vesselName || 'MV Pacific Endeavour');
-  const { capaItems, addCapaItem, logAuditEvent, activePersona, setCurrentHashView, previousHashView, previousEntityId, completeVesselInspection } = useMapStore();
+  const { capaItems, addCapaItem, logAuditEvent, activePersona, setCurrentHashView, completeVesselInspection } = useMapStore();
 
   const [items, setItems] = useState<InspectionItem[]>(DEFAULT_INSPECTION_CHECKLIST_ITEMS);
 
@@ -459,7 +459,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
         }
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
-        onClose={() => setCurrentHashView(previousHashView || 'inspector', previousEntityId)}
       />
 
       {/* Main Grid: Left side Checklist Items, Right side Outcome & CAPA Logger */}

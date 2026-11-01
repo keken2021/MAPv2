@@ -46,7 +46,7 @@ describe('asset detail headers', () => {
     expect(screen.queryByText(/^Score:/)).toBeNull();
     expect(screen.queryByRole('button', { name: /certificate \(pdf\)/i })).toBeNull();
     expect(screen.getByRole('button', { name: 'Fullscreen PDF' })).toBeInTheDocument();
-    expect(header.querySelector('.detail-header-action-close')).toBeTruthy();
+    expect(header.querySelector('.detail-header-action-close')).toBeNull();
   });
 
   it('keeps title attribute, clamp class, and action buttons when rendered with a long 120-character title', () => {

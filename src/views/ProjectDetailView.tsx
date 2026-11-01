@@ -42,8 +42,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     activePersona,
     users,
     setCurrentHashView,
-    previousHashView,
-    previousEntityId,
     setReturnToProjectId,
     setLockedProjectId,
     removeAssetFromProject,
@@ -153,6 +151,32 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const canOpenSet = (set: AssuranceSet) =>
     canManage || isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser);
 
+  const headerClient =
+    project.ownerOrganization || project.charterer || project.requestingOrganization || "";
+  const sameOrganization = (left?: string, right?: string) => {
+    if (!left?.trim() || !right?.trim()) return false;
+    const a = left.trim().toLowerCase();
+    const b = right.trim().toLowerCase();
+    return a === b || a.includes(b) || b.includes(a);
+  };
+  const chainParties = (["client", "head_contractor", "vendor"] as ContractChainRole[])
+    .map((role) => ({ role, party: contractPartyByRole(project.contractParties, role) }))
+    .filter(({ role, party }) => {
+      if (!party?.organization?.trim()) return false;
+      if (role === "client" && sameOrganization(party.organization, headerClient)) return false;
+      return true;
+    });
+  const otherParties = (project.contractParties ?? []).filter((party) => !party.chainRole);
+  const projectValueLabel = formatProjectValue(project.projectValue, project.currency);
+  const multiYearLabel =
+    project.multiYearStart && project.multiYearEnd
+      ? `${project.multiYearStart} → ${project.multiYearEnd}`
+      : "";
+  const showOnHire = Boolean(project.onHireDate) && project.onHireDate !== project.charterWindowStart;
+  const showContractParties = chainParties.length > 0 || otherParties.length > 0;
+  const showContractFacts = Boolean(projectValueLabel) || Boolean(multiYearLabel) || showOnHire;
+  const showContract = showContractParties || showContractFacts;
+
   return (
     <div className="d-flex flex-column gap-3">
       {toast && <div className="alert alert-success py-2 mb-0">{toast}</div>}
@@ -211,7 +235,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </div>
           ) : undefined
         }
-        onClose={() => setCurrentHashView(previousHashView || "project", previousEntityId)}
       />
 
       <div className="card map-card-custom p-3">
@@ -251,19 +274,17 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       </div>
 
-      {(project.contractParties?.length ||
-        project.projectValue != null ||
-        project.multiYearStart ||
-        project.onHireDate) && (
+      {showContract && (
         <div className="card map-card-custom p-3">
           <h3 className="h6 fw-bold text-dark mb-1">Contract</h3>
-          <p className="text-muted small mb-3">
-            The chain and each organization's group. This is a party list, not a directory of accounts.
-          </p>
-          <div className="d-flex flex-wrap align-items-stretch gap-2 mb-3">
-            {(["client", "head_contractor", "vendor"] as ContractChainRole[]).map((role, index) => {
-              const party = contractPartyByRole(project.contractParties, role);
-              return (
+          {showContractParties && (
+            <p className="text-muted small mb-3">
+              The chain and each organization's group. This is a party list, not a directory of accounts.
+            </p>
+          )}
+          {chainParties.length > 0 && (
+            <div className="d-flex flex-wrap align-items-stretch gap-2 mb-3">
+              {chainParties.map(({ role, party }, index) => (
                 <React.Fragment key={role}>
                   {index > 0 && (
                     <span className="d-flex align-items-center text-secondary" aria-hidden="true">
@@ -274,60 +295,53 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     <div className="text-secondary" style={{ fontSize: "0.725rem" }}>
                       {CONTRACT_CHAIN_LABELS[role]}
                     </div>
-                    {party ? (
-                      <>
-                        <div className="fw-semibold text-dark">{party.organization}</div>
-                        <span className="badge bg-light text-dark border">{party.group}</span>
-                      </>
-                    ) : (
-                      <div className="text-muted fst-italic">Not recorded</div>
+                    <div className="fw-semibold text-dark">{party?.organization}</div>
+                    {party?.group && (
+                      <span className="badge bg-light text-dark border">{party.group}</span>
                     )}
                   </div>
                 </React.Fragment>
-              );
-            })}
-          </div>
-          {(project.contractParties ?? []).some((party) => !party.chainRole) && (
+              ))}
+            </div>
+          )}
+          {otherParties.length > 0 && (
             <div className="mb-3">
               <div className="text-secondary small mb-1">Other parties</div>
               <ul className="list-group list-group-flush">
-                {(project.contractParties ?? [])
-                  .filter((party) => !party.chainRole)
-                  .map((party) => (
-                    <li
-                      key={`${party.organization}-${party.group}`}
-                      className="list-group-item px-0 py-2 d-flex justify-content-between align-items-center"
-                    >
-                      <span className="fw-semibold">{party.organization}</span>
-                      <span className="badge bg-light text-dark border">{party.group}</span>
-                    </li>
-                  ))}
+                {otherParties.map((party) => (
+                  <li
+                    key={`${party.organization}-${party.group}`}
+                    className="list-group-item px-0 py-2 d-flex justify-content-between align-items-center"
+                  >
+                    <span className="fw-semibold">{party.organization}</span>
+                    <span className="badge bg-light text-dark border">{party.group}</span>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
-          <div className="d-flex flex-wrap gap-4 small border-top pt-3">
-            <div>
-              <div className="text-secondary">Project value</div>
-              <div className="fw-semibold">
-                {formatProjectValue(project.projectValue, project.currency) || "Not recorded"}
-              </div>
+          {showContractFacts && (
+            <div className={`d-flex flex-wrap gap-4 small ${showContractParties ? "border-top pt-3" : ""}`}>
+              {projectValueLabel && (
+                <div>
+                  <div className="text-secondary">Project value</div>
+                  <div className="fw-semibold">{projectValueLabel}</div>
+                </div>
+              )}
+              {multiYearLabel && (
+                <div>
+                  <div className="text-secondary">Multi-year term</div>
+                  <div className="fw-semibold font-mono-code">{multiYearLabel}</div>
+                </div>
+              )}
+              {showOnHire && (
+                <div>
+                  <div className="text-secondary">On-hire date</div>
+                  <div className="fw-semibold font-mono-code">{project.onHireDate}</div>
+                </div>
+              )}
             </div>
-            <div>
-              <div className="text-secondary">Multi-year term</div>
-              <div className="fw-semibold font-mono-code">
-                {project.multiYearStart && project.multiYearEnd
-                  ? `${project.multiYearStart} → ${project.multiYearEnd}`
-                  : "Not recorded"}
-              </div>
-            </div>
-            <div>
-              <div className="text-secondary">
-                On-hire date <span className="badge bg-warning text-dark ms-1">Pending</span>
-              </div>
-              <div className="fw-semibold font-mono-code">{project.onHireDate || "Not set"}</div>
-              <div className="text-muted">Not confirmed with the client. Not applied to the project's sets.</div>
-            </div>
-          </div>
+          )}
         </div>
       )}
 

@@ -46,8 +46,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
     assignPersonToObject,
     activePersona,
     setCurrentHashView,
-    previousHashView,
-    previousEntityId,
     deleteCrewDocument,
     updateCrewMember,
     users,
@@ -328,7 +326,6 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         }
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
-        onClose={() => setCurrentHashView(previousHashView || 'crew', previousEntityId)}
       />
 
       {/* Photo and particulars. Identity and status stay in the header. */}

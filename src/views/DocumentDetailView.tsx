@@ -20,7 +20,7 @@ interface DocumentDetailViewProps {
 }
 
 export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ documentId }) => {
-  const { documents, setCurrentHashView, previousHashView, previousEntityId, activePersona, notifications } = useMapStore();
+  const { documents, setCurrentHashView, activePersona, notifications } = useMapStore();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
   const [selectedVersionForModal, setSelectedVersionForModal] = useState<DocumentVersion | null>(null);
@@ -170,7 +170,6 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
         }
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
-        onClose={() => setCurrentHashView(previousHashView || 'documents', previousEntityId)}
       />
 
       <div className="card map-card-custom">

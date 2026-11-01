@@ -50,8 +50,6 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
     assuranceSets,
     activePersona,
     setCurrentHashView,
-    previousHashView,
-    previousEntityId,
     updateEquipment,
     updateEquipmentAvailability,
     users,
@@ -196,7 +194,6 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
             </button>
           ) : undefined
         }
-        onClose={() => setCurrentHashView(previousHashView || 'equipment', previousEntityId)}
       />
 
       <AssetStatusCard

@@ -43,7 +43,7 @@ describe('other detail pages and wizards', () => {
     const { container } = render(<ProjectDetailView projectId={project.id} />);
     const header = container.querySelector('.map-detail-header') as HTMLElement;
     expect(header.querySelectorAll('.map-status-badge')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
     expect(screen.queryByText(/Charterer/)).toBeNull();
     if (project.serviceProvider) {
       expect(header.textContent).toMatch(/Service Provider:/);
