@@ -14,7 +14,12 @@ import { ObjectVerificationBadge } from '../components/common/ObjectVerification
 import { canPerform } from '../utils/permissionHelpers';
 import { MasterDocument } from '../types/document';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
-import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
+import {
+  calculateAssuranceSetReadiness,
+  getAssuranceSetOnTimeStatus,
+  getAssuranceSetOpenFindingsCount,
+  getAssuranceSetRemainingItems,
+} from '../utils/readinessHelpers';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
 import { AssuranceSet } from '../types/assurance';
 import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, FileCheck, RotateCcw, XCircle, Eye, Search, Inbox } from 'lucide-react';
@@ -39,6 +44,7 @@ export const ApproverDashboardView: React.FC = () => {
     rolePermissionDefaults,
     userPermissionOverrides,
     users,
+    capaItems,
     customScopes,
     activeDemoOrganization,
     activeSessionUserId,
@@ -803,13 +809,16 @@ export const ApproverDashboardView: React.FC = () => {
                 >
                   Decision {renderSortIndicator(pipelineSortField, 'status', pipelineSortDirection)}
                 </th>
+                <th style={{ whiteSpace: 'nowrap' }}>On-Time</th>
+                <th style={{ whiteSpace: 'nowrap' }}>Findings</th>
+                <th style={{ whiteSpace: 'nowrap' }}>Remaining</th>
                 <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {sortedSets.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-0">
+                  <td colSpan={10} className="p-0">
                     <EmptyState
                       icon={isFiltered ? Search : Inbox}
                       title={isFiltered ? 'No matches' : 'No approval requests found'}
@@ -820,6 +829,9 @@ export const ApproverDashboardView: React.FC = () => {
                 </tr>
               ) : (
                 setsPagination.pageItems.map((set) => {
+                  const onTime = getAssuranceSetOnTimeStatus(set);
+                  const openFindings = getAssuranceSetOpenFindingsCount(set, capaItems);
+                  const remaining = getAssuranceSetRemainingItems(set);
                   const effectiveDeadline = set.revisedCompletionDate || set.complianceDeadline;
                   const overdue = isComplianceDeadlineOverdue(set);
                   let daysLate = 0;
@@ -862,6 +874,28 @@ export const ApproverDashboardView: React.FC = () => {
                       </td>
                       <td>
                         <StatusBadge value={set.approverDecision || set.stage} />
+                      </td>
+                      <td>
+                        <span className={`badge font-mono-code ${onTime.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTime.detail}>
+                          {onTime.statusLabel}{!onTime.isOnTime && onTime.lateItemsCount > 0 ? ` (${onTime.lateItemsCount})` : ''}
+                        </span>
+                      </td>
+                      <td>
+                        {openFindings > 0 ? (
+                          <span className="badge bg-warning text-dark font-mono-code">
+                            {openFindings} open
+                          </span>
+                        ) : (
+                          <span className="text-muted font-mono-code small">0</span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="small font-mono-code text-dark">
+                          {remaining.remainingTasks} {remaining.remainingTasks === 1 ? 'task' : 'tasks'}
+                        </div>
+                        <div className="small text-muted" style={{ fontSize: '0.72rem' }}>
+                          {remaining.remainingCertificates} {remaining.remainingCertificates === 1 ? 'cert' : 'certs'}
+                        </div>
                       </td>
                       <td className="text-end" onClick={(e) => e.stopPropagation()}>
                         <button

@@ -214,8 +214,9 @@ describe('ApproverDashboardView UI Declutter', () => {
     // Check Due header is present
     expect(screen.getByRole('columnheader', { name: /due/i })).toBeInTheDocument();
 
-    // Check overdue lateness text
-    const lateText = screen.getByText(/late/i);
+    // Check overdue lateness text in the Due cell. On-Time also says Late.
+    const dueCell = screen.getByText('AS-OVERDUE-01').closest('tr')?.querySelector('.due-cell');
+    const lateText = within(dueCell as HTMLElement).getByText(/late/i);
     expect(lateText).toBeInTheDocument();
     expect(lateText).toHaveClass('text-danger');
     expect(lateText.parentElement).not.toHaveClass('font-mono-code');
