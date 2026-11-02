@@ -1977,7 +1977,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         r.documentId || r.linkedDocumentId ? r.ocrConfidence || 95 : 0,
     }));
 
-    /* a set covers exactly one asset: links and requirements of any other scope are dropped here */
+    /* normalizes set assets and assurance objects via toSingleAssetSet (ADR 0029: multi-object sets preserve all objects) */
 
     const computedSet = recalculateSetReadiness(
       toSingleAssetSet({

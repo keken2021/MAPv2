@@ -1,7 +1,7 @@
 /* 
   file summary: predefined subtype document definitions, descriptions, public templates, and organization templates for assurance sets.
   responsibilities: provides maritime-accurate standard requirements for Vessel, Crew, Activity, and Equipment subtypes with complete operational descriptions.
-  role in system: consumed by CreateAssuranceSetView.tsx during assurance set initiation; a set covers one asset, or one or more crew members on a crew set (ADR 0004, amended by ADR 0023).
+  role in system: consumed by CreateAssuranceSetView.tsx during assurance set initiation; an assurance set supports multiple assurance objects across types (ADR 0029, reversing ADR 0004 single-asset scope).
 */
 
 import { AssuranceSet, AssuranceRequirement, AssuranceSubtype, AssuranceRequirementCategory, ThreePillarsCategory, AssuranceObject, AssuranceObjectType, ObjectAssignment, TaskSection } from '../types/assurance';
@@ -34,7 +34,7 @@ export function getAssuranceObjectScope(type: AssuranceObjectType): AssuranceSub
   return type === 'vessel' ? 'Vessel' : type === 'person' ? 'Crew' : type === 'equipment' ? 'Equipment' : undefined;
 }
 
-/* the scope of a saved set as a one-entry list, including a scope no longer offered: its assuranceType, or its first subtype for a set saved without one; a set covers exactly one asset (ADR 0004) */
+/* the primary scope of a saved set as a one-entry list for legacy views, derived from its assuranceType or first subtype (multi-object sets supported under ADR 0029) */
 export function getAssuranceSetScopes(set: Pick<AssuranceSet, 'assuranceType' | 'subtypes'>): AssuranceSubtype[] {
   if (set.assuranceType) return [set.assuranceType];
   const subtypes = set.subtypes || [];
@@ -270,7 +270,7 @@ export interface AssuranceSetAsset {
   name: string;
 }
 
-/* the one asset a set covers, from its assuranceType: the vessel, the crew member or the equipment item; on a crew or equipment set the vessel fields name the host vessel only */
+/* legacy primary asset helper for single-asset views and backwards compatibility (ADR 0029 multi-object sets may hold multiple objects); on a crew or equipment set the vessel fields name the host vessel only */
 export function getAssuranceSetAsset(
   set: Pick<
     AssuranceSet,

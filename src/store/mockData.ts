@@ -1725,7 +1725,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
       },
     ],
   },
-  /* crew half of the former combined Chevron Gorgon set: a set covers exactly one asset (ADR 0004) */
+  /* dedicated crew assurance set for Chevron Gorgon Master Vetting (seeded under ADR 0004, preserved alongside multi-object sets under ADR 0029) */
   {
     id: 'AS-CRW-101-01',
     title: 'Capt. Alexander Wright — Chevron Gorgon Master Vetting',
