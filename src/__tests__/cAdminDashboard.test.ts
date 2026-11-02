@@ -1,13 +1,18 @@
 /* 
   file summary: unit test suite for c admin dashboard and sidebar access controls.
-  responsibilities: verifies that c admin dashboard shows own-created assurance sets, hides audit trail card, and hides assurance sets from the sidepanel.
+  responsibilities: verifies that c admin dashboard shows own-created assurance sets, hides audit trail card, and shows assurance sets in the sidepanel, limited to the client's organization.
   role in system: validates rbac presentation rules for c admin persona.
 */
 
 import { describe, expect, it, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { MOCK_ASSURANCE_SETS } from '../store/mockData';
-import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import {
+  isAssuranceSetAssignedToPersona,
+  isAssuranceSetOwnedOrInitiatedByOrganization,
+  isSidebarHiddenDuplicate,
+  isViewAccessibleToPersona,
+} from '../utils/rbacHelpers';
 import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
 import { getRoleScopeFlags } from '../utils/permissionHelpers';
 
@@ -38,6 +43,30 @@ describe('c admin dashboard and sidepanel rbac suite', () => {
 
       expect(isClientCreated).toBe(true);
     });
+  });
+
+  /**
+    what: tests that the client reaches the assurance sets list from the sidepanel, as the administrator does.
+    how: checks the sidebar hide rule and the route guard for both client personas.
+    with what file: src/__tests__/cAdminDashboard.test.ts testing src/utils/rbacHelpers.ts.
+  */
+  it('shows the assurance sets link and opens the route for the client', () => {
+    expect(isSidebarHiddenDuplicate('C Admin', 'assurance-sets')).toBe(false);
+    expect(isViewAccessibleToPersona('assurance-sets', null, 'C Admin')).toBe(true);
+  });
+
+  /**
+    what: tests that a client's list holds the sets their organization created or owns, and no other client's.
+    how: compares the persona filter with the organization ownership check for one client.
+    with what file: src/__tests__/cAdminDashboard.test.ts testing src/utils/rbacHelpers.ts.
+  */
+  it('limits the client list to the sets their organization created or owns', () => {
+    const organization = 'Chevron Australia Pty Ltd';
+    const visible = MOCK_ASSURANCE_SETS.filter((s) => isAssuranceSetAssignedToPersona(s, 'C Admin', organization));
+    const owned = MOCK_ASSURANCE_SETS.filter((s) => isAssuranceSetOwnedOrInitiatedByOrganization(s, organization));
+
+    expect(visible.length).toBeGreaterThan(0);
+    expect(visible.map((s) => s.id).sort()).toEqual(owned.map((s) => s.id).sort());
   });
 
   /**

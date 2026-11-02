@@ -338,8 +338,7 @@ describe('Shell header and sidebar declutter suite', () => {
     expect(submitterLabels).toContain('Audit Trail');
     expect(submitterLabels).not.toContain('Approvals');
 
-    // Administrator as client (C Admin): Dashboard, Notifications, Projects, Marketplace, Assurance Objects, CAPA, Audit Trail, User Management
-    // Note: Assurance Sets suppressed as duplicate of client dashboard
+    // Administrator as client (C Admin): Dashboard, Notifications, Projects, Marketplace, Assurance Objects, Assurance Sets, CAPA, Audit Trail, User Management
     const cAdminLabels = getSidebarLabels('C Admin');
     expect(cAdminLabels).toContain('Dashboard');
     expect(cAdminLabels).toContain('Notifications');
@@ -348,7 +347,7 @@ describe('Shell header and sidebar declutter suite', () => {
     expect(cAdminLabels).toContain('CAPA');
     expect(cAdminLabels).toContain('Audit Trail');
     expect(cAdminLabels).toContain('User Management');
-    expect(cAdminLabels).not.toContain('Assurance Sets');
+    expect(cAdminLabels).toContain('Assurance Sets');
 
     // Administrator: Dashboard, Notifications, Projects, Marketplace, Assurance Objects, Assurance Sets, Document Library, Inspections, Audit Trail, User Management, Roles & Permissions
     const adminLabels = getSidebarLabels('Administrator');

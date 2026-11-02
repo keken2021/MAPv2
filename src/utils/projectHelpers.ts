@@ -881,7 +881,7 @@ export type PppPillar = 'People' | 'Plant' | 'Process';
 /**
   what: whether an assurance set belongs under a People, Plant or Process pill.
   how: All keeps every set. A pillar keeps a set that has one requirement whose category is that pillar, or whose category maps to that pillar. A set with no requirements matches only All.
-  with what file: src/utils/projectHelpers.ts used by ProjectDetailView.tsx.
+  with what file: src/utils/projectHelpers.ts; superseded on project detail by ProjectAssuranceStatusTable (ADR 0033).
 */
 export function assuranceSetMatchesPpp(
   set: {

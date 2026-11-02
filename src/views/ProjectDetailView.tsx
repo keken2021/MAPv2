@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send, Link2 } from "lucide-react";
 import { DetailHeader } from "../components/common/DetailHeader";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
-import { StatusBadge } from "../components/common/StatusBadge";
 import { useMapStore } from "../store/useMapStore";
 import { ProjectAssetType } from "../types/project";
 import { AssuranceSet } from "../types/assurance";
@@ -12,22 +11,20 @@ import {
   contractPartyByRole,
   filterProjectsForPersona,
   formatProjectValue,
-  assuranceSetMatchesPpp,
   getProjectAssuranceSets,
   getStandaloneAssuranceSetsForAttach,
-  PppPillar,
 } from "../utils/projectHelpers";
 import { ContractChainRole } from "../types/project";
 import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
 import { getDemoSessionContext, getSessionUserForPersona } from "../utils/userRoleHelpers";
-import { calculateAssuranceSetReadiness, summarizeTaskSections } from "../utils/readinessHelpers";
+import { summarizeTaskSections } from "../utils/readinessHelpers";
 import TaskSectionCards from "../components/common/TaskSectionCards";
-import { listCertificatesShortOfContract } from "../utils/documentRenewalHelpers";
 import { ProjectAddAssetModal } from "../components/modals/ProjectAddAssetModal";
 import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
 import { RequestAssuranceSetModal } from "../components/modals/RequestAssuranceSetModal";
 import { usePagination } from "../utils/usePagination";
 import { TablePagination } from "../components/common/TablePagination";
+import { ProjectAssuranceStatusTable } from "../components/tables/ProjectAssuranceStatusTable";
 
 interface ProjectDetailViewProps {
   projectId: string;
@@ -50,6 +47,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     activeDemoOrganization,
     activeSessionUserId,
     documents,
+    capaItems,
   } = useMapStore();
 
   const sessionUser = useMemo(
@@ -68,7 +66,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
     "All",
   );
-  const [pppFilter, setPppFilter] = useState<"All" | PppPillar>("All");
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [attachSetId, setAttachSetId] = useState("");
@@ -112,7 +109,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const canManage =
     activePersona === "Administrator" || activePersona === "C Admin";
   const isReadOnly = !canManage;
-  const isCAdmin = activePersona === "C Admin";
 
   const standaloneSetsForAttach = useMemo(
     () =>
@@ -126,13 +122,15 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setActiveTab("assurance");
   }, [projectId]);
 
-  const visibleAssuranceSets = useMemo(
-    () => projectAssuranceSets.filter((set) => assuranceSetMatchesPpp(set, pppFilter)),
-    [projectAssuranceSets, pppFilter],
-  );
-
   const assetsPagination = usePagination(filteredLinks, [assetFilter]);
-  const setsPagination = usePagination(visibleAssuranceSets, [pppFilter]);
+
+  const statusViewer = useMemo(
+    () => ({
+      organization: activeDemoOrganization || sessionUser?.organization,
+      name: sessionUser?.name,
+    }),
+    [activeDemoOrganization, sessionUser],
+  );
 
   if (!project) {
     return (
@@ -525,99 +523,15 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             </div>
           )}
         <div className="card map-card-custom">
-          <div className="card-header d-flex gap-2 p-3" aria-label="Assurance pillar filter">
-            {(["All", "People", "Plant", "Process"] as const).map((pillar) => (
-              <button
-                key={pillar}
-                type="button"
-                className={`btn btn-sm ${pppFilter === pillar ? "btn-primary" : "btn-outline-secondary"}`}
-                onClick={() => setPppFilter(pillar)}
-              >
-                {pillar}
-              </button>
-            ))}
-          </div>
-          <div className="table-responsive">
-            <table className="table map-table-custom mb-0">
-              <thead>
-                <tr>
-                  <th>Set ID</th>
-                  <th>Title</th>
-                  <th>Type</th>
-                  <th>Stage</th>
-                  <th>Readiness</th>
-                  <th className="text-end">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleAssuranceSets.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-4 text-muted">
-                      {pppFilter === "All"
-                        ? "No assurance sets yet."
-                        : `No assurance sets tagged ${pppFilter} on this project.`}
-                    </td>
-                  </tr>
-                ) : (
-                  setsPagination.pageItems.map((s) => {
-                    const openable = canOpenSet(s);
-                    const shortCount = listCertificatesShortOfContract(
-                      s,
-                      documents,
-                      s.charterWindowEnd,
-                    ).length;
-                    return (
-                      <tr key={s.id}>
-                        <td className="font-mono-code text-primary">{s.id}</td>
-                        <td>
-                          {s.title}
-                          {shortCount > 0 && (
-                            <span className="badge bg-warning text-dark ms-2">
-                              {shortCount} expire before contract end
-                            </span>
-                          )}
-                        </td>
-                        <td>{s.assuranceType || "Asset"}</td>
-                        <td>
-                          <StatusBadge value={s.stage} />
-                        </td>
-                        <td>
-                          <ReadinessGauge
-                            score={calculateAssuranceSetReadiness(
-                              s,
-                              assuranceSets,
-                            )}
-                            size="sm"
-                          />
-                        </td>
-                        <td className="text-end">
-                          {openable ? (
-                            <button
-                              type="button"
-                              className={`btn btn-sm ${isCAdmin ? "btn-primary text-white" : "btn-outline-primary"} d-inline-flex align-items-center justify-content-center p-0`}
-                              style={{ width: "32px", height: "32px" }}
-                              onClick={() =>
-                                setCurrentHashView("assurance-sets", s.id)
-                              }
-                              title="View"
-                              aria-label="View"
-                            >
-                              <Eye size={16} />
-                            </button>
-                          ) : (
-                            <span className="badge bg-light text-muted border">
-                              Read-only
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-          <TablePagination {...setsPagination.controls} />
+          <ProjectAssuranceStatusTable
+            sets={projectAssuranceSets}
+            allSets={assuranceSets}
+            documents={documents}
+            capaItems={capaItems}
+            viewer={statusViewer}
+            canOpenSet={canOpenSet}
+            onOpenSet={(set) => setCurrentHashView("assurance-sets", set.id)}
+          />
           {canManage && standaloneSetsForAttach.length > 0 && (
             <div className="p-3 border-top">
               <div className="fw-semibold small mb-2">

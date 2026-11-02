@@ -159,7 +159,7 @@ describe('role access check across organizations', () => {
           expect(approverKeys).not.toContain('approver');
         } else if (persona === 'C Admin') {
           const cAdminKeys = visibleSidebarLinks.map((l) => l.key);
-          expect(cAdminKeys).not.toContain('assurance-sets');
+          expect(cAdminKeys).toContain('assurance-sets');
           expect(cAdminKeys).not.toContain('verifier');
           expect(cAdminKeys).not.toContain('inspector');
           expect(cAdminKeys).not.toContain('approver');

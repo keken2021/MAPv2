@@ -79,7 +79,6 @@ describe('approver action buttons and sidebar navigation suite', () => {
       if (persona === 'Verifier' && itemKey === 'verifier') return false;
       if (persona === 'Inspector' && itemKey === 'inspector') return false;
       if (persona === 'Approver' && itemKey === 'approver') return false;
-      if (persona === 'C Admin' && itemKey === 'assurance-sets') return false;
       return true;
     };
 
@@ -89,21 +88,20 @@ describe('approver action buttons and sidebar navigation suite', () => {
   });
 
   /**
-    what: verifies that c admin persona suppresses the assurance sets sidepanel item while keeping dashboard and other views.
+    what: verifies that c admin persona keeps the assurance sets sidepanel item alongside dashboard and other views.
     how: simulates sidebar visibleItems filtering logic for C Admin persona.
     with what file: src/__tests__/approverAndSidebar.test.ts testing AppSidebar.tsx filtering.
   */
-  it('hides assurance sets button from sidebar when active persona is C Admin', () => {
+  it('shows assurance sets button in sidebar when active persona is C Admin', () => {
     const activePersona = 'C Admin';
     const isButtonVisible = (persona: string, itemKey: string) => {
       if (persona === 'Verifier' && itemKey === 'verifier') return false;
       if (persona === 'Inspector' && itemKey === 'inspector') return false;
       if (persona === 'Approver' && itemKey === 'approver') return false;
-      if (persona === 'C Admin' && itemKey === 'assurance-sets') return false;
       return true;
     };
 
-    expect(isButtonVisible(activePersona, 'assurance-sets')).toBe(false);
+    expect(isButtonVisible(activePersona, 'assurance-sets')).toBe(true);
     expect(isButtonVisible(activePersona, 'dashboard')).toBe(true);
     expect(isButtonVisible(activePersona, 'vessels')).toBe(true);
     expect(isButtonVisible(activePersona, 'users')).toBe(true);
@@ -119,7 +117,6 @@ describe('approver action buttons and sidebar navigation suite', () => {
       if (persona === 'Verifier' && itemKey === 'verifier') return false;
       if (persona === 'Inspector' && itemKey === 'inspector') return false;
       if (persona === 'Approver' && itemKey === 'approver') return false;
-      if (persona === 'C Admin' && itemKey === 'assurance-sets') return false;
       if ((persona === 'Administrator' || persona === 'Submitter') && itemKey === 'capa') return false;
       return true;
     };
@@ -135,7 +132,6 @@ describe('approver action buttons and sidebar navigation suite', () => {
       if ((persona === 'Verifier' || persona === 'Submitter') && itemKey === 'verifier') return false;
       if (persona === 'Inspector' && itemKey === 'inspector') return false;
       if (persona === 'Approver' && itemKey === 'approver') return false;
-      if (persona === 'C Admin' && itemKey === 'assurance-sets') return false;
       if ((persona === 'Administrator' || persona === 'Submitter') && itemKey === 'capa') return false;
       return true;
     };

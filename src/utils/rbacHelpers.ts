@@ -45,8 +45,6 @@ export const SIDEBAR_HIDDEN_DUPLICATES: Record<string, readonly string[]> = {
   Verifier: ['verifier'],
   Inspector: ['inspector'],
   Approver: ['approver'],
-  'C Admin': ['assurance-sets'],
-  'Administrator as client': ['assurance-sets'],
 };
 
 export function isSidebarHiddenDuplicate(persona: UserRolePersona, view: string): boolean {
