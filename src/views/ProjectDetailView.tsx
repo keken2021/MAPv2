@@ -63,7 +63,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     [activePersona, users, activeDemoOrganization, activeSessionUserId],
   );
 
-  const [activeTab, setActiveTab] = useState<"roster" | "assurance">(
+  const [activeTab, setActiveTab] = useState<"details" | "assurance" | "roster">(
     "assurance",
   );
   const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
@@ -316,90 +316,224 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       </div>
 
-      {showContract && (
-        <div className="card map-card-custom p-3">
-          <h3 className="h6 fw-bold text-dark mb-1">Contract</h3>
-          {showContractParties && (
-            <p className="text-muted small mb-3">
-              The chain and each organization's group. This is a party list, not a directory of accounts.
-            </p>
-          )}
-          {chainParties.length > 0 && (
-            <div className="d-flex flex-wrap align-items-stretch gap-2 mb-3">
-              {chainParties.map(({ role, party }, index) => (
-                <React.Fragment key={role}>
-                  {index > 0 && (
-                    <span className="d-flex align-items-center text-secondary" aria-hidden="true">
-                      <ChevronRight size={18} />
-                    </span>
-                  )}
-                  <div className="border rounded px-3 py-2 flex-grow-1" style={{ minWidth: "12rem", flexBasis: 0 }}>
-                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>
-                      {CONTRACT_CHAIN_LABELS[role]}
-                    </div>
-                    <div className="fw-semibold text-dark">{party?.organization}</div>
-                    {party?.group && (
-                      <span className="badge bg-light text-dark border">{party.group}</span>
-                    )}
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-          )}
-          {otherParties.length > 0 && (
-            <div className="mb-3">
-              <div className="text-secondary small mb-1">Other parties</div>
-              <ul className="list-group list-group-flush">
-                {otherParties.map((party) => (
-                  <li
-                    key={`${party.organization}-${party.group}`}
-                    className="list-group-item px-0 py-2 d-flex justify-content-between align-items-center"
-                  >
-                    <span className="fw-semibold">{party.organization}</span>
-                    <span className="badge bg-light text-dark border">{party.group}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {showContractFacts && (
-            <div className={`d-flex flex-wrap gap-4 small ${showContractParties ? "border-top pt-3" : ""}`}>
-              {projectValueLabel && (
-                <div>
-                  <div className="text-secondary">Project value</div>
-                  <div className="fw-semibold">{projectValueLabel}</div>
-                </div>
-              )}
-              {multiYearLabel && (
-                <div>
-                  <div className="text-secondary">Multi-year term</div>
-                  <div className="fw-semibold font-mono-code">{multiYearLabel}</div>
-                </div>
-              )}
-              {showOnHire && (
-                <div>
-                  <div className="text-secondary">On-hire date</div>
-                  <div className="fw-semibold font-mono-code">{project.onHireDate}</div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+
 
       <ul className="nav nav-tabs">
-        {(["assurance", "roster"] as const).map((tab) => (
+        {(["details", "assurance", "roster"] as const).map((tab) => (
           <li className="nav-item" key={tab}>
             <button
               type="button"
               className={`nav-link ${activeTab === tab ? "active fw-semibold" : ""}`}
               onClick={() => setActiveTab(tab)}
             >
-              {tab === "roster" ? "Objects" : "Assurance Sets"}
+              {tab === "details"
+                ? "Details"
+                : tab === "roster"
+                  ? "Objects"
+                  : "Assurance Sets"}
             </button>
           </li>
         ))}
       </ul>
+
+      {activeTab === "details" && (
+        <div className="card map-card-custom p-4">
+          <div className="d-flex flex-wrap align-items-center gap-2 mb-3 pb-3 border-bottom">
+            <span className="badge bg-light text-dark border">
+              Status: {project.status}
+            </span>
+            {project.riskProfile && (
+              <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                Risk: {project.riskProfile.charAt(0).toUpperCase() + project.riskProfile.slice(1).toLowerCase()}
+              </span>
+            )}
+            <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+              {project.assetLinks.length} {project.assetLinks.length === 1 ? "Object" : "Objects"}
+            </span>
+            <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle">
+              {projectAssuranceSets.length} {projectAssuranceSets.length === 1 ? "Assurance Set" : "Assurance Sets"}
+            </span>
+          </div>
+
+          <div className="small">
+            <div className="row g-4">
+              <div className="col-md-6 d-flex flex-column gap-3">
+                <div className="d-flex align-items-center justify-content-between mb-1">
+                  <span
+                    className="text-uppercase fw-bold text-secondary"
+                    style={{ fontSize: "0.725rem", letterSpacing: "0.05em" }}
+                  >
+                    Project Information
+                  </span>
+                </div>
+                <div className="map-detail-row border-bottom pb-2">
+                  <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Project ID:</div>
+                  <div className="fw-bold text-dark font-mono-code">{project.id}</div>
+                </div>
+                <div className="map-detail-row border-bottom pb-2">
+                  <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Project Name:</div>
+                  <div className="fw-bold text-dark">{project.name}</div>
+                </div>
+                <div className="map-detail-row border-bottom pb-2">
+                  <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Project Type:</div>
+                  <div className="fw-bold text-dark">{project.projectType}</div>
+                </div>
+                {project.riskProfile && (
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Risk Profile:</div>
+                    <div className="fw-bold text-dark">
+                      {project.riskProfile.charAt(0).toUpperCase() + project.riskProfile.slice(1).toLowerCase()}
+                    </div>
+                  </div>
+                )}
+                {project.description && (
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Description:</div>
+                    <div className="text-dark">{project.description}</div>
+                  </div>
+                )}
+                {project.routeDescription && (
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Route:</div>
+                    <div className="text-dark">{project.routeDescription}</div>
+                  </div>
+                )}
+                {project.workLocationType && (
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Work Location:</div>
+                    <div className="fw-bold text-dark">{project.workLocationType}</div>
+                  </div>
+                )}
+                {project.workOrderRef && (
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Work Order Ref:</div>
+                    <div className="fw-bold text-dark font-mono-code">{project.workOrderRef}</div>
+                  </div>
+                )}
+                <div className="map-detail-row">
+                  <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Project Window:</div>
+                  <div className="fw-bold text-dark font-mono-code">
+                    {project.charterWindowStart} → {project.charterWindowEnd}
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-md-6 d-flex flex-column gap-3">
+                <div className="d-flex align-items-center justify-content-between mb-1">
+                  <span
+                    className="text-uppercase fw-bold text-secondary"
+                    style={{ fontSize: "0.725rem", letterSpacing: "0.05em" }}
+                  >
+                    Contract & Parties
+                  </span>
+                </div>
+                <div className="map-detail-row border-bottom pb-2">
+                  <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Client / Requesting Org:</div>
+                  <div className="fw-bold text-dark">
+                    {project.ownerOrganization || project.charterer || project.requestingOrganization}
+                  </div>
+                </div>
+                {project.charterer && project.charterer !== project.ownerOrganization && (
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Charterer:</div>
+                    <div className="fw-bold text-dark">{project.charterer}</div>
+                  </div>
+                )}
+                {project.serviceProvider && (
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Service Provider:</div>
+                    <div className="fw-bold text-dark">{project.serviceProvider}</div>
+                  </div>
+                )}
+
+                {chainParties.length > 0 && (
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary mb-1" style={{ fontSize: "0.725rem" }}>Contract Chain:</div>
+                    <div className="d-flex flex-wrap align-items-stretch gap-2 mt-1">
+                      {chainParties.map(({ role, party }, index) => (
+                        <React.Fragment key={role}>
+                          {index > 0 && (
+                            <span className="d-flex align-items-center text-secondary" aria-hidden="true">
+                              <ChevronRight size={16} />
+                            </span>
+                          )}
+                          <div className="border rounded px-2.5 py-1.5 bg-light" style={{ minWidth: "9rem" }}>
+                            <div className="text-secondary" style={{ fontSize: "0.675rem" }}>
+                              {CONTRACT_CHAIN_LABELS[role]}
+                            </div>
+                            <div className="fw-semibold text-dark small">{party?.organization}</div>
+                            {party?.group && (
+                              <span className="badge bg-white text-dark border mt-0.5" style={{ fontSize: "0.65rem" }}>
+                                {party.group}
+                              </span>
+                            )}
+                          </div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {otherParties.length > 0 && (
+                  <div className="map-detail-row border-bottom pb-2">
+                    <div className="text-secondary mb-1" style={{ fontSize: "0.725rem" }}>Other Parties:</div>
+                    <ul className="list-unstyled mb-0 mt-1">
+                      {otherParties.map((party) => (
+                        <li
+                          key={`${party.organization}-${party.group}`}
+                          className="d-flex justify-content-between align-items-center gap-2 py-1"
+                        >
+                          <span className="fw-semibold text-dark">{party.organization}</span>
+                          <span className="badge bg-light text-dark border">{party.group}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {showContractFacts && (
+                  <div className="map-detail-row">
+                    <div className="text-secondary mb-1" style={{ fontSize: "0.725rem" }}>Commercial Terms:</div>
+                    <div className="d-flex flex-wrap gap-3 mt-1">
+                      {projectValueLabel && (
+                        <div>
+                          <div className="text-secondary" style={{ fontSize: "0.7rem" }}>Project Value</div>
+                          <div className="fw-semibold text-dark">{projectValueLabel}</div>
+                        </div>
+                      )}
+                      {multiYearLabel && (
+                        <div>
+                          <div className="text-secondary" style={{ fontSize: "0.7rem" }}>Multi-year Term</div>
+                          <div className="fw-semibold font-mono-code text-dark">{multiYearLabel}</div>
+                        </div>
+                      )}
+                      {showOnHire && (
+                        <div>
+                          <div className="text-secondary" style={{ fontSize: "0.7rem" }}>On-hire Date</div>
+                          <div className="fw-semibold font-mono-code text-dark">{project.onHireDate}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-top mt-4 pt-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+              <div className="text-secondary small fw-semibold">Overall Project Readiness</div>
+              <div className="text-muted small">Aggregated from all linked assurance sets and compliance requirements.</div>
+            </div>
+            <div style={{ minWidth: "200px" }}>
+              <ReadinessGauge
+                score={calculateProjectReadiness(project, assuranceSets)}
+                size="sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === "roster" && (
         <div className="card map-card-custom">

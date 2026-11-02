@@ -252,4 +252,15 @@ describe('ProjectDetailView assurance tab', () => {
     expect(screen.getByRole('tab', { name: /all/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /vessel/i })).toBeInTheDocument();
   });
+
+  it('has a Details tab showing project information and contract parties', () => {
+    render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
+    const detailsTab = screen.getByRole('button', { name: 'Details' });
+    expect(detailsTab).toBeInTheDocument();
+
+    fireEvent.click(detailsTab);
+    expect(screen.getByText('Project Information')).toBeInTheDocument();
+    expect(screen.getByText('Contract & Parties')).toBeInTheDocument();
+    expect(screen.getByText('Overall Project Readiness')).toBeInTheDocument();
+  });
 });
