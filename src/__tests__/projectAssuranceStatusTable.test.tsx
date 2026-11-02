@@ -147,9 +147,11 @@ describe('ProjectAssuranceStatusTable', () => {
     expect(within(row).queryByText('Expired')).toBeNull();
   });
 
-  it('searches across titles, IDs, stages, objects and blocking reasons', () => {
+  it('uses ListToolbar to search across titles, IDs, stages, objects and blocking reasons', () => {
     const { container } = renderTable();
-    const searchInput = screen.getByLabelText('Search assurance sets');
+    expect(container.querySelector('.map-list-toolbar')).not.toBeNull();
+
+    const searchInput = screen.getByRole('textbox', { name: /search assurance sets/i });
 
     fireEvent.change(searchInput, { target: { value: 'Bravo' } });
     expect(rowIds(container)).toEqual(['AS-GO']);
@@ -218,11 +220,12 @@ describe('ProjectDetailView assurance tab', () => {
     expect(screen.getByText('Type')).toBeInTheDocument();
   });
 
-  it('allows searching in the Objects tab', () => {
-    render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
+  it('allows searching in the Objects tab using ListToolbar', () => {
+    const { container } = render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
     fireEvent.click(screen.getByRole('button', { name: 'Objects' }));
 
-    const searchInput = screen.getByLabelText('Search objects');
+    expect(container.querySelector('.map-list-toolbar')).not.toBeNull();
+    const searchInput = screen.getByRole('textbox', { name: /search objects/i });
     expect(searchInput).toBeInTheDocument();
 
     fireEvent.change(searchInput, { target: { value: 'nonexistent-asset-query' } });

@@ -5,9 +5,10 @@
 */
 
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTab, CountTabs } from '../common/CountTabs';
+import { ListToolbar } from '../common/ListToolbar';
 import { ReadinessGauge } from '../common/ReadinessGauge';
 import { StatusBadge } from '../common/StatusBadge';
 import { TablePagination } from '../common/TablePagination';
@@ -164,52 +165,21 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
 
   return (
     <>
-      <div className="card-header d-flex flex-column gap-2 p-3">
-        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-          <CountTabs
-            tabs={attentionTabs}
-            active={attentionFilter}
-            onChange={(key) => setAttentionFilter(key as AttentionFilter)}
-            aria-label="Filter by status"
-          />
-          <div
-            className="position-relative"
-            style={{ minWidth: '220px', maxWidth: '360px', flex: '1 1 auto' }}
-          >
-            <Search
-              size={16}
-              aria-hidden="true"
-              className="position-absolute top-50 translate-middle-y text-muted"
-              style={{ left: '12px', pointerEvents: 'none' }}
-            />
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              style={{
-                paddingLeft: '36px',
-                paddingRight: searchTerm ? '32px' : '12px',
-                height: '36px',
-                fontSize: '0.875rem',
-              }}
-              placeholder="Search assurance sets..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              aria-label="Search assurance sets"
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                className="btn btn-link btn-sm position-absolute top-50 translate-middle-y text-muted p-0"
-                style={{ right: '10px', textDecoration: 'none' }}
-                onClick={() => setSearchTerm('')}
-                aria-label="Clear search"
-              >
-                <X size={14} aria-hidden="true" />
-              </button>
-            )}
-          </div>
-        </div>
-        {activeChips.length > 0 && (
+      <div className="p-3 border-bottom">
+        <CountTabs
+          tabs={attentionTabs}
+          active={attentionFilter}
+          onChange={(key) => setAttentionFilter(key as AttentionFilter)}
+          aria-label="Filter by status"
+        />
+      </div>
+      <ListToolbar
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Search assurance sets..."
+      />
+      {activeChips.length > 0 && (
+        <div className="px-3 py-2 bg-light border-bottom">
           <ActiveFilterChips
             chips={activeChips}
             onClearAll={() => {
@@ -217,8 +187,8 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
               setSearchTerm('');
             }}
           />
-        )}
-      </div>
+        </div>
+      )}
       <div className="table-responsive">
         <table className="table map-table-custom mb-0">
           <thead>

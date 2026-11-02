@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send, Link2, Search, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send, Link2 } from "lucide-react";
+import { ListToolbar } from "../components/common/ListToolbar";
 import { DetailHeader } from "../components/common/DetailHeader";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { useMapStore } from "../store/useMapStore";
@@ -378,7 +379,11 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {activeTab === "roster" && (
         <div className="card map-card-custom">
-          <div className="card-header d-flex flex-wrap align-items-center justify-content-between gap-2 p-3">
+          <ListToolbar
+            searchValue={objectSearchTerm}
+            onSearchChange={setObjectSearchTerm}
+            searchPlaceholder="Search objects..."
+          >
             <div className="d-flex gap-2 flex-wrap">
               {(["All", "Vessel", "Crew", "Equipment"] as const).map((t) => (
                 <button
@@ -391,43 +396,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 </button>
               ))}
             </div>
-            <div
-              className="position-relative"
-              style={{ minWidth: "220px", maxWidth: "360px", flex: "1 1 auto" }}
-            >
-              <Search
-                size={16}
-                aria-hidden="true"
-                className="position-absolute top-50 translate-middle-y text-muted"
-                style={{ left: "12px", pointerEvents: "none" }}
-              />
-              <input
-                type="text"
-                className="form-control form-control-sm"
-                style={{
-                  paddingLeft: "36px",
-                  paddingRight: objectSearchTerm ? "32px" : "12px",
-                  height: "36px",
-                  fontSize: "0.875rem",
-                }}
-                placeholder="Search objects..."
-                value={objectSearchTerm}
-                onChange={(e) => setObjectSearchTerm(e.target.value)}
-                aria-label="Search objects"
-              />
-              {objectSearchTerm && (
-                <button
-                  type="button"
-                  className="btn btn-link btn-sm position-absolute top-50 translate-middle-y text-muted p-0"
-                  style={{ right: "10px", textDecoration: "none" }}
-                  onClick={() => setObjectSearchTerm("")}
-                  aria-label="Clear search"
-                >
-                  <X size={14} aria-hidden="true" />
-                </button>
-              )}
-            </div>
-          </div>
+          </ListToolbar>
           <div className="table-responsive">
             <table className="table map-table-custom align-middle mb-0">
               <thead>
