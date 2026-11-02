@@ -279,45 +279,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         }
       />
 
-      <div className="card map-card-custom p-3">
-        <div className="d-flex flex-wrap justify-content-between align-items-start gap-3">
-          <div>
-            {(project.projectType || project.riskProfile) && (
-              <div className="text-secondary small mb-1">
-                {[
-                  project.projectType,
-                  project.riskProfile
-                    ? project.riskProfile.charAt(0).toUpperCase() + project.riskProfile.slice(1).toLowerCase()
-                    : "",
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-            )}
-            {project.description && (
-              <div className="text-muted small">{project.description}</div>
-            )}
-            {project.routeDescription && (
-              <div className="text-muted small mt-1">{project.routeDescription}</div>
-            )}
-            <div className="d-flex flex-wrap gap-3 font-mono-code small mt-1">
-              {project.workLocationType && <span>{project.workLocationType}</span>}
-              {project.workOrderRef && (
-                <span className="text-secondary">WO: {project.workOrderRef}</span>
-              )}
-            </div>
-          </div>
-          <div style={{ minWidth: '220px' }}>
-            <ReadinessGauge
-              score={calculateProjectReadiness(project, assuranceSets)}
-              size="md"
-            />
-          </div>
-        </div>
-      </div>
-
-
-
       <ul className="nav nav-tabs">
         {(["details", "assurance", "roster"] as const).map((tab) => (
           <li className="nav-item" key={tab}>

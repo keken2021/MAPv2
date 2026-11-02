@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import { ProjectDetailView } from '../views/ProjectDetailView';
 import { useMapStore } from '../store/useMapStore';
 
@@ -35,18 +35,19 @@ describe('ProjectDetailView UI Declutter', () => {
     expect(within(header as HTMLElement).getByText('Northwind Dangerous Route Transit')).toBeInTheDocument();
   });
 
-  it('displays project type and risk profile as plain text in the description card', () => {
+  it('displays project type and risk profile as plain text in the Details tab', () => {
     const { container } = render(
       <ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />
     );
 
-    // The text "Charter / Voyage · Armed escort required" appears as plain text
-    expect(screen.getByText('Charter / Voyage · Armed escort required')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
 
-    // It is not rendered as a badge
-    const badgeWithText = container.querySelector('.badge:not(.map-status-badge)');
-    // No badge should contain "Armed Escort Required" or "Charter / Voyage"
-    const allBadges = container.querySelectorAll('.badge');
+    // Project type and risk profile appear as plain text in the Details tab
+    expect(screen.getByText('Charter / Voyage')).toBeInTheDocument();
+    expect(screen.getByText('Armed escort required')).toBeInTheDocument();
+
+    // They are not rendered as status badges
+    const allBadges = container.querySelectorAll('.map-status-badge');
     allBadges.forEach((b) => {
       expect(b.textContent).not.toContain('Armed Escort Required');
       expect(b.textContent).not.toContain('Charter / Voyage');
