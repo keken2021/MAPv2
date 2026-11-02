@@ -404,9 +404,6 @@ export interface AssuranceSet {
   cancelledAt?: string;
   /** reason why the set was cancelled */
   cancellationReason?: string;
-  /** optional People, Plant and/or Process tags chosen by the client (BRD V4.2 BR-15, gap G3) */
-  tags?: ThreePillarsCategory[];
-  pppTags?: ThreePillarsCategory[];
 }
 
 /**

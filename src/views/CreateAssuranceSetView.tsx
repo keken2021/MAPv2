@@ -11,7 +11,6 @@ import {
   AssuranceTemplate,
   AssuranceRequirement,
   AssuranceSubtype,
-  ThreePillarsCategory,
   ReviewMode,
   ReviewChannel,
   AuthorityValidationMethod,
@@ -259,7 +258,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [errorMessage, setErrorMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [editingDraftId, setEditingDraftId] = useState<string | undefined>(undefined);
-  const [pppTags, setPppTags] = useState<ThreePillarsCategory[]>([]);
 
   /* Step 1: Scope & General Information */
   const [title, setTitle] = useState(
@@ -802,7 +800,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           // Resume draft editing in-place
           setEditingDraftId(target.id);
           setTitle(target.title);
-          setPppTags(((target.tags || target.pppTags || []) as ThreePillarsCategory[]));
           /* the draft's own object rows; an older draft gets them from its single-asset fields */
           if (canTemplateReplaceObjects) {
             const restoredObjects = getAssuranceSetObjects(target);
@@ -1403,8 +1400,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       createdByName: creatorName,
       clientWorkflowStage: 'draft',
       assuranceObjects: selectedAssuranceObjects,
-      tags: pppTags.length > 0 ? pppTags : undefined,
-      pppTags: pppTags.length > 0 ? pppTags : undefined,
     };
 
     newSet.readinessScore = calculateAssuranceSetReadiness(newSet);
@@ -1682,8 +1677,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       clientWorkflowStage: 'draft',
       internalDeployment: isInternalDeployment,
       assuranceObjects: selectedAssuranceObjects,
-      tags: pppTags.length > 0 ? pppTags : undefined,
-      pppTags: pppTags.length > 0 ? pppTags : undefined,
     };
 
     draftSet.readinessScore = calculateAssuranceSetReadiness(draftSet);
@@ -2254,42 +2247,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           {fieldErrors.complianceDeadline}
                         </div>
                       )}
-                    </div>
-
-                    {/* People / Plant / Process Tags (BRD V4.2 BR-15, Gap G3) */}
-                    <div className="col-12">
-                      <label className="form-label text-secondary small fw-semibold d-block mb-1">
-                        Pillars <span className="text-secondary fw-normal fs-7">(Optional)</span>
-                      </label>
-                      <div className="text-muted small mb-2" style={{ fontSize: '0.8rem' }}>
-                        Tag this assurance set under People, Plant, and/or Process.
-                      </div>
-                      <div className="d-flex align-items-center gap-2 flex-wrap" role="group" aria-label="Assurance Pillars">
-                        {(['People', 'Plant', 'Process'] as const).map((pillar) => {
-                          const isSelected = pppTags.includes(pillar);
-                          return (
-                            <button
-                              key={pillar}
-                              type="button"
-                              aria-pressed={isSelected}
-                              className={`btn btn-sm px-3 py-1.5 rounded-pill fw-medium transition-all ${
-                                isSelected
-                                  ? 'btn-primary text-white shadow-2xs'
-                                  : 'btn-outline-secondary bg-white text-secondary'
-                              }`}
-                              onClick={() => {
-                                setPppTags((current) =>
-                                  current.includes(pillar)
-                                    ? current.filter((p) => p !== pillar)
-                                    : [...current, pillar]
-                                );
-                              }}
-                            >
-                              {pillar}
-                            </button>
-                          );
-                        })}
-                      </div>
                     </div>
                   </div>
                 </div>

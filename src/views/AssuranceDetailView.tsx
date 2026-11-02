@@ -26,7 +26,7 @@ import {
   isDatePermissionActive,
 } from '../utils/validation';
 import { MasterDocument } from '../types/document';
-import { AssuranceRequirement, DatePermissionGrant, TargetDateChangeRecord, ThreePillarsCategory } from '../types/assurance';
+import { AssuranceRequirement, DatePermissionGrant, TargetDateChangeRecord } from '../types/assurance';
 import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrphaned } from '../utils/projectHelpers';
 
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
@@ -60,7 +60,7 @@ import { useSessionUser } from '../utils/useSessionUser';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
 import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
 import { useOverlayBehavior } from '../utils/useOverlayBehavior';
-import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetScopes, getThreePillarsCategory } from '../utils/assuranceTemplates';
+import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetScopes } from '../utils/assuranceTemplates';
 import { findOverlappingAssuranceSets, formatOverlapError } from '../utils/assuranceOverlap';
 import {
   getRequirementDocumentView,
@@ -75,15 +75,6 @@ import { AuditTrailEvent } from '../types/audit';
 import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 
 export type AssuranceDetailTab = 'details' | 'requirements' | 'tasks' | 'audit';
-
-
-function getPillarCategory(req: AssuranceRequirement): ThreePillarsCategory {
-  const cat = (req.category ?? '').trim().toLowerCase();
-  if (cat === 'people') return 'People';
-  if (cat === 'plant') return 'Plant';
-  if (cat === 'process') return 'Process';
-  return getThreePillarsCategory(req.subtype, req.category);
-}
 
 function parseTabFromUrl(): AssuranceDetailTab {
   if (typeof window === 'undefined') return 'details';
@@ -308,34 +299,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       setActiveTab('requirements');
     }
   }, [focusedRequirementId]);
-  const assuranceSetTags: ThreePillarsCategory[] = useMemo(() => {
-    if (Array.isArray(assuranceSet?.tags) && assuranceSet.tags.length > 0) {
-      return assuranceSet.tags;
-    }
-    if (Array.isArray(assuranceSet?.pppTags) && assuranceSet.pppTags.length > 0) {
-      return assuranceSet.pppTags;
-    }
-    return [];
-  }, [assuranceSet?.tags, assuranceSet?.pppTags]);
-
-  const {
-    orderedRequirements,
-    peopleRequirements,
-    plantRequirements,
-    processRequirements,
-    otherRequirements,
-  } = useMemo(() => {
-    if (!assuranceSet?.requirements) {
-      return {
-        orderedRequirements: [],
-        peopleRequirements: [],
-        plantRequirements: [],
-        processRequirements: [],
-        otherRequirements: [],
-      };
-    }
-
-    const sortFn = (a: AssuranceRequirement, b: AssuranceRequirement) => {
+  const sortedRequirements = useMemo(() => {
+    if (!assuranceSet?.requirements) return [];
+    return [...assuranceSet.requirements].sort((a, b) => {
       let comp = 0;
       if (reqSortField === 'title') {
         comp = a.title.localeCompare(b.title);
@@ -355,36 +321,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         comp = statusA.localeCompare(statusB);
       }
       return reqSortDirection === 'asc' ? comp : -comp;
-    };
-
-    const people: AssuranceRequirement[] = [];
-    const plant: AssuranceRequirement[] = [];
-    const process: AssuranceRequirement[] = [];
-    const other: AssuranceRequirement[] = [];
-
-    for (const req of assuranceSet.requirements) {
-      if (req.isOtherDocument) {
-        other.push(req);
-      } else {
-        const pillar = getPillarCategory(req);
-        if (pillar === 'People') people.push(req);
-        else if (pillar === 'Plant') plant.push(req);
-        else process.push(req);
-      }
-    }
-
-    const sortedPeople = [...people].sort(sortFn);
-    const sortedPlant = [...plant].sort(sortFn);
-    const sortedProcess = [...process].sort(sortFn);
-    const sortedOther = [...other].sort(sortFn);
-
-    return {
-      orderedRequirements: [...sortedPeople, ...sortedPlant, ...sortedProcess, ...sortedOther],
-      peopleRequirements: sortedPeople,
-      plantRequirements: sortedPlant,
-      processRequirements: sortedProcess,
-      otherRequirements: sortedOther,
-    };
+    });
   }, [assuranceSet, reqSortField, reqSortDirection, documents]);
 
   const isCAdminPersona = activePersona === 'C Admin';
@@ -434,15 +371,21 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     );
   };
 
-  /* one page sequence for the whole table: People, Plant, Process, then other documents */
+  const mainRequirements = sortedRequirements.filter((r) => !r.isOtherDocument);
+  const otherRequirements = sortedRequirements.filter((r) => r.isOtherDocument);
+  /* one page sequence for the whole table: requirements first, then other documents */
   const requirementsPagination = usePagination(
-    orderedRequirements,
+    [...mainRequirements, ...otherRequirements],
     [assuranceSet?.id, reqSortField, reqSortDirection],
   );
+  const pageMainRequirements = requirementsPagination.pageItems.filter((r) => !r.isOtherDocument);
+  const pageOtherRequirements = requirementsPagination.pageItems.filter((r) => r.isOtherDocument);
+  const isLastRequirementsPage =
+    requirementsPagination.controls.page === requirementsPagination.controls.totalPages;
 
   useEffect(() => {
     if (!focusedRequirementId) return;
-    const items = orderedRequirements;
+    const items = [...mainRequirements, ...otherRequirements];
     const index = items.findIndex((requirement) => requirement.id === focusedRequirementId);
     if (index < 0) {
       setFocusedRequirementId(undefined);
@@ -457,7 +400,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       .querySelector(`[data-requirement-id="${focusedRequirementId}"]`)
       ?.scrollIntoView({ block: 'center' });
     setFocusedRequirementId(undefined);
-  }, [focusedRequirementId, orderedRequirements, requirementsPagination.controls.page, requirementsPagination.controls.pageSize, setFocusedRequirementId]);
+  }, [focusedRequirementId, requirementsPagination.controls.page, setFocusedRequirementId]);
 
   const activeUser = useSessionUser();
   const sessionUser = activeUser ?? undefined;
@@ -1369,18 +1312,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Client:</div>
                     <div className="fw-bold text-dark">{clientOwnerOrg}</div>
                   </div>
-                  {assuranceSetTags.length > 0 && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Tags:</div>
-                      <div className="d-flex flex-wrap gap-1 mt-1">
-                        {assuranceSetTags.map((tag) => (
-                          <span key={tag} className="badge bg-light text-dark border">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   {serviceProviderOrg && (
                     <div className="map-detail-row border-bottom pb-2">
                       <div className="text-secondary" style={{ fontSize: '0.725rem' }}>{getProviderLabel(assuranceSet.assuranceType)}:</div>
@@ -1955,241 +1886,338 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               </tr>
             </thead>
             <tbody>
-              {orderedRequirements.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="text-center text-muted py-4 small">
-                    No requirements or documents recorded.
-                  </td>
-                </tr>
-              ) : (
-                requirementsPagination.pageItems.map((req: AssuranceRequirement, idx: number) => {
-                  const currentGroup = req.isOtherDocument ? 'Other Documents' : getPillarCategory(req);
-                  const prevReq = idx > 0 ? requirementsPagination.pageItems[idx - 1] : null;
-                  const prevGroup = prevReq ? (prevReq.isOtherDocument ? 'Other Documents' : getPillarCategory(prevReq)) : null;
-                  const isFirstOfGroupOnPage = currentGroup !== prevGroup;
+              {/* Main Files (Toggled Statutory Requirements during campaign creation) */}
+              {pageMainRequirements.map((req: AssuranceRequirement) => {
+                const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+                /* an approved set shows the version it was approved against, not the live one */
+                const docView = linkedDoc ? getRequirementDocumentView(assuranceSet, req, linkedDoc) : undefined;
+                const linkedChildSet = req.linkedAssuranceSetId
+                  ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
+                  : undefined;
+                const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
+                const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
 
-                  const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
-                  /* an approved set shows the version it was approved against, not the live one */
-                  const docView = linkedDoc ? getRequirementDocumentView(assuranceSet, req, linkedDoc) : undefined;
-                  const linkedChildSet = req.linkedAssuranceSetId
-                    ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
-                    : undefined;
-                  const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
-                  const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
-
+                if (isLinkedSubSet(req) && linkedChildSet) {
                   return (
-                    <React.Fragment key={req.id}>
-                      {isFirstOfGroupOnPage && (
-                        <tr className="bg-light border-top border-bottom">
-                          <td colSpan={5} className="py-2.5 px-3">
-                            <div className="d-flex align-items-center justify-content-between">
-                              <span className="fw-bold text-secondary text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                                {currentGroup}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
+                    <tr key={req.id} className="table-light" data-requirement-id={req.id}>
+                      <td>
+                        <div className="fw-semibold text-dark">{req.title}</div>
+                        {renderTaskPlacement(req)}
+                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                          <span className="font-mono-code small text-primary">{linkedChildSet.id}</span>
+                          <span className="badge bg-info text-dark" style={{ fontSize: '0.7rem' }}>
+                            Linked Sub-Set
+                          </span>
+                        </div>
+                        {req.description && (
+                          <div className="text-secondary small mt-0.5">{req.description}</div>
+                        )}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <span className="small text-dark">
+                          {formatMaritimeDate(req.targetDate || linkedChildSet.complianceDeadline || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="text-muted small">—</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'}`}>
+                          {linkedChildSet.stage}
+                        </span>
+                      </td>
+                      <td className="text-end">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
+                          onClick={() => setCurrentHashView('assurance-sets', linkedChildSet.id)}
+                          title="View"
+                          aria-label="View"
+                        >
+                          <FolderOpen size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return (
+                  <tr key={req.id} data-requirement-id={req.id}>
+                    <td>
+                      <div className="fw-semibold text-dark">
+                        {req.title}
+                        {renderVersionBadge(req, docView)}
+                        {req.attemptNumber && (
+                          <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
+                            Attempt {req.attemptNumber}
+                          </span>
+                        )}
+                        {req.exemption && (
+                          <span
+                            className="badge bg-warning text-dark ms-1.5"
+                            style={{ fontSize: '0.65rem' }}
+                            title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
+                          >
+                            Exempted ({formatMaritimeDate(req.exemption.newDate)})
+                          </span>
+                        )}
+                        {renderTaskPlacement(req)}
+                        {req.isSpecialized && (
+                          <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1.5" style={{ fontSize: '0.65rem' }}>
+                            Custom
+                          </span>
+                        )}
+                      </div>
+                      {renderContractShortWarning(docView?.doc || linkedDoc)}
+                      {req.description && (
+                        <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
+                          {req.description}
+                        </div>
                       )}
-                      {isLinkedSubSet(req) && linkedChildSet ? (
-                        <tr className="table-light" data-requirement-id={req.id}>
-                          <td>
-                            <div className="fw-semibold text-dark">{req.title}</div>
-                            {renderTaskPlacement(req)}
-                            <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                              <span className="font-mono-code small text-primary">{linkedChildSet.id}</span>
-                              <span className="badge bg-info text-dark" style={{ fontSize: '0.7rem' }}>
-                                Linked Sub-Set
+                      {(req.assignedSubmitter || req.assignedVerifier) && (
+                        <div className="text-muted mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
+                          {req.assignedSubmitter && (
+                            <span><span className="text-secondary fw-semibold">Submitter:</span> {req.assignedSubmitter.split(' (')[0]}</span>
+                          )}
+                          {req.assignedSubmitter && req.assignedVerifier && <span>·</span>}
+                          {req.assignedVerifier && (
+                            <span><span className="text-secondary fw-semibold">Verifier:</span> {req.assignedVerifier.split(' (')[0]}</span>
+                          )}
+                        </div>
+                      )}
+                      {/* the document judged against this set's contract period, not once for every set (gap review E5, G3) */}
+                      {docView && (() => {
+                        const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
+                        if (validity.state === 'unknown') return null;
+                        const tone =
+                          validity.state === 'valid_through_period'
+                            ? 'bg-success-subtle text-success-emphasis border-success-subtle'
+                            : validity.state === 'lapsed'
+                              ? 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
+                              : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+                        return (
+                          <div className="mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
+                            <span className={`badge border ${tone}`}>{validity.label}</span>
+                            {validity.state !== 'valid_through_period' && validity.expiryDate && (
+                              <span className="text-muted">
+                                {formatMaritimeDate(validity.expiryDate)}
+                                {/* a lapse names the issuer and the party responsible for renewal (paper 16.1) */}
+                                {validity.state === 'lapsed' && (
+                                  <>
+                                    {' '}· {docView.doc.issuingAuthority || 'Issuing authority not recorded'}
+                                    {' '}· Responsible: {assuranceSet.serviceProviderOrg || 'Service provider not recorded'}
+                                  </>
+                                )}
                               </span>
-                            </div>
-                            {req.description && (
-                              <div className="text-secondary small mt-0.5">{req.description}</div>
                             )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <span className="small text-dark">
-                              {formatMaritimeDate(req.targetDate || linkedChildSet.complianceDeadline || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="text-muted small">—</span>
-                          </td>
-                          <td>
-                            <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'}`}>
-                              {linkedChildSet.stage}
-                            </span>
-                          </td>
-                          <td className="text-end">
+                          </div>
+                        );
+                      })()}
+                      {req.decisionTime && (
+                        <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                          <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
+                        </div>
+                      )}
+                      {/* how this set's verifier confirmed the document (gap review G1) */}
+                      {req.verifierStatus === 'Verified' && (
+                        <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                          <span className="text-secondary fw-semibold">Method:</span> {req.verificationMethod || 'Not recorded'}
+                          {req.overrideReason && (
+                            <span className="ms-2 text-warning-emphasis" title={req.overrideReason}>· Override</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="small text-dark">
+                          {formatMaritimeDate(req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
+                        </span>
+                        {roleActions.canChangeDates && !isCharterWindowLocked && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link p-0 text-secondary"
+                            title="Edit task target date"
+                            onClick={() => openTaskDateEdit(req)}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <ConfidenceBadge score={effectiveOcr} />
+                    </td>
+                    <td>
+                      {renderRequirementStatus(req)}
+                    </td>
+                    <td className="text-end">
+                      <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
+                        {linkedDoc ? (
+                          <>
                             <button
                               type="button"
                               className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                               style={{ width: '32px', height: '32px' }}
-                              onClick={() => setCurrentHashView('assurance-sets', linkedChildSet.id)}
-                              title="View"
-                              aria-label="View"
+                              onClick={() => setSelectedDocForReview({ doc: docView?.doc || linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
+                              title="PDF Review"
+                              aria-label="PDF Review"
                             >
-                              <FolderOpen size={16} />
+                              <FileText size={16} />
                             </button>
-                          </td>
-                        </tr>
-                      ) : (
-                        <tr data-requirement-id={req.id}>
-                          <td>
-                            <div className="fw-semibold text-dark">
-                              {req.title}
-                              {renderVersionBadge(req, docView)}
-                              {req.attemptNumber && (
-                                <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                  Attempt {req.attemptNumber}
-                                </span>
-                              )}
-                              {req.exemption && (
-                                <span
-                                  className="badge bg-warning text-dark ms-1.5"
-                                  style={{ fontSize: '0.65rem' }}
-                                  title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
-                                >
-                                  Exempted ({formatMaritimeDate(req.exemption.newDate)})
-                                </span>
-                              )}
-                              {renderTaskPlacement(req)}
-                              {req.isSpecialized && (
-                                <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                  Custom
-                                </span>
-                              )}
-                            </div>
-                            {renderContractShortWarning(docView?.doc || linkedDoc)}
-                            {req.description && (
-                              <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
-                                {req.description}
-                              </div>
+                            {canUploadHere && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
+                                onClick={() => openRequirementUpload(req, linkedDoc)}
+                                disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
+                                title={getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
+                                aria-label="Upload new version"
+                              >
+                                <RefreshCw size={16} />
+                              </button>
                             )}
-                            {(req.assignedSubmitter || req.assignedVerifier) && (
-                              <div className="text-muted mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
-                                {req.assignedSubmitter && (
-                                  <span><span className="text-secondary fw-semibold">Submitter:</span> {req.assignedSubmitter.split(' (')[0]}</span>
-                                )}
-                                {req.assignedSubmitter && req.assignedVerifier && <span>·</span>}
-                                {req.assignedVerifier && (
-                                  <span><span className="text-secondary fw-semibold">Verifier:</span> {req.assignedVerifier.split(' (')[0]}</span>
-                                )}
-                              </div>
-                            )}
-                            {/* the document judged against this set's contract period, not once for every set (gap review E5, G3) */}
-                            {docView && (() => {
-                              const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
-                              if (validity.state === 'unknown') return null;
-                              const tone =
-                                validity.state === 'valid_through_period'
-                                  ? 'bg-success-subtle text-success-emphasis border-success-subtle'
-                                  : validity.state === 'lapsed'
-                                    ? 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
-                                    : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
-                              return (
-                                <div className="mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
-                                  <span className={`badge border ${tone}`}>{validity.label}</span>
-                                  {validity.state !== 'valid_through_period' && validity.expiryDate && (
-                                    <span className="text-muted">
-                                      {formatMaritimeDate(validity.expiryDate)}
-                                      {/* a lapse names the issuer and the party responsible for renewal (paper 16.1) */}
-                                      {validity.state === 'lapsed' && (
-                                        <>
-                                          {' '}· {docView.doc.issuingAuthority || 'Issuing authority not recorded'}
-                                          {' '}· Responsible: {assuranceSet.serviceProviderOrg || 'Service provider not recorded'}
-                                        </>
-                                      )}
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                            {req.decisionTime && (
-                              <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
-                                <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
-                              </div>
-                            )}
-                            {/* how this set's verifier confirmed the document (gap review G1) */}
-                            {req.verifierStatus === 'Verified' && (
-                              <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
-                                <span className="text-secondary fw-semibold">Method:</span> {req.verificationMethod || 'Not recorded'}
-                                {req.overrideReason && (
-                                  <span className="ms-2 text-warning-emphasis" title={req.overrideReason}>· Override</span>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <div className="d-flex align-items-center gap-2">
-                              <span className="small text-dark">
-                                {formatMaritimeDate(req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
-                              </span>
-                              {roleActions.canChangeDates && !isCharterWindowLocked && (
+                          </>
+                        ) : canUploadHere ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
+                            onClick={() => openRequirementUpload(req)}
+                            title="Upload document"
+                            aria-label="Upload document"
+                          >
+                            <Upload size={16} />
+                          </button>
+                        ) : (
+                          <span className="text-secondary small">No Document</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {/* Other Documents Section Title: shown on the page that holds other documents, or on the last page */}
+              {(pageOtherRequirements.length > 0 || isLastRequirementsPage) && (
+                <tr className="bg-light border-top border-bottom">
+                  <td colSpan={4} className="py-2.5 px-3">
+                    <div className="d-flex align-items-center justify-content-between">
+                      <span className="fw-bold text-secondary text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                        Other Documents
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+
+              {/* Other Documents Rows */}
+              {otherRequirements.length > 0 ? (
+                pageOtherRequirements.map((req: AssuranceRequirement) => {
+                  const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+                  /* an approved set shows the version it was approved against, not the live one */
+                  const docView = linkedDoc ? getRequirementDocumentView(assuranceSet, req, linkedDoc) : undefined;
+                  const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
+                  const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
+
+                  return (
+                    <tr key={req.id} data-requirement-id={req.id}>
+                      <td className="fw-semibold text-dark">
+                        {req.title}
+                        {renderVersionBadge(req, docView)}
+                        {req.attemptNumber && (
+                          <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
+                            Attempt {req.attemptNumber}
+                          </span>
+                        )}
+                        {renderTaskPlacement(req)}
+                        {req.decisionTime && (
+                          <div className="text-muted mt-0.5" style={{ fontSize: '0.7rem' }}>
+                            <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
+                          </div>
+                        )}
+                        {renderContractShortWarning(docView?.doc || linkedDoc)}
+                      </td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="small text-dark">
+                            {formatMaritimeDate(req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
+                          </span>
+                          {roleActions.canChangeDates && !isCharterWindowLocked && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-link p-0 text-secondary"
+                              title="Edit task target date"
+                              onClick={() => openTaskDateEdit(req)}
+                            >
+                              <Pencil size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <ConfidenceBadge score={effectiveOcr} />
+                      </td>
+                      <td>
+                        {renderRequirementStatus(req)}
+                      </td>
+                      <td className="text-end">
+                        <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
+                          {linkedDoc ? (
+                            <>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
+                                onClick={() => setSelectedDocForReview({ doc: docView?.doc || linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
+                                title="PDF Review"
+                                aria-label="PDF Review"
+                              >
+                                <FileText size={16} />
+                              </button>
+                              {canUploadHere && (
                                 <button
                                   type="button"
-                                  className="btn btn-sm btn-link p-0 text-secondary"
-                                  title="Edit task target date"
-                                  onClick={() => openTaskDateEdit(req)}
-                                >
-                                  <Pencil size={12} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <ConfidenceBadge score={effectiveOcr} />
-                          </td>
-                          <td>
-                            {renderRequirementStatus(req)}
-                          </td>
-                          <td className="text-end">
-                            <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
-                              {linkedDoc ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                    style={{ width: '32px', height: '32px' }}
-                                    onClick={() => setSelectedDocForReview({ doc: docView?.doc || linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
-                                    title="PDF Review"
-                                    aria-label="PDF Review"
-                                  >
-                                    <FileText size={16} />
-                                  </button>
-                                  {canUploadHere && (
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
-                                      style={{ width: '32px', height: '32px' }}
-                                      onClick={() => openRequirementUpload(req, linkedDoc)}
-                                      disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
-                                      title={getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
-                                      aria-label="Upload new version"
-                                    >
-                                      <RefreshCw size={16} />
-                                    </button>
-                                  )}
-                                </>
-                              ) : canUploadHere ? (
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
+                                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
                                   style={{ width: '32px', height: '32px' }}
-                                  onClick={() => openRequirementUpload(req)}
-                                  title="Upload document"
-                                  aria-label="Upload document"
+                                  onClick={() => openRequirementUpload(req, linkedDoc)}
+                                  disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
+                                  title={getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
+                                  aria-label="Upload new version"
                                 >
-                                  <Upload size={16} />
+                                  <RefreshCw size={16} />
                                 </button>
-                              ) : (
-                                <span className="text-secondary small">No Document</span>
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                            </>
+                          ) : canUploadHere ? (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
+                              style={{ width: '32px', height: '32px' }}
+                              onClick={() => openRequirementUpload(req)}
+                              title="Upload document"
+                              aria-label="Upload document"
+                            >
+                              <Upload size={16} />
+                            </button>
+                          ) : (
+                            <span className="text-secondary small">No Document</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })
+              ) : (
+                isLastRequirementsPage && (
+                  <tr>
+                    <td colSpan={4} className="text-center text-muted py-3 small">
+                      No other documents yet.
+                    </td>
+                  </tr>
+                )
               )}
             </tbody>
           </table>
