@@ -103,7 +103,7 @@ describe('ProjectAssuranceStatusTable', () => {
     fireEvent.click(screen.getByText('Assurance set'));
     expect(rowIds(container)[0]).toBe('AS-OWN');
 
-    fireEvent.click(screen.getByText('Readiness'));
+    fireEvent.click(screen.getByText('Stage'));
     expect(rowIds(container)[0]).toBe('AS-RED');
     expect(rowIds(container)[rowIds(container).length - 1]).toBe('AS-GO');
   });
@@ -136,10 +136,11 @@ describe('ProjectAssuranceStatusTable', () => {
     expect(screen.queryByText('Status')).toBeNull();
   });
 
-  it('shows only the title, readiness score, and blocking count', () => {
+  it('shows only the title, stage badge, and blocking count', () => {
     const { container } = renderTable();
     const row = container.querySelector('tr[data-set-id="AS-RED-READY"]') as HTMLElement;
     expect(within(row).getByText('Charlie')).toBeInTheDocument();
+    expect(within(row).getByText('Approval')).toBeInTheDocument();
     expect(within(row).queryByText('AS-RED-READY')).toBeNull();
     expect(within(row).queryByText(/MV Charlie/)).toBeNull();
     expect(within(row).queryByText('No-go')).toBeNull();

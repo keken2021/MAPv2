@@ -9,7 +9,6 @@ import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTab, CountTabs } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
-import { ReadinessGauge } from '../common/ReadinessGauge';
 import { StatusBadge } from '../common/StatusBadge';
 import { TablePagination } from '../common/TablePagination';
 import type { AssuranceSet } from '../../types/assurance';
@@ -194,7 +193,7 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
           <thead>
             <tr>
               {renderSortHeader('name', 'Assurance set')}
-              {renderSortHeader('stage', 'Readiness')}
+              {renderSortHeader('stage', 'Stage')}
               <th style={{ whiteSpace: 'nowrap' }}>Blocking</th>
             </tr>
           </thead>
@@ -224,11 +223,8 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
                       )}
                       {!canOpenSet(set) && <span className="badge bg-light text-muted border ms-2">Read-only</span>}
                     </td>
-                    <td style={{ minWidth: '9rem' }} title={row.reasons.join('; ') || undefined}>
-                      <ReadinessGauge score={row.readiness} size="sm" />
-                      <div className="mt-1">
-                        <StatusBadge value={set.stage} />
-                      </div>
+                    <td title={row.reasons.join('; ') || undefined}>
+                      <StatusBadge value={set.stage} />
                     </td>
                     <td className="small" style={{ whiteSpace: 'nowrap' }}>
                       {row.blockingItems === 0 && row.openFindings === 0 ? (
