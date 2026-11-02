@@ -4,7 +4,7 @@
   role in system: consumed by useMapStore and project views.
 */
 
-import { AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype } from '../types/assurance';
+import { AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype, ThreePillarsCategory } from '../types/assurance';
 import { EXISTING_PROJECTS, getAssuranceSetCrewIds, getThreePillarsCategory } from './assuranceTemplates';
 import { UserRolePersona } from '../types/audit';
 import { CrewMember } from '../types/crew';
@@ -884,10 +884,24 @@ export type PppPillar = 'People' | 'Plant' | 'Process';
   with what file: src/utils/projectHelpers.ts used by ProjectDetailView.tsx.
 */
 export function assuranceSetMatchesPpp(
-  set: { requirements?: { category?: string; subtype?: string }[] },
+  set: {
+    tags?: ThreePillarsCategory[];
+    pppTags?: ThreePillarsCategory[];
+    requirements?: { category?: string; subtype?: string }[];
+  },
   pillar: PppPillar | 'All',
 ): boolean {
   if (pillar === 'All') return true;
+  const tags = (Array.isArray(set.tags) && set.tags.length > 0)
+    ? set.tags
+    : (Array.isArray(set.pppTags) && set.pppTags.length > 0)
+      ? set.pppTags
+      : undefined;
+
+  if (tags && tags.length > 0) {
+    return tags.some((tag) => tag.toLowerCase() === pillar.toLowerCase());
+  }
+
   const target = pillar.toLowerCase();
   return (set.requirements ?? []).some((requirement) => {
     const category = (requirement.category ?? '').trim();

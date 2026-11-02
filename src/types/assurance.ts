@@ -404,6 +404,8 @@ export interface AssuranceSet {
   cancelledAt?: string;
   /** reason why the set was cancelled */
   cancellationReason?: string;
+  tags?: ThreePillarsCategory[];
+  pppTags?: ThreePillarsCategory[];
 }
 
 /**
