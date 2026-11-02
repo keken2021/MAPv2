@@ -884,11 +884,19 @@ export type PppPillar = 'People' | 'Plant' | 'Process';
   with what file: src/utils/projectHelpers.ts used by ProjectDetailView.tsx.
 */
 export function assuranceSetMatchesPpp(
-  set: { requirements?: { category?: string; subtype?: string }[] },
+  set: {
+    requirements?: { category?: string; subtype?: string }[];
+    tags?: string[];
+    pppTags?: string[];
+  },
   pillar: PppPillar | 'All',
 ): boolean {
   if (pillar === 'All') return true;
   const target = pillar.toLowerCase();
+  const setTags = (Array.isArray(set.tags) && set.tags.length > 0 ? set.tags : set.pppTags) ?? [];
+  if (setTags.length > 0) {
+    return setTags.some((tag) => (tag ?? '').trim().toLowerCase() === target);
+  }
   return (set.requirements ?? []).some((requirement) => {
     const category = (requirement.category ?? '').trim();
     const categoryKey = category.toLowerCase();
