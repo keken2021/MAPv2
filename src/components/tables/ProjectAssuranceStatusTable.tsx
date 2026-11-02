@@ -1,11 +1,11 @@
 /*
   file summary: status-first assurance set table of one project.
-  responsibilities: shows whether each set is OK and what blocks it, worst first, with sorting, filter tabs with counts and pagination.
+  responsibilities: shows whether each set is OK and what blocks it, worst first, with sorting, search, filter tabs with counts and pagination.
   role in system: body of the Assurance Sets tab in ProjectDetailView.tsx; the rule itself is in assuranceSetStatus.ts (ADR 0033).
 */
 
 import React, { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, X } from 'lucide-react';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTab, CountTabs } from '../common/CountTabs';
 import { ReadinessGauge } from '../common/ReadinessGauge';
@@ -20,6 +20,7 @@ import {
   compareWorstFirst,
   getAssuranceSetStatus,
 } from '../../utils/assuranceSetStatus';
+import { getAssuranceSetObjects } from '../../utils/assuranceTemplates';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
 
@@ -46,7 +47,7 @@ interface ProjectAssuranceStatusTableProps {
 
 /**
   what: renders the assurance sets of a project around their status.
-  how: reads each set once through assuranceSetStatus.ts, filters by status, sorts worst first or by the chosen column, and pages the result.
+  how: reads each set once through assuranceSetStatus.ts, filters by status and search, sorts worst first or by the chosen column, and pages the result.
   with what file: src/components/tables/ProjectAssuranceStatusTable.tsx loaded by ProjectDetailView.tsx.
 */
 export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTableProps> = ({
@@ -59,6 +60,7 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
   today,
 }) => {
   const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -76,6 +78,29 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
 
   const matchesAttention = (row: Row) => attentionFilter === 'all' || row.attention === attentionFilter;
 
+  const matchesSearch = (row: Row) => {
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.trim().toLowerCase();
+    const { set } = row;
+    const objectNames = getAssuranceSetObjects(set).map((o) => `${o.name} ${o.id}`).join(' ');
+    const haystack = [
+      set.title,
+      set.id,
+      set.stage,
+      set.vesselName,
+      set.serviceProviderOrg,
+      set.clientOrg,
+      set.initiatorOrg,
+      objectNames,
+      ...row.reasons,
+      ...(set.requirements ?? []).map((r) => `${r.title} ${r.category}`),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(q);
+  };
+
   const attentionTabs: CountTab[] = [
     { key: 'all', label: 'All', count: rows.length },
     ...(Object.keys(ATTENTION_LABELS) as AssuranceSetAttention[]).map((key) => ({
@@ -90,21 +115,24 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
     ...(attentionFilter !== 'all'
       ? [{ id: 'attention', label: 'Status', value: ATTENTION_LABELS[attentionFilter], onRemove: () => setAttentionFilter('all') }]
       : []),
+    ...(searchTerm.trim()
+      ? [{ id: 'search', label: 'Search', value: searchTerm.trim(), onRemove: () => setSearchTerm('') }]
+      : []),
   ];
 
   const sortedRows = useMemo(() => {
     const direction = sortDirection === 'asc' ? 1 : -1;
 
     return rows
-      .filter(matchesAttention)
+      .filter((r) => matchesAttention(r) && matchesSearch(r))
       .sort((a, b) => {
         if (sortField === 'name') return direction * a.set.title.localeCompare(b.set.title) || compareWorstFirst(a, b);
         if (sortField === 'stage') return direction * compareAssuranceSetStage(a.set.stage, b.set.stage) || compareWorstFirst(a, b);
         return compareWorstFirst(a, b);
       });
-  }, [rows, attentionFilter, sortField, sortDirection]);
+  }, [rows, attentionFilter, searchTerm, sortField, sortDirection]);
 
-  const pagination = usePagination(sortedRows, [attentionFilter, sortField, sortDirection]);
+  const pagination = usePagination(sortedRows, [attentionFilter, searchTerm, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -132,21 +160,64 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
     </th>
   );
 
-  const hasFilter = attentionFilter !== 'all';
+  const hasFilter = attentionFilter !== 'all' || Boolean(searchTerm.trim());
 
   return (
     <>
       <div className="card-header d-flex flex-column gap-2 p-3">
-        <CountTabs
-          tabs={attentionTabs}
-          active={attentionFilter}
-          onChange={(key) => setAttentionFilter(key as AttentionFilter)}
-          aria-label="Filter by status"
-        />
-        <ActiveFilterChips
-          chips={activeChips}
-          onClearAll={() => setAttentionFilter('all')}
-        />
+        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <CountTabs
+            tabs={attentionTabs}
+            active={attentionFilter}
+            onChange={(key) => setAttentionFilter(key as AttentionFilter)}
+            aria-label="Filter by status"
+          />
+          <div
+            className="position-relative"
+            style={{ minWidth: '220px', maxWidth: '360px', flex: '1 1 auto' }}
+          >
+            <Search
+              size={16}
+              aria-hidden="true"
+              className="position-absolute top-50 translate-middle-y text-muted"
+              style={{ left: '12px', pointerEvents: 'none' }}
+            />
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              style={{
+                paddingLeft: '36px',
+                paddingRight: searchTerm ? '32px' : '12px',
+                height: '36px',
+                fontSize: '0.875rem',
+              }}
+              placeholder="Search assurance sets..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              aria-label="Search assurance sets"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                className="btn btn-link btn-sm position-absolute top-50 translate-middle-y text-muted p-0"
+                style={{ right: '10px', textDecoration: 'none' }}
+                onClick={() => setSearchTerm('')}
+                aria-label="Clear search"
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </div>
+        {activeChips.length > 0 && (
+          <ActiveFilterChips
+            chips={activeChips}
+            onClearAll={() => {
+              setAttentionFilter('all');
+              setSearchTerm('');
+            }}
+          />
+        )}
       </div>
       <div className="table-responsive">
         <table className="table map-table-custom mb-0">

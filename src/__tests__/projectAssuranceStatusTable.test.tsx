@@ -146,6 +146,27 @@ describe('ProjectAssuranceStatusTable', () => {
     expect(within(row).getByText('1 blocking')).toBeInTheDocument();
     expect(within(row).queryByText('Expired')).toBeNull();
   });
+
+  it('searches across titles, IDs, stages, objects and blocking reasons', () => {
+    const { container } = renderTable();
+    const searchInput = screen.getByLabelText('Search assurance sets');
+
+    fireEvent.change(searchInput, { target: { value: 'Bravo' } });
+    expect(rowIds(container)).toEqual(['AS-GO']);
+
+    fireEvent.change(searchInput, { target: { value: 'Alpha' } });
+    expect(rowIds(container)).toEqual(['AS-RED']);
+
+    fireEvent.change(searchInput, { target: { value: 'Rejected' } });
+    expect(rowIds(container)).toEqual(['AS-RED']);
+
+    fireEvent.change(searchInput, { target: { value: 'nonexistent-query' } });
+    expect(rowIds(container)).toEqual([]);
+    expect(screen.getByText('No assurance sets match these filters.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Clear search'));
+    expect(rowIds(container).length).toBe(6);
+  });
 });
 
 describe('client Assurance Sets link', () => {
@@ -195,5 +216,19 @@ describe('ProjectDetailView assurance tab', () => {
     expect(screen.queryByText('Asset ID')).toBeNull();
     expect(screen.getByText('Name')).toBeInTheDocument();
     expect(screen.getByText('Type')).toBeInTheDocument();
+  });
+
+  it('allows searching in the Objects tab', () => {
+    render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Objects' }));
+
+    const searchInput = screen.getByLabelText('Search objects');
+    expect(searchInput).toBeInTheDocument();
+
+    fireEvent.change(searchInput, { target: { value: 'nonexistent-asset-query' } });
+    expect(screen.getByText('No objects match these filters.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Clear search'));
+    expect(screen.queryByText('No objects match these filters.')).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send, Link2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send, Link2, Search, X } from "lucide-react";
 import { DetailHeader } from "../components/common/DetailHeader";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { useMapStore } from "../store/useMapStore";
@@ -66,6 +66,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
     "All",
   );
+  const [objectSearchTerm, setObjectSearchTerm] = useState("");
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [attachSetId, setAttachSetId] = useState("");
@@ -102,9 +103,27 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
   const filteredLinks = useMemo(() => {
     if (!project) return [];
-    if (assetFilter === "All") return project.assetLinks;
-    return project.assetLinks.filter((l) => l.assetType === assetFilter);
-  }, [project, assetFilter]);
+    const q = objectSearchTerm.trim().toLowerCase();
+    return project.assetLinks.filter((l) => {
+      if (assetFilter !== "All" && l.assetType !== assetFilter) return false;
+      if (!q) return true;
+      const activeSet = assuranceSets.find((s) => s.id === l.assuranceSetId);
+      const haystack = [
+        l.assetName,
+        l.assetId,
+        l.assetType,
+        l.providerOrganization,
+        l.assuranceSetId,
+        l.roleInProject,
+        l.notes,
+        activeSet?.title,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [project, assetFilter, objectSearchTerm, assuranceSets]);
 
   const canManage =
     activePersona === "Administrator" || activePersona === "C Admin";
@@ -122,7 +141,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setActiveTab("assurance");
   }, [projectId]);
 
-  const assetsPagination = usePagination(filteredLinks, [assetFilter]);
+  const assetsPagination = usePagination(filteredLinks, [assetFilter, objectSearchTerm]);
 
   const statusViewer = useMemo(
     () => ({
@@ -359,17 +378,55 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {activeTab === "roster" && (
         <div className="card map-card-custom">
-          <div className="card-header d-flex gap-2 p-3">
-            {(["All", "Vessel", "Crew", "Equipment"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                className={`btn btn-sm ${assetFilter === t ? "btn-primary" : "btn-outline-secondary"}`}
-                onClick={() => setAssetFilter(t)}
-              >
-                {t}
-              </button>
-            ))}
+          <div className="card-header d-flex flex-wrap align-items-center justify-content-between gap-2 p-3">
+            <div className="d-flex gap-2 flex-wrap">
+              {(["All", "Vessel", "Crew", "Equipment"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`btn btn-sm ${assetFilter === t ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => setAssetFilter(t)}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div
+              className="position-relative"
+              style={{ minWidth: "220px", maxWidth: "360px", flex: "1 1 auto" }}
+            >
+              <Search
+                size={16}
+                aria-hidden="true"
+                className="position-absolute top-50 translate-middle-y text-muted"
+                style={{ left: "12px", pointerEvents: "none" }}
+              />
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                style={{
+                  paddingLeft: "36px",
+                  paddingRight: objectSearchTerm ? "32px" : "12px",
+                  height: "36px",
+                  fontSize: "0.875rem",
+                }}
+                placeholder="Search objects..."
+                value={objectSearchTerm}
+                onChange={(e) => setObjectSearchTerm(e.target.value)}
+                aria-label="Search objects"
+              />
+              {objectSearchTerm && (
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm position-absolute top-50 translate-middle-y text-muted p-0"
+                  style={{ right: "10px", textDecoration: "none" }}
+                  onClick={() => setObjectSearchTerm("")}
+                  aria-label="Clear search"
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              )}
+            </div>
           </div>
           <div className="table-responsive">
             <table className="table map-table-custom align-middle mb-0">
@@ -386,8 +443,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 {filteredLinks.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center py-4 text-muted">
-                      No objects yet.
-                      {canManage && " Use Add Asset to compose this charter."}
+                      {objectSearchTerm || assetFilter !== "All"
+                        ? "No objects match these filters."
+                        : "No objects yet."}
+                      {canManage &&
+                        !objectSearchTerm &&
+                        assetFilter === "All" &&
+                        " Use Add Asset to compose this charter."}
                     </td>
                   </tr>
                 ) : (
