@@ -27,7 +27,7 @@ import { getAssuranceSetScopes, getAssuranceSetObjects } from '../utils/assuranc
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { ReturnedDocumentsDrawer } from '../components/drawers/ReturnedDocumentsDrawer';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
-import { filterProjectsForPersona } from '../utils/projectHelpers';
+import { filterProjectsForPersona, assuranceSetMatchesPpp, PppPillar } from '../utils/projectHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { DueCell } from '../components/common/DueCell';
@@ -62,6 +62,7 @@ export const DashboardView: React.FC = () => {
   const [submitterSortDirection, setSubmitterSortDirection] = useState<'asc' | 'desc'>('asc');
   const [submitterTableFilter, setSubmitterTableFilter] = useState<'ALL' | 'awaiting_upload' | 'returned' | 'due_this_week'>('ALL');
   const [cAdminStageFilter, setCAdminStageFilter] = useState<'ALL' | 'in_progress' | 'approved'>('ALL');
+  const [cAdminPppFilter, setCAdminPppFilter] = useState<PppPillar | 'All'>('All');
 
   /* returned documents drawer state for submitter */
   const [selectedReturnedSet, setSelectedReturnedSet] = useState<AssuranceSet | null>(null);
@@ -122,6 +123,9 @@ export const DashboardView: React.FC = () => {
       if (s.stage === 'Certified' || s.stage === 'Approved') return false;
     } else if (cAdminStageFilter === 'approved') {
       if (s.stage !== 'Certified' && s.stage !== 'Approved' && s.approverDecision !== 'Approved') return false;
+    }
+    if (!assuranceSetMatchesPpp(s, cAdminPppFilter)) {
+      return false;
     }
     const term = cAdminSearchTerm.toLowerCase();
     return (
@@ -250,7 +254,7 @@ export const DashboardView: React.FC = () => {
   };
 
   const cAdminProjectsPagination = usePagination(sortedCAdminProjects, [cAdminProjectSearchTerm, cAdminProjectSortField, cAdminProjectSortDirection]);
-  const cAdminSetsPagination = usePagination(sortedCAdminSets, [cAdminSearchTerm, cAdminStageFilter, cAdminSortField, cAdminSortDirection]);
+  const cAdminSetsPagination = usePagination(sortedCAdminSets, [cAdminSearchTerm, cAdminStageFilter, cAdminSortField, cAdminSortDirection, cAdminPppFilter]);
   const submitterSetsPagination = usePagination(sortedSubmitterSets, [submitterSearchTerm, submitterTableFilter, submitterSortField, submitterSortDirection]);
 
   const relevantSetsForPerformance = useMemo(() => {
@@ -839,6 +843,18 @@ export const DashboardView: React.FC = () => {
                 </div>
               </div>
               <div className="card-body p-0">
+                <div className="d-flex gap-2 p-3 border-bottom" aria-label="Assurance pillar filter">
+                  {(["All", "People", "Plant", "Process"] as const).map((pillar) => (
+                    <button
+                      key={pillar}
+                      type="button"
+                      className={`btn btn-sm ${cAdminPppFilter === pillar ? "btn-primary" : "btn-outline-secondary"}`}
+                      onClick={() => setCAdminPppFilter(pillar)}
+                    >
+                      {pillar}
+                    </button>
+                  ))}
+                </div>
                 <div className="table-responsive">
                   <table className="table map-table-custom align-middle mb-0">
                     <thead>
@@ -871,7 +887,9 @@ export const DashboardView: React.FC = () => {
                       {sortedCAdminSets.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="text-center py-4 text-muted">
-                            No assurance sets found.
+                            {cAdminPppFilter === 'All'
+                              ? 'No assurance sets found.'
+                              : `No assurance sets tagged ${cAdminPppFilter} found.`}
                           </td>
                         </tr>
                       ) : (

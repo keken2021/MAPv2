@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { DashboardView } from '../views/DashboardView';
@@ -7,6 +7,8 @@ import { DocumentLibraryView } from '../views/DocumentLibraryView';
 
 describe('Dashboard KPI tilesSuite', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-10-28T12:00:00Z'));
     sessionStorage.clear();
     delete (window as any).__MAP_DOC_TAB_PRESELECT;
     useMapStore.setState({
@@ -15,6 +17,10 @@ describe('Dashboard KPI tilesSuite', () => {
       isAuthenticated: true,
       currentHashView: 'dashboard',
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('Administrator dashboard', () => {
@@ -190,6 +196,66 @@ describe('Dashboard KPI tilesSuite', () => {
       const allSetsBtn = screen.getByRole('button', { name: /open \d+ assurance sets/i });
       fireEvent.click(allSetsBtn);
       expect(screen.queryByText('Filter: Approved')).toBeNull();
+    });
+
+    it('filters client assurance sets table by People, Plant and Process pills while keeping tiles unchanged', () => {
+      const mockSetPeople = {
+        id: 'AS-TEST-PEOPLE',
+        title: 'Crew Competency Campaign',
+        initiatorOrg: 'Woodside Energy Ltd',
+        stage: 'Draft',
+        tags: ['People' as const],
+        requirements: [{ category: 'People' }],
+      };
+      const mockSetPlant = {
+        id: 'AS-TEST-PLANT',
+        title: 'Hull Inspection Campaign',
+        initiatorOrg: 'Woodside Energy Ltd',
+        stage: 'Draft',
+        tags: ['Plant' as const],
+        requirements: [{ category: 'Plant' }],
+      };
+
+      useMapStore.setState({
+        assuranceSets: [mockSetPeople, mockSetPlant] as any,
+      });
+
+      render(<DashboardView />);
+
+      const allBtn = screen.getByRole('button', { name: 'All' });
+      const peopleBtn = screen.getByRole('button', { name: 'People' });
+      const plantBtn = screen.getByRole('button', { name: 'Plant' });
+      const processBtn = screen.getByRole('button', { name: 'Process' });
+
+      // Initially both sets are visible
+      expect(screen.getByText('Crew Competency Campaign')).toBeInTheDocument();
+      expect(screen.getByText('Hull Inspection Campaign')).toBeInTheDocument();
+
+      const setsTile = screen.getByRole('button', { name: /open 2 assurance sets/i });
+      expect(setsTile).toBeInTheDocument();
+
+      // Click People pill -> only people set is visible
+      fireEvent.click(peopleBtn);
+      expect(screen.getByText('Crew Competency Campaign')).toBeInTheDocument();
+      expect(screen.queryByText('Hull Inspection Campaign')).toBeNull();
+      // Tile still shows 2
+      expect(screen.getByRole('button', { name: /open 2 assurance sets/i })).toBeInTheDocument();
+
+      // Click Plant pill -> only plant set is visible
+      fireEvent.click(plantBtn);
+      expect(screen.queryByText('Crew Competency Campaign')).toBeNull();
+      expect(screen.getByText('Hull Inspection Campaign')).toBeInTheDocument();
+
+      // Click Process pill -> empty state
+      fireEvent.click(processBtn);
+      expect(screen.queryByText('Crew Competency Campaign')).toBeNull();
+      expect(screen.queryByText('Hull Inspection Campaign')).toBeNull();
+      expect(screen.getByText('No assurance sets tagged Process found.')).toBeInTheDocument();
+
+      // Click All pill -> restores both sets
+      fireEvent.click(allBtn);
+      expect(screen.getByText('Crew Competency Campaign')).toBeInTheDocument();
+      expect(screen.getByText('Hull Inspection Campaign')).toBeInTheDocument();
     });
   });
 });
