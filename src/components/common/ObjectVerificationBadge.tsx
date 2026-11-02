@@ -10,10 +10,10 @@ import { formatMaritimeDateTime } from '../../utils/formatters';
 import { getStatusTone, StatusBadge } from './StatusBadge';
 
 const VERIFICATION_SHORT_LABEL: Record<ObjectVerificationStatus, string> = {
-  'Uploaded, not externally verified': 'Uploaded',
-  'Submitted and tested': 'Submitted',
-  'Tested externally': 'External',
-  'Used and tested by several entities over time': 'Proven',
+  Uploaded: 'Uploaded',
+  'Internally verified': 'Internal',
+  'Externally verified': 'External',
+  'Verified by several entities': 'Several',
 };
 
 export const ObjectVerificationBadge: React.FC<{ verification: ObjectVerification | null }> = ({ verification }) => {

@@ -166,6 +166,22 @@ describe('Overdue Assurance Set Outcomes', () => {
   });
 
   describe('Partial Closure', () => {
+    it('rejects partial close when a mandatory task is neither verified nor exempted', () => {
+      const store = useMapStore.getState();
+      const res = store.partiallyCloseAssuranceSet(
+        baseOverdueSet.id,
+        'Client Approver',
+        'Attempt without exemption',
+      );
+      expect(res.success).toBe(false);
+      expect(res.message).toMatch(/Partial close blocked/i);
+      expect(res.message).toMatch(/REQ-02/);
+
+      const unchanged = useMapStore.getState().assuranceSets.find((s) => s.id === baseOverdueSet.id);
+      expect(unchanged?.stage).toBe('Verification');
+      expect(unchanged?.closureType).toBeUndefined();
+    });
+
     it('partially closes set: moves to Approved with closureType partial while leaving exempted tasks open', () => {
       const store = useMapStore.getState();
       store.exemptAssuranceTasks(

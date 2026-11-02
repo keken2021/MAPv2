@@ -43,8 +43,9 @@ export const STATUS_TONE_MAP: Record<string, StatusTone> = {
   'In Stock / Ready': 'success',
   'Mobilization Ready': 'success',
   'Ready for Charter': 'success',
-  'Tested externally': 'success',
-  'Used and tested by several entities over time': 'success',
+  'Externally verified': 'success',
+  'Verified by several entities': 'success',
+  'Internally verified': 'success',
   'actioned': 'success',
 
   // Warning
@@ -69,7 +70,7 @@ export const STATUS_TONE_MAP: Record<string, StatusTone> = {
   'Correction Requested': 'warning',
   'Returned for Correction': 'warning',
   'Observation': 'warning',
-  'Submitted and tested': 'warning',
+  Uploaded: 'neutral',
   'unread': 'warning',
 
   // Danger
@@ -102,7 +103,6 @@ export const STATUS_TONE_MAP: Record<string, StatusTone> = {
   'Decommissioned': 'neutral',
   'Inactive': 'neutral',
   'Superseded': 'neutral',
-  'Uploaded, not externally verified': 'neutral',
   'read': 'neutral',
 };
 

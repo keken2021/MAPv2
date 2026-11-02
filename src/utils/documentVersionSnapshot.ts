@@ -250,11 +250,11 @@ export function deriveObjectVerification(
   const chosen = externalSet || internalSet;
   const channel = chosen ? objectVerificationChannel(chosen) : undefined;
 
-  let status: ObjectVerification['status'] = 'Uploaded, not externally verified';
-  if (chosen && testedClients.size >= 2) status = 'Used and tested by several entities over time';
-  else if (externalSet) status = 'Tested externally';
-  else if (internalSet) status = 'Submitted and tested';
-  else if (!uploaded && testedSets.length === 0) status = 'Uploaded, not externally verified';
+  let status: ObjectVerification['status'] = 'Uploaded';
+  if (chosen && testedClients.size >= 2) status = 'Verified by several entities';
+  else if (externalSet) status = 'Externally verified';
+  else if (internalSet) status = 'Internally verified';
+  else if (!uploaded && testedSets.length === 0) status = 'Uploaded';
 
   const snapshot = chosen?.requirements?.find((requirement) => requirement.verifiedVersion?.verifiedAt)?.verifiedVersion;
   return {

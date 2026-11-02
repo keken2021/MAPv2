@@ -15,10 +15,10 @@ import { getOrganizationsFromUsers } from '../utils/demoSessionHelpers';
 import type { ObjectVerificationStatus } from '../types/assurance';
 
 const STATUSES: ObjectVerificationStatus[] = [
-  'Uploaded, not externally verified',
-  'Submitted and tested',
-  'Tested externally',
-  'Used and tested by several entities over time',
+  'Uploaded',
+  'Internally verified',
+  'Externally verified',
+  'Verified by several entities',
 ];
 
 describe('assurance object mock data', () => {

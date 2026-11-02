@@ -359,6 +359,12 @@ export interface MapStoreState {
     actorName: string,
     notes?: string,
   ) => { success: boolean; message?: string };
+  recordObjectStatusChange: (
+    objectId: string,
+    newStatus: import("../types/assurance").ObjectVerificationStatus,
+    changedBy: string,
+    options?: { note?: string; clientOrganization?: string },
+  ) => { success: boolean; message?: string };
   cancelAssuranceSet: (
     setId: string,
     actorName: string,
@@ -2418,6 +2424,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const state = get();
     const setTarget = state.assuranceSets.find((s) => s.id === setId);
     if (!setTarget) return { success: false, message: "Assurance set not found." };
+    const openRequired = (setTarget.requirements || []).filter(
+      (requirement) =>
+        requirement.isMandatory &&
+        !requirement.exemption &&
+        requirement.verifierStatus !== "Verified",
+    );
+    if (openRequired.length > 0) {
+      return {
+        success: false,
+        message: `Partial close blocked: ${openRequired.length} required task(s) are neither verified nor exempted (${openRequired
+          .map((requirement) => requirement.id)
+          .join(", ")}).`,
+      };
+    }
     const now = new Date().toISOString();
     const updatedSet: AssuranceSet = {
       ...setTarget,
@@ -2433,6 +2453,38 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       action: "Partial Closure",
       targetAsset: setId,
       justificationNotes: notes || `Assurance set ${setId} partially closed by ${actorName}. Exempted tasks remain open.`,
+    });
+    return { success: true };
+  },
+  recordObjectStatusChange: (objectId, newStatus, changedBy, options) => {
+    const state = get();
+    const target = state.assuranceObjects.find((object) => object.id === objectId);
+    if (!target) return { success: false, message: "Assurance object not found." };
+    const history = [...(target.statusHistory || [])];
+    const previousStatus = history.length > 0 ? history[history.length - 1].newStatus : null;
+    if (previousStatus === newStatus) {
+      return { success: true };
+    }
+    const entry = {
+      id: `OSH-${objectId}-${Date.now().toString().slice(-6)}`,
+      previousStatus,
+      newStatus,
+      changedBy,
+      changedAt: new Date().toISOString(),
+      note: options?.note,
+      clientOrganization: options?.clientOrganization,
+    };
+    set((current) => ({
+      assuranceObjects: current.assuranceObjects.map((object) =>
+        object.id === objectId
+          ? { ...object, statusHistory: [...(object.statusHistory || []), entry] }
+          : object,
+      ),
+    }));
+    get().logAuditEvent({
+      action: "Object Status Changed",
+      targetAsset: objectId,
+      justificationNotes: `${previousStatus || "none"} → ${newStatus} by ${changedBy}`,
     });
     return { success: true };
   },

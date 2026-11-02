@@ -6,7 +6,7 @@ import { VesselDetailView } from '../views/VesselDetailView';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { ObjectVerification } from '../types/assurance';
 
-const LONG_STATUS = 'Used and tested by several entities over time';
+const LONG_STATUS = 'Verified by several entities';
 
 describe('vessel detail status shown once', () => {
   beforeEach(() => {

@@ -66,10 +66,10 @@ const TYPE_LABEL: Record<AssuranceObjectType, string> = {
 };
 
 const VERIFICATION_STATUSES: ObjectVerificationStatus[] = [
-  'Uploaded, not externally verified',
-  'Submitted and tested',
-  'Tested externally',
-  'Used and tested by several entities over time',
+  'Uploaded',
+  'Internally verified',
+  'Externally verified',
+  'Verified by several entities',
 ];
 
 export interface ObjectListFilters {

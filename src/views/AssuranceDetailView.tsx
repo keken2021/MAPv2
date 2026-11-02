@@ -196,6 +196,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const [isPartialCloseModalOpen, setIsPartialCloseModalOpen] = useState(false);
   const [partialCloseNotes, setPartialCloseNotes] = useState('');
+  const [partialCloseError, setPartialCloseError] = useState<string | null>(null);
 
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancellationReasonDraft, setCancellationReasonDraft] = useState('');
@@ -867,6 +868,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   };
 
   const handleConfirmPartialClose = () => {
+    setPartialCloseError(null);
     const result = partiallyCloseAssuranceSet(
       assuranceSet.id,
       sessionUser?.name || 'Set Manager',
@@ -874,11 +876,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     );
     if (result.success) {
       setIsPartialCloseModalOpen(false);
+      setPartialCloseError(null);
       setProjectToast('Assurance set partially closed. Exempted tasks remain open.');
       setTimeout(() => setProjectToast(null), 3500);
     } else {
-      setProjectToast(result.message || 'Failed to partially close assurance set.');
-      setTimeout(() => setProjectToast(null), 3500);
+      setPartialCloseError(result.message || 'Failed to partially close assurance set.');
     }
   };
 
@@ -1491,8 +1493,22 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             </button>
                           )}
                         </div>
-                        {complianceOverdue && roleActions.canManage && assuranceSet.stage !== 'Cancelled' && assuranceSet.stage !== 'Approved' && (
+                        {roleActions.canManage && assuranceSet.stage !== 'Cancelled' && assuranceSet.stage !== 'Approved' && assuranceSet.stage !== 'Certified' && (
                           <div className="d-flex flex-wrap gap-2 mt-2 pt-2 border-top">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger py-0 px-2"
+                              style={{ fontSize: '0.72rem' }}
+                              onClick={() => {
+                                setPartialCloseNotes('');
+                                setPartialCloseError(null);
+                                setIsPartialCloseModalOpen(true);
+                              }}
+                            >
+                              Partial Closure
+                            </button>
+                            {complianceOverdue && (
+                              <>
                             <button
                               type="button"
                               className="btn btn-sm btn-outline-danger py-0 px-2"
@@ -1523,17 +1539,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             </button>
                             <button
                               type="button"
-                              className="btn btn-sm btn-outline-danger py-0 px-2"
-                              style={{ fontSize: '0.72rem' }}
-                              onClick={() => {
-                                setPartialCloseNotes('');
-                                setIsPartialCloseModalOpen(true);
-                              }}
-                            >
-                              Partial Closure
-                            </button>
-                            <button
-                              type="button"
                               className="btn btn-sm btn-danger text-white py-0 px-2"
                               style={{ fontSize: '0.72rem' }}
                               onClick={() => {
@@ -1543,6 +1548,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             >
                               Cancel Set
                             </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -2913,8 +2920,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                 </div>
                 <div className="modal-body d-flex flex-column gap-3">
                   <div className="alert alert-warning py-2 mb-0 small">
-                    <strong>Partial Closure Policy:</strong> The set will be moved to Approved status with partial closure mode. All exempted tasks will remain open and retain their extended completion dates.
+                    <strong>Partial Closure Policy:</strong> The set will be moved to Approved status with partial closure mode. Every mandatory task must be Verified or exempted first. Exempted tasks remain open with their extended dates.
                   </div>
+                  {partialCloseError && (
+                    <div className="alert alert-danger py-2 mb-0 small" role="alert">
+                      {partialCloseError}
+                    </div>
+                  )}
                   <div className="d-flex flex-column gap-1 small">
                     <div>
                       <span className="text-muted">Total tasks:</span>{' '}
@@ -2924,6 +2936,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       <span className="text-muted">Exempted tasks (will remain open):</span>{' '}
                       <span className="fw-semibold text-warning">
                         {assuranceSet.requirements.filter((r) => r.exemption).length}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted">Open required (block close):</span>{' '}
+                      <span className="fw-semibold text-danger">
+                        {assuranceSet.requirements.filter(
+                          (r) => r.isMandatory && !r.exemption && r.verifierStatus !== 'Verified',
+                        ).length}
                       </span>
                     </div>
                     <div>

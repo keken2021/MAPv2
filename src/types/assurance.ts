@@ -35,15 +35,26 @@ export type AssuranceObjectType =
   | 'document'
   | 'method';
 
-/** how far an assurance object has been checked. A later status replaces the earlier one. */
+/** how far an assurance object has been checked (BRD V4.2 §4.3). A later status replaces the earlier one. */
 export type ObjectVerificationStatus =
-  | 'Uploaded, not externally verified'
-  | 'Submitted and tested'
-  | 'Tested externally'
-  | 'Used and tested by several entities over time';
+  | 'Uploaded'
+  | 'Internally verified'
+  | 'Externally verified'
+  | 'Verified by several entities';
 
 /** a client self-check reads as internal. A review by another organization reads as external. */
 export type ObjectVerificationChannel = 'internal' | 'external';
+
+/** append-only status change on an assurance object (FR-49 / BRD screen 3). */
+export interface ObjectStatusHistoryEntry {
+  id: string;
+  previousStatus?: ObjectVerificationStatus | null;
+  newStatus: ObjectVerificationStatus;
+  changedBy: string;
+  changedAt: string;
+  note?: string;
+  clientOrganization?: string;
+}
 
 /** a person assigned to a vessel or another assurance object for a rotation. */
 export interface ObjectAssignment {
@@ -76,6 +87,8 @@ export interface AssuranceObject {
   metadata?: Record<string, unknown>;
   /** vessel rotations and assignments to other objects, with start and end dates */
   assignments?: ObjectAssignment[];
+  /** append-only verification status history for the object register */
+  statusHistory?: ObjectStatusHistoryEntry[];
 }
 
 export type ReviewMode = 'internal' | 'third_party' | 'issuing_authority' | 'mixed';

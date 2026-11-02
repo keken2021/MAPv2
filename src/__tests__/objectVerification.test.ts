@@ -53,7 +53,7 @@ const document = (id: string): MasterDocument =>
 describe('object verification status', () => {
   it('moves from uploaded, to an internal self-check, to an external review', () => {
     const uploaded = deriveObjectVerification('VESSEL-OBJ', [baseSet({})], 'Oil Company');
-    expect(uploaded?.status).toBe('Uploaded, not externally verified');
+    expect(uploaded?.status).toBe('Uploaded');
     expect(uploaded?.channel).toBeUndefined();
 
     const selfCheck = deriveObjectVerification(
@@ -79,7 +79,7 @@ describe('object verification status', () => {
       ],
       'Oil Company',
     );
-    expect(selfCheck?.status).toBe('Submitted and tested');
+    expect(selfCheck?.status).toBe('Internally verified');
     expect(selfCheck?.channel).toBe('internal');
     expect(selfCheck?.verifiedBy).toBe('A. Okonkwo (Oil Company)');
     expect(selfCheck?.verifiedAt).toBe('2026-11-02T00:00:00.000Z');
@@ -106,7 +106,7 @@ describe('object verification status', () => {
       ],
       'Oil Company',
     );
-    expect(external?.status).toBe('Tested externally');
+    expect(external?.status).toBe('Externally verified');
     expect(external?.channel).toBe('external');
     expect(external?.verifiedBy).toBe('L. Ferreira (XY Marine Assurance)');
   });
@@ -151,7 +151,7 @@ describe('object verification status', () => {
     });
 
     const seenByOil = deriveObjectVerification('VESSEL-OBJ', [oil, shell], 'Oil Company');
-    expect(seenByOil?.status).toBe('Used and tested by several entities over time');
+    expect(seenByOil?.status).toBe('Verified by several entities');
     expect(seenByOil?.channel).toBe('external');
     expect(seenByOil?.verifiedBy).toContain('XY Marine Assurance');
 

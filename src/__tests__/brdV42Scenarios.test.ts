@@ -121,7 +121,7 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
       expect(ss01?.assignedVerifier).toContain('XY Marine Assurance');
 
       const vesselVerification = deriveObjectVerification(OIL_CO_AURORA_ID, [ss01!], OIL_CO_ORG);
-      expect(vesselVerification?.status).toBe('Tested externally');
+      expect(vesselVerification?.status).toBe('Externally verified');
       expect(vesselVerification?.channel).toBe('external');
       expect(vesselVerification?.verifiedBy).toBe('L. Ferreira');
 

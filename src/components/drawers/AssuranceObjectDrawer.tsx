@@ -139,6 +139,31 @@ export const AssuranceObjectDrawer: React.FC<AssuranceObjectDrawerProps> = ({
           ))}
         </section>
 
+        <section className="map-drawer-card" aria-label="Status history">
+          <h3 className="h6 mb-2">Status history</h3>
+          {(object.statusHistory || []).length === 0 && (
+            <div className="text-muted">No status changes recorded.</div>
+          )}
+          <ul className="list-unstyled mb-0" data-testid="object-status-history">
+            {[...(object.statusHistory || [])]
+              .slice()
+              .reverse()
+              .map((entry) => (
+                <li key={entry.id} className="mb-2" data-testid="object-status-history-row">
+                  <div className="fw-semibold">
+                    {entry.previousStatus ? `${entry.previousStatus} → ` : ''}
+                    {entry.newStatus}
+                  </div>
+                  <div className="text-muted small">
+                    {entry.changedBy}
+                    {entry.changedAt ? ` · ${formatAssignmentDate(entry.changedAt.slice(0, 10))}` : ''}
+                    {entry.note ? ` · ${entry.note}` : ''}
+                  </div>
+                </li>
+              ))}
+          </ul>
+        </section>
+
         {object.type === 'person' && (
           <section className="map-drawer-card" aria-label="Assignments">
             <h3 className="h6 mb-2">Assignments</h3>

@@ -7,16 +7,17 @@
 import type {
   AssuranceObject,
   ObjectAssignment,
+  ObjectStatusHistoryEntry,
   ObjectVerification,
   ObjectVerificationChannel,
   ObjectVerificationStatus,
 } from '../types/assurance';
 
 const STATUSES: ObjectVerificationStatus[] = [
-  'Uploaded, not externally verified',
-  'Submitted and tested',
-  'Tested externally',
-  'Used and tested by several entities over time',
+  'Uploaded',
+  'Internally verified',
+  'Externally verified',
+  'Verified by several entities',
 ];
 
 /* two client checks per object, rotating status and channel so every value appears */
@@ -35,10 +36,38 @@ function clientChecks(index: number): ObjectVerification[] {
   });
 }
 
+function seededStatusHistory(index: number): ObjectStatusHistoryEntry[] {
+  const checks = clientChecks(index);
+  const first = checks[0];
+  const entries: ObjectStatusHistoryEntry[] = [
+    {
+      id: `OSH-${index}-0`,
+      previousStatus: null,
+      newStatus: 'Uploaded',
+      changedBy: first.clientOrganization,
+      changedAt: '2026-07-01T01:00:00Z',
+      note: 'Object registered',
+      clientOrganization: first.clientOrganization,
+    },
+  ];
+  if (first.status !== 'Uploaded') {
+    entries.push({
+      id: `OSH-${index}-1`,
+      previousStatus: 'Uploaded',
+      newStatus: first.status,
+      changedBy: first.verifiedBy || first.clientOrganization,
+      changedAt: first.verifiedAt || '2026-08-14T02:00:00Z',
+      clientOrganization: first.clientOrganization,
+    });
+  }
+  return entries;
+}
+
 function withChecks(object: AssuranceObject, index: number): AssuranceObject {
   return {
     ...object,
     metadata: { verifications: clientChecks(index) },
+    statusHistory: seededStatusHistory(index),
   };
 }
 
@@ -74,14 +103,14 @@ const ORIGINAL_OPERATIONAL_OBJECTS: AssuranceObject[] = [
     identifier: 'PCD-WA-8812',
     description: 'Statutory vessel border entry clearance and bio-security verification documentation',
   }, 22),
-  {
+  withChecks({
     id: 'OBJ-ORG-PPA-01',
     type: 'organization',
     name: 'Pilbara Ports Authority',
     ownerOrganization: 'Pilbara Ports Authority',
     identifier: 'PPA-PORT-AUTH',
     description: 'Regional port authority and harbour master oversight organization',
-  },
+  }, 23),
 ];
 
 /** procedures a set can cover besides the vessel, crew, and equipment */
