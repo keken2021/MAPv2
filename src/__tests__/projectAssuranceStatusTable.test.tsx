@@ -95,9 +95,8 @@ describe('ProjectAssuranceStatusTable', () => {
     expect(ids.indexOf('AS-SOON')).toBeGreaterThan(1);
   });
 
-  it('sorts by name, stage and next expiry, and the Status header returns to worst first', () => {
+  it('sorts by name and stage, defaulting to worst first', () => {
     const { container } = renderTable();
-    const worstFirst = rowIds(container);
 
     fireEvent.click(screen.getByText('Assurance set'));
     expect(rowIds(container)[0]).toBe('AS-RED');
@@ -107,15 +106,6 @@ describe('ProjectAssuranceStatusTable', () => {
     fireEvent.click(screen.getByText('Readiness'));
     expect(rowIds(container)[0]).toBe('AS-RED');
     expect(rowIds(container)[rowIds(container).length - 1]).toBe('AS-GO');
-
-    fireEvent.click(screen.getByText('Next expiry'));
-    expect(rowIds(container)[0]).toBe('AS-RED-READY');
-    expect(rowIds(container)[1]).toBe('AS-SOON');
-    /* the set with no expiry stays last */
-    expect(rowIds(container)[rowIds(container).length - 1]).toBe('AS-RED');
-
-    fireEvent.click(screen.getByText('Status'));
-    expect(rowIds(container)).toEqual(worstFirst);
   });
 
   it('filters by each status tab, with counts', () => {
@@ -139,19 +129,22 @@ describe('ProjectAssuranceStatusTable', () => {
     expect(screen.queryByRole('tab', { name: /Reviewing/ })).toBeNull();
   });
 
-  it('shows both roles and the other parties for a client who is also the provider', () => {
-    const { container } = renderTable({ organization: 'Own Co' });
-    const row = container.querySelector('tr[data-set-id="AS-OWN"]') as HTMLElement;
-    expect(within(row).getByText('As client')).toBeInTheDocument();
-    expect(within(row).getByText('As provider')).toBeInTheDocument();
+  it('does not display Your role, Next expiry, or Status columns', () => {
+    renderTable();
+    expect(screen.queryByText('Your role')).toBeNull();
+    expect(screen.queryByText('Next expiry')).toBeNull();
+    expect(screen.queryByText('Status')).toBeNull();
   });
 
-  it('shows the status, the blocking count and an expired date', () => {
+  it('shows only the title, readiness score, and blocking count', () => {
     const { container } = renderTable();
     const row = container.querySelector('tr[data-set-id="AS-RED-READY"]') as HTMLElement;
-    expect(within(row).getByText('No-go')).toBeInTheDocument();
+    expect(within(row).getByText('Charlie')).toBeInTheDocument();
+    expect(within(row).queryByText('AS-RED-READY')).toBeNull();
+    expect(within(row).queryByText(/MV Charlie/)).toBeNull();
+    expect(within(row).queryByText('No-go')).toBeNull();
     expect(within(row).getByText('1 blocking')).toBeInTheDocument();
-    expect(within(row).getByText('Expired')).toBeInTheDocument();
+    expect(within(row).queryByText('Expired')).toBeNull();
   });
 });
 
@@ -186,13 +179,21 @@ describe('ProjectDetailView assurance tab', () => {
     });
   });
 
-  it('has no pillar filter and shows the status columns', () => {
+  it('has no pillar filter, shows Objects tab without Asset ID column, and hides removed assurance columns', () => {
     render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
     expect(screen.queryByLabelText('Assurance pillar filter')).toBeNull();
     expect(screen.queryByRole('button', { name: 'People' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Plant' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Process' })).toBeNull();
-    expect(screen.getByText('Your role')).toBeInTheDocument();
-    expect(screen.getByText('Next expiry')).toBeInTheDocument();
+    expect(screen.queryByText('Your role')).toBeNull();
+    expect(screen.queryByText('Next expiry')).toBeNull();
+
+    expect(screen.getByRole('button', { name: 'Objects' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Asset Roster' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Objects' }));
+    expect(screen.queryByText('Asset ID')).toBeNull();
+    expect(screen.getByText('Name')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
   });
 });

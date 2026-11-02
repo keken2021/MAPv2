@@ -351,7 +351,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               className={`nav-link ${activeTab === tab ? "active fw-semibold" : ""}`}
               onClick={() => setActiveTab(tab)}
             >
-              {tab === "roster" ? "Asset Roster" : "Assurance Sets"}
+              {tab === "roster" ? "Objects" : "Assurance Sets"}
             </button>
           </li>
         ))}
@@ -375,7 +375,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             <table className="table map-table-custom align-middle mb-0">
               <thead>
                 <tr>
-                  <th>Asset ID</th>
                   <th>Name</th>
                   <th>Type</th>
                   <th>Service Provider</th>
@@ -386,8 +385,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               <tbody>
                 {filteredLinks.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-4 text-muted">
-                      No assets yet.
+                    <td colSpan={5} className="text-center py-4 text-muted">
+                      No objects yet.
                       {canManage && " Use Add Asset to compose this charter."}
                     </td>
                   </tr>
@@ -398,9 +397,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                     );
                     return (
                       <tr key={link.id}>
-                        <td className="font-mono-code fw-semibold text-primary">
-                          {link.assetId}
-                        </td>
                         <td className="fw-semibold text-dark">
                           {link.assetName}
                         </td>

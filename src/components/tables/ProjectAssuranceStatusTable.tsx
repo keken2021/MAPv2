@@ -8,47 +8,28 @@ import React, { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTab, CountTabs } from '../common/CountTabs';
-import { DueCell } from '../common/DueCell';
 import { ReadinessGauge } from '../common/ReadinessGauge';
-import { StatusBadge, StatusTone } from '../common/StatusBadge';
+import { StatusBadge } from '../common/StatusBadge';
 import { TablePagination } from '../common/TablePagination';
 import type { AssuranceSet } from '../../types/assurance';
 import type { CapaItem } from '../../types/capa';
 import type { MasterDocument } from '../../types/document';
 import {
-  ASSURANCE_SET_STATUS_RULES,
   AssuranceSetAttention,
-  AssuranceSetStatus,
   compareAssuranceSetStage,
   compareWorstFirst,
   getAssuranceSetStatus,
-  getNextExpiry,
-  getPartyRoles,
-  PartyRole,
 } from '../../utils/assuranceSetStatus';
-import { getAssuranceSetObjects } from '../../utils/assuranceTemplates';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
 
-type SortField = 'status' | 'name' | 'stage' | 'expiry';
+type SortField = 'name' | 'stage';
 type AttentionFilter = 'all' | AssuranceSetAttention;
-
-const STATUS_TONES: Record<AssuranceSetStatus, StatusTone> = {
-  'No-go': 'danger',
-  Conditional: 'warning',
-  Go: 'success',
-};
 
 const ATTENTION_LABELS: Record<AssuranceSetAttention, string> = {
   needs_attention: 'Needs attention',
   on_track: 'On track',
   done: 'Done',
-};
-
-const ROLE_LABELS: Record<PartyRole, string> = {
-  client: 'As client',
-  provider: 'As provider',
-  reviewing: 'Reviewing',
 };
 
 interface ProjectAssuranceStatusTableProps {
@@ -57,17 +38,10 @@ interface ProjectAssuranceStatusTableProps {
   allSets: AssuranceSet[];
   documents: MasterDocument[];
   capaItems: CapaItem[];
-  viewer: { organization?: string; name?: string };
+  viewer?: { organization?: string; name?: string };
   canOpenSet: (set: AssuranceSet) => boolean;
   onOpenSet: (set: AssuranceSet) => void;
   today?: Date;
-}
-
-/* the objects a set covers as one short line: the first name, then how many more */
-function coveredLabel(set: AssuranceSet): string {
-  const names = getAssuranceSetObjects(set).map((object) => object.name).filter(Boolean);
-  if (names.length === 0) return set.vesselName || '';
-  return names.length === 1 ? names[0] : `${names[0]} +${names.length - 1} more`;
 }
 
 /**
@@ -80,13 +54,12 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
   allSets,
   documents,
   capaItems,
-  viewer,
   canOpenSet,
   onOpenSet,
   today,
 }) => {
   const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('all');
-  const [sortField, setSortField] = useState<SortField>('status');
+  const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const rows = useMemo(
@@ -95,10 +68,8 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
         set,
         ...getAssuranceSetStatus(set, documents, capaItems, today),
         readiness: calculateAssuranceSetReadiness(set, allSets),
-        nextExpiry: getNextExpiry(set, documents),
-        ...getPartyRoles(set, viewer),
       })),
-    [sets, allSets, documents, capaItems, viewer, today],
+    [sets, allSets, documents, capaItems, today],
   );
 
   type Row = (typeof rows)[number];
@@ -123,22 +94,13 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
 
   const sortedRows = useMemo(() => {
     const direction = sortDirection === 'asc' ? 1 : -1;
-    const expiryTime = (row: Row) => (row.nextExpiry ? new Date(row.nextExpiry.date).getTime() : Number.NaN);
 
     return rows
       .filter(matchesAttention)
       .sort((a, b) => {
         if (sortField === 'name') return direction * a.set.title.localeCompare(b.set.title) || compareWorstFirst(a, b);
         if (sortField === 'stage') return direction * compareAssuranceSetStage(a.set.stage, b.set.stage) || compareWorstFirst(a, b);
-        if (sortField === 'expiry') {
-          /* a set with no expiry stays last in either direction */
-          const [left, right] = [expiryTime(a), expiryTime(b)];
-          if (Number.isNaN(left) || Number.isNaN(right)) {
-            return Number(Number.isNaN(left)) - Number(Number.isNaN(right)) || compareWorstFirst(a, b);
-          }
-          return direction * (left - right) || compareWorstFirst(a, b);
-        }
-        return direction * compareWorstFirst(a, b);
+        return compareWorstFirst(a, b);
       });
   }, [rows, attentionFilter, sortField, sortDirection]);
 
@@ -156,7 +118,7 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
   const renderSortHeader = (field: SortField, label: string) => (
     <th
       onClick={() => handleSort(field)}
-      aria-sort={sortField === field ? (sortDirection === 'asc' ? 'ascending' : 'descending') : undefined}
+      aria-sort={sortField === field ? (sortDirection === 'asc' ? 'descending' : 'ascending') : undefined}
       style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
     >
       {label}
@@ -191,24 +153,20 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
           <thead>
             <tr>
               {renderSortHeader('name', 'Assurance set')}
-              {renderSortHeader('status', 'Status')}
               {renderSortHeader('stage', 'Readiness')}
               <th style={{ whiteSpace: 'nowrap' }}>Blocking</th>
-              {renderSortHeader('expiry', 'Next expiry')}
-              <th style={{ whiteSpace: 'nowrap' }}>Your role</th>
             </tr>
           </thead>
           <tbody>
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-4 text-muted">
+                <td colSpan={3} className="text-center py-4 text-muted">
                   {hasFilter ? 'No assurance sets match these filters.' : 'No assurance sets yet.'}
                 </td>
               </tr>
             ) : (
               pagination.pageItems.map((row) => {
                 const { set } = row;
-                const covered = coveredLabel(set);
                 return (
                   <tr key={set.id} data-set-id={set.id}>
                     <td>
@@ -223,20 +181,9 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
                       ) : (
                         <span className="fw-semibold text-dark">{set.title}</span>
                       )}
-                      <div className="small text-muted">
-                        <span className="font-mono-code">{set.id}</span>
-                        {covered ? ` · ${covered}` : ''}
-                      </div>
-                      {!canOpenSet(set) && <span className="badge bg-light text-muted border">Read-only</span>}
+                      {!canOpenSet(set) && <span className="badge bg-light text-muted border ms-2">Read-only</span>}
                     </td>
-                    <td title={row.reasons.join('; ') || undefined}>
-                      {row.status ? (
-                        <StatusBadge value={row.status} tone={STATUS_TONES[row.status]} />
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                    </td>
-                    <td style={{ minWidth: '9rem' }}>
+                    <td style={{ minWidth: '9rem' }} title={row.reasons.join('; ') || undefined}>
                       <ReadinessGauge score={row.readiness} size="sm" />
                       <div className="mt-1">
                         <StatusBadge value={set.stage} />
@@ -254,31 +201,6 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
                             {row.openFindings} open {row.openFindings === 1 ? 'finding' : 'findings'}
                           </div>
                         </>
-                      )}
-                    </td>
-                    <td className="small">
-                      <DueCell
-                        date={row.nextExpiry?.date}
-                        isExpiry
-                        expiryWarningDays={ASSURANCE_SET_STATUS_RULES.expirySoonDays}
-                        today={today}
-                      />
-                      {row.nextExpiry && <div className="text-muted">{row.nextExpiry.label}</div>}
-                    </td>
-                    <td className="small">
-                      {row.roles.length > 0 ? (
-                        <div className="d-flex flex-wrap gap-1">
-                          {row.roles.map((role) => (
-                            <span key={role} className="badge bg-light text-dark border">
-                              {ROLE_LABELS[role]}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted">—</span>
-                      )}
-                      {row.otherParties.length > 0 && (
-                        <div className="text-muted mt-1">{row.otherParties.join(', ')}</div>
                       )}
                     </td>
                   </tr>
