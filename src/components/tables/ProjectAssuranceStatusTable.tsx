@@ -32,7 +32,6 @@ import { usePagination } from '../../utils/usePagination';
 
 type SortField = 'status' | 'name' | 'stage' | 'expiry';
 type AttentionFilter = 'all' | AssuranceSetAttention;
-type RoleFilter = 'all' | PartyRole;
 
 const STATUS_TONES: Record<AssuranceSetStatus, StatusTone> = {
   'No-go': 'danger',
@@ -73,7 +72,7 @@ function coveredLabel(set: AssuranceSet): string {
 
 /**
   what: renders the assurance sets of a project around their status.
-  how: reads each set once through assuranceSetStatus.ts, applies the two filter rows, sorts worst first or by the chosen column, and pages the result. Each row of tabs counts within the other row's choice.
+  how: reads each set once through assuranceSetStatus.ts, filters by status, sorts worst first or by the chosen column, and pages the result.
   with what file: src/components/tables/ProjectAssuranceStatusTable.tsx loaded by ProjectDetailView.tsx.
 */
 export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTableProps> = ({
@@ -87,7 +86,6 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
   today,
 }) => {
   const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('all');
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [sortField, setSortField] = useState<SortField>('status');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -106,33 +104,20 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
   type Row = (typeof rows)[number];
 
   const matchesAttention = (row: Row) => attentionFilter === 'all' || row.attention === attentionFilter;
-  const matchesRole = (row: Row) => roleFilter === 'all' || row.roles.includes(roleFilter);
 
   const attentionTabs: CountTab[] = [
-    { key: 'all', label: 'All', count: rows.filter(matchesRole).length },
+    { key: 'all', label: 'All', count: rows.length },
     ...(Object.keys(ATTENTION_LABELS) as AssuranceSetAttention[]).map((key) => ({
       key,
       label: ATTENTION_LABELS[key],
-      count: rows.filter((row) => row.attention === key && matchesRole(row)).length,
+      count: rows.filter((row) => row.attention === key).length,
       tone: key === 'needs_attention' ? ('warn' as const) : undefined,
-    })),
-  ];
-
-  const roleTabs: CountTab[] = [
-    { key: 'all', label: 'All roles', count: rows.filter(matchesAttention).length },
-    ...(Object.keys(ROLE_LABELS) as PartyRole[]).map((key) => ({
-      key,
-      label: ROLE_LABELS[key],
-      count: rows.filter((row) => row.roles.includes(key) && matchesAttention(row)).length,
     })),
   ];
 
   const activeChips: FilterChip[] = [
     ...(attentionFilter !== 'all'
       ? [{ id: 'attention', label: 'Status', value: ATTENTION_LABELS[attentionFilter], onRemove: () => setAttentionFilter('all') }]
-      : []),
-    ...(roleFilter !== 'all'
-      ? [{ id: 'role', label: 'Role', value: ROLE_LABELS[roleFilter], onRemove: () => setRoleFilter('all') }]
       : []),
   ];
 
@@ -141,7 +126,7 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
     const expiryTime = (row: Row) => (row.nextExpiry ? new Date(row.nextExpiry.date).getTime() : Number.NaN);
 
     return rows
-      .filter((row) => matchesAttention(row) && matchesRole(row))
+      .filter(matchesAttention)
       .sort((a, b) => {
         if (sortField === 'name') return direction * a.set.title.localeCompare(b.set.title) || compareWorstFirst(a, b);
         if (sortField === 'stage') return direction * compareAssuranceSetStage(a.set.stage, b.set.stage) || compareWorstFirst(a, b);
@@ -155,9 +140,9 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
         }
         return direction * compareWorstFirst(a, b);
       });
-  }, [rows, attentionFilter, roleFilter, sortField, sortDirection]);
+  }, [rows, attentionFilter, sortField, sortDirection]);
 
-  const pagination = usePagination(sortedRows, [attentionFilter, roleFilter, sortField, sortDirection]);
+  const pagination = usePagination(sortedRows, [attentionFilter, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -185,7 +170,7 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
     </th>
   );
 
-  const hasFilter = attentionFilter !== 'all' || roleFilter !== 'all';
+  const hasFilter = attentionFilter !== 'all';
 
   return (
     <>
@@ -196,18 +181,9 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
           onChange={(key) => setAttentionFilter(key as AttentionFilter)}
           aria-label="Filter by status"
         />
-        <CountTabs
-          tabs={roleTabs}
-          active={roleFilter}
-          onChange={(key) => setRoleFilter(key as RoleFilter)}
-          aria-label="Filter by your role"
-        />
         <ActiveFilterChips
           chips={activeChips}
-          onClearAll={() => {
-            setAttentionFilter('all');
-            setRoleFilter('all');
-          }}
+          onClearAll={() => setAttentionFilter('all')}
         />
       </div>
       <div className="table-responsive">

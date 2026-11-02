@@ -132,20 +132,11 @@ describe('ProjectAssuranceStatusTable', () => {
     expect(rowIds(container)).toEqual(['AS-GO']);
   });
 
-  it('filters by each role tab, and each row counts within the other', () => {
-    const { container } = renderTable({ organization: 'Own Co' });
-
-    clickTab(/As client \(1\)/);
-    expect(rowIds(container)).toEqual(['AS-OWN']);
-    expect(screen.getByRole('tab', { name: /On track \(1\)/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Done \(0\)/ })).toBeInTheDocument();
-
-    clickTab(/As provider \(1\)/);
-    expect(rowIds(container)).toEqual(['AS-OWN']);
-
-    clickTab(/Reviewing \(0\)/);
-    expect(rowIds(container)).toEqual([]);
-    expect(screen.getByText('No assurance sets match these filters.')).toBeInTheDocument();
+  it('omits role filter tabs so role filtering relies on header persona selection', () => {
+    renderTable({ organization: 'Own Co' });
+    expect(screen.queryByRole('tab', { name: /As client/ })).toBeNull();
+    expect(screen.queryByRole('tab', { name: /As provider/ })).toBeNull();
+    expect(screen.queryByRole('tab', { name: /Reviewing/ })).toBeNull();
   });
 
   it('shows both roles and the other parties for a client who is also the provider', () => {
