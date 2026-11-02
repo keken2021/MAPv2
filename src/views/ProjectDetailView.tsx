@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send, Link2 } from "lucide-react";
 import { ListToolbar } from "../components/common/ListToolbar";
+import { CountTab, CountTabs } from "../components/common/CountTabs";
+import { ActiveFilterChips, FilterChip } from "../components/common/ActiveFilterChips";
 import { DetailHeader } from "../components/common/DetailHeader";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { useMapStore } from "../store/useMapStore";
@@ -143,6 +145,28 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   }, [projectId]);
 
   const assetsPagination = usePagination(filteredLinks, [assetFilter, objectSearchTerm]);
+
+  const objectTabs: CountTab[] = useMemo(() => {
+    const links = project?.assetLinks ?? [];
+    return [
+      { key: "All", label: "All", count: links.length },
+      { key: "Vessel", label: "Vessel", count: links.filter((l) => l.assetType === "Vessel").length },
+      { key: "Crew", label: "Crew", count: links.filter((l) => l.assetType === "Crew").length },
+      { key: "Equipment", label: "Equipment", count: links.filter((l) => l.assetType === "Equipment").length },
+    ];
+  }, [project]);
+
+  const objectChips: FilterChip[] = useMemo(
+    () => [
+      ...(assetFilter !== "All"
+        ? [{ id: "type", label: "Type", value: assetFilter, onRemove: () => setAssetFilter("All") }]
+        : []),
+      ...(objectSearchTerm.trim()
+        ? [{ id: "search", label: "Search", value: objectSearchTerm.trim(), onRemove: () => setObjectSearchTerm("") }]
+        : []),
+    ],
+    [assetFilter, objectSearchTerm],
+  );
 
   const statusViewer = useMemo(
     () => ({
@@ -379,24 +403,33 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {activeTab === "roster" && (
         <div className="card map-card-custom">
+          <div className="p-3 border-bottom">
+            <CountTabs
+              tabs={objectTabs}
+              active={assetFilter}
+              onChange={(key) => setAssetFilter(key as "All" | ProjectAssetType)}
+              aria-label="Filter by object type"
+            />
+          </div>
+
           <ListToolbar
             searchValue={objectSearchTerm}
             onSearchChange={setObjectSearchTerm}
             searchPlaceholder="Search objects..."
-          >
-            <div className="d-flex gap-2 flex-wrap">
-              {(["All", "Vessel", "Crew", "Equipment"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={`btn btn-sm ${assetFilter === t ? "btn-primary" : "btn-outline-secondary"}`}
-                  onClick={() => setAssetFilter(t)}
-                >
-                  {t}
-                </button>
-              ))}
+          />
+
+          {objectChips.length > 0 && (
+            <div className="px-3 py-2 bg-light border-bottom">
+              <ActiveFilterChips
+                chips={objectChips}
+                onClearAll={() => {
+                  setAssetFilter("All");
+                  setObjectSearchTerm("");
+                }}
+              />
             </div>
-          </ListToolbar>
+          )}
+
           <div className="table-responsive">
             <table className="table map-table-custom align-middle mb-0">
               <thead>

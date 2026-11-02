@@ -234,4 +234,21 @@ describe('ProjectDetailView assurance tab', () => {
     fireEvent.click(screen.getByLabelText('Clear search'));
     expect(screen.queryByText('No objects match these filters.')).toBeNull();
   });
+
+  it('renders matching filter tabs (CountTabs) and ListToolbar layout on both tabs', () => {
+    const { container } = render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
+
+    // Assurance sets tab layout
+    expect(container.querySelector('.card .map-count-tabs')).not.toBeNull();
+    expect(container.querySelector('.card .map-list-toolbar')).not.toBeNull();
+
+    // Switch to Objects tab
+    fireEvent.click(screen.getByRole('button', { name: 'Objects' }));
+
+    // Objects tab layout has matching CountTabs and ListToolbar structure
+    expect(container.querySelector('.card .map-count-tabs')).not.toBeNull();
+    expect(container.querySelector('.card .map-list-toolbar')).not.toBeNull();
+    expect(screen.getByRole('tab', { name: /all/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /vessel/i })).toBeInTheDocument();
+  });
 });
