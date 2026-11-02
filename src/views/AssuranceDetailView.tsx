@@ -219,6 +219,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     targetDate: '',
     assignedSubmitter: '',
     assignedVerifier: '',
+    sectionId: '',
+    predecessorId: '',
   });
   const [newTaskError, setNewTaskError] = useState<string | null>(null);
 
@@ -231,6 +233,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     targetDate: '',
     assignedSubmitter: '',
     assignedVerifier: '',
+    sectionId: '',
+    predecessorId: '',
   });
   const [editTaskError, setEditTaskError] = useState<string | null>(null);
 
@@ -661,6 +665,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       targetDate: assuranceSet.targetDate || assuranceSet.complianceDeadline || '',
       assignedSubmitter: assuranceSet.assignedSubmitter || '',
       assignedVerifier: assuranceSet.assignedVerifier || '',
+      sectionId: '',
+      predecessorId: '',
     });
     setNewTaskError(null);
     setIsAddTaskModalOpen(true);
@@ -689,6 +695,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       targetDate: newTaskDraft.targetDate || undefined,
       assignedSubmitter: newTaskDraft.assignedSubmitter.trim() || undefined,
       assignedVerifier: newTaskDraft.assignedVerifier.trim() || undefined,
+      sectionId: newTaskDraft.sectionId || undefined,
+      predecessorId: newTaskDraft.predecessorId || undefined,
     });
 
     if (!res.success) {
@@ -709,6 +717,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       targetDate: req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '',
       assignedSubmitter: req.assignedSubmitter || assuranceSet.assignedSubmitter || '',
       assignedVerifier: req.assignedVerifier || assuranceSet.assignedVerifier || '',
+      sectionId: req.sectionId || '',
+      predecessorId: req.predecessorId || '',
     });
     setEditTaskError(null);
   };
@@ -737,6 +747,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       targetDate: editTaskDraft.targetDate || undefined,
       assignedSubmitter: editTaskDraft.assignedSubmitter.trim() || undefined,
       assignedVerifier: editTaskDraft.assignedVerifier.trim() || undefined,
+      sectionId: editTaskDraft.sectionId || undefined,
+      predecessorId: editTaskDraft.predecessorId || undefined,
     });
 
     if (!res.success) {
@@ -1898,6 +1910,16 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               </div>
             </div>
             <div className="d-flex align-items-center gap-2 ms-auto">
+              {canEditTasks && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                  onClick={openAddTaskModal}
+                >
+                  <Plus size={14} />
+                  Add Task
+                </button>
+              )}
               {canUploadHere && (
                 <button
                   type="button"
@@ -2143,6 +2165,30 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           </td>
                           <td className="text-end">
                             <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
+                              {canEditTasks && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                    style={{ width: '32px', height: '32px' }}
+                                    onClick={() => openEditTask(req)}
+                                    title="Edit task"
+                                    aria-label="Edit task"
+                                  >
+                                    <Pencil size={14} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                    style={{ width: '32px', height: '32px' }}
+                                    onClick={() => setTaskToDelete(req)}
+                                    title="Remove task"
+                                    aria-label="Remove task"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </>
+                              )}
                               {linkedDoc ? (
                                 <>
                                   <button
@@ -2991,6 +3037,336 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </button>
                   <button type="button" className="btn btn-sm btn-danger text-white fw-semibold" onClick={handleConfirmCancel}>
                     Cancel Set
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Add Task Modal */}
+      {isAddTaskModalOpen && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal fade show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="add-task-title">
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title fs-6 fw-bold text-dark" id="add-task-title">Add Task</h5>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsAddTaskModalOpen(false)} />
+                </div>
+                <div className="modal-body d-flex flex-column gap-3">
+                  {newTaskError && (
+                    <div className="alert alert-danger py-2 mb-0 small">{newTaskError}</div>
+                  )}
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-title-input">
+                      Title <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      id="add-task-title-input"
+                      type="text"
+                      className="form-control form-control-sm bg-white text-dark"
+                      placeholder="e.g. Field mooring arrangement"
+                      value={newTaskDraft.title}
+                      onChange={(e) => {
+                        setNewTaskDraft({ ...newTaskDraft, title: e.target.value });
+                        setNewTaskError(null);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-category">
+                      Category <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      id="add-task-category"
+                      className="form-select form-select-sm bg-white text-dark"
+                      value={newTaskDraft.category}
+                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, category: e.target.value })}
+                    >
+                      <option value="Statutory Certificate">Statutory Certificate</option>
+                      <option value="Class Notation Certificate">Class Notation Certificate</option>
+                      <option value="Flag Administration Registry">Flag Administration Registry</option>
+                      <option value="Environmental Certificate">Environmental Certificate</option>
+                      <option value="Safety & Lifesaving Equipment">Safety & Lifesaving Equipment</option>
+                      <option value="Crew Credential">Crew Credential</option>
+                      <option value="Operational Plan">Operational Plan</option>
+                      <option value="Inspection Report">Inspection Report</option>
+                      <option value="Equipment Register">Equipment Register</option>
+                      <option value="Custom Requirement">Custom Requirement</option>
+                    </select>
+                  </div>
+                  {assuranceSet.sections && assuranceSet.sections.length > 0 && (
+                    <div>
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-section">
+                        Section <span className="text-muted fw-normal">(optional)</span>
+                      </label>
+                      <select
+                        id="add-task-section"
+                        className="form-select form-select-sm bg-white text-dark"
+                        value={newTaskDraft.sectionId}
+                        onChange={(e) => setNewTaskDraft({ ...newTaskDraft, sectionId: e.target.value })}
+                      >
+                        <option value="">No section</option>
+                        {assuranceSet.sections.map((sec) => (
+                          <option key={sec.id} value={sec.id}>
+                            {sec.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-predecessor">
+                      Predecessor <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <select
+                      id="add-task-predecessor"
+                      className="form-select form-select-sm bg-white text-dark"
+                      value={newTaskDraft.predecessorId}
+                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, predecessorId: e.target.value })}
+                    >
+                      <option value="">No predecessor</option>
+                      {assuranceSet.requirements.map((req) => (
+                        <option key={req.id} value={req.id}>
+                          {req.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-target-date">
+                      Target Date <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <input
+                      id="add-task-target-date"
+                      type="date"
+                      className="form-control form-control-sm bg-white text-dark"
+                      max={assuranceSet.targetDate || assuranceSet.complianceDeadline || undefined}
+                      value={newTaskDraft.targetDate}
+                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, targetDate: e.target.value })}
+                    />
+                    <div className="form-text" style={{ fontSize: '0.72rem' }}>
+                      Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.targetDate || assuranceSet.complianceDeadline)}).
+                    </div>
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-description">
+                      Description <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      id="add-task-description"
+                      rows={2}
+                      className="form-control form-control-sm bg-white text-dark"
+                      placeholder="Notes or instructions for this task..."
+                      value={newTaskDraft.description}
+                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-check">
+                    <input
+                      id="add-task-mandatory"
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={newTaskDraft.isMandatory}
+                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, isMandatory: e.target.checked })}
+                    />
+                    <label className="form-check-label text-secondary small" htmlFor="add-task-mandatory">
+                      Mandatory requirement
+                    </label>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setIsAddTaskModalOpen(false)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveNewTask}>
+                    Add Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Edit Task Modal */}
+      {editingTask && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal fade show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="edit-task-title">
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <div>
+                    <h5 className="modal-title fs-6 fw-bold text-dark" id="edit-task-title">Edit Task</h5>
+                    <div className="text-muted small">ID: {editingTask.id}</div>
+                  </div>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setEditingTask(null)} />
+                </div>
+                <div className="modal-body d-flex flex-column gap-3">
+                  {editTaskError && (
+                    <div className="alert alert-danger py-2 mb-0 small">{editTaskError}</div>
+                  )}
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-title-input">
+                      Title <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      id="edit-task-title-input"
+                      type="text"
+                      className="form-control form-control-sm bg-white text-dark"
+                      value={editTaskDraft.title}
+                      onChange={(e) => {
+                        setEditTaskDraft({ ...editTaskDraft, title: e.target.value });
+                        setEditTaskError(null);
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-category">
+                      Category <span className="text-danger">*</span>
+                    </label>
+                    <select
+                      id="edit-task-category"
+                      className="form-select form-select-sm bg-white text-dark"
+                      value={editTaskDraft.category}
+                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, category: e.target.value })}
+                    >
+                      <option value="Statutory Certificate">Statutory Certificate</option>
+                      <option value="Class Notation Certificate">Class Notation Certificate</option>
+                      <option value="Flag Administration Registry">Flag Administration Registry</option>
+                      <option value="Environmental Certificate">Environmental Certificate</option>
+                      <option value="Safety & Lifesaving Equipment">Safety & Lifesaving Equipment</option>
+                      <option value="Crew Credential">Crew Credential</option>
+                      <option value="Operational Plan">Operational Plan</option>
+                      <option value="Inspection Report">Inspection Report</option>
+                      <option value="Equipment Register">Equipment Register</option>
+                      <option value="Custom Requirement">Custom Requirement</option>
+                      {!['Statutory Certificate', 'Class Notation Certificate', 'Flag Administration Registry', 'Environmental Certificate', 'Safety & Lifesaving Equipment', 'Crew Credential', 'Operational Plan', 'Inspection Report', 'Equipment Register', 'Custom Requirement'].includes(editTaskDraft.category) && (
+                        <option value={editTaskDraft.category}>{editTaskDraft.category}</option>
+                      )}
+                    </select>
+                  </div>
+                  {assuranceSet.sections && assuranceSet.sections.length > 0 && (
+                    <div>
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-section">
+                        Section <span className="text-muted fw-normal">(optional)</span>
+                      </label>
+                      <select
+                        id="edit-task-section"
+                        className="form-select form-select-sm bg-white text-dark"
+                        value={editTaskDraft.sectionId}
+                        onChange={(e) => setEditTaskDraft({ ...editTaskDraft, sectionId: e.target.value })}
+                      >
+                        <option value="">No section</option>
+                        {assuranceSet.sections.map((sec) => (
+                          <option key={sec.id} value={sec.id}>
+                            {sec.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-predecessor">
+                      Predecessor <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <select
+                      id="edit-task-predecessor"
+                      className="form-select form-select-sm bg-white text-dark"
+                      value={editTaskDraft.predecessorId}
+                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, predecessorId: e.target.value })}
+                    >
+                      <option value="">No predecessor</option>
+                      {assuranceSet.requirements
+                        .filter((req) => req.id !== editingTask.id)
+                        .map((req) => (
+                          <option key={req.id} value={req.id}>
+                            {req.title}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-target-date">
+                      Target Date <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <input
+                      id="edit-task-target-date"
+                      type="date"
+                      className="form-control form-control-sm bg-white text-dark"
+                      max={assuranceSet.targetDate || assuranceSet.complianceDeadline || undefined}
+                      value={editTaskDraft.targetDate}
+                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, targetDate: e.target.value })}
+                    />
+                    <div className="form-text" style={{ fontSize: '0.72rem' }}>
+                      Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.targetDate || assuranceSet.complianceDeadline)}).
+                    </div>
+                  </div>
+                  <div>
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-description">
+                      Description <span className="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <textarea
+                      id="edit-task-description"
+                      rows={2}
+                      className="form-control form-control-sm bg-white text-dark"
+                      value={editTaskDraft.description}
+                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-check">
+                    <input
+                      id="edit-task-mandatory"
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={editTaskDraft.isMandatory}
+                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, isMandatory: e.target.checked })}
+                    />
+                    <label className="form-check-label text-secondary small" htmlFor="edit-task-mandatory">
+                      Mandatory requirement
+                    </label>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setEditingTask(null)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveEditTask}>
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Remove Task Confirmation Modal */}
+      {taskToDelete && (
+        <>
+          <div className="modal-backdrop fade show" />
+          <div className="modal fade show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="remove-task-title">
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title fs-6 fw-bold text-danger" id="remove-task-title">Remove Task</h5>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setTaskToDelete(null)} />
+                </div>
+                <div className="modal-body">
+                  <p className="mb-0 text-dark small">
+                    Are you sure you want to remove <strong>{taskToDelete.title}</strong> from this assurance set?
+                  </p>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setTaskToDelete(null)}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn btn-sm btn-danger text-white" onClick={handleConfirmDeleteTask}>
+                    Remove Task
                   </button>
                 </div>
               </div>
