@@ -53,13 +53,13 @@ export const SEEDED_AUDIT_EVENTS: AuditTrailEvent[] = ([
     ...northwind,
     action: 'Edited task',
     targetAsset: 'AS-2026-008 · Schilling ROV System Mobilization Assurance',
-    target: { kind: 'task', setId: 'AS-2026-008', taskId: 'REQ-801' },
+    target: { kind: 'task', setId: 'AS-2026-008', taskId: 'REQ-EQP-007-2' },
     fieldDelta: {
       fieldName: 'Task',
-      oldValue: 'ROV mobilization checklist',
-      newValue: 'ROV mobilization and launch checklist',
+      oldValue: 'IMCA R004 ROV Spread Audit',
+      newValue: 'IMCA R004 ROV Spread Audit & High Voltage Clearance',
     },
-    justificationNotes: 'Task title widened to cover the launch procedure.',
+    justificationNotes: 'Task title widened to cover high-voltage clearance on the ROV spread.',
   },
   {
     id: 'AUD-SEED-008',

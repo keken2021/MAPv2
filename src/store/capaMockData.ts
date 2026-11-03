@@ -265,7 +265,7 @@ export const MOCK_CAPA_ITEMS: CapaItem[] = [
     id: 'CAPA-124',
     vesselName: 'MV Ningaloo Voyager',
     vesselId: 'VESSEL-007',
-    checklistId: 'INS-06',
+    checklistId: 'INS-07',
     checklistItemTitle: 'MARPOL Annex IV · Sewage Treatment Plant',
     title: 'Replace aeration blower filter on sewage treatment unit',
     findingDescription: 'Sewage plant blower inlet filter clogged, causing mild pressure drop.',

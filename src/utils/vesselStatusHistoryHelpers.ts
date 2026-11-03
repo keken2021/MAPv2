@@ -87,6 +87,11 @@ export function diffVesselStatusChanges(
   return changes;
 }
 
+/** first compliance history note; quotes the readiness the status was derived from */
+export function initialComplianceHistoryNote(readinessScore: number): string {
+  return `Initial compliance derived from readiness score (${readinessScore}%).`;
+}
+
 export function buildInitialVesselStatusHistoryEntries(
   vessel: VesselInformation,
   changedBy: string,
@@ -110,7 +115,7 @@ export function buildInitialVesselStatusHistoryEntries(
       dimension === 'registration'
         ? registrationNotes
         : dimension === 'compliance'
-          ? `Initial compliance derived from readiness score (${vessel.complianceReadinessScore}%).`
+          ? initialComplianceHistoryNote(vessel.complianceReadinessScore)
           : undefined,
     source: dimension === 'registration' ? 'registration' : 'system',
   }));

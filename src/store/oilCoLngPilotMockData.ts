@@ -1506,6 +1506,7 @@ export const OIL_CO_PILOT_AUDIT: AuditTrailEventDraft[] = [
     organization: OIL_CO_ORG,
     action: "Updated Task on Open Set",
     targetAsset: "AS-2026-101 (LNG Transport Charter) / REQ-SS01-20",
+    target: { kind: "task", setId: OIL_CO_SS01_ID, taskId: "REQ-SS01-20" },
     justificationNotes:
       "Client updated vetting task REQ-SS01-20 mid-set to require OCIMF SIRE 2.0 inspection format after terminal review.",
   },
@@ -1528,6 +1529,7 @@ export const OIL_CO_PILOT_AUDIT: AuditTrailEventDraft[] = [
     organization: OIL_CO_ORG,
     action: "Granted Task Exemption",
     targetAsset: "AS-2026-101 (LNG Transport Charter) / REQ-SS01-15, REQ-SS01-16",
+    target: { kind: "task", setId: OIL_CO_SS01_ID, taskId: "REQ-SS01-15" },
     justificationNotes:
       "Granted one-week extension exemption for HSE plan and safety statistics with revised completion date 2026-11-22.",
   },

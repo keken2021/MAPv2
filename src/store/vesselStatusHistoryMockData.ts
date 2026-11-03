@@ -98,6 +98,7 @@ export const MOCK_VESSEL_STATUS_HISTORY: VesselStatusHistoryEntry[] = [
     changedAt: '2019-06-01T00:00:00.000Z',
     changedBy: 'System',
     changedByRole: 'Administrator',
+    notes: 'Initial compliance derived from readiness score (10%).',
     source: 'system',
   },
   {
@@ -190,6 +191,7 @@ export const MOCK_VESSEL_STATUS_HISTORY: VesselStatusHistoryEntry[] = [
     changedAt: '2017-03-15T00:00:00.000Z',
     changedBy: 'System',
     changedByRole: 'Administrator',
+    notes: 'Initial compliance derived from readiness score (40%).',
     source: 'system',
   },
 
@@ -241,6 +243,7 @@ export const MOCK_VESSEL_STATUS_HISTORY: VesselStatusHistoryEntry[] = [
     changedAt: '2020-08-20T00:00:00.000Z',
     changedBy: 'System',
     changedByRole: 'Administrator',
+    notes: 'Initial compliance derived from readiness score (10%).',
     source: 'system',
   },
   {

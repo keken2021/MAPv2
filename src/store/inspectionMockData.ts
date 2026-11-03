@@ -125,6 +125,32 @@ export const DEFAULT_INSPECTION_CHECKLIST_ITEMS: InspectionChecklistTemplateItem
       { id: 'EV-106', title: 'Muster drill log sheet', type: 'Document', fileName: 'muster_log_sep2026.pdf', fileSize: '620 KB' },
     ],
   },
+  {
+    id: 'INS-06',
+    category: 'Pollution Prevention (MARPOL Annex I)',
+    ref: 'MARPOL Annex I',
+    title: 'MARPOL Annex I · Pollution Prevention',
+    subtitle: 'OWS / bilge discharge monitoring',
+    status: 'Observation',
+    findingNotes: 'OWS 15 ppm monitor calibration certificate due for annual renewal.',
+    capaCode: 'CAPA-115',
+    evidences: [
+      { id: 'EV-115', title: 'OWS monitor sensor calibration test sheet', type: 'Document', fileName: 'ows_calibration_report_2026.pdf', fileSize: '620 KB' },
+    ],
+  },
+  {
+    id: 'INS-07',
+    category: 'Sewage Treatment (MARPOL Annex IV)',
+    ref: 'MARPOL Annex IV',
+    title: 'MARPOL Annex IV · Sewage Treatment Plant',
+    subtitle: 'STP aeration / discharge',
+    status: 'Observation',
+    findingNotes: 'Sewage plant blower inlet filter clogged, causing mild pressure drop.',
+    capaCode: 'CAPA-124',
+    evidences: [
+      { id: 'EV-124', title: 'Sewage plant blower inlet photo', type: 'Photo', fileName: 'sewage_blower_filter.jpg', fileSize: '1.9 MB' },
+    ],
+  },
 ];
 
 export const DEFAULT_INSPECTION_CAPA_ITEMS: InspectionCapaActionItem[] = [

@@ -5,11 +5,15 @@
 */
 
 import { describe, it, expect } from 'vitest';
-import { MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS, MOCK_VESSELS } from '../store/mockData';
+import { SEEDED_AUDIT_EVENTS } from '../store/auditMockData';
+import { MOCK_CAPA_ITEMS } from '../store/capaMockData';
+import { DEFAULT_INSPECTION_CHECKLIST_ITEMS } from '../store/inspectionMockData';
+import { MOCK_ASSURANCE_SETS, MOCK_AUDIT_TRAIL, MOCK_DOCUMENTS, MOCK_VESSELS } from '../store/mockData';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import { MOCK_EQUIPMENT } from '../store/equipmentMockData';
 import { MOCK_CREW } from '../store/crewMockData';
 import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
+import { MOCK_VESSEL_STATUS_HISTORY } from '../store/vesselStatusHistoryMockData';
 import {
   calculateAssuranceSetReadiness,
   getAssuranceSetRemainingItems,
@@ -22,6 +26,7 @@ import {
   requirementHasDocument,
 } from '../utils/readinessHelpers';
 import { calculateProjectReadiness, deriveProjectStatus } from '../utils/projectHelpers';
+import { initialComplianceHistoryNote } from '../utils/vesselStatusHistoryHelpers';
 import { AssuranceSet, AssuranceStage } from '../types/assurance';
 
 const ALL_SETS: AssuranceSet[] = [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS];
@@ -127,6 +132,66 @@ describe('Seeded assurance sets have a calculated basis', () => {
       const listed = project?.assetLinks.some((l) => l.assuranceSetId === set.id);
       expect(listed, `${set.id} must appear on ${set.projectId} assetLinks`).toBe(true);
     });
+  });
+});
+
+describe('Seeded audit, CAPA and history links resolve (2a / 2c)', () => {
+  const setIds = new Set(ALL_SETS.map((s) => s.id));
+  const checklistIds = new Set(DEFAULT_INSPECTION_CHECKLIST_ITEMS.map((i) => i.id));
+
+  it('points every structured audit task and set target at a real record', () => {
+    [...SEEDED_AUDIT_EVENTS, ...MOCK_AUDIT_TRAIL].forEach((event) => {
+      const target = event.target;
+      expect(target, event.id).toBeDefined();
+      if (!target) return;
+
+      if (target.kind === 'task') {
+        const set = ALL_SETS.find((s) => s.id === target.setId);
+        expect(set, `${event.id} set ${target.setId}`).toBeDefined();
+        expect(
+          set?.requirements.some((r) => r.id === target.taskId),
+          `${event.id} task ${target.taskId} on ${target.setId}`,
+        ).toBe(true);
+        return;
+      }
+
+      if (target.setId && !['unscoped', 'multiple'].includes(target.setId)) {
+        expect(setIds.has(target.setId), `${event.id} set ${target.setId}`).toBe(true);
+      }
+    });
+  });
+
+  it('gives every vessel client-history set and CAPA checklist item a real record', () => {
+    MOCK_VESSELS.forEach((vessel) => {
+      (vessel.clientHistory ?? []).forEach((entry) => {
+        if (!entry.assuranceSetId) return;
+        expect(setIds.has(entry.assuranceSetId), `${vessel.id} ${entry.id} → ${entry.assuranceSetId}`).toBe(
+          true,
+        );
+      });
+    });
+
+    MOCK_CAPA_ITEMS.forEach((capa) => {
+      if (!capa.checklistId) return;
+      expect(checklistIds.has(capa.checklistId), `${capa.id} checklist ${capa.checklistId}`).toBe(true);
+    });
+  });
+
+  it('quotes readiness on the first compliance status-history note', () => {
+    const vesselsWithCompliance = new Set(
+      MOCK_VESSEL_STATUS_HISTORY.filter((e) => e.dimension === 'compliance').map((e) => e.vesselId),
+    );
+
+    vesselsWithCompliance.forEach((vesselId) => {
+      const first = MOCK_VESSEL_STATUS_HISTORY.filter(
+        (e) => e.vesselId === vesselId && e.dimension === 'compliance',
+      ).sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))[0];
+      expect(first?.notes, `${vesselId} ${first?.id}`).toMatch(/readiness score \(\d+%\)/);
+    });
+
+    expect(initialComplianceHistoryNote(65)).toBe(
+      'Initial compliance derived from readiness score (65%).',
+    );
   });
 });
 
