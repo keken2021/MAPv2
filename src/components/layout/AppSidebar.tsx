@@ -37,7 +37,15 @@ interface NavItem {
   isGroup?: boolean;
 }
 
-const ASSETS_CHILD_KEYS = ["objects", "vessels", "equipment", "crew"];
+const ASSETS_CHILD_KEYS = [
+  "objects",
+  "vessels",
+  "equipment",
+  "crew",
+  "procedures",
+  "methods",
+];
+const SETTINGS_KEYS = ["users", "organization-profile", "roles-permissions"];
 
 /**
   what: renders fixed dark navy sidepanel matching mockup design with organisation card and dot navigation.
@@ -52,6 +60,7 @@ export const AppSidebar: React.FC = () => {
     activeSessionUserId,
     setActiveDemoOrganization,
     currentHashView,
+    currentEntityId,
     setCurrentHashView,
     logout,
     rolePermissionDefaults,
@@ -170,6 +179,14 @@ export const AppSidebar: React.FC = () => {
           key: "crew",
           label: "Crew Directory",
         },
+        {
+          key: "procedures",
+          label: "Procedures",
+        },
+        {
+          key: "methods",
+          label: "Methods",
+        },
       ],
     },
     {
@@ -205,6 +222,10 @@ export const AppSidebar: React.FC = () => {
       key: "users",
       label: "User Management",
     },
+    {
+      key: "organization-profile",
+      label: "Organization profile",
+    },
     ...(ENABLE_ROLES_AND_PERMISSIONS
       ? [
           {
@@ -223,8 +244,16 @@ export const AppSidebar: React.FC = () => {
   }, [currentHashView]);
 
   const isLeafItemVisible = (item: NavItem): boolean => {
-    if (item.key === "objects") {
+    if (
+      item.key === "objects" ||
+      item.key === "procedures" ||
+      item.key === "methods"
+    ) {
       return canOpenObjectsList(activePersona);
+    }
+
+    if (item.key === "organization-profile") {
+      return true;
     }
 
     const hiddenList = SIDEBAR_HIDDEN_DUPLICATES[activePersona];
@@ -265,10 +294,30 @@ export const AppSidebar: React.FC = () => {
     });
   };
 
-  const isItemActive = (item: NavItem): boolean =>
-    currentHashView === item.key ||
-    (item.key === "assurance-sets" &&
-      currentHashView === "create-assurance-set");
+  const isItemActive = (item: NavItem): boolean => {
+    if (item.key === "objects") {
+      return currentHashView === "objects" && !currentEntityId;
+    }
+    if (item.key === "procedures") {
+      return (
+        currentHashView === "procedures" ||
+        (currentHashView === "objects" && currentEntityId === "procedure")
+      );
+    }
+    if (item.key === "methods") {
+      return (
+        currentHashView === "methods" ||
+        (currentHashView === "objects" && currentEntityId === "method")
+      );
+    }
+    if (item.key === "assurance-sets") {
+      return (
+        currentHashView === "assurance-sets" ||
+        currentHashView === "create-assurance-set"
+      );
+    }
+    return currentHashView === item.key;
+  };
 
   const isGroupChildActive = (item: NavItem): boolean =>
     item.children?.some((child) => isItemActive(child)) ?? false;
@@ -369,7 +418,15 @@ export const AppSidebar: React.FC = () => {
       <React.Fragment key={item.key}>
         {renderNavButton(item, {
           isActive: isItemActive(item),
-          onClick: () => setCurrentHashView(item.key),
+          onClick: () => {
+            if (item.key === "procedures") {
+              setCurrentHashView("objects", "procedure");
+            } else if (item.key === "methods") {
+              setCurrentHashView("objects", "method");
+            } else {
+              setCurrentHashView(item.key);
+            }
+          },
           depth,
         })}
       </React.Fragment>
@@ -425,23 +482,28 @@ export const AppSidebar: React.FC = () => {
 
       {/* main navigation list with dot highlights */}
       <div className="nav flex-column nav-pills px-2 pt-3">
-        {visibleItems.map((item) => (
-          <React.Fragment key={item.key}>
-            {item.key === "users" && (
-              <div
-                className="text-uppercase fw-bold px-3 mt-4 mb-2"
-                style={{
-                  fontSize: "0.625rem",
-                  letterSpacing: "0.08em",
-                  color: "#64748b",
-                }}
-              >
-                Settings
-              </div>
-            )}
-            {renderNavItem(item)}
-          </React.Fragment>
-        ))}
+        {visibleItems.map((item) => {
+          const isFirstSettingsItem =
+            SETTINGS_KEYS.includes(item.key) &&
+            visibleItems.find((it) => SETTINGS_KEYS.includes(it.key))?.key === item.key;
+          return (
+            <React.Fragment key={item.key}>
+              {isFirstSettingsItem && (
+                <div
+                  className="text-uppercase fw-bold px-3 mt-4 mb-2"
+                  style={{
+                    fontSize: "0.625rem",
+                    letterSpacing: "0.08em",
+                    color: "#64748b",
+                  }}
+                >
+                  Settings
+                </div>
+              )}
+              {renderNavItem(item)}
+            </React.Fragment>
+          );
+        })}
       </div>
 
       {/* organisation & signed-in user footer card */}
