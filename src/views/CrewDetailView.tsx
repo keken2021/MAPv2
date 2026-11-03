@@ -34,6 +34,9 @@ import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { MaskedValue } from '../components/common/MaskedValue';
 import { isRestrictedCrewDocument, maskRestrictedValue } from '../utils/restrictedData';
+import { getAssuranceSetCrewIds } from '../utils/assuranceTemplates';
+
+type CrewDetailTab = 'overview' | 'documents' | 'assurance' | 'assignments' | 'audit';
 
 interface CrewDetailViewProps {
   crewId: string;
@@ -43,6 +46,8 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const {
     crew,
     assuranceObjects,
+    assuranceSets,
+    auditEvents,
     assignPersonToObject,
     activePersona,
     setCurrentHashView,
@@ -52,6 +57,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
     setCreateAssuranceForAsset,
   } = useMapStore();
 
+  const [activeTab, setActiveTab] = useState<CrewDetailTab>('overview');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadLayer, setUploadLayer] = useState<import('../types/crew').STCWLayer | undefined>(undefined);
   const [editingDoc, setEditingDoc] = useState<STCWDocumentItem | null>(null);
@@ -78,21 +84,27 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const [dragOverPhotoIdx, setDragOverPhotoIdx] = useState<number | null>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
 
-  const crewMember = crew.find((c) => c.id === crewId) || crew[0];
-  const personObject = assuranceObjects.find((object) => object.id === crewMember.id && object.type === 'person');
-  const currentAssignment = personObject?.assignments?.find((assignment) => assignment.isCurrent);
+  /* unknown id must not fall back to another crew member */
+  const crewMember = crew.find((c) => c.id === crewId);
+  const personObject = crewMember
+    ? assuranceObjects.find((object) => object.id === crewMember.id && object.type === 'person')
+    : undefined;
   const otherObjectAssignments = (personObject?.assignments ?? []).filter(
     (assignment) => assignment.targetObjectType !== 'vessel',
   );
-  const assignmentTargets = assuranceObjects.filter((object) => object.id !== crewMember.id);
+  const assignmentTargets = crewMember
+    ? assuranceObjects.filter((object) => object.id !== crewMember.id)
+    : [];
   const canManageDocuments = activePersona === 'Administrator' || activePersona === 'Submitter';
   const canManagePhotos = activePersona === 'Administrator' || activePersona === 'Submitter';
+  const canAssign = canManageDocuments;
   /* hire is offered to admins for crew from other organizations only */
   const canHireCrew = Boolean(
     crewMember &&
     (activePersona === 'Administrator' || activePersona === 'C Admin') &&
     !isCrewOwnedByOrganization(crewMember, getProjectOrganizationForPersona(activePersona, users)),
   );
+  const canOpenAssurance = activePersona === 'Administrator' || activePersona === 'C Admin';
 
   useEffect(() => {
     if (crewMember) {
@@ -189,11 +201,55 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
     });
   }, [crewMember, layer2SortField, layer2SortDirection]);
 
+  const linkedAssuranceSets = useMemo(() => {
+    if (!crewMember) return [];
+    return assuranceSets.filter((set) => getAssuranceSetCrewIds(set).includes(crewMember.id));
+  }, [assuranceSets, crewMember]);
+
+  const linkedAudits = useMemo(() => {
+    if (!crewMember) return [];
+    return auditEvents.filter((event) => {
+      const target = event.targetAsset || '';
+      return (
+        target.includes(crewMember.id) ||
+        target.includes(`Crew ${crewMember.id}`) ||
+        target.includes(crewMember.fullName)
+      );
+    });
+  }, [auditEvents, crewMember]);
+
+  const documentCount =
+    (crewMember?.layer1CoreDocuments?.length || 0) + (crewMember?.layer2Endorsements?.length || 0);
+  const assignmentCount = sortedAssignments.length + otherObjectAssignments.length;
+
+  /* hide empty tabs unless the viewer may add to them */
+  const showDocumentsTab = documentCount > 0 || canManageDocuments;
+  const showAssuranceTab = linkedAssuranceSets.length > 0 || canOpenAssurance;
+  const showAssignmentsTab = assignmentCount > 0 || canAssign;
+  const showAuditTab = linkedAudits.length > 0;
+
+  useEffect(() => {
+    const allowed: CrewDetailTab[] = ['overview'];
+    if (showDocumentsTab) allowed.push('documents');
+    if (showAssuranceTab) allowed.push('assurance');
+    if (showAssignmentsTab) allowed.push('assignments');
+    if (showAuditTab) allowed.push('audit');
+    if (!allowed.includes(activeTab)) setActiveTab('overview');
+  }, [activeTab, showDocumentsTab, showAssuranceTab, showAssignmentsTab, showAuditTab]);
+
   const assignmentsPagination = usePagination(sortedAssignments, [assignmentSortField, assignmentSortDirection]);
   const layer1Pagination = usePagination(sortedLayer1Docs, [layer1SortField, layer1SortDirection]);
   const layer2Pagination = usePagination(sortedLayer2Docs, [layer2SortField, layer2SortDirection]);
 
-  if (!crewMember) return <div className="p-4">Crew profile not found.</div>;
+  if (!crewMember) {
+    return (
+      <div className="p-4">
+        <div className="alert alert-warning mb-0" role="status">
+          Crew profile not found.
+        </div>
+      </div>
+    );
+  }
 
   /* an export never carries a restricted number in clear (gap review G12) */
   const exportCertificateNo = (d: STCWDocumentItem) =>
@@ -328,7 +384,69 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         onExportPdf={handleExportPdf}
       />
 
-      {/* Photo and particulars. Identity and status stay in the header. */}
+      <ul className="nav nav-tabs border-bottom" role="tablist" aria-label="Crew detail tabs">
+        <li className="nav-item">
+          <button
+            type="button"
+            role="tab"
+            className={`nav-link ${activeTab === 'overview' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            Overview
+          </button>
+        </li>
+        {showDocumentsTab && (
+          <li className="nav-item">
+            <button
+              type="button"
+              role="tab"
+              className={`nav-link ${activeTab === 'documents' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+              onClick={() => setActiveTab('documents')}
+            >
+              Documents ({documentCount})
+            </button>
+          </li>
+        )}
+        {showAssuranceTab && (
+          <li className="nav-item">
+            <button
+              type="button"
+              role="tab"
+              className={`nav-link ${activeTab === 'assurance' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+              onClick={() => setActiveTab('assurance')}
+            >
+              Assurance ({linkedAssuranceSets.length})
+            </button>
+          </li>
+        )}
+        {showAssignmentsTab && (
+          <li className="nav-item">
+            <button
+              type="button"
+              role="tab"
+              className={`nav-link ${activeTab === 'assignments' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+              onClick={() => setActiveTab('assignments')}
+            >
+              Assignments ({assignmentCount})
+            </button>
+          </li>
+        )}
+        {showAuditTab && (
+          <li className="nav-item">
+            <button
+              type="button"
+              role="tab"
+              className={`nav-link ${activeTab === 'audit' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+              onClick={() => setActiveTab('audit')}
+            >
+              Audit Trail ({linkedAudits.length})
+            </button>
+          </li>
+        )}
+      </ul>
+
+      {/* Overview — photo and particulars. Identity and status stay in the header. */}
+      {activeTab === 'overview' && (
       <div className="card map-card-custom p-4">
         <div className="row g-3">
           <div className="col-12 col-lg-4 col-xl-3">
@@ -467,9 +585,12 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
           </div>
         </div>
       </div>
+      )}
 
-      {/* SECTION 1: Historical Sea Service & Vessel Assignments Register */}
+      {/* Assignments — assign form and sea-service history */}
+      {activeTab === 'assignments' && (
       <div className="card map-card-custom">
+        {canAssign && (
         <div className="card-header p-3 border-bottom">
           <div className="fw-bold text-dark fs-6">Assignment</div>
           <p className="text-muted small mb-2">
@@ -546,6 +667,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
             </ul>
           )}
         </div>
+        )}
         <div className="card-header p-3 border-bottom d-flex align-items-center justify-between">
           <div className="fw-bold text-dark fs-6">
             Assignment History
@@ -653,8 +775,11 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         </div>
         <TablePagination {...assignmentsPagination.controls} />
       </div>
+      )}
 
-      {/* SECTION 2: Layer 1 — Universal STCW Core Documents Register */}
+      {/* Documents — Layer 1 core and Layer 2 endorsements */}
+      {activeTab === 'documents' && (
+      <>
       <div className="card map-card-custom">
         <div className="card-header p-3 border-bottom d-flex align-items-center justify-between">
           <div>
@@ -931,6 +1056,112 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         </div>
         <TablePagination {...layer2Pagination.controls} />
       </div>
+      </>
+      )}
+
+      {/* Assurance — linked sets for this crew member */}
+      {activeTab === 'assurance' && (
+        <div className="card map-card-custom">
+          <div className="card-header p-3 border-bottom d-flex align-items-center justify-between">
+            <div className="fw-bold text-dark fs-6">
+              Assurance Sets ({linkedAssuranceSets.length})
+            </div>
+            {canHireCrew && (
+              <button
+                type="button"
+                className="btn btn-sm btn-primary fw-semibold"
+                onClick={() => {
+                  setCreateAssuranceForAsset({ scope: 'Crew', assetId: crewMember.id });
+                  setCurrentHashView('create-assurance-set');
+                }}
+              >
+                Hire Crew
+              </button>
+            )}
+          </div>
+          <div className="table-responsive">
+            <table className="table map-table-custom align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Set ID</th>
+                  <th>Title</th>
+                  <th>Stage</th>
+                  <th>Created By</th>
+                  <th className="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linkedAssuranceSets.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center text-muted py-4">
+                      No assurance sets linked to this crew member.
+                    </td>
+                  </tr>
+                ) : (
+                  linkedAssuranceSets.map((set) => (
+                    <tr key={set.id}>
+                      <td className="font-mono-code small">{set.id}</td>
+                      <td>{set.title}</td>
+                      <td>
+                        <span className="badge bg-light text-dark border">{set.stage}</span>
+                      </td>
+                      <td className="small">{set.initiatorOrg}</td>
+                      <td className="text-end">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => setCurrentHashView('assurance-sets', set.id)}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Trail — events whose target is this crew member */}
+      {activeTab === 'audit' && (
+        <div className="card map-card-custom">
+          <div className="card-header fw-bold bg-white">Audit Trail ({linkedAudits.length})</div>
+          <div className="table-responsive">
+            <table className="table map-table-custom align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Timestamp (UTC)</th>
+                  <th>Action</th>
+                  <th>User</th>
+                  <th>Organization</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linkedAudits.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center text-muted py-4">
+                      No audit events for this crew member.
+                    </td>
+                  </tr>
+                ) : (
+                  linkedAudits.map((event) => (
+                    <tr key={event.id}>
+                      <td className="font-mono-code small">{event.timestampUtc}</td>
+                      <td>{event.action}</td>
+                      <td className="small">{event.userId}</td>
+                      <td className="small">{event.organization}</td>
+                      <td className="small text-muted">{event.justificationNotes || '—'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* STCW Document Viewer Modal */}
       <CrewDocumentViewerModal

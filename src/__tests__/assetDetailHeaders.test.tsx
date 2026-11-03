@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DetailHeader } from '../components/common/DetailHeader';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselDetailView } from '../views/VesselDetailView';
 import { CrewDetailView } from '../views/CrewDetailView';
@@ -31,6 +31,7 @@ describe('asset detail headers', () => {
     const crew = useMapStore.getState().crew[0];
     const { container } = render(<CrewDetailView crewId={crew.id} />);
     expect(headerBadges(container)).toHaveLength(1);
+    fireEvent.click(screen.getByRole('tab', { name: /Assignments/ }));
     expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save assignment' })).toBeNull();
     expect(screen.queryByText('Permissions')).toBeNull();
