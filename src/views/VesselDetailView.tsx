@@ -116,8 +116,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const vessel = isAccessible ? vessels.find((v) => v.id === vesselId) : undefined;
 
   const [activeTab, setActiveTab] = useState<
-    'Information' | 'vault' | 'assurance' | 'clients' | 'crew' | 'audit' | 'inspections' | 'statusHistory' | 'activity'
-  >('Information');
+    'overview' | 'vault' | 'assurance' | 'crew' | 'inspections' | 'history' | 'clients'
+  >('overview');
 
   const linkedCapas = vessel
     ? capaItems.filter((c) => c.vesselId === vessel.id || c.vesselName.toLowerCase() === vessel.name.toLowerCase())
@@ -292,12 +292,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       : filterVesselAdminAvailableToCharter([vessel]).length > 0),
   );
 
-  /* fallback active tab to Information if current tab is restricted for non-owned vessels */
+  /* owning-organization Administrator alone sees Past charters; others stay on Overview */
   useEffect(() => {
-    if (!isOwned && (activeTab === 'clients' || activeTab === 'crew' || activeTab === 'audit')) {
-      setActiveTab('Information');
+    if (activeTab === 'clients' && !(isAdmin && isOwned)) {
+      setActiveTab('overview');
     }
-  }, [isOwned, activeTab]);
+  }, [isAdmin, isOwned, activeTab]);
 
   /*
     what: exports vessel 11-category Information and statutory details to csv format.
@@ -1125,13 +1125,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         onExportPdf={canExport ? handleExportPdf : undefined}
       />
       <ObjectVerificationBadge verification={objectVerification} />
-      {visibleObjectDocuments.length > 0 && (
-        <div className="small text-secondary">
-          Documents for {activeDemoOrganization}:{' '}
-          {visibleObjectDocuments.slice(0, 3).map((document) => document.title).join('; ')}
-          {visibleObjectDocuments.length > 3 ? ` and ${visibleObjectDocuments.length - 3} more` : ''}
-        </div>
-      )}
 
       <AssetStatusCard
         assetType="Vessel"
@@ -1141,44 +1134,22 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         onAvailabilityChange={(value) => updateVesselAvailability(vessel.id, value)}
       />
 
-      {linkedEquipment.length > 0 && (
-        <div className="card map-card-custom">
-          <div className="card-header fw-bold bg-white d-flex justify-between align-items-center">
-            <span>Equipment ({linkedEquipment.length})</span>
-          </div>
-          <div className="list-group list-group-flush">
-            {linkedEquipment.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="list-group-item list-group-item-action d-flex justify-between align-items-center"
-                onClick={() => setCurrentHashView('equipment', item.id)}
-              >
-                <div>
-                  <div className="fw-semibold">{item.name}</div>
-                  <div className="text-muted small">{item.category} · {item.equipmentIdentifier}</div>
-                </div>
-                <span className="badge bg-light text-dark border">{item.availabilityStatus}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Sub-Tabs Navigation */}
-      <ul className="nav nav-tabs border-bottom">
+      {/* Sub-Tabs Navigation — Overview…History for all; Audit Trail for owning-organization Administrator */}
+      <ul className="nav nav-tabs border-bottom" role="tablist" aria-label="Vessel detail tabs">
         <li className="nav-item">
           <button
             type="button"
-            className={`nav-link ${activeTab === 'Information' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('Information')}
+            role="tab"
+            className={`nav-link ${activeTab === 'overview' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => setActiveTab('overview')}
           >
-            Datasheet
+            Overview
           </button>
         </li>
         <li className="nav-item">
           <button
             type="button"
+            role="tab"
             className={`nav-link ${activeTab === 'vault' ? 'active fw-bold text-primary' : 'text-secondary'}`}
             onClick={() => setActiveTab('vault')}
           >
@@ -1188,105 +1159,59 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         <li className="nav-item">
           <button
             type="button"
+            role="tab"
             className={`nav-link ${activeTab === 'assurance' ? 'active fw-bold text-primary' : 'text-secondary'}`}
             onClick={() => setActiveTab('assurance')}
           >
-            Assurance Sets ({linkedSets.length})
+            Assurance ({linkedSets.length})
           </button>
         </li>
         <li className="nav-item">
           <button
             type="button"
+            role="tab"
             className={`nav-link ${activeTab === 'inspections' ? 'active fw-bold text-primary' : 'text-secondary'}`}
             onClick={() => setActiveTab('inspections')}
           >
-            Inspections ({linkedSets.length})
+            Inspections ({physicalInspections.length})
           </button>
         </li>
         <li className="nav-item">
           <button
             type="button"
-            className={`nav-link ${activeTab === 'statusHistory' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('statusHistory')}
+            role="tab"
+            className={`nav-link ${activeTab === 'crew' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => setActiveTab('crew')}
           >
-            Status History ({linkedStatusHistory.length})
+            Crew and Equipment ({linkedCrew.length + linkedEquipment.length})
           </button>
         </li>
         <li className="nav-item">
           <button
             type="button"
-            className={`nav-link ${activeTab === 'activity' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('activity')}
+            role="tab"
+            className={`nav-link ${activeTab === 'history' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => setActiveTab('history')}
           >
-            Activity
+            History and Audit Trail
           </button>
         </li>
         {isAdmin && isOwned && (
           <li className="nav-item">
             <button
               type="button"
+              role="tab"
               className={`nav-link ${activeTab === 'clients' ? 'active fw-bold text-primary' : 'text-secondary'}`}
               onClick={() => setActiveTab('clients')}
             >
-              Client History ({vessel.clientHistory?.length ?? 0})
-            </button>
-          </li>
-        )}
-        {isAdmin && isOwned && (
-          <li className="nav-item">
-            <button
-              type="button"
-              className={`nav-link ${activeTab === 'crew' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('crew')}
-            >
-              Crew ({linkedCrew.length})
-            </button>
-          </li>
-        )}
-        {isAdmin && isOwned && (
-          <li className="nav-item">
-            <button
-              type="button"
-              className={`nav-link ${activeTab === 'audit' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('audit')}
-            >
-              Audit Trail ({linkedAudits.length})
+              Past charters ({vessel.clientHistory?.length ?? 0})
             </button>
           </li>
         )}
       </ul>
 
-      {activeTab === 'activity' && vessel && (
-        <VesselActivityTab
-          vesselId={vessel.id}
-          statusHistory={linkedStatusHistory}
-          inspections={physicalInspections}
-          capaItems={linkedCapas}
-          assuranceSets={linkedSets}
-          onOpen={(entry: VesselActivityEntry) => {
-            if (entry.kind === 'status') {
-              setStatusHistorySearch(entry.recordId);
-              setStatusHistoryDimensionFilter('ALL');
-              setStatusHistoryCurrentOnly(false);
-              setActiveTab('statusHistory');
-              return;
-            }
-            if (entry.kind === 'inspection') {
-              const inspection = physicalInspections.find((item) => item.id === entry.recordId);
-              if (inspection) setSelectedInspectionForDetail(inspection);
-              return;
-            }
-            if (entry.kind === 'capa') {
-              setCurrentHashView('capa', entry.recordId);
-              return;
-            }
-            setCurrentHashView('assurance-sets', entry.recordId);
-          }}
-        />
-      )}
-
-      {/* Tab 1: 3-Column Technical Breakdown Layout matching Mockup */}
-      {activeTab === 'Information' && (
+      {/* Tab 1: Overview datasheet */}
+      {activeTab === 'overview' && (
         <div className="row g-3">
           {/* ========================================================= */}
           {/* Column 1: Vessel Photo & Photo Actions */}
@@ -2188,8 +2113,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           </div>
           <TablePagination {...vaultPagination.controls} />
         </div>
-      )
-      }
+      )}
 
       {/* Tab 3: Assurance Sets */}
       {activeTab === 'assurance' && (
@@ -2399,7 +2323,35 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       )}
 
       {/* Tab: Status History — availability, registration, class, compliance timelines */}
-      {activeTab === 'statusHistory' && (
+      {activeTab === 'history' && vessel && (
+        <VesselActivityTab
+          vesselId={vessel.id}
+          statusHistory={linkedStatusHistory}
+          inspections={physicalInspections}
+          capaItems={linkedCapas}
+          assuranceSets={linkedSets}
+          onOpen={(entry: VesselActivityEntry) => {
+            if (entry.kind === 'status') {
+              setStatusHistorySearch(entry.recordId);
+              setStatusHistoryDimensionFilter('ALL');
+              setStatusHistoryCurrentOnly(false);
+              return;
+            }
+            if (entry.kind === 'inspection') {
+              const inspection = physicalInspections.find((item) => item.id === entry.recordId);
+              if (inspection) setSelectedInspectionForDetail(inspection);
+              return;
+            }
+            if (entry.kind === 'capa') {
+              setCurrentHashView('capa', entry.recordId);
+              return;
+            }
+            setCurrentHashView('assurance-sets', entry.recordId);
+          }}
+        />
+      )}
+
+      {activeTab === 'history' && (
         <div className="card map-card-custom">
           <div className="card-header bg-white border-bottom py-3 px-3">
             <div className="fw-bold text-dark mb-2">Current Status</div>
@@ -2623,7 +2575,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         </div>
       )}
 
-      {/* Tab 4: Client / Charter History */}
+      {/* Past charters — owning-organization Administrator */}
       {activeTab === 'clients' && isAdmin && isOwned && (
         <div className="card map-card-custom">
           {/* Table Controls Header */}
@@ -2632,7 +2584,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <input
                 type="text"
                 className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search client history..."
+                placeholder="Search past charters..."
                 value={clientSearch}
                 onChange={(e) => setClientSearch(e.target.value)}
                 style={{ width: '250px' }}
@@ -2775,7 +2727,34 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       )}
 
       {/* Tab 5: Assigned Crew Directory */}
-      {activeTab === 'crew' && isAdmin && isOwned && (
+      {activeTab === 'crew' && (
+        <>
+          <div className="card map-card-custom mb-3">
+            <div className="card-header fw-bold bg-white d-flex justify-between align-items-center">
+              <span>Equipment ({linkedEquipment.length})</span>
+            </div>
+            {linkedEquipment.length === 0 ? (
+              <div className="p-4 text-center text-muted">No equipment linked to this vessel.</div>
+            ) : (
+              <div className="list-group list-group-flush">
+                {linkedEquipment.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="list-group-item list-group-item-action d-flex justify-between align-items-center"
+                    onClick={() => setCurrentHashView('equipment', item.id)}
+                  >
+                    <div>
+                      <div className="fw-semibold">{item.name}</div>
+                      <div className="text-muted small">{item.category} · {item.equipmentIdentifier}</div>
+                    </div>
+                    <span className="badge bg-light text-dark border">{item.availabilityStatus}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+      {isAdmin && isOwned && (
         <div className="card map-card-custom">
           {/* Table Header Controls Row matching standard CrewTable.tsx layout */}
           <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
@@ -3068,10 +3047,13 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           <TablePagination {...crewPagination.controls} />
         </div>
       )}
+        </>
+      )}
 
-      {/* Tab 6: Audit Trail */}
-      {activeTab === 'audit' && isAdmin && isOwned && (
-        <div className="card map-card-custom">
+      {/* Audit Trail — under History and Audit Trail for owning-organization Administrator */}
+      {activeTab === 'history' && isAdmin && isOwned && (
+        <div className="card map-card-custom mt-3">
+          <div className="card-header fw-bold bg-white">Audit Trail ({linkedAudits.length})</div>
           {/* Table Controls Header */}
           <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
             <div className="d-flex flex-wrap align-items-center gap-2">
