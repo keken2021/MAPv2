@@ -174,6 +174,8 @@ export interface AssuranceRequirement {
   assignedVerifier?: string;
   submitterId?: string;
   verifierId?: string;
+  /** responsible party organizations chosen in Step 1 (finding 5c-01) */
+  responsibleParties?: string[];
   /** document (default) or pointer to a linked assurance set */
   fulfillmentType?: RequirementFulfillmentType;
   linkedAssuranceSetId?: string;

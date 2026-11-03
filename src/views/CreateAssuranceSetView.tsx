@@ -751,6 +751,173 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     return `${setClientOrg} & ${appointedProviderOrg || serviceProviderOrg || 'Service Provider'}`;
   };
 
+  /* Platform organizations available for selection */
+  const availablePlatformOrgs = useMemo(() => {
+    const orgs = new Set<string>();
+    users.forEach((u) => {
+      if (u.organization?.trim()) orgs.add(u.organization.trim());
+    });
+    projects.forEach((p) => {
+      if (p.ownerOrganization?.trim()) orgs.add(p.ownerOrganization.trim());
+      if (p.operatorOrganization?.trim()) orgs.add(p.operatorOrganization.trim());
+      p.contractParties?.forEach((cp) => {
+        if (cp.organization?.trim()) orgs.add(cp.organization.trim());
+      });
+      p.invitedOrganizations?.forEach((io) => {
+        if (io?.trim()) orgs.add(io.trim());
+      });
+    });
+    vessels.forEach((v) => {
+      if (v.registeredOwner?.trim()) orgs.add(v.registeredOwner.trim());
+      if (v.ismCompany?.trim()) orgs.add(v.ismCompany.trim());
+    });
+    return Array.from(orgs).sort();
+  }, [users, projects, vessels]);
+
+  /* Additional organizations chosen explicitly in Step 1 (finding 5c-01) */
+  const [additionalStep1Orgs, setAdditionalStep1Orgs] = useState<string[]>([]);
+  const [newOrgToAdd, setNewOrgToAdd] = useState<string>('');
+
+  /* Distinct organizations chosen in Step 1 */
+  const step1Organizations = useMemo<string[]>(() => {
+    const orgs = new Set<string>();
+    if (setClientOrg?.trim()) orgs.add(setClientOrg.trim());
+    if (clientOrg?.trim()) orgs.add(clientOrg.trim());
+    if (appointedProviderOrg?.trim()) orgs.add(appointedProviderOrg.trim());
+    if (serviceProviderOrg?.trim()) orgs.add(serviceProviderOrg.trim());
+    if (selectedSubmitterForProvider?.organization?.trim()) {
+      orgs.add(selectedSubmitterForProvider.organization.trim());
+    }
+    const verifierUser = verificationRequired ? users.find((u) => u.id === assignedVerifier) : undefined;
+    if (verifierUser?.organization?.trim()) {
+      orgs.add(verifierUser.organization.trim());
+    }
+    const inspectorUser = inspectionRequired ? users.find((u) => u.id === assignedInspector) : undefined;
+    if (inspectorUser?.organization?.trim()) {
+      orgs.add(inspectorUser.organization.trim());
+    }
+    const approverUser = approvalRequired ? users.find((u) => u.id === assignedApprover) : undefined;
+    if (approverUser?.organization?.trim()) {
+      orgs.add(approverUser.organization.trim());
+    }
+    const proj = projects.find((p) => p.id === (selectedProjectId || lockedProjectId));
+    if (proj?.ownerOrganization?.trim()) orgs.add(proj.ownerOrganization.trim());
+    if (proj?.operatorOrganization?.trim()) orgs.add(proj.operatorOrganization.trim());
+    proj?.contractParties?.forEach((cp) => {
+      if (cp.organization?.trim()) orgs.add(cp.organization.trim());
+    });
+    proj?.invitedOrganizations?.forEach((io) => {
+      if (io?.trim()) orgs.add(io.trim());
+    });
+    additionalStep1Orgs.forEach((o) => {
+      if (o?.trim()) orgs.add(o.trim());
+    });
+    return Array.from(orgs).filter(Boolean);
+  }, [
+    setClientOrg,
+    clientOrg,
+    appointedProviderOrg,
+    serviceProviderOrg,
+    selectedSubmitterForProvider,
+    verificationRequired,
+    assignedVerifier,
+    inspectionRequired,
+    assignedInspector,
+    approvalRequired,
+    assignedApprover,
+    users,
+    projects,
+    selectedProjectId,
+    lockedProjectId,
+    additionalStep1Orgs,
+  ]);
+
+  /* Responsible parties selected per requirement ID (finding 5c-01) */
+  const [requirementResponsibleParties, setRequirementResponsibleParties] = useState<Record<string, string[]>>({});
+
+  const getRequirementResponsibleParties = (
+    reqId: string,
+    defaultParties?: string[],
+  ): string[] => {
+    if (requirementResponsibleParties[reqId] !== undefined) {
+      return requirementResponsibleParties[reqId].filter((org) => step1Organizations.includes(org));
+    }
+    if (defaultParties && defaultParties.length > 0) {
+      const validDefaults = defaultParties.filter((org) => step1Organizations.includes(org));
+      if (validDefaults.length > 0) return validDefaults;
+    }
+    const provider = appointedProviderOrg || serviceProviderOrg;
+    if (provider && step1Organizations.includes(provider)) {
+      return [provider];
+    }
+    return step1Organizations.slice(0, 1);
+  };
+
+  const handleToggleRequirementParty = (reqId: string, org: string, defaultParties?: string[]) => {
+    if (!step1Organizations.includes(org)) return;
+    setRequirementResponsibleParties((prev) => {
+      const current = prev[reqId] !== undefined ? prev[reqId] : (defaultParties || getRequirementResponsibleParties(reqId, defaultParties));
+      const filteredCurrent = current.filter((o) => step1Organizations.includes(o));
+      let next: string[];
+      if (filteredCurrent.includes(org)) {
+        next = filteredCurrent.filter((o) => o !== org);
+      } else {
+        next = [...filteredCurrent, org];
+      }
+      return { ...prev, [reqId]: next };
+    });
+  };
+
+  const renderResponsiblePartyChecklist = (
+    reqId: string,
+    defaultParties?: string[],
+    docTitle?: string,
+  ) => {
+    const currentParties = getRequirementResponsibleParties(reqId, defaultParties);
+    return (
+      <div className="mt-2 pt-2 border-top d-flex flex-column gap-1.5" data-testid={`responsible-party-container-${reqId}`}>
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <span className="text-secondary small fw-semibold" style={{ fontSize: '0.75rem' }}>
+            Responsible party:
+          </span>
+          {currentParties.length > 0 && (
+            <span className="text-muted small font-mono-code" style={{ fontSize: '0.7rem' }} data-testid={`party-count-${reqId}`}>
+              {currentParties.length} {currentParties.length === 1 ? 'party' : 'parties'} selected
+            </span>
+          )}
+        </div>
+        <div className="d-flex flex-wrap align-items-center gap-2" data-testid={`responsible-party-checklist-${reqId}`}>
+          {step1Organizations.map((org) => {
+            const isChecked = currentParties.includes(org);
+            const slug = org.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            return (
+              <label
+                key={org}
+                className={`d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2 border text-nowrap cursor-pointer transition-all user-select-none ${
+                  isChecked
+                    ? 'bg-primary-subtle text-primary border-primary-subtle fw-semibold shadow-2xs'
+                    : 'bg-light text-secondary border-secondary-subtle'
+                }`}
+                style={{ fontSize: '0.75rem' }}
+                data-testid={`label-party-${reqId}-${slug}`}
+              >
+                <input
+                  type="checkbox"
+                  className="form-check-input m-0 cursor-pointer"
+                  checked={isChecked}
+                  onChange={() => handleToggleRequirementParty(reqId, org, defaultParties)}
+                  data-testid={`chk-party-${reqId}-${slug}`}
+                  aria-label={`${org} responsible for ${docTitle || reqId}`}
+                />
+                <span>{org}</span>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   /* Wizard tabs: General, Objects, Requirements, Review */
   const steps = buildAssuranceWizardSteps();
   const totalSteps = steps.length;
@@ -1313,7 +1480,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     /* every tab is checked on submit; the wizard returns to the first one that still has an error */
     setErrorMessage('');
     const firstInvalidStep = steps.findIndex((_, idx) => Object.keys(getStepErrors(idx + 1)).length > 0);
-
     if (firstInvalidStep !== -1) {
       setFieldErrors(getStepErrors(firstInvalidStep + 1));
       setCurrentStep(firstInvalidStep + 1);
@@ -1339,6 +1505,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     /* Include general documents (DOC, NDA, MSA) assigned to organizations */
     generalDocs.filter((d) => d.isEnabled).forEach((doc) => {
+      const defaultParties = (
+        doc.code === 'MSA'
+          ? [setClientOrg]
+          : doc.code === 'NDA'
+            ? [setClientOrg, appointedProviderOrg || serviceProviderOrg]
+            : [appointedProviderOrg || serviceProviderOrg]
+      ).filter(Boolean);
+      const reqParties = getRequirementResponsibleParties(doc.id, defaultParties);
       finalRequirements.push({
         id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
         category: doc.category as AssuranceRequirementCategory,
@@ -1349,7 +1523,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         isFulfilled: false,
         ocrConfidence: 0,
         verifierStatus: 'Pending',
-        assignedSubmitter: getGeneralDocAssignedOrg(doc.code),
+        assignedSubmitter: reqParties.join(', ') || getGeneralDocAssignedOrg(doc.code),
+        responsibleParties: reqParties,
         assignedVerifier: reqAssignedVerifier,
         verifierId: verificationRequired ? assignedVerifier : undefined,
         targetDate: complianceDeadline,
@@ -1363,6 +1538,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
         if (docToggles[doc.id]) {
+          const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
+          const reqParties = getRequirementResponsibleParties(doc.id, defaultParties);
           finalRequirements.push({
             id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
             category: doc.category,
@@ -1373,7 +1550,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             isFulfilled: false,
             ocrConfidence: 0,
             verifierStatus: 'Pending',
-            assignedSubmitter: reqAssignedSubmitter,
+            assignedSubmitter: reqParties.join(', ') || reqAssignedSubmitter,
+            responsibleParties: reqParties,
             assignedVerifier: reqAssignedVerifier,
             verifierId: verificationRequired ? assignedVerifier : undefined,
             targetDate: complianceDeadline,
@@ -1383,6 +1561,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
       const customList = specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled);
       customList.forEach((spec) => {
+        const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
+        const reqParties = getRequirementResponsibleParties(spec.id, defaultParties);
         finalRequirements.push({
           id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
           category: spec.category,
@@ -1397,7 +1577,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           isFulfilled: false,
           ocrConfidence: 0,
           verifierStatus: 'Pending',
-          assignedSubmitter: reqAssignedSubmitter,
+          assignedSubmitter: reqParties.join(', ') || reqAssignedSubmitter,
+          responsibleParties: reqParties,
           assignedVerifier: reqAssignedVerifier,
           verifierId: verificationRequired ? assignedVerifier : undefined,
         });
@@ -1719,6 +1900,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
         if (docToggles[doc.id]) {
+          const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
+          const reqParties = getRequirementResponsibleParties(doc.id, defaultParties);
           finalRequirements.push({
             id: generateUniqueRequirementId(targetSetId, reqIndex++),
             category: doc.category,
@@ -1729,7 +1912,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             isFulfilled: false,
             ocrConfidence: 0,
             verifierStatus: 'Pending',
-            assignedSubmitter: reqAssignedSubmitter,
+            assignedSubmitter: reqParties.join(', ') || reqAssignedSubmitter,
+            responsibleParties: reqParties,
             assignedVerifier: reqAssignedVerifier,
             verifierId: verificationRequired ? assignedVerifier : undefined,
             targetDate: complianceDeadline,
@@ -1739,6 +1923,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
       const customList = specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled);
       customList.forEach((spec) => {
+        const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
+        const reqParties = getRequirementResponsibleParties(spec.id, defaultParties);
         finalRequirements.push({
           id: generateUniqueRequirementId(targetSetId, reqIndex++),
           category: spec.category,
@@ -1751,7 +1937,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           isFulfilled: false,
           ocrConfidence: 0,
           verifierStatus: 'Pending',
-          assignedSubmitter: reqAssignedSubmitter,
+          assignedSubmitter: reqParties.join(', ') || reqAssignedSubmitter,
+          responsibleParties: reqParties,
           assignedVerifier: reqAssignedVerifier,
           verifierId: verificationRequired ? assignedVerifier : undefined,
         });
@@ -2096,66 +2283,77 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             ) : (
               activeGeneralDocs.map((doc) => {
                 const assignedOrg = getGeneralDocAssignedOrg(doc.code);
+                const defaultParties = (
+                  doc.code === 'MSA'
+                    ? [setClientOrg]
+                    : doc.code === 'NDA'
+                      ? [setClientOrg, appointedProviderOrg || serviceProviderOrg]
+                      : [appointedProviderOrg || serviceProviderOrg]
+                ).filter(Boolean);
+                const currentParties = getRequirementResponsibleParties(doc.id, defaultParties);
 
                 return (
                   <div
                     key={doc.id}
-                    className="p-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
+                    className="p-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
                     data-testid={`general-doc-row-${doc.id}`}
                   >
-                    <div className="d-flex flex-column gap-1 flex-grow-1 min-w-0">
-                      <div className="d-flex align-items-center gap-2 flex-wrap">
-                        <span className="fw-semibold text-dark small text-truncate">
-                          {doc.title}
-                        </span>
-                        <span
-                          className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code"
-                          style={{ fontSize: '0.675rem' }}
-                        >
-                          {doc.code}
-                        </span>
-                        <span
-                          className="badge bg-light text-secondary border font-mono-code"
-                          style={{ fontSize: '0.675rem' }}
-                        >
-                          Assigned: {assignedOrg}
+                    <div className="d-flex align-items-center justify-content-between gap-3">
+                      <div className="d-flex flex-column gap-1 flex-grow-1 min-w-0">
+                        <div className="d-flex align-items-center gap-2 flex-wrap">
+                          <span className="fw-semibold text-dark small text-truncate">
+                            {doc.title}
+                          </span>
+                          <span
+                            className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code"
+                            style={{ fontSize: '0.675rem' }}
+                          >
+                            {doc.code}
+                          </span>
+                          <span
+                            className="badge bg-light text-secondary border font-mono-code"
+                            style={{ fontSize: '0.675rem' }}
+                          >
+                            Assigned: {currentParties.join(', ') || assignedOrg}
+                          </span>
+                        </div>
+                        <span className="text-secondary small" style={{ fontSize: '0.75rem' }}>
+                          {doc.description}
                         </span>
                       </div>
-                      <span className="text-secondary small" style={{ fontSize: '0.75rem' }}>
-                        {doc.description}
-                      </span>
-                    </div>
 
-                    <div className="d-flex align-items-center gap-3 flex-shrink-0">
-                      <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                        <input
-                          className="form-check-input cursor-pointer"
-                          type="checkbox"
-                          id={`gen-req-toggle-${doc.id}`}
-                          checked={doc.isMandatory}
-                          onChange={() => handleToggleGeneralDocRequired(doc.id, doc.isMandatory)}
-                          style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
-                        />
-                        <label
-                          htmlFor={`gen-req-toggle-${doc.id}`}
-                          className={`small fw-semibold m-0 cursor-pointer ${
-                            doc.isMandatory ? 'text-success' : 'text-secondary'
-                          }`}
-                          style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                      <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                        <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                          <input
+                            className="form-check-input cursor-pointer"
+                            type="checkbox"
+                            id={`gen-req-toggle-${doc.id}`}
+                            checked={doc.isMandatory}
+                            onChange={() => handleToggleGeneralDocRequired(doc.id, doc.isMandatory)}
+                            style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                          />
+                          <label
+                            htmlFor={`gen-req-toggle-${doc.id}`}
+                            className={`small fw-semibold m-0 cursor-pointer ${
+                              doc.isMandatory ? 'text-success' : 'text-secondary'
+                            }`}
+                            style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                          >
+                            {doc.isMandatory ? 'Required' : 'Optional'}
+                          </label>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                          title="Remove document"
+                          aria-label={`Remove ${doc.title}`}
+                          onClick={() => handleRemoveGeneralDoc(doc.id)}
                         >
-                          {doc.isMandatory ? 'Required' : 'Optional'}
-                        </label>
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
-                        title="Remove document"
-                        aria-label={`Remove ${doc.title}`}
-                        onClick={() => handleRemoveGeneralDoc(doc.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                      </button>
                     </div>
+                    {renderResponsiblePartyChecklist(doc.id, defaultParties, doc.title)}
                   </div>
                 );
               })
@@ -2343,99 +2541,107 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <>
                             {standardForCat.map((doc) => {
                               const isRequired = docRequired[doc.id] ?? doc.isMandatory;
+                              const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
                               return (
                                 <div
                                   key={doc.id}
-                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
+                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
                                   data-testid={`requirement-row-${doc.id}`}
                                 >
-                                  <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                    <span className="fw-semibold text-dark small text-truncate">
-                                      {doc.title}
-                                    </span>
-                                  </div>
-                                  <div className="d-flex align-items-center gap-3 flex-shrink-0">
-                                    <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                                      <input
-                                        className="form-check-input cursor-pointer"
-                                        type="checkbox"
-                                        id={`req-toggle-${doc.id}`}
-                                        checked={isRequired}
-                                        onChange={() => handleToggleStandardDocRequired(doc.id, isRequired)}
-                                        style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
-                                      />
-                                      <label
-                                        htmlFor={`req-toggle-${doc.id}`}
-                                        className={`small fw-semibold m-0 cursor-pointer ${
-                                          isRequired ? 'text-success' : 'text-secondary'
-                                        }`}
-                                        style={{ fontSize: '0.78rem', minWidth: '55px' }}
-                                      >
-                                        {isRequired ? 'Required' : 'Optional'}
-                                      </label>
+                                  <div className="d-flex align-items-center justify-content-between gap-3">
+                                    <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                                      <span className="fw-semibold text-dark small text-truncate">
+                                        {doc.title}
+                                      </span>
                                     </div>
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
-                                      title="Remove document"
-                                      aria-label={`Remove ${doc.title}`}
-                                      onClick={() => handleRemoveStandardDoc(doc.id)}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                                    </button>
+                                    <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                                      <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                        <input
+                                          className="form-check-input cursor-pointer"
+                                          type="checkbox"
+                                          id={`req-toggle-${doc.id}`}
+                                          checked={isRequired}
+                                          onChange={() => handleToggleStandardDocRequired(doc.id, isRequired)}
+                                          style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                                        />
+                                        <label
+                                          htmlFor={`req-toggle-${doc.id}`}
+                                          className={`small fw-semibold m-0 cursor-pointer ${
+                                            isRequired ? 'text-success' : 'text-secondary'
+                                          }`}
+                                          style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                                        >
+                                          {isRequired ? 'Required' : 'Optional'}
+                                        </label>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                                        title="Remove document"
+                                        aria-label={`Remove ${doc.title}`}
+                                        onClick={() => handleRemoveStandardDoc(doc.id)}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                      </button>
+                                    </div>
                                   </div>
+                                  {renderResponsiblePartyChecklist(doc.id, defaultParties, doc.title)}
                                 </div>
                               );
                             })}
                             {specializedForCat.map((spec) => {
                               const isRequired = spec.isMandatory;
+                              const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
                               return (
                                 <div
                                   key={spec.id}
-                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
+                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
                                   data-testid={`requirement-row-${spec.id}`}
                                 >
-                                  <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                    <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${spec.id}`}>
-                                      {spec.title}
-                                    </span>
-                                    <span
-                                      className="badge bg-secondary-subtle text-dark border font-mono-code"
-                                      style={{ fontSize: '0.675rem' }}
-                                    >
-                                      {spec.isOtherDocument ? 'Other Document' : 'Custom'}
-                                    </span>
-                                  </div>
-                                  <div className="d-flex align-items-center gap-3 flex-shrink-0">
-                                    <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                                      <input
-                                        className="form-check-input cursor-pointer"
-                                        type="checkbox"
-                                        id={`req-toggle-${spec.id}`}
-                                        checked={isRequired}
-                                        onChange={() => handleToggleCustomDocRequired(spec.id)}
-                                        style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
-                                      />
-                                      <label
-                                        htmlFor={`req-toggle-${spec.id}`}
-                                        className={`small fw-semibold m-0 cursor-pointer ${
-                                          isRequired ? 'text-success' : 'text-secondary'
-                                        }`}
-                                        style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                                  <div className="d-flex align-items-center justify-content-between gap-3">
+                                    <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                                      <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${spec.id}`}>
+                                        {spec.title}
+                                      </span>
+                                      <span
+                                        className="badge bg-secondary-subtle text-dark border font-mono-code"
+                                        style={{ fontSize: '0.675rem' }}
                                       >
-                                        {isRequired ? 'Required' : 'Optional'}
-                                      </label>
+                                        {spec.isOtherDocument ? 'Other Document' : 'Custom'}
+                                      </span>
                                     </div>
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
-                                      title="Remove document"
-                                      aria-label={`Remove ${spec.title}`}
-                                      onClick={() => handleRemoveCustomDoc(spec.id)}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                                    </button>
+                                    <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                                      <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                        <input
+                                          className="form-check-input cursor-pointer"
+                                          type="checkbox"
+                                          id={`req-toggle-${spec.id}`}
+                                          checked={isRequired}
+                                          onChange={() => handleToggleCustomDocRequired(spec.id)}
+                                          style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                                        />
+                                        <label
+                                          htmlFor={`req-toggle-${spec.id}`}
+                                          className={`small fw-semibold m-0 cursor-pointer ${
+                                            isRequired ? 'text-success' : 'text-secondary'
+                                          }`}
+                                          style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                                        >
+                                          {isRequired ? 'Required' : 'Optional'}
+                                        </label>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                                        title="Remove document"
+                                        aria-label={`Remove ${spec.title}`}
+                                        onClick={() => handleRemoveCustomDoc(spec.id)}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                      </button>
+                                    </div>
                                   </div>
+                                  {renderResponsiblePartyChecklist(spec.id, defaultParties, spec.title)}
                                 </div>
                               );
                             })}
@@ -3058,6 +3264,77 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 </label>
                               </div>
                             </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Step 1 Involved Organizations (finding 5c-01, ADR 0032) */}
+                      <div className="col-12">
+                        <div className="p-4 border rounded-3 bg-white shadow-2xs" data-testid="card-involved-organizations">
+                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                            <div>
+                              <strong className="text-dark small d-block mb-1" style={{ fontSize: '0.85rem' }}>
+                                Involved Organizations ({step1Organizations.length})
+                              </strong>
+                              <div className="text-muted" style={{ fontSize: '0.78rem' }}>
+                                Organizations participating in this assurance set. Only these organizations can be chosen as responsible parties in Step 3.
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="d-flex flex-wrap align-items-center gap-2 mb-3" data-testid="step1-organizations-list">
+                            {step1Organizations.map((org) => {
+                              const slug = org.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                              const isClient = orgFieldMatches(setClientOrg || clientOrg, org);
+                              const isProvider = orgFieldMatches(appointedProviderOrg || serviceProviderOrg, org);
+                              return (
+                                <span
+                                  key={org}
+                                  className="badge bg-light text-dark border px-3 py-2 d-inline-flex align-items-center gap-1.5"
+                                  style={{ fontSize: '0.78rem' }}
+                                  data-testid={`badge-step1-org-${slug}`}
+                                >
+                                  <Building2 className="w-3.5 h-3.5 text-primary" />
+                                  <span className="fw-medium">{org}</span>
+                                  {isClient && <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code ms-1" style={{ fontSize: '0.65rem' }}>Client</span>}
+                                  {isProvider && !isClient && <span className="badge bg-info-subtle text-info border border-info-subtle font-mono-code ms-1" style={{ fontSize: '0.65rem' }}>Provider</span>}
+                                </span>
+                              );
+                            })}
+                          </div>
+
+                          <div className="d-flex align-items-center gap-2 pt-2 border-top" style={{ maxWidth: '520px' }}>
+                            <select
+                              id="select-add-step1-org"
+                              className="form-select form-select-sm"
+                              value={newOrgToAdd}
+                              onChange={(e) => setNewOrgToAdd(e.target.value)}
+                              data-testid="select-add-step1-org"
+                              aria-label="Add additional organization"
+                            >
+                              <option value="">Select additional organization...</option>
+                              {availablePlatformOrgs
+                                .filter((org) => !step1Organizations.includes(org))
+                                .map((org) => (
+                                  <option key={org} value={org}>
+                                    {org}
+                                  </option>
+                                ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary text-nowrap"
+                              disabled={!newOrgToAdd}
+                              onClick={() => {
+                                if (newOrgToAdd && !step1Organizations.includes(newOrgToAdd)) {
+                                  setAdditionalStep1Orgs((prev) => [...prev, newOrgToAdd]);
+                                  setNewOrgToAdd('');
+                                }
+                              }}
+                              data-testid="btn-add-step1-org"
+                            >
+                              Add Organization
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -3863,50 +4140,54 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           ) : (
                             secDocs.map((doc) => {
                               const isRequired = doc.isMandatory;
+                              const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
                               return (
                                 <div
                                   key={doc.id}
-                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
+                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
                                   data-testid={`requirement-row-${doc.id}`}
                                 >
-                                  <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                    <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${doc.id}`}>
-                                      {doc.title}
-                                    </span>
-                                    <span className="badge bg-secondary-subtle text-dark border font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                      Tenant Doc
-                                    </span>
-                                  </div>
-                                  <div className="d-flex align-items-center gap-3 flex-shrink-0">
-                                    <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                                      <input
-                                        className="form-check-input cursor-pointer"
-                                        type="checkbox"
-                                        id={`req-toggle-${doc.id}`}
-                                        checked={isRequired}
-                                        onChange={() => handleToggleCustomDocRequired(doc.id)}
-                                        style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
-                                      />
-                                      <label
-                                        htmlFor={`req-toggle-${doc.id}`}
-                                        className={`small fw-semibold m-0 cursor-pointer ${
-                                          isRequired ? 'text-success' : 'text-secondary'
-                                        }`}
-                                        style={{ fontSize: '0.78rem', minWidth: '55px' }}
-                                      >
-                                        {isRequired ? 'Required' : 'Optional'}
-                                      </label>
+                                  <div className="d-flex align-items-center justify-content-between gap-3">
+                                    <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                                      <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${doc.id}`}>
+                                        {doc.title}
+                                      </span>
+                                      <span className="badge bg-secondary-subtle text-dark border font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                        Tenant Doc
+                                      </span>
                                     </div>
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
-                                      title="Remove document"
-                                      aria-label={`Remove ${doc.title}`}
-                                      onClick={() => handleRemoveCustomDoc(doc.id)}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                                    </button>
+                                    <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                                      <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                        <input
+                                          className="form-check-input cursor-pointer"
+                                          type="checkbox"
+                                          id={`req-toggle-${doc.id}`}
+                                          checked={isRequired}
+                                          onChange={() => handleToggleCustomDocRequired(doc.id)}
+                                          style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                                        />
+                                        <label
+                                          htmlFor={`req-toggle-${doc.id}`}
+                                          className={`small fw-semibold m-0 cursor-pointer ${
+                                            isRequired ? 'text-success' : 'text-secondary'
+                                          }`}
+                                          style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                                        >
+                                          {isRequired ? 'Required' : 'Optional'}
+                                        </label>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                                        title="Remove document"
+                                        aria-label={`Remove ${doc.title}`}
+                                        onClick={() => handleRemoveCustomDoc(doc.id)}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                      </button>
+                                    </div>
                                   </div>
+                                  {renderResponsiblePartyChecklist(doc.id, defaultParties, doc.title)}
                                 </div>
                               );
                             })
@@ -4134,7 +4415,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         const activeSubtypes = orderAssuranceScopes(selectedScopes);
 
                         const activeGenDocs = generalDocs.filter((d) => d.isEnabled);
-                        const allNeededDocs: { subtype: AssuranceSubtype; title: string; isCustom: boolean; isMandatory: boolean }[] = [];
+                        const allNeededDocs: { subtype: AssuranceSubtype; title: string; isCustom: boolean; isMandatory: boolean; responsibleParties: string[] }[] = [];
                         activeSubtypes.forEach((subtype) => {
                           SUBTYPE_STANDARD_DOCS[subtype].forEach((doc) => {
                             if (docToggles[doc.id]) {
@@ -4143,6 +4424,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 title: doc.title,
                                 isCustom: false,
                                 isMandatory: docRequired[doc.id] ?? doc.isMandatory,
+                                responsibleParties: getRequirementResponsibleParties(doc.id, [appointedProviderOrg || serviceProviderOrg].filter(Boolean)),
                               });
                             }
                           });
@@ -4152,6 +4434,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               title: spec.title,
                               isCustom: true,
                               isMandatory: spec.isMandatory,
+                              responsibleParties: getRequirementResponsibleParties(spec.id, [appointedProviderOrg || serviceProviderOrg].filter(Boolean)),
                             });
                           });
                         });
@@ -4192,7 +4475,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                               key={idx}
                                               className="d-flex align-items-center justify-content-between p-2 rounded-1 bg-light small"
                                             >
-                                              <span className="text-dark fw-medium">{doc.title}</span>
+                                              <div className="d-flex flex-column gap-0.5 min-w-0">
+                                                <span className="text-dark fw-medium">{doc.title}</span>
+                                                {doc.responsibleParties && doc.responsibleParties.length > 0 && (
+                                                  <span className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }} data-testid={`review-doc-parties-${idx}`}>
+                                                    Responsible: {doc.responsibleParties.join(', ')}
+                                                  </span>
+                                                )}
+                                              </div>
                                               <span
                                                 className={`badge ${doc.isCustom ? 'bg-primary-subtle text-primary border border-primary-subtle' : doc.isMandatory ? 'bg-secondary-subtle text-dark border' : 'bg-light text-secondary border'} font-mono-code`}
                                                 style={{ fontSize: '0.7rem' }}
