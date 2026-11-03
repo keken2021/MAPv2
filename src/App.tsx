@@ -26,6 +26,7 @@ import { InspectionChecklistView } from './views/InspectionChecklistView';
 import { AuditTrailView } from './views/AuditTrailView';
 import { UserManagementView } from './views/UserManagementView';
 import { RolesAndPermissionsView } from './views/RolesAndPermissionsView';
+import { OrganizationProfileView } from './views/OrganizationProfileView';
 import { CrewView } from './views/CrewView';
 import { CrewDetailView } from './views/CrewDetailView';
 import { CapaManagementView } from './views/CapaManagementView';
@@ -121,11 +122,14 @@ export const App: React.FC = () => {
       null;
 
     /* roles-permissions is persona-gated (Administrator settings); skip matrix revoke on blank role_rights */
+    /* organization-profile is Settings: any signed-in persona may open; the view itself gates edit to Administrator */
     const allowedByRole =
       currentHashView === 'objects'
         ? canOpenObjectsList(activePersona)
         : currentHashView === 'roles-permissions'
         ? isViewAccessibleToPersona(currentHashView, currentEntityId, activePersona)
+        : currentHashView === 'organization-profile'
+        ? true
         : isViewAccessibleToPersona(
           currentHashView,
           currentEntityId,
@@ -230,6 +234,8 @@ export const App: React.FC = () => {
         ) : (
           <DashboardView />
         );
+      case 'organization-profile':
+        return <OrganizationProfileView />;
       case 'crew':
         return currentEntityId ? <CrewDetailView crewId={currentEntityId} /> : <CrewView />;
       case 'dashboard':

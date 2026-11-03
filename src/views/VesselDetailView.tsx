@@ -72,7 +72,11 @@ import { MasterDocument } from '../types/document';
 import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
 import { filterDocumentsVisibleToOrganization } from '../utils/rbacHelpers';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
-
+import { organizationContactFields, useOrganizationProfileStore } from '../store/organizationProfileStore';
+import {
+  ORGANIZATION_FIELD_NOT_RECORDED,
+  vesselManagerRoleFromLabel,
+} from '../types/organization';
 
 interface VesselDetailViewProps {
   vesselId: string;
@@ -259,6 +263,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const canExport = isAdmin || isCAdmin || isOwned;
   const canManagePhotos = canEditFull;
   const showManagementSection = isCAdmin;
+
+  const getManagerDateOfEffect = useOrganizationProfileStore((s) => s.getManagerDateOfEffect);
+  const getManagerDateOfEffectForOrganization = useOrganizationProfileStore(
+    (s) => s.getManagerDateOfEffectForOrganization,
+  );
+  const organizationProfiles = useOrganizationProfileStore((s) => s.profiles);
 
   const canCreateAssurance = isAdmin || isCAdmin;
   const clientOrg = getClientAdminOrganization(
@@ -1680,26 +1690,73 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </div>
 
               <div className="list-group border rounded-3 overflow-hidden bg-white shadow-sm">
-                {managementOrganizations.map((row) => (
-                  <div
-                    key={row.organization}
-                    className="list-group-item d-flex align-items-start justify-content-between gap-2 py-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="fw-semibold text-dark text-truncate" style={{ fontSize: '0.85rem' }}>
-                        {row.organization}
-                      </div>
-                      <div className="text-muted small text-truncate">{row.roles.join(' · ')}</div>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-primary shrink-0"
-                      onClick={() => setSelectedCompanyForFleetModal(row.organization)}
+                {managementOrganizations.map((row) => {
+                  /* organizationProfiles in deps keeps contacts live after Settings edits */
+                  void organizationProfiles;
+                  const contact = organizationContactFields(row.organization);
+                  const effectDates = row.roles.map((roleLabel) => {
+                    const roleKey = vesselManagerRoleFromLabel(roleLabel);
+                    const raw = roleKey ? getManagerDateOfEffect(vessel.id, roleKey) : '';
+                    return {
+                      roleLabel,
+                      display: raw.trim()
+                        ? formatMaritimeDate(raw)
+                        : ORGANIZATION_FIELD_NOT_RECORDED,
+                    };
+                  });
+                  return (
+                    <div
+                      key={row.organization}
+                      className="list-group-item py-3"
                     >
-                      View vessels
-                    </button>
-                  </div>
-                ))}
+                      <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <div className="fw-semibold text-dark text-truncate" style={{ fontSize: '0.85rem' }}>
+                            {row.organization}
+                          </div>
+                          <div className="text-muted small text-truncate">{row.roles.join(' · ')}</div>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary shrink-0"
+                          onClick={() => setSelectedCompanyForFleetModal(row.organization)}
+                        >
+                          View vessels
+                        </button>
+                      </div>
+                      <div className="small" style={{ fontSize: '0.75rem' }}>
+                        <div className="d-flex justify-content-between gap-2">
+                          <span className="text-muted">Email</span>
+                          <span className={contact.email === ORGANIZATION_FIELD_NOT_RECORDED ? 'text-muted' : 'text-dark text-truncate'}>{contact.email}</span>
+                        </div>
+                        <div className="d-flex justify-content-between gap-2">
+                          <span className="text-muted">Phone</span>
+                          <span className={contact.phone === ORGANIZATION_FIELD_NOT_RECORDED ? 'text-muted' : 'text-dark text-truncate'}>{contact.phone}</span>
+                        </div>
+                        <div className="d-flex justify-content-between gap-2">
+                          <span className="text-muted">Fax</span>
+                          <span className={contact.fax === ORGANIZATION_FIELD_NOT_RECORDED ? 'text-muted' : 'text-dark text-truncate'}>{contact.fax}</span>
+                        </div>
+                        <div className="d-flex justify-content-between gap-2">
+                          <span className="text-muted">Website</span>
+                          <span className={contact.website === ORGANIZATION_FIELD_NOT_RECORDED ? 'text-muted' : 'text-dark text-truncate'}>{contact.website}</span>
+                        </div>
+                        <div className="d-flex justify-content-between gap-2">
+                          <span className="text-muted">Address</span>
+                          <span className={`text-end ${contact.address === ORGANIZATION_FIELD_NOT_RECORDED ? 'text-muted' : 'text-dark'}`}>{contact.address}</span>
+                        </div>
+                        {effectDates.map((entry) => (
+                          <div key={entry.roleLabel} className="d-flex justify-content-between gap-2 mt-1">
+                            <span className="text-muted">Date of effect · {entry.roleLabel}</span>
+                            <span className={entry.display === ORGANIZATION_FIELD_NOT_RECORDED ? 'text-muted' : 'text-dark font-mono-code'}>
+                              {entry.display}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
                 {managementOrganizations.length === 0 && (
                   <div className="list-group-item text-muted small py-3">No management organizations recorded.</div>
                 )}
@@ -3636,6 +3693,17 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <div className="text-secondary small mt-0.5">
                     Other vessels managed by this organization
                   </div>
+                  {(() => {
+                    const fleetContact = organizationContactFields(selectedCompanyForFleetModal);
+                    return (
+                      <div className="small text-secondary mt-2" style={{ fontSize: '0.75rem' }}>
+                        <div>Email · {fleetContact.email}</div>
+                        <div>Phone · {fleetContact.phone}</div>
+                        <div>Website · {fleetContact.website}</div>
+                        <div>Address · {fleetContact.address}</div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <button
                   type="button"
@@ -3653,41 +3721,55 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         <th>Name</th>
                         <th>Type</th>
                         <th>Flag State</th>
+                        <th>Date of effect</th>
                         <th>Operating Status</th>
                         <th>Readiness</th>
                         <th className="text-end">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {companyFleetPagination.pageItems.map((v) => (
-                        <tr key={v.id}>
-                          <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
-                          <td className="fw-semibold text-dark">{v.name}</td>
-                          <td className="small">{v.vesselSubtype || v.vesselType}</td>
-                          <td>{v.flagState}</td>
-                          <td>
-                            <span className={`badge ${getVesselStatusBadgeClass(v.status)}`}>{v.status}</span>
-                          </td>
-                          <td>
-                            <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
-                          </td>
-                          <td className="text-end">
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                              style={{ width: '32px', height: '32px' }}
-                              onClick={() => {
-                                setSelectedCompanyForFleetModal(null);
-                                setCurrentHashView('vessels', v.id);
-                              }}
-                              title="View"
-                              aria-label="View"
-                            >
-                              <Eye size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {companyFleetPagination.pageItems.map((v) => {
+                        const effectRaw = getManagerDateOfEffectForOrganization(
+                          v.id,
+                          selectedCompanyForFleetModal,
+                          v,
+                        );
+                        const effectDisplay = effectRaw.trim()
+                          ? formatMaritimeDate(effectRaw)
+                          : ORGANIZATION_FIELD_NOT_RECORDED;
+                        return (
+                          <tr key={v.id}>
+                            <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
+                            <td className="fw-semibold text-dark">{v.name}</td>
+                            <td className="small">{v.vesselSubtype || v.vesselType}</td>
+                            <td>{v.flagState}</td>
+                            <td className={effectDisplay === ORGANIZATION_FIELD_NOT_RECORDED ? 'text-muted small' : 'font-mono-code small'}>
+                              {effectDisplay}
+                            </td>
+                            <td>
+                              <span className={`badge ${getVesselStatusBadgeClass(v.status)}`}>{v.status}</span>
+                            </td>
+                            <td>
+                              <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
+                            </td>
+                            <td className="text-end">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
+                                onClick={() => {
+                                  setSelectedCompanyForFleetModal(null);
+                                  setCurrentHashView('vessels', v.id);
+                                }}
+                                title="View"
+                                aria-label="View"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -24,8 +24,10 @@ describe('vessel detail management list and ownership', () => {
 
     expect(screen.getByText('Management')).toBeInTheDocument();
     expect(screen.getByText('Southern Basin Energy Pty Ltd')).toBeInTheDocument();
-    expect(screen.getByText(/Registered Owner/)).toBeInTheDocument();
+    expect(screen.getByText('Registered Owner · ISM Manager · Ship Manager')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /view vessels/i })).toBeInTheDocument();
+    expect(screen.getByText('marine@southernbasin.com.au')).toBeInTheDocument();
+    expect(screen.getAllByText(/Date of effect/).length).toBeGreaterThanOrEqual(1);
 
     expect(screen.queryByText('Show All Details')).toBeNull();
     expect(screen.queryByText('Other Vessels')).toBeNull();

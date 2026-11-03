@@ -813,26 +813,46 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                     <div className="row g-2.5 mt-3.5">
                       {item.contact.email && (
                         <div className="col-12 col-md-6">
-                          <a
-                            href={`mailto:${item.contact.email}`}
-                            className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center gap-2 w-100 font-mono-code text-truncate px-3"
-                            style={{ fontSize: '0.82rem', height: '38px' }}
-                          >
-                            <Mail size={15} className="flex-shrink-0" />
-                            <span className="text-truncate">{item.contact.email}</span>
-                          </a>
+                          {item.contact.email === 'Not recorded' ? (
+                            <div
+                              className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center gap-2 w-100 font-mono-code text-truncate px-3 text-muted disabled"
+                              style={{ fontSize: '0.82rem', height: '38px', pointerEvents: 'none' }}
+                            >
+                              <Mail size={15} className="flex-shrink-0" />
+                              <span className="text-truncate">Not recorded</span>
+                            </div>
+                          ) : (
+                            <a
+                              href={`mailto:${item.contact.email}`}
+                              className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center gap-2 w-100 font-mono-code text-truncate px-3"
+                              style={{ fontSize: '0.82rem', height: '38px' }}
+                            >
+                              <Mail size={15} className="flex-shrink-0" />
+                              <span className="text-truncate">{item.contact.email}</span>
+                            </a>
+                          )}
                         </div>
                       )}
                       {item.contact.phone && (
                         <div className="col-12 col-md-6">
-                          <a
-                            href={`tel:${item.contact.phone}`}
-                            className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center gap-2 w-100 font-mono-code text-truncate px-3"
-                            style={{ fontSize: '0.82rem', height: '38px' }}
-                          >
-                            <Phone size={15} className="flex-shrink-0" />
-                            <span className="text-truncate">{item.contact.phone}</span>
-                          </a>
+                          {item.contact.phone === 'Not recorded' ? (
+                            <div
+                              className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center gap-2 w-100 font-mono-code text-truncate px-3 text-muted disabled"
+                              style={{ fontSize: '0.82rem', height: '38px', pointerEvents: 'none' }}
+                            >
+                              <Phone size={15} className="flex-shrink-0" />
+                              <span className="text-truncate">Not recorded</span>
+                            </div>
+                          ) : (
+                            <a
+                              href={`tel:${item.contact.phone}`}
+                              className="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center gap-2 w-100 font-mono-code text-truncate px-3"
+                              style={{ fontSize: '0.82rem', height: '38px' }}
+                            >
+                              <Phone size={15} className="flex-shrink-0" />
+                              <span className="text-truncate">{item.contact.phone}</span>
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>

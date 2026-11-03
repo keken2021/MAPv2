@@ -13,12 +13,39 @@ import { UserProfile } from '../types/user';
 import { AssuranceSet } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
+import { organizationContactFields } from '../store/organizationProfileStore';
+import { ORGANIZATION_FIELD_NOT_RECORDED } from '../types/organization';
+import { MarketplaceContact } from '../types/marketplace';
 import { getVesselStockPhoto, getEquipmentStockPhoto, getCrewStockPhoto, getOrganizationLogo } from './vesselImageHelpers';
 import { getClientAdminOrganization } from './rbacHelpers';
 import { calculateCrewComplianceScore, calculateEquipmentReadiness, calculateVesselReadiness } from './readinessHelpers';
 import { formatReadinessScore, getStatusDisplayLabel, NOT_ASSESSED_LABEL } from './formatters';
 import { getAssuranceSetCrewIds, getAssuranceSetScopes } from './assuranceTemplates';
 import { toIsoLocalDate } from './validation';
+
+/**
+  what: marketplace contact from the organization profile — never invents email/phone from the company name.
+*/
+function marketplaceContactFromOrganization(
+  organizationName: string,
+  role: string,
+  avatarUrl: string,
+): MarketplaceContact {
+  const fields = organizationContactFields(organizationName);
+  return {
+    name: organizationName,
+    role,
+    avatarUrl,
+    email: fields.email,
+    phone: fields.phone,
+  };
+}
+
+/** true when a marketplace contact string is a real recorded value (not blank / Not recorded) */
+export function isRecordedOrganizationContact(value?: string | null): boolean {
+  const trimmed = (value || '').trim();
+  return Boolean(trimmed) && trimmed !== ORGANIZATION_FIELD_NOT_RECORDED;
+}
 
 /**
   what: checks if an item or organization belongs to the currently logged in user's organization.
@@ -188,6 +215,13 @@ export function getMarketplaceItems(
         }
       }
     }
+    /* replace invented seed contacts with the organization profile (Not recorded when empty) */
+    cloned.contact = marketplaceContactFromOrganization(
+      cloned.providerOrg,
+      cloned.contact?.role || 'Provider desk',
+      cloned.contact?.avatarUrl ||
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+    );
     return cloned;
   });
 
@@ -245,13 +279,11 @@ export function getMarketplaceItems(
           { label: 'Gross Tonnage', value: v.grossTonnageGT ? `${v.grossTonnageGT} GT` : '—' },
           { label: 'Deadweight', value: v.deadweightTonnageDWT ? `${v.deadweightTonnageDWT} MT` : '—' },
         ],
-        contact: {
-          name: orgInfo.name,
-          role: 'Chartering Desk · Fleet Operations',
-          avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-          email: 'chartering@maritimeprovider.com.au',
-          phone: v.contact247 || '+61 8 9200 0000',
-        },
+        contact: marketplaceContactFromOrganization(
+          orgInfo.name,
+          'Chartering Desk · Fleet Operations',
+          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+        ),
         linkedEntityId: v.id,
         linkedEntityType: 'vessel',
       });
@@ -300,13 +332,11 @@ export function getMarketplaceItems(
           { label: 'Category', value: eq.category },
           { label: 'Availability', value: eq.availabilityStatus },
         ],
-        contact: {
-          name: eq.owningOrganization,
-          role: 'Equipment Leasing Desk',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-          email: 'equipment@leasingprovider.com',
-          phone: '+61 8 9480 0000',
-        },
+        contact: marketplaceContactFromOrganization(
+          eq.owningOrganization,
+          'Equipment Leasing Desk',
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        ),
         linkedEntityId: eq.id,
         linkedEntityType: 'equipment',
       });
@@ -348,13 +378,11 @@ export function getMarketplaceItems(
           { label: 'Compliance', value: getStatusDisplayLabel(c.complianceStatus) },
           { label: 'Last Audit', value: c.lastAuditedDate },
         ],
-        contact: {
-          name: c.organization,
-          role: 'Crewing Desk',
-          avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-          email: 'crewing@leasingprovider.com',
-          phone: '+61 8 9480 0000',
-        },
+        contact: marketplaceContactFromOrganization(
+          c.organization,
+          'Crewing Desk',
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        ),
         linkedEntityId: c.id,
         linkedEntityType: 'crew',
       });
