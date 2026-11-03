@@ -16,12 +16,21 @@ import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
 import { organizationContactFields } from '../store/organizationProfileStore';
 import { ORGANIZATION_FIELD_NOT_RECORDED } from '../types/organization';
 import { MarketplaceContact } from '../types/marketplace';
-import { getVesselStockPhoto, getEquipmentStockPhoto, getCrewStockPhoto, getOrganizationLogo } from './vesselImageHelpers';
+import {
+  getVesselStockPhoto,
+  getEquipmentStockPhoto,
+  getCrewStockPhoto,
+  getOrganizationLogo,
+  getVesselListingContact,
+} from './vesselImageHelpers';
 import { getClientAdminOrganization } from './rbacHelpers';
 import { calculateCrewComplianceScore, calculateEquipmentReadiness, calculateVesselReadiness } from './readinessHelpers';
 import { formatReadinessScore, getStatusDisplayLabel, NOT_ASSESSED_LABEL } from './formatters';
 import { getAssuranceSetCrewIds, getAssuranceSetScopes } from './assuranceTemplates';
 import { toIsoLocalDate } from './validation';
+
+const DEFAULT_CONTACT_AVATAR =
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80';
 
 /**
   what: marketplace contact from the organization profile — never invents email/phone from the company name.
@@ -30,14 +39,60 @@ function marketplaceContactFromOrganization(
   organizationName: string,
   role: string,
   avatarUrl: string,
+  contactName?: string,
 ): MarketplaceContact {
   const fields = organizationContactFields(organizationName);
   return {
-    name: organizationName,
+    name: (contactName || '').trim() || organizationName,
     role,
     avatarUrl,
     email: fields.email,
     phone: fields.phone,
+  };
+}
+
+/** upsert a detailedSpec row by label */
+function upsertListingSpec(
+  specs: MarketplaceItem['detailedSpecs'],
+  label: string,
+  value?: string | null,
+): MarketplaceItem['detailedSpecs'] {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return specs;
+  const next = specs.map((spec) => (spec.label === label ? { ...spec, value: trimmed } : spec));
+  if (next.some((spec) => spec.label === label)) return next;
+  return [...next, { label, value: trimmed }];
+}
+
+/** charter type label taken from the vessel intended-use record */
+export function charterTypeFromVessel(vessel: Pick<VesselInformation, 'intendedUse'>): string {
+  return (vessel.intendedUse || '').split('&')[0].trim();
+}
+
+/**
+  what: overlays vessel port, IMO, flag, charter type and master contact onto a listing via linkedEntityId.
+*/
+export function applyLinkedVesselListingFields(
+  item: MarketplaceItem,
+  vessel: VesselInformation,
+): MarketplaceItem {
+  const listingContact = getVesselListingContact(vessel.registeredOwner, vessel.masterName, vessel.id);
+  const charterType = charterTypeFromVessel(vessel);
+  let detailedSpecs = upsertListingSpec(item.detailedSpecs, 'IMO Number', vessel.imoNumber);
+  detailedSpecs = upsertListingSpec(detailedSpecs, 'Flag State', vessel.flagState);
+  if (charterType) {
+    detailedSpecs = upsertListingSpec(detailedSpecs, 'Charter Type', charterType);
+  }
+  return {
+    ...item,
+    location: vessel.portOfRegistry?.trim() || item.location,
+    detailedSpecs,
+    contact: marketplaceContactFromOrganization(
+      item.providerOrg,
+      item.contact?.role || 'Chartering Desk',
+      listingContact.avatarUrl || item.contact?.avatarUrl || DEFAULT_CONTACT_AVATAR,
+      vessel.masterName,
+    ),
   };
 }
 
@@ -81,21 +136,58 @@ export function isItemOwnedByCurrentOrganization(
 
 const LISTING_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
-/* windows assigned to assets that are built from the registries rather than marketplaceMockData */
-const GENERATED_WINDOWS: [string, string][] = [
-  ['2026-12-01', '2027-03-31'],
-  ['2026-11-01', '2027-02-28'],
-  ['2027-04-01', '2027-06-30'],
-  ['2026-10-01', '2026-12-15'],
-  ['2027-01-15', '2027-05-31'],
-  ['2026-09-01', '2026-11-30'],
-];
+/**
+  recorded marketplace offer fields keyed by linked entity id.
+  windows / rates / lead times are listing records — never derived from a hash, category default, or vessel status.
+*/
+export interface MarketplaceListingOffer {
+  availableFrom: string;
+  availableTo: string;
+  rateEstimate?: string;
+  mobilizationLeadTime?: string;
+  charterType?: string;
+}
 
-/* a stable window for a generated listing, so the same asset always shows the same dates */
+export const LISTING_OFFERS_BY_LINKED_ENTITY: Record<string, MarketplaceListingOffer> = {
+  'VESSEL-001': { availableFrom: '2027-04-01', availableTo: '2027-06-30', rateEstimate: 'AUD 26,500 / day', mobilizationLeadTime: '48 Hours', charterType: 'Offshore Supply' },
+  'VESSEL-002': { availableFrom: '2026-10-01', availableTo: '2026-12-15', rateEstimate: 'AUD 29,000 / day', mobilizationLeadTime: '72 Hours', charterType: 'Anchor Handling' },
+  'VESSEL-003': { availableFrom: '2027-01-15', availableTo: '2027-05-31', rateEstimate: 'AUD 27,000 / day', mobilizationLeadTime: '48 Hours', charterType: 'Platform Supply' },
+  'VESSEL-004': { availableFrom: '2026-09-01', availableTo: '2026-11-30', rateEstimate: 'AUD 32,000 / day', mobilizationLeadTime: '5 Days', charterType: 'Subsea Inspection' },
+  'VESSEL-005': { availableFrom: '2026-12-01', availableTo: '2027-03-31', rateEstimate: 'AUD 30,000 / day', mobilizationLeadTime: '48 Hours', charterType: 'Offshore Rig Towing' },
+  'VESSEL-006': { availableFrom: '2026-11-01', availableTo: '2027-02-28', rateEstimate: 'AUD 24,500 / day', mobilizationLeadTime: '24 Hours', charterType: 'Offshore Rescue' },
+  'VESSEL-007': { availableFrom: '2027-04-01', availableTo: '2027-06-30', rateEstimate: 'AUD 25,000 / day', mobilizationLeadTime: '48 Hours', charterType: 'Platform Deck Supply' },
+  'VESSEL-011': { availableFrom: '2026-10-01', availableTo: '2026-12-15', rateEstimate: 'AUD 28,000 / day', mobilizationLeadTime: '72 Hours', charterType: 'Offshore Platform Support' },
+  'VESSEL-012': { availableFrom: '2027-01-15', availableTo: '2027-05-31', rateEstimate: 'AUD 27,500 / day', mobilizationLeadTime: '48 Hours', charterType: 'Offshore Platform Supply' },
+  'EQ-001': { availableFrom: '2027-01-15', availableTo: '2027-05-31', rateEstimate: 'AUD 1,800 / day', mobilizationLeadTime: '24 Hours' },
+  'EQ-002': { availableFrom: '2026-09-01', availableTo: '2026-11-30', rateEstimate: 'AUD 2,200 / day', mobilizationLeadTime: '48 Hours' },
+  'EQ-003': { availableFrom: '2026-12-01', availableTo: '2027-03-31', rateEstimate: 'AUD 3,400 / day', mobilizationLeadTime: '72 Hours' },
+  'EQ-004': { availableFrom: '2026-11-01', availableTo: '2027-02-28', rateEstimate: 'AUD 4,100 / day', mobilizationLeadTime: '5 Days' },
+  'EQ-005': { availableFrom: '2027-04-01', availableTo: '2027-06-30', rateEstimate: 'AUD 12,000 / day', mobilizationLeadTime: '5 Days' },
+  'EQ-006': { availableFrom: '2026-10-01', availableTo: '2026-12-15', rateEstimate: 'AUD 6,500 / day', mobilizationLeadTime: '72 Hours' },
+  'EQ-007': { availableFrom: '2027-01-15', availableTo: '2027-05-31', rateEstimate: 'AUD 8,200 / day', mobilizationLeadTime: '3 Days' },
+  'EQ-008': { availableFrom: '2026-09-01', availableTo: '2026-11-30', rateEstimate: 'AUD 5,500 / day', mobilizationLeadTime: '48 Hours' },
+  'EQ-009': { availableFrom: '2026-12-01', availableTo: '2027-03-31', rateEstimate: 'AUD 2,900 / day', mobilizationLeadTime: '24 Hours' },
+  'EQ-010': { availableFrom: '2027-01-15', availableTo: '2027-05-31', rateEstimate: 'AUD 7,200 / day', mobilizationLeadTime: '5 Days' },
+  'EQ-011': { availableFrom: '2026-09-01', availableTo: '2026-11-30', rateEstimate: 'AUD 3,100 / day', mobilizationLeadTime: '48 Hours' },
+  'EQ-012': { availableFrom: '2026-12-01', availableTo: '2027-03-31', rateEstimate: 'AUD 4,800 / day', mobilizationLeadTime: '72 Hours' },
+  'EQ-013': { availableFrom: '2026-11-01', availableTo: '2027-02-28', rateEstimate: 'AUD 2,400 / day', mobilizationLeadTime: '24 Hours' },
+  'CREW-101': { availableFrom: '2027-01-15', availableTo: '2027-05-31', rateEstimate: 'Day Rate on Application', mobilizationLeadTime: 'On Application' },
+  'CREW-102': { availableFrom: '2026-09-01', availableTo: '2026-11-30', rateEstimate: 'Day Rate on Application', mobilizationLeadTime: 'On Application' },
+  'CREW-103': { availableFrom: '2026-12-01', availableTo: '2027-03-31', rateEstimate: 'Day Rate on Application', mobilizationLeadTime: 'On Application' },
+  'CREW-104': { availableFrom: '2026-11-01', availableTo: '2027-02-28', rateEstimate: 'Day Rate on Application', mobilizationLeadTime: 'On Application' },
+  'CREW-105': { availableFrom: '2027-04-01', availableTo: '2027-06-30', rateEstimate: 'Day Rate on Application', mobilizationLeadTime: 'On Application' },
+};
+
+/** recorded offer for a linked registry asset; undefined when the asset has no marketplace listing record */
+export function listingOfferForLinkedEntity(linkedEntityId: string): MarketplaceListingOffer | undefined {
+  return LISTING_OFFERS_BY_LINKED_ENTITY[linkedEntityId];
+}
+
+/** @deprecated use listingOfferForLinkedEntity — kept name for call sites that only need the window */
 export function availabilityWindowForId(id: string): { availableFrom: string; availableTo: string } {
-  const slot = [...id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % GENERATED_WINDOWS.length;
-  const [availableFrom, availableTo] = GENERATED_WINDOWS[slot];
-  return { availableFrom, availableTo };
+  const offer = listingOfferForLinkedEntity(id);
+  if (offer) return { availableFrom: offer.availableFrom, availableTo: offer.availableTo };
+  return { availableFrom: '', availableTo: '' };
 }
 
 /* calendar date without a timezone shift, e.g. "01 DEC 2026" */
@@ -183,7 +275,7 @@ export function getMarketplaceItems(
 ): MarketplaceItem[] {
   // 1. Gather all dedicated service provider mock items and synchronize linked entity photos/images
   const baseItems: MarketplaceItem[] = MOCK_MARKETPLACE_ITEMS.map((item) => {
-    const cloned = { ...item };
+    let cloned = { ...item, detailedSpecs: [...item.detailedSpecs], metrics: [...item.metrics] };
     if (cloned.linkedEntityId) {
       if (cloned.linkedEntityType === 'vessel') {
         const v = vessels.find((ves) => ves.id === cloned.linkedEntityId);
@@ -195,6 +287,7 @@ export function getMarketplaceItems(
           // not competitor clients' private assurance sets or decisions (gap review R2-E10, paper Appendix C Q7)
           cloned.complianceReadinessScore = calculateVesselReadiness(v, [], documents);
           cloned.metrics = withReadinessMetric(cloned.metrics, cloned.complianceReadinessScore);
+          cloned = applyLinkedVesselListingFields(cloned, v);
         }
       } else if (cloned.linkedEntityType === 'equipment') {
         const eq = equipment.find((e) => e.id === cloned.linkedEntityId);
@@ -215,100 +308,130 @@ export function getMarketplaceItems(
         }
       }
     }
-    /* replace invented seed contacts with the organization profile (Not recorded when empty) */
+    /* organization profile for email/phone; keep masterName when already applied from the vessel */
+    const contactName =
+      cloned.linkedEntityType === 'vessel' && cloned.contact?.name && cloned.contact.name !== cloned.providerOrg
+        ? cloned.contact.name
+        : undefined;
     cloned.contact = marketplaceContactFromOrganization(
       cloned.providerOrg,
       cloned.contact?.role || 'Provider desk',
-      cloned.contact?.avatarUrl ||
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+      cloned.contact?.avatarUrl || DEFAULT_CONTACT_AVATAR,
+      contactName,
     );
     return cloned;
   });
 
-  // 2. Wrap third-party store vessels if not already present in base items
+  // 2. Wrap third-party store vessels if not already present and a listing offer is on record
   vessels.forEach((v) => {
     const isBasePresent = baseItems.some((item) => item.linkedEntityId === v.id);
-    if (!isBasePresent) {
-      const orgInfo = getOrganizationLogo(v.registeredOwner);
+    const offer = listingOfferForLinkedEntity(v.id);
+    if (!isBasePresent && offer && v.portOfRegistry?.trim() && v.registeredOwner?.trim()) {
       const vesselReadiness = calculateVesselReadiness(v, [], documents);
       const photoUrl = getVesselStockPhoto(v.id, v.name, v.vesselType, v.vesselSubtype, v.imageUrl);
+      const charterType = offer.charterType || charterTypeFromVessel(v);
+      const onCharter = v.availabilityStatus === 'On Charter';
 
-      baseItems.push({
+      const generated: MarketplaceItem = {
         id: `MAP-VES-${v.yearBuilt || 2024}-MKT-${v.id.replace('VESSEL-', '')}`,
         name: v.name,
         category: 'vessel',
         subcategory: v.vesselSubtype || v.vesselType || 'Offshore Vessel',
-        providerOrg: v.registeredOwner || 'Verified Marine Provider',
-        location: v.portOfRegistry || 'Western Australia',
-        ...availabilityWindowForId(v.id),
-        availabilityStatus: v.status === 'Under Charter' ? 'Under Charter' : 'Available for Charter',
-        availabilityTagColor: v.status === 'Under Charter' ? '#3b82f6' : '#059669',
+        providerOrg: v.registeredOwner,
+        location: v.portOfRegistry,
+        availableFrom: offer.availableFrom,
+        availableTo: offer.availableTo,
+        availabilityStatus: onCharter ? 'Under Charter' : 'Available for Charter',
+        availabilityTagColor: onCharter ? '#3b82f6' : '#059669',
         imageUrl: photoUrl,
         photos: v.photos && v.photos.length > 0 ? v.photos : [photoUrl],
-        shortDescription: `${v.vesselType || 'Offshore Vessel'} certified for ${v.intendedUse || 'commercial maritime operations'}.`,
+        shortDescription: v.intendedUse
+          ? `${v.vesselType || 'Offshore Vessel'} for ${v.intendedUse}.`
+          : `${v.vesselType || 'Offshore Vessel'} on the marketplace.`,
         metrics: [
           {
             label: 'Capacity (DWT)',
-            value: v.deadweightTonnageDWT ? `${v.deadweightTonnageDWT.toLocaleString()} MT` : `${v.grossTonnageGT || 3200} GT`,
+            value: v.deadweightTonnageDWT
+              ? `${v.deadweightTonnageDWT.toLocaleString()} MT`
+              : v.grossTonnageGT
+                ? `${v.grossTonnageGT} GT`
+                : '—',
           },
           {
             label: 'Class & Readiness',
-            value: `${v.classificationSociety || 'DNV'} · ${vesselReadiness}% Ready`,
+            value: `${v.classificationSociety || '—'} · ${
+              vesselReadiness === null ? NOT_ASSESSED_LABEL : `${vesselReadiness}% Ready`
+            }`,
           },
         ],
         complianceReadinessScore: vesselReadiness,
-        rateEstimate: 'Available on Application',
-        mobilizationLeadTime: '48 Hours',
+        rateEstimate: offer.rateEstimate,
+        mobilizationLeadTime: offer.mobilizationLeadTime,
         certifications: [
-          `${v.classificationSociety || 'DNV'} Classification`,
-          'SOLAS / ISPS Statutory Pack',
-          v.flagState ? `${v.flagState} Flag Registry` : 'AMSA Verified',
+          ...(v.classificationSociety ? [`${v.classificationSociety} Classification`] : []),
+          ...(v.flagState ? [`${v.flagState} Flag Registry`] : []),
         ],
         operationalCapabilities: [
-          `Dynamic positioning: ${v.dynamicPositioningClass || 'DP2'}`,
-          `Main engine power: ${v.mainEnginePowerKW || 'Dual Wärtsilä Diesel'}`,
-          `Trading area: ${v.tradingArea || 'Continental Shelf / International'}`,
+          ...(v.dynamicPositioningClass ? [`Dynamic positioning: ${v.dynamicPositioningClass}`] : []),
+          ...(v.mainEnginePowerKW ? [`Main engine power: ${v.mainEnginePowerKW}`] : []),
+          ...(v.tradingArea ? [`Trading area: ${v.tradingArea}`] : []),
         ],
         detailedSpecs: [
           { label: 'IMO Number', value: v.imoNumber || '—' },
+          { label: 'Flag State', value: v.flagState || '—' },
+          ...(charterType ? [{ label: 'Charter Type', value: charterType }] : []),
           { label: 'Official Registration Number', value: v.officialRegNumber || '—' },
-          { label: 'Class Society', value: v.classificationSociety || 'DNV' },
-          { label: 'Year Built', value: `${v.yearBuilt || 2020} (${v.shipyardBuilder || 'Commercial Shipyard'})` },
+          { label: 'Class Society', value: v.classificationSociety || '—' },
+          {
+            label: 'Year Built',
+            value: v.yearBuilt ? `${v.yearBuilt}${v.shipyardBuilder ? ` (${v.shipyardBuilder})` : ''}` : '—',
+          },
           { label: 'LOA', value: v.lengthOverallMeters ? `${v.lengthOverallMeters} m` : '—' },
-          { label: 'Beam & Draft', value: `${v.beamMeters || '—'} m / ${v.draftMeters || '—'} m` },
+          {
+            label: 'Beam & Draft',
+            value:
+              v.beamMeters || v.draftMeters
+                ? `${v.beamMeters || '—'} m / ${v.draftMeters || '—'} m`
+                : '—',
+          },
           { label: 'Gross Tonnage', value: v.grossTonnageGT ? `${v.grossTonnageGT} GT` : '—' },
           { label: 'Deadweight', value: v.deadweightTonnageDWT ? `${v.deadweightTonnageDWT} MT` : '—' },
         ],
         contact: marketplaceContactFromOrganization(
-          orgInfo.name,
+          v.registeredOwner,
           'Chartering Desk · Fleet Operations',
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+          DEFAULT_CONTACT_AVATAR,
+          v.masterName,
         ),
         linkedEntityId: v.id,
         linkedEntityType: 'vessel',
-      });
+      };
+      baseItems.push(applyLinkedVesselListingFields(generated, v));
     }
   });
 
-  // 3. Wrap third-party store equipment if not already present in base items
+  // 3. Wrap third-party store equipment when a listing offer is on record
   equipment.forEach((eq) => {
     const isBasePresent = baseItems.some((item) => item.linkedEntityId === eq.id);
-    if (!isBasePresent) {
+    const offer = listingOfferForLinkedEntity(eq.id);
+    if (!isBasePresent && offer) {
       const photoUrl = eq.imageUrl || getEquipmentStockPhoto(eq.id, eq.name, eq.category);
       const equipmentReadiness = calculateEquipmentReadiness(eq, assuranceSets);
+      const parentVessel = eq.parentVesselId ? vessels.find((ves) => ves.id === eq.parentVesselId) : undefined;
       baseItems.push({
         id: `MAP-EQP-2026-MKT-${eq.id.replace('EQ-', '')}`,
         name: eq.name,
         category: 'equipment',
         subcategory: eq.category,
         providerOrg: eq.owningOrganization,
-        location: 'Western Australia Shorebase',
-        ...availabilityWindowForId(eq.id),
+        location: parentVessel?.portOfRegistry || eq.owningOrganization,
+        availableFrom: offer.availableFrom,
+        availableTo: offer.availableTo,
         availabilityStatus: eq.availabilityStatus === 'Available' ? 'Available for Lease' : eq.availabilityStatus,
         availabilityTagColor: '#059669',
         imageUrl: photoUrl,
         photos: eq.photos && eq.photos.length > 0 ? eq.photos : [photoUrl],
-        shortDescription: `${eq.manufacturer || 'Certified'} ${eq.model || eq.category} inspected and ready for marine deployment.`,
+        shortDescription: [eq.manufacturer, eq.model || eq.category].filter(Boolean).join(' ') + ' on record for marine deployment.',
         metrics: [
           { label: 'Category', value: eq.category },
           {
@@ -317,12 +440,15 @@ export function getMarketplaceItems(
           },
         ],
         complianceReadinessScore: equipmentReadiness,
-        rateEstimate: 'Daily / Weekly Rates Available',
-        mobilizationLeadTime: '24-48 Hours',
-        certifications: [eq.classStatus || 'In Class', eq.complianceStatus || 'Compliant'],
+        rateEstimate: offer.rateEstimate,
+        mobilizationLeadTime: offer.mobilizationLeadTime,
+        certifications: [
+          ...(eq.classStatus ? [eq.classStatus] : []),
+          ...(eq.complianceStatus ? [eq.complianceStatus] : []),
+        ],
         operationalCapabilities: [
-          `Manufacturer: ${eq.manufacturer || 'Standard'}`,
-          `Model / Spec: ${eq.model || 'Commercial'}`,
+          ...(eq.manufacturer ? [`Manufacturer: ${eq.manufacturer}`] : []),
+          ...(eq.model ? [`Model / Spec: ${eq.model}`] : []),
           `Registration: ${eq.equipmentIdentifier}`,
         ],
         detailedSpecs: [
@@ -343,10 +469,11 @@ export function getMarketplaceItems(
     }
   });
 
-  // 4. Wrap store crew with a recorded employer if not already present in base items
+  // 4. Wrap store crew with a recorded employer and listing offer
   crew.forEach((c) => {
     const isBasePresent = baseItems.some((item) => item.linkedEntityId === c.id);
-    if (!isBasePresent && c.organization) {
+    const offer = listingOfferForLinkedEntity(c.id);
+    if (!isBasePresent && offer && c.organization) {
       const photoUrl = c.imageUrl || getCrewStockPhoto(c.id, c.fullName, c.rank, c.imageUrl);
       const crewScore = calculateCrewComplianceScore(c);
       const crewDocuments = [...c.layer1CoreDocuments, ...c.layer2Endorsements];
@@ -356,8 +483,9 @@ export function getMarketplaceItems(
         category: 'crew',
         subcategory: c.rank,
         providerOrg: c.organization,
-        location: c.currentVesselName || 'Western Australia',
-        ...availabilityWindowForId(c.id),
+        location: c.currentVesselName || c.organization,
+        availableFrom: offer.availableFrom,
+        availableTo: offer.availableTo,
         availabilityStatus: c.currentVesselId ? 'On Assignment' : 'Available for Hire',
         availabilityTagColor: c.currentVesselId ? '#3b82f6' : '#059669',
         imageUrl: photoUrl,
@@ -368,8 +496,8 @@ export function getMarketplaceItems(
           { label: 'Readiness', value: formatReadinessScore(crewScore) },
         ],
         complianceReadinessScore: crewScore,
-        rateEstimate: 'Day Rate on Application',
-        mobilizationLeadTime: 'On Application',
+        rateEstimate: offer.rateEstimate,
+        mobilizationLeadTime: offer.mobilizationLeadTime,
         certifications: crewDocuments.slice(0, 4).map((d) => d.title),
         operationalCapabilities: c.assignments.slice(0, 3).map((a) => `${a.rankHeld} on ${a.vesselName} (${a.vesselType})`),
         detailedSpecs: [
@@ -382,6 +510,7 @@ export function getMarketplaceItems(
           c.organization,
           'Crewing Desk',
           'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+          c.fullName,
         ),
         linkedEntityId: c.id,
         linkedEntityType: 'crew',

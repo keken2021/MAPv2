@@ -173,68 +173,47 @@ export const getVesselStockPhoto = (
   return DEFAULT_VESSEL_PHOTOS[hash % DEFAULT_VESSEL_PHOTOS.length];
 };
 
+const DEFAULT_LISTING_CONTACT_AVATAR =
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80';
+
 /**
-  what: returns listing contact details with photo avatar based on vessel owner/master.
+  what: returns listing contact details from the vessel master name — never invents a person from a hash.
 */
 export const getVesselListingContact = (
   registeredOwner?: string,
   masterName?: string,
-  vesselId?: string,
+  _vesselId?: string,
 ): VesselListingContact => {
-  if (masterName) {
-    const matched = CONTACT_AVATARS.find((c) => c.name.toLowerCase() === masterName.toLowerCase());
-    if (matched) {
-      return {
-        name: matched.name,
-        role: registeredOwner || matched.role,
-        avatarUrl: matched.avatarUrl,
-      };
-    }
+  const master = (masterName || '').trim();
+  if (master) {
+    const matched = CONTACT_AVATARS.find((c) => c.name.toLowerCase() === master.toLowerCase());
+    return {
+      name: matched?.name || master,
+      role: registeredOwner || matched?.role || 'Master',
+      avatarUrl: matched?.avatarUrl || DEFAULT_LISTING_CONTACT_AVATAR,
+    };
   }
 
-  const hash = (vesselId || registeredOwner || 'contact')
-    .split('')
-    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const selected = CONTACT_AVATARS[hash % CONTACT_AVATARS.length];
-
+  const owner = (registeredOwner || '').trim();
   return {
-    name: masterName || selected.name,
-    role: registeredOwner || selected.role,
-    avatarUrl: selected.avatarUrl,
+    name: owner || 'Not recorded',
+    role: owner ? 'Provider desk' : 'Not recorded',
+    avatarUrl: DEFAULT_LISTING_CONTACT_AVATAR,
   };
 };
 
 /**
-  what: returns the top-left floating charter badge configuration matching the mockup style.
+  what: charter-type badge from the recorded intended use — never invents a type from vessel operating status.
 */
 export const getVesselCharterBadge = (
-  status?: string,
+  _status?: string,
   intendedUse?: string,
 ): VesselCharterBadgeInfo => {
-  switch (status) {
-    case 'Under Charter':
-      return { label: 'Time Charter', dotColor: '#ef4444' }; // Red dot
-    case 'In Transit':
-      return { label: 'Freight Charter', dotColor: '#8b5cf6' }; // Purple dot
-    case 'Standby':
-      return { label: 'Standby / Available', dotColor: '#eab308' }; // Yellow/Amber dot
-    case 'Port Stay':
-      return { label: 'Spot Charter', dotColor: '#3b82f6' }; // Blue dot
-    case 'In Operations':
-    case 'Active':
-      return { label: 'In Operations', dotColor: '#10b981' }; // Green dot
-    case 'Maintenance':
-    case 'Dry Docking':
-      return { label: 'Maintenance Yard', dotColor: '#f97316' }; // Orange dot
-    case 'Lay-up':
-    case 'Decommissioned':
-      return { label: 'Laid Up', dotColor: '#64748b' }; // Slate dot
-    default:
-      return {
-        label: intendedUse ? intendedUse.split('&')[0].trim() : 'Charter Ready',
-        dotColor: '#0ea5e9',
-      };
+  const fromUse = (intendedUse || '').split('&')[0].trim();
+  if (fromUse) {
+    return { label: fromUse, dotColor: '#0ea5e9' };
   }
+  return { label: 'Not recorded', dotColor: '#64748b' };
 };
 
 /**

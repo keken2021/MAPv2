@@ -83,6 +83,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
   const expiryDue = earliestExpiry ? getDueStatus(earliestExpiry, { today: new Date() }) : undefined;
   const expiryIsLate = expiryDue?.state === 'late' || expiryDue?.state === 'expired';
   const activePhoto = selectedPhotoUrl || item.imageUrl;
+  const charterType = item.detailedSpecs.find((spec) => spec.label === 'Charter Type')?.value;
 
   const getCategoryIcon = () => {
     switch (item.category) {
@@ -109,8 +110,9 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
       ['Location / Base', item.location],
       ['Availability Status', item.availabilityStatus],
       ['Compliance Readiness', formatReadinessScore(item.complianceReadinessScore)],
-      ['Rate Estimate', item.rateEstimate || 'Contact for Quote'],
-      ['Mobilization Time', item.mobilizationLeadTime || 'Standard Lead'],
+      ['Rate Estimate', item.rateEstimate || '—'],
+      ['Mobilization Time', item.mobilizationLeadTime || '—'],
+      ['Charter Type', charterType || '—'],
       ...item.detailedSpecs.map((s) => [getFieldDisplayLabel(s.label), s.value]),
     ];
     exportToPdf(`Marketplace_Offering_${item.name.replace(/\s+/g, '_')}`, headers, rows);
@@ -285,6 +287,12 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                         <span>Lead: {item.mobilizationLeadTime}</span>
                       </div>
                     )}
+                    {charterType && (
+                      <div className="d-flex align-items-center gap-1.5 small text-slate-300" style={{ fontSize: '0.82rem' }}>
+                        <Ship size={15} className="flex-shrink-0 text-slate-400" />
+                        <span>{charterType}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="d-flex align-items-center gap-2 mt-1">
@@ -381,6 +389,15 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                           <span>Lead: {item.mobilizationLeadTime}</span>
                         </span>
                       )}
+                      {charterType && (
+                        <span
+                          className="small d-flex align-items-center gap-1.5"
+                          style={{ color: '#CBD5E1', fontSize: '0.82rem' }}
+                        >
+                          <Ship size={15} className="flex-shrink-0" />
+                          <span>{charterType}</span>
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -452,9 +469,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                       className="fw-bold font-mono-code"
                       style={{ fontSize: '0.95rem', color: '#0B1B2B' }}
                     >
-                      {item.complianceReadinessScore === null
-                        ? formatReadinessScore(null)
-                        : `${formatReadinessScore(item.complianceReadinessScore)} Verified`}
+                      {formatReadinessScore(item.complianceReadinessScore)}
                     </div>
                   </div>
                 </div>
@@ -581,7 +596,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                       Specifications
                     </h6>
                     <span className="text-muted small" style={{ fontSize: '0.78rem' }}>
-                      {item.detailedSpecs.length} Verified Parameters
+                      {item.detailedSpecs.length} Parameters
                     </span>
                   </div>
                   <div className="row g-3">
@@ -646,7 +661,15 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                     Certificates
                   </h6>
                   <div className="d-flex flex-column gap-3 mb-3.5">
-                    {item.certifications.map((cert, i) => (
+                    {item.certifications.map((cert, i) => {
+                      const matchingDoc =
+                        documents.find(
+                          (d) =>
+                            d.title.toLowerCase().includes(cert.toLowerCase()) ||
+                            cert.toLowerCase().includes(d.title.toLowerCase()),
+                        ) || null;
+                      const isVerified = matchingDoc?.verificationStatus === 'Verified';
+                      return (
                       <div
                         key={i}
                         className="d-flex align-items-center justify-content-between rounded-2 border"
@@ -663,61 +686,18 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                           </span>
                         </div>
                         <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                          {matchingDoc && (
                           <button
                             type="button"
                             className="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1 py-1 px-2.5"
                             style={{ fontSize: '0.75rem' }}
-                            onClick={() => {
-                              const matchingDoc: MasterDocument = documents.find(
-                                (d) => d.title.toLowerCase().includes(cert.toLowerCase()) || cert.toLowerCase().includes(d.title.toLowerCase())
-                              ) || {
-                                id: `MAP-MKT-CERT-${i + 1}`,
-                                title: cert,
-                                entityType: 'Vessel Certificate',
-                                vesselId: item.id,
-                                certificateNo: `STAT-CERT-2026-00${i + 1}`,
-                                issuingAuthority: 'Recognized Classification Society',
-                                expiryDate: '2028-12-31',
-                                ocrConfidence: 99,
-                                complianceState: 'Valid',
-                                currentVersion: 'v1.0',
-                                versions: [{
-                                  versionLabel: 'v1.0',
-                                  uploadedAt: new Date().toISOString(),
-                                  uploadedBy: item.providerOrg,
-                                  fileSizeBytes: 2450000,
-                                  fileName: `${cert.toLowerCase().replace(/\s+/g, '_')}.pdf`,
-                                  changeSummary: 'Verified statutory marketplace record.'
-                                }],
-                                vesselAttributes: {
-                                  title: cert,
-                                  certificateNumber: `STAT-CERT-2026-00${i + 1}`,
-                                  certType: cert,
-                                  issuingBody: 'Recognized Classification Society',
-                                  issueDate: '2024-01-15',
-                                  expiryDate: '2028-12-31',
-                                  vesselName: item.name,
-                                  imoNumber: '9123453',
-                                  flagState: 'Australia',
-                                  assetMatchFlag: true,
-                                  lastSurveyDate: '2025-06-01',
-                                  ocrConfidence: 99,
-                                  status: 'Valid',
-                                },
-                                validationRules: {
-                                  charterBufferPassed: true,
-                                  assetMatch100Percent: true,
-                                  iacsAuthorityValid: true,
-                                  overallValid: true,
-                                },
-                                verificationStatus: 'Verified',
-                              };
-                              setPreviewCertDoc(matchingDoc);
-                            }}
+                            onClick={() => setPreviewCertDoc(matchingDoc)}
                           >
                             <FileText size={13} />
                             <span>View PDF</span>
                           </button>
+                          )}
+                          {isVerified && (
                           <span
                             className="badge rounded-pill px-3 py-1.5"
                             style={{
@@ -730,9 +710,11 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                           >
                             Verified
                           </span>
+                          )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <div
                     className="text-muted small mt-3"
@@ -786,7 +768,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                           {item.providerOrg}
                         </span>
                         <span className="text-secondary small mt-0.5" style={{ color: '#64748B', fontSize: '0.8rem' }}>
-                          Verified {getProviderLabel(item.category)}
+                          {item.contact?.role || getProviderLabel(item.category)}
                         </span>
                       </div>
                     </div>

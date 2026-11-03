@@ -90,9 +90,10 @@ export const resolveMarketplaceCardImage = (
 export const marketplaceCardStats = (
   item: MarketplaceItem,
 ): { label: string; value: string }[] => {
-  let metric1Label = getFieldDisplayLabel(item.metrics?.[0]?.label || (item.category === 'vessel' ? 'Capacity (DWT)' : item.category === 'crew' ? 'Experience' : 'Capacity'));
-  let metric1Value = item.metrics?.[0]?.value || (item.category === 'vessel' ? '4,400 MT' : item.category === 'crew' ? '12+ Years' : 'Standard');
-  const metric2Label = getFieldDisplayLabel(item.metrics?.[1]?.label || (item.category === 'vessel' ? 'Assurance / Class' : 'Assurance / Readiness'));
+  /* never invent category defaults — blank metrics stay blank / readiness helper */
+  let metric1Label = getFieldDisplayLabel(item.metrics?.[0]?.label || 'Metric');
+  let metric1Value = item.metrics?.[0]?.value || '—';
+  const metric2Label = getFieldDisplayLabel(item.metrics?.[1]?.label || 'Readiness');
   const metric2Value = item.metrics?.[1]?.value || formatReadinessScore(item.complianceReadinessScore);
 
   const repeatsRank = item.category === 'crew' && (/rank/i.test(metric1Label) || metric1Value === item.subcategory);
@@ -393,7 +394,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({ item, onSelect
                 className="text-secondary text-truncate"
                 style={{ fontSize: '0.76rem', color: '#64748B' }}
               >
-                Verified {getProviderLabel(item.category)}
+                {item.contact?.role || getProviderLabel(item.category)}
               </span>
             </div>
           </div>
