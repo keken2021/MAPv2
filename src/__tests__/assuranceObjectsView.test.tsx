@@ -56,7 +56,7 @@ describe('assurance objects list', () => {
     const rows = visible('Administrator');
     render(<AssuranceObjectsView />);
 
-    ['All', 'Vessels', 'Persons', 'Equipment', 'Organizations', 'Procedures', 'Documents', 'Methods'].forEach(
+    ['All', 'Vessels', 'Crew Directory', 'Equipment', 'Procedures', 'Methods'].forEach(
       (label) => {
         expect(screen.getByRole('tab', { name: new RegExp(label) })).toBeTruthy();
       },

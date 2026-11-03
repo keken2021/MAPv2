@@ -47,21 +47,17 @@ export function canOpenObjectsList(persona: UserRolePersona): boolean {
 const TYPE_TABS: { key: 'all' | AssuranceObjectType; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'vessel', label: 'Vessels' },
-  { key: 'person', label: 'Persons' },
+  { key: 'person', label: 'Crew Directory' },
   { key: 'equipment', label: 'Equipment' },
-  { key: 'organization', label: 'Organizations' },
   { key: 'procedure', label: 'Procedures' },
-  { key: 'document', label: 'Documents' },
   { key: 'method', label: 'Methods' },
 ];
 
-const TYPE_LABEL: Record<AssuranceObjectType, string> = {
+const TYPE_LABEL: Record<string, string> = {
   vessel: 'Vessel',
   person: 'Person',
   equipment: 'Equipment',
-  organization: 'Organization',
   procedure: 'Procedure',
-  document: 'Document',
   method: 'Method',
 };
 
@@ -316,7 +312,7 @@ export const AssuranceObjectsView: React.FC = () => {
     : [];
 
   const exportRows = visibleRows.map((row) => ({
-    Type: TYPE_LABEL[row.object.type],
+    Type: TYPE_LABEL[row.object.type] || row.object.type,
     Name: row.object.name,
     Identifier: row.object.identifier || '',
     Owner: row.object.ownerOrganization,
@@ -396,7 +392,7 @@ export const AssuranceObjectsView: React.FC = () => {
                   onClick={(event) => openDetail(row, event.currentTarget)}
                   style={{ cursor: row.detailView || objectOpensInDrawer(row.object.type, crewIds.has(row.object.id)) ? 'pointer' : 'default' }}
                 >
-                  <td className="small">{TYPE_LABEL[row.object.type]}</td>
+                  <td className="small">{TYPE_LABEL[row.object.type] || row.object.type}</td>
                   <td>
                     <div className="fw-semibold text-dark" style={{ fontSize: '0.88rem' }}>
                       {row.object.name}
