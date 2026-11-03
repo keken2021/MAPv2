@@ -77,6 +77,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/assuranceObjectsSidebar.test.tsx` : tests for assurance objects sidebar items (All Objects, Vessels, Equipment, Crew Directory, Procedures, Methods) and Settings Organization profile (Task 5307 / findings 4b-01, 4b-02, 4b-03)
 - `src/__tests__/assuranceDetailPartyRowsAndExports.test.tsx` : tests for assurance set detail shared requirement party sub-rows, completion gate, and CSV/PDF export Responsible party column (Task 5308 / finding 5d-04)
 - `src/__tests__/inspectionChecklistAndDrawerRecords.test.tsx` : tests for inspection checklist and drawer dynamic set ID, location, date, checklist length, and seeded records (Task 5310 / findings 1a-12, 1a-13, 1b-06, 1b-07)
+- `src/__tests__/documentRecordsAndUpload.test.tsx` : tests for document upload real file size, version numbering from versions.length, certificate layout vessel/crew record lookups, DocumentReviewDrawer version meta, and CrewDocumentViewerModal record reads (Task 5311 / findings 1a-20, 1b-01, 1b-03, 1b-04, 1b-05, 1c-09)
 
 ## Marketplace screens
 - `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)

@@ -1,6 +1,6 @@
 /* 
   file summary: modal component for viewing and inspecting stcw crew member certificate details in uniform A4 PDF layout.
-  responsibilities: presents STCW qualification certificate in strict A4 format using UniversalDocumentPreviewModal matching Document Library modal.
+  responsibilities: presents STCW qualification certificate in strict A4 format using UniversalDocumentPreviewModal reading live crew and document records.
   role in system: launched by CrewDetailView.tsx when admin, submitter, or reviewer clicks view document.
 */
 
@@ -9,6 +9,8 @@ import { STCWDocumentItem } from '../../types/crew';
 import { MasterDocument } from '../../types/document';
 import { UniversalDocumentPreviewModal } from './UniversalDocumentPreviewModal';
 import { Upload } from 'lucide-react';
+import { useMapStore } from '../../store/useMapStore';
+import { MOCK_CREW } from '../../store/crewMockData';
 
 interface CrewDocumentViewerModalProps {
   isOpen: boolean;
@@ -21,7 +23,7 @@ interface CrewDocumentViewerModalProps {
 
 /**
   what: renders modal for inspecting stcw certificate details and attachment scan preview.
-  how: standardizes on UniversalDocumentPreviewModal matching Document Library modal with A4 layout.
+  how: standardizes on UniversalDocumentPreviewModal reading genuine crew member and document records.
   with what file: src/components/modals/CrewDocumentViewerModal.tsx loaded by CrewDetailView.tsx.
 */
 export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = ({
@@ -34,6 +36,39 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
 }) => {
   if (!isOpen || !document) return null;
 
+  let crewMembers = MOCK_CREW;
+  let documents: MasterDocument[] = [];
+  try {
+    if (typeof useMapStore !== 'undefined' && useMapStore.getState) {
+      const state = useMapStore.getState();
+      if (state.crew && state.crew.length > 0) crewMembers = state.crew;
+      if (state.documents && state.documents.length > 0) documents = state.documents;
+    }
+  } catch {
+    // fallback to mock arrays outside zustand context
+  }
+
+  const member = crewMembers.find(
+    (c) => (crewName && c.fullName.toLowerCase() === crewName.toLowerCase()) ||
+           c.layer1CoreDocuments?.some((d) => d.id === document.id || (document.certificateNo && d.certificateNo === document.certificateNo)) ||
+           c.layer2Endorsements?.some((d) => d.id === document.id || (document.certificateNo && d.certificateNo === document.certificateNo))
+  );
+
+  const matchedDoc = documents.find(
+    (d) => d.id === document.id || (document.certificateNo && d.certificateNo === document.certificateNo)
+  );
+
+  const resolvedRank = member?.rank || 'Crew Member';
+  const resolvedNationality = member?.nationality || document.flagState || 'N/A';
+  const resolvedVessel = member?.currentVesselName || member?.assignments?.find((a) => a.isCurrent)?.vesselName || 'Unassigned';
+  const resolvedPassport = member?.passportNo || '';
+  const resolvedFileSizeBytes = document.fileSizeBytes || matchedDoc?.versions?.[0]?.fileSizeBytes || 0;
+  const resolvedFileName = document.fileName || matchedDoc?.versions?.[0]?.fileName || `${document.title.toLowerCase().replace(/\s+/g, '_')}.pdf`;
+  const resolvedUploadedBy = matchedDoc?.versions?.[0]?.uploadedBy || 'Submitter';
+  const resolvedVersion = matchedDoc?.currentVersion || 'v1.0';
+  const resolvedConfidence = matchedDoc?.ocrConfidence ?? (document.verificationStatus === 'Verified' ? 99 : 92);
+  const resolvedUploadedAt = matchedDoc?.versions?.[0]?.uploadedAt || (document.issueDate ? `${document.issueDate}T00:00:00Z` : new Date().toISOString());
+
   const docAsMaster: MasterDocument = {
     id: document.id,
     title: document.title,
@@ -42,36 +77,37 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
     certificateNo: document.certificateNo,
     issuingAuthority: document.issuingAuthority,
     expiryDate: document.expiryDate,
-    ocrConfidence: 98,
+    ocrConfidence: resolvedConfidence,
     complianceState: document.verificationStatus === 'Expired' ? 'Expired' : document.verificationStatus === 'Expiring' ? 'Expiring < 6 Mos' : 'Valid',
-    currentVersion: 'v1.0',
-    versions: [{
-      versionLabel: 'v1.0',
-      uploadedAt: document.issueDate ? `${document.issueDate}T00:00:00Z` : new Date().toISOString(),
-      uploadedBy: 'Crewing Administrator',
-      fileSizeBytes: document.fileSizeBytes || 1500000,
-      fileName: document.fileName || `${document.title.toLowerCase().replace(/\s+/g, '_')}.pdf`,
-      changeSummary: 'Uploaded STCW qualification certificate.'
-    }],
+    currentVersion: resolvedVersion,
+    versions: matchedDoc?.versions && matchedDoc.versions.length > 0
+      ? matchedDoc.versions
+      : [{
+          versionLabel: resolvedVersion,
+          uploadedAt: resolvedUploadedAt,
+          uploadedBy: resolvedUploadedBy,
+          fileSizeBytes: resolvedFileSizeBytes,
+          fileName: resolvedFileName,
+          changeSummary: 'Uploaded STCW qualification certificate.'
+        }],
     crewAttributes: {
-      crewName,
-      /* the crew document carries no passport number; none is invented */
-      passportId: '',
-      rank: 'Seafarer',
+      crewName: member?.fullName || crewName,
+      passportId: resolvedPassport,
+      rank: resolvedRank,
       certType: document.stcwRegulation || document.title,
       issuingCenter: document.issuingAuthority,
       issueDate: document.issueDate,
       expiryDate: document.expiryDate,
-      assignedVessel: 'Assigned Vessel',
-      nationality: document.flagState || 'Australian',
+      assignedVessel: resolvedVessel,
+      nationality: resolvedNationality,
       trainingDate: document.issueDate,
-      ocrConfidence: 98,
+      ocrConfidence: resolvedConfidence,
     },
-    validationRules: {
+    validationRules: matchedDoc?.validationRules || {
       charterBufferPassed: true,
-      assetMatch100Percent: true,
-      iacsAuthorityValid: true,
-      overallValid: true,
+      assetMatch100Percent: Boolean(member?.currentVesselName),
+      iacsAuthorityValid: Boolean(document.issuingAuthority),
+      overallValid: document.verificationStatus === 'Verified',
     },
     verificationStatus: document.verificationStatus === 'Verified' ? 'Verified' : 'Pending',
   };
@@ -83,9 +119,9 @@ export const CrewDocumentViewerModal: React.FC<CrewDocumentViewerModalProps> = (
       onClose={onClose}
       title="Certificate Layout & PDF Review"
       subtitle={`${document.title} · STCW Reg: ${document.stcwRegulation} · Crew: ${crewName}`}
-      versionLabel="v1.0"
-      uploadedAt={document.issueDate ? `${document.issueDate}T00:00:00Z` : undefined}
-      uploadedBy="Crewing Administrator"
+      versionLabel={docAsMaster.currentVersion}
+      uploadedAt={resolvedUploadedAt}
+      uploadedBy={resolvedUploadedBy}
       extraAction={
         canManage ? (
           <button

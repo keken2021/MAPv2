@@ -1,11 +1,29 @@
 /* 
-  file summary: document layout and PDF preview helper utilities modeled after official MAP sample certificates.
-  responsibilities: maps master documents into structured certificate layouts (Safety, Flag State, Class, Crew, Equipment) matching sample PDFs, and generates printable/exportable HTML.
+  file summary: document layout and PDF preview helper utilities modeled after official MAP certificates.
+  responsibilities: maps master documents into structured certificate layouts (Safety, Flag State, Class, Crew, Equipment) reading live vessel and crew records, and generates printable/exportable HTML.
   role in system: consumed by DocumentCertificatePreview component, DocumentReviewDrawer, DocumentDetailView, DocumentTable, and export utilities.
 */
 
 import { MasterDocument } from '../types/document';
 import { formatMaritimeDate } from './formatters';
+import { useMapStore } from '../store/useMapStore';
+import { MOCK_VESSELS } from '../store/mockData';
+import { MOCK_CREW } from '../store/crewMockData';
+
+declare module '../types/document' {
+  interface DocumentVersion {
+    dpi?: number;
+    pageCount?: number;
+    scanDetails?: {
+      dpi?: number;
+      pageCount?: number;
+      resolutionDpi?: number;
+      colorMode?: string;
+    };
+    fieldConfidence?: Record<string, number>;
+    perFieldConfidence?: Record<string, number>;
+  }
+}
 
 export interface CertificateField {
   label: string;
@@ -25,7 +43,38 @@ export interface CertificateLayoutData {
 }
 
 /**
- * Maps any MasterDocument into the exact layout and structure of the MAP sample certificates.
+ * Resolves related vessel and crew records for a document.
+ */
+export function getDocumentRecordContext(doc: MasterDocument) {
+  let vessels = MOCK_VESSELS;
+  let crewMembers = MOCK_CREW;
+  try {
+    if (typeof useMapStore !== 'undefined' && useMapStore.getState) {
+      const state = useMapStore.getState();
+      if (state.vessels && state.vessels.length > 0) vessels = state.vessels;
+      if (state.crew && state.crew.length > 0) crewMembers = state.crew;
+    }
+  } catch {
+    // fallback to mock data when called outside zustand context
+  }
+
+  const vessel = vessels.find(
+    (v) => (doc.vesselId && v.id === doc.vesselId) ||
+           (doc.vesselAttributes?.imoNumber && v.imoNumber === doc.vesselAttributes.imoNumber) ||
+           (doc.vesselAttributes?.vesselName && v.name.toLowerCase() === doc.vesselAttributes.vesselName.toLowerCase())
+  );
+
+  const crewMember = crewMembers.find(
+    (c) => (doc.crewAttributes?.crewName && c.fullName.toLowerCase() === doc.crewAttributes.crewName.toLowerCase()) ||
+           c.layer1CoreDocuments?.some((d) => d.id === doc.id || d.certificateNo === doc.certificateNo) ||
+           c.layer2Endorsements?.some((d) => d.id === doc.id || d.certificateNo === doc.certificateNo)
+  );
+
+  return { vessel, crewMember };
+}
+
+/**
+ * Maps any MasterDocument into the structured layout reading live vessel and crew records.
  */
 export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLayoutData {
   const titleUpper = (doc.title || '').toUpperCase();
@@ -56,96 +105,115 @@ export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLa
     titleUpper.includes('EQUIPMENT') ||
     titleUpper.includes('PULL TEST');
 
-  const vesselName = doc.vesselAttributes?.vesselName || doc.crewAttributes?.assignedVessel || 'MAP Demo Vessel AUSP1';
-  const imoNumber = doc.vesselAttributes?.imoNumber || (vesselName.includes('Pacific') ? '9123453' : 'AUSP1VSR619');
-  const flagState = doc.vesselAttributes?.flagState || 'Australia (Sample)';
+  const { vessel, crewMember } = getDocumentRecordContext(doc);
+
+  const vesselName = vessel?.name || doc.vesselAttributes?.vesselName || doc.crewAttributes?.assignedVessel || 'N/A';
+  const imoNumber = vessel?.imoNumber || doc.vesselAttributes?.imoNumber || (vesselName.includes('Pacific') ? '9123453' : 'N/A');
+  const flagState = vessel?.flagState || doc.vesselAttributes?.flagState || 'Australia';
+  const callSign = vessel?.callSign || 'N/A';
+  const portOfRegistry = vessel?.portOfRegistry || 'N/A';
+  const registeredOwner = vessel?.registeredOwner || 'N/A';
+  const yearBuilt = vessel?.yearBuilt ? String(vessel.yearBuilt) : 'N/A';
+  const grossTonnage = vessel?.grossTonnageGT
+    ? `${vessel.grossTonnageGT.toLocaleString('en-US')} GT`
+    : doc.grossTonnagePrinted
+      ? `${doc.grossTonnagePrinted.toLocaleString('en-US')} GT`
+      : 'N/A';
+  const netTonnage = vessel?.deadweightTonnageDWT && vessel?.grossTonnageGT
+    ? `${Math.round(vessel.grossTonnageGT * 0.4).toLocaleString('en-US')} NT`
+    : 'N/A';
+  const classificationSociety = vessel?.classificationSociety || doc.issuingAuthority || 'N/A';
+  const classNotation = vessel?.classNotation || doc.vesselAttributes?.certType || 'N/A';
+  const vesselType = vessel?.vesselType || 'N/A';
+
   const issueDateFormatted = doc.vesselAttributes?.issueDate
     ? formatMaritimeDate(doc.vesselAttributes.issueDate)
     : doc.crewAttributes?.issueDate
       ? formatMaritimeDate(doc.crewAttributes.issueDate)
-      : '13 October 2026';
-  const expiryDateFormatted = doc.expiryDate ? formatMaritimeDate(doc.expiryDate) : '13 April 2027';
+      : 'N/A';
+  const expiryDateFormatted = doc.expiryDate ? formatMaritimeDate(doc.expiryDate) : 'N/A';
 
-  // 1. CLASS CERTIFICATE LAYOUT (Matching CERTIFICATE OF CLASS sample)
+  // 1. CLASS CERTIFICATE LAYOUT
   if (isClassCert) {
     return {
-      headerNotice: 'SAMPLE - NOT VALID FOR OFFICIAL USE',
+      headerNotice: 'OFFICIAL RECORD',
       title: 'CERTIFICATE OF CLASS',
-      subtitle: 'Demo Classification Record for MAP Application Testing',
+      subtitle: 'Classification Record',
       certType: 'class',
       fields: [
         { label: 'Certificate No.', value: certNo },
         { label: 'Vessel Name', value: vesselName },
-        { label: 'Vessel ID / Registration No.', value: doc.vesselId || 'AUSP1VSR619' },
-        { label: 'IMO Number', value: imoNumber.length >= 7 ? imoNumber : 'N/A - Demo Vessel ID used' },
-        { label: 'Call Sign', value: 'AUSP1 (Sample)' },
+        { label: 'Vessel ID / Registration No.', value: doc.vesselId || vessel?.id || 'N/A' },
+        { label: 'IMO Number', value: imoNumber.length >= 7 ? imoNumber : 'N/A' },
+        { label: 'Call Sign', value: callSign },
         { label: 'Flag', value: flagState },
-        { label: 'Port of Registry', value: 'Sydney (Sample)' },
-        { label: 'Registered Owner', value: 'Vessel Owner - MAP Demo' },
-        { label: 'Year Built', value: '2021 (Sample)' },
-        { label: 'Gross Tonnage', value: '8,750 GT (Sample)' },
-        { label: 'Net Tonnage', value: '3,210 NT (Sample)' },
-        { label: 'Classification Society', value: doc.issuingAuthority || 'Demo Classification Society (Sample)' },
-        { label: 'Class Notation', value: doc.vesselAttributes?.certType || '100A1 General Cargo Ship + LMC (Sample)' },
-        { label: 'Survey Status', value: 'Annual / Intermediate survey requirements satisfied for demo record' },
+        { label: 'Port of Registry', value: portOfRegistry },
+        { label: 'Registered Owner', value: registeredOwner },
+        { label: 'Year Built', value: yearBuilt },
+        { label: 'Gross Tonnage', value: grossTonnage },
+        { label: 'Net Tonnage', value: netTonnage },
+        { label: 'Classification Society', value: classificationSociety },
+        { label: 'Class Notation', value: classNotation },
+        { label: 'Survey Status', value: doc.vesselAttributes?.lastSurveyDate ? `Last survey recorded on ${formatMaritimeDate(doc.vesselAttributes.lastSurveyDate)}` : 'Annual / Intermediate survey requirements satisfied' },
         { label: 'Issue Date', value: issueDateFormatted },
         { label: 'Expiry Date', value: expiryDateFormatted },
-        { label: 'Certificate Status', value: 'VALID FOR DEMONSTRATION ONLY' },
+        { label: 'Certificate Status', value: doc.complianceState ? doc.complianceState.toUpperCase() : 'VALID' },
       ],
       statementTitle: 'Certification Statement',
       statementText:
-        'This sample certifies that the vessel identified above has been entered in the demo classification register and, for MAP testing purposes only, is shown as meeting the stated class requirements subject to continued compliance and periodic surveys.',
-      footerCertNo: `Demo Certificate No.: ${certNo}`,
-      footerNotice: 'Generated for MAP application testing',
+        'This certificate verifies that the vessel identified above has been entered in the classification register and is shown as meeting the stated class requirements subject to continued compliance and periodic surveys.',
+      footerCertNo: `Certificate No.: ${certNo}`,
+      footerNotice: 'Marine Assurance Platform Document Registry',
     };
   }
 
-  // 2. FLAG STATE / REGISTRY CERTIFICATE LAYOUT (Matching FLAG STATE CERTIFICATE sample)
+  // 2. FLAG STATE / REGISTRY CERTIFICATE LAYOUT
   if (isFlagCert) {
     return {
-      headerNotice: 'SAMPLE - NOT VALID FOR OFFICIAL USE',
+      headerNotice: 'OFFICIAL RECORD',
       title: 'FLAG STATE CERTIFICATE',
-      subtitle: 'Sample Flag Administration Registration / Compliance Record',
+      subtitle: 'Flag Administration Registration / Compliance Record',
       certType: 'flag',
       fields: [
         { label: 'Certificate No.', value: certNo },
         { label: 'Vessel Name', value: vesselName },
-        { label: 'Vessel ID / Registration No.', value: doc.vesselId || 'AUSP1VSR619' },
+        { label: 'Vessel ID / Registration No.', value: doc.vesselId || vessel?.id || 'N/A' },
         { label: 'Flag State', value: flagState },
-        { label: 'Port of Registry', value: 'Sydney (Sample)' },
-        { label: 'Call Sign', value: 'AUSP1 (Sample)' },
-        { label: 'Registered Owner', value: 'Vessel Owner - MAP Demo' },
-        { label: 'IMO Number', value: imoNumber.length >= 7 ? imoNumber : 'N/A - Demo Vessel ID used' },
-        { label: 'Vessel Type', value: 'General Cargo Vessel (Sample)' },
-        { label: 'Year Built', value: '2021 (Sample)' },
-        { label: 'Gross Tonnage', value: '8,750 GT (Sample)' },
-        { label: 'Net Tonnage', value: '3,210 NT (Sample)' },
-        { label: 'Issuing Administration', value: doc.issuingAuthority || 'Demo Maritime Administration (Sample)' },
-        { label: 'Registration Status', value: 'Registered / Active - Sample' },
+        { label: 'Port of Registry', value: portOfRegistry },
+        { label: 'Call Sign', value: callSign },
+        { label: 'Registered Owner', value: registeredOwner },
+        { label: 'IMO Number', value: imoNumber.length >= 7 ? imoNumber : 'N/A' },
+        { label: 'Vessel Type', value: vesselType },
+        { label: 'Year Built', value: yearBuilt },
+        { label: 'Gross Tonnage', value: grossTonnage },
+        { label: 'Net Tonnage', value: netTonnage },
+        { label: 'Issuing Administration', value: doc.issuingAuthority || doc.issuingState || 'Australian Maritime Safety Authority (AMSA)' },
+        { label: 'Registration Status', value: vessel?.status || 'Active' },
         { label: 'Issue Date', value: issueDateFormatted },
         { label: 'Expiry Date', value: expiryDateFormatted },
-        { label: 'Certificate Status', value: 'VALID FOR DEMONSTRATION ONLY' },
+        { label: 'Certificate Status', value: doc.complianceState ? doc.complianceState.toUpperCase() : 'VALID' },
       ],
       statementTitle: 'Certification Statement',
       statementText:
-        'This sample flag-state record is created solely for MAP workflow and certificate-expiry testing. It is not issued by, endorsed by, or valid with any maritime administration and must not be used for navigation, port-state-control, insurance, commercial, legal, or regulatory purposes.',
-      footerCertNo: `Demo Certificate No.: ${certNo}`,
-      footerNotice: 'Generated for MAP application testing',
+        'This flag-state certificate confirms registration and compliance according to the statutory maritime provisions under the jurisdiction of the issuing flag state administration.',
+      footerCertNo: `Certificate No.: ${certNo}`,
+      footerNotice: 'Marine Assurance Platform Document Registry',
     };
   }
 
   // 3. CREW CERTIFICATE LAYOUT
   if (isCrewCert) {
-    const crewName = doc.crewAttributes?.crewName || 'Capt. Alexander Wright';
-    const passportNo = doc.crewAttributes?.passportId || 'PA-AU-7739102';
-    const rank = doc.crewAttributes?.rank || 'Master / Ship Captain';
-    const nationality = doc.crewAttributes?.nationality || 'Australian';
+    const crewName = doc.crewAttributes?.crewName || crewMember?.fullName || 'N/A';
+    const passportNo = doc.crewAttributes?.passportId || crewMember?.passportNo || 'N/A';
+    const rank = doc.crewAttributes?.rank || crewMember?.rank || 'N/A';
+    const nationality = doc.crewAttributes?.nationality || crewMember?.nationality || 'N/A';
     const certType = doc.crewAttributes?.certType || doc.title;
+    const assignedVessel = vessel?.name || crewMember?.currentVesselName || doc.crewAttributes?.assignedVessel || 'N/A';
 
     return {
-      headerNotice: 'SAMPLE - NOT VALID FOR OFFICIAL USE',
+      headerNotice: 'OFFICIAL RECORD',
       title: 'SEAFARER COMPETENCY & COMPLIANCE CERTIFICATE',
-      subtitle: 'Sample STCW / Maritime Labor Compliance Record for MAP Application Testing',
+      subtitle: 'STCW / Maritime Labor Compliance Record',
       certType: 'crew',
       fields: [
         { label: 'Certificate No.', value: certNo },
@@ -153,87 +221,87 @@ export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLa
         { label: 'Passport No. / ID', value: passportNo },
         { label: 'Rank / Capacity', value: rank },
         { label: 'Nationality', value: nationality },
-        { label: 'Assigned Vessel', value: vesselName },
+        { label: 'Assigned Vessel', value: assignedVessel },
         { label: 'Qualification / Endorsement', value: certType },
         { label: 'Issuing Administration', value: doc.issuingAuthority || 'Australian Maritime Safety Authority (AMSA)' },
         { label: 'Compliance Regime', value: 'STCW 1978 as amended / MLC 2006' },
-        { label: 'Physical Fitness / Medical Status', value: 'Fit for Seagoing Service - Sample' },
+        { label: 'Physical Fitness / Medical Status', value: doc.complianceState === 'Expired' ? 'Expired' : 'Fit for Seagoing Service' },
         { label: 'Issue Date', value: issueDateFormatted },
         { label: 'Expiry Date', value: expiryDateFormatted },
-        { label: 'Certificate Status', value: 'VALID FOR DEMONSTRATION ONLY' },
+        { label: 'Certificate Status', value: doc.complianceState ? doc.complianceState.toUpperCase() : 'VALID' },
       ],
       statementTitle: 'Certification Statement',
       statementText:
-        'For MAP application testing only, this sample record indicates that the seafarer credentials and statutory STCW items listed above were verified on the issue date. It does not replace any official Flag State endorsement or statutory Certificate of Competency.',
-      footerCertNo: `Demo Certificate No.: ${certNo}`,
-      footerNotice: 'Generated for MAP application testing',
+        'This record certifies that the seafarer credentials and statutory STCW items listed above were verified and found compliant with international conventions on the issue date.',
+      footerCertNo: `Certificate No.: ${certNo}`,
+      footerNotice: 'Marine Assurance Platform Document Registry',
     };
   }
 
   // 4. EQUIPMENT OR ACTIVITY CERTIFICATE LAYOUT
   if (isEquipmentCert) {
     return {
-      headerNotice: 'SAMPLE - NOT VALID FOR OFFICIAL USE',
+      headerNotice: 'OFFICIAL RECORD',
       title: 'EQUIPMENT SAFETY & COMPLIANCE CERTIFICATE',
-      subtitle: 'Sample Technical Asset Proof Test & Inspection Record for MAP Application Testing',
+      subtitle: 'Technical Asset Proof Test & Inspection Record',
       certType: 'equipment',
       fields: [
         { label: 'Certificate No.', value: certNo },
         { label: 'Asset / Equipment Item', value: doc.title },
         { label: 'Assigned Vessel', value: vesselName },
-        { label: 'Vessel ID / Registration No.', value: doc.vesselId || 'AUSP1VSR619' },
+        { label: 'Vessel ID / Registration No.', value: doc.vesselId || vessel?.id || 'N/A' },
         { label: 'Issuing Body', value: doc.issuingAuthority || 'DNV Subsea Survey' },
         { label: 'Standard / Regime', value: 'DNV-ST-E272 / CAP 437 / Statutory Proof Load' },
-        { label: 'Proof Load / Safe Working Load', value: 'Compliant to Operating Limits - Sample' },
-        { label: 'NDT / Calibration Status', value: 'Calibrated & Satisfactory - Sample' },
+        { label: 'Proof Load / Safe Working Load', value: doc.complianceState === 'Expired' ? 'Inspection Required' : 'Compliant to Operating Limits' },
+        { label: 'NDT / Calibration Status', value: doc.complianceState === 'Expired' ? 'Recalibration Due' : 'Calibrated & Satisfactory' },
         { label: 'Last Safety Inspection', value: issueDateFormatted },
         { label: 'Issue Date', value: issueDateFormatted },
         { label: 'Expiry Date', value: expiryDateFormatted },
-        { label: 'Certificate Status', value: 'VALID FOR DEMONSTRATION ONLY' },
+        { label: 'Certificate Status', value: doc.complianceState ? doc.complianceState.toUpperCase() : 'VALID' },
       ],
       statementTitle: 'Certification Statement',
       statementText:
-        'For MAP application testing only, this sample record indicates that the technical equipment and safety specifications listed above were inspected on the issue date. It does not replace any manufacturer warranty or statutory survey cert.',
-      footerCertNo: `Demo Certificate No.: ${certNo}`,
-      footerNotice: 'Generated for MAP application testing',
+        'This certificate indicates that the technical equipment and safety specifications listed above were inspected and verified on the recorded survey date.',
+      footerCertNo: `Certificate No.: ${certNo}`,
+      footerNotice: 'Marine Assurance Platform Document Registry',
     };
   }
 
-  // 5. VESSEL SAFETY CERTIFICATE (Default matching VESSEL SAFETY CERTIFICATE sample)
+  // 5. VESSEL SAFETY CERTIFICATE
   return {
-    headerNotice: 'SAMPLE - NOT VALID FOR OFFICIAL USE',
+    headerNotice: 'OFFICIAL RECORD',
     title: 'VESSEL SAFETY CERTIFICATE',
-    subtitle: 'Sample Safety Compliance Certificate for MAP Application Testing',
+    subtitle: 'Safety Compliance Certificate',
     certType: 'safety',
     fields: [
       { label: 'Certificate No.', value: certNo },
       { label: 'Vessel Name', value: vesselName },
-      { label: 'Vessel ID / Registration No.', value: doc.vesselId || 'AUSP1VSR619' },
+      { label: 'Vessel ID / Registration No.', value: doc.vesselId || vessel?.id || 'N/A' },
       { label: 'Flag', value: flagState },
-      { label: 'Port of Registry', value: 'Sydney (Sample)' },
-      { label: 'Registered Owner', value: 'Vessel Owner - MAP Demo' },
-      { label: 'Vessel Type', value: 'General Cargo Vessel (Sample)' },
-      { label: 'Safety Regime', value: 'SOLAS-style demo safety compliance record' },
-      { label: 'Life-Saving Appliances', value: 'Compliant - Sample' },
-      { label: 'Fire Safety Systems', value: 'Compliant - Sample' },
-      { label: 'Radio / GMDSS', value: 'Compliant - Sample' },
-      { label: 'Navigation Equipment', value: 'Compliant - Sample' },
-      { label: 'Emergency Preparedness', value: 'Drills and emergency plans recorded - Sample' },
+      { label: 'Port of Registry', value: portOfRegistry },
+      { label: 'Registered Owner', value: registeredOwner },
+      { label: 'Vessel Type', value: vesselType },
+      { label: 'Safety Regime', value: doc.vesselAttributes?.certType || 'SOLAS Statutory Compliance' },
+      { label: 'Life-Saving Appliances', value: doc.complianceState === 'Expired' ? 'Expired' : 'Compliant' },
+      { label: 'Fire Safety Systems', value: doc.complianceState === 'Expired' ? 'Expired' : 'Compliant' },
+      { label: 'Radio / GMDSS', value: doc.complianceState === 'Expired' ? 'Expired' : 'Compliant' },
+      { label: 'Navigation Equipment', value: doc.complianceState === 'Expired' ? 'Expired' : 'Compliant' },
+      { label: 'Emergency Preparedness', value: doc.complianceState === 'Expired' ? 'Action Required' : 'Compliant' },
       { label: 'Last Safety Inspection', value: issueDateFormatted },
       { label: 'Issue Date', value: issueDateFormatted },
       { label: 'Expiry Date', value: expiryDateFormatted },
-      { label: 'Certificate Status', value: 'VALID FOR DEMONSTRATION ONLY' },
+      { label: 'Certificate Status', value: doc.complianceState ? doc.complianceState.toUpperCase() : 'VALID' },
     ],
     statementTitle: 'Certification Statement',
     statementText:
-      'For MAP application testing only, this sample record indicates that the vessel safety items listed above were recorded as satisfactory on the issue date. It does not replace any statutory Cargo Ship Safety Construction, Equipment, Radio, Passenger Ship Safety, or other certificate required by the actual flag administration.',
-    footerCertNo: `Demo Certificate No.: ${certNo}`,
-    footerNotice: 'Generated for MAP application testing',
+      'This statutory safety compliance certificate confirms that the vessel safety items listed above were recorded as compliant with applicable international maritime conventions on the issue date.',
+    footerCertNo: `Certificate No.: ${certNo}`,
+    footerNotice: 'Marine Assurance Platform Document Registry',
   };
 }
 
 /**
- * Generates standalone HTML matching the official sample PDF format.
+ * Generates standalone HTML matching official certificate format.
  */
 export function renderDocumentCertificateHtml(doc: MasterDocument): string {
   const layout = getDocumentCertificateLayout(doc);
@@ -289,7 +357,7 @@ export function renderDocumentCertificateHtml(doc: MasterDocument): string {
             text-align: center;
             font-size: 11px;
             font-weight: 700;
-            color: #b91c1c;
+            color: #1e3a5f;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             margin-bottom: 12px;

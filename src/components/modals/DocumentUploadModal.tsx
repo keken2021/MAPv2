@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
 import { formatDocumentId } from '../../utils/formatters';
+import { formatFileSize } from '../../utils/imageCropHelpers';
 import type { InspectionReportEvidence, InspectionReportSource } from '../../types/assurance';
 import {
   INSPECTION_REPORT_SOURCES,
@@ -71,6 +72,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [inspectionValidityMonths, setInspectionValidityMonths] = useState<number>(INSPECTION_VALIDITY_MONTHS);
   const [inspectorAccreditation, setInspectorAccreditation] = useState('');
   const [fileName, setFileName] = useState('');
+  const [fileSizeBytes, setFileSizeBytes] = useState<number>(existingDocument?.versions?.[0]?.fileSizeBytes || 2100000);
   const [changeSummary, setChangeSummary] = useState('');
 
   /* tracks which right-column form field ids are playing the ocr autofill shimmer */
@@ -214,8 +216,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     how: sets fileName state and enables isPendingVerification preview gate.
     with what file: src/components/modals/DocumentUploadModal.tsx.
   */
-  const handleSelectFileForPreview = (selectedName: string) => {
+  const handleSelectFileForPreview = (selectedName: string, selectedSize?: number) => {
     setFileName(selectedName);
+    if (typeof selectedSize === 'number') {
+      setFileSizeBytes(selectedSize);
+    }
     setIsPendingVerification(true);
     setIsAiExtracted(false);
     setIsExtractingAi(false);
@@ -254,7 +259,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     const droppedFiles = e.dataTransfer.files;
     if (droppedFiles && droppedFiles.length > 0) {
       const droppedFile = droppedFiles[0];
-      handleSelectFileForPreview(droppedFile.name);
+      handleSelectFileForPreview(droppedFile.name, droppedFile.size);
     }
   };
 
@@ -313,7 +318,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      handleSelectFileForPreview(selectedFile.name);
+      handleSelectFileForPreview(selectedFile.name, selectedFile.size);
     }
   };
 
@@ -377,12 +382,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       const finalFileName = fileName.trim() || `${title.replace(/\s+/g, '_')}_document.pdf`;
 
       if (existingDocument) {
-        const nextVerLabel = `v1.${existingDocument.versions.length + 1}`;
+        const nextVerLabel = `v1.${existingDocument.versions.length}`;
         addDocumentVersion(
           existingDocument.id,
           nextVerLabel,
           finalFileName,
-          2400000,
+          fileSizeBytes,
           changeSummary.trim() || 'New version uploaded.',
           finalExpiry,
           /* opened from a requirement: only that requirement goes back to review */
@@ -408,9 +413,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               versionLabel: 'v1.0',
               uploadedAt: new Date().toISOString(),
               uploadedBy: sessionUser?.id || activePersona,
-              fileSizeBytes: 2100000,
+              fileSizeBytes: fileSizeBytes,
               fileName: finalFileName,
               changeSummary: changeSummary.trim() || 'Initial Master Document submission with AI extracted metadata.',
+              scanDetails: { dpi: 300, pageCount: 1, resolutionDpi: 300 },
+              perFieldConfidence: { certNo: finalCertNo && !finalCertNo.includes('partially legible') ? 98 : 61, certificateNo: finalCertNo && !finalCertNo.includes('partially legible') ? 98 : 61, issuingAuthority: finalAuthority && !finalAuthority.includes('illegible') ? 97 : 44, expiryDate: finalExpiry ? 98 : 79 },
             },
           ],
           vesselAttributes:
@@ -594,7 +601,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                               {title || existingDocument?.title || 'International Oil Pollution Prevention (IOPP)'}
                             </h5>
                             <div className="font-mono-code text-muted small" style={{ fontSize: '0.75rem' }}>
-                              {(fileName || existingDocument?.versions?.[0]?.fileName || 'iopp-annex1-scan.jpg')} · 640 KB · 1 page
+                              {(fileName || existingDocument?.versions?.[0]?.fileName || 'iopp-annex1-scan.jpg')} · {formatFileSize(fileSizeBytes)} · 1 page
                             </div>
                           </div>
 
@@ -652,7 +659,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                     SCANNED PAGE
                                   </div>
                                   <div className="font-mono-code text-muted small mt-1" style={{ fontSize: '0.7rem' }}>
-                                    1 of 1 · 240 DPI
+                                    1 of 1 · 300 DPI
                                   </div>
                                   <div
                                     className="mt-2.5 px-2 py-0.5 rounded border font-mono-code fw-semibold"
@@ -671,7 +678,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                     <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
                                       <Check className="w-3 h-3 text-white" strokeWidth={3} />
                                     </span>
-                                    <span className="ps-0.5 text-dark fw-medium">Resolution 240 DPI</span>
+                                    <span className="ps-0.5 text-dark fw-medium">Resolution 300 DPI</span>
                                   </div>
                                   <div className={`${isNewExtractionAnimate ? 'map-criteria-item-2' : ''} d-flex align-items-center gap-2 small`} style={{ fontSize: '0.725rem', color: '#475569' }}>
                                     <span

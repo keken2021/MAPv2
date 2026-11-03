@@ -28,11 +28,19 @@ interface VersionHistoryDrawerProps {
 */
 export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ document, onClose }) => {
   const { addDocumentVersion, activePersona, notifications } = useMapStore();
-  const [newVersionLabel, setNewVersionLabel] = useState('v1.2');
+  const defaultNextVer = document ? `v1.${document.versions.length}` : 'v1.1';
+  const [newVersionLabel, setNewVersionLabel] = useState(defaultNextVer);
   const [newFileName, setNewFileName] = useState('');
+  const [newFileSizeBytes, setNewFileSizeBytes] = useState<number>(0);
   const [changeSummary, setChangeSummary] = useState('');
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
   const [selectedVersionForModal, setSelectedVersionForModal] = useState<DocumentVersion | null>(null);
+
+  React.useEffect(() => {
+    if (document) {
+      setNewVersionLabel(`v1.${document.versions.length}`);
+    }
+  }, [document]);
 
   const activeModalDoc: MasterDocument = useMemo(() => {
     if (!document) return {} as MasterDocument;
@@ -55,11 +63,13 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
     e.preventDefault();
     if (!newFileName.trim() || reuploadBlockReason) return;
 
+    const sizeToSave = newFileSizeBytes > 0 ? newFileSizeBytes : (document.versions[0]?.fileSizeBytes || 1024 * 1024);
+
     addDocumentVersion(
       document.id,
       newVersionLabel,
       newFileName,
-      2500000,
+      sizeToSave,
       changeSummary || 'New version uploaded.'
     );
 
@@ -104,6 +114,24 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
           {reuploadBlockReason && (
             <div className="alert alert-secondary py-2 small mb-3">{reuploadBlockReason}</div>
           )}
+
+          <div className="mb-3">
+            <label className="map-drawer-label" htmlFor="ver-file-input">
+              Select File <span className="text-muted small fw-normal">(optional)</span>
+            </label>
+            <input
+              id="ver-file-input"
+              type="file"
+              className="form-control bg-white text-dark"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  setNewFileName(f.name);
+                  setNewFileSizeBytes(f.size);
+                }
+              }}
+            />
+          </div>
 
           <div className="row g-3 mb-3">
             <div className="col-4">

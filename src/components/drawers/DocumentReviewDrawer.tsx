@@ -37,6 +37,7 @@ import { getInspectionValidUntil } from '../../utils/inspectionEvidence';
 import { maskRestrictedValue } from '../../utils/restrictedData';
 import { getIssuerVerificationProfile } from '../../utils/issuerVerificationProfiles';
 import { runCrossCertificateChecks } from '../../utils/documentChecks';
+import { formatFileSize } from '../../utils/imageCropHelpers';
 
 interface DocumentReviewDrawerProps {
   document: MasterDocument | null;
@@ -170,6 +171,12 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   };
 
   const versions = document.versions ?? [];
+  const currentVer = versions.find((v) => v.versionLabel === document.currentVersion) || versions[0];
+  const fileSizeBytes = currentVer?.fileSizeBytes || 0;
+  const fileName = currentVer?.fileName || `${document.title.toLowerCase().replace(/\s+/g, '-')}-scan.jpg`;
+  const pageCount = currentVer?.scanDetails?.pageCount || currentVer?.pageCount || 1;
+  const resolutionDpi = currentVer?.scanDetails?.dpi || currentVer?.scanDetails?.resolutionDpi || currentVer?.dpi || 240;
+  const verConf = currentVer?.perFieldConfidence || currentVer?.fieldConfidence;
   const isReuploaded = versions.length > 1 || document.currentVersion !== 'v1.0' || (document.ocrConfidence && document.ocrConfidence >= 90);
   const activeNotes = requirementNotes || document.verificationNotes || (versions.length > 0 ? versions[0].changeSummary : undefined);
 
@@ -194,7 +201,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       id,
       label,
       value: hasValue ? value!.trim() : fallback,
-      confidence: hasValue ? (isReuploaded ? readConfidence : firstScanConfidence) : 0,
+      confidence: hasValue ? (verConf ? (typeof verConf[checkKey || ''] === 'number' ? verConf[checkKey || ''] : typeof verConf[id] === 'number' ? verConf[id] : (isReuploaded ? readConfidence : firstScanConfidence)) : (isReuploaded ? readConfidence : firstScanConfidence)) : 0,
       isMandatoryMissing: mandatory && !hasValue,
       check: checkKey ? fieldChecks[checkKey] : undefined,
     };
@@ -358,7 +365,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     <>
       <Drawer
         title={document.title}
-        meta={`${document.title.toLowerCase().replace(/\s+/g, '-')}-scan.jpg · 640 KB · 1 page · ${document.currentVersion}${isVersionLocked ? ' · approved version, locked' : ''}`}
+        meta={`${fileName} · ${formatFileSize(fileSizeBytes)} · ${pageCount} ${pageCount === 1 ? 'page' : 'pages'} · ${document.currentVersion}${isVersionLocked ? ' · approved version, locked' : ''}`}
         size="xl"
         onClose={onClose}
         paused={isUploadModalOpen}
@@ -438,7 +445,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                 >
                   <Check className="w-3 h-3 text-white" strokeWidth={3} />
                 </span>
-                <span className="ps-0.5 text-dark fw-medium">Resolution 240 DPI</span>
+                <span className="ps-0.5 text-dark fw-medium">Resolution {resolutionDpi} DPI</span>
               </div>
               <div className={`${isJustLoaded ? 'map-criteria-item-2' : ''} d-flex align-items-center gap-2 small`} style={{ fontSize: '0.75rem', color: '#475569' }}>
                 <span

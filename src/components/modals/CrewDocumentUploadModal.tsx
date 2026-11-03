@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { STCWDocumentItem, STCWLayer } from '../../types/crew';
 import { formatDocumentId } from '../../utils/formatters';
+import { formatFileSize } from '../../utils/imageCropHelpers';
 import { Upload, FileText, Check, AlertCircle, X } from 'lucide-react';
 
 interface CrewDocumentUploadModalProps {
@@ -50,6 +51,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
   const [expiryDate, setExpiryDate] = useState('2031-01-01');
   const [verificationStatus, setVerificationStatus] = useState<'Verified' | 'Pending' | 'Expiring' | 'Expired'>('Pending');
   const [fileName, setFileName] = useState('');
+  const [fileSizeBytes, setFileSizeBytes] = useState<number>(existingDocument?.fileSizeBytes || 1500000);
   const [changeSummary, setChangeSummary] = useState('');
 
   /* Option A / Option B intake source selection */
@@ -212,8 +214,11 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
   const isEditing = Boolean(existingDocument);
 
   /* handles file attachment selection and stages document for user verification before AI extraction */
-  const handleSelectFileForPreview = (selectedName: string) => {
+  const handleSelectFileForPreview = (selectedName: string, selectedSize?: number) => {
     setFileName(selectedName);
+    if (typeof selectedSize === 'number') {
+      setFileSizeBytes(selectedSize);
+    }
     setIsPendingVerification(true);
     setIsAiExtracted(false);
     setIsExtractingAi(false);
@@ -248,7 +253,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
     const droppedFiles = e.dataTransfer.files;
     if (droppedFiles && droppedFiles.length > 0) {
       const droppedFile = droppedFiles[0];
-      handleSelectFileForPreview(droppedFile.name);
+      handleSelectFileForPreview(droppedFile.name, droppedFile.size);
     }
   };
 
@@ -300,7 +305,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      handleSelectFileForPreview(selectedFile.name);
+      handleSelectFileForPreview(selectedFile.name, selectedFile.size);
     }
   };
 
@@ -361,7 +366,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
         expiryDate,
         verificationStatus,
         fileName: fileName.trim() || `${title.toLowerCase().replace(/\s+/g, '_')}.pdf`,
-        fileSizeBytes: existingDocument?.fileSizeBytes || 1500000,
+        fileSizeBytes: fileSizeBytes,
       };
 
       if (isEditing) {
@@ -477,7 +482,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                                 {title || existingDocument?.title || 'Master Unlimited Certificate of Competency (CoC)'}
                               </h5>
                               <div className="font-mono-code text-muted small" style={{ fontSize: '0.75rem' }}>
-                                {(fileName || 'stcw_coc_scan.pdf')} · 1.5 MB · 1 page
+                                {(fileName || 'stcw_coc_scan.pdf')} · {formatFileSize(fileSizeBytes)} · 1 page
                               </div>
                             </div>
 
@@ -507,7 +512,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                                   SCANNED PAGE
                                 </div>
                                 <div className="font-mono-code text-muted small mt-1" style={{ fontSize: '0.7rem' }}>
-                                  1 of 1 · 240 DPI
+                                  1 of 1 · 300 DPI
                                 </div>
                                 <div
                                   className="mt-2.5 px-2 py-0.5 rounded border font-mono-code fw-semibold"
@@ -526,7 +531,7 @@ export const CrewDocumentUploadModal: React.FC<CrewDocumentUploadModalProps> = (
                                   <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
                                     <Check className="w-3 h-3 text-white" strokeWidth={3} />
                                   </span>
-                                  <span className="ps-0.5 text-dark fw-medium">Resolution 240 DPI</span>
+                                  <span className="ps-0.5 text-dark fw-medium">Resolution 300 DPI</span>
                                 </div>
                                 <div className={`${isNewExtractionAnimate ? 'map-criteria-item-2' : ''} d-flex align-items-center gap-2 small`} style={{ fontSize: '0.725rem', color: '#475569' }}>
                                   <span
