@@ -151,6 +151,7 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/work-items/vessels-ui-tasks.md`, `.csv`, `.docx` : 44 Tasks for User Stories 4597 to 4601 under Feature 4579 (3 remove the prototype switchers, the same 3 as in the other two files), with flags and import steps
 - `docs/plans/status-first-project-table.md` : status-first project table and the client Assurance Sets link (Task 5294, ADR 0033 proposed): status rule, thresholds, filters
 - `docs/work-items/status-first-project-table-task.csv` : Task 5294 under User Story 5207
+- `docs/work-items/project-detail-tabs-tasks.csv` : Tasks 5295 to 5297 under User Story 5207 for the project detail tabs (table columns, search and filter toolbar, Details tab), assigned to Creishen Ayuman, 0.5 h each
 - `docs/work-items/brd-v4.2-gap-tasks.csv` : 6 Tasks (5285 to 5290) under User Story 5207 for the BRD V4.2 gaps that wait on nothing (G3, G4, G6, G7, G12), assigned to Creishen Ayuman, 0.25 or 0.5 h each. Source: `docs/plans/brd-gap-status-2026-11-02.md`
 - `docs/work-items/role-views-tasks.csv` : 11 Tasks (5231 to 5241, under User Story 5209) for per-person views and the sidebar, split between Creishen Ayuman and Kurt Grava, 0.75 or 1 h each. Design: `docs/plans/per-person-views-and-sidebar.md`
 - `docs/azure-boards/` : everything for the Azure Boards connection and the `board-comment` and `task-branch` skills (12 files)
