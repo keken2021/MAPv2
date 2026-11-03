@@ -214,6 +214,14 @@ export interface TaskExemption {
   newDate: string;
 }
 
+export interface TenantCustomSection {
+  id: string;
+  name: string;
+  organization: string;
+  description?: string;
+  createdAt?: string;
+}
+
 export interface TaskSection {
   id: string;
   name: string;

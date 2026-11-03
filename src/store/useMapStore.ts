@@ -30,6 +30,7 @@ import {
   InspectionReportEvidence,
   AssuranceObject,
   AssuranceObjectType,
+  TenantCustomSection,
 } from "../types/assurance";
 import { MasterDocument } from "../types/document";
 import {
@@ -329,6 +330,13 @@ export interface MapStoreState {
     equipmentId: string,
     availabilityStatus: AvailabilityStatus,
   ) => void;
+
+  // Tenant Custom Sections (5b-02, ADR 0034)
+  tenantCustomSections: TenantCustomSection[];
+  addTenantCustomSection: (
+    section: Omit<TenantCustomSection, 'id' | 'createdAt'> & { id?: string },
+  ) => TenantCustomSection;
+  getTenantCustomSections: (organization: string) => TenantCustomSection[];
 
   // Assurance Objects State (ADR 0029)
   assuranceObjects: AssuranceObject[];
@@ -1906,6 +1914,49 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         t.id === template.id ? template : t,
       ),
     }));
+  },
+
+  // Tenant Custom Sections (5b-02, ADR 0034)
+  tenantCustomSections: [],
+  addTenantCustomSection: (sectionInput) => {
+    const state = get();
+    const cleanName = sectionInput.name.trim();
+    const cleanOrg = sectionInput.organization.trim();
+    const id =
+      sectionInput.id ||
+      `sec-tenant-${Date.now().toString().slice(-6)}-${cleanName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+    const newSection: TenantCustomSection = {
+      id,
+      name: cleanName,
+      organization: cleanOrg,
+      description: sectionInput.description?.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    const existingIndex = state.tenantCustomSections.findIndex(
+      (s) =>
+        s.id === id ||
+        (s.name.toLowerCase() === cleanName.toLowerCase() &&
+          orgFieldMatches(s.organization, cleanOrg)),
+    );
+    if (existingIndex >= 0) {
+      const updated = [...state.tenantCustomSections];
+      updated[existingIndex] = {
+        ...updated[existingIndex],
+        ...newSection,
+        id: updated[existingIndex].id,
+      };
+      set({ tenantCustomSections: updated });
+      return updated[existingIndex];
+    } else {
+      set({ tenantCustomSections: [...state.tenantCustomSections, newSection] });
+      return newSection;
+    }
+  },
+  getTenantCustomSections: (organization: string) => {
+    if (!organization || !organization.trim()) return [];
+    return get().tenantCustomSections.filter((s) =>
+      orgFieldMatches(s.organization, organization),
+    );
   },
 
   // Assurance Objects State (ADR 0029)
