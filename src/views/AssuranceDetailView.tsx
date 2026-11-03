@@ -56,6 +56,7 @@ import {
   getUserActiveDatePermission,
   assigneeMatchesUser,
   filterAuditTrailForPersona,
+  orgFieldMatches,
 } from '../utils/rbacHelpers';
 import { useSessionUser } from '../utils/useSessionUser';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
@@ -144,6 +145,69 @@ const OBJECT_TYPE_LABELS: Record<string, string> = {
   method: 'Method',
   organization: 'Organization',
 };
+
+/**
+  what: resolves the responsible party organization for a requirement task.
+  how: checks assignedSubmitter (explicit or parenthesized organization), matched user profile, target object owner, set submitter, and set service provider organization.
+  with what file: src/views/AssuranceDetailView.tsx used for party-scoped document visibility (findings 5e-01, 5e-03).
+*/
+function getRequirementResponsiblePartyOrg(
+  req: AssuranceRequirement,
+  set: { assignedSubmitter?: string; serviceProviderOrg?: string },
+  users: Array<{ id: string; name: string; organization?: string }>,
+  objects: AssuranceObject[],
+): string {
+  if (req.assignedSubmitter) {
+    const parenMatch = req.assignedSubmitter.match(/\(([^)]+)\)/);
+    if (parenMatch && parenMatch[1].trim()) {
+      return parenMatch[1].trim();
+    }
+    const matchedUser = users.find(
+      (u) =>
+        u.name.toLowerCase() === req.assignedSubmitter?.trim().toLowerCase() ||
+        (req.submitterId && u.id === req.submitterId),
+    );
+    if (matchedUser?.organization) {
+      return matchedUser.organization;
+    }
+  }
+
+  if (req.targetObjectId) {
+    const targetObj = objects.find((o) => o.id === req.targetObjectId);
+    if (targetObj?.ownerOrganization) {
+      return targetObj.ownerOrganization;
+    }
+  }
+
+  if (set.assignedSubmitter) {
+    const parenMatch = set.assignedSubmitter.match(/\(([^)]+)\)/);
+    if (parenMatch && parenMatch[1].trim()) {
+      return parenMatch[1].trim();
+    }
+  }
+
+  return set.serviceProviderOrg || '';
+}
+
+/**
+  what: checks if a requirement's document is visible to the active viewer.
+  how: client organization sees all documents; non-client parties see only documents for their own tasks (matching viewer organization).
+  with what file: src/views/AssuranceDetailView.tsx used for requirement rows, document viewer, exports, and audit trail.
+*/
+function isRequirementDocumentVisible(
+  req: AssuranceRequirement,
+  isClient: boolean,
+  viewerOrg: string,
+  set: { assignedSubmitter?: string; serviceProviderOrg?: string },
+  users: Array<{ id: string; name: string; organization?: string }>,
+  objects: AssuranceObject[],
+): boolean {
+  if (isClient) return true;
+  if (!viewerOrg.trim()) return false;
+  const partyOrg = getRequirementResponsiblePartyOrg(req, set, users, objects);
+  if (!partyOrg.trim()) return false;
+  return orgFieldMatches(viewerOrg, partyOrg);
+}
 
 interface AssuranceDetailViewProps {
   setId: string;
@@ -542,6 +606,26 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const sessionUser = activeUser ?? undefined;
   const currentUserId = sessionUser?.id || activeSessionUserId;
 
+  const viewerPartyOrg = (
+    activeDemoOrganization?.trim() ||
+    sessionUser?.organization?.trim() ||
+    (activePersona === 'Submitter' || activePersona === 'Administrator' ? serviceProviderOrg || '' : '')
+  ).trim();
+
+  const isClientViewer = useMemo(() => {
+    if (activeDemoOrganization?.trim()) {
+      return Boolean(clientOwnerOrg && orgFieldMatches(activeDemoOrganization, clientOwnerOrg));
+    }
+    if (sessionUser?.organization?.trim()) {
+      if (clientOwnerOrg && orgFieldMatches(sessionUser.organization, clientOwnerOrg)) {
+        return true;
+      }
+      return false;
+    }
+    if (activePersona === 'C Admin') return true;
+    return isClientUser(sessionUser, assuranceSet, activePersona);
+  }, [activeDemoOrganization, sessionUser, clientOwnerOrg, activePersona, assuranceSet]);
+
   const visibleEvents = useMemo(
     () => filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels, currentUserId),
     [auditEvents, activePersona, assuranceSets, vessels, currentUserId],
@@ -610,8 +694,62 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       deduplicated.push(ev);
     }
 
-    return deduplicated;
-  }, [visibleEvents, assuranceSet, activePersona, assuranceSets, vessels, currentUserId]);
+    if (isClientViewer) {
+      return deduplicated;
+    }
+
+    return deduplicated.filter((ev) => {
+      if (ev.documentStatusDelta?.documentId) {
+        const reqWithDoc = assuranceSet.requirements?.find(
+          (r) =>
+            r.documentId === ev.documentStatusDelta!.documentId ||
+            r.linkedDocumentId === ev.documentStatusDelta!.documentId,
+        );
+        if (reqWithDoc) {
+          return isRequirementDocumentVisible(
+            reqWithDoc,
+            isClientViewer,
+            viewerPartyOrg,
+            assuranceSet,
+            users,
+            setObjects,
+          );
+        }
+        if (ev.organization && viewerPartyOrg && !orgFieldMatches(viewerPartyOrg, ev.organization)) {
+          return false;
+        }
+      }
+
+      const auditTarget = ev.target;
+      if (auditTarget && auditTarget.kind === 'task' && auditTarget.taskId) {
+        const req = assuranceSet.requirements?.find((r) => r.id === auditTarget.taskId);
+        if (req) {
+          const isDocRelated =
+            Boolean(ev.documentStatusDelta) ||
+            /document|certificate|upload|dossier/i.test(ev.action) ||
+            /document|version/i.test(ev.fieldDelta?.fieldName || '');
+          if (isDocRelated) {
+            return isRequirementDocumentVisible(
+              req,
+              isClientViewer,
+              viewerPartyOrg,
+              assuranceSet,
+              users,
+              setObjects,
+            );
+          }
+        }
+      }
+
+      if (/document|certificate|dossier/i.test(ev.action) && ev.organization && viewerPartyOrg) {
+        if (!orgFieldMatches(viewerPartyOrg, ev.organization) && !orgFieldMatches(clientOwnerOrg, ev.organization)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [visibleEvents, assuranceSet, activePersona, assuranceSets, vessels, currentUserId, isClientViewer, viewerPartyOrg, users, setObjects, clientOwnerOrg]);
 
   const isApproverViewer = activePersona === 'Approver';
   const isNamedApprover =
@@ -656,14 +794,27 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const isCAdmin = isCAdminPersona;
   const roleActions = getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization, sessionUser);
+  const taskSectionsSet = useMemo(() => {
+    if (isClientViewer) return assuranceSet;
+    return {
+      ...assuranceSet,
+      requirements: assuranceSet.requirements?.map((req) => {
+        const canView = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+        if (canView) return req;
+        const { documentId, linkedDocumentId, ...rest } = req;
+        return rest as AssuranceRequirement;
+      }) || [],
+    };
+  }, [assuranceSet, isClientViewer, viewerPartyOrg, users, setObjects]);
+
   const shortCertificates = listCertificatesShortOfContract(
-    assuranceSet,
+    taskSectionsSet,
     documents,
     assuranceSet.charterWindowEnd,
   );
   const complianceOverdue = isComplianceDeadlineOverdue(assuranceSet);
-  const renderContractShortWarning = (doc?: MasterDocument) => {
-    if (!doc || !documentExpiresBeforeContractEnd(doc, assuranceSet.charterWindowEnd)) return null;
+  const renderContractShortWarning = (doc?: MasterDocument, canViewDoc: boolean = true) => {
+    if (!canViewDoc || !doc || !documentExpiresBeforeContractEnd(doc, assuranceSet.charterWindowEnd)) return null;
     return (
       <div className="text-danger small mt-1">
         Expires {formatMaritimeDate(doc.expiryDate)}, before the contract ends {formatMaritimeDate(assuranceSet.charterWindowEnd)}. Re-upload a certificate that covers the contract.
@@ -1126,8 +1277,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const verifiedCount = assuranceSet.requirements.filter((r) => r.verifierStatus === 'Verified').length;
   const totalCount = assuranceSet.requirements.length;
 
-  const renderRequirementStatus = (req: AssuranceRequirement) => {
-    if (!req.documentId) {
+  const renderRequirementStatus = (req: AssuranceRequirement, canViewDoc: boolean = true) => {
+    if (!canViewDoc || (!req.documentId && !req.linkedDocumentId)) {
       return (
         <span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
           Awaiting Upload
@@ -1176,7 +1327,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const canUploadHere = canUpload && !isSetVersionLocked;
 
   /* version badge of a requirement row: the pinned version with a lock on an approved set, and a note when the library has moved on */
-  const renderVersionBadge = (req: AssuranceRequirement, docView?: RequirementDocumentView) => {
+  const renderVersionBadge = (req: AssuranceRequirement, docView?: RequirementDocumentView, canViewDoc: boolean = true) => {
+    if (!canViewDoc) return null;
     const label = docView?.doc.currentVersion || req.documentVersion;
     if (!label) return null;
     const lockedOn = docView?.snapshot?.verifiedAt || assuranceSet.lockedAt;
@@ -1200,6 +1352,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   };
 
   const openRequirementUpload = (req: AssuranceRequirement, existingDoc?: MasterDocument) => {
+    const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+    if (!isClientViewer && !canViewDoc) return;
     setUploadTargetRequirement(req);
     setReplaceExistingDoc(existingDoc || null);
     setIsUploadModalOpen(true);
@@ -1211,15 +1365,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const handleExportCsv = () => {
     const exportData = assuranceSet.requirements.map((req) => {
+      const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
       const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
-      const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
+      const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
+      const hasAttachedDoc = Boolean(effectiveLinkedDoc || (canViewDoc && (req.documentId || req.linkedDocumentId)));
       const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
       return {
         Requirement: req.title,
-        Version: getExportVersionLabel(req, linkedDoc),
-        OcrConfidence: `${effectiveOcr}%`,
-        Status: getStatusDisplayLabel(req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending')),
-        Notes: req.notes || '',
+        Version: canViewDoc ? getExportVersionLabel(req, linkedDoc) : '',
+        OcrConfidence: canViewDoc ? `${effectiveOcr}%` : '0%',
+        Status: canViewDoc
+          ? getStatusDisplayLabel(req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending'))
+          : 'Pending',
+        Notes: canViewDoc ? (req.notes || '') : '',
       };
     });
     exportToCsv(`${assuranceSet.id}_Requirements`, exportData);
@@ -1229,15 +1387,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const handleExportPdf = () => {
     const headers = ['Requirement', 'Version', 'OCR Confidence', 'Status', 'Notes'];
     const rows = assuranceSet.requirements.map((req) => {
+      const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
       const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
-      const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
+      const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
+      const hasAttachedDoc = Boolean(effectiveLinkedDoc || (canViewDoc && (req.documentId || req.linkedDocumentId)));
       const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
       return [
         req.title,
-        getExportVersionLabel(req, linkedDoc) || '-',
-        `${effectiveOcr}%`,
-        getStatusDisplayLabel(req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending')),
-        req.notes || '-',
+        canViewDoc ? (getExportVersionLabel(req, linkedDoc) || '-') : '-',
+        canViewDoc ? `${effectiveOcr}%` : '0%',
+        canViewDoc
+          ? getStatusDisplayLabel(req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending'))
+          : 'Pending',
+        canViewDoc ? (req.notes || '-') : '-',
       ];
     });
     exportToPdf(`${assuranceSet.id} Requirements`, headers, rows);
@@ -2156,18 +2318,21 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     </tr>
                   ) : (
                     requirementsPagination.pageItems.map((req: AssuranceRequirement, idx: number) => {
+                      const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
                       const currentGroup = req.isOtherDocument ? 'Other Documents' : getPillarCategory(req);
                       const prevReq = idx > 0 ? requirementsPagination.pageItems[idx - 1] : null;
                       const prevGroup = prevReq ? (prevReq.isOtherDocument ? 'Other Documents' : getPillarCategory(prevReq)) : null;
                       const isFirstOfGroupOnPage = currentGroup !== prevGroup;
 
                       const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+                      const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
                       /* an approved set shows the version it was approved against, not the live one */
-                      const docView = linkedDoc ? getRequirementDocumentView(assuranceSet, req, linkedDoc) : undefined;
+                      const docView = effectiveLinkedDoc ? getRequirementDocumentView(assuranceSet, req, effectiveLinkedDoc) : undefined;
                       const linkedChildSet = req.linkedAssuranceSetId
                         ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
                         : undefined;
-                      const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
+
+                      const hasAttachedDoc = Boolean(effectiveLinkedDoc || (canViewDoc && (req.documentId || req.linkedDocumentId)));
                       const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
 
                       return (
@@ -2228,7 +2393,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                               <td>
                                 <div className="fw-semibold text-dark">
                                   {req.title}
-                                  {renderVersionBadge(req, docView)}
+                                  {renderVersionBadge(req, docView, canViewDoc)}
                                   {req.attemptNumber && (
                                     <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
                                       Attempt {req.attemptNumber}
@@ -2250,7 +2415,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                     </span>
                                   )}
                                 </div>
-                                {renderContractShortWarning(docView?.doc || linkedDoc)}
+                                {renderContractShortWarning(docView?.doc || effectiveLinkedDoc, canViewDoc)}
                                 {req.description && (
                                   <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
                                     {req.description}
@@ -2268,7 +2433,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                   </div>
                                 )}
                                 {/* the document judged against this set's contract period, not once for every set (gap review E5, G3) */}
-                                {docView && (() => {
+                                {docView && canViewDoc && (() => {
                                   const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
                                   if (validity.state === 'unknown') return null;
                                   const tone =
@@ -2329,7 +2494,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 <ConfidenceBadge score={effectiveOcr} />
                               </td>
                               <td>
-                                {renderRequirementStatus(req)}
+                                {renderRequirementStatus(req, canViewDoc)}
                               </td>
                               <td className="text-end">
                                 <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
@@ -2357,13 +2522,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                       </button>
                                     </>
                                   )}
-                                  {linkedDoc ? (
+                                  {effectiveLinkedDoc && canViewDoc ? (
                                     <>
                                       <button
                                         type="button"
                                         className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                         style={{ width: '32px', height: '32px' }}
-                                        onClick={() => setSelectedDocForReview({ doc: docView?.doc || linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
+                                        onClick={() => setSelectedDocForReview({ doc: docView?.doc || effectiveLinkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
                                         title="PDF Review"
                                         aria-label="PDF Review"
                                       >
@@ -2374,16 +2539,16 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                           type="button"
                                           className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
                                           style={{ width: '32px', height: '32px' }}
-                                          onClick={() => openRequirementUpload(req, linkedDoc)}
-                                          disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
-                                          title={getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
+                                          onClick={() => openRequirementUpload(req, effectiveLinkedDoc)}
+                                          disabled={Boolean(getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
+                                          title={getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
                                           aria-label="Upload new version"
                                         >
                                           <RefreshCw size={16} />
                                         </button>
                                       )}
                                     </>
-                                  ) : canUploadHere ? (
+                                  ) : canUploadHere && canViewDoc ? (
                                     <button
                                       type="button"
                                       className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
@@ -2422,7 +2587,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             </div>
             <div className="card-body border-top">
               <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
-              <TaskSectionCards set={assuranceSet} />
+              <TaskSectionCards set={taskSectionsSet} />
             </div>
           </div>
         ) : (
@@ -2500,7 +2665,21 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
       {/* Document Review Drawer */}
       <DocumentReviewDrawer
-        document={selectedDocForReview?.doc || null}
+        document={
+          selectedDocForReview &&
+          (isClientViewer ||
+            !selectedDocForReview.requirementId ||
+            isRequirementDocumentVisible(
+              assuranceSet.requirements?.find((r) => r.id === selectedDocForReview.requirementId) || ({ id: '' } as any),
+              isClientViewer,
+              viewerPartyOrg,
+              assuranceSet,
+              users,
+              setObjects,
+            ))
+            ? selectedDocForReview.doc
+            : null
+        }
         requirementNotes={selectedDocForReview?.notes}
         onClose={() => setSelectedDocForReview(null)}
         allowSubmit={roleActions.canUpload}

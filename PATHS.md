@@ -63,6 +63,7 @@ Root: `C:\mapFiles\MAPv2`
 - `getAssuranceSetCrewIds`, `getAssuranceSetCrewNames`, `getAssuranceSetAssets` in `src/utils/assuranceTemplates.ts` : every crew member of a crew set (`crewIds`, ADR 0023); tests `src/__tests__/multiCrewScope.test.tsx` (includes the wizard checkbox list)
 - `src/__tests__/assuranceDetailTabs.test.tsx` : tests for assurance set detail tab layout and audit trail integration (Task 5269)
 - `src/__tests__/assuranceDetailTaskModals.test.tsx` : tests for add and edit task dialog section and predecessor selects on assurance set detail (Task 5287)
+- `src/__tests__/assuranceDetailPartyVisibility.test.tsx` : tests for assurance set detail document visibility per party (Task 5309)
 - `src/utils/assuranceSetStatus.ts` : Set status rule (Go, Conditional, No-go), `ASSURANCE_SET_STATUS_RULES` thresholds, next expiry, party roles, worst-first order (ADR 0033); tests `src/__tests__/assuranceSetStatus.test.ts`
 - `src/components/tables/ProjectAssuranceStatusTable.tsx` : status-first assurance set table on project detail; tests `src/__tests__/projectAssuranceStatusTable.test.tsx`
 - `src/views/AssuranceObjectsView.tsx` : assurance objects catalog view with 6 target tabs (All, Vessels, Crew Directory, Equipment, Procedures, Methods); tests `src/__tests__/assuranceObjectTabs.test.tsx`
