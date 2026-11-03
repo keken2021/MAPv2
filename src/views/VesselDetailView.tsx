@@ -53,7 +53,6 @@ import {
   FileText,
   Maximize2,
   Settings,
-  Package,
   Building,
   Building2,
   Mail,
@@ -139,7 +138,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [showDimensionsInfo, setShowDimensionsInfo] = useState(true);
   const [showClassificationInfo, setShowClassificationInfo] = useState(false);
   const [showEngineRoomInfo, setShowEngineRoomInfo] = useState(false);
-  const [showShipCapacityInfo, setShowShipCapacityInfo] = useState(false);
   const [showRegOwnerInfo, setShowRegOwnerInfo] = useState(false);
   const [showIsmManagerInfo, setShowIsmManagerInfo] = useState(false);
   const [showShipManagerInfo, setShowShipManagerInfo] = useState(true);
@@ -1375,7 +1373,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 <span className="text-muted small">{showGeneralInfo ? '▲' : '▼'}</span>
               </div>
               {showGeneralInfo && (
-                <div className="map-datasheet-grid">
+                <div className="map-datasheet-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                   <div className="map-datasheet-cell">
                     <span className="map-datasheet-label">AIS Name</span>
                     {fieldEditable('name') ? (
@@ -1415,7 +1413,19 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       <span className="map-datasheet-val">{vessel.flagState}</span>
                     )}
                   </div>
-
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Port of Registry</span>
+                    {fieldEditable('portOfRegistry') ? (
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={formData.portOfRegistry || ''}
+                        onChange={(e) => handleInputChange('portOfRegistry', e.target.value)}
+                      />
+                    ) : (
+                      <span className="map-datasheet-val">{vessel.portOfRegistry}</span>
+                    )}
+                  </div>
                   <div className="map-datasheet-cell">
                     <span className="map-datasheet-label">IMO</span>
                     {fieldEditable('imoNumber') ? (
@@ -1439,7 +1449,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('mmsiNumber', e.target.value)}
                       />
                     ) : (
-                      <span className="map-datasheet-val font-mono-code">{vessel.mmsiNumber || '319302900'}</span>
+                      <span className="map-datasheet-val font-mono-code">{vessel.mmsiNumber}</span>
                     )}
                   </div>
                   <div className="map-datasheet-cell">
@@ -1452,10 +1462,22 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('callSign', e.target.value)}
                       />
                     ) : (
-                      <span className="map-datasheet-val font-mono-code">{vessel.callSign || 'ZGUB'}</span>
+                      <span className="map-datasheet-val font-mono-code">{vessel.callSign}</span>
                     )}
                   </div>
-
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Official Reg. No.</span>
+                    {fieldEditable('officialRegNumber') ? (
+                      <input
+                        type="text"
+                        className="form-control form-control-sm font-mono-code"
+                        value={formData.officialRegNumber || ''}
+                        onChange={(e) => handleInputChange('officialRegNumber', e.target.value)}
+                      />
+                    ) : (
+                      <span className="map-datasheet-val font-mono-code">{vessel.officialRegNumber}</span>
+                    )}
+                  </div>
                   <div className="map-datasheet-cell">
                     <span className="map-datasheet-label">Shipyard</span>
                     {fieldEditable('shipyardBuilder') ? (
@@ -1466,7 +1488,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('shipyardBuilder', e.target.value)}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.shipyardBuilder || 'Damen Shipyards'}</span>
+                      <span className="map-datasheet-val">{vessel.shipyardBuilder}</span>
                     )}
                   </div>
                   <div className="map-datasheet-cell">
@@ -1479,111 +1501,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('yearBuilt', Number(e.target.value))}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.yearBuilt || '2021'}</span>
-                    )}
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Build Number</span>
-                    {fieldEditable('officialRegNumber') ? (
-                      <input
-                        type="text"
-                        className="form-control form-control-sm font-mono-code"
-                        value={formData.officialRegNumber || ''}
-                        onChange={(e) => handleInputChange('officialRegNumber', e.target.value)}
-                      />
-                    ) : (
-                      <span className="map-datasheet-val font-mono-code">{vessel.officialRegNumber || 'HN-2021-08'}</span>
-                    )}
-                  </div>
-
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Length</span>
-                    {fieldEditable('lengthOverallMeters') ? (
-                      <input
-                        type="number"
-                        step="0.1"
-                        className="form-control form-control-sm"
-                        value={formData.lengthOverallMeters || ''}
-                        onChange={(e) => handleInputChange('lengthOverallMeters', Number(e.target.value))}
-                      />
-                    ) : (
-                      <span className="map-datasheet-val">{vessel.lengthOverallMeters ? `${vessel.lengthOverallMeters} m` : '83.4 m'}</span>
-                    )}
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Width</span>
-                    {fieldEditable('beamMeters') ? (
-                      <input
-                        type="number"
-                        step="0.1"
-                        className="form-control form-control-sm"
-                        value={formData.beamMeters || ''}
-                        onChange={(e) => handleInputChange('beamMeters', Number(e.target.value))}
-                      />
-                    ) : (
-                      <span className="map-datasheet-val">{vessel.beamMeters ? `${vessel.beamMeters} m` : '18.0 m'}</span>
-                    )}
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Draught</span>
-                    {fieldEditable('draftMeters') ? (
-                      <input
-                        type="number"
-                        step="0.1"
-                        className="form-control form-control-sm"
-                        value={formData.draftMeters || ''}
-                        onChange={(e) => handleInputChange('draftMeters', Number(e.target.value))}
-                      />
-                    ) : (
-                      <span className="map-datasheet-val">{vessel.draftMeters ? `${vessel.draftMeters} m` : '5.8 m'}</span>
-                    )}
-                  </div>
-
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Deadweight</span>
-                    {fieldEditable('deadweightTonnageDWT') ? (
-                      <input
-                        type="number"
-                        className="form-control form-control-sm"
-                        value={formData.deadweightTonnageDWT || ''}
-                        onChange={(e) => handleInputChange('deadweightTonnageDWT', Number(e.target.value))}
-                      />
-                    ) : (
-                      <span className="map-datasheet-val">{vessel.deadweightTonnageDWT ? `${vessel.deadweightTonnageDWT.toLocaleString()} MTs` : '4,100 MTs'}</span>
-                    )}
-                  </div>
-
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Gross Tonnage</span>
-                    {fieldEditable('grossTonnageGT') ? (
-                      <input
-                        type="number"
-                        className="form-control form-control-sm"
-                        value={formData.grossTonnageGT || ''}
-                        onChange={(e) => handleInputChange('grossTonnageGT', Number(e.target.value))}
-                      />
-                    ) : (
-                      <span className="map-datasheet-val">{vessel.grossTonnageGT ? `${vessel.grossTonnageGT.toLocaleString()} MTs` : '3,250 MTs'}</span>
-                    )}
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Port of Registry</span>
-                    {fieldEditable('portOfRegistry') ? (
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        value={formData.portOfRegistry || ''}
-                        onChange={(e) => handleInputChange('portOfRegistry', e.target.value)}
-                      />
-                    ) : (
-                      <span className="map-datasheet-val">{vessel.portOfRegistry || 'MONROVIA'}</span>
+                      <span className="map-datasheet-val">{vessel.yearBuilt}</span>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Accordion 2: Dimensions Information */}
+            {/* Accordion 2: Dimensions and tonnage (merged Dimensions + Capacity) */}
             <div className="map-datasheet-card">
               <div
                 className={`map-datasheet-card-header ${showDimensionsInfo ? 'is-open' : ''}`}
@@ -1591,12 +1516,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <div className="map-datasheet-card-title">
                   <Maximize2 className="w-3.5 h-3.5" />
-                  <span>Dimensions</span>
+                  <span>Dimensions and tonnage</span>
                 </div>
                 <span className="text-muted small">{showDimensionsInfo ? '▲' : '▼'}</span>
               </div>
               {showDimensionsInfo && (
-                <div className="map-datasheet-grid">
+                <div className="map-datasheet-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                   <div className="map-datasheet-cell">
                     <span className="map-datasheet-label">LOA</span>
                     {fieldEditable('lengthOverallMeters') ? (
@@ -1608,20 +1533,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('lengthOverallMeters', Number(e.target.value))}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.lengthOverallMeters || 83.4}</span>
+                      <span className="map-datasheet-val">{vessel.lengthOverallMeters ? `${vessel.lengthOverallMeters} m` : ''}</span>
                     )}
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">LBP</span>
-                    <span className="map-datasheet-val">{(formData.lengthOverallMeters ? formData.lengthOverallMeters * 0.92 : 76.8).toFixed(1)}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Load Line Length</span>
-                    <span className="map-datasheet-val">{(formData.lengthOverallMeters ? formData.lengthOverallMeters * 0.96 : 80.0).toFixed(1)}</span>
-                  </div>
-
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Extreme Breadth</span>
+                    <span className="map-datasheet-label">Beam</span>
                     {fieldEditable('beamMeters') ? (
                       <input
                         type="number"
@@ -1631,18 +1547,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('beamMeters', Number(e.target.value))}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.beamMeters || 18.0}</span>
+                      <span className="map-datasheet-val">{vessel.beamMeters ? `${vessel.beamMeters} m` : ''}</span>
                     )}
                   </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">B</span>
-                    <span className="map-datasheet-val">{formData.beamMeters || 18.0}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">D</span>
-                    <span className="map-datasheet-val">{(formData.draftMeters ? formData.draftMeters * 1.5 : 7.2).toFixed(1)}</span>
-                  </div>
-
                   <div className="map-datasheet-cell">
                     <span className="map-datasheet-label">Draught</span>
                     {fieldEditable('draftMeters') ? (
@@ -1654,20 +1561,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('draftMeters', Number(e.target.value))}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.draftMeters || 5.8}</span>
+                      <span className="map-datasheet-val">{vessel.draftMeters ? `${vessel.draftMeters} m` : ''}</span>
                     )}
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Summer Draught</span>
-                    <span className="map-datasheet-val">{(formData.draftMeters ? formData.draftMeters * 1.08 : 6.2).toFixed(1)}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Freeboard</span>
-                    <span className="map-datasheet-val">1165</span>
-                  </div>
-
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Gross Tonnage</span>
+                    <span className="map-datasheet-label">GT</span>
                     {fieldEditable('grossTonnageGT') ? (
                       <input
                         type="number"
@@ -1676,33 +1574,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('grossTonnageGT', Number(e.target.value))}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.grossTonnageGT?.toLocaleString() || '3,250'}</span>
+                      <span className="map-datasheet-val">{vessel.grossTonnageGT ? vessel.grossTonnageGT.toLocaleString() : ''}</span>
                     )}
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Net Tonnage</span>
-                    <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 0.35).toLocaleString()}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Suez Gross Tonnage</span>
-                    <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 1.05).toLocaleString()}</span>
-                  </div>
-
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Suez Net Tonnage</span>
-                    <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 0.38).toLocaleString()}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Panama Gross Tonnage</span>
-                    <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 1.02).toLocaleString()}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Panama Net Tonnage</span>
-                    <span className="map-datasheet-val">{Math.round((formData.grossTonnageGT || 3250) * 0.36).toLocaleString()}</span>
-                  </div>
-
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Deadweight</span>
+                    <span className="map-datasheet-label">DWT</span>
                     {fieldEditable('deadweightTonnageDWT') ? (
                       <input
                         type="number"
@@ -1711,22 +1587,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('deadweightTonnageDWT', Number(e.target.value))}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.deadweightTonnageDWT?.toLocaleString() || '4,100'}</span>
+                      <span className="map-datasheet-val">{vessel.deadweightTonnageDWT ? vessel.deadweightTonnageDWT.toLocaleString() : ''}</span>
                     )}
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Summer DWT</span>
-                    <span className="map-datasheet-val">{formData.deadweightTonnageDWT?.toLocaleString() || '4,100'}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">TPC / TPI</span>
-                    <span className="map-datasheet-val">{((formData.deadweightTonnageDWT || 4100) / 120).toFixed(1)}</span>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Accordion 3: Classification & Analogous Information */}
+            {/* Accordion 3: Class and insurance */}
             <div className="map-datasheet-card">
               <div
                 className={`map-datasheet-card-header ${showClassificationInfo ? 'is-open' : ''}`}
@@ -1734,12 +1602,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <div className="map-datasheet-card-title">
                   <Shield className="w-3.5 h-3.5" />
-                  <span>Classification</span>
+                  <span>Class and insurance</span>
                 </div>
                 <span className="text-muted small">{showClassificationInfo ? '▲' : '▼'}</span>
               </div>
               {showClassificationInfo && (
-                <div className="map-datasheet-grid">
+                <div className="map-datasheet-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                   <div className="map-datasheet-cell">
                     <span className="map-datasheet-label">Class Society</span>
                     {fieldEditable('classificationSociety') ? (
@@ -1795,7 +1663,20 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('dynamicPositioningClass', e.target.value)}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.dynamicPositioningClass || 'DP2'}</span>
+                      <span className="map-datasheet-val">{vessel.dynamicPositioningClass}</span>
+                    )}
+                  </div>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">H&amp;M Insurer</span>
+                    {fieldEditable('hmInsurer') ? (
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        value={formData.hmInsurer || ''}
+                        onChange={(e) => handleInputChange('hmInsurer', e.target.value)}
+                      />
+                    ) : (
+                      <span className="map-datasheet-val">{vessel.hmInsurer}</span>
                     )}
                   </div>
                   <div className="map-datasheet-cell">
@@ -1808,7 +1689,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('piClubName', e.target.value)}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.piClubName || 'Gard P&I Club'}</span>
+                      <span className="map-datasheet-val">{vessel.piClubName}</span>
                     )}
                   </div>
                   <div className="map-datasheet-cell">
@@ -1821,14 +1702,27 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('policyNumber', e.target.value)}
                       />
                     ) : (
-                      <span className="map-datasheet-val font-mono-code">{vessel.policyNumber || 'POL-GARD-2026-99'}</span>
+                      <span className="map-datasheet-val font-mono-code">{vessel.policyNumber}</span>
+                    )}
+                  </div>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Policy Expiry</span>
+                    {fieldEditable('policyExpiryDate') ? (
+                      <input
+                        type="text"
+                        className="form-control form-control-sm font-mono-code"
+                        value={formData.policyExpiryDate || ''}
+                        onChange={(e) => handleInputChange('policyExpiryDate', e.target.value)}
+                      />
+                    ) : (
+                      <span className="map-datasheet-val font-mono-code">{vessel.policyExpiryDate}</span>
                     )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Accordion 4: Engine Room Information */}
+            {/* Accordion 4: Machinery */}
             <div className="map-datasheet-card">
               <div
                 className={`map-datasheet-card-header ${showEngineRoomInfo ? 'is-open' : ''}`}
@@ -1836,14 +1730,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               >
                 <div className="map-datasheet-card-title">
                   <Settings className="w-3.5 h-3.5" />
-                  <span>Engine Room</span>
+                  <span>Machinery</span>
                 </div>
                 <span className="text-muted small">{showEngineRoomInfo ? '▲' : '▼'}</span>
               </div>
               {showEngineRoomInfo && (
-                <div className="map-datasheet-grid">
+                <div className="map-datasheet-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Main Engine</span>
+                    <span className="map-datasheet-label">Engine</span>
                     {fieldEditable('mainEnginePowerKW') ? (
                       <input
                         type="text"
@@ -1852,27 +1746,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('mainEnginePowerKW', e.target.value)}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.mainEnginePowerKW || '2x 2400 kW Wärtsilä 8L26'}</span>
+                      <span className="map-datasheet-val">{vessel.mainEnginePowerKW}</span>
                     )}
                   </div>
                   <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Total Power</span>
-                    <span className="map-datasheet-val">{formData.mainEnginePowerKW || '4,800 kW (6,430 BHP)'}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Propulsion</span>
-                    <span className="map-datasheet-val">{formData.dynamicPositioningClass ? 'Twin Screw CPP with Kort Nozzles' : 'Twin Screw CPP'}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Bow Thruster</span>
-                    <span className="map-datasheet-val">{formData.dynamicPositioningClass?.includes('DP2') ? '2x 650 kW Tunnel' : '1x 500 kW Tunnel'}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Stern Thruster</span>
-                    <span className="map-datasheet-val">{formData.dynamicPositioningClass?.includes('DP2') ? '1x 600 kW Tunnel' : '1x 400 kW Tunnel'}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Fuel Types</span>
+                    <span className="map-datasheet-label">Fuel</span>
                     {fieldEditable('fuelType') ? (
                       <input
                         type="text"
@@ -1881,50 +1759,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         onChange={(e) => handleInputChange('fuelType', e.target.value)}
                       />
                     ) : (
-                      <span className="map-datasheet-val">{vessel.fuelType || 'MGO / Low Sulphur DMA'}</span>
+                      <span className="map-datasheet-val">{vessel.fuelType}</span>
                     )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Accordion 5: Ship Capacity & Equipment Information */}
-            <div className="map-datasheet-card">
-              <div
-                className={`map-datasheet-card-header ${showShipCapacityInfo ? 'is-open' : ''}`}
-                onClick={() => setShowShipCapacityInfo(!showShipCapacityInfo)}
-              >
-                <div className="map-datasheet-card-title">
-                  <Package className="w-3.5 h-3.5" />
-                  <span>Capacity &amp; Equipment</span>
-                </div>
-                <span className="text-muted small">{showShipCapacityInfo ? '▲' : '▼'}</span>
-              </div>
-              {showShipCapacityInfo && (
-                <div className="map-datasheet-grid">
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Deck Area</span>
-                    <span className="map-datasheet-val">{`${Math.round((formData.lengthOverallMeters || 80) * (formData.beamMeters || 18) * 0.45)} m²`}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Deck Cargo</span>
-                    <span className="map-datasheet-val">{`${Math.round((formData.deadweightTonnageDWT || 4000) * 0.4)} MT`}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Fuel Oil</span>
-                    <span className="map-datasheet-val">{`${Math.round((formData.deadweightTonnageDWT || 4000) * 0.2)} m³`}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Fresh Water</span>
-                    <span className="map-datasheet-val">{`${Math.round((formData.deadweightTonnageDWT || 4000) * 0.12)} m³`}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Liquid Mud</span>
-                    <span className="map-datasheet-val">{`${Math.round((formData.deadweightTonnageDWT || 4000) * 0.15)} m³`}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Towing Winch</span>
-                    <span className="map-datasheet-val">{formData.vesselSubtype?.includes('AHTS') ? 'Hydraulic Double Drum 150T' : 'Standard Mooring Winches'}</span>
                   </div>
                 </div>
               )}
