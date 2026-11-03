@@ -421,6 +421,19 @@ export interface MapStoreState {
     status: "Verified" | "Correction Requested" | "Rejected",
     notes?: string,
   ) => void;
+  /** checks whether all party upload tasks for a requirement are done (finding 5c-02) */
+  isRequirementDone: (setId: string, requirementIdentifier: string) => boolean;
+  /** returns task completion breakdown across responsible parties for a requirement (finding 5c-02) */
+  getRequirementCompletionStatus: (
+    setId: string,
+    requirementIdentifier: string,
+  ) => {
+    isDone: boolean;
+    totalTasks: number;
+    completedTasks: number;
+    pendingTasks: number;
+    partyStatuses: { party: string; taskId: string; status: string; isDone: boolean }[];
+  };
   denyRequirementByApprover: (
     setId: string,
     reqId: string,
@@ -2232,6 +2245,42 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
 
     const newTaskId = taskInput.id || `REQ-TASK-${Date.now().toString().slice(-6)}`;
+    const parties = taskInput.responsibleParties;
+    if (parties && parties.length > 1) {
+      const groupId = taskInput.requirementGroupId || `REQ-GRP-${Date.now().toString().slice(-6)}`;
+      const newRequirements: AssuranceRequirement[] = parties.map((party, pIdx) => ({
+        id: `${newTaskId}-${pIdx + 1}`,
+        category: taskInput.category,
+        title: taskInput.title.trim(),
+        description: taskInput.description?.trim() || "",
+        isMandatory: taskInput.isMandatory !== undefined ? taskInput.isMandatory : true,
+        isFulfilled: false,
+        ocrConfidence: 0,
+        verifierStatus: "Pending",
+        targetDate: taskInput.targetDate || setTarget.targetDate || setTarget.complianceDeadline,
+        assignedSubmitter: party,
+        responsibleParty: party,
+        responsibleParties: parties,
+        requirementGroupId: groupId,
+        assignedVerifier: taskInput.assignedVerifier || setTarget.assignedVerifier,
+        isSpecialized: taskInput.isSpecialized,
+        isOtherDocument: taskInput.isOtherDocument,
+        sectionId: taskInput.sectionId,
+        predecessorId: taskInput.predecessorId,
+        notes: taskInput.notes,
+      }));
+
+      const updatedSet: AssuranceSet = {
+        ...setTarget,
+        requirements: [...setTarget.requirements, ...newRequirements],
+      };
+
+      get().updateAssuranceSet(updatedSet);
+
+      return { success: true, requirement: newRequirements[0] };
+    }
+
+    const singleParty = parties?.[0] || taskInput.responsibleParty || taskInput.assignedSubmitter || setTarget.assignedSubmitter;
     const newRequirement: AssuranceRequirement = {
       id: newTaskId,
       category: taskInput.category,
@@ -2242,7 +2291,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ocrConfidence: 0,
       verifierStatus: "Pending",
       targetDate: taskInput.targetDate || setTarget.targetDate || setTarget.complianceDeadline,
-      assignedSubmitter: taskInput.assignedSubmitter || setTarget.assignedSubmitter,
+      assignedSubmitter: singleParty,
+      responsibleParty: singleParty,
+      responsibleParties: parties || (singleParty ? [singleParty] : undefined),
+      requirementGroupId: taskInput.requirementGroupId || newTaskId,
       assignedVerifier: taskInput.assignedVerifier || setTarget.assignedVerifier,
       isSpecialized: taskInput.isSpecialized,
       isOtherDocument: taskInput.isOtherDocument,
@@ -2791,6 +2843,51 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         notes ||
         `Verifier status set to ${status}${isDenial ? " — Submitter revision required." : ""}`,
     });
+  },
+  isRequirementDone: (setId, requirementIdentifier) => {
+    const s = get().assuranceSets.find((set) => set.id === setId);
+    if (!s) return false;
+    const identifier = requirementIdentifier.trim().toLowerCase();
+    const matchingTasks = s.requirements.filter((r) =>
+      r.id.toLowerCase() === identifier ||
+      (r.requirementGroupId && r.requirementGroupId.toLowerCase() === identifier) ||
+      (r.requirementGroupId && s.requirements.find((x) => x.id.toLowerCase() === identifier)?.requirementGroupId === r.requirementGroupId) ||
+      r.title.trim().toLowerCase() === identifier
+    );
+    if (matchingTasks.length === 0) return false;
+    return matchingTasks.every((t) =>
+      t.isFulfilled ||
+      t.verifierStatus === "Verified" ||
+      (s.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId))
+    );
+  },
+  getRequirementCompletionStatus: (setId, requirementIdentifier) => {
+    const s = get().assuranceSets.find((set) => set.id === setId);
+    if (!s) {
+      return { isDone: false, totalTasks: 0, completedTasks: 0, pendingTasks: 0, partyStatuses: [] };
+    }
+    const identifier = requirementIdentifier.trim().toLowerCase();
+    const matchingTasks = s.requirements.filter((r) =>
+      r.id.toLowerCase() === identifier ||
+      (r.requirementGroupId && r.requirementGroupId.toLowerCase() === identifier) ||
+      (r.requirementGroupId && s.requirements.find((x) => x.id.toLowerCase() === identifier)?.requirementGroupId === r.requirementGroupId) ||
+      r.title.trim().toLowerCase() === identifier
+    );
+    const totalTasks = matchingTasks.length;
+    const completedTasks = matchingTasks.filter((t) =>
+      t.isFulfilled ||
+      t.verifierStatus === "Verified" ||
+      (s.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId))
+    ).length;
+    const pendingTasks = totalTasks - completedTasks;
+    const isDone = totalTasks > 0 && completedTasks === totalTasks;
+    const partyStatuses = matchingTasks.map((t) => ({
+      party: t.responsibleParty || t.assignedSubmitter || "Unassigned",
+      taskId: t.id,
+      status: t.verifierStatus || "Pending",
+      isDone: t.isFulfilled || t.verifierStatus === "Verified" || (s.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId)),
+    }));
+    return { isDone, totalTasks, completedTasks, pendingTasks, partyStatuses };
   },
   denyRequirementByApprover: (setId, reqId, decision, notes) => {
     let requirementTitle = reqId;

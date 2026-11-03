@@ -176,6 +176,10 @@ export interface AssuranceRequirement {
   verifierId?: string;
   /** responsible party organizations chosen in Step 1 (finding 5c-01) */
   responsibleParties?: string[];
+  /** specific responsible party organization for this upload task (finding 5c-02) */
+  responsibleParty?: string;
+  /** shared group id linking party upload tasks of the same requirement (finding 5c-02) */
+  requirementGroupId?: string;
   /** document (default) or pointer to a linked assurance set */
   fulfillmentType?: RequirementFulfillmentType;
   linkedAssuranceSetId?: string;

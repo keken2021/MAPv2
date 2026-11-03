@@ -72,6 +72,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/assuranceWizardStep3TitlesAndOtherDocs.test.tsx` : tests for assurance set wizard Step 3 in-place editable section titles and Add other document action (Task 5302)
 - `src/__tests__/tenantCustomSections.test.tsx` : tests for assurance set wizard Step 3 tenant custom sections creation, in-place title editing, document addition, and per-tenant scoping (Task 5303)
 - `src/__tests__/responsiblePartyMultiSelect.test.tsx` : tests for assurance set wizard Step 3 requirement responsible party multi-select checklist limited to Step 1 organizations (Task 5304 / finding 5c-01)
+- `src/__tests__/partyUploadTasks.test.tsx` : tests for independent upload tasks per party and requirement completion when all are done (Task 5305 / finding 5c-02)
 
 ## Marketplace screens
 - `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)

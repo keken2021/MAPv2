@@ -1513,24 +1513,50 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             : [appointedProviderOrg || serviceProviderOrg]
       ).filter(Boolean);
       const reqParties = getRequirementResponsibleParties(doc.id, defaultParties);
-      finalRequirements.push({
-        id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
-        category: doc.category as AssuranceRequirementCategory,
-        title: doc.title,
-        description: doc.description,
-        isMandatory: doc.isMandatory,
-        sectionId: 'sec-general',
-        isFulfilled: false,
-        ocrConfidence: 0,
-        verifierStatus: 'Pending',
-        assignedSubmitter: reqParties.join(', ') || getGeneralDocAssignedOrg(doc.code),
-        responsibleParties: reqParties,
-        assignedVerifier: reqAssignedVerifier,
-        verifierId: verificationRequired ? assignedVerifier : undefined,
-        targetDate: complianceDeadline,
-      });
+      const parties = reqParties.length > 0 ? reqParties : defaultParties;
+      if (parties.length > 1) {
+        parties.forEach((party) => {
+          finalRequirements.push({
+            id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+            category: doc.category as AssuranceRequirementCategory,
+            title: doc.title,
+            description: doc.description,
+            isMandatory: doc.isMandatory,
+            sectionId: 'sec-general',
+            isFulfilled: false,
+            ocrConfidence: 0,
+            verifierStatus: 'Pending',
+            assignedSubmitter: party,
+            responsibleParty: party,
+            responsibleParties: reqParties,
+            requirementGroupId: doc.id,
+            assignedVerifier: reqAssignedVerifier,
+            verifierId: verificationRequired ? assignedVerifier : undefined,
+            targetDate: complianceDeadline,
+          });
+        });
+      } else {
+        const singleParty = parties[0] || getGeneralDocAssignedOrg(doc.code);
+        finalRequirements.push({
+          id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+          category: doc.category as AssuranceRequirementCategory,
+          title: doc.title,
+          description: doc.description,
+          isMandatory: doc.isMandatory,
+          sectionId: 'sec-general',
+          isFulfilled: false,
+          ocrConfidence: 0,
+          verifierStatus: 'Pending',
+          assignedSubmitter: singleParty,
+          responsibleParty: singleParty,
+          responsibleParties: reqParties,
+          requirementGroupId: doc.id,
+          assignedVerifier: reqAssignedVerifier,
+          verifierId: verificationRequired ? assignedVerifier : undefined,
+          targetDate: complianceDeadline,
+        });
+      }
     });
-
 
     activeSubtypes.forEach((subtype) => {
       const reqAssignedSubmitter = submitterLabel;
@@ -1540,22 +1566,49 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         if (docToggles[doc.id]) {
           const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
           const reqParties = getRequirementResponsibleParties(doc.id, defaultParties);
-          finalRequirements.push({
-            id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
-            category: doc.category,
-            title: doc.title,
-            description: doc.description,
-            subtype: doc.subtype,
-            isMandatory: docRequired[doc.id] ?? doc.isMandatory,
-            isFulfilled: false,
-            ocrConfidence: 0,
-            verifierStatus: 'Pending',
-            assignedSubmitter: reqParties.join(', ') || reqAssignedSubmitter,
-            responsibleParties: reqParties,
-            assignedVerifier: reqAssignedVerifier,
-            verifierId: verificationRequired ? assignedVerifier : undefined,
-            targetDate: complianceDeadline,
-          });
+          const parties = reqParties.length > 0 ? reqParties : defaultParties;
+          if (parties.length > 1) {
+            parties.forEach((party) => {
+              finalRequirements.push({
+                id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+                category: doc.category,
+                title: doc.title,
+                description: doc.description,
+                subtype: doc.subtype,
+                isMandatory: docRequired[doc.id] ?? doc.isMandatory,
+                isFulfilled: false,
+                ocrConfidence: 0,
+                verifierStatus: 'Pending',
+                assignedSubmitter: party,
+                responsibleParty: party,
+                responsibleParties: reqParties,
+                requirementGroupId: doc.id,
+                assignedVerifier: reqAssignedVerifier,
+                verifierId: verificationRequired ? assignedVerifier : undefined,
+                targetDate: complianceDeadline,
+              });
+            });
+          } else {
+            const singleParty = parties[0] || reqAssignedSubmitter;
+            finalRequirements.push({
+              id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+              category: doc.category,
+              title: doc.title,
+              description: doc.description,
+              subtype: doc.subtype,
+              isMandatory: docRequired[doc.id] ?? doc.isMandatory,
+              isFulfilled: false,
+              ocrConfidence: 0,
+              verifierStatus: 'Pending',
+              assignedSubmitter: singleParty,
+              responsibleParty: singleParty,
+              responsibleParties: reqParties,
+              requirementGroupId: doc.id,
+              assignedVerifier: reqAssignedVerifier,
+              verifierId: verificationRequired ? assignedVerifier : undefined,
+              targetDate: complianceDeadline,
+            });
+          }
         }
       });
 
@@ -1563,25 +1616,55 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       customList.forEach((spec) => {
         const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
         const reqParties = getRequirementResponsibleParties(spec.id, defaultParties);
-        finalRequirements.push({
-          id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
-          category: spec.category,
-          title: spec.title,
-          description: spec.description,
-          subtype: savedRequirementSubtype(spec),
-          isMandatory: spec.isMandatory,
-          isSpecialized: true,
-          isOtherDocument: spec.isOtherDocument ?? false,
-          sectionId: spec.sectionId || `sec-${subtype.toLowerCase()}`,
-          targetDate: spec.targetDate || complianceDeadline,
-          isFulfilled: false,
-          ocrConfidence: 0,
-          verifierStatus: 'Pending',
-          assignedSubmitter: reqParties.join(', ') || reqAssignedSubmitter,
-          responsibleParties: reqParties,
-          assignedVerifier: reqAssignedVerifier,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-        });
+        const parties = reqParties.length > 0 ? reqParties : defaultParties;
+        if (parties.length > 1) {
+          parties.forEach((party) => {
+            finalRequirements.push({
+              id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+              category: spec.category,
+              title: spec.title,
+              description: spec.description,
+              subtype: savedRequirementSubtype(spec),
+              isMandatory: spec.isMandatory,
+              isSpecialized: true,
+              isOtherDocument: spec.isOtherDocument ?? false,
+              sectionId: spec.sectionId || `sec-${subtype.toLowerCase()}`,
+              targetDate: spec.targetDate || complianceDeadline,
+              isFulfilled: false,
+              ocrConfidence: 0,
+              verifierStatus: 'Pending',
+              assignedSubmitter: party,
+              responsibleParty: party,
+              responsibleParties: reqParties,
+              requirementGroupId: spec.id,
+              assignedVerifier: reqAssignedVerifier,
+              verifierId: verificationRequired ? assignedVerifier : undefined,
+            });
+          });
+        } else {
+          const singleParty = parties[0] || reqAssignedSubmitter;
+          finalRequirements.push({
+            id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+            category: spec.category,
+            title: spec.title,
+            description: spec.description,
+            subtype: savedRequirementSubtype(spec),
+            isMandatory: spec.isMandatory,
+            isSpecialized: true,
+            isOtherDocument: spec.isOtherDocument ?? false,
+            sectionId: spec.sectionId || `sec-${subtype.toLowerCase()}`,
+            targetDate: spec.targetDate || complianceDeadline,
+            isFulfilled: false,
+            ocrConfidence: 0,
+            verifierStatus: 'Pending',
+            assignedSubmitter: singleParty,
+            responsibleParty: singleParty,
+            responsibleParties: reqParties,
+            requirementGroupId: spec.id,
+            assignedVerifier: reqAssignedVerifier,
+            verifierId: verificationRequired ? assignedVerifier : undefined,
+          });
+        }
       });
     });
 
@@ -1902,22 +1985,49 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         if (docToggles[doc.id]) {
           const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
           const reqParties = getRequirementResponsibleParties(doc.id, defaultParties);
-          finalRequirements.push({
-            id: generateUniqueRequirementId(targetSetId, reqIndex++),
-            category: doc.category,
-            title: doc.title,
-            description: doc.description,
-            subtype: doc.subtype,
-            isMandatory: docRequired[doc.id] ?? doc.isMandatory,
-            isFulfilled: false,
-            ocrConfidence: 0,
-            verifierStatus: 'Pending',
-            assignedSubmitter: reqParties.join(', ') || reqAssignedSubmitter,
-            responsibleParties: reqParties,
-            assignedVerifier: reqAssignedVerifier,
-            verifierId: verificationRequired ? assignedVerifier : undefined,
-            targetDate: complianceDeadline,
-          });
+          const parties = reqParties.length > 0 ? reqParties : defaultParties;
+          if (parties.length > 1) {
+            parties.forEach((party) => {
+              finalRequirements.push({
+                id: generateUniqueRequirementId(targetSetId, reqIndex++),
+                category: doc.category,
+                title: doc.title,
+                description: doc.description,
+                subtype: doc.subtype,
+                isMandatory: docRequired[doc.id] ?? doc.isMandatory,
+                isFulfilled: false,
+                ocrConfidence: 0,
+                verifierStatus: 'Pending',
+                assignedSubmitter: party,
+                responsibleParty: party,
+                responsibleParties: reqParties,
+                requirementGroupId: doc.id,
+                assignedVerifier: reqAssignedVerifier,
+                verifierId: verificationRequired ? assignedVerifier : undefined,
+                targetDate: complianceDeadline,
+              });
+            });
+          } else {
+            const singleParty = parties[0] || reqAssignedSubmitter;
+            finalRequirements.push({
+              id: generateUniqueRequirementId(targetSetId, reqIndex++),
+              category: doc.category,
+              title: doc.title,
+              description: doc.description,
+              subtype: doc.subtype,
+              isMandatory: docRequired[doc.id] ?? doc.isMandatory,
+              isFulfilled: false,
+              ocrConfidence: 0,
+              verifierStatus: 'Pending',
+              assignedSubmitter: singleParty,
+              responsibleParty: singleParty,
+              responsibleParties: reqParties,
+              requirementGroupId: doc.id,
+              assignedVerifier: reqAssignedVerifier,
+              verifierId: verificationRequired ? assignedVerifier : undefined,
+              targetDate: complianceDeadline,
+            });
+          }
         }
       });
 
@@ -1925,23 +2035,51 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       customList.forEach((spec) => {
         const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
         const reqParties = getRequirementResponsibleParties(spec.id, defaultParties);
-        finalRequirements.push({
-          id: generateUniqueRequirementId(targetSetId, reqIndex++),
-          category: spec.category,
-          title: spec.title,
-          description: spec.description,
-          subtype: savedRequirementSubtype(spec),
-          isMandatory: spec.isMandatory,
-          isSpecialized: true,
-          targetDate: spec.targetDate || complianceDeadline,
-          isFulfilled: false,
-          ocrConfidence: 0,
-          verifierStatus: 'Pending',
-          assignedSubmitter: reqParties.join(', ') || reqAssignedSubmitter,
-          responsibleParties: reqParties,
-          assignedVerifier: reqAssignedVerifier,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-        });
+        const parties = reqParties.length > 0 ? reqParties : defaultParties;
+        if (parties.length > 1) {
+          parties.forEach((party) => {
+            finalRequirements.push({
+              id: generateUniqueRequirementId(targetSetId, reqIndex++),
+              category: spec.category,
+              title: spec.title,
+              description: spec.description,
+              subtype: savedRequirementSubtype(spec),
+              isMandatory: spec.isMandatory,
+              isSpecialized: true,
+              targetDate: spec.targetDate || complianceDeadline,
+              isFulfilled: false,
+              ocrConfidence: 0,
+              verifierStatus: 'Pending',
+              assignedSubmitter: party,
+              responsibleParty: party,
+              responsibleParties: reqParties,
+              requirementGroupId: spec.id,
+              assignedVerifier: reqAssignedVerifier,
+              verifierId: verificationRequired ? assignedVerifier : undefined,
+            });
+          });
+        } else {
+          const singleParty = parties[0] || reqAssignedSubmitter;
+          finalRequirements.push({
+            id: generateUniqueRequirementId(targetSetId, reqIndex++),
+            category: spec.category,
+            title: spec.title,
+            description: spec.description,
+            subtype: savedRequirementSubtype(spec),
+            isMandatory: spec.isMandatory,
+            isSpecialized: true,
+            targetDate: spec.targetDate || complianceDeadline,
+            isFulfilled: false,
+            ocrConfidence: 0,
+            verifierStatus: 'Pending',
+            assignedSubmitter: singleParty,
+            responsibleParty: singleParty,
+            responsibleParties: reqParties,
+            requirementGroupId: spec.id,
+            assignedVerifier: reqAssignedVerifier,
+            verifierId: verificationRequired ? assignedVerifier : undefined,
+          });
+        }
       });
     });
 
