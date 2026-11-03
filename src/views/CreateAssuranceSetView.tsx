@@ -19,6 +19,7 @@ import {
   AssuranceObject,
   AssuranceObjectType,
   TaskSection,
+  TenantCustomSection,
 } from '../types/assurance';
 import { UserProfile } from '../types/user';
 import { CrewMember } from '../types/crew';
@@ -79,7 +80,7 @@ import {
 import { formatMaritimeDate } from '../utils/formatters';
 import { filterProjectsForPersona, projectToAssuranceProjectScope, setOrganizationParties, withProjectVessels } from '../utils/projectHelpers';
 import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
-import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X } from 'lucide-react';
+import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X, FolderPlus, Layers } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
 
@@ -136,9 +137,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     notifications,
     pendingAssuranceRequestNotificationId,
     activeDemoOrganization,
+    tenantCustomSections = [],
+    addTenantCustomSection,
+    getTenantCustomSections,
   } = useMapStore();
 
-  const clientOrgHint = activePersona === 'C Admin' ? activeDemoOrganization : undefined;
+  const clientOrgHint = (activePersona === 'C Admin' || activePersona === 'Administrator') ? activeDemoOrganization : undefined;
 
   /* projects the active persona can see, offered as an optional link for any scope */
   const availableProjectOptions = useMemo(
@@ -232,6 +236,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   /* an invited organization creating from a request is the client; other requests keep the project client */
   const setClientOrg = resolveAssuranceRequestSetClient(defaultCharterer, requestContext);
   const titleOrg = setClientOrg;
+  const tenantOrganization = setClientOrg || activeDemoOrganization || clientOrg || 'Marine Assurance Platform';
+  const availableTenantSections = getTenantCustomSections ? getTenantCustomSections(tenantOrganization) : [];
   const lockedVessel = createAssuranceForVesselId
     ? availableVessels.find((v) => v.id === createAssuranceForVesselId)
     : undefined;
@@ -654,6 +660,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Specialized Custom Documents added by the user */
   const [specializedDocs, setSpecializedDocs] = useState<SpecializedDoc[]>([]);
+  /* Tenant Custom Sections state (5b-01, 5b-02, ADR 0034) */
+  const [activeCustomSections, setActiveCustomSections] = useState<TenantCustomSection[]>([]);
+  const [isCreatingSection, setIsCreatingSection] = useState<boolean>(false);
+  const [newSectionName, setNewSectionName] = useState<string>('');
+  const [newSectionDesc, setNewSectionDesc] = useState<string>('');
+  const [selectedSavedSectionId, setSelectedSavedSectionId] = useState<string>('');
+
   /* Section titles editable in place */
   const [sectionTitles, setSectionTitles] = useState<Record<string, string>>({});
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -1051,6 +1064,54 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     }));
   };
 
+  /* Tenant custom sections actions (5b-01, 5b-02) */
+  const handleCreateTenantSection = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newSectionName.trim()) return;
+    const created = addTenantCustomSection({
+      name: newSectionName.trim(),
+      organization: tenantOrganization,
+      description: newSectionDesc.trim() || undefined,
+    });
+    if (!activeCustomSections.some((s) => s.id === created.id)) {
+      setActiveCustomSections((prev) => [...prev, created]);
+    }
+    setNewSectionName('');
+    setNewSectionDesc('');
+    setIsCreatingSection(false);
+  };
+
+  const handleAddSavedSection = (sectionId: string) => {
+    const found = availableTenantSections.find((s) => s.id === sectionId);
+    if (found && !activeCustomSections.some((s) => s.id === found.id)) {
+      setActiveCustomSections((prev) => [...prev, found]);
+    }
+    setSelectedSavedSectionId('');
+  };
+
+  const handleRemoveCustomSection = (sectionId: string) => {
+    setActiveCustomSections((prev) => prev.filter((s) => s.id !== sectionId));
+    setSpecializedDocs((prev) => prev.filter((d) => d.sectionId !== sectionId));
+  };
+
+  const handleAddDocToCustomSection = (sectionId: string, customTitle?: string) => {
+    const matchingDocs = specializedDocs.filter((d) => d.sectionId === sectionId);
+    const title = customTitle?.trim() || `Custom Requirement ${matchingDocs.length + 1}`;
+    const newDoc: SpecializedDoc = {
+      id: `custom-doc-sec-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      subtype: selectedScopes[0] || 'Vessel',
+      title,
+      category: 'Custom Requirement' as AssuranceRequirementCategory,
+      description: `Tenant custom requirement under section ${sectionTitles[sectionId] || sectionId}.`,
+      isMandatory: true,
+      isEnabled: true,
+      isSpecialized: true,
+      isOtherDocument: true,
+      sectionId,
+    };
+    setSpecializedDocs((prev) => [...prev, newDoc]);
+  };
+
   /* Toggle Required / Optional for custom doc */
   const handleToggleCustomDocRequired = (specId: string) => {
     setSpecializedDocs((prev) =>
@@ -1331,7 +1392,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           isMandatory: spec.isMandatory,
           isSpecialized: true,
           isOtherDocument: spec.isOtherDocument ?? false,
-          sectionId: `sec-${subtype.toLowerCase()}`,
+          sectionId: spec.sectionId || `sec-${subtype.toLowerCase()}`,
           targetDate: spec.targetDate || complianceDeadline,
           isFulfilled: false,
           ocrConfidence: 0,
@@ -1356,6 +1417,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       ),
       'sec-procedure': getSectionTitle('procedure', 'Procedures'),
       'sec-method': getSectionTitle('method', 'Methods'),
+      ...Object.fromEntries(
+        activeCustomSections.map((sec) => [
+          sec.id,
+          getSectionTitle(sec.id, sec.name),
+        ])
+      ),
     };
 
     const finalSections: TaskSection[] = placedTasks.sections.map((sec, idx) => ({
@@ -1363,6 +1430,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       name: sectionTitleMap[sec.id] || sec.name,
       order: sec.order || idx + 1,
     }));
+
+    activeCustomSections.forEach((cSec) => {
+      if (!finalSections.some((s) => s.id === cSec.id)) {
+        finalSections.push({
+          id: cSec.id,
+          name: sectionTitleMap[cSec.id] || cSec.name,
+          order: finalSections.length + 1,
+        });
+      }
+    });
 
     const ownerOrg = charterer.trim() || clientOrg;
     const effectiveCharterer = ownerOrg;
@@ -2421,7 +2498,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       </div>
     );
   };
-
+
+
   const currentStepData = steps[currentStep - 1] || steps[0];
 
   return (
@@ -3542,6 +3620,316 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   )}
                 </>
               )}
+
+              {/* Tenant Custom Sections Container (5b-01, 5b-02, ADR 0034) */}
+              <div className="d-flex flex-column gap-3 mt-2" data-testid="tenant-custom-sections-container">
+                <div className="card border shadow-2xs rounded-3 bg-white">
+                  <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                      <div className="d-flex align-items-center gap-2">
+                        <FolderPlus className="w-4 h-4 text-primary" aria-hidden="true" />
+                        <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                          Tenant Custom Sections
+                        </h5>
+                        <span className="badge bg-secondary-subtle text-dark border font-mono-code" style={{ fontSize: '0.72rem' }} data-testid="badge-tenant-org">
+                          {tenantOrganization}
+                        </span>
+                      </div>
+                      <div className="text-muted small mt-0.5">
+                        Create custom section categories saved for {tenantOrganization}, or add saved sections to this set.
+                      </div>
+                    </div>
+                    {!isCreatingSection && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                        onClick={() => setIsCreatingSection(true)}
+                        data-testid="btn-create-custom-section"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Create Section
+                      </button>
+                    )}
+                  </div>
+
+                  {isCreatingSection && (
+                    <div className="card-body p-4 border-bottom bg-light-subtle" data-testid="form-create-custom-section">
+                      <h6 className="fw-bold text-dark mb-2 fs-7">New Custom Section for {tenantOrganization}</h6>
+                      <div className="row g-2 align-items-end">
+                        <div className="col-12 col-md-5">
+                          <label className="form-label text-secondary small fw-semibold" htmlFor="input-custom-section-name">
+                            Section Title <span className="text-danger">*</span>
+                          </label>
+                          <input
+                            id="input-custom-section-name"
+                            type="text"
+                            className="form-control form-control-sm"
+                            placeholder="e.g. Berth Clearance, Environmental Conditions"
+                            value={newSectionName}
+                            onChange={(e) => setNewSectionName(e.target.value)}
+                            data-testid="input-custom-section-name"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="col-12 col-md-5">
+                          <label className="form-label text-secondary small fw-semibold" htmlFor="input-custom-section-description">
+                            Description (Optional)
+                          </label>
+                          <input
+                            id="input-custom-section-description"
+                            type="text"
+                            className="form-control form-control-sm"
+                            placeholder="e.g. Site-specific mooring requirements and clearance criteria"
+                            value={newSectionDesc}
+                            onChange={(e) => setNewSectionDesc(e.target.value)}
+                            data-testid="input-custom-section-description"
+                          />
+                        </div>
+                        <div className="col-12 col-md-2 d-flex gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary text-white flex-grow-1"
+                            disabled={!newSectionName.trim()}
+                            onClick={handleCreateTenantSection}
+                            data-testid="btn-save-custom-section"
+                          >
+                            Save Section
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={() => {
+                              setIsCreatingSection(false);
+                              setNewSectionName('');
+                              setNewSectionDesc('');
+                            }}
+                            data-testid="btn-cancel-custom-section"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {availableTenantSections.length > 0 && (
+                    <div className="card-body p-3 bg-white d-flex align-items-center justify-content-between flex-wrap gap-3">
+                      <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '420px' }}>
+                        <label className="form-label text-secondary small fw-semibold m-0 text-nowrap" htmlFor="select-saved-tenant-section">
+                          Saved Sections:
+                        </label>
+                        <select
+                          id="select-saved-tenant-section"
+                          className="form-select form-select-sm"
+                          value={selectedSavedSectionId}
+                          onChange={(e) => setSelectedSavedSectionId(e.target.value)}
+                          data-testid="select-saved-tenant-section"
+                        >
+                          <option value="">Select saved section to add...</option>
+                          {availableTenantSections
+                            .filter((sec) => !activeCustomSections.some((a) => a.id === sec.id))
+                            .map((sec) => (
+                              <option key={sec.id} value={sec.id}>
+                                {sec.name}
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary text-white text-nowrap"
+                          disabled={!selectedSavedSectionId}
+                          onClick={() => handleAddSavedSection(selectedSavedSectionId)}
+                          data-testid="btn-add-saved-section"
+                        >
+                          Add to Set
+                        </button>
+                      </div>
+                      <div className="small text-secondary font-mono-code" data-testid="count-saved-sections">
+                        {availableTenantSections.length} section{availableTenantSections.length === 1 ? '' : 's'} saved for {tenantOrganization}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Render each active custom section on this set */}
+                {activeCustomSections.map((sec) => {
+                  const slug = sec.id.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                  const currentTitle = getSectionTitle(sec.id, sec.name);
+                  const isEditing = editingSectionId === sec.id;
+                  const secDocs = specializedDocs.filter((d) => d.sectionId === sec.id);
+
+                  return (
+                    <section
+                      key={sec.id}
+                      className="d-flex flex-column gap-3"
+                      aria-labelledby={`requirements-heading-${slug}`}
+                      data-testid={`section-custom-${slug}`}
+                    >
+                      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                        {isEditing ? (
+                          <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '450px' }}>
+                            <Layers className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                            <input
+                              type="text"
+                              className="form-control form-control-sm fw-bold fs-6"
+                              value={editingSectionDraft}
+                              onChange={(e) => setEditingSectionDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleSaveSectionTitle(sec.id, editingSectionDraft);
+                                } else if (e.key === 'Escape') {
+                                  setEditingSectionId(null);
+                                }
+                              }}
+                              autoFocus
+                              aria-label={`Edit ${sec.name} section title`}
+                              data-testid={`input-section-title-${slug}`}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary text-white d-inline-flex align-items-center gap-1 px-2.5 py-1"
+                              onClick={() => handleSaveSectionTitle(sec.id, editingSectionDraft)}
+                              data-testid={`btn-save-section-title-${slug}`}
+                            >
+                              <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                              <span className="small">Save</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 px-2.5 py-1"
+                              onClick={() => setEditingSectionId(null)}
+                              data-testid={`btn-cancel-section-title-${slug}`}
+                            >
+                              <X className="w-3.5 h-3.5" aria-hidden="true" />
+                              <span className="small">Cancel</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="d-flex align-items-center gap-2">
+                            <h4
+                              id={`requirements-heading-${slug}`}
+                              className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
+                            >
+                              <Layers className="w-5 h-5 text-primary" aria-hidden="true" />
+                              <span data-testid={`section-title-${slug}`}>{currentTitle}</span>
+                            </h4>
+                            <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
+                              Tenant Section
+                            </span>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-link text-secondary text-decoration-none p-1 d-inline-flex align-items-center"
+                              onClick={() => {
+                                setEditingSectionId(sec.id);
+                                setEditingSectionDraft(currentTitle);
+                              }}
+                              aria-label={`Edit ${currentTitle} section title`}
+                              data-testid={`btn-edit-section-title-${slug}`}
+                              title="Edit section title"
+                            >
+                              <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
+                          onClick={() => handleRemoveCustomSection(sec.id)}
+                          data-testid={`btn-remove-custom-section-${slug}`}
+                          title="Remove section from set"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="small">Remove Section</span>
+                        </button>
+                      </div>
+
+                      <div className="card border shadow-2xs rounded-3 bg-white">
+                        <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                          <div>
+                            <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                              Requirements ({secDocs.length})
+                            </h5>
+                            <div className="text-muted small mt-0.5">
+                              {sec.description || `Tenant-defined requirements under ${currentTitle}.`}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="card-body p-4 d-flex flex-column gap-2" data-testid={`custom-section-body-${slug}`}>
+                          {secDocs.length === 0 ? (
+                            <div className="p-3 text-center text-secondary small bg-light rounded-2 border border-dashed">
+                              No documents in this section yet. Click below to add documents.
+                            </div>
+                          ) : (
+                            secDocs.map((doc) => {
+                              const isRequired = doc.isMandatory;
+                              return (
+                                <div
+                                  key={doc.id}
+                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
+                                  data-testid={`requirement-row-${doc.id}`}
+                                >
+                                  <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                                    <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${doc.id}`}>
+                                      {doc.title}
+                                    </span>
+                                    <span className="badge bg-secondary-subtle text-dark border font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                      Tenant Doc
+                                    </span>
+                                  </div>
+                                  <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                                    <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                      <input
+                                        className="form-check-input cursor-pointer"
+                                        type="checkbox"
+                                        id={`req-toggle-${doc.id}`}
+                                        checked={isRequired}
+                                        onChange={() => handleToggleCustomDocRequired(doc.id)}
+                                        style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                                      />
+                                      <label
+                                        htmlFor={`req-toggle-${doc.id}`}
+                                        className={`small fw-semibold m-0 cursor-pointer ${
+                                          isRequired ? 'text-success' : 'text-secondary'
+                                        }`}
+                                        style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                                      >
+                                        {isRequired ? 'Required' : 'Optional'}
+                                      </label>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                                      title="Remove document"
+                                      aria-label={`Remove ${doc.title}`}
+                                      onClick={() => handleRemoveCustomDoc(doc.id)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+
+                          <div className="pt-2 border-top d-flex align-items-center justify-content-between">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-link text-primary text-decoration-none p-0 d-inline-flex align-items-center gap-1 font-sans"
+                              style={{ fontSize: '0.78rem' }}
+                              data-testid={`btn-add-doc-to-section-${slug}`}
+                              onClick={() => handleAddDocToCustomSection(sec.id)}
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              Add document to section
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -3657,6 +4045,25 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         </div>
 
                         <div className="row g-3">
+                          {activeCustomSections.map((cSec) => {
+                            const secDocCount = specializedDocs.filter((d) => d.sectionId === cSec.id && d.isEnabled).length;
+                            const title = getSectionTitle(cSec.id, cSec.name);
+                            return (
+                              <div key={cSec.id} className="col-12 col-md-6">
+                                <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
+                                  <div className="d-flex align-items-center justify-content-between mb-2">
+                                    <strong className="text-dark small">{title}</strong>
+                                    <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                      {secDocCount} Docs
+                                    </span>
+                                  </div>
+                                  <div className="text-secondary small">
+                                    Custom tenant section ({tenantOrganization})
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                           {selectedScopes.map((scope) => {
                             const standardCount = SUBTYPE_STANDARD_DOCS[scope].filter((d) => docToggles[d.id]).length;
                             const customCount = specializedDocs.filter((d) => d.subtype === scope && d.isEnabled).length;
