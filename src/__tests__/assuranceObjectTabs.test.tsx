@@ -7,14 +7,9 @@ import { useMapStore } from '../store/useMapStore';
 describe('AssuranceObjectsView tabs', () => {
   beforeEach(() => {
     useMapStore.setState({
-      currentUser: {
-        id: 'USR-ADMIN',
-        name: 'Alex Admin',
-        email: 'alex@map.com',
-        role: 'Administrator',
-        persona: 'Administrator',
-        organization: 'Marine Assurance Platform',
-      },
+      isAuthenticated: true,
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Marine Assurance Platform',
     });
   });
 

@@ -423,18 +423,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'method'),
         ];
         break;
-      case 'document':
-        list = [
-          ...storeAssuranceObjects.filter((o) => o.type === 'document'),
-          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'document'),
-        ];
-        break;
-      case 'organization':
-        list = [
-          ...storeAssuranceObjects.filter((o) => o.type === 'organization'),
-          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'organization'),
-        ];
-        break;
       default:
         list = [];
     }
@@ -2806,13 +2794,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           const eq = equipment.find((x) => x.id === (selectedEquipmentId || equipment[0]?.id)) || equipment[0];
                           const portProc = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-PROC-PORT-01')!;
                           const towMeth = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-METH-TOW-01')!;
-                          const portDoc = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-DOC-CLR-01')!;
-                          const portOrg = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-ORG-PPA-01')!;
                           const portSetObjects: AssuranceObject[] = [];
                           if (v) portSetObjects.push(vesselToAssuranceObject(v));
                           if (c) portSetObjects.push(crewToAssuranceObject(c));
                           if (eq) portSetObjects.push(equipmentToAssuranceObject(eq));
-                          portSetObjects.push(portProc, towMeth, portDoc, portOrg);
+                          if (portProc) portSetObjects.push(portProc);
+                          if (towMeth) portSetObjects.push(towMeth);
                           setSelectedAssuranceObjects([
                             ...selectedAssuranceObjects.filter((o) => lockedObjectIds.includes(o.id) && !portSetObjects.some((p) => p.id === o.id)),
                             ...portSetObjects,
@@ -2861,8 +2848,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                           obj.type === 'person' ? 'bg-success text-white' :
                                             obj.type === 'equipment' ? 'bg-warning text-dark' :
                                               obj.type === 'procedure' ? 'bg-info text-dark' :
-                                                obj.type === 'method' ? 'bg-secondary text-white' :
-                                                  obj.type === 'document' ? 'bg-dark text-white' : 'bg-light text-dark border'
+                                                obj.type === 'method' ? 'bg-secondary text-white' : 'bg-light text-dark border'
                                         } text-capitalize font-mono-code`}>
                                         {obj.type}
                                       </span>
@@ -2934,8 +2920,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <option value="equipment">Equipment</option>
                           <option value="procedure">Procedure</option>
                           <option value="method">Method</option>
-                          <option value="document">Document</option>
-                          <option value="organization">Organization</option>
                         </select>
                       </div>
                       <div className="col-12 col-md-6">
