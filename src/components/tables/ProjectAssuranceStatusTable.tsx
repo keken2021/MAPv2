@@ -146,7 +146,7 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
   const renderSortHeader = (field: SortField, label: string) => (
     <th
       onClick={() => handleSort(field)}
-      aria-sort={sortField === field ? (sortDirection === 'asc' ? 'descending' : 'ascending') : undefined}
+      aria-sort={sortField === field ? (sortDirection === 'asc' ? 'ascending' : 'descending') : undefined}
       style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
     >
       {label}

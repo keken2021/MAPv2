@@ -108,6 +108,17 @@ describe('ProjectAssuranceStatusTable', () => {
     expect(rowIds(container)[rowIds(container).length - 1]).toBe('AS-GO');
   });
 
+  it('announces the sort direction on the sorted header', () => {
+    renderTable();
+    const nameHeader = screen.getByRole('columnheader', { name: /Assurance set/ });
+    expect(nameHeader).not.toHaveAttribute('aria-sort');
+
+    fireEvent.click(nameHeader);
+    expect(nameHeader).toHaveAttribute('aria-sort', 'ascending');
+    fireEvent.click(nameHeader);
+    expect(nameHeader).toHaveAttribute('aria-sort', 'descending');
+  });
+
   it('filters by each status tab, with counts', () => {
     const { container } = renderTable();
 
