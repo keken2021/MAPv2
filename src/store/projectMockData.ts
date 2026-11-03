@@ -1,10 +1,11 @@
 /*
   file summary: mock project charter data with cross-org asset links.
-  responsibilities: seeds sample Northwind dangerous-route project with vessel + crew assurance sets.
+  responsibilities: seeds sample Northwind dangerous-route project with vessel + crew assurance sets,
+    plus the former template-only project catalog and activity list used by the assurance wizard.
   role in system: loaded by useMapStore on initialization.
 */
 
-import { AssuranceSet } from '../types/assurance';
+import { AssuranceActivity, AssuranceProject, AssuranceSet } from '../types/assurance';
 import { Project } from '../types/project';
 import { OIL_CO_PILOT_ASSURANCE_SETS, OIL_CO_PILOT_PROJECT } from './oilCoLngPilotMockData';
 import {
@@ -14,6 +15,151 @@ import {
   SEEDED_PROCEDURE_OBJECTS,
   SEEDED_STANDALONE_PERSONS,
 } from './assuranceObjectMockData';
+
+/** activity catalog for Activity-scope sets (scope is switched off in the wizard for now) */
+export const EXISTING_ACTIVITIES: AssuranceActivity[] = [
+  {
+    id: 'MAP-ACT-2026-SURF-001',
+    name: 'Deepwater SURF & Subsea Tie-In Installation',
+    category: 'Subsea Installation',
+    location: 'Greater Gorgon Field, WA',
+    description: 'Subsea umbilical, riser, and flowline (SURF) installation and acoustic metrology tie-ins.',
+  },
+  {
+    id: 'MAP-ACT-2026-DRILL-002',
+    name: 'Offshore Exploration Well Spud & Drilling Operations',
+    category: 'Drilling & Intervention',
+    location: 'Scarborough Basin, Offshore WA',
+    description: 'Deepwater exploratory drilling, BOP deployment, and casing cementing operations.',
+  },
+  {
+    id: 'MAP-ACT-2026-LIFT-003',
+    name: 'Topside Module Heavy Lift & Float-over Integration',
+    category: 'Heavy Lift & Transport',
+    location: 'Timor Sea / Darwin Sector',
+    description: 'Dynamic positioning dual-vessel tandem lift and module floatover installation.',
+  },
+  {
+    id: 'MAP-ACT-2026-TOW-004',
+    name: 'Semi-Submersible Rig Ocean Towage & Pre-Mooring',
+    category: 'Towage & Positioning',
+    location: 'Browse Basin, WA',
+    description: 'Multi-tug ocean transit, 12-point anchor pre-lay, and catenary tension proofing.',
+  },
+  {
+    id: 'MAP-ACT-2026-PIPE-005',
+    name: 'Subsea Gas Export Pipeline S-Lay & Trenching Campaign',
+    category: 'Pipelay Operations',
+    location: 'Bonaparte Basin, NT',
+    description: 'Continuous 36-inch trunkline S-lay installation with post-lay plough trenching.',
+  },
+  {
+    id: 'MAP-ACT-2026-DECOM-006',
+    name: 'Offshore Well P&A and Subsea Infrastructure Decommissioning',
+    category: 'Decommissioning',
+    location: 'Bass Strait / Gippsland Basin, VIC',
+    description: 'Plug and abandonment operations, subsea manifold recovery, and seabed clearance.',
+  },
+  {
+    id: 'MAP-ACT-2026-HULL-007',
+    name: 'Hull Fouling Removal & Antifouling Surface Prep',
+    category: 'Vessel Maintenance Service',
+    location: 'Port / Alongside Vessel',
+    description: 'Underwater hull cleaning, rust removal, and barnacle clearing for dry-dock or alongside prep.',
+  },
+];
+
+/** lightweight project catalog entries (primary assets + default template) */
+export const EXISTING_PROJECTS: AssuranceProject[] = [
+  {
+    id: 'MAP-PROJ-2026-OFFSHORE-001',
+    name: 'Gorgon Stage 2 & Jansz-Io Compression',
+    clientOperator: 'Chevron Australia Pty Ltd',
+    location: 'Barrow Island / Greater Gorgon Area, WA',
+    description: 'Offshore subsea compression and pipeline tie-in campaign supporting Gorgon LNG operations.',
+    primaryVesselId: 'VESSEL-001',
+    primaryCrewId: 'CREW-101',
+    primaryEquipmentId: 'EQ-001',
+    primaryActivityId: 'MAP-ACT-2026-SURF-001',
+    defaultTemplateId: 'tmpl-org-chevron-gorgon',
+  },
+  {
+    id: 'MAP-PROJ-2026-DRILL-002',
+    name: 'Scarborough Gas Field Development',
+    clientOperator: 'Woodside Energy Ltd',
+    location: 'Carnarvon Basin, Offshore WA',
+    description: 'Deepwater drilling support and floating production unit (FPU) installation campaign.',
+    primaryVesselId: 'VESSEL-002',
+    primaryCrewId: 'CREW-102',
+    primaryEquipmentId: 'EQ-002',
+    primaryActivityId: 'MAP-ACT-2026-DRILL-002',
+    defaultTemplateId: 'tmpl-org-woodside-scarborough',
+  },
+  {
+    id: 'MAP-PROJ-2026-LOGISTICS-003',
+    name: 'Ichthys LNG Offshore Supply Support',
+    clientOperator: 'INPEX Operations Australia',
+    location: 'Browse Basin, Timor Sea, WA',
+    description: 'Long-term PSV / AHTS supply and subsea maintenance logistics for Ichthys Explorer and Venturer.',
+    primaryVesselId: 'VESSEL-003',
+    primaryCrewId: 'CREW-103',
+    primaryEquipmentId: 'EQ-003',
+    primaryActivityId: 'MAP-ACT-2026-LIFT-003',
+    defaultTemplateId: 'tmpl-org-inpex-ichthys',
+  },
+  {
+    id: 'MAP-PROJ-2026-SUBSEA-004',
+    name: 'Barossa Subsea Installation Campaign',
+    clientOperator: 'Santos Ltd',
+    location: 'Bonaparte Basin, Northern Territory',
+    description: 'Gas pipeline fabrication, subsea SURF infrastructure installation, and umbilical lay operations.',
+    primaryVesselId: 'VESSEL-004',
+    primaryCrewId: 'CREW-104',
+    primaryEquipmentId: 'EQ-004',
+    primaryActivityId: 'MAP-ACT-2026-PIPE-005',
+    defaultTemplateId: 'tmpl-org-santos-barossa',
+  },
+  {
+    id: 'MAP-PROJ-2026-OFFSHORE-005',
+    name: 'Wheatstone Platform Maintenance & Operations',
+    clientOperator: 'Chevron Australia Pty Ltd',
+    location: 'Ashburton North / Offshore Onslow, WA',
+    description: 'Offshore platform maintenance, diving support, and supply shuttle vessel operations.',
+    primaryVesselId: 'VESSEL-005',
+    primaryCrewId: 'CREW-105',
+    primaryEquipmentId: 'EQ-005',
+    primaryActivityId: 'MAP-ACT-2026-HULL-007',
+    defaultTemplateId: 'tmpl-pub-imca-unified-project',
+  },
+  {
+    id: 'MAP-PROJ-2026-MARINE-006',
+    name: 'Prelude FLNG Facility Marine Services',
+    clientOperator: 'Shell Australia Pty Ltd',
+    location: 'Browse Basin, Western Australia',
+    description: 'Offshore LNG carrier escort, bunker assistance, emergency standby, and marine supply.',
+    primaryVesselId: 'VESSEL-006',
+    primaryCrewId: 'CREW-101',
+    primaryEquipmentId: 'EQ-006',
+    primaryActivityId: 'MAP-ACT-2026-TOW-004',
+    defaultTemplateId: 'tmpl-org-shell-prelude',
+  },
+];
+
+function catalogProjectToSeed(project: AssuranceProject): Project {
+  return {
+    ...project,
+    projectType: 'Mixed / Composite',
+    requestingOrganization: project.clientOperator,
+    ownerOrganization: project.clientOperator,
+    operatorOrganization: project.clientOperator,
+    charterer: project.clientOperator,
+    charterWindowStart: '2026-01-01',
+    charterWindowEnd: '2026-12-31',
+    status: 'Composing',
+    readinessScore: 0,
+    assetLinks: [],
+  };
+}
 
 /* the seeded object with this id, copied onto a set */
 function seededObject(objects: { id: string }[], id: string) {
@@ -507,6 +653,7 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
 ];
 
 export const MOCK_PROJECTS: Project[] = [
+  ...EXISTING_PROJECTS.map(catalogProjectToSeed),
   {
     id: 'MAP-PROJ-2026-MARINE-007',
     name: 'Northwind Dangerous Route Transit',

@@ -59,12 +59,13 @@ describe('assurance wizard project scope options', () => {
     expect(after.find((p) => p.id === result.projectId)?.name).toBe('Wizard Linked Test Project');
   });
 
-  it('keeps static template catalog entries that are not in the registry', () => {
+  it('includes former template catalog projects now seeded in the registry', () => {
     const options = getAssuranceWizardProjectOptions(MOCK_PROJECTS, 'Administrator', MOCK_USERS, []);
-    const gorgonTemplate = EXISTING_PROJECTS.find((p) => p.id === 'MAP-PROJ-2026-OFFSHORE-001');
+    const gorgon = EXISTING_PROJECTS.find((p) => p.id === 'MAP-PROJ-2026-OFFSHORE-001');
 
-    expect(gorgonTemplate).toBeDefined();
-    expect(options.some((p) => p.id === gorgonTemplate!.id)).toBe(true);
+    expect(gorgon).toBeDefined();
+    expect(MOCK_PROJECTS.some((p) => p.id === gorgon!.id)).toBe(true);
+    expect(options.some((p) => p.id === gorgon!.id)).toBe(true);
   });
 
   it('derives primary asset ids from project asset links when explicit fields are absent', () => {

@@ -5,7 +5,7 @@
 */
 
 import { AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype, ThreePillarsCategory } from '../types/assurance';
-import { EXISTING_PROJECTS, getAssuranceSetCrewIds, getThreePillarsCategory } from './assuranceTemplates';
+import { getAssuranceSetCrewIds, getThreePillarsCategory } from './assuranceTemplates';
 import { UserRolePersona } from '../types/audit';
 import { CrewMember } from '../types/crew';
 import { EquipmentAsset } from '../types/equipment';
@@ -752,7 +752,7 @@ export function projectToAssuranceProjectScope(project: Project): AssuranceProje
 
 /**
   what: project scope options for Create Assurance Set wizard.
-  how: persona-filtered live projects first, then static template catalog entries not already in the registry.
+  how: persona-filtered live store projects only (catalog entries are seeded in projectMockData).
 */
 export function getAssuranceWizardProjectOptions(
   projects: Project[],
@@ -761,18 +761,13 @@ export function getAssuranceWizardProjectOptions(
   assuranceSets: AssuranceSet[] = [],
   sessionOrganization?: string,
 ): AssuranceProject[] {
-  const registryProjects = filterProjectsForPersona(
+  return filterProjectsForPersona(
     projects,
     persona,
     users,
     assuranceSets,
     sessionOrganization,
-  ).map(
-    projectToAssuranceProjectScope,
-  );
-  const registryIds = new Set(registryProjects.map((project) => project.id));
-  const templateOnly = EXISTING_PROJECTS.filter((project) => !registryIds.has(project.id));
-  return [...registryProjects, ...templateOnly];
+  ).map(projectToAssuranceProjectScope);
 }
 
 export function generateUniqueProjectId(existing: Project[]): string {
