@@ -9,36 +9,21 @@ import { useMapStore } from '../../store/useMapStore';
 import { Camera, FileText, X } from 'lucide-react';
 import { useOverlayBehavior } from '../../utils/useOverlayBehavior';
 import { Drawer } from './Drawer';
-
-interface EvidenceItem {
-  id: string;
-  title: string;
-  type: 'Photo' | 'Document';
-  fileName?: string;
-  fileSize?: string;
-  previewUrl?: string;
-}
-
-interface InspectionItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  status: 'Satisfactory' | 'Observation' | 'Deficiency';
-  findingNotes?: string;
-  capaCode?: string;
-  evidences: EvidenceItem[];
-}
-
-interface CapaActionItem {
-  id: string;
-  title: string;
-  owner: string;
-  dueDate: string;
-  status: 'Open' | 'Closed';
-}
+import {
+  DEFAULT_INSPECTION_CHECKLIST_ITEMS,
+  DEFAULT_INSPECTION_CAPA_ITEMS,
+  EvidenceItem,
+  InspectionChecklistTemplateItem as InspectionItem,
+  InspectionCapaActionItem as CapaActionItem,
+  PHYSICAL_INSPECTIONS,
+  inspectionProgressForSet,
+} from '../../store/inspectionMockData';
 
 interface InspectionDrawerProps {
   vesselName: string;
+  setId?: string;
+  inspectionLocation?: string;
+  inspectionDate?: string;
   onClose: () => void;
 }
 
@@ -47,79 +32,75 @@ interface InspectionDrawerProps {
   how: manages local state for 5 inspection items with direct evidence uploads, real-time camera photo capture, automatic status-finding triggers, and smart inspection outcome recommendations.
   with what file: src/components/drawers/InspectionDrawer.tsx loaded by InspectorWorkspaceView.tsx.
 */
-export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, onClose }) => {
-  const { logAuditEvent, activePersona } = useMapStore();
+export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({
+  vesselName,
+  setId: propSetId,
+  inspectionLocation: propLocation,
+  inspectionDate: propDate,
+  onClose,
+}) => {
+  const { logAuditEvent, activePersona, capaItems, assuranceSets, vessels } = useMapStore();
 
-  const [items, setItems] = useState<InspectionItem[]>([
-    {
-      id: 'INS-01',
-      title: 'Life-saving appliances — stowage and condition',
-      subtitle: 'SOLAS III · LSA record',
-      status: 'Satisfactory',
-      evidences: [
-        { id: 'EV-101', title: 'LSA locker photo', type: 'Photo', fileName: 'lsa_locker_01.jpg', fileSize: '2.4 MB' },
-      ],
-    },
-    {
-      id: 'INS-02',
-      title: 'Fire-fighting equipment and fixed systems',
-      subtitle: 'SOLAS II-2 · FFE plan',
-      status: 'Satisfactory',
-      evidences: [
-        { id: 'EV-102', title: 'FFE station 3 tag', type: 'Photo', fileName: 'ffe_station3.jpg', fileSize: '1.8 MB' },
-      ],
-    },
-    {
-      id: 'INS-03',
-      title: 'Liferaft hydrostatic release units',
-      subtitle: 'Service due check',
-      status: 'Observation',
-      findingNotes: 'Port-side liferaft HRU service date exceeded by 3 weeks. Replacement unit on order; corrective action CAPA-118 raised.',
-      capaCode: 'CAPA-118',
-      evidences: [
-        { id: 'EV-103', title: 'Liferaft HRU tag', type: 'Photo', fileName: 'hru_tag_port.jpg', fileSize: '3.1 MB' },
-        { id: 'EV-104', title: 'Service cert scan', type: 'Document', fileName: 'hru_cert_2026.pdf', fileSize: '450 KB' },
-      ],
-    },
-    {
-      id: 'INS-04',
-      title: 'Deck cargo securing arrangements',
-      subtitle: 'Cargo securing manual',
-      status: 'Satisfactory',
-      evidences: [
-        { id: 'EV-105', title: 'Deck securing photo', type: 'Photo', fileName: 'deck_securing_aft.jpg', fileSize: '2.9 MB' },
-      ],
-    },
-    {
-      id: 'INS-05',
-      title: 'Crew familiarity — muster and abandon ship',
-      subtitle: 'ISM · drill records',
-      status: 'Satisfactory',
-      evidences: [
-        { id: 'EV-106', title: 'Muster drill log sheet', type: 'Document', fileName: 'muster_log_sep2026.pdf', fileSize: '620 KB' },
-      ],
-    },
-  ]);
+  const vesselObj = vessels.find(
+    (v) => v.name.toLowerCase() === vesselName.toLowerCase() || v.id === vesselName
+  );
+
+  const matchedSet =
+    (propSetId ? assuranceSets.find((s) => s.id === propSetId) : undefined) ||
+    assuranceSets.find((s) => s.vesselName.toLowerCase() === vesselName.toLowerCase() || (vesselObj && s.vesselId === vesselObj.id));
+
+  const resolvedSetId = propSetId || matchedSet?.id || PHYSICAL_INSPECTIONS.find((p) => p.title.toLowerCase().includes(vesselName.toLowerCase()))?.assuranceSetId || '';
+
+  const physicalInspection = PHYSICAL_INSPECTIONS.find((p) => p.assuranceSetId === resolvedSetId);
+  const progressRecord = resolvedSetId ? inspectionProgressForSet(resolvedSetId) : undefined;
+
+  const inspectionLocation =
+    propLocation ||
+    physicalInspection?.location ||
+    progressRecord?.location ||
+    (vesselObj ? vesselObj.portOfRegistry || 'Fremantle, WA' : '') ||
+    'Not recorded';
+
+  const inspectionDate =
+    propDate ||
+    physicalInspection?.date ||
+    matchedSet?.targetDate ||
+    matchedSet?.complianceDeadline ||
+    new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const initialItems = React.useMemo(() => {
+    if (physicalInspection?.checklists && physicalInspection.checklists.length > 0) {
+      return DEFAULT_INSPECTION_CHECKLIST_ITEMS.slice(0, physicalInspection.checklists.length);
+    }
+    return DEFAULT_INSPECTION_CHECKLIST_ITEMS;
+  }, [physicalInspection]);
+
+  const [items, setItems] = useState<InspectionItem[]>(initialItems);
+
+  React.useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
 
   const [selectedResult, setSelectedResult] = useState<'Pass' | 'Pass with observations' | 'Fail'>('Pass with observations');
 
+  const vesselCapas = capaItems.filter((c) =>
+    c.vesselName.toLowerCase() === vesselName.toLowerCase() ||
+    (vesselObj && c.vesselId === vesselObj.id) ||
+    (resolvedSetId && c.assuranceSetId === resolvedSetId)
+  );
+
+  const initialCapaActions: CapaActionItem[] = vesselCapas.length > 0
+    ? vesselCapas.map((c) => ({
+        id: c.id,
+        title: c.title,
+        owner: c.owner,
+        dueDate: c.dueDate,
+        status: (c.status === 'Verified & Closed' ? 'Closed' : 'Open') as 'Open' | 'Closed',
+      }))
+    : DEFAULT_INSPECTION_CAPA_ITEMS;
+
   /* state for corrective actions */
-  const [capaActions, setCapaActions] = useState<CapaActionItem[]>([
-    {
-      id: 'CAPA-118',
-      title: 'Replace port liferaft HRU',
-      owner: 'Northwind Technical Services',
-      dueDate: '30 Sep 2026',
-      status: 'Open',
-    },
-    {
-      id: 'CAPA-114',
-      title: 'Update cargo securing manual revision',
-      owner: 'Northwind Marine',
-      dueDate: '12 Sep 2026',
-      status: 'Closed',
-    },
-  ]);
+  const [capaActions, setCapaActions] = useState<CapaActionItem[]>(initialCapaActions);
 
   /* active item state for inline comment editor */
   const [editingCommentItemId, setEditingCommentItemId] = useState<string | null>(null);
@@ -370,7 +351,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
       id: capaCode,
       title: itemCapaTitle.trim(),
       owner: itemCapaOwner.trim() || 'Northwind Marine',
-      dueDate: '30 Oct 2026',
+      dueDate: newCapaDueDate || inspectionDate,
       status: 'Open',
     };
 
@@ -400,7 +381,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
       id: `CAPA-${nextCapaNum}`,
       title: newCapaTitle.trim(),
       owner: newCapaOwner.trim() || 'Northwind Technical Services',
-      dueDate: newCapaDueDate || '30 Oct 2026',
+      dueDate: newCapaDueDate || inspectionDate,
       status: 'Open',
     };
 
@@ -456,7 +437,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
 
       <Drawer
         title="Inspection"
-        meta={`AS-2041 · ${vesselName} · Berth 4, Fremantle · 18 Sep 2026`}
+        meta={[resolvedSetId, vesselName, inspectionLocation, inspectionDate].filter(Boolean).join(' · ')}
         size="xl"
         onClose={onClose}
         footer={
@@ -478,7 +459,7 @@ export const InspectionDrawer: React.FC<InspectionDrawerProps> = ({ vesselName, 
             <div className="card map-card-custom map-checklist-card">
               <div className="d-flex flex-column gap-3.5">
                 {items.map((item) => (
-                  <div key={item.id} className="map-checklist-item-container">
+                  <div key={item.id} className="map-checklist-item-container" data-testid="checklist-item-row">
                     {/* item header */}
                     <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
                       <div>

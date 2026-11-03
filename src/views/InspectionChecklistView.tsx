@@ -19,10 +19,15 @@ import {
   EvidenceItem,
   InspectionChecklistTemplateItem as InspectionItem,
   InspectionCapaActionItem as CapaActionItem,
+  PHYSICAL_INSPECTIONS,
+  inspectionProgressForSet,
 } from '../store/inspectionMockData';
 
 interface InspectionChecklistViewProps {
   vesselName?: string;
+  setId?: string;
+  inspectionLocation?: string;
+  inspectionDate?: string;
 }
 
 /**
@@ -30,15 +35,118 @@ interface InspectionChecklistViewProps {
   how: manages state for 5 checklist items with direct file evidence uploads, real-time photo capture, inline finding comments, CAPA creation, and smart inspection outcome submission.
   with what file: src/views/InspectionChecklistView.tsx loaded by App.tsx when hash is /inspector/:vesselName or /inspection/:vesselName.
 */
-export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = ({ vesselName = 'MV Pacific Endeavour' }) => {
-  const cleanVesselName = decodeURIComponent(vesselName || 'MV Pacific Endeavour');
-  const { capaItems, addCapaItem, logAuditEvent, activePersona, setCurrentHashView, completeVesselInspection } = useMapStore();
+export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = ({
+  vesselName,
+  setId: propSetId,
+  inspectionLocation: propLocation,
+  inspectionDate: propDate,
+}) => {
+  const {
+    currentEntityId,
+    assuranceSets,
+    vessels,
+    capaItems,
+    addCapaItem,
+    logAuditEvent,
+    activePersona,
+    setCurrentHashView,
+    completeVesselInspection,
+  } = useMapStore();
 
-  const [items, setItems] = useState<InspectionItem[]>(DEFAULT_INSPECTION_CHECKLIST_ITEMS);
+  const targetIdentifier = propSetId || vesselName || currentEntityId || '';
+
+  const matchedSet =
+    assuranceSets.find((s) => s.id === targetIdentifier) ||
+    assuranceSets.find((s) => s.vesselName === targetIdentifier || s.vesselId === targetIdentifier) ||
+    assuranceSets.find((s) => s.vesselName === decodeURIComponent(targetIdentifier) || s.vesselId === decodeURIComponent(targetIdentifier));
+
+  const matchedVessel =
+    vessels.find((v) => v.name === targetIdentifier || v.id === targetIdentifier) ||
+    vessels.find((v) => v.name === decodeURIComponent(targetIdentifier) || v.id === decodeURIComponent(targetIdentifier)) ||
+    (matchedSet ? vessels.find((v) => v.id === matchedSet.vesselId || v.name === matchedSet.vesselName) : undefined);
+
+  const resolvedSetId =
+    matchedSet?.id ||
+    (targetIdentifier.startsWith('AS-') ? targetIdentifier : (propSetId || ''));
+
+  const cleanVesselName =
+    matchedSet?.vesselName ||
+    matchedVessel?.name ||
+    (!targetIdentifier.startsWith('AS-') && targetIdentifier ? decodeURIComponent(targetIdentifier) : '') ||
+    'MV Pacific Endeavour';
+
+  const physicalInspection = PHYSICAL_INSPECTIONS.find((p) => p.assuranceSetId === resolvedSetId);
+  const progressRecord = resolvedSetId ? inspectionProgressForSet(resolvedSetId) : undefined;
+
+  const initialLocation =
+    propLocation ||
+    physicalInspection?.location ||
+    progressRecord?.location ||
+    (matchedVessel ? matchedVessel.portOfRegistry || 'Fremantle, WA' : '') ||
+    'Not recorded';
+
+  const initialDate =
+    propDate ||
+    physicalInspection?.date ||
+    matchedSet?.targetDate ||
+    matchedSet?.complianceDeadline ||
+    new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const [inspectionLocation, setInspectionLocation] = useState<string>(initialLocation);
+  const [inspectionDate, setInspectionDate] = useState<string>(initialDate);
+
+  React.useEffect(() => {
+    if (propLocation) {
+      setInspectionLocation(propLocation);
+    } else if (physicalInspection?.location) {
+      setInspectionLocation(physicalInspection.location);
+    } else if (progressRecord?.location) {
+      setInspectionLocation(progressRecord.location);
+    }
+  }, [propLocation, physicalInspection?.location, progressRecord?.location]);
+
+  React.useEffect(() => {
+    if (propDate) {
+      setInspectionDate(propDate);
+    } else if (physicalInspection?.date) {
+      setInspectionDate(physicalInspection.date);
+    } else if (matchedSet?.targetDate) {
+      setInspectionDate(matchedSet.targetDate);
+    }
+  }, [propDate, physicalInspection?.date, matchedSet?.targetDate]);
+
+  const initialItems = React.useMemo(() => {
+    if (physicalInspection?.checklists && physicalInspection.checklists.length > 0) {
+      return DEFAULT_INSPECTION_CHECKLIST_ITEMS.slice(0, physicalInspection.checklists.length);
+    }
+    return DEFAULT_INSPECTION_CHECKLIST_ITEMS;
+  }, [physicalInspection]);
+
+  const [items, setItems] = useState<InspectionItem[]>(initialItems);
+
+  React.useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
 
   const [selectedResult, setSelectedResult] = useState<'Pass' | 'Pass with observations' | 'Fail'>('Pass with observations');
 
-  const [capas, setCapas] = useState<CapaActionItem[]>(DEFAULT_INSPECTION_CAPA_ITEMS);
+  const vesselCapas = capaItems.filter((c) =>
+    c.vesselName.toLowerCase() === cleanVesselName.toLowerCase() ||
+    (matchedVessel && c.vesselId === matchedVessel.id) ||
+    (resolvedSetId && c.assuranceSetId === resolvedSetId)
+  );
+
+  const initialCapas: CapaActionItem[] = vesselCapas.length > 0
+    ? vesselCapas.map((c) => ({
+        id: c.id,
+        title: c.title,
+        owner: c.owner,
+        dueDate: c.dueDate,
+        status: (c.status === 'Verified & Closed' ? 'Closed' : 'Open') as 'Open' | 'Closed',
+      }))
+    : DEFAULT_INSPECTION_CAPA_ITEMS;
+
+  const [capas, setCapas] = useState<CapaActionItem[]>(initialCapas);
 
   const [editingCommentItemId, setEditingCommentItemId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
@@ -66,7 +174,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   const [showAddCapa, setShowAddCapa] = useState(false);
   const [newCapaTitle, setNewCapaTitle] = useState('');
   const [newCapaOwner, setNewCapaOwner] = useState('Northwind Marine Technical');
-  const [newCapaDueDate, setNewCapaDueDate] = useState('30 Sep 2026');
+  const [newCapaDueDate, setNewCapaDueDate] = useState(initialDate);
   const isInspector = activePersona === 'Inspector';
 
   /* calculate recommended outcome dynamically */
@@ -84,7 +192,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   const handleExportCsv = () => {
     const summaryRow = {
       Category: 'INSPECTION SUMMARY',
-      TitleOrAction: `Vessel: ${vesselName} | Location: Berth 4, Fremantle | Outcome: ${selectedResult}`,
+      TitleOrAction: `Vessel: ${cleanVesselName}${resolvedSetId ? ` (${resolvedSetId})` : ''} | Location: ${inspectionLocation} | Date: ${inspectionDate} | Outcome: ${selectedResult}`,
       StatusOrOwner: recommendedOutcome,
       Details: `${observationCount} Observation(s), ${deficiencyCount} Deficiency(ies)`,
     };
@@ -103,14 +211,14 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
       Details: `Due: ${c.dueDate}`,
     }));
 
-    exportToCsv(`${vesselName.replace(/\s+/g, '_')}_Complete_Inspection_Report`, [summaryRow, ...itemRows, ...capaRows]);
+    exportToCsv(`${cleanVesselName.replace(/\s+/g, '_')}_Complete_Inspection_Report`, [summaryRow, ...itemRows, ...capaRows]);
   };
 
   const handleExportPdf = () => {
     const headers = ['Category', 'Item', 'Status', 'Notes'];
     const summaryRow = [
       'INSPECTION SUMMARY',
-      `Visual Physical Inspection — ${vesselName}\nLocation: Berth 4, Fremantle · Date: 18 Sep 2026`,
+      `Visual Physical Inspection — ${cleanVesselName}${resolvedSetId ? ` (${resolvedSetId})` : ''}\nLocation: ${inspectionLocation} · Date: ${inspectionDate}`,
       `Final Outcome: ${selectedResult}`,
       `Auto Recommended: ${recommendedOutcome}\nRecorded: ${observationCount} Observation(s), ${deficiencyCount} Deficiency(ies)`,
     ];
@@ -129,7 +237,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
       `Target Completion: ${c.dueDate}`,
     ]);
 
-    exportToPdf(`${vesselName} Complete Visual Physical Inspection Report`, headers, [summaryRow, ...itemRows, ...capaRows]);
+    exportToPdf(`${cleanVesselName} Complete Visual Physical Inspection Report`, headers, [summaryRow, ...itemRows, ...capaRows]);
   };
 
   const handleStatusChange = (id: string, newStatus: 'Satisfactory' | 'Observation' | 'Deficiency') => {
@@ -351,16 +459,16 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
     const newCapaStoreItem: CapaItem = {
       id: capaId,
-      vesselName: vesselName,
+      vesselName: cleanVesselName,
       checklistId: item.id,
       checklistItemTitle: item.title,
       title: itemCapaTitle,
       findingDescription: item.findingNotes || `Finding observation logged during visual inspection of ${item.title}`,
       owner: itemCapaOwner || 'Northwind Marine Technical',
-      dueDate: '30 Sep 2026',
+      dueDate: newCapaDueDate || inspectionDate,
       status: 'Open',
       evidences: [],
-      createdDate: '18 Sep 2026',
+      createdDate: inspectionDate,
     };
 
     addCapaItem(newCapaStoreItem);
@@ -371,7 +479,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
     logAuditEvent({
       action: `Created Corrective Action (${capaId})`,
-      targetAsset: `${vesselName} · ${item.title}`,
+      targetAsset: `${cleanVesselName}${resolvedSetId ? ` (${resolvedSetId})` : ''} · ${item.title}`,
       justificationNotes: `Raised ${capaId}: ${itemCapaTitle}`,
     });
 
@@ -394,15 +502,15 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
     const newCapaStoreItem: CapaItem = {
       id: capaId,
-      vesselName: vesselName,
+      vesselName: cleanVesselName,
       checklistItemTitle: 'General Inspection Finding',
       title: newCapaTitle,
       findingDescription: 'General survey corrective action logged during physical inspection.',
       owner: newCapaOwner || 'Northwind Marine Technical',
-      dueDate: newCapaDueDate || '30 Sep 2026',
+      dueDate: newCapaDueDate || inspectionDate,
       status: 'Open',
       evidences: [],
-      createdDate: '18 Sep 2026',
+      createdDate: inspectionDate,
     };
 
     addCapaItem(newCapaStoreItem);
@@ -414,12 +522,12 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   const handleSubmitOutcome = () => {
     logAuditEvent({
       action: `Submitted Visual Survey Outcome (${selectedResult})`,
-      targetAsset: vesselName,
+      targetAsset: `${cleanVesselName}${resolvedSetId ? ` (${resolvedSetId})` : ''}`,
       justificationNotes: `Inspection outcome submitted: ${selectedResult}`,
     });
     /* a passed inspection completes the inspection stage of the vessel's sets that are waiting on it */
     completeVesselInspection(cleanVesselName, selectedResult);
-    alert(`Submitted Inspection Outcome: ${selectedResult} for ${vesselName}.`);
+    alert(`Submitted Inspection Outcome: ${selectedResult} for ${cleanVesselName}.`);
     setCurrentHashView('inspector');
   };
 
@@ -445,13 +553,13 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
       <DetailHeader
         title={cleanVesselName}
         status="Inspection In Progress"
-        metaItems={['AS-2041', 'Berth 4, Fremantle', '18 Sep 2026']}
+        metaItems={[resolvedSetId, inspectionLocation, inspectionDate].filter(Boolean)}
         mainAction={
           isInspector ? (
             <button
               type="button"
               className="btn btn-sm btn-outline-primary fw-bold"
-              onClick={() => setCurrentHashView('capa', vesselName)}
+              onClick={() => setCurrentHashView('capa', cleanVesselName)}
             >
               Manage CAPAs
             </button>
@@ -468,12 +576,45 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
           <div className="card map-card-custom map-checklist-card">
             <div className="d-flex align-items-center justify-between mb-3 border-bottom pb-2">
               <h6 className="fw-bold text-primary m-0">Inspection Checklist</h6>
-              <span className="text-secondary small">5 SOLAS / ISM Verification Points</span>
+              <span className="text-secondary small" data-testid="checklist-count">
+                {items.length} SOLAS / ISM Verification Points
+              </span>
+            </div>
+
+            <div className="row g-2 mb-3 pb-2 border-bottom">
+              <div className="col-sm-6">
+                <label className="form-label small text-muted mb-1" htmlFor="inspection-location-input">
+                  Inspection Location
+                </label>
+                <input
+                  id="inspection-location-input"
+                  data-testid="inspection-location-input"
+                  type="text"
+                  className="form-control form-control-sm"
+                  value={inspectionLocation}
+                  onChange={(e) => setInspectionLocation(e.target.value)}
+                  placeholder="Inspection Location"
+                />
+              </div>
+              <div className="col-sm-6">
+                <label className="form-label small text-muted mb-1" htmlFor="inspection-date-input">
+                  Inspection Date
+                </label>
+                <input
+                  id="inspection-date-input"
+                  data-testid="inspection-date-input"
+                  type="text"
+                  className="form-control form-control-sm"
+                  value={inspectionDate}
+                  onChange={(e) => setInspectionDate(e.target.value)}
+                  placeholder="Inspection Date"
+                />
+              </div>
             </div>
 
             <div className="d-flex flex-column gap-3.5">
               {items.map((item) => (
-                <div key={item.id} className="map-checklist-item-container">
+                <div key={item.id} className="map-checklist-item-container" data-testid="checklist-item-row">
                   {/* Item Header (Title + Rating Status) */}
                   <div className="d-flex align-items-start justify-content-between gap-2 mb-3 flex-wrap">
                     <div>
@@ -929,7 +1070,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                     dueDate: c.dueDate,
                     status: (c.status === 'Closed' ? 'Verified & Closed' : 'Open') as any,
                     evidences: [],
-                    createdDate: '18 Sep 2026',
+                    createdDate: inspectionDate,
                   }));
 
                 if (displayList.length === 0) {
