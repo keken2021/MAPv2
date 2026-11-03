@@ -20,7 +20,6 @@ import { Project } from "../types/project";
 import { UserProfile } from "../types/user";
 import { Vessel } from "../types/vessel";
 import {
-  SEEDED_DOCUMENT_OBJECTS,
   SEEDED_METHOD_OBJECTS,
   SEEDED_PROCEDURE_OBJECTS,
 } from "./assuranceObjectMockData";
@@ -280,24 +279,6 @@ export const OIL_CO_PILOT_ASSURANCE_OBJECTS: AssuranceObject[] = [
     description:
       "Berthing and towage method statement for Q-Flex and membrane LNG carriers arriving at Harbourline Terminal Berth 2",
   },
-  {
-    id: "OBJ-DOC-EXPORT-LIC",
-    type: "document",
-    name: "Offshore Petroleum Production & Export Licence Dossier",
-    ownerOrganization: OIL_CO_ORG,
-    identifier: "NOPTA-WA-LIC-2026",
-    description:
-      "Statutory environmental plan, production license, and regulatory compliance dossier for the Aurora LNG development",
-  },
-  {
-    id: "OBJ-ORG-NOPTA",
-    type: "organization",
-    name: "National Offshore Petroleum Safety and Environmental Management Authority (NOPSEMA)",
-    ownerOrganization: "NOPSEMA",
-    identifier: "REG-NOPSEMA-AU",
-    description:
-      "Independent statutory regulator for health and safety, structural integrity, and environmental management offshore Western Australia",
-  },
 ];
 
 const ss01Rows: EvidenceRow[] = [
@@ -460,19 +441,19 @@ const ss01Rows: EvidenceRow[] = [
     pillar: "Process",
     title: "P&I certificate of entry and Hull & Machinery insurance",
     source: "Gard P&I / insurer",
-    check: "Valid for the charter period; cover meets the client minimum. Document · Security Plan.",
+    check: "Valid for the charter period; cover meets the client minimum. Security Plan covered by this requirement and its Document Library upload.",
     state: "pending",
-    targetObjectId: "OBJ-DOC-SEC-01",
+    targetObjectId: OIL_CO_AURORA_ID,
   },
   {
     id: "REQ-SS01-18",
     pillar: "Process",
     title: "Management of change procedure",
     source: NORTHWIND_ORG,
-    check: "Current revision; approved. Document · Marine Warranty Certificate of Approval.",
+    check: "Current revision; approved. Marine Warranty Certificate of Approval and Offshore Petroleum Production & Export Licence Dossier covered by this requirement and its Document Library upload.",
     state: "pending",
-    notes: "Document · Marine Warranty Certificate of Approval",
-    targetObjectId: "OBJ-DOC-MWS-01",
+    notes: "Marine Warranty Certificate of Approval; Offshore Petroleum Production & Export Licence Dossier (Document Library)",
+    targetObjectId: OIL_CO_AURORA_ID,
   },
   {
     id: "REQ-SS01-19",
@@ -1146,14 +1127,13 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
       OIL_CO_PILOT_ASSURANCE_OBJECTS[1],
       seededObject(SEEDED_PROCEDURE_OBJECTS, "OBJ-PROC-SIMOPS-01"),
       seededObject(SEEDED_PROCEDURE_OBJECTS, "OBJ-PROC-HELI-01"),
-      seededObject(SEEDED_DOCUMENT_OBJECTS, "OBJ-DOC-MWS-01"),
-      seededObject(SEEDED_DOCUMENT_OBJECTS, "OBJ-DOC-SEC-01"),
       seededObject(SEEDED_METHOD_OBJECTS, "OBJ-METH-ROUTE-01"),
     ],
     parties: [
       { organization: OIL_CO_ORG, group: "Client" },
       { organization: NORTHWIND_ORG, group: "Vendor" },
       { organization: XY_MARINE_ORG, group: "Third party" },
+      { organization: "NOPSEMA", group: "Third party" },
     ],
     charterWindowStart: "2026-11-15",
     complianceDeadline: "2026-11-15",
@@ -1317,6 +1297,7 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
       { organization: OIL_CO_ORG, group: "Client" },
       { organization: HARBOURLINE_ORG, group: "Vendor" },
       { organization: XY_MARINE_ORG, group: "Third party" },
+      { organization: "NOPSEMA", group: "Third party" },
     ],
     charterWindowStart: "2026-11-01",
     complianceDeadline: "2026-11-01",

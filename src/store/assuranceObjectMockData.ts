@@ -1,6 +1,6 @@
 /*
   file summary: non-asset assurance objects seeded into the store (ADR 0029).
-  responsibilities: procedures, methods, documents, third-party organizations, and standalone persons who are not crew-directory members.
+  responsibilities: procedures, methods, and standalone persons who are not crew-directory members (organization and document object types dropped).
   role in system: spread into useMapStore.assuranceObjects after vessels, crew, and equipment; re-exported as SEEDED_OPERATIONAL_OBJECTS.
 */
 
@@ -77,7 +77,7 @@ export function objectVerifications(object: AssuranceObject): ObjectVerification
   return raw as ObjectVerification[];
 }
 
-/** procedures, methods, documents and the original port-authority organization */
+/** procedures and methods retained from the original port-entry seed bundle */
 const ORIGINAL_OPERATIONAL_OBJECTS: AssuranceObject[] = [
   withChecks({
     id: 'OBJ-PROC-PORT-01',
@@ -95,22 +95,6 @@ const ORIGINAL_OPERATIONAL_OBJECTS: AssuranceObject[] = [
     identifier: 'MOP-TOW-004',
     description: 'Detailed operational method for tandem mooring and harbour towage assistance',
   }, 21),
-  withChecks({
-    id: 'OBJ-DOC-CLR-01',
-    type: 'document',
-    name: 'Port Clearance & Customs Declaration',
-    ownerOrganization: 'Australian Border Force',
-    identifier: 'PCD-WA-8812',
-    description: 'Statutory vessel border entry clearance and bio-security verification documentation',
-  }, 22),
-  withChecks({
-    id: 'OBJ-ORG-PPA-01',
-    type: 'organization',
-    name: 'Pilbara Ports Authority',
-    ownerOrganization: 'Pilbara Ports Authority',
-    identifier: 'PPA-PORT-AUTH',
-    description: 'Regional port authority and harbour master oversight organization',
-  }, 23),
 ];
 
 /** procedures a set can cover besides the vessel, crew, and equipment */
@@ -150,34 +134,8 @@ export const SEEDED_PROCEDURE_OBJECTS: AssuranceObject[] = [
   }, 13),
 ];
 
-/** documents a set can cover that are not a vessel certificate in the library */
-export const SEEDED_DOCUMENT_OBJECTS: AssuranceObject[] = [
-  ORIGINAL_OPERATIONAL_OBJECTS[2],
-  withChecks({
-    id: 'OBJ-DOC-BRIDGE-01',
-    type: 'document',
-    name: 'Bridging Document',
-    ownerOrganization: 'Bureau Veritas Inspectorate',
-    identifier: 'BD-NW-2026-04',
-    description: 'Bridging document between the client safety system and the vessel safety system',
-  }, 14),
-  withChecks({
-    id: 'OBJ-DOC-MWS-01',
-    type: 'document',
-    name: 'Marine Warranty Certificate of Approval',
-    ownerOrganization: 'Meridian Marine Surveyors',
-    identifier: 'MWS-COA-2026-17',
-    description: 'Marine warranty surveyor certificate of approval for the voyage or lift',
-  }, 15),
-  withChecks({
-    id: 'OBJ-DOC-SEC-01',
-    type: 'document',
-    name: 'Security Plan',
-    ownerOrganization: 'Gulf Security Services Pty Ltd',
-    identifier: 'ISPS-SSP-088',
-    description: 'Ship and port security plan for the call, including restricted areas',
-  }, 16),
-];
+/** document object type dropped (ADR 0029 / C02); empty export kept for existing imports */
+export const SEEDED_DOCUMENT_OBJECTS: AssuranceObject[] = [];
 
 /** methods a set can cover: how a job is done, separate from the procedure */
 export const SEEDED_METHOD_OBJECTS: AssuranceObject[] = [
@@ -208,57 +166,8 @@ export const SEEDED_METHOD_OBJECTS: AssuranceObject[] = [
   }, 19),
 ];
 
-/** third-party organizations that can be assured without being a vessel, crew member, or piece of equipment */
-export const SEEDED_ORGANIZATION_OBJECTS: AssuranceObject[] = [
-  withChecks({
-    id: 'OBJ-ORG-FPA-01',
-    type: 'organization',
-    name: 'Fremantle Port Authority',
-    ownerOrganization: 'Northwind Marine Pty Ltd',
-    identifier: 'FPA-PORT-AUTH',
-    description: 'Port authority for Fremantle: harbour master, pilotage, and berth allocation',
-  }, 0),
-  withChecks({
-    id: 'OBJ-ORG-DNV-01',
-    type: 'organization',
-    name: 'DNV Maritime Inspection',
-    ownerOrganization: 'DNV Maritime Inspection',
-    identifier: 'DNV-CLASS-WA',
-    description: 'Classification society issuing class and statutory certificates for the fleet',
-  }, 1),
-  withChecks({
-    id: 'OBJ-ORG-MOOR-01',
-    type: 'organization',
-    name: 'West Coast Mooring Contractors',
-    ownerOrganization: 'Chevron Australia Pty Ltd',
-    identifier: 'MOOR-WC-014',
-    description: 'Mooring contractor for tandem offtake and harbour line-handling',
-  }, 2),
-  withChecks({
-    id: 'OBJ-ORG-SEC-01',
-    type: 'organization',
-    name: 'Gulf Security Services Pty Ltd',
-    ownerOrganization: 'Gulf Security Services Pty Ltd',
-    identifier: 'GSS-SEC-OPS',
-    description: 'Security contractor for port and offshore facility access control',
-  }, 3),
-  withChecks({
-    id: 'OBJ-ORG-CATER-01',
-    type: 'organization',
-    name: 'Bass Strait Catering',
-    ownerOrganization: 'Woodside Energy Ltd',
-    identifier: 'CAT-BSS-09',
-    description: 'Catering subcontractor supplying galley stores and victualling to the fleet',
-  }, 4),
-  withChecks({
-    id: 'OBJ-ORG-TUG-01',
-    type: 'organization',
-    name: 'Dampier Tug Operators',
-    ownerOrganization: 'Southern Basin Energy Pty Ltd',
-    identifier: 'TUG-DMP-03',
-    description: 'Tug operator providing harbour towage and escort for Dampier and Barrow',
-  }, 5),
-];
+/** organization object type dropped (ADR 0029 / C02); empty export kept for existing imports */
+export const SEEDED_ORGANIZATION_OBJECTS: AssuranceObject[] = [];
 
 function assignment(
   id: string,
@@ -364,8 +273,6 @@ export const SEEDED_STANDALONE_PERSONS: AssuranceObject[] = [
 export const SEEDED_OPERATIONAL_OBJECTS: AssuranceObject[] = [
   ...ORIGINAL_OPERATIONAL_OBJECTS,
   ...SEEDED_PROCEDURE_OBJECTS.slice(1),
-  ...SEEDED_DOCUMENT_OBJECTS.slice(1),
   ...SEEDED_METHOD_OBJECTS.slice(1),
-  ...SEEDED_ORGANIZATION_OBJECTS,
   ...SEEDED_STANDALONE_PERSONS,
 ];

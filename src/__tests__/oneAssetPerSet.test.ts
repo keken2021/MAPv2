@@ -107,7 +107,7 @@ describe('assurance object model (ADR 0029, reversing ADR 0004)', () => {
     expect(objects[2]).toEqual(methodObj);
   });
 
-  it('supports Peter\'s port-entry example bundling vessel, person, equipment, procedure, and method', () => {
+  it('supports Peter\'s port-entry example bundling the 5 ADR 0029 types: vessel, person, equipment, procedure, method', () => {
     const portEntryObjects: AssuranceObject[] = [
       vesselToAssuranceObject({
         id: 'VESSEL-001',
@@ -129,8 +129,6 @@ describe('assurance object model (ADR 0029, reversing ADR 0004)', () => {
       }),
       SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-PROC-PORT-01')!,
       SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-METH-TOW-01')!,
-      SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-DOC-CLR-01')!,
-      SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-ORG-PPA-01')!,
     ];
 
     const portEntrySet: AssuranceSet = {
@@ -142,15 +140,11 @@ describe('assurance object model (ADR 0029, reversing ADR 0004)', () => {
     };
 
     const objects = getAssuranceSetObjects(portEntrySet);
-    expect(objects.length).toBe(7);
+    expect(objects.length).toBe(5);
     const types = objects.map((o) => o.type);
-    expect(types).toContain('vessel');
-    expect(types).toContain('person');
-    expect(types).toContain('equipment');
-    expect(types).toContain('procedure');
-    expect(types).toContain('method');
-    expect(types).toContain('document');
-    expect(types).toContain('organization');
+    expect(types).toEqual(['vessel', 'person', 'equipment', 'procedure', 'method']);
+    expect(types).not.toContain('document');
+    expect(types).not.toContain('organization');
 
     // Procedure and method objects can be given tasks
     const procedureTask = {

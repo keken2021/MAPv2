@@ -9,9 +9,7 @@ import { AssuranceActivity, AssuranceProject, AssuranceSet } from '../types/assu
 import { Project } from '../types/project';
 import { OIL_CO_PILOT_ASSURANCE_SETS, OIL_CO_PILOT_PROJECT } from './oilCoLngPilotMockData';
 import {
-  SEEDED_DOCUMENT_OBJECTS,
   SEEDED_METHOD_OBJECTS,
-  SEEDED_ORGANIZATION_OBJECTS,
   SEEDED_PROCEDURE_OBJECTS,
   SEEDED_STANDALONE_PERSONS,
 } from './assuranceObjectMockData';
@@ -239,6 +237,11 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
     reviewMode: 'internal',
     reviewChannels: ['internal'],
+    parties: [
+      { organization: 'Southern Basin Energy Pty Ltd', group: 'Client' },
+      { organization: 'Northwind Marine Pty Ltd', group: 'Vendor' },
+      { organization: 'Fremantle Port Authority', group: 'Third party' },
+    ],
     assuranceObjects: [
       {
         id: 'VESSEL-005',
@@ -248,7 +251,6 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
         identifier: 'IMO: 9712046',
       },
       seededObject(SEEDED_STANDALONE_PERSONS, 'OBJ-PER-MWS-01'),
-      seededObject(SEEDED_ORGANIZATION_OBJECTS, 'OBJ-ORG-FPA-01'),
       {
         id: 'EQ-001',
         type: 'equipment',
@@ -266,7 +268,7 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
         subtype: 'Vessel',
         category: 'Statutory Certificate',
         title: 'Certificate of Class',
-        description: 'Person · Helen Ward. Organization · Fremantle Port Authority. Equipment · Fixed CO2 Fire Suppression System.',
+        description: 'Person · Helen Ward. Party · Fremantle Port Authority. Equipment · Fixed CO2 Fire Suppression System.',
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 95,
@@ -330,8 +332,6 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
       },
       seededObject(SEEDED_PROCEDURE_OBJECTS, 'OBJ-PROC-PORT-01'),
       seededObject(SEEDED_PROCEDURE_OBJECTS, 'OBJ-PROC-EMERG-01'),
-      seededObject(SEEDED_DOCUMENT_OBJECTS, 'OBJ-DOC-BRIDGE-01'),
-      seededObject(SEEDED_DOCUMENT_OBJECTS, 'OBJ-DOC-CLR-01'),
       seededObject(SEEDED_METHOD_OBJECTS, 'OBJ-METH-LIFT-01'),
       seededObject(SEEDED_METHOD_OBJECTS, 'OBJ-METH-TOW-01'),
     ],
@@ -354,13 +354,13 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
         subtype: 'Vessel',
         category: 'Statutory Certificate',
         title: 'Cert2 — Cargo Ship Safety Equipment',
-        description: 'Document · Bridging Document. Document · Port Clearance & Customs Declaration.',
+        description: 'Bridging Document and Port Clearance & Customs Declaration covered by Document Library entry MAP-VES-2026-STAT-00002.',
         isMandatory: true,
         isFulfilled: true,
         ocrConfidence: 96,
         documentId: 'MAP-VES-2026-STAT-00002',
         verifierStatus: 'Verified',
-        targetObjectId: 'OBJ-DOC-BRIDGE-01',
+        targetObjectId: 'VESSEL-001',
       },
       {
         id: 'REQ-V001-3',
