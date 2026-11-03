@@ -41,7 +41,7 @@ import {
   getCurrentStatusByDimension,
   statusHistoryBadgeClass,
 } from '../utils/vesselStatusHistoryHelpers';
-import { getFallbackPhysicalInspections } from '../store/inspectionMockData';
+import { getPhysicalInspectionsForAssuranceSets } from '../store/inspectionMockData';
 import { VesselActivityTab } from '../components/vessels/VesselActivityTab';
 import { VesselActivityEntry } from '../utils/vesselActivityHelpers';
 import {
@@ -68,7 +68,6 @@ import {
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
-import { MasterDocument } from '../types/document';
 import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
 import { filterDocumentsVisibleToOrganization } from '../utils/rbacHelpers';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
@@ -521,157 +520,109 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const allVaultCerts = useMemo(() => {
     if (!vessel) return [];
 
-    // Track unique keys (by certificate number, or lowercase name) to prevent duplicate entries
     const seen = new Set<string>();
     const certs: Array<any> = [];
 
-    // Prioritize linked master documents
-    linkedDocs.forEach((doc, idx) => {
+    /* linked Document Library records only — attributes come from the document, never invented here */
+    linkedDocs.forEach((doc) => {
       const key = (doc.certificateNo ? doc.certificateNo.trim().toLowerCase() : '') || doc.title.trim().toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        const daysLeft = getDaysUntilExpiry(doc.expiryDate);
-        let statusLabel: string = doc.verificationStatus || 'Valid';
-        if (daysLeft < 0) statusLabel = 'EXPIRED';
-        else if (daysLeft < 90) statusLabel = `Expiring in ${daysLeft} days`;
+      if (seen.has(key)) return;
+      seen.add(key);
 
-        const score = doc.ocrConfidence || (98.0 + (idx * 0.3) % 1.9);
-        const formattedOcr = score % 1 === 0 ? `OCR: ${score}%` : `OCR: ${score.toFixed(1)}%`;
+      const daysLeft = getDaysUntilExpiry(doc.expiryDate);
+      let statusLabel: string = doc.verificationStatus || doc.complianceState || 'Valid';
+      if (daysLeft < 0) statusLabel = 'EXPIRED';
+      else if (daysLeft < 90 && statusLabel !== 'EXPIRED') statusLabel = `Expiring in ${daysLeft} days`;
 
-        certs.push({
-          id: doc.id,
-          docId: doc.id,
-          name: doc.title,
-          number: doc.certificateNo || doc.id,
-          issuingBody: doc.issuingAuthority || 'AMSA',
-          issueDate: (doc as any).issueDate || (doc.vesselAttributes as any)?.issueDate || '',
-          expiryDate: doc.expiryDate,
-          ocr: formattedOcr,
-          ocrScore: score,
-          status: statusLabel,
-          rawStatus: doc.verificationStatus || (daysLeft < 0 ? 'EXPIRED' : daysLeft < 90 ? 'Expiring' : 'Valid'),
-          entityType: doc.entityType || 'Statutory Vessel Certificate',
-          version: doc.currentVersion || 'v1.0',
-          fileName: doc.versions?.[0]?.fileName || `${doc.title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`,
-          fileSize: doc.versions?.[0]?.fileSizeBytes ? `${(doc.versions[0].fileSizeBytes / (1024 * 1024)).toFixed(2)} MB` : '2.15 MB',
-          uploadedBy: doc.versions?.[0]?.uploadedBy || 'Document Vault Submitter',
-          uploadedAt: doc.versions?.[0]?.uploadedAt || '2026-09-18T10:15:00Z',
-          extractedAttributes: {
-            vesselName: (doc.vesselAttributes as any)?.vesselName || vessel.name,
-            imoNumber: (doc.vesselAttributes as any)?.imoNumber || vessel.imoNumber,
-            officialRegNumber: (doc.vesselAttributes as any)?.officialRegNumber || vessel.officialRegNumber,
-            mmsiNumber: (doc.vesselAttributes as any)?.mmsiNumber || vessel.mmsiNumber || '503728940',
-            callSign: (doc.vesselAttributes as any)?.callSign || vessel.callSign || 'VJQ4821',
-            flagState: (doc.vesselAttributes as any)?.flagState || vessel.flagState,
-            portOfRegistry: (doc.vesselAttributes as any)?.portOfRegistry || vessel.portOfRegistry,
-            vesselType: vessel.vesselType,
-            vesselSubtype: vessel.vesselSubtype,
-            classificationSociety: doc.issuingAuthority || vessel.classificationSociety,
-            classNotation: vessel.classNotation,
-            hullType: vessel.hullType,
-            grossTonnageGT: vessel.grossTonnageGT,
-            deadweightTonnageDWT: vessel.deadweightTonnageDWT,
-            yearBuilt: vessel.yearBuilt,
-            shipyardBuilder: vessel.shipyardBuilder,
-            lengthOverallMeters: vessel.lengthOverallMeters,
-            beamMeters: vessel.beamMeters,
-            draftMeters: vessel.draftMeters,
-            dynamicPositioningClass: vessel.dynamicPositioningClass,
-            mainEnginePowerKW: vessel.mainEnginePowerKW,
-            piClubName: vessel.piClubName,
-            policyNumber: vessel.policyNumber,
-            masterName: vessel.masterName,
-            safeManningComplement: vessel.safeManningComplement,
-          },
-          validationRules: doc.validationRules || {
-            charterBufferPassed: daysLeft > 30,
-            assetMatch100Percent: true,
-            iacsAuthorityValid: true,
-            overallValid: daysLeft > 0,
-          },
-          rawOcrText: `STATUTORY CERTIFICATE DOCUMENT PAYLOAD\n======================================\nCERTIFICATE TYPE: ${doc.title}\nISSUING BODY: ${doc.issuingAuthority}\nCERTIFICATE NUMBER: ${doc.certificateNo || doc.id}\nVESSEL NAME: ${vessel.name.toUpperCase()}\nIMO NUMBER: ${vessel.imoNumber}\nFLAG STATE: ${vessel.flagState.toUpperCase()}\nVALIDITY: ${(doc as any).issueDate || 'issue date not recorded'} UNTIL ${doc.expiryDate}\nDEMO DATA: simulated text, not read from a scan`,
-        });
-      }
+      const score = typeof doc.ocrConfidence === 'number' ? doc.ocrConfidence : undefined;
+      const formattedOcr =
+        score === undefined ? '—' : score % 1 === 0 ? `OCR: ${score}%` : `OCR: ${score.toFixed(1)}%`;
+      const attrs = doc.vesselAttributes;
+
+      certs.push({
+        id: doc.id,
+        docId: doc.id,
+        hasDocument: true,
+        name: doc.title,
+        number: doc.certificateNo || doc.id,
+        issuingBody: doc.issuingAuthority || attrs?.issuingBody || '—',
+        issueDate: attrs?.issueDate || '',
+        expiryDate: doc.expiryDate,
+        ocr: formattedOcr,
+        ocrScore: score,
+        status: statusLabel,
+        rawStatus: doc.verificationStatus || (daysLeft < 0 ? 'EXPIRED' : daysLeft < 90 ? 'Expiring' : 'Valid'),
+        entityType: doc.entityType || 'Vessel Certificate',
+        version: doc.currentVersion || 'v1.0',
+        fileName: doc.versions?.[0]?.fileName || '—',
+        fileSize: doc.versions?.[0]?.fileSizeBytes
+          ? `${(doc.versions[0].fileSizeBytes / (1024 * 1024)).toFixed(2)} MB`
+          : '—',
+        uploadedBy: doc.versions?.[0]?.uploadedBy || '—',
+        uploadedAt: doc.versions?.[0]?.uploadedAt || '',
+        extractedAttributes: attrs
+          ? {
+              vesselName: attrs.vesselName,
+              imoNumber: attrs.imoNumber,
+              flagState: attrs.flagState,
+              certificateNumber: attrs.certificateNumber,
+              certType: attrs.certType,
+              issuingBody: attrs.issuingBody,
+              issueDate: attrs.issueDate,
+              expiryDate: attrs.expiryDate,
+              lastSurveyDate: attrs.lastSurveyDate,
+              placeOfIssue: attrs.placeOfIssue,
+              recognisedOrganisation: attrs.recognisedOrganisation,
+              grossTonnagePrinted: attrs.grossTonnagePrinted,
+            }
+          : {},
+        validationRules: doc.validationRules,
+        rawOcrText: undefined,
+      });
     });
 
-    // Deterministic OCR score pool matching exact screenshot values
-    const ocrPool = [99.1, 98.1, 98.9, 98.3, 98.6, 98.4, 99.5, 96.0];
+    /* statutory summary rows with no matching library document — show No document on file, do not invent a file */
+    vessel.statutoryCertificates.forEach((cert) => {
+      const key =
+        (cert.certificateNumber ? cert.certificateNumber.trim().toLowerCase() : '') ||
+        cert.name.trim().toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
 
-    // Add statutory certificates if not already present
-    vessel.statutoryCertificates.forEach((cert: { certificateNumber: string; name: string; expiryDate: string; id: any; issuingBody: any; issueDate: any; }, idx: number) => {
-      const key = (cert.certificateNumber ? cert.certificateNumber.trim().toLowerCase() : '') || cert.name.trim().toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        const daysLeft = getDaysUntilExpiry(cert.expiryDate);
-        let statusLabel = 'Valid';
-        if (daysLeft < 0) statusLabel = 'EXPIRED';
-        else if (daysLeft < 90) statusLabel = `Expiring in ${daysLeft} days`;
-
-        const score = ocrPool[idx % ocrPool.length];
-        const formattedOcr = score % 1 === 0 ? `OCR: ${score}%` : `OCR: ${score.toFixed(1)}%`;
-        const matchedDoc = documents.find((d) => d.certificateNo === cert.certificateNumber || d.title.toLowerCase() === cert.name.toLowerCase());
-
-        certs.push({
-          id: matchedDoc ? matchedDoc.id : cert.id,
-          docId: matchedDoc ? matchedDoc.id : cert.id,
-          name: cert.name,
-          number: cert.certificateNumber,
-          issuingBody: cert.issuingBody,
-          issueDate: cert.issueDate,
-          expiryDate: cert.expiryDate,
-          ocr: formattedOcr,
-          ocrScore: score,
-          status: statusLabel,
-          rawStatus: daysLeft < 0 ? 'EXPIRED' : daysLeft < 90 ? 'Expiring' : 'Valid',
-          entityType: 'Statutory Vessel Certificate',
-          version: 'v1.0',
-          fileName: `${cert.name.replace(/[^a-zA-Z0-9]/g, '_')}_${vessel.imoNumber}.pdf`,
-          fileSize: '2.40 MB',
-          /* seeded certificate, not an issuer feed: no issuer integration exists (paper P3) */
-          uploadedBy: 'Demo data',
-          uploadedAt: cert.issueDate ? `${cert.issueDate}T08:00:00Z` : '',
-          extractedAttributes: {
-            vesselName: vessel.name,
-            imoNumber: vessel.imoNumber,
-            officialRegNumber: vessel.officialRegNumber,
-            mmsiNumber: vessel.mmsiNumber || '503728940',
-            callSign: vessel.callSign || 'VJQ4821',
-            flagState: vessel.flagState,
-            portOfRegistry: vessel.portOfRegistry,
-            vesselType: vessel.vesselType,
-            vesselSubtype: vessel.vesselSubtype,
-            classificationSociety: cert.issuingBody || vessel.classificationSociety,
-            classNotation: vessel.classNotation,
-            hullType: vessel.hullType,
-            grossTonnageGT: vessel.grossTonnageGT,
-            deadweightTonnageDWT: vessel.deadweightTonnageDWT,
-            yearBuilt: vessel.yearBuilt,
-            shipyardBuilder: vessel.shipyardBuilder,
-            lengthOverallMeters: vessel.lengthOverallMeters,
-            beamMeters: vessel.beamMeters,
-            draftMeters: vessel.draftMeters,
-            dynamicPositioningClass: vessel.dynamicPositioningClass,
-            mainEnginePowerKW: vessel.mainEnginePowerKW,
-            piClubName: vessel.piClubName,
-            policyNumber: vessel.policyNumber,
-            masterName: vessel.masterName,
-            safeManningComplement: vessel.safeManningComplement,
-          },
-          /* only the expiry is known for a seeded certificate; the asset and authority checks never ran */
-          validationRules: {
-            charterBufferPassed: daysLeft > 30,
-            assetMatch100Percent: false,
-            iacsAuthorityValid: false,
-            overallValid: daysLeft > 0,
-            rulesNotChecked: true,
-          },
-          rawOcrText: `STATUTORY CERTIFICATE DOCUMENT PAYLOAD\n======================================\nCERTIFICATE TYPE: ${cert.name}\nISSUING BODY: ${cert.issuingBody}\nCERTIFICATE NUMBER: ${cert.certificateNumber}\nVESSEL NAME: ${vessel.name.toUpperCase()}\nIMO NUMBER: ${vessel.imoNumber}\nFLAG STATE: ${vessel.flagState.toUpperCase()}\nVALIDITY: ${cert.issueDate} UNTIL ${cert.expiryDate}\nDEMO DATA: simulated text, not read from a scan`,
-        });
-      }
+      const daysLeft = getDaysUntilExpiry(cert.expiryDate);
+      certs.push({
+        id: cert.id,
+        docId: undefined,
+        hasDocument: false,
+        name: cert.name,
+        number: cert.certificateNumber,
+        issuingBody: cert.issuingBody || '—',
+        issueDate: cert.issueDate || '',
+        expiryDate: cert.expiryDate,
+        ocr: '—',
+        ocrScore: undefined,
+        status: 'No document on file',
+        rawStatus: 'No document on file',
+        entityType: 'Statutory Vessel Certificate',
+        version: '—',
+        fileName: '—',
+        fileSize: '—',
+        uploadedBy: '—',
+        uploadedAt: '',
+        extractedAttributes: {},
+        validationRules: {
+          charterBufferPassed: daysLeft > 30,
+          assetMatch100Percent: false,
+          iacsAuthorityValid: false,
+          overallValid: false,
+          rulesNotChecked: true,
+        },
+        rawOcrText: undefined,
+      });
     });
 
     return certs;
-  }, [vessel, linkedDocs, documents]);
+  }, [vessel, linkedDocs]);
 
   const filteredVaultCerts = useMemo(() => {
     return allVaultCerts
@@ -815,81 +766,10 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     return rows;
   }, [vessel]);
 
+  /* inspections come from inspectionMockData for linked sets only — empty when none are recorded */
   const physicalInspections = useMemo(() => {
     if (!vessel) return [];
-
-    const derivedInspections = linkedSets.map((s, idx) => ({
-      id: `INSP-2026-${101 + idx}`,
-      assuranceSetId: s.id,
-      title: `Visual Vessel Inspection & Safety Audit — ${s.title}`,
-      inspector: s.assignedInspector || 'N. Technical (AMSA Marine Audit Division)',
-      inspectorRole: 'Inspector',
-      date: '14 Oct 2026',
-      location: 'Dampier Port Facility, WA',
-      client: s.initiatorOrg || 'Southern Basin Energy Pty Ltd',
-      status: s.inspectionCompleted ? 'Completed' : 'Scheduled',
-      findingsSummary: {
-        satisfactory: 12,
-        observations: 2,
-        deficiencies: 1,
-        capaCode: 'CAPA-118'
-      },
-      checklists: [
-        {
-          id: 'CHK-01',
-          category: 'Life-Saving Appliances (LSA)',
-          ref: 'SOLAS Reg III/20',
-          status: 'Satisfactory',
-          notes: 'All lifeboats, davits, and hydrostatic release units in good working condition.',
-          evidence: ['lsa_locker_01.jpg', 'davits_test_cert.pdf']
-        },
-        {
-          id: 'CHK-02',
-          category: 'Fire-Fighting Equipment (FFE)',
-          ref: 'SOLAS Reg II-2/10',
-          status: 'Satisfactory',
-          notes: 'Fixed CO2 system pressure gauges verified within operational green zone.',
-          evidence: ['ffe_station3.jpg']
-        },
-        {
-          id: 'CHK-03',
-          category: 'Liferaft HRU Serviceability',
-          ref: 'LSA Code IV/4.1',
-          status: 'Observation',
-          notes: 'Port-side liferaft HRU service date exceeded by 3 weeks. Replacement on order; CAPA-118 raised.',
-          evidence: ['hru_tag_port.jpg', 'hru_cert_2026.pdf'],
-          capaId: 'CAPA-118'
-        },
-        {
-          id: 'CHK-04',
-          category: 'Deck Cargo Securing Arrangement',
-          ref: 'IMO Cargo Securing Manual',
-          status: 'Satisfactory',
-          notes: 'Turnbuckles and D-rings inspected with 0% heavy corrosion.',
-          evidence: ['deck_securing_aft.jpg']
-        },
-        {
-          id: 'CHK-05',
-          category: 'Navigation & Bridge Equipment',
-          ref: 'SOLAS Reg V/19',
-          status: 'Satisfactory',
-          notes: 'ECDIS dual redundancy verified with latest ENC chart vector packs.',
-          evidence: ['ecdis_log_oct2026.pdf']
-        }
-      ],
-      auditTrail: [
-        { time: '2026-10-14 08:30 UTC', action: 'INSPECTION_INITIATED', user: s.assignedInspector || 'N. Technical', notes: 'Inspector boarded vessel at Dampier Berth 3.' },
-        { time: '2026-10-14 11:45 UTC', action: 'FINDING_LOGGED', user: s.assignedInspector || 'N. Technical', notes: 'Observation logged for Port Liferaft HRU expiration date.' },
-        { time: '2026-10-14 14:15 UTC', action: 'CAPA_RAISED', user: s.assignedInspector || 'N. Technical', notes: 'Corrective Action CAPA-118 automatically generated.' },
-        { time: '2026-10-14 16:00 UTC', action: 'INSPECTION_COMPLETED', user: s.assignedInspector || 'N. Technical', notes: 'Visual inspection completed with score 94%. Report signed off.' }
-      ]
-    }));
-
-    if (derivedInspections.length === 0) {
-      return getFallbackPhysicalInspections(vessel.name);
-    }
-
-    return derivedInspections;
+    return getPhysicalInspectionsForAssuranceSets(linkedSets);
   }, [vessel, linkedSets]);
 
   const filteredInspections = useMemo(() => {
@@ -1879,52 +1759,75 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   vaultPagination.pageItems.map((cert) => {
                     let badgeClass = 'bg-success text-white';
                     if (cert.status === 'EXPIRED') badgeClass = 'bg-danger text-white';
-                    else if (cert.status.includes('Expiring')) badgeClass = 'bg-warning text-dark';
+                    else if (cert.status === 'No document on file') badgeClass = 'bg-secondary text-white';
+                    else if (String(cert.status).includes('Expiring')) badgeClass = 'bg-warning text-dark';
                     else if (cert.status === 'Verified') badgeClass = 'bg-info text-dark';
+
+                    const openCert = () => {
+                      if (!cert.hasDocument) {
+                        setToastMessage('No document on file for this certificate.');
+                        setTimeout(() => setToastMessage(null), 3000);
+                        return;
+                      }
+                      setSelectedVaultCertForModal(cert);
+                    };
 
                     return (
                       <tr
                         key={cert.id}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => setSelectedVaultCertForModal(cert)}
+                        style={{ cursor: cert.hasDocument ? 'pointer' : 'default' }}
+                        onClick={openCert}
                       >
                         <td className="font-mono-code fw-semibold text-primary">{cert.number}</td>
                         <td className="fw-semibold text-dark">
-                          <button
-                            type="button"
-                            className="btn btn-link p-0 text-primary text-start fw-semibold text-decoration-underline border-0 bg-transparent align-baseline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedVaultCertForModal(cert);
-                            }}
-                          >
-                            {cert.name}
-                          </button>
+                          {cert.hasDocument ? (
+                            <button
+                              type="button"
+                              className="btn btn-link p-0 text-primary text-start fw-semibold text-decoration-underline border-0 bg-transparent align-baseline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCert();
+                              }}
+                            >
+                              {cert.name}
+                            </button>
+                          ) : (
+                            <span>{cert.name}</span>
+                          )}
                         </td>
                         <td>{cert.issuingBody}</td>
                         <td className="font-mono-code small">
-                          {cert.issueDate !== '—' ? `${formatMaritimeDate(cert.issueDate)} → ` : ''}{formatMaritimeDate(cert.expiryDate)}
+                          {cert.issueDate ? `${formatMaritimeDate(cert.issueDate)} → ` : ''}
+                          {cert.expiryDate ? formatMaritimeDate(cert.expiryDate) : '—'}
                         </td>
                         <td>
-                          <span className="map-ocr-badge">{cert.ocr}</span>
+                          {cert.ocr === '—' ? (
+                            <span className="text-muted small">—</span>
+                          ) : (
+                            <span className="map-ocr-badge">{cert.ocr}</span>
+                          )}
                         </td>
                         <td>
                           <span className={`badge ${badgeClass}`}>{cert.status}</span>
                         </td>
                         <td className="text-end">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                            style={{ width: '32px', height: '32px' }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedVaultCertForModal(cert);
-                            }}
-                            title="View"
-                            aria-label="View"
-                          >
-                            <Eye size={16} />
-                          </button>
+                          {cert.hasDocument ? (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                              style={{ width: '32px', height: '32px' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCert();
+                              }}
+                              title="View"
+                              aria-label="View"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          ) : (
+                            <span className="text-muted small">No document on file</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -3127,7 +3030,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     {filteredInspections.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="text-center py-4 text-muted">
-                          No inspections found.
+                          No inspections recorded.
                         </td>
                       </tr>
                     ) : (
@@ -3789,55 +3692,18 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         </div>
       )}
 
-      {/* Universal Document Preview Modal for Statutory Vessel Certificates */}
-      {selectedVaultCertForModal && (() => {
-        const matchingDoc: MasterDocument = documents.find(
+      {/* Document preview — only for vault rows that have a real Document Library record */}
+      {selectedVaultCertForModal?.hasDocument && (() => {
+        const matchingDoc = documents.find(
           (d) =>
-            d.certificateNo === selectedVaultCertForModal.number ||
+            d.id === selectedVaultCertForModal.docId ||
             d.id === selectedVaultCertForModal.id ||
-            d.title.toLowerCase().includes(selectedVaultCertForModal.name.toLowerCase())
-        ) || {
-          id: selectedVaultCertForModal.id,
-          title: selectedVaultCertForModal.name,
-          entityType: 'Vessel Certificate',
-          vesselId: vessel.id,
-          certificateNo: selectedVaultCertForModal.number,
-          issuingAuthority: selectedVaultCertForModal.issuingBody,
-          expiryDate: selectedVaultCertForModal.expiryDate,
-          ocrConfidence: 98,
-          complianceState: 'Valid',
-          currentVersion: selectedVaultCertForModal.version || 'v1.0',
-          versions: [{
-            versionLabel: selectedVaultCertForModal.version || 'v1.0',
-            uploadedAt: selectedVaultCertForModal.uploadedAt || new Date().toISOString(),
-            uploadedBy: selectedVaultCertForModal.uploadedBy || 'Provider Admin',
-            fileSizeBytes: 2450000,
-            fileName: selectedVaultCertForModal.fileName || `${selectedVaultCertForModal.name.toLowerCase().replace(/\s+/g, '_')}.pdf`,
-            changeSummary: 'Statutory certificate uploaded.'
-          }],
-          vesselAttributes: {
-            title: selectedVaultCertForModal.name,
-            certificateNumber: selectedVaultCertForModal.number,
-            certType: selectedVaultCertForModal.name,
-            issuingBody: selectedVaultCertForModal.issuingBody,
-            issueDate: selectedVaultCertForModal.issueDate || '',
-            expiryDate: selectedVaultCertForModal.expiryDate,
-            vesselName: vessel.name,
-            imoNumber: vessel.imoNumber,
-            flagState: vessel.flagState,
-            assetMatchFlag: true,
-            lastSurveyDate: '2025-06-01',
-            ocrConfidence: 98,
-            status: 'Valid',
-          },
-          validationRules: {
-            charterBufferPassed: true,
-            assetMatch100Percent: true,
-            iacsAuthorityValid: true,
-            overallValid: true,
-          },
-          verificationStatus: 'Verified',
-        };
+            d.certificateNo === selectedVaultCertForModal.number,
+        );
+
+        if (!matchingDoc) {
+          return null;
+        }
 
         return (
           <UniversalDocumentPreviewModal
@@ -3845,10 +3711,10 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             document={matchingDoc}
             onClose={() => setSelectedVaultCertForModal(null)}
             title="Certificate Layout & PDF Review"
-            subtitle={`${selectedVaultCertForModal.name} · Version ${selectedVaultCertForModal.version || 'v1.0'} (${selectedVaultCertForModal.number})`}
-            versionLabel={selectedVaultCertForModal.version || 'v1.0'}
-            uploadedAt={selectedVaultCertForModal.uploadedAt}
-            uploadedBy={selectedVaultCertForModal.uploadedBy}
+            subtitle={`${matchingDoc.title} · Version ${matchingDoc.currentVersion || 'v1.0'} (${matchingDoc.certificateNo})`}
+            versionLabel={matchingDoc.currentVersion || 'v1.0'}
+            uploadedAt={matchingDoc.versions?.[0]?.uploadedAt}
+            uploadedBy={matchingDoc.versions?.[0]?.uploadedBy}
             extraAction={
               <button
                 type="button"
@@ -3857,7 +3723,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 title="View Document"
                 aria-label="View Document"
                 onClick={() => {
-                  const docId = selectedVaultCertForModal.docId || selectedVaultCertForModal.id;
+                  const docId = matchingDoc.id;
                   setSelectedVaultCertForModal(null);
                   setCurrentHashView('documents', docId);
                 }}
