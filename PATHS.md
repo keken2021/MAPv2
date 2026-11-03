@@ -149,9 +149,11 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/work-items/assurance-sets-ui-tasks.md`, `.csv`, `.docx` : 43 Tasks for User Stories 4617 to 4621 under Feature 4583 (3 remove the prototype switchers), with flags and import steps
 - `docs/work-items/marketplace-ui-tasks.md`, `.csv`, `.docx` : 33 Tasks for User Stories 4612 to 4616 under Feature 4582, with flags and import steps
 - `docs/work-items/vessels-ui-tasks.md`, `.csv`, `.docx` : 44 Tasks for User Stories 4597 to 4601 under Feature 4579 (3 remove the prototype switchers, the same 3 as in the other two files), with flags and import steps
+- `docs/plans/shown-data-without-basis-audit.md` : audit (2026-11-03, `bd8f04b`) of shown data with no basis (1a no field, 1b record ignored, 1c invented records in code) and broken or one-way links in seeded data (2a to 2c, fixed by linking); one table and one checklist per section, 61 findings
 - `docs/plans/status-first-project-table.md` : status-first project table and the client Assurance Sets link (Task 5294, ADR 0033 proposed): status rule, thresholds, filters
 - `docs/work-items/status-first-project-table-task.csv` : Task 5294 under User Story 5207
 - `docs/work-items/project-detail-tabs-tasks.csv` : Tasks 5295 to 5297 under User Story 5207 for the project detail tabs (table columns, search and filter toolbar, Details tab), assigned to Creishen Ayuman, 0.5 h each
+- `docs/work-items/audit-fixes-tasks.csv` : 28 Tasks under User Story 5207 from `docs/plans/shown-data-without-basis-audit.md` Part 7, 14 each for Creishen Ayuman (assurance sets) and Kurt Grava (projects, assets, others), 0.5 h each
 - `docs/work-items/brd-v4.2-gap-tasks.csv` : 6 Tasks (5285 to 5290) under User Story 5207 for the BRD V4.2 gaps that wait on nothing (G3, G4, G6, G7, G12), assigned to Creishen Ayuman, 0.25 or 0.5 h each. Source: `docs/plans/brd-gap-status-2026-11-02.md`
 - `docs/work-items/role-views-tasks.csv` : 11 Tasks (5231 to 5241, under User Story 5209) for per-person views and the sidebar, split between Creishen Ayuman and Kurt Grava, 0.75 or 1 h each. Design: `docs/plans/per-person-views-and-sidebar.md`
 - `docs/azure-boards/` : everything for the Azure Boards connection and the `board-comment` and `task-branch` skills (12 files)
