@@ -278,12 +278,25 @@ const OBJECT_TYPE_LABELS: Record<string, string> = {
   how: checks assignedSubmitter (explicit or parenthesized organization), matched user profile, target object owner, set submitter, and set service provider organization.
   with what file: src/views/AssuranceDetailView.tsx used for party-scoped document visibility (findings 5e-01, 5e-03).
 */
+function getRequirementGroupKey(req: AssuranceRequirement): string {
+  if (req.requirementGroupId?.trim()) {
+    return `grp:${req.requirementGroupId.trim()}`;
+  }
+  return `req:${req.sectionId || ''}:${req.title.trim().toLowerCase()}`;
+}
+
 function getRequirementResponsiblePartyOrg(
   req: AssuranceRequirement,
   set: { assignedSubmitter?: string; serviceProviderOrg?: string },
   users: Array<{ id: string; name: string; organization?: string }>,
   objects: AssuranceObject[],
 ): string {
+  if (req.responsibleParty?.trim()) {
+    return req.responsibleParty.trim();
+  }
+  if (req.responsibleParties && req.responsibleParties.length === 1 && req.responsibleParties[0]?.trim()) {
+    return req.responsibleParties[0].trim();
+  }
   if (req.assignedSubmitter) {
     const parenMatch = req.assignedSubmitter.match(/\(([^)]+)\)/);
     if (parenMatch && parenMatch[1].trim()) {
@@ -314,6 +327,32 @@ function getRequirementResponsiblePartyOrg(
   }
 
   return set.serviceProviderOrg || '';
+}
+
+function getRequirementPartyLabel(
+  req: AssuranceRequirement,
+  set: { assignedSubmitter?: string; serviceProviderOrg?: string },
+  users: Array<{ id: string; name: string; organization?: string }>,
+  objects: AssuranceObject[],
+): string {
+  if (req.responsibleParty?.trim()) {
+    return req.responsibleParty.trim();
+  }
+  if (req.responsibleParties && req.responsibleParties.length === 1 && req.responsibleParties[0]?.trim()) {
+    return req.responsibleParties[0].trim();
+  }
+  const resolved = getRequirementResponsiblePartyOrg(req, set, users, objects);
+  if (resolved?.trim()) {
+    return resolved.trim();
+  }
+  if (req.assignedSubmitter?.trim()) {
+    const parenMatch = req.assignedSubmitter.match(/\(([^)]+)\)/);
+    if (parenMatch && parenMatch[1].trim()) {
+      return parenMatch[1].trim();
+    }
+    return req.assignedSubmitter.trim();
+  }
+  return '';
 }
 
 /**
@@ -588,6 +627,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const objectsPagination = usePagination(filteredObjects, [assuranceSet?.id, objectSearch]);
 
+  const requirementGroupTasksMap = useMemo(() => {
+    const map = new Map<string, AssuranceRequirement[]>();
+    if (!assuranceSet?.requirements) return map;
+    for (const req of assuranceSet.requirements) {
+      const key = getRequirementGroupKey(req);
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(req);
+    }
+    return map;
+  }, [assuranceSet?.requirements]);
+
   const {
     orderedRequirements,
     peopleRequirements,
@@ -658,11 +710,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     });
 
     const ordered: AssuranceRequirement[] = [];
+    const seenGroupKeys = new Set<string>();
 
     for (const sec of sortedSections) {
       if (sec.info.isGeneral || sec.info.isCustom || sec.info.scope === 'procedure' || sec.info.scope === 'method') {
         const sortedSecReqs = [...sec.requirements].sort(sortFn);
-        ordered.push(...sortedSecReqs);
+        for (const req of sortedSecReqs) {
+          const groupKey = getRequirementGroupKey(req);
+          if (seenGroupKeys.has(groupKey)) continue;
+          seenGroupKeys.add(groupKey);
+          ordered.push(req);
+        }
       } else {
         const subtypeScope = (sec.info.scope as AssuranceSubtype) || 'Vessel';
         const predefinedCategories = (SUBTYPE_CATEGORIES[subtypeScope as AssuranceSubtype] || []) as string[];
@@ -688,7 +746,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         for (const catName of orderedCatNames) {
           const reqs = catBuckets.get(catName) || [];
           reqs.sort(sortFn);
-          ordered.push(...reqs);
+          for (const req of reqs) {
+            const groupKey = getRequirementGroupKey(req);
+            if (seenGroupKeys.has(groupKey)) continue;
+            seenGroupKeys.add(groupKey);
+            ordered.push(req);
+          }
         }
       }
     }
@@ -754,7 +817,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   useEffect(() => {
     if (!focusedRequirementId) return;
     const items = orderedRequirements;
-    const index = items.findIndex((requirement) => requirement.id === focusedRequirementId);
+    const index = items.findIndex((requirement) => {
+      if (requirement.id === focusedRequirementId) return true;
+      const key = getRequirementGroupKey(requirement);
+      const groupTasks = requirementGroupTasksMap.get(key);
+      return groupTasks?.some((t) => t.id === focusedRequirementId);
+    });
     if (index < 0) {
       setFocusedRequirementId(undefined);
       return;
@@ -1538,8 +1606,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
       const hasAttachedDoc = Boolean(effectiveLinkedDoc || (canViewDoc && (req.documentId || req.linkedDocumentId)));
       const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
+      const party = getRequirementPartyLabel(req, assuranceSet, users, setObjects);
       return {
         Requirement: req.title,
+        'Responsible Party': party,
         Version: canViewDoc ? getExportVersionLabel(req, linkedDoc) : '',
         OcrConfidence: canViewDoc ? `${effectiveOcr}%` : '0%',
         Status: canViewDoc
@@ -1553,13 +1623,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   };
 
   const handleExportPdf = () => {
-    const headers = ['Requirement', 'Version', 'OCR Confidence', 'Status', 'Notes'];
+    const headers = ['Requirement', 'Version', 'OCR Confidence', 'Status', 'Notes', 'Responsible Party'];
     const rows = assuranceSet.requirements.map((req) => {
       const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
       const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
       const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
       const hasAttachedDoc = Boolean(effectiveLinkedDoc || (canViewDoc && (req.documentId || req.linkedDocumentId)));
       const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
+      const party = getRequirementPartyLabel(req, assuranceSet, users, setObjects);
       return [
         req.title,
         canViewDoc ? (getExportVersionLabel(req, linkedDoc) || '-') : '-',
@@ -1568,6 +1639,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
           ? getStatusDisplayLabel(req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending'))
           : 'Pending',
         canViewDoc ? (req.notes || '-') : '-',
+        party || '-',
       ];
     });
     exportToPdf(`${assuranceSet.id} Requirements`, headers, rows);
@@ -2487,6 +2559,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   ) : (
                     requirementsPagination.pageItems.map((req: AssuranceRequirement, idx: number) => {
                       const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+                      const groupKey = getRequirementGroupKey(req);
+                      const groupTasks = requirementGroupTasksMap.get(groupKey) || [req];
+                      const isSharedRequirement = groupTasks.length > 1;
                       const secInfo = getRequirementSectionInfo(req, assuranceSet?.sections);
                       const currentSection = secInfo.sectionTitle;
                       const currentSubtype = getRequirementSubtype(req, secInfo);
@@ -2584,6 +2659,199 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                 </button>
                               </td>
                             </tr>
+                          ) : isSharedRequirement ? (
+                            <>
+                              <tr data-requirement-id={req.id} data-testid="shared-requirement-row" className="table-row-shared">
+                                <td>
+                                  <div className="fw-semibold text-dark">
+                                    {req.title}
+                                    <span
+                                      className="badge bg-secondary-subtle text-secondary border ms-1.5"
+                                      style={{ fontSize: '0.65rem' }}
+                                      data-testid="badge-shared-requirement"
+                                      title="Requirement shared across multiple parties"
+                                    >
+                                      Shared ({groupTasks.length} parties)
+                                    </span>
+                                    {req.isOtherDocument && (
+                                      <span
+                                        className="badge bg-secondary-subtle text-dark border ms-1.5"
+                                        style={{ fontSize: '0.65rem' }}
+                                        data-testid={`badge-other-doc-${req.id}`}
+                                        title="Added by client"
+                                      >
+                                        Added by client
+                                      </span>
+                                    )}
+                                  </div>
+                                  {renderTaskPlacement(req)}
+                                  {req.description && (
+                                    <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
+                                      {req.description}
+                                    </div>
+                                  )}
+                                </td>
+                                <td style={{ whiteSpace: 'nowrap' }}>
+                                  {(() => {
+                                    const targetObj = resolveRequirementTargetObject(req);
+                                    return (
+                                      <div>
+                                        <div className="fw-semibold text-dark">{targetObj.name}</div>
+                                        {targetObj.identifier && (
+                                          <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
+                                            {targetObj.identifier}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
+                                <td>
+                                  <span className="text-muted small">—</span>
+                                </td>
+                                <td>
+                                  {(() => {
+                                    const allDone = groupTasks.every((t) => t.isFulfilled || t.verifierStatus === 'Verified' || (assuranceSet.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId)));
+                                    const doneCount = groupTasks.filter((t) => t.isFulfilled || t.verifierStatus === 'Verified' || (assuranceSet.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId))).length;
+                                    if (allDone) {
+                                      return (
+                                        <span className="badge bg-success text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
+                                          Verified
+                                        </span>
+                                      );
+                                    }
+                                    if (doneCount > 0) {
+                                      return (
+                                        <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
+                                          In Progress ({doneCount}/{groupTasks.length})
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
+                                        Pending
+                                      </span>
+                                    );
+                                  })()}
+                                </td>
+                                <td className="text-end">
+                                  <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
+                                    {canEditTasks && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                          style={{ width: '32px', height: '32px' }}
+                                          onClick={() => openEditTask(req)}
+                                          title="Edit task"
+                                          aria-label="Edit task"
+                                        >
+                                          <Pencil size={14} />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                          style={{ width: '32px', height: '32px' }}
+                                          onClick={() => setTaskToDelete(req)}
+                                          title="Remove task"
+                                          aria-label="Remove task"
+                                        >
+                                          <Trash2 size={14} />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                              {groupTasks.map((partyTask) => {
+                                const canViewPartyDoc = isRequirementDocumentVisible(partyTask, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+                                const partyLinkedDoc = documents.find((d) => d.id === partyTask.documentId || (partyTask.linkedDocumentId && d.id === partyTask.linkedDocumentId));
+                                const effectivePartyDoc = canViewPartyDoc ? partyLinkedDoc : undefined;
+                                const partyDocView = effectivePartyDoc ? getRequirementDocumentView(assuranceSet, partyTask, effectivePartyDoc) : undefined;
+                                const partyHasDoc = Boolean(effectivePartyDoc || (canViewPartyDoc && (partyTask.documentId || partyTask.linkedDocumentId)));
+                                const partyOcr = partyHasDoc ? (partyTask.ocrConfidence || partyLinkedDoc?.ocrConfidence || 0) : 0;
+                                const partyName = getRequirementPartyLabel(partyTask, assuranceSet, users, setObjects);
+
+                                return (
+                                  <tr
+                                    key={partyTask.id}
+                                    data-requirement-id={partyTask.id}
+                                    data-testid="party-sub-row"
+                                    data-party={partyName}
+                                    className="party-sub-row bg-light-subtle border-top-0"
+                                  >
+                                    <td style={{ paddingLeft: '2.5rem' }}>
+                                      <div className="d-flex align-items-center gap-2">
+                                        <span className="text-secondary small fw-bold" style={{ fontSize: '0.85rem' }}>↳</span>
+                                        <div>
+                                          <span className="fw-semibold text-dark small" data-testid="party-name">
+                                            {partyName}
+                                          </span>
+                                          {renderVersionBadge(partyTask, partyDocView, canViewPartyDoc)}
+                                          {partyTask.attemptNumber && (
+                                            <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
+                                              Attempt {partyTask.attemptNumber}
+                                            </span>
+                                          )}
+                                          {partyTask.isOtherDocument && (
+                                            <span
+                                              className="badge bg-secondary-subtle text-dark border ms-1.5"
+                                              style={{ fontSize: '0.65rem' }}
+                                              data-testid={`badge-other-doc-${partyTask.id}`}
+                                              title="Added by client"
+                                            >
+                                              Added by client
+                                            </span>
+                                          )}
+                                          {partyTask.notes && canViewPartyDoc && (
+                                            <div className="text-secondary small mt-0.5" style={{ fontSize: '0.72rem' }}>
+                                              {partyTask.notes}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td>
+                                      <span className="text-muted small">—</span>
+                                    </td>
+                                    <td>
+                                      <ConfidenceBadge score={partyOcr} />
+                                    </td>
+                                    <td>
+                                      {renderRequirementStatus(partyTask, canViewPartyDoc)}
+                                    </td>
+                                    <td className="text-end">
+                                      <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
+                                        {effectivePartyDoc && canViewPartyDoc && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                            style={{ width: '32px', height: '32px' }}
+                                            onClick={() => setSelectedDocForReview({ doc: partyDocView?.doc || effectivePartyDoc, notes: partyTask.notes, requirementId: partyTask.id, verifierStatus: partyTask.verifierStatus, isVersionLocked: partyDocView?.isLocked })}
+                                            title="PDF Review"
+                                            aria-label="PDF Review"
+                                          >
+                                            <FileText size={16} />
+                                          </button>
+                                        )}
+                                        {canUploadHere && (isClientViewer || canViewPartyDoc) && (
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                            style={{ width: '32px', height: '32px' }}
+                                            onClick={() => openRequirementUpload(partyTask, effectivePartyDoc)}
+                                            title="Upload document"
+                                            aria-label="Upload document"
+                                          >
+                                            <Upload size={14} />
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </>
                           ) : (
                             <tr data-requirement-id={req.id}>
                               <td>
