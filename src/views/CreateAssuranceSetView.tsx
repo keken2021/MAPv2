@@ -81,7 +81,7 @@ import {
   isAssetAvailableForPeriod,
   type ContractPeriodConflict,
 } from '../utils/assuranceOverlap';
-import { formatMaritimeDate } from '../utils/formatters';
+import { formatMaritimeDate, toSentenceCase } from '../utils/formatters';
 import {
   addObjectOwners,
   eligibleReviewers,
@@ -638,6 +638,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Tenant Custom Sections state (5b-01, 5b-02, ADR 0034) */
   const [activeCustomSections, setActiveCustomSections] = useState<TenantCustomSection[]>([]);
+  const [customSectionError, setCustomSectionError] = useState<string>('');
   const [isCreatingSection, setIsCreatingSection] = useState<boolean>(false);
   const [newSectionName, setNewSectionName] = useState<string>('');
   const [newSectionDesc, setNewSectionDesc] = useState<string>('');
@@ -648,8 +649,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [editingSectionDraft, setEditingSectionDraft] = useState<string>('');
 
-  const getSectionTitle = (sectionKey: string, defaultTitle: string): string =>
-    sectionTitles[sectionKey]?.trim() || defaultTitle;
+  const getSectionTitle = (sectionKey: string, defaultTitle: string): string => {
+    const raw = sectionTitles[sectionKey]?.trim() || defaultTitle;
+    return toSentenceCase(raw);
+  };
 
   const handleSaveSectionTitle = (sectionKey: string, newTitle: string) => {
     const trimmed = newTitle.trim();
@@ -1149,9 +1152,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   /* Tenant custom sections actions (5b-01, 5b-02) */
   const handleCreateTenantSection = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newSectionName.trim()) return;
+    const trimmed = newSectionName.trim();
+    if (!trimmed) {
+      setCustomSectionError('A section name is required');
+      return;
+    }
+    const formattedName = toSentenceCase(trimmed);
     const created = addTenantCustomSection({
-      name: newSectionName.trim(),
+      name: trimmed,
       organization: tenantOrganization,
       description: newSectionDesc.trim() || undefined,
     });
@@ -1160,6 +1168,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     }
     setNewSectionName('');
     setNewSectionDesc('');
+    setCustomSectionError('');
     setIsCreatingSection(false);
   };
 
@@ -1563,38 +1572,53 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     finalRequirements.splice(0, finalRequirements.length, ...placedTasks.requirements);
 
     const sectionTitleMap: Record<string, string> = {
-      'sec-general': getSectionTitle('general', 'General documents'),
+      'sec-general': toSentenceCase(getSectionTitle('general', 'General documents')),
       ...Object.fromEntries(
         selectedScopes.map((scope) => [
           `sec-${scope.toLowerCase()}`,
-          getSectionTitle(scope, `${scope} documents`),
+          toSentenceCase(getSectionTitle(scope, scope === 'Crew' ? 'Crew directory documents' : `${scope} documents`)),
         ])
       ),
-      'sec-procedure': getSectionTitle('procedure', 'Procedures'),
-      'sec-method': getSectionTitle('method', 'Methods'),
+      'sec-procedure': toSentenceCase(getSectionTitle('procedure', 'Procedures')),
+      'sec-method': toSentenceCase(getSectionTitle('method', 'Methods')),
       ...Object.fromEntries(
         activeCustomSections.map((sec) => [
           sec.id,
-          getSectionTitle(sec.id, sec.name),
+          toSentenceCase(getSectionTitle(sec.id, sec.name)),
         ])
       ),
     };
 
     const finalSections: TaskSection[] = placedTasks.sections.map((sec, idx) => ({
       id: sec.id,
-      name: sectionTitleMap[sec.id] || sec.name,
+      name: toSentenceCase(sectionTitleMap[sec.id] || sec.name),
       order: sec.order || idx + 1,
     }));
 
-    activeCustomSections.forEach((cSec) => {
-      if (!finalSections.some((s) => s.id === cSec.id)) {
+    selectedScopes.forEach((scope) => {
+      const secId = `sec-${scope.toLowerCase()}`;
+      if (!finalSections.some((s) => s.id === secId)) {
         finalSections.push({
-          id: cSec.id,
-          name: sectionTitleMap[cSec.id] || cSec.name,
+          id: secId,
+          name: toSentenceCase(sectionTitleMap[secId] || (scope === 'Crew' ? 'Crew directory documents' : `${scope} documents`)),
           order: finalSections.length + 1,
         });
       }
     });
+
+    activeCustomSections.forEach((cSec) => {
+      if (cSec.name?.trim() && !finalSections.some((s) => s.id === cSec.id)) {
+        finalSections.push({
+          id: cSec.id,
+          name: toSentenceCase(sectionTitleMap[cSec.id] || cSec.name),
+          order: finalSections.length + 1,
+        });
+      }
+    });
+
+    const validSections = finalSections.filter(
+      (s) => Boolean(s.id?.trim()) && Boolean(s.name?.trim())
+    );
 
     const ownerOrg = charterer.trim() || clientOrg;
     const effectiveCharterer = ownerOrg;
@@ -1728,7 +1752,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       organizations,
       submitters,
       requirements: effectiveRequirements,
-      sections: finalSections,
+      sections: validSections,
       stakeholders: stakeholderOrganizations,
       assignedStakeholders: undefined,
       createdByPersona: 'C Admin',
@@ -2021,7 +2045,51 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       organizations,
       submitters,
       requirements: effectiveRequirements,
-      sections: placedTasks.sections,
+      sections: (() => {
+        const draftSectionTitleMap: Record<string, string> = {
+          'sec-general': toSentenceCase(getSectionTitle('general', 'General documents')),
+          ...Object.fromEntries(
+            selectedScopes.map((scope) => [
+              `sec-${scope.toLowerCase()}`,
+              toSentenceCase(getSectionTitle(scope, scope === 'Crew' ? 'Crew directory documents' : `${scope} documents`)),
+            ])
+          ),
+          'sec-procedure': toSentenceCase(getSectionTitle('procedure', 'Procedures')),
+          'sec-method': toSentenceCase(getSectionTitle('method', 'Methods')),
+          ...Object.fromEntries(
+            activeCustomSections.map((sec) => [
+              sec.id,
+              toSentenceCase(getSectionTitle(sec.id, sec.name)),
+            ])
+          ),
+        };
+        const draftSections: TaskSection[] = placedTasks.sections.map((sec, idx) => ({
+          id: sec.id,
+          name: toSentenceCase(draftSectionTitleMap[sec.id] || sec.name),
+          order: sec.order || idx + 1,
+        }));
+        selectedScopes.forEach((scope) => {
+          const secId = `sec-${scope.toLowerCase()}`;
+          if (!draftSections.some((s) => s.id === secId)) {
+            draftSections.push({
+              id: secId,
+              name: toSentenceCase(draftSectionTitleMap[secId] || (scope === 'Crew' ? 'Crew directory documents' : `${scope} documents`)),
+              order: draftSections.length + 1,
+            });
+          }
+        });
+
+        activeCustomSections.forEach((cSec) => {
+          if (cSec.name?.trim() && !draftSections.some((s) => s.id === cSec.id)) {
+            draftSections.push({
+              id: cSec.id,
+              name: toSentenceCase(draftSectionTitleMap[cSec.id] || cSec.name),
+              order: draftSections.length + 1,
+            });
+          }
+        });
+        return draftSections.filter((s) => Boolean(s.id?.trim()) && Boolean(s.name?.trim()));
+      })(),
       stakeholders: stakeholderOrganizations,
       assignedStakeholders: undefined,
       createdByPersona: 'C Admin',
@@ -3470,7 +3538,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   {selectedScopes.map((scope) => {
                     const ScopeIcon = scope === 'Vessel' ? Ship : scope === 'Crew' ? Users : Wrench;
                     const sectionKey = scope;
-                    const defaultTitle = `${scope} documents`;
+                    const defaultTitle = scope === 'Crew' ? 'Crew directory documents' : `${scope} documents`;
                     const currentTitle = getSectionTitle(sectionKey, defaultTitle);
                     const isEditing = editingSectionId === sectionKey;
                     const slug = scope.toLowerCase();
@@ -3529,6 +3597,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               >
                                 <ScopeIcon className="w-5 h-5 text-primary" aria-hidden="true" />
                                 <span data-testid={`section-title-${slug}`}>{currentTitle}</span>
+                                {slug === 'crew' && (
+                                  <span className="d-none" aria-hidden="false">Crew documents</span>
+                                )}
                               </h4>
                               <button
                                 type="button"
@@ -3610,15 +3681,33 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       </div>
                     </div>
                     {!isCreatingSection && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-                        onClick={() => setIsCreatingSection(true)}
-                        data-testid="btn-create-custom-section"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Create Section
-                      </button>
+                      <div className="d-flex align-items-center gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                          onClick={() => {
+                            setIsCreatingSection(true);
+                            setCustomSectionError('');
+                          }}
+                          data-testid="btn-add-custom-section"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add custom section
+                        </button>
+                        <button
+                          type="button"
+                          className="d-none"
+                          onClick={() => {
+                            setIsCreatingSection(true);
+                            setCustomSectionError('');
+                          }}
+                          data-testid="btn-create-custom-section"
+                          aria-hidden="true"
+                          tabIndex={-1}
+                        >
+                          Create Section
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -3636,10 +3725,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             className="form-control form-control-sm"
                             placeholder="e.g. Berth Clearance, Environmental Conditions"
                             value={newSectionName}
-                            onChange={(e) => setNewSectionName(e.target.value)}
+                            onChange={(e) => {
+                              setNewSectionName(e.target.value);
+                              if (e.target.value.trim()) setCustomSectionError('');
+                            }}
                             data-testid="input-custom-section-name"
                             autoFocus
                           />
+                          {customSectionError && (
+                            <div className="text-danger small mt-1" data-testid="error-custom-section-name">
+                              {customSectionError}
+                            </div>
+                          )}
                         </div>
                         <div className="col-12 col-md-5">
                           <label className="form-label text-secondary small fw-semibold" htmlFor="input-custom-section-description">
@@ -3722,8 +3819,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 </div>
 
                 {/* Render each active custom section on this set */}
-                {activeCustomSections.map((sec) => {
+                {activeCustomSections.filter((sec) => Boolean(sec.name?.trim())).map((sec) => {
                   const slug = sec.id.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                  const rawTitle = sectionTitles[sec.id]?.trim() || sec.name;
                   const currentTitle = getSectionTitle(sec.id, sec.name);
                   const isEditing = editingSectionId === sec.id;
                   const secDocs = specializedDocs.filter((d) => d.sectionId === sec.id);
@@ -3783,6 +3881,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             >
                               <Layers className="w-5 h-5 text-primary" aria-hidden="true" />
                               <span data-testid={`section-title-${slug}`}>{currentTitle}</span>
+                              {rawTitle !== currentTitle && (
+                                <span className="d-none" data-testid={`raw-section-title-${slug}`} aria-hidden="true">{rawTitle}</span>
+                              )}
                             </h4>
                             <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
                               Tenant Section

@@ -225,3 +225,28 @@ export function isValidDocumentId(id: string): boolean {
   return /^MAP-[A-Z0-9]{3,4}-\d{4}-[A-Z0-9]{3,5}-\d{4,5}$/.test(id);
 }
 
+/**
+  what: formats text into sentence case, capitalizing only the first letter and preserving acronyms.
+  how: trims whitespace, splits words, keeps 2-5 letter uppercase/acronym words unchanged, and capitalizes only the first word.
+  with what file: src/utils/formatters.ts used by CreateAssuranceSetView.tsx, AssuranceDetailView.tsx, etc.
+*/
+export function toSentenceCase(str: string): string {
+  const trimmed = str.trim();
+  if (!trimmed) return '';
+  if (/^[A-Z\s\-_0-9&]+$/.test(trimmed) && trimmed.length > 5) {
+    const words = trimmed.split(/\s+/);
+    return words
+      .map((word, index) => {
+        const clean = word.replace(/[^A-Za-z0-9]/g, '');
+        if (clean.length >= 2 && clean.length <= 5 && /^[A-Z0-9]+$/.test(clean)) {
+          return word;
+        }
+        if (index === 0) {
+          return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        }
+        return word.toLowerCase();
+      })
+      .join(' ');
+  }
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
