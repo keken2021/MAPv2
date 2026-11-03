@@ -27,7 +27,7 @@ import {
   isDatePermissionActive,
 } from '../utils/validation';
 import { MasterDocument } from '../types/document';
-import { AssuranceObject, AssuranceRequirement, DatePermissionGrant, TargetDateChangeRecord, ThreePillarsCategory } from '../types/assurance';
+import { AssuranceObject, AssuranceRequirement, AssuranceSubtype, DatePermissionGrant, TargetDateChangeRecord, TaskSection, ThreePillarsCategory } from '../types/assurance';
 import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrphaned } from '../utils/projectHelpers';
 
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
@@ -62,7 +62,7 @@ import { useSessionUser } from '../utils/useSessionUser';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
 import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
 import { useOverlayBehavior } from '../utils/useOverlayBehavior';
-import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetObjects, getAssuranceSetScopes, getThreePillarsCategory } from '../utils/assuranceTemplates';
+import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetObjects, getAssuranceSetScopes, SUBTYPE_CATEGORIES } from '../utils/assuranceTemplates';
 import { findOverlappingAssuranceSets, formatOverlapError } from '../utils/assuranceOverlap';
 import {
   deriveObjectVerification,
@@ -80,12 +80,139 @@ import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 export type AssuranceDetailTab = 'details' | 'objects' | 'requirements' | 'tasks' | 'audit';
 
 
-function getPillarCategory(req: AssuranceRequirement): ThreePillarsCategory {
-  const cat = (req.category ?? '').trim().toLowerCase();
-  if (cat === 'people') return 'People';
-  if (cat === 'plant') return 'Plant';
-  if (cat === 'process') return 'Process';
-  return getThreePillarsCategory(req.subtype, req.category);
+interface RequirementSectionInfo {
+  sectionId: string;
+  sectionTitle: string;
+  sectionOrder: number;
+  isGeneral: boolean;
+  isCustom: boolean;
+  scope?: AssuranceSubtype | 'procedure' | 'method';
+}
+
+function getRequirementSectionInfo(
+  req: AssuranceRequirement,
+  setSections?: TaskSection[],
+): RequirementSectionInfo {
+  const isGeneral =
+    req.sectionId === 'sec-general' ||
+    req.sectionId === 'general' ||
+    Boolean(
+      req.title &&
+      (req.title.includes('Document of Compliance (DOC)') ||
+       req.title.includes('Company ISM Document of Compliance') ||
+       req.title.includes('Non-Disclosure Agreement (NDA)') ||
+       req.title.includes('Master Service Agreement (MSA)'))
+    );
+
+  if (isGeneral) {
+    const sec = setSections?.find((s) => s.id === 'sec-general' || s.id === 'general');
+    return {
+      sectionId: 'sec-general',
+      sectionTitle: sec?.name || 'General documents',
+      sectionOrder: sec?.order ?? 0,
+      isGeneral: true,
+      isCustom: false,
+    };
+  }
+
+  if (req.sectionId) {
+    const customSec = setSections?.find(
+      (s) =>
+        s.id === req.sectionId &&
+        !['sec-general', 'general', 'sec-vessel', 'sec-crew', 'sec-equipment', 'sec-activity', 'sec-procedure', 'sec-method'].includes(s.id),
+    );
+    if (customSec) {
+      return {
+        sectionId: customSec.id,
+        sectionTitle: customSec.name,
+        sectionOrder: customSec.order ?? 100,
+        isGeneral: false,
+        isCustom: true,
+      };
+    }
+  }
+
+  let scope: AssuranceSubtype | 'procedure' | 'method' = 'Vessel';
+  if (req.subtype) {
+    scope = req.subtype;
+  } else if (req.sectionId?.startsWith('sec-')) {
+    const slug = req.sectionId.replace('sec-', '').toLowerCase();
+    if (slug === 'crew') scope = 'Crew';
+    else if (slug === 'equipment') scope = 'Equipment';
+    else if (slug === 'activity') scope = 'Activity';
+    else if (slug === 'procedure') scope = 'procedure';
+    else if (slug === 'method') scope = 'method';
+    else if (slug === 'vessel') scope = 'Vessel';
+  } else {
+    const cat = req.category || '';
+    if (/crew|competency|medical|bosiet|credential/i.test(cat)) {
+      scope = 'Crew';
+    } else if (/equipment|lifting|crane|fmea/i.test(cat)) {
+      scope = 'Equipment';
+    } else if (/operational|risk|simops|mooring|emergency/i.test(cat)) {
+      scope = 'Activity';
+    } else if (/procedure/i.test(cat)) {
+      scope = 'procedure';
+    } else if (/method/i.test(cat)) {
+      scope = 'method';
+    } else {
+      scope = 'Vessel';
+    }
+  }
+
+  const scopeSlug = scope.toLowerCase();
+  const secId = `sec-${scopeSlug}`;
+  const matchedSec = setSections?.find(
+    (s) =>
+      s.id === secId ||
+      s.id === scopeSlug ||
+      s.name.toLowerCase().includes(scopeSlug),
+  );
+
+  const defaultTitle =
+    scope === 'Vessel'
+      ? 'Vessel documents'
+      : scope === 'Crew'
+      ? 'Crew documents'
+      : scope === 'Equipment'
+      ? 'Equipment documents'
+      : scope === 'Activity'
+      ? 'Activity documents'
+      : scope === 'procedure'
+      ? 'Procedures'
+      : 'Methods';
+
+  const defaultOrder =
+    scope === 'Vessel'
+      ? 10
+      : scope === 'Crew'
+      ? 20
+      : scope === 'Equipment'
+      ? 30
+      : scope === 'Activity'
+      ? 40
+      : scope === 'procedure'
+      ? 50
+      : 60;
+
+  return {
+    sectionId: secId,
+    sectionTitle: matchedSec?.name || defaultTitle,
+    sectionOrder: matchedSec?.order ?? defaultOrder,
+    isGeneral: false,
+    isCustom: false,
+    scope,
+  };
+}
+
+function getRequirementSubtype(
+  req: AssuranceRequirement,
+  secInfo: RequirementSectionInfo,
+): string {
+  if (secInfo.isGeneral || secInfo.isCustom || secInfo.scope === 'procedure' || secInfo.scope === 'method') {
+    return '';
+  }
+  return req.category || 'Standard Documents';
 }
 
 function parseTabFromUrl(): AssuranceDetailTab {
@@ -504,33 +631,74 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       return reqSortDirection === 'asc' ? comp : -comp;
     };
 
-    const people: AssuranceRequirement[] = [];
-    const plant: AssuranceRequirement[] = [];
-    const process: AssuranceRequirement[] = [];
-    const other: AssuranceRequirement[] = [];
+    const sectionBuckets = new Map<
+      string,
+      {
+        info: RequirementSectionInfo;
+        requirements: AssuranceRequirement[];
+      }
+    >();
 
     for (const req of assuranceSet.requirements) {
-      if (req.isOtherDocument) {
-        other.push(req);
+      const info = getRequirementSectionInfo(req, assuranceSet.sections);
+      if (!sectionBuckets.has(info.sectionId)) {
+        sectionBuckets.set(info.sectionId, {
+          info,
+          requirements: [],
+        });
+      }
+      sectionBuckets.get(info.sectionId)!.requirements.push(req);
+    }
+
+    const sortedSections = Array.from(sectionBuckets.values()).sort((a, b) => {
+      if (a.info.isGeneral !== b.info.isGeneral) {
+        return a.info.isGeneral ? -1 : 1;
+      }
+      return a.info.sectionOrder - b.info.sectionOrder;
+    });
+
+    const ordered: AssuranceRequirement[] = [];
+
+    for (const sec of sortedSections) {
+      if (sec.info.isGeneral || sec.info.isCustom || sec.info.scope === 'procedure' || sec.info.scope === 'method') {
+        const sortedSecReqs = [...sec.requirements].sort(sortFn);
+        ordered.push(...sortedSecReqs);
       } else {
-        const pillar = getPillarCategory(req);
-        if (pillar === 'People') people.push(req);
-        else if (pillar === 'Plant') plant.push(req);
-        else process.push(req);
+        const subtypeScope = (sec.info.scope as AssuranceSubtype) || 'Vessel';
+        const predefinedCategories = (SUBTYPE_CATEGORIES[subtypeScope as AssuranceSubtype] || []) as string[];
+
+        const catBuckets = new Map<string, AssuranceRequirement[]>();
+        for (const req of sec.requirements) {
+          const cat = req.category || 'Standard Documents';
+          if (!catBuckets.has(cat)) {
+            catBuckets.set(cat, []);
+          }
+          catBuckets.get(cat)!.push(req);
+        }
+
+        const orderedCatNames = Array.from(catBuckets.keys()).sort((catA, catB) => {
+          const idxA = predefinedCategories.indexOf(catA as any);
+          const idxB = predefinedCategories.indexOf(catB as any);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return catA.localeCompare(catB);
+        });
+
+        for (const catName of orderedCatNames) {
+          const reqs = catBuckets.get(catName) || [];
+          reqs.sort(sortFn);
+          ordered.push(...reqs);
+        }
       }
     }
 
-    const sortedPeople = [...people].sort(sortFn);
-    const sortedPlant = [...plant].sort(sortFn);
-    const sortedProcess = [...process].sort(sortFn);
-    const sortedOther = [...other].sort(sortFn);
-
     return {
-      orderedRequirements: [...sortedPeople, ...sortedPlant, ...sortedProcess, ...sortedOther],
-      peopleRequirements: sortedPeople,
-      plantRequirements: sortedPlant,
-      processRequirements: sortedProcess,
-      otherRequirements: sortedOther,
+      orderedRequirements: ordered,
+      peopleRequirements: [],
+      plantRequirements: [],
+      processRequirements: [],
+      otherRequirements: [],
     };
   }, [assuranceSet, reqSortField, reqSortDirection, documents, setObjects, assuranceObjects]);
 
@@ -2319,10 +2487,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   ) : (
                     requirementsPagination.pageItems.map((req: AssuranceRequirement, idx: number) => {
                       const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
-                      const currentGroup = req.isOtherDocument ? 'Other Documents' : getPillarCategory(req);
+                      const secInfo = getRequirementSectionInfo(req, assuranceSet?.sections);
+                      const currentSection = secInfo.sectionTitle;
+                      const currentSubtype = getRequirementSubtype(req, secInfo);
+
                       const prevReq = idx > 0 ? requirementsPagination.pageItems[idx - 1] : null;
-                      const prevGroup = prevReq ? (prevReq.isOtherDocument ? 'Other Documents' : getPillarCategory(prevReq)) : null;
-                      const isFirstOfGroupOnPage = currentGroup !== prevGroup;
+                      const prevSecInfo = prevReq ? getRequirementSectionInfo(prevReq, assuranceSet?.sections) : null;
+                      const prevSection = prevSecInfo ? prevSecInfo.sectionTitle : null;
+                      const prevSubtype = prevReq && prevSecInfo ? getRequirementSubtype(prevReq, prevSecInfo) : null;
+
+                      const isFirstOfSection = currentSection !== prevSection;
+                      const isFirstOfSubtype = isFirstOfSection || currentSubtype !== prevSubtype;
 
                       const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
                       const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
@@ -2337,13 +2512,22 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
                       return (
                         <React.Fragment key={req.id}>
-                          {isFirstOfGroupOnPage && (
-                            <tr className="bg-light border-top border-bottom">
+                          {isFirstOfSection && (
+                            <tr className="bg-light border-top border-bottom" data-testid={`group-section-${currentSection.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
                               <td colSpan={5} className="py-2.5 px-3">
                                 <div className="d-flex align-items-center justify-content-between">
-                                  <span className="fw-bold text-secondary text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                                    {currentGroup}
+                                  <span className="fw-bold text-secondary text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }} data-testid="section-group-header">
+                                    {currentSection}
                                   </span>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          {Boolean(currentSubtype && isFirstOfSubtype) && (
+                            <tr className="bg-light-subtle border-bottom" data-testid={`group-subtype-${currentSubtype.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
+                              <td colSpan={5} className="py-1.5 px-4 text-secondary small fw-semibold">
+                                <div className="d-flex align-items-center gap-2">
+                                  <span style={{ fontSize: '0.75rem' }} data-testid="subtype-group-header">{currentSubtype}</span>
                                 </div>
                               </td>
                             </tr>
@@ -2351,7 +2535,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                           {isLinkedSubSet(req) && linkedChildSet ? (
                             <tr className="table-light" data-requirement-id={req.id}>
                               <td>
-                                <div className="fw-semibold text-dark">{req.title}</div>
+                                <div className="fw-semibold text-dark">
+                                  {req.title}
+                                  {req.isOtherDocument && (
+                                    <span
+                                      className="badge bg-secondary-subtle text-dark border ms-1.5"
+                                      style={{ fontSize: '0.65rem' }}
+                                      data-testid={`badge-other-doc-${req.id}`}
+                                      title="Added by client"
+                                    >
+                                      Added by client
+                                    </span>
+                                  )}
+                                </div>
                                 {renderTaskPlacement(req)}
                                 <div className="d-flex align-items-center gap-1.5 flex-wrap">
                                   <span className="font-mono-code small text-primary">{linkedChildSet.id}</span>
@@ -2409,11 +2605,20 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                                     </span>
                                   )}
                                   {renderTaskPlacement(req)}
-                                  {req.isSpecialized && (
+                                  {req.isOtherDocument ? (
+                                    <span
+                                      className="badge bg-secondary-subtle text-dark border ms-1.5"
+                                      style={{ fontSize: '0.65rem' }}
+                                      data-testid={`badge-other-doc-${req.id}`}
+                                      title="Added by client"
+                                    >
+                                      Added by client
+                                    </span>
+                                  ) : req.isSpecialized ? (
                                     <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1.5" style={{ fontSize: '0.65rem' }}>
                                       Custom
                                     </span>
-                                  )}
+                                  ) : null}
                                 </div>
                                 {renderContractShortWarning(docView?.doc || effectiveLinkedDoc, canViewDoc)}
                                 {req.description && (
