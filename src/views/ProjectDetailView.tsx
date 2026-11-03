@@ -234,6 +234,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         </div>
       </div>
 
+              
       <ul className="nav nav-tabs">
         {(["assurance", "roster"] as const).map((tab) => (
           <li className="nav-item" key={tab}>
