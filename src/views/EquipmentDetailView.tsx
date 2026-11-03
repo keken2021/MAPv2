@@ -1,17 +1,17 @@
 /*
   file summary: equipment asset detail view with status card, photo gallery, parent vessel link, and metadata.
-  responsibilities: displays equipment particulars, photo gallery with cropping tool, and linked assurance context.
+  responsibilities: displays equipment particulars, store-backed certificates, photo gallery, and this equipment's assurance sets.
   role in system: rendered when equipment row is selected from hierarchy or equipment list.
 */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { getProjectOrganizationForPersona, isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
 import { getEquipmentAssetStatus, EquipmentAsset } from '../types/equipment';
 import { useMapStore } from '../store/useMapStore';
 import { calculateEquipmentReadiness } from '../utils/readinessHelpers';
-import { formatReadinessScore } from '../utils/formatters';
+import { formatMaritimeDate, formatReadinessScore } from '../utils/formatters';
 import {
   CURATED_EQUIPMENT_PHOTOS,
   getEquipmentStockPhoto,
@@ -20,24 +20,32 @@ import { ImageCropModal } from '../components/modals/VesselImageCropModal';
 import {
   Camera,
   Crop,
-  Download,
-  Edit2,
   Eye,
-  FileText,
-  Image as ImageIcon,
-  Info,
   Plus,
-  RotateCcw,
   Save,
-  Shield,
   Trash2,
   Upload,
-  Wrench,
   X,
 } from 'lucide-react';
 import { MasterDocument } from '../types/document';
-import { DocumentCertificatePreview } from '../components/common/DocumentCertificatePreview';
 import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
+
+type EquipmentDetailTab = 'overview' | 'documents' | 'assurance';
+
+/** store documents that name this equipment id/identifier, or that its own sets already attach */
+function getEquipmentStoreDocuments(
+  documents: MasterDocument[],
+  item: EquipmentAsset,
+  linkedSetDocumentIds: Set<string>,
+): MasterDocument[] {
+  const idLower = item.id.toLowerCase();
+  const tagLower = item.equipmentIdentifier.toLowerCase();
+  return documents.filter((doc) => {
+    if (linkedSetDocumentIds.has(doc.id)) return true;
+    const haystack = `${doc.id} ${doc.title} ${doc.certificateNo}`.toLowerCase();
+    return haystack.includes(idLower) || haystack.includes(tagLower);
+  });
+}
 
 interface EquipmentDetailViewProps {
   equipmentId: string;
@@ -48,6 +56,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
     equipment,
     vessels,
     assuranceSets,
+    documents,
     activePersona,
     setCurrentHashView,
     updateEquipment,
@@ -61,26 +70,52 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
     ? vessels.find((v) => v.id === item.parentVesselId)
     : undefined;
 
-  const linkedSets = assuranceSets.filter((s) => s.vesselId === item?.parentVesselId);
+  /* only sets that name this equipment — not every set on the parent vessel */
+  const linkedSets = useMemo(
+    () => (item ? assuranceSets.filter((s) => s.equipmentId === item.id) : []),
+    [assuranceSets, item],
+  );
+
+  const linkedSetDocumentIds = useMemo(() => {
+    const ids = new Set<string>();
+    linkedSets.forEach((set) => {
+      set.requirements?.forEach((req) => {
+        if (req.documentId) ids.add(req.documentId);
+        if (req.linkedDocumentId) ids.add(req.linkedDocumentId);
+      });
+    });
+    return ids;
+  }, [linkedSets]);
+
+  const equipmentDocs = useMemo(
+    () => (item ? getEquipmentStoreDocuments(documents, item, linkedSetDocumentIds) : []),
+    [documents, item, linkedSetDocumentIds],
+  );
 
   const isAdmin = activePersona === 'Administrator';
   const isCAdmin = activePersona === 'C Admin';
   const isSubmitter = activePersona === 'Submitter';
   const canEditAvailability = isAdmin || isSubmitter;
   const canManagePhotos = isAdmin || isSubmitter;
+  const canManageDocuments = isAdmin || isSubmitter;
   /* rent is offered to admins for equipment from other organizations only */
   const canRentEquipment = Boolean(
     item &&
     (isAdmin || isCAdmin) &&
     !isEquipmentOwnedByOrganization(item, getProjectOrganizationForPersona(activePersona, users)),
   );
+  const canOpenAssurance = isAdmin || isCAdmin;
 
+  const showDocumentsTab = equipmentDocs.length > 0 || canManageDocuments;
+  const showAssuranceTab = linkedSets.length > 0 || canOpenAssurance;
+
+  const [activeTab, setActiveTab] = useState<EquipmentDetailTab>('overview');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<MasterDocument | null>(null);
 
   /* Photo gallery & cropping modal states */
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
-  const [showCertModal, setShowCertModal] = useState(false);
   const [customPhotoUrl, setCustomPhotoUrl] = useState('');
   const [photoModalUrl, setPhotoModalUrl] = useState('');
   const [modalPhotos, setModalPhotos] = useState<string[]>([]);
@@ -91,6 +126,13 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
   const [draggedPhotoIdx, setDraggedPhotoIdx] = useState<number | null>(null);
   const [dragOverPhotoIdx, setDragOverPhotoIdx] = useState<number | null>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const allowed: EquipmentDetailTab[] = ['overview'];
+    if (showDocumentsTab) allowed.push('documents');
+    if (showAssuranceTab) allowed.push('assurance');
+    if (!allowed.includes(activeTab)) setActiveTab('overview');
+  }, [activeTab, showDocumentsTab, showAssuranceTab]);
 
   useEffect(() => {
     if (item) {
@@ -116,51 +158,6 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
 
   const status = getEquipmentAssetStatus(item);
   const activeDisplayPhoto = selectedViewPhotoUrl || item.imageUrl || getEquipmentStockPhoto(item.id, item.name, item.category);
-
-  const equipmentCertDoc: MasterDocument = {
-    id: `EQ-CERT-${item.id}`,
-    title: `${item.name} Safety & Proof Test Certificate`,
-    entityType: 'Vessel Certificate',
-    vesselId: item.parentVesselId || 'AUSP1VSR619',
-    certificateNo: `EQ-CERT-${item.serialNumber || item.id}`,
-    issuingAuthority: item.manufacturer ? `${item.manufacturer} Engineering / DNV` : 'DNV Technical Assurance',
-    expiryDate: '2027-10-15',
-    ocrConfidence: 98,
-    complianceState: 'Valid',
-    currentVersion: 'v1.0',
-    versions: [
-      {
-        versionLabel: 'v1.0',
-        uploadedAt: '2026-01-15T08:00:00Z',
-        uploadedBy: 'System Auto-Ingest',
-        fileSizeBytes: 245000,
-        fileName: `${item.name.replace(/\s+/g, '_')}_Certificate.pdf`,
-        changeSummary: 'Initial verified proof test & compliance upload',
-      },
-    ],
-    vesselAttributes: {
-      title: `${item.name} Safety & Proof Test Certificate`,
-      certificateNumber: `EQ-CERT-${item.serialNumber || item.id}`,
-      certType: `${item.category} Compliance & Proof Test`,
-      issuingBody: item.manufacturer ? `${item.manufacturer} Engineering / DNV` : 'DNV Technical Assurance',
-      issueDate: '2026-01-15',
-      expiryDate: '2027-10-15',
-      vesselName: parentVessel?.name || 'Assigned Vessel',
-      imoNumber: parentVessel?.imoNumber || '9123453',
-      flagState: parentVessel?.flagState || 'Australia',
-      assetMatchFlag: true,
-      lastSurveyDate: '2026-01-10',
-      ocrConfidence: 98,
-      status: 'Valid',
-    },
-    validationRules: {
-      charterBufferPassed: true,
-      assetMatch100Percent: true,
-      iacsAuthorityValid: true,
-      overallValid: true,
-    },
-    verificationStatus: 'Verified',
-  };
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -203,7 +200,45 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         onAvailabilityChange={(value) => updateEquipmentAvailability(item.id, value)}
       />
 
-      {/* Main Content Layout: Photo Gallery (Left) + Particulars (Right) */}
+      <ul className="nav nav-tabs border-bottom" role="tablist" aria-label="Equipment detail tabs">
+        <li className="nav-item">
+          <button
+            type="button"
+            role="tab"
+            className={`nav-link ${activeTab === 'overview' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => setActiveTab('overview')}
+          >
+            Overview
+          </button>
+        </li>
+        {showDocumentsTab && (
+          <li className="nav-item">
+            <button
+              type="button"
+              role="tab"
+              className={`nav-link ${activeTab === 'documents' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+              onClick={() => setActiveTab('documents')}
+            >
+              Documents ({equipmentDocs.length})
+            </button>
+          </li>
+        )}
+        {showAssuranceTab && (
+          <li className="nav-item">
+            <button
+              type="button"
+              role="tab"
+              className={`nav-link ${activeTab === 'assurance' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+              onClick={() => setActiveTab('assurance')}
+            >
+              Assurance ({linkedSets.length})
+            </button>
+          </li>
+        )}
+      </ul>
+
+      {/* Overview — photo and particulars only */}
+      {activeTab === 'overview' && (
       <div className="row g-3">
         {/* Left Column: Equipment Photo Gallery & Quick Actions */}
         <div className="col-12 col-lg-5 col-xl-5">
@@ -340,68 +375,133 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                     )}
                   </div>
                 </div>
-                <div className="col-md-6">
-                  <div className="text-secondary small">Class Status</div>
-                  <div className="fw-semibold">{item.classStatus || 'In Class'}</div>
-                </div>
               </div>
             </div>
           </div>
-
-          {/* Statutory & Proof Test Certificate Card (PDF Form) */}
-          <div className="card map-card-custom">
-            <div className="card-header fw-bold bg-white d-flex align-items-center justify-content-between">
-              <span className="d-flex align-items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
-                <span>Statutory &amp; Proof Test Certificate (PDF)</span>
-              </span>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                style={{ width: '28px', height: '28px' }}
-                onClick={() => setShowCertModal(true)}
-                title="Fullscreen PDF"
-                aria-label="Fullscreen PDF"
-              >
-                <Eye size={14} />
-              </button>
-            </div>
-            <div className="card-body p-3">
-              <div className="d-flex align-items-center justify-content-between mb-3 p-2 bg-light rounded border">
-                <div>
-                  <div className="fw-bold small text-dark">{equipmentCertDoc.title}</div>
-                  <div className="text-secondary font-mono-code" style={{ fontSize: '0.72rem' }}>
-                    {equipmentCertDoc.certificateNo} · Issuing: {equipmentCertDoc.issuingAuthority}
-                  </div>
-                </div>
-                <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code">
-                  Verified PDF
-                </span>
-              </div>
-              <DocumentCertificatePreview document={equipmentCertDoc} height="420px" />
-            </div>
-          </div>
-
-          {linkedSets.length > 0 && (
-            <div className="card map-card-custom">
-              <div className="card-header fw-bold bg-white">Assurance Sets</div>
-              <div className="list-group list-group-flush">
-                {linkedSets.map((set) => (
-                  <button
-                    key={set.id}
-                    type="button"
-                    className="list-group-item list-group-item-action d-flex justify-between align-items-center"
-                    onClick={() => setCurrentHashView('assurance-sets', set.id)}
-                  >
-                    <span>{set.title}</span>
-                    <span className="badge bg-light text-dark border">{set.stage}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
+      )}
+
+      {/* Documents — store certificates only */}
+      {activeTab === 'documents' && (
+        <div className="card map-card-custom">
+          <div className="card-header fw-bold bg-white">
+            Certificates ({equipmentDocs.length})
+          </div>
+          <div className="table-responsive">
+            <table className="table map-table-custom align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Certificate No</th>
+                  <th>Title</th>
+                  <th>Issuing Authority</th>
+                  <th>Expiry</th>
+                  <th>Status</th>
+                  <th className="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {equipmentDocs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center text-muted py-4">
+                      No document on file.
+                    </td>
+                  </tr>
+                ) : (
+                  equipmentDocs.map((doc) => (
+                    <tr key={doc.id}>
+                      <td className="font-mono-code small fw-semibold text-primary">{doc.certificateNo}</td>
+                      <td>{doc.title}</td>
+                      <td className="small">{doc.issuingAuthority}</td>
+                      <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
+                      <td>
+                        <span className="badge bg-light text-dark border">{doc.verificationStatus}</span>
+                      </td>
+                      <td className="text-end">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                          style={{ width: '32px', height: '32px' }}
+                          onClick={() => setPreviewDoc(doc)}
+                          title="View certificate"
+                          aria-label={`View ${doc.title}`}
+                        >
+                          <Eye size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Assurance — sets that name this equipment */}
+      {activeTab === 'assurance' && (
+        <div className="card map-card-custom">
+          <div className="card-header p-3 border-bottom d-flex align-items-center justify-between">
+            <div className="fw-bold text-dark fs-6">
+              Assurance Sets ({linkedSets.length})
+            </div>
+            {canRentEquipment && (
+              <button
+                type="button"
+                className="btn btn-sm btn-primary fw-semibold"
+                onClick={() => {
+                  setCreateAssuranceForAsset({ scope: 'Equipment', assetId: item.id });
+                  setCurrentHashView('create-assurance-set');
+                }}
+              >
+                Rent Equipment
+              </button>
+            )}
+          </div>
+          <div className="table-responsive">
+            <table className="table map-table-custom align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Set ID</th>
+                  <th>Title</th>
+                  <th>Stage</th>
+                  <th>Created By</th>
+                  <th className="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linkedSets.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center text-muted py-4">
+                      No assurance sets for this equipment.
+                    </td>
+                  </tr>
+                ) : (
+                  linkedSets.map((set) => (
+                    <tr key={set.id}>
+                      <td className="font-mono-code small">{set.id}</td>
+                      <td>{set.title}</td>
+                      <td>
+                        <span className="badge bg-light text-dark border">{set.stage}</span>
+                      </td>
+                      <td className="small">{set.initiatorOrg}</td>
+                      <td className="text-end">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => setCurrentHashView('assurance-sets', set.id)}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* Equipment Photo Upload & Gallery Manager Modal                            */}
@@ -838,14 +938,16 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         />
       )}
 
-      {/* Equipment Compliance & Proof Test Certificate Modal (PDF Form) */}
-      {/* Universal Equipment Certificate Preview Modal */}
       <UniversalDocumentPreviewModal
-        isOpen={showCertModal}
-        document={equipmentCertDoc}
-        onClose={() => setShowCertModal(false)}
-        title={equipmentCertDoc.title}
-        subtitle={`${equipmentCertDoc.certificateNo} · ${item.name} · PDF Preview`}
+        isOpen={Boolean(previewDoc)}
+        document={previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        title={previewDoc?.title || 'Certificate'}
+        subtitle={
+          previewDoc
+            ? `${previewDoc.certificateNo} · ${item.name} · PDF Preview`
+            : undefined
+        }
       />
 
     </div>

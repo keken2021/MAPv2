@@ -38,7 +38,7 @@ describe('asset detail headers', () => {
     expect(screen.queryByText(/Admin \/ Submitter|Read-Only Mode/)).toBeNull();
   });
 
-  it('gives equipment one header status, readiness, and one certificate opener', () => {
+  it('gives equipment one header status, readiness, and store-backed document tabs', () => {
     const item = useMapStore.getState().equipment[0];
     const { container } = render(<EquipmentDetailView equipmentId={item.id} />);
     const header = container.querySelector('.map-detail-header') as HTMLElement;
@@ -46,7 +46,11 @@ describe('asset detail headers', () => {
     expect(header.textContent).toMatch(/Readiness:/);
     expect(screen.queryByText(/^Score:/)).toBeNull();
     expect(screen.queryByRole('button', { name: /certificate \(pdf\)/i })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Fullscreen PDF' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Fullscreen PDF' })).toBeNull();
+    expect(screen.queryByText('Class Status')).toBeNull();
+    expect(screen.getByRole('tablist', { name: 'Equipment detail tabs' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Documents/ })).toBeInTheDocument();
     expect(header.querySelector('.detail-header-action-close')).toBeNull();
   });
 
