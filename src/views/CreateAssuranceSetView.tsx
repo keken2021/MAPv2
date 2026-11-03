@@ -18,6 +18,7 @@ import {
   AssuranceRequirementCategory,
   AssuranceObject,
   AssuranceObjectType,
+  TaskSection,
 } from '../types/assurance';
 import { UserProfile } from '../types/user';
 import { CrewMember } from '../types/crew';
@@ -78,7 +79,7 @@ import {
 import { formatMaritimeDate } from '../utils/formatters';
 import { filterProjectsForPersona, projectToAssuranceProjectScope, setOrganizationParties, withProjectVessels } from '../utils/projectHelpers';
 import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
-import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
 
@@ -95,6 +96,9 @@ interface SpecializedDoc {
   requirementSubtype?: AssuranceSubtype | null;
   targetObjectId?: string;
   targetDate?: string;
+  isOtherDocument?: boolean;
+  isSpecialized?: boolean;
+  sectionId?: string;
 }
 
 interface CreateAssuranceSetViewProps {
@@ -650,6 +654,21 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Specialized Custom Documents added by the user */
   const [specializedDocs, setSpecializedDocs] = useState<SpecializedDoc[]>([]);
+  /* Section titles editable in place */
+  const [sectionTitles, setSectionTitles] = useState<Record<string, string>>({});
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
+  const [editingSectionDraft, setEditingSectionDraft] = useState<string>('');
+
+  const getSectionTitle = (sectionKey: string, defaultTitle: string): string =>
+    sectionTitles[sectionKey]?.trim() || defaultTitle;
+
+  const handleSaveSectionTitle = (sectionKey: string, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (trimmed) {
+      setSectionTitles((prev) => ({ ...prev, [sectionKey]: trimmed }));
+    }
+    setEditingSectionId(null);
+  };
 
   interface GeneralDocumentItem {
     id: string;
@@ -914,7 +933,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
           // Restore specialized custom requirements
           const customReqs: SpecializedDoc[] = target.requirements
-            .filter((r) => r.isSpecialized)
+            .filter((r) => r.isSpecialized || r.isOtherDocument)
             .map((r, idx) => ({
               id: `restored-spec-${idx}-${Date.now()}`,
               subtype: (r.subtype as AssuranceSubtype) || 'Vessel',
@@ -923,8 +942,24 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               description: r.description || '',
               isMandatory: r.isMandatory,
               isEnabled: true,
+              isSpecialized: true,
+              isOtherDocument: r.isOtherDocument,
+              sectionId: r.sectionId,
             }));
           setSpecializedDocs(customReqs);
+          if (target.sections && target.sections.length > 0) {
+            const restoredTitles: Record<string, string> = {};
+            target.sections.forEach((sec) => {
+              if (sec.id === 'sec-general') restoredTitles['general'] = sec.name;
+              else if (sec.id.startsWith('sec-')) {
+                const slug = sec.id.replace('sec-', '');
+                const matchedScope = selectedScopes.find((s) => s.toLowerCase() === slug);
+                if (matchedScope) restoredTitles[matchedScope] = sec.name;
+                else restoredTitles[slug] = sec.name;
+              }
+            });
+            setSectionTitles(restoredTitles);
+          }
         } else {
           applyGlobalTemplateData(target);
         }
@@ -989,15 +1024,21 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   };
 
   /* Create custom document from searchable picker or accordion */
-  const handleCreateCustomDoc = (subtype: AssuranceSubtype, titleText: string, category?: AssuranceRequirementCategory) => {
+  const handleCreateCustomDoc = (subtype: AssuranceSubtype, titleText: string, category?: AssuranceRequirementCategory, isOtherDocument?: boolean) => {
+    const effectiveCategory = category || SUBTYPE_CATEGORIES[subtype][0];
     const newDoc: SpecializedDoc = {
       id: `custom-doc-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       subtype,
       title: titleText.trim(),
-      category: category || SUBTYPE_CATEGORIES[subtype][0],
-      description: `Custom requirement for ${subtype} assurance.`,
+      category: effectiveCategory,
+      description: isOtherDocument
+        ? `Other ${effectiveCategory} document for ${subtype} assurance.`
+        : `Custom requirement for ${subtype} assurance.`,
       isMandatory: true,
       isEnabled: true,
+      isSpecialized: true,
+      isOtherDocument: isOtherDocument ?? false,
+      sectionId: `sec-${subtype.toLowerCase()}`,
     };
     setSpecializedDocs((prev) => [...prev, newDoc]);
   };
@@ -1211,6 +1252,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     /* every tab is checked on submit; the wizard returns to the first one that still has an error */
     setErrorMessage('');
     const firstInvalidStep = steps.findIndex((_, idx) => Object.keys(getStepErrors(idx + 1)).length > 0);
+
     if (firstInvalidStep !== -1) {
       setFieldErrors(getStepErrors(firstInvalidStep + 1));
       setCurrentStep(firstInvalidStep + 1);
@@ -1242,6 +1284,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         title: doc.title,
         description: doc.description,
         isMandatory: doc.isMandatory,
+        sectionId: 'sec-general',
         isFulfilled: false,
         ocrConfidence: 0,
         verifierStatus: 'Pending',
@@ -1287,6 +1330,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           subtype: savedRequirementSubtype(spec),
           isMandatory: spec.isMandatory,
           isSpecialized: true,
+          isOtherDocument: spec.isOtherDocument ?? false,
+          sectionId: `sec-${subtype.toLowerCase()}`,
           targetDate: spec.targetDate || complianceDeadline,
           isFulfilled: false,
           ocrConfidence: 0,
@@ -1300,6 +1345,24 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
     const placedTasks = placeTasksInSections(finalRequirements);
     finalRequirements.splice(0, finalRequirements.length, ...placedTasks.requirements);
+
+    const sectionTitleMap: Record<string, string> = {
+      'sec-general': getSectionTitle('general', 'General documents'),
+      ...Object.fromEntries(
+        selectedScopes.map((scope) => [
+          `sec-${scope.toLowerCase()}`,
+          getSectionTitle(scope, `${scope} documents`),
+        ])
+      ),
+      'sec-procedure': getSectionTitle('procedure', 'Procedures'),
+      'sec-method': getSectionTitle('method', 'Methods'),
+    };
+
+    const finalSections: TaskSection[] = placedTasks.sections.map((sec, idx) => ({
+      id: sec.id,
+      name: sectionTitleMap[sec.id] || sec.name,
+      order: sec.order || idx + 1,
+    }));
 
     const ownerOrg = charterer.trim() || clientOrg;
     const effectiveCharterer = ownerOrg;
@@ -1471,7 +1534,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       clientOrg: ownerOrg,
       parties: setOrganizationParties({ clientOrg: ownerOrg, serviceProviderOrg: appointedProviderOrg }),
       requirements: effectiveRequirements,
-      sections: placedTasks.sections,
+      sections: finalSections,
       stakeholders: appointedStakeholders,
       assignedStakeholders: undefined,
       createdByPersona: 'C Admin',
@@ -1860,19 +1923,75 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         data-testid="section-general-documents"
       >
         <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-          <h4
-            id="requirements-heading-general"
-            className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
-          >
-            <Building2 className="w-5 h-5 text-primary" aria-hidden="true" />
-            General documents
-            <span
-              className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code ms-1"
-              style={{ fontSize: '0.72rem' }}
-            >
-              Pinned
-            </span>
-          </h4>
+          {editingSectionId === 'general' ? (
+            <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '450px' }}>
+              <Building2 className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+              <input
+                type="text"
+                className="form-control form-control-sm fw-bold fs-6"
+                value={editingSectionDraft}
+                onChange={(e) => setEditingSectionDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSaveSectionTitle('general', editingSectionDraft);
+                  } else if (e.key === 'Escape') {
+                    setEditingSectionId(null);
+                  }
+                }}
+                autoFocus
+                aria-label="Edit section title"
+                data-testid="input-section-title-general"
+              />
+              <button
+                type="button"
+                className="btn btn-sm btn-primary text-white d-inline-flex align-items-center gap-1 px-2.5 py-1"
+                onClick={() => handleSaveSectionTitle('general', editingSectionDraft)}
+                data-testid="btn-save-section-title-general"
+              >
+                <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="small">Save</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 px-2.5 py-1"
+                onClick={() => setEditingSectionId(null)}
+                data-testid="btn-cancel-section-title-general"
+              >
+                <X className="w-3.5 h-3.5" aria-hidden="true" />
+                <span className="small">Cancel</span>
+              </button>
+            </div>
+          ) : (
+            <div className="d-flex align-items-center gap-2">
+              <h4
+                id="requirements-heading-general"
+                className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
+              >
+                <Building2 className="w-5 h-5 text-primary" aria-hidden="true" />
+                <span data-testid="section-title-general">{getSectionTitle('general', 'General documents')}</span>
+                <span
+                  className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code ms-1"
+                  style={{ fontSize: '0.72rem' }}
+                >
+                  Pinned
+                </span>
+              </h4>
+              <button
+                type="button"
+                className="btn btn-sm btn-link text-secondary text-decoration-none p-1 d-inline-flex align-items-center"
+                onClick={() => {
+                  setEditingSectionId('general');
+                  setEditingSectionDraft(getSectionTitle('general', 'General documents'));
+                }}
+                aria-label="Edit section title"
+                data-testid="btn-edit-section-title-general"
+                title="Edit section title"
+              >
+                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            </div>
+          )}
           <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.75rem' }}>
             {activeGeneralDocs.length} Organization-wide {activeGeneralDocs.length === 1 ? 'doc' : 'docs'}
           </span>
@@ -2200,14 +2319,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                   data-testid={`requirement-row-${spec.id}`}
                                 >
                                   <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                    <span className="fw-semibold text-dark small text-truncate">
+                                    <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${spec.id}`}>
                                       {spec.title}
                                     </span>
                                     <span
                                       className="badge bg-secondary-subtle text-dark border font-mono-code"
                                       style={{ fontSize: '0.675rem' }}
                                     >
-                                      Custom
+                                      {spec.isOtherDocument ? 'Other Document' : 'Custom'}
                                     </span>
                                   </div>
                                   <div className="d-flex align-items-center gap-3 flex-shrink-0">
@@ -2251,7 +2370,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             className="btn btn-sm btn-link text-primary text-decoration-none p-0 d-inline-flex align-items-center gap-1 font-sans"
                             style={{ fontSize: '0.78rem' }}
                             data-testid={`btn-add-other-doc-${subtype.toLowerCase()}-${slug}`}
-                            onClick={() => handleCreateCustomDoc(subtype, `Other ${category} Document`, category as AssuranceRequirementCategory)}
+                            onClick={() => handleCreateCustomDoc(subtype, `Other ${category} Document`, category as AssuranceRequirementCategory, true)}
                           >
                             <Plus className="w-3.5 h-3.5" />
                             Add other document
@@ -3302,21 +3421,83 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <>
                   {selectedScopes.map((scope) => {
                     const ScopeIcon = scope === 'Vessel' ? Ship : scope === 'Crew' ? Users : Wrench;
-                    const objectTypeLabel = scope === 'Crew' ? 'Crew Directory' : scope;
+                    const sectionKey = scope;
+                    const defaultTitle = `${scope} documents`;
+                    const currentTitle = getSectionTitle(sectionKey, defaultTitle);
+                    const isEditing = editingSectionId === sectionKey;
+                    const slug = scope.toLowerCase();
                     return (
                       <section
                         key={scope}
                         className="d-flex flex-column gap-3"
-                        aria-labelledby={`requirements-heading-${scope.toLowerCase()}`}
-                        data-testid={`section-object-${scope.toLowerCase()}`}
+                        aria-labelledby={`requirements-heading-${slug}`}
+                        data-testid={`section-object-${slug}`}
                       >
-                        <h4
-                          id={`requirements-heading-${scope.toLowerCase()}`}
-                          className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
-                        >
-                          <ScopeIcon className="w-5 h-5 text-primary" aria-hidden="true" />
-                          {scope} documents
-                        </h4>
+                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                          {isEditing ? (
+                            <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '450px' }}>
+                              <ScopeIcon className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                              <input
+                                type="text"
+                                className="form-control form-control-sm fw-bold fs-6"
+                                value={editingSectionDraft}
+                                onChange={(e) => setEditingSectionDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSaveSectionTitle(sectionKey, editingSectionDraft);
+                  } else if (e.key === 'Escape') {
+                    setEditingSectionId(null);
+                  }
+                                }}
+                                autoFocus
+                                aria-label={`Edit ${scope} section title`}
+                                data-testid={`input-section-title-${slug}`}
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-primary text-white d-inline-flex align-items-center gap-1 px-2.5 py-1"
+                                onClick={() => handleSaveSectionTitle(sectionKey, editingSectionDraft)}
+                                data-testid={`btn-save-section-title-${slug}`}
+                              >
+                                <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span className="small">Save</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 px-2.5 py-1"
+                                onClick={() => setEditingSectionId(null)}
+                                data-testid={`btn-cancel-section-title-${slug}`}
+                              >
+                                <X className="w-3.5 h-3.5" aria-hidden="true" />
+                                <span className="small">Cancel</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="d-flex align-items-center gap-2">
+                              <h4
+                                id={`requirements-heading-${slug}`}
+                                className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
+                              >
+                                <ScopeIcon className="w-5 h-5 text-primary" aria-hidden="true" />
+                                <span data-testid={`section-title-${slug}`}>{currentTitle}</span>
+                              </h4>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-link text-secondary text-decoration-none p-1 d-inline-flex align-items-center"
+                                onClick={() => {
+                                  setEditingSectionId(sectionKey);
+                                  setEditingSectionDraft(currentTitle);
+                                }}
+                                aria-label={`Edit ${currentTitle} section title`}
+                                data-testid={`btn-edit-section-title-${slug}`}
+                                title="Edit section title"
+                              >
+                                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         {renderSubtypeSection(scope)}
                       </section>
                     );
@@ -3484,7 +3665,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <div key={scope} className={isCrew ? 'col-12' : 'col-12 col-md-6'}>
                                 <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
                                   <div className="d-flex align-items-center justify-content-between mb-2">
-                                    <strong className="text-dark small">{scope}</strong>
+                                    <strong className="text-dark small">{getSectionTitle(scope, `${scope} documents`)}</strong>
                                     <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
                                       {standardCount + customCount} Docs
                                     </span>

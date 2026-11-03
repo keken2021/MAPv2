@@ -69,6 +69,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/views/AssuranceObjectsView.tsx` : assurance objects catalog view with 6 target tabs (All, Vessels, Crew Directory, Equipment, Procedures, Methods); tests `src/__tests__/assuranceObjectTabs.test.tsx`
 - `src/__tests__/assuranceWizardObjects.test.tsx` : tests for assurance set wizard object type picker (5 target types) and port-entry bundle objects (Task 5300)
 - `src/__tests__/assuranceWizardRequirementsStep.test.tsx` : tests for assurance set wizard Step 3 General documents pinned section and sub-type accordions (Task 5301)
+- `src/__tests__/assuranceWizardStep3TitlesAndOtherDocs.test.tsx` : tests for assurance set wizard Step 3 in-place editable section titles and Add other document action (Task 5302)
 
 ## Marketplace screens
 - `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)
