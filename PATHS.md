@@ -67,6 +67,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/tables/ProjectAssuranceStatusTable.tsx` : status-first assurance set table on project detail; tests `src/__tests__/projectAssuranceStatusTable.test.tsx`
 - `src/views/AssuranceObjectsView.tsx` : assurance objects catalog view with 6 target tabs (All, Vessels, Crew Directory, Equipment, Procedures, Methods); tests `src/__tests__/assuranceObjectTabs.test.tsx`
 - `src/__tests__/assuranceWizardObjects.test.tsx` : tests for assurance set wizard object type picker (5 target types) and port-entry bundle objects (Task 5300)
+- `src/__tests__/assuranceWizardRequirementsStep.test.tsx` : tests for assurance set wizard Step 3 General documents pinned section and sub-type accordions (Task 5301)
 
 ## Marketplace screens
 - `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)
@@ -156,6 +157,8 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/plans/status-first-project-table.md` : status-first project table and the client Assurance Sets link (Task 5294, ADR 0033 proposed): status rule, thresholds, filters
 - `docs/work-items/status-first-project-table-task.csv` : Task 5294 under User Story 5207
 - `docs/work-items/project-detail-tabs-tasks.csv` : Tasks 5295 to 5297 under User Story 5207 for the project detail tabs (table columns, search and filter toolbar, Details tab), assigned to Creishen Ayuman, 0.5 h each
+- `docs/work-items/organizations-in-general-port-task.csv` : Task 5326 under User Story 5207, port `feature/organizations-in-general` onto v4 (v4 wins over 5299/5300) and fix the High findings of the UI/UX evaluation, assigned to Creishen Ayuman, 0.5 h
+- `docs/work-items/requirements-custom-sections-tasks.csv` : 2 Tasks under User Story 5207 (not yet on the board), wizard Define requirements step and detail Requirements tab: no blank sections, General plus object sections, Add custom section saved to the set, sentence case titles, assigned to Creishen Ayuman, 0.5 h each
 - `docs/work-items/audit-fixes-tasks.csv` : 28 Tasks under User Story 5207 from `docs/plans/shown-data-without-basis-audit.md` Part 7, 14 each for Creishen Ayuman (assurance sets) and Kurt Grava (projects, assets, others), 0.5 h each
 - `docs/work-items/brd-v4.2-gap-tasks.csv` : 6 Tasks (5285 to 5290) under User Story 5207 for the BRD V4.2 gaps that wait on nothing (G3, G4, G6, G7, G12), assigned to Creishen Ayuman, 0.25 or 0.5 h each. Source: `docs/plans/brd-gap-status-2026-11-02.md`
 - `docs/work-items/role-views-tasks.csv` : 11 Tasks (5231 to 5241, under User Story 5209) for per-person views and the sidebar, split between Creishen Ayuman and Kurt Grava, 0.75 or 1 h each. Design: `docs/plans/per-person-views-and-sidebar.md`

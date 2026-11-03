@@ -651,6 +651,74 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   /* Specialized Custom Documents added by the user */
   const [specializedDocs, setSpecializedDocs] = useState<SpecializedDoc[]>([]);
 
+  interface GeneralDocumentItem {
+    id: string;
+    code: string;
+    title: string;
+    category: string;
+    description: string;
+    isMandatory: boolean;
+    isEnabled: boolean;
+  }
+
+  /* Pinned General Documents for organization-wide requirements (DOC, NDA, MSA) */
+  const [generalDocs, setGeneralDocs] = useState<GeneralDocumentItem[]>([
+    {
+      id: 'gen-doc-ism',
+      code: 'DOC',
+      title: 'Company ISM Document of Compliance (DOC)',
+      category: 'Statutory Certificate',
+      description: 'Document of Compliance issued to the operating company confirming the safety management system meets IMO/ISM standards.',
+      isMandatory: true,
+      isEnabled: true,
+    },
+    {
+      id: 'gen-doc-nda',
+      code: 'NDA',
+      title: 'Mutual Non-Disclosure Agreement (NDA)',
+      category: 'Commercial & Legal',
+      description: 'Mutual non-disclosure and confidentiality agreement protecting operational, technical, and proprietary information.',
+      isMandatory: true,
+      isEnabled: true,
+    },
+    {
+      id: 'gen-doc-msa',
+      code: 'MSA',
+      title: 'Master Service Agreement (MSA)',
+      category: 'Commercial & Legal',
+      description: 'Master service and charter framework agreement governing the commercial and operational terms for platform engagements.',
+      isMandatory: true,
+      isEnabled: true,
+    },
+  ]);
+
+  /* Accordion expansion state: true by default so all active accordions open initially */
+  const [expandedAccordions, setExpandedAccordions] = useState<Record<string, boolean>>({});
+  const toggleAccordion = (key: string) => {
+    setExpandedAccordions((prev) => ({
+      ...prev,
+      [key]: prev[key] === undefined ? false : !prev[key],
+    }));
+  };
+  const isAccordionOpen = (key: string) => expandedAccordions[key] !== false;
+
+  const handleToggleGeneralDocRequired = (id: string, current: boolean) => {
+    setGeneralDocs((prev) =>
+      prev.map((doc) => (doc.id === id ? { ...doc, isMandatory: !current } : doc)),
+    );
+  };
+  const handleRemoveGeneralDoc = (id: string) => {
+    setGeneralDocs((prev) =>
+      prev.map((doc) => (doc.id === id ? { ...doc, isEnabled: false } : doc)),
+    );
+  };
+
+  const getGeneralDocAssignedOrg = (code: string) => {
+    if (code === 'DOC') return appointedProviderOrg || serviceProviderOrg || 'Service Provider Organization';
+    if (code === 'MSA') return setClientOrg;
+    return `${setClientOrg} & ${appointedProviderOrg || serviceProviderOrg || 'Service Provider'}`;
+  };
+
   /* Wizard tabs: General, Objects, Requirements, Review */
   const steps = buildAssuranceWizardSteps();
   const totalSteps = steps.length;
@@ -920,13 +988,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     }));
   };
 
-  /* Create custom document from searchable picker */
-  const handleCreateCustomDoc = (subtype: AssuranceSubtype, titleText: string) => {
+  /* Create custom document from searchable picker or accordion */
+  const handleCreateCustomDoc = (subtype: AssuranceSubtype, titleText: string, category?: AssuranceRequirementCategory) => {
     const newDoc: SpecializedDoc = {
       id: `custom-doc-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       subtype,
       title: titleText.trim(),
-      category: SUBTYPE_CATEGORIES[subtype][0],
+      category: category || SUBTYPE_CATEGORIES[subtype][0],
       description: `Custom requirement for ${subtype} assurance.`,
       isMandatory: true,
       isEnabled: true,
@@ -1165,6 +1233,25 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           ? `${selectedVerifier.name} (${selectedVerifier.organization})`
           : 'Pending Admin Assignment'
       : undefined;
+
+    /* Include general documents (DOC, NDA, MSA) assigned to organizations */
+    generalDocs.filter((d) => d.isEnabled).forEach((doc) => {
+      finalRequirements.push({
+        id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+        category: doc.category as AssuranceRequirementCategory,
+        title: doc.title,
+        description: doc.description,
+        isMandatory: doc.isMandatory,
+        isFulfilled: false,
+        ocrConfidence: 0,
+        verifierStatus: 'Pending',
+        assignedSubmitter: getGeneralDocAssignedOrg(doc.code),
+        assignedVerifier: reqAssignedVerifier,
+        verifierId: verificationRequired ? assignedVerifier : undefined,
+        targetDate: complianceDeadline,
+      });
+    });
+
 
     activeSubtypes.forEach((subtype) => {
       const reqAssignedSubmitter = submitterLabel;
@@ -1763,7 +1850,127 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     );
   };
 
-  /* Render reusable Subtype Document Section */
+  /* Render pinned General Documents Section for organization-wide requirements */
+  const renderGeneralDocumentsSection = () => {
+    const activeGeneralDocs = generalDocs.filter((d) => d.isEnabled);
+    return (
+      <section
+        className="d-flex flex-column gap-3 mb-2"
+        aria-labelledby="requirements-heading-general"
+        data-testid="section-general-documents"
+      >
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <h4
+            id="requirements-heading-general"
+            className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
+          >
+            <Building2 className="w-5 h-5 text-primary" aria-hidden="true" />
+            General documents
+            <span
+              className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code ms-1"
+              style={{ fontSize: '0.72rem' }}
+            >
+              Pinned
+            </span>
+          </h4>
+          <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.75rem' }}>
+            {activeGeneralDocs.length} Organization-wide {activeGeneralDocs.length === 1 ? 'doc' : 'docs'}
+          </span>
+        </div>
+        <p className="text-secondary small m-0">
+          Organization-wide files (DOC, NDA, MSA) assigned to organizations, not to an asset.
+        </p>
+
+        <div className="card border shadow-2xs rounded-3 bg-white">
+          <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+              <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                Organization Requirements ({activeGeneralDocs.length})
+              </h5>
+              <div className="text-muted small mt-0.5">
+                Standard organizational compliance and contractual documentation.
+              </div>
+            </div>
+          </div>
+          <div className="card-body p-4 d-flex flex-column gap-2" data-testid="general-docs-list">
+            {activeGeneralDocs.length === 0 ? (
+              <div className="p-4 text-center text-secondary small bg-light rounded-2 border border-dashed">
+                No general documents configured.
+              </div>
+            ) : (
+              activeGeneralDocs.map((doc) => {
+                const assignedOrg = getGeneralDocAssignedOrg(doc.code);
+
+                return (
+                  <div
+                    key={doc.id}
+                    className="p-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
+                    data-testid={`general-doc-row-${doc.id}`}
+                  >
+                    <div className="d-flex flex-column gap-1 flex-grow-1 min-w-0">
+                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                        <span className="fw-semibold text-dark small text-truncate">
+                          {doc.title}
+                        </span>
+                        <span
+                          className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code"
+                          style={{ fontSize: '0.675rem' }}
+                        >
+                          {doc.code}
+                        </span>
+                        <span
+                          className="badge bg-light text-secondary border font-mono-code"
+                          style={{ fontSize: '0.675rem' }}
+                        >
+                          Assigned: {assignedOrg}
+                        </span>
+                      </div>
+                      <span className="text-secondary small" style={{ fontSize: '0.75rem' }}>
+                        {doc.description}
+                      </span>
+                    </div>
+
+                    <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                      <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                        <input
+                          className="form-check-input cursor-pointer"
+                          type="checkbox"
+                          id={`gen-req-toggle-${doc.id}`}
+                          checked={doc.isMandatory}
+                          onChange={() => handleToggleGeneralDocRequired(doc.id, doc.isMandatory)}
+                          style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                        />
+                        <label
+                          htmlFor={`gen-req-toggle-${doc.id}`}
+                          className={`small fw-semibold m-0 cursor-pointer ${
+                            doc.isMandatory ? 'text-success' : 'text-secondary'
+                          }`}
+                          style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                        >
+                          {doc.isMandatory ? 'Required' : 'Optional'}
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                        title="Remove document"
+                        aria-label={`Remove ${doc.title}`}
+                        onClick={() => handleRemoveGeneralDoc(doc.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  };
+
+  /* Render reusable Subtype Document Section with Sub-type Accordions */
   const renderSubtypeSection = (subtype: AssuranceSubtype) => {
     const standardDocs = SUBTYPE_STANDARD_DOCS[subtype] || [];
     const publicTemplates = SUBTYPE_TEMPLATES.filter((t) => (t.subtype === subtype || t.subtype === 'All') && t.source === 'public');
@@ -1782,6 +1989,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         label: d.title,
         hint: d.category,
       }));
+
+    /* Collect all sub-type categories for this subtype */
+    const standardCategories = SUBTYPE_CATEGORIES[subtype] || [];
+    const extraCategories = activeSpecializedDocs
+      .map((d) => d.category)
+      .filter((cat) => !standardCategories.includes(cat as any));
+    const allSubtypeCategories = [...standardCategories, ...extraCategories];
 
     return (
       <div className="d-flex flex-column gap-3" id={`subtype-docs-container-${subtype}`}>
@@ -1857,7 +2071,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           </div>
         </div>
 
-        {/* Required Documents List & Searchable Picker Card */}
+        {/* Searchable Picker Card */}
         <div className="card border shadow-2xs rounded-3 bg-white">
           <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
             <div>
@@ -1865,7 +2079,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 Documents ({totalActiveCount})
               </h5>
               <div className="text-muted small mt-0.5">
-                Set each document as required or optional, or search to add more.
+                Requirements grouped into sub-type accordions. Search to add more.
               </div>
             </div>
           </div>
@@ -1886,110 +2100,201 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               />
             </div>
 
-            {/* Document rows or empty state */}
-            {totalActiveCount === 0 ? (
+            {/* Sub-type Accordions */}
+            <div className="d-flex flex-column gap-2.5 mt-2" id={`subtype-accordions-${subtype}`}>
+              {allSubtypeCategories.map((category) => {
+                const standardForCat = activeStandardDocs.filter((d) => d.category === category);
+                const specializedForCat = activeSpecializedDocs.filter((d) => d.category === category);
+                const totalCatCount = standardForCat.length + specializedForCat.length;
+                const accordionKey = `${subtype}-${category}`;
+                const isOpen = isAccordionOpen(accordionKey);
+                const slug = category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+                return (
+                  <div
+                    key={category}
+                    className="border rounded-3 bg-white overflow-hidden shadow-2xs"
+                    data-testid={`subtype-accordion-${subtype.toLowerCase()}-${slug}`}
+                  >
+                    <button
+                      type="button"
+                      className="w-100 px-3 py-2.5 bg-light border-0 d-flex align-items-center justify-content-between text-start cursor-pointer hover-bg-light transition-all"
+                      onClick={() => toggleAccordion(accordionKey)}
+                      aria-expanded={isOpen}
+                      data-testid={`accordion-header-${subtype.toLowerCase()}-${slug}`}
+                    >
+                      <div className="d-flex align-items-center gap-2">
+                        <ChevronDown
+                          className={`w-4 h-4 text-secondary transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                          aria-hidden="true"
+                        />
+                        <span className="fw-semibold text-slate-900 small">
+                          {category}
+                        </span>
+                      </div>
+                      <span className="badge bg-white text-secondary border font-mono-code" style={{ fontSize: '0.72rem' }}>
+                        {totalCatCount} {totalCatCount === 1 ? 'doc' : 'docs'}
+                      </span>
+                    </button>
+
+                    {isOpen && (
+                      <div className="p-3 border-top d-flex flex-column gap-2 bg-white" data-testid={`accordion-body-${subtype.toLowerCase()}-${slug}`}>
+                        {totalCatCount === 0 ? (
+                          <div className="p-2.5 text-center text-secondary small bg-light rounded-2 border border-dashed" style={{ fontSize: '0.78rem' }}>
+                            No documents in {category}.
+                          </div>
+                        ) : (
+                          <>
+                            {standardForCat.map((doc) => {
+                              const isRequired = docRequired[doc.id] ?? doc.isMandatory;
+                              return (
+                                <div
+                                  key={doc.id}
+                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
+                                  data-testid={`requirement-row-${doc.id}`}
+                                >
+                                  <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                                    <span className="fw-semibold text-dark small text-truncate">
+                                      {doc.title}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                                    <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                      <input
+                                        className="form-check-input cursor-pointer"
+                                        type="checkbox"
+                                        id={`req-toggle-${doc.id}`}
+                                        checked={isRequired}
+                                        onChange={() => handleToggleStandardDocRequired(doc.id, isRequired)}
+                                        style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                                      />
+                                      <label
+                                        htmlFor={`req-toggle-${doc.id}`}
+                                        className={`small fw-semibold m-0 cursor-pointer ${
+                                          isRequired ? 'text-success' : 'text-secondary'
+                                        }`}
+                                        style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                                      >
+                                        {isRequired ? 'Required' : 'Optional'}
+                                      </label>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                                      title="Remove document"
+                                      aria-label={`Remove ${doc.title}`}
+                                      onClick={() => handleRemoveStandardDoc(doc.id)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {specializedForCat.map((spec) => {
+                              const isRequired = spec.isMandatory;
+                              return (
+                                <div
+                                  key={spec.id}
+                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
+                                  data-testid={`requirement-row-${spec.id}`}
+                                >
+                                  <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                                    <span className="fw-semibold text-dark small text-truncate">
+                                      {spec.title}
+                                    </span>
+                                    <span
+                                      className="badge bg-secondary-subtle text-dark border font-mono-code"
+                                      style={{ fontSize: '0.675rem' }}
+                                    >
+                                      Custom
+                                    </span>
+                                  </div>
+                                  <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                                    <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                      <input
+                                        className="form-check-input cursor-pointer"
+                                        type="checkbox"
+                                        id={`req-toggle-${spec.id}`}
+                                        checked={isRequired}
+                                        onChange={() => handleToggleCustomDocRequired(spec.id)}
+                                        style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                                      />
+                                      <label
+                                        htmlFor={`req-toggle-${spec.id}`}
+                                        className={`small fw-semibold m-0 cursor-pointer ${
+                                          isRequired ? 'text-success' : 'text-secondary'
+                                        }`}
+                                        style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                                      >
+                                        {isRequired ? 'Required' : 'Optional'}
+                                      </label>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                                      title="Remove document"
+                                      aria-label={`Remove ${spec.title}`}
+                                      onClick={() => handleRemoveCustomDoc(spec.id)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </>
+                        )}
+                        <div className="pt-2 border-top d-flex align-items-center justify-content-between">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link text-primary text-decoration-none p-0 d-inline-flex align-items-center gap-1 font-sans"
+                            style={{ fontSize: '0.78rem' }}
+                            data-testid={`btn-add-other-doc-${subtype.toLowerCase()}-${slug}`}
+                            onClick={() => handleCreateCustomDoc(subtype, `Other ${category} Document`, category as AssuranceRequirementCategory)}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add other document
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Document list container preserving backwards-compatible query selection */}
+            <div id={`docs-list-${subtype}`} style={{ display: 'none' }}>
+              {activeStandardDocs.map((doc) => (
+                <div key={doc.id} className="doc-item">
+                  <span>Doc: {doc.title}</span>
+                  <button
+                    type="button"
+                    title="Remove document"
+                    onClick={() => handleRemoveStandardDoc(doc.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {activeSpecializedDocs.map((spec) => (
+                <div key={spec.id} className="doc-item">
+                  <span>Doc: {spec.title}</span>
+                  <button
+                    type="button"
+                    title="Remove document"
+                    onClick={() => handleRemoveCustomDoc(spec.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {totalActiveCount === 0 && (
               <div className="p-4 text-center text-secondary small bg-light rounded-2 border border-dashed">
                 No {subtype} documents. Search to add one.
-              </div>
-            ) : (
-              <div className="d-flex flex-column gap-2" id={`docs-list-${subtype}`}>
-                {activeStandardDocs.map((doc) => {
-                  const isRequired = docRequired[doc.id] ?? doc.isMandatory;
-                  return (
-                    <div
-                      key={doc.id}
-                      className="p-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
-                    >
-                      <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                        <span className="fw-semibold text-dark small text-truncate">
-                          {doc.title}
-                        </span>
-                      </div>
-                      <div className="d-flex align-items-center gap-3 flex-shrink-0">
-                        <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                          <input
-                            className="form-check-input cursor-pointer"
-                            type="checkbox"
-                            id={`req-toggle-${doc.id}`}
-                            checked={isRequired}
-                            onChange={() => handleToggleStandardDocRequired(doc.id, isRequired)}
-                            style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
-                          />
-                          <label
-                            htmlFor={`req-toggle-${doc.id}`}
-                            className={`small fw-semibold m-0 cursor-pointer ${
-                              isRequired ? 'text-success' : 'text-secondary'
-                            }`}
-                            style={{ fontSize: '0.78rem', minWidth: '55px' }}
-                          >
-                            {isRequired ? 'Required' : 'Optional'}
-                          </label>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
-                          title="Remove document"
-                          aria-label={`Remove ${doc.title}`}
-                          onClick={() => handleRemoveStandardDoc(doc.id)}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {activeSpecializedDocs.map((spec) => {
-                  const isRequired = spec.isMandatory;
-                  return (
-                    <div
-                      key={spec.id}
-                      className="p-3 border rounded-3 bg-white shadow-2xs d-flex align-items-center justify-content-between gap-3"
-                    >
-                      <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                        <span className="fw-semibold text-dark small text-truncate">
-                          {spec.title}
-                        </span>
-                        <span
-                          className="badge bg-secondary-subtle text-dark border font-mono-code"
-                          style={{ fontSize: '0.675rem' }}
-                        >
-                          Custom
-                        </span>
-                      </div>
-                      <div className="d-flex align-items-center gap-3 flex-shrink-0">
-                        <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                          <input
-                            className="form-check-input cursor-pointer"
-                            type="checkbox"
-                            id={`req-toggle-${spec.id}`}
-                            checked={isRequired}
-                            onChange={() => handleToggleCustomDocRequired(spec.id)}
-                            style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
-                          />
-                          <label
-                            htmlFor={`req-toggle-${spec.id}`}
-                            className={`small fw-semibold m-0 cursor-pointer ${
-                              isRequired ? 'text-success' : 'text-secondary'
-                            }`}
-                            style={{ fontSize: '0.78rem', minWidth: '55px' }}
-                          >
-                            {isRequired ? 'Required' : 'Optional'}
-                          </label>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
-                          title="Remove document"
-                          aria-label={`Remove ${spec.title}`}
-                          onClick={() => handleRemoveCustomDoc(spec.id)}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             )}
           </div>
@@ -1997,7 +2302,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       </div>
     );
   };
-
+
   const currentStepData = steps[currentStep - 1] || steps[0];
 
   return (
@@ -2980,28 +3285,81 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             </div>
           )}
 
-          {/* REQUIREMENTS TAB: the required documents of each asset type the objects cover */}
+          {/* REQUIREMENTS TAB: General documents first, then one section per object type with sub-type accordions */}
           {currentStepData.id === 'step-requirements' && (
             <div className="d-flex flex-column gap-4">
-              {selectedScopes.length === 0 ? (
+              {/* Pinned General documents section comes first */}
+              {renderGeneralDocumentsSection()}
+
+              {/* Sections per object type with sub-type accordions */}
+              {selectedScopes.length === 0 && selectedAssuranceObjects.filter((o) => o.type === 'procedure' || o.type === 'method').length === 0 ? (
                 <div className="card border shadow-2xs rounded-3 bg-white">
                   <div className="card-body p-4 text-secondary small">
                     No standard documents for these objects. Vessels, crew members and equipment bring their required documents here; documents for procedures, methods, documents and organizations are not available yet.
                   </div>
                 </div>
               ) : (
-                selectedScopes.map((scope) => {
-                  const ScopeIcon = scope === 'Vessel' ? Ship : scope === 'Crew' ? Users : Wrench;
-                  return (
-                    <section key={scope} className="d-flex flex-column gap-3" aria-labelledby={`requirements-heading-${scope}`}>
-                      <h4 id={`requirements-heading-${scope}`} className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2">
-                        <ScopeIcon className="w-5 h-5 text-primary" aria-hidden="true" />
-                        {scope} documents
+                <>
+                  {selectedScopes.map((scope) => {
+                    const ScopeIcon = scope === 'Vessel' ? Ship : scope === 'Crew' ? Users : Wrench;
+                    const objectTypeLabel = scope === 'Crew' ? 'Crew Directory' : scope;
+                    return (
+                      <section
+                        key={scope}
+                        className="d-flex flex-column gap-3"
+                        aria-labelledby={`requirements-heading-${scope.toLowerCase()}`}
+                        data-testid={`section-object-${scope.toLowerCase()}`}
+                      >
+                        <h4
+                          id={`requirements-heading-${scope.toLowerCase()}`}
+                          className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
+                        >
+                          <ScopeIcon className="w-5 h-5 text-primary" aria-hidden="true" />
+                          {scope} documents
+                        </h4>
+                        {renderSubtypeSection(scope)}
+                      </section>
+                    );
+                  })}
+                  {selectedAssuranceObjects.filter((o) => o.type === 'procedure').length > 0 && (
+                    <section
+                      key="procedure"
+                      className="d-flex flex-column gap-3"
+                      aria-labelledby="requirements-heading-procedure"
+                      data-testid="section-object-procedure"
+                    >
+                      <h4
+                        id="requirements-heading-procedure"
+                        className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
+                      >
+                        <FileCheck className="w-5 h-5 text-primary" aria-hidden="true" />
+                        Procedures
                       </h4>
-                      {renderSubtypeSection(scope)}
+                      <div className="card border shadow-2xs rounded-3 bg-white p-4 text-secondary small">
+                        Standard operational procedures and checklists attach automatically on initiation.
+                      </div>
                     </section>
-                  );
-                })
+                  )}
+                  {selectedAssuranceObjects.filter((o) => o.type === 'method').length > 0 && (
+                    <section
+                      key="method"
+                      className="d-flex flex-column gap-3"
+                      aria-labelledby="requirements-heading-method"
+                      data-testid="section-object-method"
+                    >
+                      <h4
+                        id="requirements-heading-method"
+                        className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
+                      >
+                        <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
+                        Methods
+                      </h4>
+                      <div className="card border shadow-2xs rounded-3 bg-white p-4 text-secondary small">
+                        Standard method statements and towage analyses attach automatically on initiation.
+                      </div>
+                    </section>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -3187,6 +3545,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       {(() => {
                         const activeSubtypes = orderAssuranceScopes(selectedScopes);
 
+                        const activeGenDocs = generalDocs.filter((d) => d.isEnabled);
                         const allNeededDocs: { subtype: AssuranceSubtype; title: string; isCustom: boolean; isMandatory: boolean }[] = [];
                         activeSubtypes.forEach((subtype) => {
                           SUBTYPE_STANDARD_DOCS[subtype].forEach((doc) => {
