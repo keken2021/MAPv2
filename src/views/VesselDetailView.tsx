@@ -23,14 +23,14 @@ import {
   getSessionUserForPersona,
   pickSessionUserForOrgPersona,
 } from '../utils/userRoleHelpers';
-import { filterAuditTrailForPersona, filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, filterVesselsForPersona, getBackButtonInfo, getClientAdminOrganization, isVesselOwnedByAdmin, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
+import { filterAuditTrailForPersona, filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, filterVesselsForPersona, getBackButtonInfo, getClientAdminOrganization, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateAssuranceSetReadiness, calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { InspectionDrawer } from '../components/drawers/InspectionDrawer';
 import { AddCrewModal } from '../components/modals/AddCrewModal';
 import { CapaItem } from '../types/capa';
-import { getVesselStockPhoto, getVesselCharterBadge, CURATED_VESSEL_PHOTOS } from '../utils/vesselImageHelpers';
+import { getVesselStockPhoto, CURATED_VESSEL_PHOTOS } from '../utils/vesselImageHelpers';
 import { VesselImageCropModal } from '../components/modals/VesselImageCropModal';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
@@ -48,24 +48,17 @@ import {
   Edit2,
   X,
   Camera,
-  Info,
   Shield,
   FileText,
   Maximize2,
   Settings,
   Building,
-  Building2,
-  Mail,
-  Globe,
-  Phone,
-  Anchor,
   Plus,
   Image,
   Crop,
   Upload,
   Trash2,
   Save,
-  ChevronDown,
   Check,
   Eye,
   FolderOpen,
@@ -127,7 +120,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     () => (vessel ? equipment.filter((e) => e.parentVesselId === vessel.id) : []),
     [equipment, vessel],
   );
-  const [activeAccordion, setActiveAccordion] = useState<number | null>(1);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<VesselInformation | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -138,9 +130,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [showDimensionsInfo, setShowDimensionsInfo] = useState(true);
   const [showClassificationInfo, setShowClassificationInfo] = useState(false);
   const [showEngineRoomInfo, setShowEngineRoomInfo] = useState(false);
-  const [showRegOwnerInfo, setShowRegOwnerInfo] = useState(false);
-  const [showIsmManagerInfo, setShowIsmManagerInfo] = useState(false);
-  const [showShipManagerInfo, setShowShipManagerInfo] = useState(true);
 
   /* interactive modals for photo management, company fleet, and certificate details */
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
@@ -226,12 +215,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [auditSortField, setAuditSortField] = useState<'timestampUtc' | 'action' | 'userId' | 'organization' | 'justificationNotes'>('timestampUtc');
   const [auditSortDirection, setAuditSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  /* CAPA search, filter, and sorting states */
-  const [capaSearch, setCapaSearch] = useState('');
-  const [capaStatusFilter, setCapaStatusFilter] = useState('ALL');
-  const [capaSortField, setCapaSortField] = useState<'id' | 'title' | 'owner' | 'dueDate' | 'status'>('id');
-  const [capaSortDirection, setCapaSortDirection] = useState<'asc' | 'desc'>('asc');
-
   /* Physical Inspections search, filter, sorting, and detail modal states */
   const [inspectionSearch, setInspectionSearch] = useState('');
   const [inspectionStatusFilter, setInspectionStatusFilter] = useState('ALL');
@@ -260,16 +243,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     }
   }, [vesselId, vessels]);
 
-  /* rbac & ownership: owner or organization owning the vessel has full editing rights */
+  /* rbac & ownership: match vessel owner/manager fields to the active demo organization */
   const isAdmin = activePersona === 'Administrator';
   const isSubmitter = activePersona === 'Submitter';
   const isCAdmin = activePersona === 'C Admin';
   const isOwned =
-    (isAdmin || isSubmitter)
-      ? isVesselOwnedByAdmin(vessel)
-      : isCAdmin
-        ? isVesselOwnedByClientOrg(vessel, 'Southern Basin Energy')
-        : false;
+    (isAdmin || isSubmitter || isCAdmin) &&
+    Boolean(activeDemoOrganization) &&
+    isVesselOwnedByClientOrg(vessel, activeDemoOrganization);
   const isReadOnly = (isCAdmin && !isOwned) || activePersona === 'Inspector' || activePersona === 'Verifier' || activePersona === 'Approver';
   const canEditFull = !isReadOnly && isOwned;
   const canEditStatus = canEditFull || (isSubmitter && isOwned);
@@ -799,30 +780,30 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       });
   }, [linkedAudits, auditSearch, auditActionFilter, auditSortField, auditSortDirection]);
 
-  const filteredCapas = useMemo(() => {
-    return linkedCapas
-      .filter((c) => {
-        const matchesSearch =
-          !capaSearch ||
-          c.id.toLowerCase().includes(capaSearch.toLowerCase()) ||
-          c.title.toLowerCase().includes(capaSearch.toLowerCase()) ||
-          c.findingDescription.toLowerCase().includes(capaSearch.toLowerCase()) ||
-          c.owner.toLowerCase().includes(capaSearch.toLowerCase());
-
-        const matchesStatus = capaStatusFilter === 'ALL' || c.status === capaStatusFilter;
-
-        return matchesSearch && matchesStatus;
-      })
-      .sort((a, b) => {
-        let comp = 0;
-        if (capaSortField === 'id') comp = a.id.localeCompare(b.id);
-        else if (capaSortField === 'title') comp = a.title.localeCompare(b.title);
-        else if (capaSortField === 'owner') comp = (a.owner || '').localeCompare(b.owner || '');
-        else if (capaSortField === 'dueDate') comp = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-        else if (capaSortField === 'status') comp = a.status.localeCompare(b.status);
-        return capaSortDirection === 'asc' ? comp : -comp;
-      });
-  }, [linkedCapas, capaSearch, capaStatusFilter, capaSortField, capaSortDirection]);
+  /* one Management row per distinct organization across owner / ISM / ship manager fields */
+  const managementOrganizations = useMemo(() => {
+    if (!vessel) return [] as { organization: string; roles: string[] }[];
+    const order: { role: string; value?: string }[] = [
+      { role: 'Registered Owner', value: vessel.registeredOwner },
+      { role: 'ISM Manager', value: vessel.ismCompany },
+      { role: 'Ship Manager', value: vessel.technicalManager },
+    ];
+    const rows: { organization: string; roles: string[] }[] = [];
+    const indexByKey = new Map<string, number>();
+    for (const entry of order) {
+      const organization = (entry.value || '').trim();
+      if (!organization) continue;
+      const key = organization.toLowerCase();
+      const existing = indexByKey.get(key);
+      if (existing === undefined) {
+        indexByKey.set(key, rows.length);
+        rows.push({ organization, roles: [entry.role] });
+      } else if (!rows[existing].roles.includes(entry.role)) {
+        rows[existing].roles.push(entry.role);
+      }
+    }
+    return rows;
+  }, [vessel]);
 
   const physicalInspections = useMemo(() => {
     if (!vessel) return [];
@@ -997,10 +978,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   };
 
   const fieldEditable = (field: keyof VesselInformation) => isEditing && canEditField(field);
-
-  const toggleAccordion = (index: number) => {
-    setActiveAccordion(activeAccordion === index ? null : index);
-  };
 
   const handleInputChange = (field: keyof VesselInformation, val: VesselInformation[keyof VesselInformation]) => {
     setFormData((prev) => (prev ? { ...prev, [field]: val } : prev));
@@ -1693,251 +1670,39 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           </div>
 
           {/* ========================================================= */}
-          {/* Column 3: Management Information & Fleet Companies (Client Admin Only) */}
+          {/* Column 3: Management — one row per organization (Client Admin) */}
           {/* ========================================================= */}
           {showManagementSection && (
             <div className="col-12 col-lg-3 col-xl-3">
-              {/* Section Header Divider */}
               <div className="map-section-divider">
                 <Building className="w-4 h-4" />
                 <span>Management</span>
               </div>
 
-              {/* Accordion 1: Registered Owner Information */}
-              <div className="map-datasheet-card">
-                <div
-                  className={`map-datasheet-card-header ${showRegOwnerInfo ? 'is-open' : ''}`}
-                  onClick={() => setShowRegOwnerInfo(!showRegOwnerInfo)}
-                >
-                  <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small text-truncate" style={{ fontSize: '0.8rem' }}>
-                    <span className="text-truncate">Registered Owner</span>
-                    <div className="d-flex align-items-center gap-1 text-muted ms-1 opacity-75">
-                      <Mail className="w-2.5 h-2.5" />
-                      <Globe className="w-2.5 h-2.5" />
-                      <Phone className="w-2.5 h-2.5" />
+              <div className="list-group border rounded-3 overflow-hidden bg-white shadow-sm">
+                {managementOrganizations.map((row) => (
+                  <div
+                    key={row.organization}
+                    className="list-group-item d-flex align-items-start justify-content-between gap-2 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="fw-semibold text-dark text-truncate" style={{ fontSize: '0.85rem' }}>
+                        {row.organization}
+                      </div>
+                      <div className="text-muted small text-truncate">{row.roles.join(' · ')}</div>
                     </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary shrink-0"
+                      onClick={() => setSelectedCompanyForFleetModal(row.organization)}
+                    >
+                      View vessels
+                    </button>
                   </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${showRegOwnerInfo ? "rotate-180" : ""}`} />
-                </div>
-                {showRegOwnerInfo && (
-                  <div className="p-3 bg-white border-top small">
-                    <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Company</span>
-                      {fieldEditable('registeredOwner') ? (
-                        <input
-                          type="text"
-                          className="form-control form-control-sm"
-                          value={formData.registeredOwner}
-                          onChange={(e) => handleInputChange('registeredOwner', e.target.value)}
-                        />
-                      ) : (
-                        <strong className="text-dark">{vessel.registeredOwner}</strong>
-                      )}
-                    </div>
-                    <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Email</span>
-                      <span className="text-primary">{`owner@${formData.registeredOwner.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}</span>
-                    </div>
-                    <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Phone</span>
-                      {fieldEditable('contact247') ? (
-                        <input
-                          type="text"
-                          className="form-control form-control-sm font-mono-code"
-                          value={formData.contact247}
-                          onChange={(e) => handleInputChange('contact247', e.target.value)}
-                        />
-                      ) : (
-                        <span className="font-mono-code text-dark">{vessel.contact247 || '+65 6789 0123'}</span>
-                      )}
-                    </div>
-                    <div>
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Location</span>
-                      <span className="text-dark">{formData.portOfRegistry || 'Singapore'}</span>
-                    </div>
-                  </div>
+                ))}
+                {managementOrganizations.length === 0 && (
+                  <div className="list-group-item text-muted small py-3">No management organizations recorded.</div>
                 )}
-              </div>
-
-              {/* Accordion 2: ISM Manager Information */}
-              <div className="map-datasheet-card">
-                <div
-                  className={`map-datasheet-card-header ${showIsmManagerInfo ? 'is-open' : ''}`}
-                  onClick={() => setShowIsmManagerInfo(!showIsmManagerInfo)}
-                >
-                  <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small text-truncate" style={{ fontSize: '0.8rem' }}>
-                    <span className="text-truncate">ISM Manager</span>
-                    <div className="d-flex align-items-center gap-1 text-muted ms-1 opacity-75">
-                      <Mail className="w-2.5 h-2.5" />
-                      <Globe className="w-2.5 h-2.5" />
-                      <Phone className="w-2.5 h-2.5" />
-                    </div>
-                  </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${showIsmManagerInfo ? "rotate-180" : ""}`} />
-                </div>
-                {showIsmManagerInfo && (
-                  <div className="p-3 bg-white border-top small">
-                    <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Company</span>
-                      {fieldEditable('ismCompany') ? (
-                        <input
-                          type="text"
-                          className="form-control form-control-sm"
-                          value={formData.ismCompany || ''}
-                          onChange={(e) => handleInputChange('ismCompany', e.target.value)}
-                        />
-                      ) : (
-                        <strong className="text-dark">{vessel.ismCompany || vessel.registeredOwner}</strong>
-                      )}
-                    </div>
-                    <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Email</span>
-                      <span className="text-primary">{`ism@${(formData.ismCompany || formData.registeredOwner).toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}</span>
-                    </div>
-                    <div className="mb-2">
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Phone</span>
-                      <span className="font-mono-code text-dark">+65 6789 0124</span>
-                    </div>
-                    <div>
-                      <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Location</span>
-                      <span className="text-dark">{formData.portOfRegistry || 'Singapore'}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Accordion 3: Ship Manager Information (Open by default matching mockup) */}
-              <div className="map-datasheet-card">
-                <div
-                  className={`map-datasheet-card-header ${showShipManagerInfo ? 'is-open' : ''}`}
-                  onClick={() => setShowShipManagerInfo(!showShipManagerInfo)}
-                >
-                  <div className="d-flex align-items-center gap-1.5 fw-bold text-primary small text-truncate" style={{ fontSize: '0.8rem' }}>
-                    <span className="text-truncate">Ship Manager</span>
-                    <div className="d-flex align-items-center gap-1 text-muted ms-1 opacity-75">
-                      <Mail className="w-2.5 h-2.5" />
-                      <Globe className="w-2.5 h-2.5" />
-                      <Phone className="w-2.5 h-2.5" />
-                    </div>
-                  </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${showShipManagerInfo ? "rotate-180" : ""}`} />
-                </div>
-                {showShipManagerInfo && (
-                  <div className="p-3 bg-white border-top small">
-                    <div className="row g-2">
-                      <div className="col-12">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Company</span>
-                        {fieldEditable('technicalManager') ? (
-                          <input
-                            type="text"
-                            className="form-control form-control-sm"
-                            value={formData.technicalManager || ''}
-                            onChange={(e) => handleInputChange('technicalManager', e.target.value)}
-                          />
-                        ) : (
-                          <strong className="text-dark d-block text-truncate">{vessel.technicalManager || vessel.registeredOwner}</strong>
-                        )}
-                      </div>
-                      <div className="col-12">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Email</span>
-                        <span className="text-primary d-block text-truncate">{`ops@${(formData.technicalManager || formData.registeredOwner).toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}</span>
-                      </div>
-                      <div className="col-6">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Phone</span>
-                        <span className="font-mono-code text-dark d-block text-truncate">+65 6789 0125</span>
-                      </div>
-                      <div className="col-6">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Fax</span>
-                        <span className="font-mono-code text-dark d-block text-truncate">+65 6789 0126</span>
-                      </div>
-                      <div className="col-6">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Website</span>
-                        <span className="text-primary d-block text-truncate">{`www.${(formData.technicalManager || formData.registeredOwner).toLowerCase().replace(/[^a-z0-9]/g, '')}.com`}</span>
-                      </div>
-                      <div className="col-6">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Date of Effect</span>
-                        <span className="text-dark d-block text-truncate font-mono-code">2021-01-15</span>
-                      </div>
-                      <div className="col-12">
-                        <span className="text-muted d-block" style={{ fontSize: '0.7rem' }}>Location</span>
-                        <span className="text-dark d-block text-truncate">{formData.portOfRegistry ? `${formData.portOfRegistry} Marine Industrial Terminal` : 'Jurong Port, Singapore'}</span>
-                      </div>
-                      <div className="col-12 pt-1">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary w-100 py-1"
-                          style={{ fontSize: '0.75rem' }}
-                          onClick={() => {
-                            setShowRegOwnerInfo(true);
-                            setShowIsmManagerInfo(true);
-                            setShowShipManagerInfo(true);
-                            setToastMessage('All details shown.');
-                            setTimeout(() => setToastMessage(null), 3000);
-                          }}
-                        >
-                          Show All Details
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Section Header Divider: Companies Other Vessels */}
-              <div className="map-section-divider mt-3">
-                <Anchor className="w-4 h-4" />
-                <span>Other Vessels</span>
-              </div>
-
-              {/* Company Fleet Card 1 */}
-              <div
-                className="card shadow-sm border p-2.5 mb-2 bg-white rounded-3 map-mgmt-item"
-                style={{ cursor: 'pointer' }}
-                onClick={() => setSelectedCompanyForFleetModal(vessel.registeredOwner)}
-                title={`View vessels for ${vessel.registeredOwner}`}
-              >
-                <div className="d-flex align-items-center gap-1.5 fw-bold text-dark mb-1.5" style={{ fontSize: '0.78rem' }}>
-                  <Building2 className="w-3 h-3 text-secondary" />
-                  <span className="text-truncate">{vessel.registeredOwner.toUpperCase()}</span>
-                </div>
-                <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
-                  <Info className="w-2.5 h-2.5 text-primary shrink-0" />
-                  <span className="text-truncate">View Vessels</span>
-                </div>
-              </div>
-
-              {/* Company Fleet Card 2 */}
-              <div
-                className="card shadow-sm border p-2.5 mb-2 bg-white rounded-3 map-mgmt-item"
-                style={{ cursor: 'pointer' }}
-                onClick={() => setSelectedCompanyForFleetModal(vessel.technicalManager || vessel.registeredOwner)}
-                title="View vessels for the technical manager"
-              >
-                <div className="d-flex align-items-center gap-1.5 fw-bold text-dark mb-1.5" style={{ fontSize: '0.78rem' }}>
-                  <Building2 className="w-3 h-3 text-secondary" />
-                  <span className="text-truncate">{vessel.technicalManager ? vessel.technicalManager.toUpperCase() : 'ANGLO-EASTERN SHIPMANAGEMENT S'}</span>
-                </div>
-                <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
-                  <Info className="w-2.5 h-2.5 text-primary shrink-0" />
-                  <span className="text-truncate">View Vessels</span>
-                </div>
-              </div>
-
-              {/* Company Fleet Card 3 */}
-              <div
-                className="card shadow-sm border p-2.5 mb-2 bg-white rounded-3 map-mgmt-item"
-                style={{ cursor: 'pointer' }}
-                onClick={() => setSelectedCompanyForFleetModal(vessel.ismCompany || vessel.registeredOwner)}
-                title="View vessels for the ISM manager"
-              >
-                <div className="d-flex align-items-center gap-1.5 fw-bold text-dark mb-1.5" style={{ fontSize: '0.78rem' }}>
-                  <Building2 className="w-3 h-3 text-secondary" />
-                  <span className="text-truncate">{vessel.ismCompany ? vessel.ismCompany.toUpperCase() : 'AL SEER MARINE SUPPLIES'}</span>
-                </div>
-                <div className="alert alert-light border py-1.5 px-2 mb-0 text-secondary d-flex align-items-center gap-1.5" style={{ fontSize: '0.72rem' }}>
-                  <Info className="w-2.5 h-2.5 text-primary shrink-0" />
-                  <span className="text-truncate">View Vessels</span>
-                </div>
               </div>
             </div>
           )}

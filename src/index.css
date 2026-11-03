@@ -529,13 +529,6 @@ label .req-star {
    Vessel Detail View: 3-Column Technical Layout (Matching Mockup Reference)
    ========================================================================== */
 
-.map-vessel-topbar {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px 18px;
-}
-
 .map-section-divider {
   display: flex;
   align-items: center;
@@ -637,20 +630,6 @@ label .req-star {
   background: var(--map-primary-light);
   border-color: var(--map-primary-blue);
   color: var(--map-primary-hover);
-}
-
-.map-mgmt-item {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-bottom: 8px;
-  transition: all 0.15s ease;
-}
-
-.map-mgmt-item:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .map-ocr-badge {
