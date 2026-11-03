@@ -639,37 +639,6 @@ label .req-star {
   color: var(--map-primary-hover);
 }
 
-.map-voyage-track {
-  position: relative;
-  height: 4px;
-  background: #e2e8f0;
-  border-radius: 2px;
-  margin: 14px 0;
-}
-
-.map-voyage-track-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 45%;
-  background: var(--map-primary-blue);
-  border-radius: 2px;
-}
-
-.map-voyage-track-thumb {
-  position: absolute;
-  top: -4px;
-  left: 45%;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--map-primary-blue);
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 0 2px rgba(11, 27, 43, 0.25);
-  transform: translateX(-50%);
-}
-
 .map-mgmt-item {
   background: #ffffff;
   border: 1px solid #e2e8f0;

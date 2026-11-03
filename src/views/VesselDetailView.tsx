@@ -49,11 +49,7 @@ import {
   X,
   Camera,
   Info,
-  Navigation,
   Shield,
-  History,
-  Activity,
-  Flag,
   FileText,
   Maximize2,
   Settings,
@@ -144,14 +140,11 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [showClassificationInfo, setShowClassificationInfo] = useState(false);
   const [showEngineRoomInfo, setShowEngineRoomInfo] = useState(false);
   const [showShipCapacityInfo, setShowShipCapacityInfo] = useState(false);
-  const [showVoyageProgress, setShowVoyageProgress] = useState(false);
-  const [showArrivalDetails, setShowArrivalDetails] = useState(false);
   const [showRegOwnerInfo, setShowRegOwnerInfo] = useState(false);
   const [showIsmManagerInfo, setShowIsmManagerInfo] = useState(false);
   const [showShipManagerInfo, setShowShipManagerInfo] = useState(true);
 
-  /* interactive modals for quick actions, voyage history, company fleet, and certificate details */
-  const [showVoyageHistoryModal, setShowVoyageHistoryModal] = useState(false);
+  /* interactive modals for photo management, company fleet, and certificate details */
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false);
   const [selectedCompanyForFleetModal, setSelectedCompanyForFleetModal] = useState<string | null>(null);
@@ -1298,7 +1291,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       {activeTab === 'Information' && (
         <div className="row g-3">
           {/* ========================================================= */}
-          {/* Column 1: Vessel Photo, Quick Actions & Voyage Tracking */}
+          {/* Column 1: Vessel Photo & Photo Actions */}
           {/* ========================================================= */}
           <div className={showManagementSection ? 'col-12 col-lg-4 col-xl-4' : 'col-12 col-lg-5 col-xl-5'}>
             {/* 1. Large Vessel Photo with Direct Edit / Manage Overlay (Only clickable for Vessel Owner / Admin) */}
@@ -1344,41 +1337,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </div>
             </div>
 
-
-
-            {/* 2. Quick Action Buttons Row (with margin-top) */}
-            <div className="d-flex align-items-center justify-content-between gap-1 mb-2 mt-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-primary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
-                onClick={() => {
-                  setShowGeneralInfo(true);
-                  setShowDimensionsInfo(true);
-                  setShowClassificationInfo(true);
-                  setShowEngineRoomInfo(true);
-                  setShowShipCapacityInfo(true);
-                  setToastMessage('Expanded all technical datasheet specifications.');
-                  setTimeout(() => setToastMessage(null), 3000);
-                }}
-                title="Show all details"
-              >
-                <Info className="w-3.5 h-3.5" />
-                <span style={{ fontSize: '0.68rem' }}>Details</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
-                onClick={() => {
-                  setShowVoyageProgress(true);
-                  setShowArrivalDetails(true);
-                  setShowVoyageHistoryModal(true);
-                }}
-                title="View voyage"
-              >
-                <Navigation className="w-3.5 h-3.5" />
-                <span style={{ fontSize: '0.68rem' }}>Voyage</span>
-              </button>
-              {canManagePhotos && (
+            {canManagePhotos && (
+              <div className="d-flex align-items-center justify-content-between gap-1 mb-3 mt-2">
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-secondary flex-fill d-flex flex-column align-items-center py-1.5 px-1 map-quick-action-btn"
@@ -1388,152 +1348,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <Camera className="w-3.5 h-3.5" />
                   <span style={{ fontSize: '0.68rem' }}>{vessel.photos && vessel.photos.length > 1 ? 'Photos' : 'Add Photo'}</span>
                 </button>
-              )}
-            </div>
-
-            {/* 3. Draught & Speed Metrics Row (Status is in header next to name) */}
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <span className="badge bg-light text-primary border border-primary-subtle py-1.5 px-3 rounded-pill fw-semibold flex-fill text-center" style={{ fontSize: '0.74rem' }}>
-                {vessel.draftMeters ? `${vessel.draftMeters}m Draught` : '5.80m Draught'}
-              </span>
-              <span className="badge bg-light text-danger border border-danger-subtle py-1.5 px-3 rounded-pill fw-semibold flex-fill text-center" style={{ fontSize: '0.74rem' }}>
-                {vessel.vesselType.toLowerCase().includes('tug') ? '12.0 knots' : '14.5 knots'}
-              </span>
-            </div>
-
-            {/* 4. Departure & Arrival Tracking Card */}
-            <div className="card shadow-sm border p-3 mb-3 bg-white rounded-3">
-              <div className="d-flex justify-content-between align-items-start mb-1">
-                <div>
-                  <div className="text-secondary small" style={{ fontSize: '0.72rem' }}>Departure from {vessel.portOfRegistry || 'Fremantle, WA'}</div>
-                  <div className="d-flex align-items-center gap-1.5 mt-0.5">
-                    <span className="badge bg-dark text-white fw-bold px-1.5 py-0.5" style={{ fontSize: '0.7rem' }}>
-                      {vessel.portOfRegistry ? vessel.portOfRegistry.replace(/[^A-Za-z]/g, '').slice(0, 5).toUpperCase() : 'AUFRE'}
-                    </span>
-                  </div>
-                </div>
-                <div className="text-end">
-                  <div className="text-secondary small" style={{ fontSize: '0.72rem' }}>Arrival at {vessel.intendedUse || 'Offshore Platform'}</div>
-                  <div className="d-flex align-items-center justify-content-end gap-1.5 mt-0.5">
-                    <span className="badge bg-danger text-white fw-bold px-1.5 py-0.5" style={{ fontSize: '0.7rem' }}>
-                      {vessel.tradingArea ? vessel.tradingArea.replace(/[^A-Za-z]/g, '').slice(0, 5).toUpperCase() : 'AUDMP'}
-                    </span>
-                  </div>
-                </div>
               </div>
-
-              {/* Progress Slider Track */}
-              <div className="map-voyage-track">
-                <div className="map-voyage-track-fill"></div>
-                <div className="map-voyage-track-thumb"></div>
-              </div>
-
-              <div className="d-flex justify-content-between align-items-center text-muted small mt-1 font-mono-code" style={{ fontSize: '0.68rem' }}>
-                <div>
-                  <div>Actual Time of Departure</div>
-                  <strong className="text-dark">2026-09-28T09:29:56Z</strong>
-                </div>
-                <div className="text-end">
-                  <div>Estimated Time of Arrival</div>
-                  <strong className="text-dark">2026-10-04T16:00:00Z</strong>
-                </div>
-              </div>
-            </div>
-
-            {/* 5. Historical Voyage Data Card (Clickable) */}
-            <div
-              className="card shadow-sm border p-3 mb-3 bg-white rounded-3 map-mgmt-item"
-              style={{ cursor: 'pointer' }}
-              onClick={() => setShowVoyageHistoryModal(true)}
-              title="View voyage history"
-            >
-              <div className="d-flex align-items-center justify-content-between fw-bold text-dark mb-2" style={{ fontSize: '0.85rem' }}>
-                <div className="d-flex align-items-center gap-2">
-                  <History className="w-3.5 h-3.5 text-primary" />
-                  <span>Voyage History</span>
-                </div>
-                <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.7rem' }}>
-                  4 Logs
-                </span>
-              </div>
-              <div className="d-flex align-items-center justify-content-between p-2 rounded bg-light border mb-2">
-                <span className="fw-bold text-dark small">{vessel.portOfRegistry ? vessel.portOfRegistry.replace(/[^A-Za-z]/g, '').slice(0, 5).toUpperCase() : 'AUFRE'}</span>
-                <span className="text-muted small">⟷</span>
-                <span className="fw-bold text-dark small">{vessel.tradingArea ? vessel.tradingArea.replace(/[^A-Za-z]/g, '').slice(0, 5).toUpperCase() : 'AUDMP'}</span>
-              </div>
-              <button
-                type="button"
-                className="btn btn-sm btn-light border w-100 py-1.5 text-secondary small d-flex align-items-center justify-content-center gap-1.5"
-                style={{ fontSize: '0.74rem' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowVoyageHistoryModal(true);
-                }}
-              >
-                <Info className="w-3 h-3 text-primary shrink-0" />
-                <span>View History</span>
-              </button>
-            </div>
-
-            {/* 6. Voyage Progress Accordion */}
-            <div className="map-datasheet-card">
-              <div
-                className={`map-datasheet-card-header ${showVoyageProgress ? 'is-open' : ''}`}
-                onClick={() => setShowVoyageProgress(!showVoyageProgress)}
-              >
-                <div className="map-datasheet-card-title">
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>Voyage Progress</span>
-                </div>
-                <span className="text-muted small">{showVoyageProgress ? '▲' : '▼'}</span>
-              </div>
-              {showVoyageProgress && (
-                <div className="p-3 bg-white border-top small text-secondary">
-                  <div className="d-flex justify-content-between mb-1">
-                    <span>Distance Travelled:</span>
-                    <strong className="text-dark">1,420 NM (68%)</strong>
-                  </div>
-                  <div className="d-flex justify-content-between mb-1">
-                    <span>Remaining Distance:</span>
-                    <strong className="text-dark">670 NM</strong>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <span>Current Waypoint:</span>
-                    <strong className="text-dark">WP-04 Strait Passage</strong>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 7. Arrival Details Accordion */}
-            <div className="map-datasheet-card">
-              <div
-                className={`map-datasheet-card-header ${showArrivalDetails ? 'is-open' : ''}`}
-                onClick={() => setShowArrivalDetails(!showArrivalDetails)}
-              >
-                <div className="map-datasheet-card-title">
-                  <Flag className="w-3.5 h-3.5" />
-                  <span>Arrival Details</span>
-                </div>
-                <span className="text-muted small">{showArrivalDetails ? '▲' : '▼'}</span>
-              </div>
-              {showArrivalDetails && (
-                <div className="p-3 bg-white border-top small text-secondary">
-                  <div className="d-flex justify-content-between mb-1">
-                    <span>Designated Terminal:</span>
-                    <strong className="text-dark">Berth 4A East</strong>
-                  </div>
-                  <div className="d-flex justify-content-between mb-1">
-                    <span>Pilot Boarding:</span>
-                    <strong className="text-dark">14:30 UTC</strong>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <span>Tug Assistance:</span>
-                    <strong className="text-dark">2 Harbour Tugs Assigned</strong>
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* ========================================================= */}
@@ -1723,14 +1539,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     )}
                   </div>
 
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Speed</span>
-                    <span className="map-datasheet-val">{vessel.vesselType.toLowerCase().includes('tug') ? '12.0 kn' : '14.5 kn'}</span>
-                  </div>
-                  <div className="map-datasheet-cell">
-                    <span className="map-datasheet-label">Course</span>
-                    <span className="map-datasheet-val">36° NNE</span>
-                  </div>
                   <div className="map-datasheet-cell">
                     <span className="map-datasheet-label">Deadweight</span>
                     {fieldEditable('deadweightTonnageDWT') ? (
@@ -4223,108 +4031,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           }}
         />
       )}
-
-      {/* Historical Voyage Data Modal */}
-      {showVoyageHistoryModal && vessel && (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1060 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowVoyageHistoryModal(false);
-          }}
-        >
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content bg-white text-dark border shadow-lg">
-              <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                <div>
-                  <div className="d-flex align-items-center gap-2">
-                    <span className="badge bg-primary text-white font-mono-code">AIS</span>
-                    <h5 className="modal-title fw-bold text-dark m-0">Voyage History</h5>
-                  </div>
-                  <div className="text-secondary small mt-0.5">
-                    {vessel.name} (IMO {vessel.imoNumber}) — Real-time &amp; archived AIS voyage history
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowVoyageHistoryModal(false)}
-                  aria-label="Close"
-                />
-              </div>
-              <div className="modal-body p-4">
-                <div className="table-responsive border rounded mb-3">
-                  <table className="table map-table-custom align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>Voyage Ref</th>
-                        <th>Origin &rarr; Destination</th>
-                        <th>Departure (UTC)</th>
-                        <th>Arrival (UTC)</th>
-                        <th>Distance</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="font-mono-code fw-semibold text-primary">VOY-2026-09-A</td>
-                        <td className="small">
-                          <strong>{vessel.portOfRegistry || 'Fremantle, WA'}</strong> &rarr; {vessel.tradingArea || 'Dampier Port, WA'}
-                        </td>
-                        <td className="font-mono-code small">2026-09-20 08:00</td>
-                        <td className="font-mono-code small">2026-09-23 16:30</td>
-                        <td className="font-mono-code small">820 NM / 14.2 kn</td>
-                        <td><span className="badge bg-success text-white">Completed</span></td>
-                      </tr>
-                      <tr>
-                        <td className="font-mono-code fw-semibold text-primary">VOY-2026-08-B</td>
-                        <td className="small">
-                          <strong>Dampier Port, WA</strong> &rarr; NWS Offshore Platform Alpha
-                        </td>
-                        <td className="font-mono-code small">2026-08-14 06:15</td>
-                        <td className="font-mono-code small">2026-08-15 11:45</td>
-                        <td className="font-mono-code small">180 NM / 12.8 kn</td>
-                        <td><span className="badge bg-success text-white">Completed</span></td>
-                      </tr>
-                      <tr>
-                        <td className="font-mono-code fw-semibold text-primary">VOY-2026-07-C</td>
-                        <td className="small">
-                          <strong>Singapore Jurong</strong> &rarr; Fremantle Outer Anchorage
-                        </td>
-                        <td className="font-mono-code small">2026-07-02 10:00</td>
-                        <td className="font-mono-code small">2026-07-09 18:20</td>
-                        <td className="font-mono-code small">2,150 NM / 14.5 kn</td>
-                        <td><span className="badge bg-success text-white">Completed</span></td>
-                      </tr>
-                      <tr>
-                        <td className="font-mono-code fw-semibold text-primary">VOY-2026-06-D</td>
-                        <td className="small">
-                          <strong>Darwin Port, NT</strong> &rarr; Ichthys LNG Field
-                        </td>
-                        <td className="font-mono-code small">2026-06-11 12:00</td>
-                        <td className="font-mono-code small">2026-06-12 19:30</td>
-                        <td className="font-mono-code small">240 NM / 13.0 kn</td>
-                        <td><span className="badge bg-success text-white">Completed</span></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <div className="modal-footer border-top bg-light">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setShowVoyageHistoryModal(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
 
       {/* Company Fleet Registry Modal */}
       {selectedCompanyForFleetModal && (
