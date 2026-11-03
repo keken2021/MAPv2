@@ -103,6 +103,31 @@ describe('Seeded assurance sets have a calculated basis', () => {
       }
     });
   });
+
+  /* 2b: every project↔set link is two-way (project lists the set; set.projectId matches) */
+  it('lists every set a project names, and every set names the project that lists it', () => {
+    const setById = new Map(ALL_SETS.map((s) => [s.id, s]));
+
+    MOCK_PROJECTS.forEach((project) => {
+      project.assetLinks.forEach((link) => {
+        if (!link.assuranceSetId) return;
+        const set = setById.get(link.assuranceSetId);
+        expect(set, `${project.id} ${link.id} → ${link.assuranceSetId}`).toBeDefined();
+        expect(
+          set?.projectId,
+          `${link.assuranceSetId} must set projectId to ${project.id}`,
+        ).toBe(project.id);
+      });
+    });
+
+    ALL_SETS.forEach((set) => {
+      if (!set.projectId) return;
+      const project = MOCK_PROJECTS.find((p) => p.id === set.projectId);
+      expect(project, `${set.id} project ${set.projectId}`).toBeDefined();
+      const listed = project?.assetLinks.some((l) => l.assuranceSetId === set.id);
+      expect(listed, `${set.id} must appear on ${set.projectId} assetLinks`).toBe(true);
+    });
+  });
 });
 
 describe('Seeded rollups are averages of the level below', () => {

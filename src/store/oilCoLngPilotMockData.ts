@@ -1410,6 +1410,19 @@ export const OIL_CO_PILOT_PROJECT: Project = {
       addedByPersona: "C Admin",
       notes: "Vessel Purchase (OSV)",
     },
+    {
+      id: "PAL-017C",
+      projectId: OIL_CO_LNG_PROJECT_ID,
+      assetType: "Vessel",
+      assetId: OIL_CO_AURORA_ID,
+      assetName: "LNGC Northwind Aurora",
+      providerOrganization: HARBOURLINE_ORG,
+      assuranceSetId: OIL_CO_SS03_ID,
+      roleInProject: "Terminal / loading operations",
+      addedAt: "2026-10-01T00:05:00Z",
+      addedByPersona: "C Admin",
+      notes: "Terminal / Loading Operations (AS-2026-103) on Aurora alongside PAL-017A",
+    },
   ],
 };
 
