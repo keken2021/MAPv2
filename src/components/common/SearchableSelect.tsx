@@ -5,12 +5,19 @@ export interface SearchableSelectItem {
   id: string;
   label: string;
   hint?: string;
+  /** shown in the list but cannot be picked */
+  disabled?: boolean;
+  /** extra text a search also matches, such as an id */
+  searchText?: string;
 }
 
 export interface SearchableSelectProps {
   items: SearchableSelectItem[];
+  /** appear only once something is typed, after the matching items */
+  searchOnlyItems?: SearchableSelectItem[];
   onSelect: (item: SearchableSelectItem) => void;
   placeholder?: string;
+  emptyLabel?: string;
   id?: string;
   'aria-label'?: string;
   onCreate?: (text: string) => void;
@@ -21,8 +28,10 @@ export interface SearchableSelectProps {
 
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   items,
+  searchOnlyItems = [],
   onSelect,
   placeholder = 'Search...',
+  emptyLabel = 'No matching documents',
   id,
   'aria-label': ariaLabel,
   onCreate,
@@ -44,12 +53,13 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
-    return items.filter((item) => {
+    return [...items, ...searchOnlyItems].filter((item) => {
       const matchLabel = item.label.toLowerCase().includes(q);
       const matchHint = item.hint ? item.hint.toLowerCase().includes(q) : false;
-      return matchLabel || matchHint;
+      const matchText = item.searchText ? item.searchText.toLowerCase().includes(q) : false;
+      return matchLabel || matchHint || matchText;
     });
-  }, [items, query]);
+  }, [items, searchOnlyItems, query]);
 
   const trimmedQuery = query.trim();
   const exactMatchExists = useMemo(() => {
@@ -104,6 +114,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
       }
       if (highlightedIndex >= 0 && highlightedIndex < filteredItems.length) {
         const selected = filteredItems[highlightedIndex];
+        if (selected.disabled) return;
         onSelect(selected);
         setQuery('');
         setIsOpen(false);
@@ -120,6 +131,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   };
 
   const handleSelectOption = (item: SearchableSelectItem) => {
+    if (item.disabled) return;
     onSelect(item);
     setQuery('');
     setIsOpen(false);
@@ -184,7 +196,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
         >
           {filteredItems.length === 0 && !showCreateOption ? (
             <div className="px-3 py-2 text-secondary small text-center">
-              No matching documents
+              {emptyLabel}
             </div>
           ) : (
             filteredItems.map((item, index) => {
@@ -195,8 +207,12 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   id={`${listboxId}-option-${index}`}
                   role="option"
                   aria-selected={isHighlighted}
-                  className={`dropdown-item d-flex align-items-center justify-content-between px-3 py-2 cursor-pointer ${
-                    isHighlighted ? 'active bg-primary text-white' : 'text-dark'
+                  aria-disabled={item.disabled || undefined}
+                  data-item-id={item.id}
+                  className={`dropdown-item d-flex align-items-center justify-content-between px-3 py-2 ${
+                    item.disabled
+                      ? 'disabled text-muted'
+                      : `cursor-pointer ${isHighlighted ? 'active bg-primary text-white' : 'text-dark'}`
                   }`}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   onClick={() => handleSelectOption(item)}

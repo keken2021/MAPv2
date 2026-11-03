@@ -108,6 +108,8 @@ export function vesselToAssuranceObject(vessel: {
   name: string;
   imoNumber?: string;
   ownerOrg?: string;
+  registeredOwner?: string;
+  ismCompany?: string;
   operator?: string;
   clientOrganization?: string;
 }): AssuranceObject {
@@ -115,7 +117,7 @@ export function vesselToAssuranceObject(vessel: {
     id: vessel.id,
     type: 'vessel',
     name: vessel.name,
-    ownerOrganization: vessel.ownerOrg || vessel.operator || 'Vessel Provider',
+    ownerOrganization: vessel.ownerOrg || vessel.registeredOwner || vessel.ismCompany || vessel.operator || 'Vessel Provider',
     identifier: vessel.imoNumber ? 'IMO: ' + vessel.imoNumber : undefined,
   };
 }

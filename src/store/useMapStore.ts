@@ -81,8 +81,13 @@ import {
 } from "../utils/permissionDefaults";
 import { applyPermissionGuards } from "../utils/permissionHelpers";
 import {
+  canAssignStakeholderRole,
   getDemoSessionContext,
   getSessionUserForPersona,
+  getStakeholderRoleOrganization,
+  PENDING_ASSIGNMENT,
+  setSubmitters,
+  StakeholderRole,
   validateStakeholderAssignmentForSet,
 } from "../utils/userRoleHelpers";
 import {
@@ -140,6 +145,7 @@ import {
   requiresAssuranceSetForAssetLink,
   syncAllAffectedProjectRollups,
   syncProjectFromAssuranceSets,
+  taskProvider,
 } from "../utils/projectHelpers";
 import { MOCK_VESSEL_STATUS_HISTORY } from "./vesselStatusHistoryMockData";
 import {
@@ -408,6 +414,7 @@ export interface MapStoreState {
     setId: string,
     role: "Submitter" | "Verifier" | "Inspector" | "Approver",
     assigneeName: string,
+    submitterOrganization?: string,
   ) => { success: boolean; message?: string };
   updateAssuranceInspector: (setId: string, inspectorName: string) => void;
   /** records a submitted inspection outcome for a vessel; returns the ids of the sets whose inspection it completed */
@@ -953,8 +960,12 @@ function notifyAssignedStakeholders(
 ): void {
   const state = get();
   const notifiedUserIds = new Set<string>();
-  const assignments: { role: UserRolePersona; label?: string }[] = [
-    { role: "Submitter", label: assuranceSet.assignedSubmitter },
+  const assignments: { role: UserRolePersona; label?: string; organization?: string }[] = [
+    ...setSubmitters(assuranceSet).map((submitter) => ({
+      role: "Submitter" as UserRolePersona,
+      label: submitter.assignee,
+      organization: submitter.organization,
+    })),
     { role: "Verifier", label: assuranceSet.assignedVerifier },
     {
       role: "Inspector",
@@ -978,6 +989,31 @@ function notifyAssignedStakeholders(
       subject: assuranceInvitationSubject(assuranceSet.title),
       assignedRole: role,
     });
+  });
+
+  /* a role left pending goes to the admin of its organization, who chooses the person */
+  assignments.forEach(({ role, label, organization }) => {
+    if (label !== PENDING_ASSIGNMENT) return;
+    const roleOrganization = (
+      organization || getStakeholderRoleOrganization(assuranceSet, role as StakeholderRole)
+    )?.trim().toLowerCase();
+    if (!roleOrganization) return;
+    state.users
+      .filter(
+        (user) =>
+          user.status === "Active" &&
+          (user.roles.includes("Administrator") || user.roles.includes("C Admin")) &&
+          user.organization?.trim().toLowerCase() === roleOrganization &&
+          !notifiedUserIds.has(user.id),
+      )
+      .forEach((user) => {
+        notifiedUserIds.add(user.id);
+        notifyAssuranceSetUser(get, assuranceSet, `${user.name} (${user.organization})`, {
+          type: "stakeholder_assigned",
+          subject: assuranceInvitationSubject(assuranceSet.title),
+          assignedRole: role,
+        });
+      });
   });
 
   const project = getProjectForAssuranceSet(assuranceSet, state.projects);
@@ -2626,7 +2662,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       projects: syncedProjects,
     });
   },
-  updateAssuranceStakeholder: (setId, role, assigneeName) => {
+  updateAssuranceStakeholder: (setId, role, assigneeName, submitterOrganization) => {
     const assuranceSet = get().assuranceSets.find((s) => s.id === setId);
     if (!assuranceSet) {
       return { success: false, message: "Assurance set not found." };
@@ -2642,27 +2678,70 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     }
 
+    /* only the admin of the role's organization can choose its person */
+    const adminOrganization = get().activeDemoOrganization;
+    if (!canAssignStakeholderRole(assuranceSet, role, adminOrganization, submitterOrganization)) {
+      const roleOrganization =
+        (role === "Submitter" && submitterOrganization) || getStakeholderRoleOrganization(assuranceSet, role);
+      return {
+        success: false,
+        message: `Only the administrator of ${roleOrganization} can assign its ${role.toLowerCase()}.`,
+      };
+    }
+
     const validation = validateStakeholderAssignmentForSet(
       assuranceSet,
       role,
       assigneeName,
       get().users,
+      submitterOrganization,
     );
     if (!validation.ok) {
       return { success: false, message: validation.message };
     }
 
+    const submitters = setSubmitters(assuranceSet);
+    const objects = assuranceSet.assuranceObjects ?? [];
+    const providers = submitters.map((submitter) => submitter.organization);
+    const isOwnTask = (r: AssuranceRequirement) =>
+      !submitterOrganization ||
+      taskProvider(objects, providers, r.subtype, r.targetObjectId)?.toLowerCase() === submitterOrganization.toLowerCase();
+    const fillPendingTasks = (requirements: AssuranceRequirement[]) =>
+      role === "Submitter"
+        ? requirements.map((r) =>
+            r.assignedSubmitter === PENDING_ASSIGNMENT && isOwnTask(r) ? { ...r, assignedSubmitter: assigneeName } : r,
+          )
+        : role === "Verifier"
+          ? requirements.map((r) =>
+              r.assignedVerifier === PENDING_ASSIGNMENT ? { ...r, assignedVerifier: assigneeName } : r,
+            )
+          : requirements;
+
     set((state) => ({
       assuranceSets: state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
         if (role === "Submitter") {
-          return { ...s, assignedSubmitter: assigneeName };
+          /* the first submitter is the one older views read */
+          const named = s.submitters?.map((submitter, index) =>
+            (submitterOrganization
+              ? submitter.organization.toLowerCase() === submitterOrganization.toLowerCase()
+              : index === 0)
+              ? { ...submitter, assignee: assigneeName }
+              : submitter,
+          );
+          return {
+            ...s,
+            submitters: named,
+            assignedSubmitter: named?.[0]?.assignee ?? assigneeName,
+            requirements: fillPendingTasks(s.requirements),
+          };
         }
         if (role === "Verifier") {
           return {
             ...s,
             assignedVerifier: assigneeName,
             verificationRequired: true,
+            requirements: fillPendingTasks(s.requirements),
           };
         }
         if (role === "Inspector") {
@@ -2684,7 +2763,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
     const previousAssignee =
       role === "Submitter"
-        ? assuranceSet.assignedSubmitter
+        ? submitters.find((submitter) => submitter.organization === submitterOrganization)?.assignee ??
+          assuranceSet.assignedSubmitter
         : role === "Verifier"
           ? assuranceSet.assignedVerifier
           : role === "Inspector"

@@ -4,8 +4,8 @@
   role in system: consumed by useMapStore and project views.
 */
 
-import { AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype, ThreePillarsCategory } from '../types/assurance';
-import { getAssuranceSetCrewIds, getThreePillarsCategory } from './assuranceTemplates';
+import { AssuranceObject, AssuranceProject, AssuranceRequirement, AssuranceSet, AssuranceSubtype, ThreePillarsCategory } from '../types/assurance';
+import { getAssuranceObjectScope, getAssuranceSetCrewIds, getThreePillarsCategory } from './assuranceTemplates';
 import { UserRolePersona } from '../types/audit';
 import { CrewMember } from '../types/crew';
 import { EquipmentAsset } from '../types/equipment';
@@ -21,7 +21,7 @@ import {
 import { UserProfile } from '../types/user';
 import { VesselInformation } from '../types/vessel';
 import { calculateAssuranceSetReadiness, derivePipelineStage } from './readinessHelpers';
-import { getSessionUserForPersona } from './userRoleHelpers';
+import { getSessionUserForPersona, parseAssigneeOrganization } from './userRoleHelpers';
 import {
   filterVesselsForPersona,
   getClientAdminOrganization,
@@ -83,8 +83,147 @@ export const CONTRACT_CHAIN_LABELS: Record<ContractChainRole, string> = {
   vendor: 'Vendor',
 };
 
-const sameOrganization = (left: string, right: string) =>
+export const sameOrganization = (left: string, right: string) =>
   left.trim().toLowerCase() === right.trim().toLowerCase();
+
+/* owner names used when an object records none; they are not organizations */
+const PLACEHOLDER_OWNERS = ['Vessel Provider', 'Crew Provider', 'Equipment Provider'];
+
+const addOrganization = (organizations: string[], organization: string | undefined) => {
+  const name = organization?.trim();
+  if (name && !organizations.some((listed) => sameOrganization(listed, name))) organizations.push(name);
+};
+
+/**
+  what: real owner organizations of a set's objects, in object order.
+  how: reads each object's owner, skipping placeholder names and repeats.
+  with what file: src/utils/projectHelpers.ts used by CreateAssuranceSetView.tsx and useMapStore.ts.
+*/
+export function objectOwnerOrganizations(objects: Pick<AssuranceObject, 'ownerOrganization'>[] = []): string[] {
+  const owners: string[] = [];
+  for (const object of objects) {
+    if (!PLACEHOLDER_OWNERS.includes(object.ownerOrganization)) addOrganization(owners, object.ownerOrganization);
+  }
+  return owners;
+}
+
+/**
+  what: the providers of a set: every owner of an object on it, each of which submits for its objects.
+  how: non-client owners come first, then the client when it owns an object; a requesting provider is included. With no owner the client is the provider.
+  with what file: src/utils/projectHelpers.ts used by CreateAssuranceSetView.tsx.
+*/
+export function setProviders(
+  objects: Pick<AssuranceObject, 'ownerOrganization'>[],
+  client: string,
+  requestingProvider?: string,
+): string[] {
+  const owners = objectOwnerOrganizations(objects);
+  addOrganization(owners, requestingProvider);
+  const others = owners.filter((owner) => !sameOrganization(owner, client));
+  const clientOwns = owners.some((owner) => sameOrganization(owner, client));
+  return others.length === 0 || clientOwns ? [...others, client] : others;
+}
+
+/**
+  what: the provider that submits a task.
+  how: the owner of the task's object, otherwise of the first object of the task's type, otherwise the first provider.
+  with what file: src/utils/projectHelpers.ts used by CreateAssuranceSetView.tsx and useMapStore.ts.
+*/
+export function taskProvider(
+  objects: Pick<AssuranceObject, 'id' | 'type' | 'ownerOrganization'>[],
+  providers: string[],
+  subtype?: AssuranceSubtype,
+  targetObjectId?: string,
+): string | undefined {
+  const object =
+    objects.find((item) => item.id === targetObjectId) ||
+    objects.find((item) => getAssuranceObjectScope(item.type) === subtype);
+  return (
+    providers.find((provider) => object && sameOrganization(provider, object.ownerOrganization)) || providers[0]
+  );
+}
+
+/**
+  what: every organization on a set.
+  how: uses the recorded list, otherwise collects the client, provider, stakeholder organizations and object owners stored on the set.
+  with what file: src/utils/projectHelpers.ts used by AssuranceDetailView.tsx and CreateAssuranceSetView.tsx.
+*/
+export function setOrganizations(
+  set: Pick<
+    AssuranceSet,
+    | 'organizations'
+    | 'clientOrg'
+    | 'charterer'
+    | 'serviceProviderOrg'
+    | 'stakeholders'
+    | 'assignedSubmitter'
+    | 'assignedVerifier'
+    | 'assignedInspector'
+    | 'assignedApprover'
+    | 'assuranceObjects'
+  >,
+): string[] {
+  if (set.organizations?.length) return set.organizations;
+  const organizations: string[] = [];
+  addOrganization(organizations, set.clientOrg || set.charterer);
+  addOrganization(organizations, set.serviceProviderOrg);
+  addOrganization(organizations, set.stakeholders?.submitterOrg || parseAssigneeOrganization(set.assignedSubmitter || ''));
+  addOrganization(organizations, set.stakeholders?.verifierOrg || parseAssigneeOrganization(set.assignedVerifier || ''));
+  addOrganization(organizations, set.stakeholders?.inspectorOrg || parseAssigneeOrganization(set.assignedInspector || ''));
+  addOrganization(organizations, set.stakeholders?.approverOrg || parseAssigneeOrganization(set.assignedApprover || ''));
+  objectOwnerOrganizations(set.assuranceObjects).forEach((owner) => addOrganization(organizations, owner));
+  return organizations;
+}
+
+/**
+  what: the organization list with any unlisted object owner added.
+  how: keeps the list order and appends each new owner; returns the same list when nothing is new.
+  with what file: src/utils/projectHelpers.ts used by CreateAssuranceSetView.tsx.
+*/
+export function addObjectOwners(
+  organizations: string[],
+  objects: Pick<AssuranceObject, 'ownerOrganization'>[],
+): string[] {
+  const next = [...organizations];
+  objectOwnerOrganizations(objects).forEach((owner) => addOrganization(next, owner));
+  return next.length === organizations.length ? organizations : next;
+}
+
+/**
+  what: why an organization cannot leave a set, or null when it can.
+  how: names the first object it owns, then the first role it holds.
+  with what file: src/utils/projectHelpers.ts used by CreateAssuranceSetView.tsx.
+*/
+export function organizationInUse(
+  organization: string,
+  objects: Pick<AssuranceObject, 'name' | 'ownerOrganization'>[],
+  roles: Partial<Record<'Verifier' | 'Inspector' | 'Approver', string>>,
+): string | null {
+  const owned = objects.find((object) => sameOrganization(object.ownerOrganization, organization));
+  if (owned) return 'Owns ' + owned.name + '. Remove that object first.';
+  const role = (Object.keys(roles) as Array<'Verifier' | 'Inspector' | 'Approver'>).find((key) => {
+    const held = roles[key];
+    return Boolean(held) && sameOrganization(held!, organization);
+  });
+  return role ? 'Is the ' + role + '. Choose another organization first.' : null;
+}
+
+/**
+  what: listed organizations that may verify or approve a set.
+  how: an organization that owns an object cannot review it; the client is exempt because its own objects are internal assurance.
+  with what file: src/utils/projectHelpers.ts used by CreateAssuranceSetView.tsx.
+*/
+export function eligibleReviewers(
+  organizations: string[],
+  objects: Pick<AssuranceObject, 'ownerOrganization'>[],
+  client: string,
+): string[] {
+  const owners = objectOwnerOrganizations(objects);
+  return organizations.filter(
+    (organization) =>
+      sameOrganization(organization, client) || !owners.some((owner) => sameOrganization(owner, organization)),
+  );
+}
 
 /**
   what: builds the project party list from the chain and any extra organizations.

@@ -11,7 +11,7 @@ import { SUBTYPE_STANDARD_DOCS, EXISTING_ACTIVITIES } from '../utils/assuranceTe
 import { autoAttachDocumentsToRequirements } from '../utils/documentMatchingHelpers';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import {
-  filterCandidatesByReviewMode,
+  getOrganizationRoleCandidates,
   hasBlockingAssuranceAssignmentConflict,
 } from '../utils/userRoleHelpers';
 
@@ -231,10 +231,7 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
 
   it('allows provider staff to act as verifiers/approvers during internal deployment self-assurance without conflict block', () => {
     const store = useMapStore.getState();
-    const verifiers = filterCandidatesByReviewMode(store.users, 'internal', 'Verifier', {
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      internalDeployment: true,
-    });
+    const verifiers = getOrganizationRoleCandidates(store.users, 'Northwind Marine Pty Ltd', 'Verifier');
 
     expect(verifiers.length).toBeGreaterThan(0);
 

@@ -12,13 +12,24 @@ export const objectRowIds = (container: HTMLElement) =>
   Array.from(container.querySelectorAll('[data-testid^="assurance-object-row-"]')).map((row) =>
     (row.getAttribute('data-testid') || '').replace('assurance-object-row-', ''),
   );
-export const objectItemSelect = (container: HTMLElement, type: string) => {
+/* the object picker's options after a search; every id holds a dash, so a dash reaches every object of the type */
+export const objectPickerOptions = (container: HTMLElement, type: string, query = '-') => {
   fireEvent.change(container.querySelector('#grid-add-object-type') as HTMLSelectElement, { target: { value: type } });
-  return container.querySelector('#grid-add-object-item') as HTMLSelectElement;
+  const input = container.querySelector('#grid-add-object-item') as HTMLInputElement;
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: query } });
+  return Array.from(container.querySelectorAll<HTMLElement>('#grid-add-object-item-listbox [role="option"]'));
 };
+export const objectItemSelect = (container: HTMLElement, type: string) => ({
+  options: objectPickerOptions(container, type).map((option) => ({
+    value: option.getAttribute('data-item-id') || '',
+    text: option.textContent || '',
+    disabled: option.getAttribute('aria-disabled') === 'true',
+  })),
+});
 export const addObject = (container: HTMLElement, type: string, id: string) => {
-  fireEvent.change(objectItemSelect(container, type), { target: { value: id } });
-  fireEvent.click(screen.getByRole('button', { name: /Add Object/ }));
+  const option = objectPickerOptions(container, type, id).find((item) => item.getAttribute('data-item-id') === id);
+  fireEvent.click(option as HTMLElement);
 };
 export const removeObjectRow = (container: HTMLElement, id: string) =>
   fireEvent.click(container.querySelector(`[data-testid="assurance-object-row-${id}"] button[title="Remove object"]`) as HTMLButtonElement);

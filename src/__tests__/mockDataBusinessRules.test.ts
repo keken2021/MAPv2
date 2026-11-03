@@ -28,6 +28,7 @@ import {
   getProjectClientOrganization,
   isAssetOwnedByOrganization,
   isOrganizationMatch,
+  setOrganizations,
 } from '../utils/projectHelpers';
 import { AssuranceSet } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
@@ -123,7 +124,7 @@ describe('Seeded assurance sets keep client, service provider and assurance grou
           expect(result.ok, `${set.id} ${role} ${label}`).toBe(true);
         }
         const fromClient = isOrganizationMatch(client, user.organization);
-        const independent = user.userType === 'Third-Party' || getReviewChannelForUser(user, client) === 'issuing_authority';
+        const independent = user.userType === 'Third-Party';
         expect(fromClient || independent, `${set.id} ${role} ${label} is client staff or independent`).toBe(true);
         if (!set.internalDeployment) {
           expect(isOrganizationMatch(provider, user.organization), `${set.id} ${role} ${label} is not provider staff`).toBe(false);
@@ -132,20 +133,17 @@ describe('Seeded assurance sets keep client, service provider and assurance grou
     });
   });
 
-  it('records a review channel on every set that its verifier and approver match', () => {
+  it('lists the organization of every assignee on the set', () => {
     ALL_SETS.forEach((set) => {
-      const client = set.clientOrg ?? '';
-      const channels = set.reviewChannels ?? [];
-      expect(set.reviewMode, `${set.id} reviewMode`).toBeTruthy();
-      expect(channels.length, `${set.id} reviewChannels`).toBeGreaterThan(0);
-      if (set.reviewMode !== 'mixed') expect(channels, `${set.id} reviewChannels`).toEqual([set.reviewMode]);
-
-      getAssignees(set)
-        .filter(({ role }) => role === 'Verifier' || role === 'Approver')
-        .forEach(({ role, label, user }) => {
-          if (!user) return;
-          expect(channels, `${set.id} ${role} ${label}`).toContain(getReviewChannelForUser(user, client));
-        });
+      const organizations = setOrganizations(set);
+      getAssignees(set).forEach(({ role, label }) => {
+        const organization = parseAssigneeOrganization(label);
+        if (!organization) return;
+        expect(
+          organizations.some((listed) => isOrganizationMatch(listed, organization)),
+          `${set.id} ${role} ${label}`,
+        ).toBe(true);
+      });
     });
   });
 

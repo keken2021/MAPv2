@@ -405,24 +405,45 @@ describe('Map Store State Management', () => {
     const targetSet = store.assuranceSets.find((s) => s.id === 'AS-2026-003')!;
     expect(targetSet).toBeDefined();
 
+    /* each role names an organization, and only that organization's admin chooses the person */
+    useMapStore.setState((state) => ({
+      assuranceSets: state.assuranceSets.map((s) =>
+        s.id === targetSet.id
+          ? {
+              ...s,
+              stakeholders: {
+                submitterOrg: 'Pacific Ocean Shipping',
+                verifierOrg: 'Southern Basin Energy Pty Ltd',
+                inspectorOrg: 'Meridian Marine Surveyors',
+                approverOrg: 'Marine Assurance Authority',
+              },
+            }
+          : s,
+      ),
+    }));
+
     // Test Submitter update
+    useMapStore.setState({ activeDemoOrganization: 'Pacific Ocean Shipping' });
     store.updateAssuranceStakeholder(targetSet.id, 'Submitter', 'E. Ramirez (Pacific Ocean Shipping)');
     let currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
     expect(currentSet?.assignedSubmitter).toBe('E. Ramirez (Pacific Ocean Shipping)');
 
     // Test Verifier update
+    useMapStore.setState({ activeDemoOrganization: 'Southern Basin Energy Pty Ltd' });
     store.updateAssuranceStakeholder(targetSet.id, 'Verifier', 'S. Basin (Southern Basin Energy Pty Ltd)');
     currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
     expect(currentSet?.assignedVerifier).toBe('S. Basin (Southern Basin Energy Pty Ltd)');
     expect(currentSet?.verificationRequired).toBe(true);
 
     // Test Inspector update
+    useMapStore.setState({ activeDemoOrganization: 'Meridian Marine Surveyors' });
     store.updateAssuranceStakeholder(targetSet.id, 'Inspector', 'N. Technical (Meridian Marine Surveyors)');
     currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
     expect(currentSet?.assignedInspector).toBe('N. Technical (Meridian Marine Surveyors)');
     expect(currentSet?.mandatoryInspectionRequired).toBe(true);
 
     // Test Approver update
+    useMapStore.setState({ activeDemoOrganization: 'Marine Assurance Authority' });
     store.updateAssuranceStakeholder(targetSet.id, 'Approver', 'P. Nardelli (Marine Assurance Authority)');
     currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
     expect(currentSet?.assignedApprover).toBe('P. Nardelli (Marine Assurance Authority)');

@@ -102,6 +102,12 @@ export interface OrganizationParty {
 }
 export type AuthorityValidationMethod = 'api' | 'direct_link' | 'manual';
 
+/** the submitter of one provider on a set; assignee is a person label until then pending */
+export interface SetSubmitter {
+  organization: string;
+  assignee: string;
+}
+
 /** How a requirement is fulfilled: document upload or link to another assurance set */
 export type RequirementFulfillmentType = 'document' | 'assurance_set';
 
@@ -390,8 +396,12 @@ export interface AssuranceSet {
   serviceProviderOrg?: string;
   /** initiating client organization that owns the assurance set */
   clientOrg?: string;
+  /** every organization on this set; objects and stakeholders refer only to these */
+  organizations?: string[];
   /** organizations on this set, each placed as Client, Vendor, or Third party */
   parties?: OrganizationParty[];
+  /** one submitter per provider; assignedSubmitter mirrors the first */
+  submitters?: SetSubmitter[];
   /** true when C Admin runs assurance on their own fleet (internal deployment, not third-party charter) */
   internalDeployment?: boolean;
   /** C Admin workflow: draft until sent for review; client owns final approval */

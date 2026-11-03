@@ -4,7 +4,9 @@
   role in system: consumed by UserManagement modals, UserTable, and CreateAssuranceSetView.
 */
 
+import { AssuranceObject, SetSubmitter } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
+import { MasterDocument } from '../types/document';
 import { RoleName } from '../types/permissions';
 import { UserProfile } from '../types/user';
 import { MOCK_PERSONA_SESSION_USER_IDS } from '../store/mockData';
@@ -232,6 +234,42 @@ export function getReviewChannelForUser(
   how: returns client admins, independent third parties, and issuing authorities, strictly excluding the service provider/asset owner organization.
   with what file: src/utils/userRoleHelpers.ts consumed by CreateAssuranceSetView.tsx.
 */
+export function findObjectSubmitter(
+  object: Pick<AssuranceObject, 'id' | 'ownerOrganization'>,
+  documents: Pick<MasterDocument, 'vesselId' | 'versions'>[],
+  users: UserProfile[],
+): UserProfile | undefined {
+  const uploads = documents
+    .filter((document) => document.vesselId === object.id)
+    .flatMap((document) => document.versions)
+    .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
+  for (const upload of uploads) {
+    const uploader = users.find(
+      (user) =>
+        user.name === upload.uploadedBy &&
+        user.status === 'Active' &&
+        userHasRole(user, 'Submitter') &&
+        stakeholderOrgMatches(user.organization || '', object.ownerOrganization),
+    );
+    if (uploader) return uploader;
+  }
+  return undefined;
+}
+
+export function getOrganizationRoleCandidates(
+  users: UserProfile[],
+  organization: string | undefined,
+  role: 'Verifier' | 'Inspector' | 'Approver',
+): UserProfile[] {
+  if (!organization) return [];
+  return users.filter(
+    (user) =>
+      user.status === 'Active' &&
+      stakeholderOrgMatches(user.organization || '', organization) &&
+      (userHasRole(user, role) || (role !== 'Inspector' && userHasRole(user, 'C Admin'))),
+  );
+}
+
 export function filterEligibleVerifiersForScope(
   users: UserProfile[],
   options?: {
@@ -502,6 +540,80 @@ export function findUserByAssigneeLabel(
   );
 }
 
+export const PENDING_ASSIGNMENT = 'Pending Assignment';
+
+export type StakeholderRole = 'Submitter' | 'Verifier' | 'Inspector' | 'Approver';
+
+export interface StakeholderOrganizationFields {
+  serviceProviderOrg?: string;
+  clientOrg?: string;
+  charterer?: string;
+  assignedSubmitter?: string;
+  assignedVerifier?: string;
+  assignedInspector?: string;
+  assignedApprover?: string;
+  stakeholders?: {
+    submitterOrg?: string;
+    verifierOrg?: string;
+    inspectorOrg?: string;
+    approverOrg?: string;
+  } | null;
+  submitters?: SetSubmitter[];
+}
+
+export function getStakeholderRoleOrganization(
+  set: StakeholderOrganizationFields,
+  role: StakeholderRole,
+): string | undefined {
+  if (role === 'Submitter') {
+    return (
+      set.stakeholders?.submitterOrg ||
+      set.serviceProviderOrg ||
+      parseAssigneeOrganization(set.assignedSubmitter || '')
+    );
+  }
+  if (role === 'Verifier') {
+    return (
+      set.stakeholders?.verifierOrg ||
+      parseAssigneeOrganization(set.assignedVerifier || '')
+    );
+  }
+  if (role === 'Inspector') {
+    return (
+      set.stakeholders?.inspectorOrg ||
+      parseAssigneeOrganization(set.assignedInspector || '')
+    );
+  }
+  if (role === 'Approver') {
+    return (
+      set.stakeholders?.approverOrg ||
+      parseAssigneeOrganization(set.assignedApprover || '') ||
+      set.clientOrg ||
+      set.charterer
+    );
+  }
+  return undefined;
+}
+
+export function setSubmitters(set: StakeholderOrganizationFields): SetSubmitter[] {
+  if (set.submitters?.length) return set.submitters;
+  const organization = getStakeholderRoleOrganization(set, 'Submitter');
+  if (!organization && !set.assignedSubmitter) return [];
+  return [{ organization: organization || '', assignee: set.assignedSubmitter || PENDING_ASSIGNMENT }];
+}
+
+export function canAssignStakeholderRole(
+  set: StakeholderOrganizationFields,
+  role: StakeholderRole,
+  adminOrganization: string | undefined,
+  submitterOrganization?: string,
+): boolean {
+  const roleOrganization =
+    (role === 'Submitter' && submitterOrganization) || getStakeholderRoleOrganization(set, role);
+  if (!roleOrganization || !adminOrganization) return true;
+  return stakeholderOrgMatches(roleOrganization, adminOrganization);
+}
+
 export type StakeholderAssignmentValidation =
   | { ok: true }
   | { ok: false; message: string };
@@ -510,16 +622,16 @@ export type StakeholderAssignmentValidation =
   Validates stakeholder changes on an existing assurance set (Assurance Detail, store updates).
 */
 export function validateStakeholderAssignmentForSet(
-  assuranceSet: {
-    serviceProviderOrg?: string;
-    assignedSubmitter?: string;
+  assuranceSet: StakeholderOrganizationFields & {
     internalDeployment?: boolean;
-    reviewMode?: 'internal' | 'third_party' | 'issuing_authority' | 'mixed';
     clientOrg?: string;
+    assuranceObjects?: Pick<AssuranceObject, 'ownerOrganization'>[];
+    reviewMode?: 'internal' | 'third_party' | 'issuing_authority' | 'mixed';
   },
   role: 'Submitter' | 'Verifier' | 'Inspector' | 'Approver',
   assigneeName: string,
   users: UserProfile[],
+  submitterOrganization?: string,
 ): StakeholderAssignmentValidation {
   if (!assigneeName.trim()) {
     return { ok: false, message: 'Please select an assignee.' };
@@ -529,6 +641,13 @@ export function validateStakeholderAssignmentForSet(
   const assigneeOrg = parseAssigneeOrganization(assigneeName);
   const assigneeUser = findUserByAssigneeLabel(users, assigneeName);
 
+  /* a role is filled from the organization named for it, so an admin cannot name someone else's staff */
+  const roleOrganization =
+    (role === 'Submitter' && submitterOrganization) || getStakeholderRoleOrganization(assuranceSet, role);
+  if (roleOrganization && assigneeOrg && !stakeholderOrgMatches(roleOrganization, assigneeOrg)) {
+    return { ok: false, message: assigneeName + ' is not in ' + roleOrganization + '.' };
+  }
+
   if (
     (role === 'Verifier' || role === 'Approver') &&
     providerOrg &&
@@ -537,13 +656,30 @@ export function validateStakeholderAssignmentForSet(
     if (assigneeOrg && stakeholderOrgMatches(providerOrg, assigneeOrg)) {
       return {
         ok: false,
-        message: `Service provider conflict: staff from ${assigneeOrg} cannot ${role.toLowerCase()} their own documents.`,
+        message: 'Service provider conflict: staff from ' + assigneeOrg + ' cannot ' + role.toLowerCase() + ' their own documents.',
       };
     }
     if (assigneeUser?.organization && stakeholderOrgMatches(providerOrg, assigneeUser.organization)) {
       return {
         ok: false,
-        message: `Service provider conflict: ${assigneeUser.name} cannot ${role.toLowerCase()} their own organization's documents.`,
+        message: 'Service provider conflict: ' + assigneeUser.name + ' cannot ' + role.toLowerCase() + ' their own organization\'s documents.',
+      };
+    }
+  }
+
+  /* an organization that owns an object in the set cannot review it; the client\'s own objects are internal assurance */
+  if ((role === 'Verifier' || role === 'Approver') && !assuranceSet.internalDeployment) {
+    const organization = assigneeOrg || assigneeUser?.organization;
+    const isClient = Boolean(
+      organization && assuranceSet.clientOrg && stakeholderOrgMatches(assuranceSet.clientOrg, organization),
+    );
+    const ownsObject = Boolean(organization) && (assuranceSet.assuranceObjects ?? []).some(
+      (object) => Boolean(object.ownerOrganization && organization && stakeholderOrgMatches(object.ownerOrganization, organization)),
+    );
+    if (ownsObject && !isClient) {
+      return {
+        ok: false,
+        message: 'Object owner conflict: ' + organization + ' cannot ' + role.toLowerCase() + ' a set that covers its own objects.',
       };
     }
   }
@@ -552,15 +688,16 @@ export function validateStakeholderAssignmentForSet(
     const submitterOrg = assuranceSet.assignedSubmitter
       ? parseAssigneeOrganization(assuranceSet.assignedSubmitter)
       : undefined;
+    const submitterLabels = setSubmitters(assuranceSet).map((submitter) => submitter.assignee);
     if (
       role === 'Verifier' &&
-      assigneeName === assuranceSet.assignedSubmitter
+      submitterLabels.includes(assigneeName)
     ) {
       return { ok: false, message: 'Submitter and Verifier cannot be the same person on one assurance set.' };
     }
     if (
       role === 'Approver' &&
-      assigneeName === assuranceSet.assignedSubmitter
+      submitterLabels.includes(assigneeName)
     ) {
       return { ok: false, message: 'Submitter and Approver cannot be the same person on one assurance set.' };
     }
@@ -569,7 +706,7 @@ export function validateStakeholderAssignmentForSet(
       if (submitterUser && assigneeUser.id === submitterUser.id && (role === 'Verifier' || role === 'Approver')) {
         return {
           ok: false,
-          message: `Segregation of duties: the same user cannot be both Submitter and ${role}.`,
+          message: 'Segregation of duties: the same user cannot be both Submitter and ' + role + '.',
         };
       }
     }

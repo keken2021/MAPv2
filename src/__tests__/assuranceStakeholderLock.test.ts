@@ -105,10 +105,11 @@ describe('assurance set stakeholder assignment lock', () => {
     expect(blocked.success).toBe(false);
     expect(blocked.message).toContain('approved or certified');
 
+    useMapStore.setState({ activeDemoOrganization: 'Inpex Operations Australia' });
     const allowed = useMapStore.getState().updateAssuranceStakeholder(
       editable.id,
       'Verifier',
-      'S. Basin (Southern Basin Energy Pty Ltd)',
+      'K. Tanabe (Inpex Operations Australia)',
     );
     expect(allowed.success).toBe(true);
   });

@@ -475,6 +475,8 @@ describe('store: workflow notifications', () => {
     useMapStore.setState({ notifications: [] });
 
     const target = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-NTF-TEST-004')!;
+    /* only the admin of the organization that fills the role chooses its person */
+    useMapStore.setState({ activeDemoOrganization: 'Meridian Marine Surveyors' });
     const result = useMapStore
       .getState()
       .updateAssuranceStakeholder(target.id, 'Inspector', 'Capt. Robert Shaw (Meridian Marine Surveyors)');

@@ -14,7 +14,7 @@ import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { formatMaritimeDate, formatMaritimeDateTime, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
-import { setOrganizationParties } from '../utils/projectHelpers';
+import { setOrganizations, setOrganizationParties } from '../utils/projectHelpers';
 import {
   toIsoLocalDate,
   validateCharterWindow,
@@ -34,9 +34,13 @@ import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import {
-  userHasRole,
-  filterCandidatesByReviewMode,
-  filterEligibleApproversForScope,
+  canAssignStakeholderRole,
+  getOrganizationRoleCandidates,
+  getServiceProviderSubmitterCandidates,
+  getStakeholderRoleOrganization,
+  PENDING_ASSIGNMENT,
+  setSubmitters,
+  StakeholderRole,
   getSessionUserForPersona,
 } from '../utils/userRoleHelpers';
 import {
@@ -495,6 +499,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [replaceExistingDoc, setReplaceExistingDoc] = useState<MasterDocument | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<'Submitter' | 'Verifier' | 'Inspector' | 'Approver' | null>(null);
+  const [editingSubmitterOrg, setEditingSubmitterOrg] = useState<string | null>(null);
 
   const [objectSearch, setObjectSearch] = useState('');
 
@@ -767,25 +772,21 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
   const isCAdminPersona = activePersona === 'C Admin';
 
+  const organizations = assuranceSet ? setOrganizations(assuranceSet) : [];
+  /* each list holds the people of the organization that fills the role */
+  const roleOrganization = (role: StakeholderRole) =>
+    assuranceSet ? getStakeholderRoleOrganization(assuranceSet, role) : undefined;
   const verifierCandidates = useMemo(
-    () =>
-      filterCandidatesByReviewMode(
-        users,
-        assuranceSet?.reviewMode || 'third_party',
-        'Verifier',
-        { clientOrg: clientOwnerOrg, serviceProviderOrg },
-      ),
-    [users, assuranceSet?.reviewMode, clientOwnerOrg, serviceProviderOrg],
+    () => getOrganizationRoleCandidates(users, roleOrganization('Verifier'), 'Verifier'),
+    [users, assuranceSet],
   );
-
+  const inspectorCandidates = useMemo(
+    () => getOrganizationRoleCandidates(users, roleOrganization('Inspector'), 'Inspector'),
+    [users, assuranceSet],
+  );
   const approverCandidates = useMemo(
-    () =>
-      filterEligibleApproversForScope(users, {
-        serviceProviderOrg,
-        isClientAdmin: isCAdminPersona,
-        isCharteringOtherServices: true,
-      }),
-    [users, serviceProviderOrg, isCAdminPersona],
+    () => getOrganizationRoleCandidates(users, roleOrganization('Approver'), 'Approver'),
+    [users, assuranceSet],
   );
 
   const sectionSummaries = useMemo(() => summarizeTaskSections(assuranceSet), [assuranceSet]);
@@ -1497,17 +1498,27 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const isLinkedSubSet = (req: AssuranceRequirement) =>
     req.fulfillmentType === 'assurance_set' || Boolean(req.linkedAssuranceSetId);
 
+  /* the client chooses organizations; only each organization's own admin chooses its person */
+  const canAssignRole = (role: StakeholderRole) =>
+    canEditStakeholders && canAssignStakeholderRole(assuranceSet, role, activeDemoOrganization);
+  const stakeholderLabel = (role: StakeholderRole, assigned: string) => {
+    if (assigned !== PENDING_ASSIGNMENT) return assigned;
+    const organization = roleOrganization(role);
+    return organization ? `Pending, ${organization}` : PENDING_ASSIGNMENT;
+  };
   const assignStakeholder = (
-    role: 'Submitter' | 'Verifier' | 'Inspector' | 'Approver',
+    role: StakeholderRole,
     assigneeName: string,
+    submitterOrganization?: string,
   ) => {
-    const result = updateAssuranceStakeholder(assuranceSet.id, role, assigneeName);
+    const result = updateAssuranceStakeholder(assuranceSet.id, role, assigneeName, submitterOrganization);
     if (!result.success) {
       setStakeholderError(result.message || 'The stakeholder could not be assigned.');
       return;
     }
     setStakeholderError(null);
     setEditingRole(null);
+    setEditingSubmitterOrg(null);
   };
 
   const verifiedCount = assuranceSet.requirements.filter((r) => r.verifierStatus === 'Verified').length;
@@ -1884,17 +1895,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         </div>
                       </div>
                     )}
-                    {organizationParties.length > 0 && (
+                    {organizations.length > 0 && (
                       <div className="map-detail-row border-bottom pb-2">
-                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Parties</div>
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Organizations</div>
                         <ul className="list-unstyled mb-0 mt-1">
-                          {organizationParties.map((party) => (
-                            <li
-                              key={`${party.organization}-${party.group}`}
-                              className="d-flex justify-content-between align-items-center gap-2 py-1"
-                            >
-                              <span className="fw-bold text-dark">{party.organization}</span>
-                              <span className="badge bg-light text-dark border">{party.group}</span>
+                          {organizations.map((organization) => (
+                            <li key={organization} className="fw-bold text-dark py-1">
+                              {organization}
                             </li>
                           ))}
                         </ul>
@@ -2106,59 +2113,69 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       </div>
                     )}
 
-                    {/* Submitter */}
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="d-flex align-items-center justify-content-between">
-                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Submitter:</div>
-                        {canEditStakeholders && (
-                          <button
-                            type="button"
-                            className="btn btn-link p-0 text-decoration-none small ms-auto"
-                            style={{ fontSize: '0.7rem', color: '#0284c7' }}
-                            onClick={() => setEditingRole(editingRole === 'Submitter' ? null : 'Submitter')}
-                          >
-                            {editingRole === 'Submitter' ? 'Cancel' : 'Assign / Change'}
-                          </button>
-                        )}
-                      </div>
-                      {editingRole === 'Submitter' ? (
-                        <div className="mt-1 d-flex flex-column gap-1">
-                          <select
-                            className="form-select form-select-sm"
-                            style={{ fontSize: '0.75rem' }}
-                            value={assuranceSet.assignedSubmitter || ''}
-                            onChange={(e) => {
-                              if (e.target.value) assignStakeholder('Submitter', e.target.value);
-                            }}
-                          >
-                            <option value="">Select submitter</option>
-                            {users
-                              .filter((u) => userHasRole(u, 'Submitter') || userHasRole(u, 'Administrator'))
-                              .map((u) => (
-                                <option key={u.id} value={`${u.name} (${u.organization})`}>
-                                  {u.name} - {u.organization}
-                                </option>
-                              ))}
-                          </select>
-                          <button
-                            type="button"
-                            className="btn btn-xs btn-outline-primary align-self-start mt-1"
-                            style={{ fontSize: '0.675rem' }}
-                            onClick={() => setCurrentHashView('users')}
-                          >
-                            Add a submitter in User Management
-                          </button>
+                    {/* Submitters: one for each provider on the set */}
+                    {(setSubmitters(assuranceSet).length > 0
+                      ? setSubmitters(assuranceSet)
+                      : [{ organization: '', assignee: 'M. Chen (Northwind Marine Pty Ltd)' }]
+                    ).map((submitter) => {
+                      const isEditing = editingSubmitterOrg === submitter.organization;
+                      return (
+                        <div key={submitter.organization || 'submitter'} className="map-detail-row border-bottom pb-2" data-testid="set-submitter">
+                          <div className="d-flex align-items-center justify-content-between">
+                            <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Submitter:</div>
+                            {canEditStakeholders && canAssignStakeholderRole(assuranceSet, 'Submitter', activeDemoOrganization, submitter.organization) && (
+                              <button
+                                type="button"
+                                className="btn btn-link p-0 text-decoration-none small ms-auto"
+                                style={{ fontSize: '0.7rem', color: '#0284c7' }}
+                                onClick={() => setEditingSubmitterOrg(isEditing ? null : submitter.organization)}
+                              >
+                                {isEditing ? 'Cancel' : 'Assign / Change'}
+                              </button>
+                            )}
+                          </div>
+                          {isEditing ? (
+                            <div className="mt-1 d-flex flex-column gap-1">
+                              <select
+                                className="form-select form-select-sm"
+                                style={{ fontSize: '0.75rem' }}
+                                value={submitter.assignee}
+                                onChange={(e) => {
+                                  if (e.target.value) assignStakeholder('Submitter', e.target.value, submitter.organization);
+                                }}
+                              >
+                                <option value="">Select submitter</option>
+                                {getServiceProviderSubmitterCandidates(users, submitter.organization).map((u) => (
+                                  <option key={u.id} value={`${u.name} (${u.organization})`}>
+                                    {u.name} - {u.organization}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-outline-primary align-self-start mt-1"
+                                style={{ fontSize: '0.675rem' }}
+                                onClick={() => setCurrentHashView('users')}
+                              >
+                                Add a submitter in User Management
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="fw-bold text-dark">
+                              {submitter.assignee === PENDING_ASSIGNMENT
+                                ? (submitter.organization ? `Pending, ${submitter.organization}` : 'Pending')
+                                : submitter.assignee}
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="fw-bold text-dark">{assuranceSet.assignedSubmitter || 'M. Chen (Northwind Marine Pty Ltd)'}</div>
-                      )}
-                    </div>
+                      );
+                    })}
 
                     {/* Verifier */}
                     <div className="map-detail-row border-bottom pb-2">
                       <div className="d-flex align-items-center justify-content-between">
                         <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Verifier:</div>
-                        {canEditStakeholders && (
+                        {canAssignRole('Verifier') && (
                           <button
                             type="button"
                             className="btn btn-link p-0 text-decoration-none small ms-auto"
@@ -2197,9 +2214,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         </div>
                       ) : (
                         <div className="fw-bold text-dark">
-                          {assuranceSet.verificationRequired === false
-                            ? 'N/A (Verification Bypassed)'
-                            : (assuranceSet.assignedVerifier || 'A. Fontaine (Bureau Veritas Inspectorate)')}
+                          {assuranceSet.assignedVerifier
+                            ? stakeholderLabel('Verifier', assuranceSet.assignedVerifier)
+                            : stakeholderLabel('Verifier', 'A. Fontaine (Bureau Veritas Inspector)')}
                         </div>
                       )}
                     </div>
@@ -2208,7 +2225,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <div className="map-detail-row border-bottom pb-2">
                       <div className="d-flex align-items-center justify-content-between">
                         <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Inspector:</div>
-                        {canEditStakeholders && (
+                        {canAssignRole('Inspector') && (
                           <button
                             type="button"
                             className="btn btn-link p-0 text-decoration-none small ms-auto"
@@ -2230,13 +2247,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                             }}
                           >
                             <option value="">Select inspector</option>
-                            {users
-                              .filter((u) => userHasRole(u, 'Inspector'))
-                              .map((u) => (
-                                <option key={u.id} value={`${u.name} (${u.organization})`}>
-                                  {u.name} - {u.organization}
-                                </option>
-                              ))}
+                            {inspectorCandidates.map((u) => (
+                              <option key={u.id} value={`${u.name} (${u.organization})`}>
+                                {u.name} - {u.organization}
+                              </option>
+                            ))}
                           </select>
                           <button
                             type="button"
@@ -2250,7 +2265,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       ) : (
                         <div className="fw-bold text-dark">
                           {assuranceSet.mandatoryInspectionRequired
-                            ? (assuranceSet.assignedInspector || 'N. Technical (Meridian Marine Surveyors)')
+                            ? stakeholderLabel('Inspector', assuranceSet.assignedInspector || 'N. Technical (Meridian Marine Surveyors)')
                             : (assuranceSet.assignedInspector || 'N/A (Not Required)')}
                         </div>
                       )}
@@ -2260,7 +2275,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                     <div className="map-detail-row">
                       <div className="d-flex align-items-center justify-content-between">
                         <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Approver:</div>
-                        {canEditStakeholders && (
+                        {canAssignRole('Approver') && (
                           <button
                             type="button"
                             className="btn btn-link p-0 text-decoration-none small ms-auto"
@@ -2301,7 +2316,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         <div className="fw-bold text-dark">
                           {assuranceSet.formalApprovalRequired === false
                             ? 'N/A (Direct Sign-Off)'
-                            : (assuranceSet.assignedApprover || 'P. Nardelli (Marine Assurance Authority)')}
+                            : (assuranceSet.assignedApprover
+                              ? stakeholderLabel('Approver', assuranceSet.assignedApprover)
+                              : stakeholderLabel('Approver', 'P. Nardelli (Marine Assurance Authority)'))}
                         </div>
                       )}
                     </div>

@@ -16,8 +16,10 @@ import {
   filterEligibleApproversForScope,
   filterCandidatesByReviewMode,
   getReviewChannelForUser,
+  getOrganizationRoleCandidates,
 } from '../utils/userRoleHelpers';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { eligibleReviewers } from '../utils/projectHelpers';
 import { MOCK_USERS, MOCK_VESSELS } from '../store/mockData';
 
 describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', () => {
@@ -406,83 +408,25 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
         requirements: [],
       };
 
-      expect(assuranceSetWithMixedReview.reviewMode).toBe('mixed');
-      expect(assuranceSetWithMixedReview.reviewChannels).toContain('issuing_authority');
       expect(assuranceSetWithMixedReview.validityCheckRequired).toBe(true);
       expect(assuranceSetWithMixedReview.suitabilityCheckRequired).toBe(true);
-      expect(assuranceSetWithMixedReview.authorityValidationMethod).toBe('api');
       expect(assuranceSetWithMixedReview.clientOrg).toBe('Northwind Marine Pty Ltd');
       expect(assuranceSetWithMixedReview.serviceProviderOrg).toBe('Offshore Fuel Logistics Corp');
     });
 
-    it('dynamically filters stakeholder candidate lists based on the selected ReviewMode', () => {
-      const clientOrg = 'Southern Basin Energy';
-      const serviceProviderOrg = 'Northwind Marine Pty Ltd';
+    it('offers listed organizations as reviewers, never an object owner, and the people of the chosen one', () => {
+      const clientOrg = 'Southern Basin Energy Pty Ltd';
+      const provider = 'Northwind Marine Pty Ltd';
+      const organizations = [clientOrg, provider, 'Bureau Veritas Inspectorate'];
 
-      // 1. Internal Client Review: only users belonging to the Client Group
-      const internalVerifiers = filterCandidatesByReviewMode(MOCK_USERS, 'internal', 'Verifier', {
-        clientOrg,
-        serviceProviderOrg,
-      });
-      const internalApprovers = filterCandidatesByReviewMode(MOCK_USERS, 'internal', 'Approver', {
-        clientOrg,
-        serviceProviderOrg,
-      });
+      const reviewers = eligibleReviewers(organizations, [{ ownerOrganization: provider }], clientOrg);
+      expect(reviewers).toEqual([clientOrg, 'Bureau Veritas Inspectorate']);
 
-      expect(internalVerifiers.length).toBeGreaterThan(0);
-      expect(internalVerifiers.every((u) => getReviewChannelForUser(u, clientOrg) === 'internal')).toBe(true);
-      expect(internalApprovers.every((u) => getReviewChannelForUser(u, clientOrg) === 'internal')).toBe(true);
-      // Independent third parties are hidden
-      expect(internalVerifiers.some((u) => u.name.includes('Fontaine'))).toBe(false);
-      // Service providers are strictly excluded
-      expect(internalVerifiers.some((u) => u.organization === serviceProviderOrg)).toBe(false);
-
-      // 2. Appointed Third Party: only users belonging to the external Assurance Group
-      const thirdPartyVerifiers = filterCandidatesByReviewMode(MOCK_USERS, 'third_party', 'Verifier', {
-        clientOrg,
-        serviceProviderOrg,
-      });
-      const thirdPartyApprovers = filterCandidatesByReviewMode(MOCK_USERS, 'third_party', 'Approver', {
-        clientOrg,
-        serviceProviderOrg,
-      });
-
-      expect(thirdPartyVerifiers.length).toBeGreaterThan(0);
-      expect(thirdPartyVerifiers.every((u) => getReviewChannelForUser(u, clientOrg) === 'third_party')).toBe(true);
-      // Client staff are hidden
-      expect(thirdPartyVerifiers.some((u) => u.name === 'S. Basin')).toBe(false);
-      // Service providers are strictly excluded
-      expect(thirdPartyVerifiers.some((u) => u.organization === serviceProviderOrg)).toBe(false);
-
-      // 3. Issuing Authority / Regulatory: verifier handled via automated API, approver active for human suitability
-      const authorityVerifiers = filterCandidatesByReviewMode(MOCK_USERS, 'issuing_authority', 'Verifier', {
-        clientOrg,
-        serviceProviderOrg,
-      });
-      const authorityApprovers = filterCandidatesByReviewMode(MOCK_USERS, 'issuing_authority', 'Approver', {
-        clientOrg,
-        serviceProviderOrg,
-      });
-
-      expect(authorityVerifiers.length).toBe(0); // Handled by API Gateway
-      expect(authorityApprovers.length).toBeGreaterThan(0);
-      expect(authorityApprovers.some((u) => u.organization === serviceProviderOrg)).toBe(false);
-
-      // 4. Mixed Review (Multi-Channel): unlocks both Client Group and Assurance Group
-      const mixedVerifiers = filterCandidatesByReviewMode(MOCK_USERS, 'mixed', 'Verifier', {
-        clientOrg,
-        serviceProviderOrg,
-      });
-      const mixedApprovers = filterCandidatesByReviewMode(MOCK_USERS, 'mixed', 'Approver', {
-        clientOrg,
-        serviceProviderOrg,
-      });
-
-      expect(mixedVerifiers.some((u) => getReviewChannelForUser(u, clientOrg) === 'internal')).toBe(true);
-      expect(mixedVerifiers.some((u) => getReviewChannelForUser(u, clientOrg) === 'third_party')).toBe(true);
-      // Absolute Rule: Service providers are NEVER populated
-      expect(mixedVerifiers.some((u) => u.organization === serviceProviderOrg)).toBe(false);
-      expect(mixedApprovers.some((u) => u.organization === serviceProviderOrg)).toBe(false);
+      const verifiers = getOrganizationRoleCandidates(MOCK_USERS, 'Bureau Veritas Inspectorate', 'Verifier');
+      expect(verifiers.length).toBeGreaterThan(0);
+      expect(verifiers.every((u) => u.organization === 'Bureau Veritas Inspectorate')).toBe(true);
+      expect(getOrganizationRoleCandidates(MOCK_USERS, clientOrg, 'Approver').length).toBeGreaterThan(0);
+      expect(getOrganizationRoleCandidates(MOCK_USERS, undefined, 'Verifier')).toEqual([]);
     });
   });
 });

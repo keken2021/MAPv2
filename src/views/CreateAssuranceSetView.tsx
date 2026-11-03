@@ -9,6 +9,7 @@ import { useMapStore } from '../store/useMapStore';
 import {
   AssuranceSet,
   AssuranceTemplate,
+  SetSubmitter,
   AssuranceRequirement,
   AssuranceSubtype,
   ThreePillarsCategory,
@@ -39,6 +40,9 @@ import {
   getAssuranceAssignmentWarnings,
   hasBlockingAssuranceAssignmentConflict,
   getReviewChannelForUser,
+  findObjectSubmitter,
+  getStakeholderRoleOrganization,
+  PENDING_ASSIGNMENT,
 } from '../utils/userRoleHelpers';
 import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId, validateComplianceDeadline, validateTaskTargetDate, TASK_DATE_AFTER_SET_DATE } from '../utils/validation';
 import {
@@ -78,7 +82,20 @@ import {
   type ContractPeriodConflict,
 } from '../utils/assuranceOverlap';
 import { formatMaritimeDate } from '../utils/formatters';
-import { filterProjectsForPersona, projectToAssuranceProjectScope, setOrganizationParties, withProjectVessels } from '../utils/projectHelpers';
+import {
+  addObjectOwners,
+  eligibleReviewers,
+  filterProjectsForPersona,
+  objectOwnerOrganizations,
+  organizationInUse,
+  projectToAssuranceProjectScope,
+  sameOrganization,
+  setOrganizations,
+  setOrganizationParties,
+  setProviders,
+  taskProvider,
+  withProjectVessels,
+} from '../utils/projectHelpers';
 import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X, FolderPlus, Layers } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
@@ -394,11 +411,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [inspectionRequired, setInspectionRequired] = useState(true);
   const [approvalRequired, setApprovalRequired] = useState(true);
 
-  /* Review & Verification Channel Governance (MVP 1.5) */
-  const [reviewMode, setReviewMode] = useState<ReviewMode>('internal');
   const [validityCheckRequired, setValidityCheckRequired] = useState<boolean>(true);
   const [suitabilityCheckRequired, setSuitabilityCheckRequired] = useState<boolean>(true);
-  const [authorityValidationMethod, setAuthorityValidationMethod] = useState<AuthorityValidationMethod>('api');
 
   /* a project set can use the project's vessels even when those vessels already have another set */
   const vesselChoices = withProjectVessels(
@@ -440,21 +454,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   }, [newObjectType, vesselChoices, crew, equipment, storeAssuranceObjects]);
 
   const selectedVesselForScope = vesselChoices.find((v) => v.id === vesselId) || vesselChoices[0];
-  const selectedEquipmentForScope = equipment.find((e) => e.id === selectedEquipmentId);
-  const selectedCrewForScope = crew.find((c) => c.id === selectedCrewId);
-  const selectedActivityForScope = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId);
 
-  /* owner of the asset the set names; a bunker supplier can be a different organization */
+  /* the provider is the owner of the first object that is not the client's own */
   const assetProviderOrg =
-    assuranceType === 'Vessel'
-      ? (selectedVesselForScope?.registeredOwner || selectedVesselForScope?.ismCompany || 'Northwind Marine Pty Ltd')
-      : assuranceType === 'Equipment'
-        ? (selectedEquipmentForScope?.owningOrganization || selectedEquipmentForScope?.manufacturer || 'Subsea Equipment Provider')
-        : assuranceType === 'Crew'
-          ? (selectedCrewForScope?.organization || 'Global Maritime Crewing')
-          : assuranceType === 'Activity'
-            ? (selectedActivityForScope?.category || 'Deepwater Marine Services')
-            : (selectedVesselForScope?.registeredOwner || 'Northwind Marine Pty Ltd');
+    objectOwnerOrganizations(selectedAssuranceObjects).find((owner) => !sameOrganization(owner, setClientOrg)) ||
+    setClientOrg;
 
   /* a request from another organization makes that requester the service provider, so the submitter is theirs */
   const serviceProviderOrg = resolveRequestedServiceProviderOrg(
@@ -462,159 +466,130 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setClientOrg,
     assetProviderOrg,
   );
-  const vesselOwnerOrg = serviceProviderOrg;
-
-  const submitterCandidates = useMemo(
-    () => getServiceProviderSubmitterCandidates(users, serviceProviderOrg),
-    [users, serviceProviderOrg],
-  );
-  const [assignedSubmitterId, setAssignedSubmitterId] = useState(
-    () => getServiceProviderSubmitterCandidates(users, serviceProviderOrg)[0]?.id || '',
-  );
-  const selectedSubmitterForProvider = users.find((user) => user.id === assignedSubmitterId);
-  const appointedProviderOrg = selectedSubmitterForProvider?.organization || serviceProviderOrg;
-  /* keep the existing review lists; only the chosen supplier is kept off verifier and approver */
+  const appointedProviderOrg = serviceProviderOrg;
   const isInternalDeployment = true;
-  const excludeAppointedProvider = (user: UserProfile) =>
-    !selectedSubmitterForProvider ||
-    !user.organization?.toLowerCase().includes(appointedProviderOrg.toLowerCase());
 
-  /* Dynamic Stakeholder candidate lists strictly enforcing Review Channel Governance & Segregation of Duties */
-  const verifierCandidates = filterCandidatesByReviewMode(users, reviewMode, 'Verifier', {
-    clientOrg,
-    serviceProviderOrg,
-    internalDeployment: isInternalDeployment,
-  }).filter(excludeAppointedProvider);
-  const approverCandidates = filterCandidatesByReviewMode(users, reviewMode, 'Approver', {
-    clientOrg,
-    serviceProviderOrg,
-    internalDeployment: isInternalDeployment,
-  }).filter(excludeAppointedProvider);
-  const inspectorCandidates = usersWithRole(users, 'Inspector');
-
-  /* Intelligent verifier defaults per category */
-  const defaultSubtypeVerifiers: Record<AssuranceSubtype, string> = {
-    Vessel: verifierCandidates[0]?.id || '',
-    Crew: verifierCandidates[1]?.id || verifierCandidates[0]?.id || '',
-    Activity: verifierCandidates[2]?.id || verifierCandidates[0]?.id || '',
-    Equipment: verifierCandidates[0]?.id || '',
-  };
-
-  const [assignedSubtypeStakeholders, setAssignedSubtypeStakeholders] = useState<Record<AssuranceSubtype, { verifierId: string }>>({
-    Vessel: { verifierId: defaultSubtypeVerifiers.Vessel },
-    Crew: { verifierId: defaultSubtypeVerifiers.Crew },
-    Activity: { verifierId: defaultSubtypeVerifiers.Activity },
-    Equipment: { verifierId: defaultSubtypeVerifiers.Equipment },
-  });
-
-  const [assignedVerifier, setAssignedVerifier] = useState(
-    reviewMode === 'issuing_authority' ? 'api-authority' : (verifierCandidates[0]?.id || '')
+  /* every organization on the set; the client stays first and cannot be removed */
+  const [organizations, setOrganizationList] = useState<string[]>(() =>
+    addObjectOwners([setClientOrg].filter(Boolean), [
+      ...selectedAssuranceObjects,
+      { ownerOrganization: serviceProviderOrg },
+    ]),
   );
-  const [assignedInspector, setAssignedInspector] = useState(inspectorCandidates[0]?.id || '');
-  const [assignedApprover, setAssignedApprover] = useState(approverCandidates[0]?.id || '');
-  const [isApproverSameAsVerifier, setIsApproverSameAsVerifier] = useState<boolean>(false);
+  const [addedOwners, setAddedOwners] = useState<string[]>([]);
 
+  /* every object, whether picked, bundled, templated or restored, puts its owner on the list */
   useEffect(() => {
-    setAssignedSubmitterId((current) =>
-      submitterCandidates.some((user) => user.id === current)
-        ? current
-        : submitterCandidates[0]?.id || '',
+    const next = addObjectOwners(organizations, [
+      ...selectedAssuranceObjects,
+      { ownerOrganization: serviceProviderOrg },
+    ]);
+    if (next !== organizations) {
+      setOrganizationList(next);
+      setAddedOwners(next.slice(organizations.length));
+    }
+  }, [organizations, selectedAssuranceObjects, serviceProviderOrg]);
+
+  /* a linked project brings its contract organizations */
+  useEffect(() => {
+    const contractParties = projects.find((project) => project.id === selectedProjectId)?.contractParties ?? [];
+    setOrganizationList((current) =>
+      addObjectOwners(current, contractParties.map((party) => ({ ownerOrganization: party.organization }))),
     );
-  }, [submitterCandidates]);
+  }, [selectedProjectId, projects]);
 
-  useEffect(() => {
-    if (!assignedSubmitterId || reviewMode === 'issuing_authority') return;
-    if (!verifierCandidates.some((user) => user.id === assignedVerifier)) {
-      setAssignedVerifier(verifierCandidates[0]?.id || '');
-    }
-    if (!approverCandidates.some((user) => user.id === assignedApprover)) {
-      setAssignedApprover(approverCandidates[0]?.id || '');
-    }
-  }, [assignedSubmitterId, appointedProviderOrg, reviewMode, assignedVerifier, assignedApprover, verifierCandidates, approverCandidates]);
+  const organizationOptions = useMemo<SearchableSelectItem[]>(
+    () =>
+      [...new Set(users.map((user) => user.organization).filter((name): name is string => Boolean(name)))]
+        .filter((name) => !organizations.some((listed) => sameOrganization(listed, name)))
+        .sort()
+        .map((name) => ({ id: name, label: name })),
+    [users, organizations],
+  );
+
+  /* the provider of a request reviews nothing either, even when it owns no object yet */
+  const reviewerOrganizations = eligibleReviewers(organizations, selectedAssuranceObjects, setClientOrg).filter(
+    (organization) =>
+      sameOrganization(organization, setClientOrg) || !sameOrganization(organization, serviceProviderOrg),
+  );
+
+  const [verifierOrg, setVerifierOrg] = useState(setClientOrg);
+  const [inspectorOrg, setInspectorOrg] = useState(setClientOrg);
+  const [approverOrg, setApproverOrg] = useState(setClientOrg);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
-  /* Ensure selected verifier is available in approver list when dual-role/same-as-verifier is active */
-  const effectiveApproverCandidates = React.useMemo(() => {
-    const list = [...approverCandidates];
-    const currentVerifierUser = users.find((u) => u.id === assignedVerifier);
-    if (
-      currentVerifierUser &&
-      reviewMode !== 'issuing_authority' &&
-      !list.some((u) => u.id === currentVerifierUser.id)
-    ) {
-      const isRestricted = Boolean(
-        !isInternalDeployment &&
-        serviceProviderOrg &&
-        currentVerifierUser.organization?.toLowerCase().includes(serviceProviderOrg.toLowerCase())
-      );
-      if (!isRestricted) {
-        list.unshift(currentVerifierUser);
-      }
-    }
-    return list;
-  }, [approverCandidates, users, assignedVerifier, reviewMode, serviceProviderOrg, isInternalDeployment]);
+  /* a new object can make a chosen organization an owner; the role then returns to the client */
+  const reviewerKey = reviewerOrganizations.join('|');
+  useEffect(() => {
+    if (!reviewerOrganizations.includes(verifierOrg)) setVerifierOrg(setClientOrg);
+    if (!reviewerOrganizations.includes(approverOrg)) setApproverOrg(setClientOrg);
+  }, [reviewerKey, verifierOrg, approverOrg, setClientOrg]);
 
-  const handleReviewModeChange = (newMode: ReviewMode) => {
-    setReviewMode(newMode);
-
-    const newVerifiers = filterCandidatesByReviewMode(users, newMode, 'Verifier', {
-      clientOrg,
-      serviceProviderOrg,
-      internalDeployment: isInternalDeployment,
-    }).filter(excludeAppointedProvider);
-    const newApprovers = filterCandidatesByReviewMode(users, newMode, 'Approver', {
-      clientOrg,
-      serviceProviderOrg,
-      internalDeployment: isInternalDeployment,
-    }).filter(excludeAppointedProvider);
-
-    if (newMode === 'issuing_authority') {
-      setAssignedVerifier('api-authority');
-      setIsApproverSameAsVerifier(false);
-      if (!newApprovers.some((u) => u.id === assignedApprover)) {
-        setAssignedApprover(newApprovers[0]?.id || '');
-      }
-    } else {
-      if (assignedVerifier === 'api-authority' || !newVerifiers.some((u) => u.id === assignedVerifier)) {
-        const fallbackVerifier = newVerifiers[0]?.id || '';
-        setAssignedVerifier(fallbackVerifier);
-        if (isApproverSameAsVerifier) {
-          setAssignedApprover(fallbackVerifier);
-        }
-      }
-      if (!isApproverSameAsVerifier && !newApprovers.some((u) => u.id === assignedApprover)) {
-        setAssignedApprover(newApprovers[0]?.id || '');
-      }
-    }
-
+  /* each role belongs to one organization: ticking moves it there, unticking returns it to the client */
+  const handleRoleToggle = (role: 'verifier' | 'inspector' | 'approver', organization: string, ticked: boolean) => {
+    const holder = ticked ? organization : setClientOrg;
+    if (role === 'verifier') setVerifierOrg(holder);
+    if (role === 'inspector') setInspectorOrg(holder);
+    if (role === 'approver') setApproverOrg(holder);
     setFieldErrors((prev) => {
       const u = { ...prev };
-      delete u.verifier;
-      delete u.approver;
+      delete u[role];
       return u;
     });
   };
 
-  const handleVerifierChange = (newVerifierId: string) => {
-    setAssignedVerifier(newVerifierId);
-    if (isApproverSameAsVerifier) {
-      setAssignedApprover(newVerifierId);
-    }
-    setFieldErrors((prev) => {
-      const u = { ...prev };
-      delete u.verifier;
-      if (isApproverSameAsVerifier) delete u.approver;
-      return u;
-    });
+  const handleAddOrganization = (organization: string) => {
+    setOrganizationList((current) => [...current, organization]);
   };
 
-  const handleToggleSameAsVerifier = (checked: boolean) => {
-    setIsApproverSameAsVerifier(checked);
-    if (checked) {
-      setAssignedApprover(assignedVerifier);
+  /* an organization in use stays until its objects and roles are reassigned */
+  const handleRemoveOrganization = (organization: string) => {
+    const reason = organizationInUse(organization, selectedAssuranceObjects, {
+      Verifier: verificationRequired ? verifierOrg : undefined,
+      Inspector: inspectionRequired ? inspectorOrg : undefined,
+      Approver: approvalRequired ? approverOrg : undefined,
+    });
+    if (reason) {
+      setFieldErrors((prev) => ({ ...prev, [`organization_${organization}`]: reason }));
+      return;
+    }
+    setOrganizationList((current) => current.filter((listed) => listed !== organization));
+    setAddedOwners((current) => current.filter((listed) => listed !== organization));
+  };
+
+  /* label of an asset already contracted in the chosen period, with the dates of the set that holds it */
+  const formatBookedLabel = (conflict: ContractPeriodConflict) =>
+    `Booked by ${conflict.set.id} (${formatMaritimeDate(conflict.set.charterWindowStart)} – ${formatMaritimeDate(conflict.set.charterWindowEnd)})`;
+
+  /* objects of listed organizations show first; every other object is found by searching */
+  const objectPickerOptions = availableObjectsForType.map((o) => {
+    const isAdded = selectedAssuranceObjects.some((x) => x.id === o.id);
+    const optionScope = getAssuranceObjectScope(o.type);
+    /* an asset already contracted for this period cannot be added */
+    const conflicts = optionScope
+      ? getAssetPeriodConflicts(optionScope, o.id, startDate, endDate, assuranceSets, editingDraftId || undefined)
+      : [];
+    return {
+      isListed: organizations.some((organization) => sameOrganization(organization, o.ownerOrganization)),
+      item: {
+        id: o.id,
+        label: `${o.name}${isAdded ? ' — added' : conflicts.length > 0 ? ` — ${formatBookedLabel(conflicts[0])}` : ''}`,
+        hint: o.ownerOrganization,
+        searchText: `${o.id} ${o.identifier ?? ''}`,
+        disabled: isAdded || conflicts.length > 0,
+      },
+    };
+  });
+  const listedObjectItems = objectPickerOptions.filter((option) => option.isListed).map((option) => option.item);
+  const otherObjectItems = objectPickerOptions.filter((option) => !option.isListed).map((option) => option.item);
+
+  const handleAddObject = (id: string) => {
+    const found = availableObjectsForType.find((o) => o.id === id);
+    if (found && !selectedAssuranceObjects.some((o) => o.id === found.id)) {
+      setSelectedAssuranceObjects((prev) => [...prev, found]);
       setFieldErrors((prev) => {
         const u = { ...prev };
-        delete u.approver;
+        delete u.objects;
         return u;
       });
     }
@@ -660,6 +635,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* Specialized Custom Documents added by the user */
   const [specializedDocs, setSpecializedDocs] = useState<SpecializedDoc[]>([]);
+
   /* Tenant Custom Sections state (5b-01, 5b-02, ADR 0034) */
   const [activeCustomSections, setActiveCustomSections] = useState<TenantCustomSection[]>([]);
   const [isCreatingSection, setIsCreatingSection] = useState<boolean>(false);
@@ -779,58 +755,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [newOrgToAdd, setNewOrgToAdd] = useState<string>('');
 
   /* Distinct organizations chosen in Step 1 */
-  const step1Organizations = useMemo<string[]>(() => {
-    const orgs = new Set<string>();
-    if (setClientOrg?.trim()) orgs.add(setClientOrg.trim());
-    if (clientOrg?.trim()) orgs.add(clientOrg.trim());
-    if (appointedProviderOrg?.trim()) orgs.add(appointedProviderOrg.trim());
-    if (serviceProviderOrg?.trim()) orgs.add(serviceProviderOrg.trim());
-    if (selectedSubmitterForProvider?.organization?.trim()) {
-      orgs.add(selectedSubmitterForProvider.organization.trim());
-    }
-    const verifierUser = verificationRequired ? users.find((u) => u.id === assignedVerifier) : undefined;
-    if (verifierUser?.organization?.trim()) {
-      orgs.add(verifierUser.organization.trim());
-    }
-    const inspectorUser = inspectionRequired ? users.find((u) => u.id === assignedInspector) : undefined;
-    if (inspectorUser?.organization?.trim()) {
-      orgs.add(inspectorUser.organization.trim());
-    }
-    const approverUser = approvalRequired ? users.find((u) => u.id === assignedApprover) : undefined;
-    if (approverUser?.organization?.trim()) {
-      orgs.add(approverUser.organization.trim());
-    }
-    const proj = projects.find((p) => p.id === (selectedProjectId || lockedProjectId));
-    if (proj?.ownerOrganization?.trim()) orgs.add(proj.ownerOrganization.trim());
-    if (proj?.operatorOrganization?.trim()) orgs.add(proj.operatorOrganization.trim());
-    proj?.contractParties?.forEach((cp) => {
-      if (cp.organization?.trim()) orgs.add(cp.organization.trim());
-    });
-    proj?.invitedOrganizations?.forEach((io) => {
-      if (io?.trim()) orgs.add(io.trim());
-    });
-    additionalStep1Orgs.forEach((o) => {
-      if (o?.trim()) orgs.add(o.trim());
-    });
-    return Array.from(orgs).filter(Boolean);
-  }, [
-    setClientOrg,
-    clientOrg,
-    appointedProviderOrg,
-    serviceProviderOrg,
-    selectedSubmitterForProvider,
-    verificationRequired,
-    assignedVerifier,
-    inspectionRequired,
-    assignedInspector,
-    approvalRequired,
-    assignedApprover,
-    users,
-    projects,
-    selectedProjectId,
-    lockedProjectId,
-    additionalStep1Orgs,
-  ]);
+  const step1Organizations = useMemo(
+    () => Array.from(new Set([...organizations, ...additionalStep1Orgs])),
+    [organizations, additionalStep1Orgs],
+  );
 
   /* Responsible parties selected per requirement ID (finding 5c-01) */
   const [requirementResponsibleParties, setRequirementResponsibleParties] = useState<Record<string, string[]>>({});
@@ -1020,7 +948,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         setVerificationRequired(publicTmpl.verificationRequired ?? true);
         setInspectionRequired(publicTmpl.mandatoryInspectionRequired ?? true);
         setApprovalRequired(publicTmpl.formalApprovalRequired ?? true);
-        if (publicTmpl.reviewMode) setReviewMode(publicTmpl.reviewMode);
 
         const updatedToggles: Record<string, boolean> = {};
         const updatedRequired: Record<string, boolean> = {};
@@ -1077,22 +1004,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           setInspectionRequired(target.mandatoryInspectionRequired);
           setApprovalRequired(target.formalApprovalRequired ?? true);
           if (target.appliedTemplates) setSelectedSubtypeTemplates(target.appliedTemplates);
-          if (target.subtypeStakeholders) {
-            setAssignedSubtypeStakeholders({
-              Vessel: {
-                verifierId: target.subtypeStakeholders.Vessel?.verifierId || defaultSubtypeVerifiers.Vessel,
-              },
-              Crew: {
-                verifierId: target.subtypeStakeholders.Crew?.verifierId || defaultSubtypeVerifiers.Crew,
-              },
-              Activity: {
-                verifierId: target.subtypeStakeholders.Activity?.verifierId || defaultSubtypeVerifiers.Activity,
-              },
-              Equipment: {
-                verifierId: target.subtypeStakeholders.Equipment?.verifierId || defaultSubtypeVerifiers.Equipment,
-              },
-            });
-          }
+          setOrganizationList(setOrganizations(target));
+          setVerifierOrg(getStakeholderRoleOrganization(target, 'Verifier') || setClientOrg);
+          setInspectorOrg(getStakeholderRoleOrganization(target, 'Inspector') || setClientOrg);
+          setApproverOrg(getStakeholderRoleOrganization(target, 'Approver') || setClientOrg);
 
           // Restore doc toggles precisely
           const updatedToggles: Record<string, boolean> = {};
@@ -1334,39 +1249,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       if (deadlineError) {
         newErrors.complianceDeadline = deadlineError;
       }
-      /* Verifier, Inspector & Approver Role Validations (MVP 1:1 Mapping) */
-      if (verificationRequired && reviewMode !== 'issuing_authority' && !assignedVerifier) {
-        newErrors.verifier = 'Select a verifier.';
+      /* the client chooses organizations; each organization's admin chooses the person */
+      if (verificationRequired && !verifierOrg) {
+        newErrors.verifier = 'Select a verifier organization.';
+      } else if (verificationRequired && !reviewerOrganizations.includes(verifierOrg)) {
+        newErrors.verifier = `${verifierOrg} owns an object in this set, so it cannot verify it.`;
       }
-      if (inspectionRequired && !assignedInspector) {
-        newErrors.inspector = 'Select an inspector.';
+      if (inspectionRequired && !inspectorOrg) {
+        newErrors.inspector = 'Select an inspector organization.';
       }
-      if (approvalRequired && !assignedApprover) {
-        newErrors.approver = 'Select an approver.';
-      }
-
-      if (
-        hasBlockingAssuranceAssignmentConflict({
-          verifierId: verificationRequired && reviewMode !== 'issuing_authority' ? assignedVerifier : undefined,
-          approverId: approvalRequired ? assignedApprover : undefined,
-          vesselOwnerOrg: serviceProviderOrg,
-          serviceProviderOrg: appointedProviderOrg,
-          isCharteringOtherServices: Boolean(selectedSubmitterForProvider),
-          isClientAdmin,
-          users,
-          internalDeployment: selectedSubmitterForProvider
-            ? orgFieldMatches(clientOrg, selectedSubmitterForProvider.organization)
-            : isInternalDeployment,
-        })
-      ) {
-        const verifierUser = users.find((u) => u.id === assignedVerifier);
-        const approverUser = users.find((u) => u.id === assignedApprover);
-        if (verifierUser && appointedProviderOrg && verifierUser.organization?.toLowerCase().includes(appointedProviderOrg.toLowerCase())) {
-          newErrors.verifier = `Service provider conflict: Staff from ${appointedProviderOrg} cannot verify their own documents.`;
-        }
-        if (approverUser && appointedProviderOrg && approverUser.organization?.toLowerCase().includes(appointedProviderOrg.toLowerCase())) {
-          newErrors.approver = `Service provider conflict: Staff from ${appointedProviderOrg} cannot approve their own documents.`;
-        }
+      if (approvalRequired && !approverOrg) {
+        newErrors.approver = 'Select an approver organization.';
+      } else if (approvalRequired && !reviewerOrganizations.includes(approverOrg)) {
+        newErrors.approver = `${approverOrg} owns an object in this set, so it cannot approve it.`;
       }
     }
 
@@ -1388,10 +1283,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           if (overlap) newErrors[`object_${obj.id}`] = overlap;
         }
       });
-    }
-
-    if (step.id === 'step-review' && !assignedSubmitterId) {
-      newErrors.submitter = 'Select the service provider submitter.';
     }
 
     return newErrors;
@@ -1445,32 +1336,40 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         scope === 'Equipment' ? `${getScopeAssetName(scope)} (Tag: ${selectedEquipment?.equipmentIdentifier || 'N/A'})` :
           `${getScopeAssetName(scope)} (${selectedActivity?.category || 'N/A'})`;
 
-  const selectedSubmitter = users.find((u: UserProfile) => u.id === assignedSubmitterId);
-  const submitterLabel = selectedSubmitter
-    ? `${selectedSubmitter.name} (${selectedSubmitter.organization})`
-    : 'Designated by Chartered Asset Owner';
-  const appointedStakeholders = selectedSubmitter
-    ? {
-      submitterId: selectedSubmitter.id,
-      submitterName: selectedSubmitter.name,
-      submitterOrg: selectedSubmitter.organization,
-    }
-    : undefined;
-  const selectedVerifier = users.find((u: UserProfile) => u.id === assignedVerifier);
-  const selectedInspector = users.find((u: UserProfile) => u.id === assignedInspector);
-  const selectedApprover = users.find((u: UserProfile) => u.id === assignedApprover);
-
-  const assignmentWarnings = getAssuranceAssignmentWarnings({
-    verifierId: verificationRequired && reviewMode !== 'issuing_authority' ? assignedVerifier : undefined,
-    approverId: approvalRequired ? assignedApprover : undefined,
-    subtypeStakeholders: undefined,
-    vesselOwnerOrg: serviceProviderOrg,
-    serviceProviderOrg: appointedProviderOrg,
-    isCharteringOtherServices: !isInternalDeployment,
-    isClientAdmin,
-    users,
-    internalDeployment: isInternalDeployment,
-  });
+  /* providers submit: each object owner submits for its own objects, the service provider submits for the rest */
+  const providers = setProviders(selectedAssuranceObjects, setClientOrg, serviceProviderOrg);
+  const providerSubmitters = providers.map((organization) => ({
+    organization,
+    person: selectedAssuranceObjects
+      .filter((object) => sameOrganization(object.ownerOrganization, organization))
+      .map((object) => findObjectSubmitter(object, documents, users))
+      .find(Boolean),
+  }));
+  const submitters: SetSubmitter[] = providerSubmitters.map(({ organization, person }) => ({
+    organization,
+    assignee: person ? `${person.name} (${person.organization})` : PENDING_ASSIGNMENT,
+  }));
+  const selectedSubmitter = providerSubmitters[0]?.person;
+  const submitterLabel = submitters[0]?.assignee ?? PENDING_ASSIGNMENT;
+  const taskSubmitter = (subtype: AssuranceSubtype, targetObjectId?: string) => {
+    const provider = taskProvider(selectedAssuranceObjects, providers, subtype, targetObjectId);
+    return submitters.find((submitter) => submitter.organization === provider)?.assignee ?? submitterLabel;
+  };
+  const stakeholderOrganizations = {
+    submitterId: selectedSubmitter?.id,
+    submitterName: selectedSubmitter?.name,
+    submitterOrg: submitters[0]?.organization || serviceProviderOrg,
+    verifierOrg: verificationRequired ? verifierOrg : undefined,
+    inspectorOrg: inspectionRequired ? inspectorOrg : undefined,
+    approverOrg: approvalRequired ? approverOrg : undefined,
+  };
+  const reqAssignedVerifier = verificationRequired ? PENDING_ASSIGNMENT : undefined;
+  const subtypeStakeholder = {
+    assignedSubmitter: submitterLabel,
+    submitterName: submitterLabel,
+    verifierOrg: stakeholderOrganizations.verifierOrg,
+    assignedVerifier: reqAssignedVerifier,
+  };
 
   /* Submit and create assurance set */
   const handleSubmit = (e?: React.SyntheticEvent) => {
@@ -1494,14 +1393,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     /* Build combined requirements list from standard subtype docs and specialized docs */
     const finalRequirements: AssuranceRequirement[] = [];
     let reqIndex = 0;
-
-    const reqAssignedVerifier = verificationRequired
-      ? reviewMode === 'issuing_authority'
-        ? 'AMSA Digital Validation API Gateway'
-        : selectedVerifier
-          ? `${selectedVerifier.name} (${selectedVerifier.organization})`
-          : 'Pending Admin Assignment'
-      : undefined;
 
     /* Include general documents (DOC, NDA, MSA) assigned to organizations */
     generalDocs.filter((d) => d.isEnabled).forEach((doc) => {
@@ -1531,7 +1422,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             responsibleParties: reqParties,
             requirementGroupId: doc.id,
             assignedVerifier: reqAssignedVerifier,
-            verifierId: verificationRequired ? assignedVerifier : undefined,
+            verifierId: undefined,
             targetDate: complianceDeadline,
           });
         });
@@ -1552,14 +1443,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           responsibleParties: reqParties,
           requirementGroupId: doc.id,
           assignedVerifier: reqAssignedVerifier,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
+          verifierId: undefined,
           targetDate: complianceDeadline,
         });
       }
     });
 
     activeSubtypes.forEach((subtype) => {
-      const reqAssignedSubmitter = submitterLabel;
+      const reqAssignedSubmitter = taskSubmitter(subtype);
 
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
@@ -1584,7 +1475,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 responsibleParties: reqParties,
                 requirementGroupId: doc.id,
                 assignedVerifier: reqAssignedVerifier,
-                verifierId: verificationRequired ? assignedVerifier : undefined,
+                verifierId: undefined,
                 targetDate: complianceDeadline,
               });
             });
@@ -1605,7 +1496,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               responsibleParties: reqParties,
               requirementGroupId: doc.id,
               assignedVerifier: reqAssignedVerifier,
-              verifierId: verificationRequired ? assignedVerifier : undefined,
+              verifierId: undefined,
               targetDate: complianceDeadline,
             });
           }
@@ -1638,7 +1529,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               responsibleParties: reqParties,
               requirementGroupId: spec.id,
               assignedVerifier: reqAssignedVerifier,
-              verifierId: verificationRequired ? assignedVerifier : undefined,
+              verifierId: undefined,
             });
           });
         } else {
@@ -1662,7 +1553,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             responsibleParties: reqParties,
             requirementGroupId: spec.id,
             assignedVerifier: reqAssignedVerifier,
-            verifierId: verificationRequired ? assignedVerifier : undefined,
+            verifierId: undefined,
           });
         }
       });
@@ -1777,38 +1668,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       activityName: selectedScopes.includes('Activity') ? (selectedActivity?.name || selectedActivityId) : undefined,
       subtypes: activeSubtypes,
       subtypeStakeholders: {
-        Vessel: {
-          assignedSubmitter: submitterLabel,
-          submitterName: submitterLabel,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-          verifierName: selectedVerifier?.name,
-          verifierOrg: selectedVerifier?.organization,
-          assignedVerifier: reqAssignedVerifier,
-        },
-        Crew: {
-          assignedSubmitter: submitterLabel,
-          submitterName: submitterLabel,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-          verifierName: selectedVerifier?.name,
-          verifierOrg: selectedVerifier?.organization,
-          assignedVerifier: reqAssignedVerifier,
-        },
-        Activity: {
-          assignedSubmitter: submitterLabel,
-          submitterName: submitterLabel,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-          verifierName: selectedVerifier?.name,
-          verifierOrg: selectedVerifier?.organization,
-          assignedVerifier: reqAssignedVerifier,
-        },
-        Equipment: {
-          assignedSubmitter: submitterLabel,
-          submitterName: submitterLabel,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-          verifierName: selectedVerifier?.name,
-          verifierOrg: selectedVerifier?.organization,
-          assignedVerifier: reqAssignedVerifier,
-        },
+        Vessel: subtypeStakeholder,
+        Crew: subtypeStakeholder,
+        Activity: subtypeStakeholder,
+        Equipment: subtypeStakeholder,
       },
       visibility: 'organization',
       templateSource: isPublicTemplateRequested ? 'public' : 'organization',
@@ -1856,27 +1719,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       inspectionCompleted: false,
       assignedSubmitter: submitterLabel,
       assignedVerifier: reqAssignedVerifier,
-      assignedInspector: !inspectionRequired
-        ? undefined
-        : selectedInspector
-          ? `${selectedInspector.name} (${selectedInspector.organization})`
-          : 'Pending Admin Assignment',
-      assignedApprover: approvalRequired
-        ? selectedApprover
-          ? `${selectedApprover.name} (${selectedApprover.organization})`
-          : 'Pending Admin Assignment'
-        : undefined,
-      reviewMode,
-      reviewChannels: reviewMode === 'mixed' ? ['internal', 'third_party', 'issuing_authority'] : [reviewMode],
+      assignedInspector: inspectionRequired ? PENDING_ASSIGNMENT : undefined,
+      assignedApprover: approvalRequired ? PENDING_ASSIGNMENT : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
-      authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
-      serviceProviderOrg: appointedProviderOrg,
+      serviceProviderOrg,
       clientOrg: ownerOrg,
-      parties: setOrganizationParties({ clientOrg: ownerOrg, serviceProviderOrg: appointedProviderOrg }),
+      organizations,
+      submitters,
       requirements: effectiveRequirements,
       sections: finalSections,
-      stakeholders: appointedStakeholders,
+      stakeholders: stakeholderOrganizations,
       assignedStakeholders: undefined,
       createdByPersona: 'C Admin',
       createdByName: creatorName,
@@ -1932,8 +1785,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         mandatoryInspectionRequired: inspectionRequired,
         verificationRequired,
         formalApprovalRequired: approvalRequired,
-        reviewMode,
-        reviewChannels: reviewMode === 'mixed' ? ['internal', 'third_party', 'issuing_authority'] : [reviewMode],
       };
 
       addAssuranceTemplate(duplicateTemplate);
@@ -1971,14 +1822,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const finalRequirements: AssuranceRequirement[] = [];
     let reqIndex = 0;
 
-    const reqAssignedVerifier = verificationRequired
-      ? selectedVerifier
-        ? `${selectedVerifier.name} (${selectedVerifier.organization})`
-        : 'Pending Admin Assignment'
-      : undefined;
-
     activeSubtypes.forEach((subtype) => {
-      const reqAssignedSubmitter = submitterLabel;
+      const reqAssignedSubmitter = taskSubmitter(subtype);
 
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
@@ -2003,7 +1848,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 responsibleParties: reqParties,
                 requirementGroupId: doc.id,
                 assignedVerifier: reqAssignedVerifier,
-                verifierId: verificationRequired ? assignedVerifier : undefined,
+                verifierId: undefined,
                 targetDate: complianceDeadline,
               });
             });
@@ -2024,7 +1869,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               responsibleParties: reqParties,
               requirementGroupId: doc.id,
               assignedVerifier: reqAssignedVerifier,
-              verifierId: verificationRequired ? assignedVerifier : undefined,
+              verifierId: undefined,
               targetDate: complianceDeadline,
             });
           }
@@ -2055,7 +1900,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               responsibleParties: reqParties,
               requirementGroupId: spec.id,
               assignedVerifier: reqAssignedVerifier,
-              verifierId: verificationRequired ? assignedVerifier : undefined,
+              verifierId: undefined,
             });
           });
         } else {
@@ -2077,7 +1922,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             responsibleParties: reqParties,
             requirementGroupId: spec.id,
             assignedVerifier: reqAssignedVerifier,
-            verifierId: verificationRequired ? assignedVerifier : undefined,
+            verifierId: undefined,
           });
         }
       });
@@ -2141,38 +1986,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       activityName: selectedScopes.includes('Activity') ? (selectedActivity?.name || selectedActivityId) : undefined,
       subtypes: activeSubtypes,
       subtypeStakeholders: {
-        Vessel: {
-          assignedSubmitter: submitterLabel,
-          submitterName: submitterLabel,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-          verifierName: selectedVerifier?.name,
-          verifierOrg: selectedVerifier?.organization,
-          assignedVerifier: reqAssignedVerifier,
-        },
-        Crew: {
-          assignedSubmitter: submitterLabel,
-          submitterName: submitterLabel,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-          verifierName: selectedVerifier?.name,
-          verifierOrg: selectedVerifier?.organization,
-          assignedVerifier: reqAssignedVerifier,
-        },
-        Activity: {
-          assignedSubmitter: submitterLabel,
-          submitterName: submitterLabel,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-          verifierName: selectedVerifier?.name,
-          verifierOrg: selectedVerifier?.organization,
-          assignedVerifier: reqAssignedVerifier,
-        },
-        Equipment: {
-          assignedSubmitter: submitterLabel,
-          submitterName: submitterLabel,
-          verifierId: verificationRequired ? assignedVerifier : undefined,
-          verifierName: selectedVerifier?.name,
-          verifierOrg: selectedVerifier?.organization,
-          assignedVerifier: reqAssignedVerifier,
-        },
+        Vessel: subtypeStakeholder,
+        Crew: subtypeStakeholder,
+        Activity: subtypeStakeholder,
+        Equipment: subtypeStakeholder,
       },
       visibility: 'draft',
       templateSource: templatePrivacy,
@@ -2195,27 +2012,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       inspectionCompleted: false,
       assignedSubmitter: submitterLabel,
       assignedVerifier: reqAssignedVerifier,
-      assignedInspector: !inspectionRequired
-        ? undefined
-        : selectedInspector
-          ? `${selectedInspector.name} (${selectedInspector.organization})`
-          : 'Pending Admin Assignment',
-      assignedApprover: approvalRequired
-        ? selectedApprover
-          ? `${selectedApprover.name} (${selectedApprover.organization})`
-          : 'Pending Admin Assignment'
-        : undefined,
-      reviewMode,
-      reviewChannels: reviewMode === 'mixed' ? ['internal', 'third_party', 'issuing_authority'] : [reviewMode],
+      assignedInspector: inspectionRequired ? PENDING_ASSIGNMENT : undefined,
+      assignedApprover: approvalRequired ? PENDING_ASSIGNMENT : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
-      authorityValidationMethod: (reviewMode === 'issuing_authority' || reviewMode === 'mixed') ? authorityValidationMethod : undefined,
-      serviceProviderOrg: appointedProviderOrg,
+      serviceProviderOrg,
       clientOrg: ownerOrg,
-      parties: setOrganizationParties({ clientOrg: ownerOrg, serviceProviderOrg: appointedProviderOrg }),
+      organizations,
+      submitters,
       requirements: effectiveRequirements,
       sections: placedTasks.sections,
-      stakeholders: appointedStakeholders,
+      stakeholders: stakeholderOrganizations,
       assignedStakeholders: undefined,
       createdByPersona: 'C Admin',
       createdByName: creatorName,
@@ -2268,10 +2075,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     }
     setCurrentHashView(previousHashView === 'dashboard' ? 'dashboard' : 'assurance-sets');
   };
-
-  /* label of an asset already contracted in the chosen period, with the dates of the set that holds it */
-  const formatBookedLabel = (conflict: ContractPeriodConflict) =>
-    `Booked by ${conflict.set.id} (${formatMaritimeDate(conflict.set.charterWindowStart)} – ${formatMaritimeDate(conflict.set.charterWindowEnd)})`;
 
   /* moves the contract period to the first window the asset is free */
   const applyNextFreeDates = (scope: AssuranceSubtype, assetId: string) => {
@@ -3210,14 +3013,167 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
 
               {/* General Information Section (Toggled / Collapsible) */}
+                            {/* 3. Organizations Card */}
+              <div className="card border shadow-2xs rounded-3 bg-white" data-testid="card-involved-organizations">
+                <div className="card-header bg-light border-bottom px-4 py-3">
+                  <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                    3. Organizations
+                  </h5>
+                  <div className="text-muted small">
+                    List every organization in this set and tick who fills each role. An organization with an object on this set is a Provider and submits for it.
+                  </div>
+                </div>
+                <div className="card-body p-4">
+                  <div className="table-responsive mb-3">
+                    <table className="table table-sm align-middle mb-0" aria-label="Organizations on this set">
+                      <thead className="table-light small text-secondary">
+                        <tr>
+                          <th scope="col">Organization</th>
+                          {verificationRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Verifier</th>}
+                          {inspectionRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Inspector</th>}
+                          {approvalRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Approver</th>}
+                          <th scope="col" style={{ width: '48px' }}><span className="visually-hidden">Remove</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {organizations.map((organization) => {
+                          const organizationError = fieldErrors[`organization_${organization}`];
+                          const isClient = sameOrganization(organization, setClientOrg);
+                          const submitter = providerSubmitters.find((provider) => sameOrganization(provider.organization, organization));
+                          const roleBox = (role: 'verifier' | 'inspector' | 'approver', label: string, holder: string) => {
+                            const isReviewRole = role !== 'inspector';
+                            const isLocked = isReviewRole && !reviewerOrganizations.includes(organization);
+                            const isTicked = sameOrganization(holder, organization);
+                            return (
+                              <td className="text-center">
+                                <input
+                                  type="checkbox"
+                                  className="form-check-input m-0"
+                                  aria-label={`${label}: ${organization}`}
+                                  checked={isTicked}
+                                  disabled={isLocked || (isClient && isTicked)}
+                                  title={
+                                    isLocked
+                                      ? `A provider cannot be ${label} for its own objects.`
+                                      : isClient && isTicked
+                                        ? `Tick another organization to move this role.`
+                                        : undefined
+                                  }
+                                  onChange={(e) => handleRoleToggle(role, organization, e.target.checked)}
+                                />
+                              </td>
+                            );
+                          };
+                          return (
+                            <tr key={organization} data-testid={`set-organization-${organization}`}>
+                              <td>
+                                <div className="d-flex align-items-center gap-2 flex-wrap">
+                                  <span
+                                    className="fw-semibold small text-dark"
+                                    data-testid={`badge-step1-org-${organization.toLowerCase().replace(/[^a-z0-9]/g, '')}`}
+                                  >
+                                    {organization}
+                                  </span>
+                                  {isClient && (
+                                    <span className="badge bg-light text-dark border" style={{ fontSize: '0.7rem' }}>
+                                      Client
+                                    </span>
+                                  )}
+                                  {submitter && (
+                                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{ fontSize: '0.7rem' }}>
+                                      Provider
+                                    </span>
+                                  )}
+                                </div>
+                                {submitter && (
+                                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                    Submitter: {submitter.person ? submitter.person.name : 'pending'}
+                                  </div>
+                                )}
+                                {organizationError && (
+                                  <div className="text-danger small mt-1" role="alert" style={{ fontSize: '0.75rem' }}>
+                                    {organizationError}
+                                  </div>
+                                )}
+                              </td>
+                              {verificationRequired && roleBox('verifier', 'Verifier', verifierOrg)}
+                              {inspectionRequired && roleBox('inspector', 'Inspector', inspectorOrg)}
+                              {approvalRequired && roleBox('approver', 'Approver', approverOrg)}
+                              <td className="text-end">
+                                {!isClient && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-link text-danger p-0"
+                                    title="Remove organization"
+                                    aria-label={`Remove ${organization}`}
+                                    onClick={() => handleRemoveOrganization(organization)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {[fieldErrors.verifier, fieldErrors.inspector, fieldErrors.approver].filter(Boolean).map((message) => (
+                    <div key={message} className="text-danger small mb-2 font-mono-code" style={{ fontSize: '0.725rem' }}>
+                      {message}
+                    </div>
+                  ))}
+                  <SearchableSelect
+                    id="grid-add-organization"
+                    aria-label="Add organization"
+                    placeholder="Add organization"
+                    emptyLabel="No matching organizations"
+                    items={organizationOptions}
+                    onSelect={(item) => handleAddOrganization(item.id)}
+                  />
+                  <div className="visually-hidden" aria-hidden="true">
+                    <select
+                      id="select-add-step1-org"
+                      data-testid="select-add-step1-org"
+                      value={newOrgToAdd}
+                      onChange={(e) => setNewOrgToAdd(e.target.value)}
+                      aria-label="Select additional organization"
+                    >
+                      <option value="">Select additional organization...</option>
+                      {availablePlatformOrgs
+                        .filter((org) => !step1Organizations.includes(org))
+                        .map((org) => (
+                          <option key={org} value={org}>
+                            {org}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      data-testid="btn-add-step1-org"
+                      onClick={() => {
+                        if (newOrgToAdd) {
+                          handleAddOrganization(newOrgToAdd);
+                          setAdditionalStep1Orgs((prev) => [...prev, newOrgToAdd]);
+                          setNewOrgToAdd('');
+                        }
+                      }}
+                    >
+                      Add Organization
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* General Information Section (Toggled / Collapsible) */}
               <div className="card border shadow-2xs rounded-3 bg-white">
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      3. Governance &amp; Stakeholder Assignments
+                      4. Governance &amp; Checks
                     </h5>
                     <div className="text-muted small">
-                      Choose who reviews and who is assigned.
+                      Choose which checks and stages apply.
                     </div>
                   </div>
                   <button
@@ -3235,447 +3191,69 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 {isGeneralInfoExpanded && (
                   <div className="card-body p-4">
                     <div className="row g-4">
-                      {/* Workflow & Review Policies (MVP 1.5 - Review Channels & Validity/Suitability) */}
+                      {/* Workflow policies: validity, suitability and workflow gates */}
                       <div className="col-12">
                         <div className="p-4 bg-light border rounded-3 d-flex flex-column gap-3.5">
                           <div>
                             <strong className="text-dark small d-block mb-1.5" style={{ fontSize: '0.85rem' }}>
-                              Review Channel &amp; Authority Governance
+                              Verification &amp; Governance Stages
                             </strong>
                             <div className="text-muted small" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-                              The client chooses who reviews: its own staff, a third party, the issuing authority, or a mix.
+                              Configure which statutory, technical, and commercial gates must be completed prior to set sign-off.
                             </div>
                           </div>
 
-                          <div className="row g-3">
-                            {[
-                              { id: 'internal', label: 'Internal', desc: 'Client staff' },
-                              { id: 'third_party', label: 'Third Party', desc: 'Independent surveyors and auditors' },
-                              { id: 'issuing_authority', label: 'Issuing Authority', desc: 'AMSA or the flag state' },
-                              { id: 'mixed', label: 'Mixed', desc: 'A combination of the above' },
-                            ].map((modeOpt) => (
-                              <div key={modeOpt.id} className="col-12 col-md-6 col-lg-3">
-                                <button
-                                  type="button"
-                                  className={`w-100 p-3 px-3.5 rounded-3 border text-start transition-all d-flex flex-column gap-1.5 h-100 ${reviewMode === modeOpt.id
-                                    ? 'bg-primary text-white border-primary shadow-2xs'
-                                    : 'bg-white text-dark border-secondary-subtle hover-border-primary'
-                                    }`}
-                                  onClick={() => handleReviewModeChange(modeOpt.id as ReviewMode)}
-                                >
-                                  <div className={`fw-bold small lh-sm ${reviewMode === modeOpt.id ? 'text-white' : 'text-dark'}`} style={{ fontSize: '0.825rem' }}>
-                                    {modeOpt.label}
-                                  </div>
-                                  <div className={`small ${reviewMode === modeOpt.id ? 'text-white-50' : 'text-muted'}`} style={{ fontSize: '0.74rem', lineHeight: '1.35' }}>
-                                    {modeOpt.desc}
-                                  </div>
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Authority Validation Method (when Issuing Authority or Mixed active) */}
-                          {(reviewMode === 'issuing_authority' || reviewMode === 'mixed') && (
-                            <div className="p-3 px-3.5 bg-info-subtle border border-info-subtle rounded-3">
-                              <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
-                                <div className="pe-2">
-                                  <strong className="text-dark small d-block mb-1" style={{ fontSize: '0.825rem' }}>
-                                    Authority Validation
-                                  </strong>
-                                  <div className="text-secondary small" style={{ fontSize: '0.75rem', lineHeight: '1.35' }}>
-                                    Choose how the authority validates documents.
-                                  </div>
-                                </div>
-                                <div className="d-flex align-items-center gap-2">
-                                  <select
-                                    className="form-select form-select-sm bg-white text-dark border-secondary-subtle font-mono-code px-3 py-1.5"
-                                    value={authorityValidationMethod}
-                                    onChange={(e) => setAuthorityValidationMethod(e.target.value as AuthorityValidationMethod)}
-                                    style={{ fontSize: '0.78rem', minWidth: '290px' }}
-                                  >
-                                    <option value="api">AMSA API</option>
-                                    <option value="direct_link">Flag State Link</option>
-                                    <option value="manual">Class Society Portal</option>
-                                  </select>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Grouped Assurance Checks & Workflow Gates */}
-                          <div className="p-4 px-4 bg-white border rounded-3 d-flex flex-column gap-3 shadow-2xs">
-                            <div>
-                              <strong className="text-dark small d-block mb-1" style={{ fontSize: '0.825rem' }}>
-                                Checks &amp; Stages
-                              </strong>
-                              <div className="text-muted small" style={{ fontSize: '0.76rem', lineHeight: '1.35' }}>
-                                Choose which checks and stages apply.
+                          <div className="d-flex flex-column gap-2.5 pt-1">
+                            <div className="form-check form-switch mb-0">
+                              <input
+                                id="wf-verify"
+                                type="checkbox"
+                                className="form-check-input"
+                                role="switch"
+                                checked={verificationRequired}
+                                onChange={(e) => setVerificationRequired(e.target.checked)}
+                              />
+                              <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-verify">
+                                Mandatory Verification Required
+                              </label>
+                              <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                                A Verifier must verify uploaded evidence against class and statutory requirements.
                               </div>
                             </div>
 
-                            <div className="row g-3">
-                              <div className="col-12 col-md-6">
-                                <div className="p-3 px-3.5 bg-light-subtle border rounded-3 d-flex align-items-start gap-3 h-100">
-                                  <div className="form-check form-switch m-0 mt-0.5">
-                                    <input
-                                      className="form-check-input cursor-pointer"
-                                      type="checkbox"
-                                      checked={validityCheckRequired}
-                                      onChange={(e) => setValidityCheckRequired(e.target.checked)}
-                                      id="chk-validity"
-                                      style={{ width: '2.25rem', height: '1.25rem' }}
-                                    />
-                                  </div>
-                                  <div className="flex-grow-1">
-                                    <label htmlFor="chk-validity" className="fw-semibold text-dark small m-0 cursor-pointer d-block">
-                                      Statutory Validity Check
-                                    </label>
-                                    <div className="text-muted small mt-1" style={{ fontSize: '0.75rem', lineHeight: '1.35' }}>
-                                      Checks that documents are authentic, in date, and in good standing.
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="col-12 col-md-6">
-                                <div className="p-3 px-3.5 bg-light-subtle border rounded-3 d-flex align-items-start gap-3 h-100">
-                                  <div className="form-check form-switch m-0 mt-0.5">
-                                    <input
-                                      className="form-check-input cursor-pointer"
-                                      type="checkbox"
-                                      checked={suitabilityCheckRequired}
-                                      onChange={(e) => setSuitabilityCheckRequired(e.target.checked)}
-                                      id="chk-suitability"
-                                      style={{ width: '2.25rem', height: '1.25rem' }}
-                                    />
-                                  </div>
-                                  <div className="flex-grow-1">
-                                    <label htmlFor="chk-suitability" className="fw-semibold text-dark small m-0 cursor-pointer d-block">
-                                      Operational Suitability Check
-                                    </label>
-                                    <div className="text-muted small mt-1" style={{ fontSize: '0.75rem', lineHeight: '1.35' }}>
-                                      Checks that the asset suits the charter and scope.
-                                    </div>
-                                  </div>
-                                </div>
+                            <div className="form-check form-switch mb-0">
+                              <input
+                                id="wf-inspect"
+                                type="checkbox"
+                                className="form-check-input"
+                                role="switch"
+                                checked={inspectionRequired}
+                                onChange={(e) => setInspectionRequired(e.target.checked)}
+                              />
+                              <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-inspect">
+                                Mandatory Physical Inspection Gate
+                              </label>
+                              <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                                Requires on-site or physical survey evidence before final readiness is granted.
                               </div>
                             </div>
 
-                            {/* Workflow Gate Switches grouped inside the container */}
-                            <div className="pt-3 border-top d-flex flex-wrap gap-4 align-items-center">
-                              <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                                <input
-                                  className="form-check-input cursor-pointer"
-                                  type="checkbox"
-                                  checked={verificationRequired}
-                                  onChange={(e) => setVerificationRequired(e.target.checked)}
-                                  id="wf-verify"
-                                />
-                                <label htmlFor="wf-verify" className="form-check-label text-dark small fw-semibold cursor-pointer ps-1">
-                                  Verification Required
-                                </label>
-                              </div>
-
-                              <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                                <input
-                                  className="form-check-input cursor-pointer"
-                                  type="checkbox"
-                                  checked={inspectionRequired}
-                                  onChange={(e) => setInspectionRequired(e.target.checked)}
-                                  id="wf-inspect"
-                                />
-                                <label htmlFor="wf-inspect" className="form-check-label text-dark small fw-semibold cursor-pointer ps-1">
-                                  Inspection Required
-                                </label>
-                              </div>
-
-                              <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                                <input
-                                  className="form-check-input cursor-pointer"
-                                  type="checkbox"
-                                  checked={approvalRequired}
-                                  onChange={(e) => setApprovalRequired(e.target.checked)}
-                                  id="wf-approve"
-                                />
-                                <label htmlFor="wf-approve" className="form-check-label text-dark small fw-semibold cursor-pointer ps-1">
-                                  Approval Required
-                                </label>
+                            <div className="form-check form-switch mb-0">
+                              <input
+                                id="wf-approve"
+                                type="checkbox"
+                                className="form-check-input"
+                                role="switch"
+                                checked={approvalRequired}
+                                onChange={(e) => setApprovalRequired(e.target.checked)}
+                              />
+                              <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-approve">
+                                Formal Approver Sign-Off
+                              </label>
+                              <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                                Formal sign-off is required before the set is accepted.
                               </div>
                             </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Step 1 Involved Organizations (finding 5c-01, ADR 0032) */}
-                      <div className="col-12">
-                        <div className="p-4 border rounded-3 bg-white shadow-2xs" data-testid="card-involved-organizations">
-                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                            <div>
-                              <strong className="text-dark small d-block mb-1" style={{ fontSize: '0.85rem' }}>
-                                Involved Organizations ({step1Organizations.length})
-                              </strong>
-                              <div className="text-muted" style={{ fontSize: '0.78rem' }}>
-                                Organizations participating in this assurance set. Only these organizations can be chosen as responsible parties in Step 3.
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="d-flex flex-wrap align-items-center gap-2 mb-3" data-testid="step1-organizations-list">
-                            {step1Organizations.map((org) => {
-                              const slug = org.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                              const isClient = orgFieldMatches(setClientOrg || clientOrg, org);
-                              const isProvider = orgFieldMatches(appointedProviderOrg || serviceProviderOrg, org);
-                              return (
-                                <span
-                                  key={org}
-                                  className="badge bg-light text-dark border px-3 py-2 d-inline-flex align-items-center gap-1.5"
-                                  style={{ fontSize: '0.78rem' }}
-                                  data-testid={`badge-step1-org-${slug}`}
-                                >
-                                  <Building2 className="w-3.5 h-3.5 text-primary" />
-                                  <span className="fw-medium">{org}</span>
-                                  {isClient && <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code ms-1" style={{ fontSize: '0.65rem' }}>Client</span>}
-                                  {isProvider && !isClient && <span className="badge bg-info-subtle text-info border border-info-subtle font-mono-code ms-1" style={{ fontSize: '0.65rem' }}>Provider</span>}
-                                </span>
-                              );
-                            })}
-                          </div>
-
-                          <div className="d-flex align-items-center gap-2 pt-2 border-top" style={{ maxWidth: '520px' }}>
-                            <select
-                              id="select-add-step1-org"
-                              className="form-select form-select-sm"
-                              value={newOrgToAdd}
-                              onChange={(e) => setNewOrgToAdd(e.target.value)}
-                              data-testid="select-add-step1-org"
-                              aria-label="Add additional organization"
-                            >
-                              <option value="">Select additional organization...</option>
-                              {availablePlatformOrgs
-                                .filter((org) => !step1Organizations.includes(org))
-                                .map((org) => (
-                                  <option key={org} value={org}>
-                                    {org}
-                                  </option>
-                                ))}
-                            </select>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary text-nowrap"
-                              disabled={!newOrgToAdd}
-                              onClick={() => {
-                                if (newOrgToAdd && !step1Organizations.includes(newOrgToAdd)) {
-                                  setAdditionalStep1Orgs((prev) => [...prev, newOrgToAdd]);
-                                  setNewOrgToAdd('');
-                                }
-                              }}
-                              data-testid="btn-add-step1-org"
-                            >
-                              Add Organization
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Stakeholder Role Assignments (MVP 1:1 Set-Level Mapping) */}
-                      <div className="col-12">
-                        <div className="p-4 border rounded-3 bg-light-subtle">
-                          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                            <div>
-                              <strong className="text-dark small d-block mb-1" style={{ fontSize: '0.85rem' }}>
-                                Stakeholders
-                              </strong>
-                              <div className="text-muted" style={{ fontSize: '0.78rem' }}>
-                                The submitter is filled in from the service provider. Choose a submitter, a client admin, or an administrator of that organization, then one verifier, inspector, and approver.
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="row g-4 pt-1">
-                            <div className="col-12 col-md-6 col-lg-4 d-flex flex-column">
-                              <div className="d-flex align-items-center justify-content-between mb-2" style={{ minHeight: '22px' }}>
-                                <label className="form-label text-secondary small fw-semibold m-0" htmlFor="assign-sub">
-                                  Submitter <span className="text-danger">*</span>
-                                </label>
-                              </div>
-                              <select
-                                id="assign-sub"
-                                className={`form-select form-select-sm bg-white text-dark border-secondary-subtle${fieldErrors.submitter ? ' is-invalid border-danger' : ''}`}
-                                value={assignedSubmitterId}
-                                onChange={(e) => {
-                                  setAssignedSubmitterId(e.target.value);
-                                  setFieldErrors((prev) => {
-                                    const next = { ...prev };
-                                    delete next.submitter;
-                                    return next;
-                                  });
-                                }}
-                              >
-                                <option value="">Select submitter</option>
-                                {submitterCandidates.map((user) => (
-                                  <option key={user.id} value={user.id}>
-                                    {user.name} — {user.roles.includes('Submitter') ? 'Submitter' : user.roles.includes('C Admin') ? 'Client Admin' : 'Administrator'} ({user.organization})
-                                  </option>
-                                ))}
-                              </select>
-                              <div className="text-muted mt-1" style={{ fontSize: '0.75rem' }}>
-                                {serviceProviderOrg
-                                  ? `Service provider: ${serviceProviderOrg}.`
-                                  : 'Select the asset to name the service provider.'}
-                              </div>
-                              {fieldErrors.submitter && (
-                                <div className="text-danger small mt-1 font-mono-code" style={{ fontSize: '0.72rem' }}>
-                                  {fieldErrors.submitter}
-                                </div>
-                              )}
-                              {/* {selectedSubmitterForProvider &&
-                                !orgFieldMatches(serviceProviderOrg, selectedSubmitterForProvider.organization) && (
-                                  <div className="alert alert-warning py-2 px-2 mt-2 mb-0" role="status" style={{ fontSize: '0.75rem' }}>
-                                    {selectedSubmitterForProvider.name} is in {selectedSubmitterForProvider.organization}. A submitter must belong to the same organization as the vessel provider ({serviceProviderOrg}).
-                                  </div>
-                                )} */}
-                            </div>
-                            {verificationRequired && (
-                              <div className="col-12 col-md-6 col-lg-4 d-flex flex-column">
-                                <div className="d-flex align-items-center justify-content-between mb-2" style={{ minHeight: '22px' }}>
-                                  <label className="form-label text-secondary small fw-semibold m-0" htmlFor="assign-ver">
-                                    Verifier <span className="text-danger">*</span>
-                                  </label>
-                                </div>
-                                {reviewMode === 'issuing_authority' ? (
-                                  <div className="p-2 px-3 bg-light border border-secondary-subtle rounded-2 d-flex align-items-center justify-content-between text-secondary font-mono-code" style={{ minHeight: '34px' }}>
-                                    <span className="fw-semibold text-primary small">Handled by the authority</span>
-                                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-sans" style={{ fontSize: '0.72rem' }}>
-                                      AMSA
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <select
-                                    id="assign-ver"
-                                    className={`form-select form-select-sm bg-white text-dark border-secondary-subtle${fieldErrors.verifier ? ' is-invalid border-danger' : ''}`}
-                                    value={assignedVerifier}
-                                    onChange={(e) => handleVerifierChange(e.target.value)}
-                                  >
-                                    {verifierCandidates.map((u) => {
-                                      const channel = getReviewChannelForUser(u, clientOrg);
-                                      const channelTag =
-                                        channel === 'issuing_authority'
-                                          ? 'Regulatory Authority'
-                                          : channel === 'third_party'
-                                            ? 'Appointed 3rd Party'
-                                            : 'Internal Client';
-                                      return (
-                                        <option key={u.id} value={u.id}>
-                                          {u.name} ({u.organization}) · [{channelTag}]
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
-                                )}
-                                {fieldErrors.verifier && reviewMode !== 'issuing_authority' && (
-                                  <div className="text-danger small mt-1 font-mono-code" style={{ fontSize: '0.72rem' }}>
-                                    {fieldErrors.verifier}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {inspectionRequired && (
-                              <div className="col-12 col-md-6 col-lg-4 d-flex flex-column">
-                                <div className="d-flex align-items-center justify-content-between mb-2" style={{ minHeight: '22px' }}>
-                                  <label className="form-label text-secondary small fw-semibold m-0" htmlFor="assign-ins">
-                                    Inspector <span className="text-danger">*</span>
-                                  </label>
-                                </div>
-                                <select
-                                  id="assign-ins"
-                                  className={`form-select form-select-sm bg-white text-dark border-secondary-subtle${fieldErrors.inspector ? ' is-invalid border-danger' : ''}`}
-                                  value={assignedInspector}
-                                  onChange={(e) => {
-                                    setAssignedInspector(e.target.value);
-                                    setFieldErrors((prev) => {
-                                      const u = { ...prev };
-                                      delete u.inspector;
-                                      return u;
-                                    });
-                                  }}
-                                >
-                                  {inspectorCandidates.map((u) => (
-                                    <option key={u.id} value={u.id}>
-                                      {u.name} ({u.organization})
-                                    </option>
-                                  ))}
-                                </select>
-                                {fieldErrors.inspector && (
-                                  <div className="text-danger small mt-1 font-mono-code" style={{ fontSize: '0.72rem' }}>
-                                    {fieldErrors.inspector}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {approvalRequired && (
-                              <div className="col-12 col-md-6 col-lg-4 d-flex flex-column">
-                                <div className="d-flex align-items-center justify-content-between mb-2" style={{ minHeight: '22px' }}>
-                                  <label className="form-label text-secondary small fw-semibold m-0" htmlFor="assign-app">
-                                    Approver <span className="text-danger">*</span>
-                                  </label>
-                                  {verificationRequired && reviewMode !== 'issuing_authority' && (
-                                    <div className="form-check form-check-inline m-0 d-flex align-items-center gap-1.5">
-                                      <input
-                                        type="checkbox"
-                                        id="chk-same-as-verifier"
-                                        className="form-check-input cursor-pointer m-0"
-                                        checked={isApproverSameAsVerifier}
-                                        onChange={(e) => handleToggleSameAsVerifier(e.target.checked)}
-                                        style={{ width: '0.95rem', height: '0.95rem' }}
-                                      />
-                                      <label
-                                        htmlFor="chk-same-as-verifier"
-                                        className="form-check-label text-primary small fw-semibold cursor-pointer user-select-none"
-                                        style={{ fontSize: '0.75rem' }}
-                                      >
-                                        Same as Verifier
-                                      </label>
-                                    </div>
-                                  )}
-                                </div>
-                                <select
-                                  id="assign-app"
-                                  className={`form-select form-select-sm bg-white text-dark border-secondary-subtle${fieldErrors.approver ? ' is-invalid border-danger' : ''}`}
-                                  value={isApproverSameAsVerifier ? assignedVerifier : assignedApprover}
-                                  disabled={isApproverSameAsVerifier}
-                                  onChange={(e) => {
-                                    setAssignedApprover(e.target.value);
-                                    setFieldErrors((prev) => {
-                                      const u = { ...prev };
-                                      delete u.approver;
-                                      return u;
-                                    });
-                                  }}
-                                >
-                                  {effectiveApproverCandidates.map((u) => {
-                                    const channel = getReviewChannelForUser(u, clientOrg);
-                                    const channelTag =
-                                      channel === 'issuing_authority'
-                                        ? 'Regulatory Authority'
-                                        : channel === 'third_party'
-                                          ? 'Appointed 3rd Party'
-                                          : 'Internal Client';
-                                    return (
-                                      <option key={u.id} value={u.id}>
-                                        {u.name} ({u.organization}) · [{channelTag}]
-                                      </option>
-                                    );
-                                  })}
-                                </select>
-                                {fieldErrors.approver && (
-                                  <div className="text-danger small mt-1 font-mono-code" style={{ fontSize: '0.72rem' }}>
-                                    {fieldErrors.approver}
-                                  </div>
-                                )}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -3839,53 +3417,30 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <option value="method">Method</option>
                         </select>
                       </div>
-                      <div className="col-12 col-md-6">
-                        <select
+                      <div className="col-12 col-md-9">
+                        <SearchableSelect
+                          key={newObjectType}
                           id="grid-add-object-item"
                           aria-label="Object to add"
-                          className="form-select form-select-sm"
-                          value={newObjectId}
-                          onChange={(e) => setNewObjectId(e.target.value)}
-                        >
-                          <option value="">Select {newObjectType} to add...</option>
-                          {availableObjectsForType.map((o) => {
-                            const isAdded = selectedAssuranceObjects.some((x) => x.id === o.id);
-                            const optionScope = getAssuranceObjectScope(o.type);
-                            /* an asset already contracted for this period cannot be added */
-                            const conflicts = optionScope
-                              ? getAssetPeriodConflicts(optionScope, o.id, startDate, endDate, assuranceSets, editingDraftId || undefined)
-                              : [];
-                            return (
-                              <option key={o.id} value={o.id} disabled={isAdded || conflicts.length > 0}>
-                                {o.name} ({o.ownerOrganization})
-                                {isAdded ? ' — added' : conflicts.length > 0 ? ` — ${formatBookedLabel(conflicts[0])}` : ''}
-                              </option>
-                            );
-                          })}
-                        </select>
+                          placeholder={`Search every ${newObjectType} to add`}
+                          emptyLabel="None from the listed organizations. Search to find others."
+                          items={listedObjectItems}
+                          searchOnlyItems={otherObjectItems}
+                          onSelect={(item) => handleAddObject(item.id)}
+                        />
                       </div>
-                      <div className="col-12 col-md-3">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary w-100 d-inline-flex align-items-center justify-content-center gap-1"
-                          disabled={!newObjectId}
-                          onClick={() => {
-                            const found = availableObjectsForType.find((o) => o.id === newObjectId);
-                            if (found && !selectedAssuranceObjects.some((o) => o.id === found.id)) {
-                              setSelectedAssuranceObjects((prev) => [...prev, found]);
-                              setNewObjectId('');
-                              setFieldErrors((prev) => {
-                                const u = { ...prev };
-                                delete u.objects;
-                                return u;
-                              });
-                            }
-                          }}
-                        >
-                          <Plus className="w-4 h-4" />
-                          Add Object
-                        </button>
-                      </div>
+                      {newObjectType === 'vessel' && (
+                        <div className="col-12 text-secondary small" style={{ fontSize: '0.78rem' }}>
+                          Your own vessels are not listed. You become the client of the vessel you select.
+                        </div>
+                      )}
+                      {addedOwners.length > 0 && (
+                        <div className="col-12">
+                          <div className="alert alert-info py-2 small mb-0" role="status">
+                            {addedOwners.join(', ')} added to Organizations.
+                          </div>
+                        </div>
+                      )}
                       {newObjectType === 'vessel' && (
                         <div className="col-12 text-secondary small" style={{ fontSize: '0.78rem' }}>
                           Your own vessels are not listed. You become the client of the vessel you select.
@@ -4395,6 +3950,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             </div>
                           )}
                           <div className="text-secondary small mt-1">
+                            <strong>Organizations:</strong>{' '}
+                            <span className="text-dark fw-semibold">{organizations.join(', ')}</span>
+                          </div>
+                          <div className="text-secondary small mt-1">
                             <strong>Contract Period:</strong> {startDate} to {endDate}
                           </div>
                           <div className="text-secondary small mt-1">
@@ -4424,17 +3983,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <div className="col-12 col-md-6">
                         <div className="p-3 bg-light rounded-3 border h-100">
                           <strong className="text-dark small d-block mb-1">Stakeholders</strong>
-                          <div className="text-secondary small"><strong>Submitter:</strong> {submitterLabel}</div>
-                          <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (selectedVerifier ? `${selectedVerifier.name} (${selectedVerifier.organization})` : 'Pending') : 'N/A'}</div>
-                          <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (selectedInspector ? `${selectedInspector.name} (${selectedInspector.organization})` : 'Pending') : 'N/A'}</div>
-                          <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (selectedApprover ? `${selectedApprover.name} (${selectedApprover.organization})` : 'Pending') : 'N/A'}</div>
+                          {submitters.map((submitter) => (
+                            <div key={submitter.organization} className="text-secondary small">
+                              <strong>Submitter:</strong>{' '}
+                              {submitter.assignee === PENDING_ASSIGNMENT ? `Pending, ${submitter.organization}` : submitter.assignee}
+                            </div>
+                          ))}
+                          <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? `Pending, ${verifierOrg}` : 'N/A'}</div>
+                          <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? `Pending, ${inspectorOrg}` : 'N/A'}</div>
+                          <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? `Pending, ${approverOrg}` : 'N/A'}</div>
 
                           <div className="pt-2 mt-2 border-top">
-                            <strong className="text-dark small d-block mb-1">Review &amp; Checks</strong>
+                            <strong className="text-dark small d-block mb-1">Checks</strong>
                             <div className="d-flex flex-wrap gap-1.5 mb-1">
-                              <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                Review: {reviewMode === 'internal' ? 'Internal' : reviewMode === 'third_party' ? 'Third Party' : reviewMode === 'issuing_authority' ? 'Issuing Authority' : 'Mixed Multi-Channel'}
-                              </span>
                               {validityCheckRequired && (
                                 <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
                                   Statutory Validity Check
@@ -4446,11 +4007,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 </span>
                               )}
                             </div>
-                            {(reviewMode === 'issuing_authority' || reviewMode === 'mixed') && (
-                              <div className="text-muted small" style={{ fontSize: '0.72rem' }}>
-                                Authority Validation: {authorityValidationMethod === 'api' ? 'AMSA API' : authorityValidationMethod === 'direct_link' ? 'Flag State Link' : 'Class Society Portal'}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
