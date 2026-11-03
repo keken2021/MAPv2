@@ -56,6 +56,125 @@ export interface VaultCertificateDisplay {
   sourceType: 'vault_document' | 'statutory_cert' | 'stcw_cert' | 'equipment_spec';
 }
 
+/** shown when an asset has no recorded base / port */
+export const PROJECT_ASSET_LOCATION_NOT_RECORDED = 'Not recorded';
+
+/**
+  what: location for a project add-asset candidate — vessel port, equipment parent-vessel port, or crew current-vessel port.
+  how: reads only registry fields; never invents Dampier / Henderson / Perth defaults.
+*/
+export function projectAssetLocation(input: {
+  assetType: ProjectAssetType;
+  vesselRef?: VesselInformation;
+  crewRef?: CrewMember;
+  equipmentRef?: EquipmentAsset;
+  vessels: VesselInformation[];
+}): string {
+  if (input.assetType === 'Vessel') {
+    return input.vesselRef?.portOfRegistry?.trim() || PROJECT_ASSET_LOCATION_NOT_RECORDED;
+  }
+  if (input.assetType === 'Equipment') {
+    const parentId = input.equipmentRef?.parentVesselId;
+    const parent = parentId ? input.vessels.find((v) => v.id === parentId) : undefined;
+    return parent?.portOfRegistry?.trim() || PROJECT_ASSET_LOCATION_NOT_RECORDED;
+  }
+  const crewVesselId = input.crewRef?.currentVesselId;
+  const crewVessel = crewVesselId ? input.vessels.find((v) => v.id === crewVesselId) : undefined;
+  return crewVessel?.portOfRegistry?.trim() || PROJECT_ASSET_LOCATION_NOT_RECORDED;
+}
+
+function pushUniqueVaultDoc(list: VaultCertificateDisplay[], doc: VaultCertificateDisplay): void {
+  if (list.some((existing) => existing.id === doc.id || existing.title.toLowerCase() === doc.title.toLowerCase())) {
+    return;
+  }
+  list.push(doc);
+}
+
+/** store / asset-record certificates for the selected candidate — never invents a baseline pack */
+export function buildProjectAssetVaultDocuments(input: {
+  assetType: ProjectAssetType;
+  assetId: string;
+  assetName: string;
+  vesselRef?: VesselInformation;
+  crewRef?: CrewMember;
+  equipmentRef?: EquipmentAsset;
+  documents: MasterDocument[];
+}): VaultCertificateDisplay[] {
+  const list: VaultCertificateDisplay[] = [];
+  const { assetType, assetId, assetName, vesselRef, crewRef, equipmentRef, documents } = input;
+
+  const storeMatchingDocs = documents.filter((d) => {
+    if (assetType === 'Vessel') {
+      return (
+        d.vesselId === assetId ||
+        (d.vesselAttributes && d.vesselAttributes.vesselName.toLowerCase() === assetName.toLowerCase())
+      );
+    }
+    if (assetType === 'Crew') {
+      const nameMatch =
+        d.crewAttributes && d.crewAttributes.crewName.toLowerCase() === assetName.toLowerCase();
+      const idInText = `${d.id} ${d.title} ${d.certificateNo}`.toLowerCase().includes(assetId.toLowerCase());
+      return d.entityType === 'Crew Certificate' && Boolean(nameMatch || idInText);
+    }
+    if (assetType === 'Equipment' && equipmentRef) {
+      const haystack = `${d.id} ${d.title} ${d.certificateNo}`.toLowerCase();
+      return (
+        haystack.includes(equipmentRef.id.toLowerCase()) ||
+        haystack.includes(equipmentRef.equipmentIdentifier.toLowerCase()) ||
+        haystack.includes(equipmentRef.name.toLowerCase())
+      );
+    }
+    return false;
+  });
+
+  storeMatchingDocs.forEach((d) => {
+    pushUniqueVaultDoc(list, {
+      id: d.id,
+      title: d.title,
+      certificateNo: d.certificateNo || '—',
+      issuingAuthority: d.issuingAuthority || '—',
+      expiryDate: d.expiryDate || '—',
+      complianceState: d.complianceState || 'Valid',
+      ocrConfidence: d.ocrConfidence ?? 0,
+      sourceType: 'vault_document',
+    });
+  });
+
+  if (assetType === 'Vessel' && vesselRef?.statutoryCertificates) {
+    vesselRef.statutoryCertificates.forEach((cert, idx) => {
+      pushUniqueVaultDoc(list, {
+        id: cert.certificateNumber || `statutory-${assetId}-${idx}`,
+        title: cert.name,
+        certificateNo: cert.certificateNumber || '—',
+        issuingAuthority: cert.issuingBody || vesselRef.classificationSociety || '—',
+        expiryDate: cert.expiryDate || '—',
+        complianceState: cert.status === 'Expired' ? 'Expired' : 'Valid',
+        ocrConfidence: 0,
+        sourceType: 'statutory_cert',
+      });
+    });
+  }
+
+  if (assetType === 'Crew' && crewRef) {
+    const allStcw = [...(crewRef.layer1CoreDocuments || []), ...(crewRef.layer2Endorsements || [])];
+    allStcw.forEach((doc) => {
+      pushUniqueVaultDoc(list, {
+        id: doc.id,
+        title: doc.title,
+        certificateNo: doc.certificateNo || '—',
+        issuingAuthority: doc.issuingAuthority || '—',
+        expiryDate: doc.expiryDate || '—',
+        complianceState: doc.verificationStatus === 'Expired' ? 'Expired' : 'Valid',
+        ocrConfidence: 0,
+        sourceType: 'stcw_cert',
+      });
+    });
+  }
+
+  /* equipment certificates come only from the document store above — no invented load-test cards */
+  return list;
+}
+
 export interface RequirementMatchComparison {
   requirementId: string;
   requirementTitle: string;
@@ -146,7 +265,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
         const vesselRef = vessels.find((v) => v.id === asset.assetId);
         return {
           ...asset,
-          location: vesselRef?.portOfRegistry || 'Dampier, WA',
+          location: projectAssetLocation({ assetType: 'Vessel', vesselRef, vessels }),
           subtypeOrRole: `${vesselRef?.vesselType || 'Vessel'} · ${vesselRef?.vesselSubtype || 'General'}`,
           operationalStatus: vesselRef?.status || 'Available',
           complianceScore: vesselRef ? calculateVesselReadiness(vesselRef, assuranceSets, documents) : null,
@@ -158,7 +277,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
         const equipmentRef = equipment.find((e) => e.id === asset.assetId);
         return {
           ...asset,
-          location: 'Henderson Marine Base, WA',
+          location: projectAssetLocation({ assetType: 'Equipment', equipmentRef, vessels }),
           subtypeOrRole: `${equipmentRef?.category || 'Equipment'} · ${equipmentRef?.model || 'Standard'}`,
           operationalStatus: equipmentRef?.availabilityStatus || 'Available',
           complianceScore: equipmentRef ? calculateEquipmentReadiness(equipmentRef, assuranceSets) : null,
@@ -169,7 +288,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
       const crewRef = crew.find((c) => c.id === asset.assetId);
       return {
         ...asset,
-        location: 'Perth, WA (Available Worldwide)',
+        location: projectAssetLocation({ assetType: 'Crew', crewRef, vessels }),
         subtypeOrRole: `${crewRef?.rank || 'Crew'} · ${crewRef?.nationality || 'STCW Certified'}`,
         operationalStatus: crewRef?.complianceStatus || 'Available',
         complianceScore: crewRef ? calculateCrewComplianceScore(crewRef) : null,
@@ -213,178 +332,18 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
     return { total, vesselCount, equipmentCount, crewCount };
   }, [candidateAssets]);
 
-  // 3. Document Vault for Selected Asset
+  // 3. Document Vault for Selected Asset — store and asset records only
   const vaultDocuments = useMemo<VaultCertificateDisplay[]>(() => {
     if (!selectedAsset) return [];
-
-    const list: VaultCertificateDisplay[] = [];
-    const { assetType, assetId, assetName, vesselRef, crewRef, equipmentRef } = selectedAsset;
-
-    // Master documents from Library Vault
-    const storeMatchingDocs = documents.filter((d: MasterDocument) => {
-      if (assetType === 'Vessel') {
-        return (
-          d.vesselId === assetId ||
-          (d.vesselAttributes && d.vesselAttributes.vesselName.toLowerCase() === assetName.toLowerCase())
-        );
-      }
-      if (assetType === 'Crew') {
-        return (
-          d.entityType === 'Crew Certificate' &&
-          ((d.crewAttributes && d.crewAttributes.crewName.toLowerCase() === assetName.toLowerCase()) ||
-            d.vesselId === assetId)
-        );
-      }
-      return false;
+    return buildProjectAssetVaultDocuments({
+      assetType: selectedAsset.assetType,
+      assetId: selectedAsset.assetId,
+      assetName: selectedAsset.assetName,
+      vesselRef: selectedAsset.vesselRef,
+      crewRef: selectedAsset.crewRef,
+      equipmentRef: selectedAsset.equipmentRef,
+      documents,
     });
-
-    storeMatchingDocs.forEach((d) => {
-      list.push({
-        id: d.id,
-        title: d.title,
-        certificateNo: d.certificateNo || d.id,
-        issuingAuthority: d.issuingAuthority || 'IACS Recognized Body',
-        expiryDate: d.expiryDate || '2028-12-31',
-        complianceState: d.complianceState || 'Valid',
-        ocrConfidence: d.ocrConfidence || 98,
-        sourceType: 'vault_document',
-      });
-    });
-
-    // Vessel statutory certificates
-    if (assetType === 'Vessel' && vesselRef?.statutoryCertificates) {
-      vesselRef.statutoryCertificates.forEach((cert, idx) => {
-        if (!list.some((existing) => existing.title.toLowerCase() === cert.name.toLowerCase())) {
-          list.push({
-            id: `MAP-VES-STAT-${idx + 100}`,
-            title: cert.name,
-            certificateNo: cert.certificateNumber || `DNV-STAT-${idx + 400}`,
-            issuingAuthority: cert.issuingBody || vesselRef.classificationSociety || 'DNV',
-            expiryDate: cert.expiryDate || '2027-09-30',
-            complianceState: cert.status === 'Expired' ? 'Expired' : 'Valid',
-            ocrConfidence: 98,
-            sourceType: 'statutory_cert',
-          });
-        }
-      });
-    }
-
-    // Crew STCW documents
-    if (assetType === 'Crew' && crewRef) {
-      const allStcw = [...(crewRef.layer1CoreDocuments || []), ...(crewRef.layer2Endorsements || [])];
-      allStcw.forEach((doc, idx) => {
-        if (!list.some((existing) => existing.title.toLowerCase() === doc.title.toLowerCase())) {
-          list.push({
-            id: `MAP-CRW-STCW-${idx + 100}`,
-            title: doc.title,
-            certificateNo: doc.certificateNo || `AMSA-STCW-${idx + 200}`,
-            issuingAuthority: doc.issuingAuthority || 'AMSA Marine Authority',
-            expiryDate: doc.expiryDate || '2028-06-30',
-            complianceState: doc.verificationStatus === 'Expired' ? 'Expired' : 'Valid',
-            ocrConfidence: 97,
-            sourceType: 'stcw_cert',
-          });
-        }
-      });
-    }
-
-    // Equipment specifications & load certificates
-    if (assetType === 'Equipment' && equipmentRef) {
-      list.push({
-        id: 'MAP-EQP-STAT-001',
-        title: 'Class Survey & Proof Load Test',
-        certificateNo: `ABS-EQP-${equipmentRef.equipmentIdentifier || 'PL-992'}`,
-        issuingAuthority: equipmentRef.classStatus || 'American Bureau of Shipping (ABS)',
-        expiryDate: '2027-11-15',
-        complianceState: 'Valid',
-        ocrConfidence: 98,
-        sourceType: 'equipment_spec',
-      });
-      list.push({
-        id: 'MAP-EQP-STAT-002',
-        title: 'Manufacturer Factory Acceptance Certificate',
-        certificateNo: `OEM-FAC-${equipmentRef.model || 'CERT-401'}`,
-        issuingAuthority: equipmentRef.manufacturer || 'Certified OEM',
-        expiryDate: '2029-01-01',
-        complianceState: 'Valid',
-        ocrConfidence: 99,
-        sourceType: 'equipment_spec',
-      });
-    }
-
-    // Fallback baseline statutory pack if empty
-    if (list.length === 0) {
-      if (assetType === 'Vessel') {
-        list.push(
-          {
-            id: 'MAP-VES-2026-STAT-00412',
-            title: 'Certificate of Class (100A1 Offshore Support)',
-            certificateNo: 'DNV-STAT-2026-99',
-            issuingAuthority: 'DNV',
-            expiryDate: '2028-04-15',
-            complianceState: 'Valid',
-            ocrConfidence: 98,
-            sourceType: 'vault_document',
-          },
-          {
-            id: 'MAP-VES-2026-STAT-00413',
-            title: 'SOLAS Safety Construction & Equipment',
-            certificateNo: 'DNV-SE-8841-A',
-            issuingAuthority: 'DNV / AMSA',
-            expiryDate: '2027-10-30',
-            complianceState: 'Valid',
-            ocrConfidence: 96,
-            sourceType: 'vault_document',
-          },
-          {
-            id: 'MAP-VES-2026-STAT-00414',
-            title: 'International Load Line & Stability Booklet',
-            certificateNo: 'ILL-AU-44810',
-            issuingAuthority: 'Australian Maritime Safety Authority',
-            expiryDate: '2028-01-10',
-            complianceState: 'Valid',
-            ocrConfidence: 97,
-            sourceType: 'vault_document',
-          },
-        );
-      } else if (assetType === 'Equipment') {
-        list.push({
-          id: 'MAP-EQP-STAT-001',
-          title: 'Class Survey & Proof Load Test',
-          certificateNo: 'ABS-EQP-LOAD-412',
-          issuingAuthority: 'American Bureau of Shipping (ABS)',
-          expiryDate: '2027-11-15',
-          complianceState: 'Valid',
-          ocrConfidence: 98,
-          sourceType: 'equipment_spec',
-        });
-      } else if (assetType === 'Crew') {
-        list.push(
-          {
-            id: 'MAP-CRW-STCW-001',
-            title: 'STCW Certificate of Competency (CoC)',
-            certificateNo: 'AMSA-COC-99120',
-            issuingAuthority: 'AMSA',
-            expiryDate: '2028-06-30',
-            complianceState: 'Valid',
-            ocrConfidence: 99,
-            sourceType: 'stcw_cert',
-          },
-          {
-            id: 'MAP-CRW-STCW-002',
-            title: 'STCW Basic Safety Training (BST Refresher)',
-            certificateNo: 'BST-2024-991',
-            issuingAuthority: 'AMSA Approved Training Center',
-            expiryDate: '2029-03-15',
-            complianceState: 'Valid',
-            ocrConfidence: 98,
-            sourceType: 'stcw_cert',
-          },
-        );
-      }
-    }
-
-    return list;
   }, [selectedAsset, documents]);
 
   // Helper: Requirement matching
@@ -1234,7 +1193,14 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                             </tr>
                           </thead>
                           <tbody className="divide-y">
-                            {vaultPagination.pageItems.map((doc) => (
+                            {vaultPagination.pageItems.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} className="px-3 py-4 text-center text-muted">
+                                  No document on file.
+                                </td>
+                              </tr>
+                            ) : (
+                              vaultPagination.pageItems.map((doc) => (
                               <tr key={doc.id}>
                                 <td className="px-3 py-2.5">
                                   <span className="font-mono-code fw-semibold text-primary" style={{ fontSize: '0.8rem' }}>
@@ -1268,7 +1234,8 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                                   </span>
                                 </td>
                               </tr>
-                            ))}
+                              ))
+                            )}
                           </tbody>
                         </table>
                       </div>
