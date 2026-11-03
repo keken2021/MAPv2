@@ -22,7 +22,7 @@ function task(id: string, category: string): AssuranceRequirement {
   };
 }
 
-describe('task sections and predecessors', () => {
+describe('Task Sections and predecessors', () => {
   it('keeps a section and predecessor already stored on a task', () => {
     const placed = placeTasksInSections([
       {

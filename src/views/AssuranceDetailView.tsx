@@ -5,12 +5,13 @@
 */
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2 } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
+import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { formatMaritimeDate, formatMaritimeDateTime, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
 import { setOrganizationParties } from '../utils/projectHelpers';
@@ -26,7 +27,7 @@ import {
   isDatePermissionActive,
 } from '../utils/validation';
 import { MasterDocument } from '../types/document';
-import { AssuranceRequirement, DatePermissionGrant, TargetDateChangeRecord, ThreePillarsCategory } from '../types/assurance';
+import { AssuranceObject, AssuranceRequirement, DatePermissionGrant, TargetDateChangeRecord, ThreePillarsCategory } from '../types/assurance';
 import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrphaned } from '../utils/projectHelpers';
 
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
@@ -60,9 +61,10 @@ import { useSessionUser } from '../utils/useSessionUser';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
 import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
 import { useOverlayBehavior } from '../utils/useOverlayBehavior';
-import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetScopes, getThreePillarsCategory } from '../utils/assuranceTemplates';
+import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetObjects, getAssuranceSetScopes, getThreePillarsCategory } from '../utils/assuranceTemplates';
 import { findOverlappingAssuranceSets, formatOverlapError } from '../utils/assuranceOverlap';
 import {
+  deriveObjectVerification,
   getRequirementDocumentView,
   isClosedAssuranceSet,
   RequirementDocumentView,
@@ -74,7 +76,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { AuditTrailEvent } from '../types/audit';
 import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 
-export type AssuranceDetailTab = 'details' | 'requirements' | 'tasks' | 'audit';
+export type AssuranceDetailTab = 'details' | 'objects' | 'requirements' | 'tasks' | 'audit';
 
 
 function getPillarCategory(req: AssuranceRequirement): ThreePillarsCategory {
@@ -108,6 +110,7 @@ function parseTabFromUrl(): AssuranceDetailTab {
   }
   if (tabParam) {
     const lower = tabParam.toLowerCase();
+    if (lower === 'objects' || lower === 'object') return 'objects';
     if (lower === 'requirements') return 'requirements';
     if (lower === 'tasks') return 'tasks';
     if (lower === 'audit' || lower === 'audit-trail' || lower === 'audittrail') return 'audit';
@@ -132,6 +135,16 @@ function displayAuditChange(event: AuditTrailEvent): string {
   return 'No change';
 }
 
+const OBJECT_TYPE_LABELS: Record<string, string> = {
+  vessel: 'Vessel',
+  person: 'Crew',
+  equipment: 'Equipment',
+  procedure: 'Procedure',
+  document: 'Document',
+  method: 'Method',
+  organization: 'Organization',
+};
+
 interface AssuranceDetailViewProps {
   setId: string;
 }
@@ -144,6 +157,7 @@ interface AssuranceDetailViewProps {
 export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId }) => {
   const {
     assuranceSets,
+    assuranceObjects,
     vessels,
     auditEvents,
     updateRequirementStatus,
@@ -250,10 +264,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [uploadTargetRequirement, setUploadTargetRequirement] = useState<AssuranceRequirement | null>(null);
   const [replaceExistingDoc, setReplaceExistingDoc] = useState<MasterDocument | null>(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [sectionsOpen, setSectionsOpen] = useState(true);
   const [editingRole, setEditingRole] = useState<'Submitter' | 'Verifier' | 'Inspector' | 'Approver' | null>(null);
 
-  type ReqSortField = 'title' | 'targetDate' | 'ocrConfidence' | 'status';
+  const [objectSearch, setObjectSearch] = useState('');
+
+  type ReqSortField = 'title' | 'targetDate' | 'targetObject' | 'ocrConfidence' | 'status';
   useOverlayBehavior(confirmDialogRef, () => setShortCertificateConfirm(null), {
     active: shortCertificateConfirm !== null,
   });
@@ -322,6 +337,66 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     return [];
   }, [assuranceSet?.tags, assuranceSet?.pppTags]);
 
+  const clientOwnerOrg =
+    assuranceSet?.clientOrg || assuranceSet?.charterer || assuranceSet?.initiatorOrg || '';
+  const serviceProviderOrg = assuranceSet?.serviceProviderOrg;
+  const organizationParties = assuranceSet ? setOrganizationParties(assuranceSet) : [];
+
+  const setObjects = useMemo(() => {
+    if (!assuranceSet) return [];
+    const baseObjects = getAssuranceSetObjects(assuranceSet);
+    const byId = new Map<string, AssuranceObject>();
+    baseObjects.forEach((obj) => byId.set(obj.id, obj));
+
+    (assuranceSet.requirements || []).forEach((req) => {
+      if (req.targetObjectId && !byId.has(req.targetObjectId)) {
+        const found = assuranceObjects.find((o) => o.id === req.targetObjectId);
+        if (found) {
+          byId.set(found.id, found);
+        }
+      }
+    });
+
+    return Array.from(byId.values());
+  }, [assuranceSet, assuranceObjects]);
+
+  const resolveRequirementTargetObject = (req: AssuranceRequirement): { name: string; type?: string; identifier?: string } => {
+    if (req.targetObjectId) {
+      const matched = setObjects.find((o) => o.id === req.targetObjectId) || assuranceObjects.find((o) => o.id === req.targetObjectId);
+      if (matched) {
+        return { name: matched.name, type: matched.type, identifier: matched.identifier };
+      }
+    }
+    const doc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+    if (doc?.crewAttributes?.crewName) {
+      const matched = setObjects.find((o) => o.type === 'person' && o.name === doc.crewAttributes?.crewName);
+      if (matched) return { name: matched.name, type: matched.type, identifier: matched.identifier };
+      return { name: doc.crewAttributes.crewName, type: 'person' };
+    }
+    if (req.category === 'Plant' || assuranceSet?.vesselId) {
+      const matched = setObjects.find((o) => o.type === 'vessel' || o.id === assuranceSet?.vesselId);
+      if (matched) return { name: matched.name, type: matched.type, identifier: matched.identifier };
+    }
+    if (setObjects.length > 0) {
+      return { name: setObjects[0].name, type: setObjects[0].type, identifier: setObjects[0].identifier };
+    }
+    return { name: assuranceSet?.vesselName || assuranceSet?.title || 'Object' };
+  };
+
+  const filteredObjects = useMemo(() => {
+    if (!objectSearch.trim()) return setObjects;
+    const q = objectSearch.toLowerCase();
+    return setObjects.filter((obj) => {
+      const matchName = obj.name.toLowerCase().includes(q);
+      const matchId = (obj.identifier || obj.id).toLowerCase().includes(q);
+      const matchOwner = (obj.ownerOrganization || '').toLowerCase().includes(q);
+      const matchType = obj.type.toLowerCase().includes(q);
+      return matchName || matchId || matchOwner || matchType;
+    });
+  }, [setObjects, objectSearch]);
+
+  const objectsPagination = usePagination(filteredObjects, [assuranceSet?.id, objectSearch]);
+
   const {
     orderedRequirements,
     peopleRequirements,
@@ -343,6 +418,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       let comp = 0;
       if (reqSortField === 'title') {
         comp = a.title.localeCompare(b.title);
+      } else if (reqSortField === 'targetObject') {
+        const objA = resolveRequirementTargetObject(a).name;
+        const objB = resolveRequirementTargetObject(b).name;
+        comp = objA.localeCompare(objB);
       } else if (reqSortField === 'targetDate') {
         const dateA = a.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
         const dateB = b.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
@@ -389,13 +468,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       processRequirements: sortedProcess,
       otherRequirements: sortedOther,
     };
-  }, [assuranceSet, reqSortField, reqSortDirection, documents]);
+  }, [assuranceSet, reqSortField, reqSortDirection, documents, setObjects, assuranceObjects]);
 
   const isCAdminPersona = activePersona === 'C Admin';
-  const clientOwnerOrg =
-    assuranceSet?.clientOrg || assuranceSet?.charterer || assuranceSet?.initiatorOrg || '';
-  const serviceProviderOrg = assuranceSet?.serviceProviderOrg;
-  const organizationParties = assuranceSet ? setOrganizationParties(assuranceSet) : [];
 
   const verifierCandidates = useMemo(
     () =>
@@ -485,26 +560,27 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     const dateHistoryEvents: AuditTrailEvent[] = (assuranceSet.targetDateHistory || []).map((row) => {
       const matchingUser = users.find((u) => u.name === row.changedBy || u.id === row.changedBy || row.changedBy.startsWith(u.name) || row.changedBy.startsWith(u.id));
       return {
-      id: row.id,
-      timestampUtc: row.changedAt,
-      userId: matchingUser ? matchingUser.id : row.changedBy,
-      userRole: (matchingUser?.roles?.[0] as import('../types/audit').UserRolePersona) || 'Administrator',
-      organization: matchingUser?.organization || assuranceSet.clientOrg || assuranceSet.initiatorOrg || 'Client Organization',
-      action: 'Changed date',
-      targetAsset: `${assuranceSet.id} (${assuranceSet.title})`,
-      target: {
-        kind: 'date',
-        setId: assuranceSet.id,
-        dateField: row.scope === 'set' ? 'complianceDeadline' : 'targetDate',
-        taskId: row.scope === 'task' ? (row.taskId || row.requirementId) : undefined,
-      },
-      fieldDelta: {
-        fieldName: row.scope === 'set' ? 'Compliance deadline' : (row.taskTitle || row.taskId || 'Task target date'),
-        oldValue: row.oldDate,
-        newValue: row.newDate,
-      },
-      justificationNotes: row.reason,
-    }; });
+        id: row.id,
+        timestampUtc: row.changedAt,
+        userId: matchingUser ? matchingUser.id : row.changedBy,
+        userRole: (matchingUser?.roles?.[0] as import('../types/audit').UserRolePersona) || 'Administrator',
+        organization: matchingUser?.organization || assuranceSet.clientOrg || assuranceSet.initiatorOrg || 'Client Organization',
+        action: 'Changed date',
+        targetAsset: `${assuranceSet.id} (${assuranceSet.title})`,
+        target: {
+          kind: 'date',
+          setId: assuranceSet.id,
+          dateField: row.scope === 'set' ? 'complianceDeadline' : 'targetDate',
+          taskId: row.scope === 'task' ? (row.taskId || row.requirementId) : undefined,
+        },
+        fieldDelta: {
+          fieldName: row.scope === 'set' ? 'Compliance deadline' : (row.taskTitle || row.taskId || 'Task target date'),
+          oldValue: row.oldDate,
+          newValue: row.newDate,
+        },
+        justificationNotes: row.reason,
+      };
+    });
 
     const visibleDateHistory = filterAuditTrailForPersona(
       dateHistoryEvents,
@@ -1224,9 +1300,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         title={assuranceSet.title}
         status={headerStatus}
         metaItems={[
-          assuranceSet.id,
-          assuredAsset.name,
-        ]}
+          clientOwnerOrg,
+          assuranceSet.complianceDeadline || assuranceSet.targetDate
+            ? formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')
+            : '',
+        ].filter(Boolean)}
         mainAction={detailHeaderActions}
         onExportCsv={handleExportCsv}
         onExportPdf={handleExportPdf}
@@ -1254,6 +1332,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
             onClick={() => handleTabChange('details')}
           >
             Details
+          </button>
+        </li>
+        <li className="nav-item" role="presentation">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'objects'}
+            className={`nav-link ${activeTab === 'objects' ? 'active fw-bold text-primary' : 'text-secondary'}`}
+            onClick={() => handleTabChange('objects')}
+          >
+            Objects
           </button>
         </li>
         <li className="nav-item" role="presentation">
@@ -1293,995 +1382,1054 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
-      <div className="row g-4 align-items-stretch">
-        {/* Left: Assurance Set Information & Stakeholder Role Assignments Card */}
-        <div className="col-12 col-lg-8 col-md-7 w-100">
-          <div className="card map-card-custom p-4 h-100">
-            {showApproverDecisionBar && (
-              <ApproverDecisionBar
-                assuranceSet={assuranceSet}
-                openFindingsCount={openFindings.length}
-                onDecisionSubmitted={(decision) => {
-                  setProjectToast(`Assurance set ${assuranceSet.id} updated to ${decision}.`);
-                }}
-              />
-            )}
-            {/* On-Time, Open Findings, and Remaining Items Badges inside Info Card */}
-            <div className="d-flex flex-wrap align-items-center gap-2 mb-3 pb-3 border-bottom">
-              <span className={`badge ${onTimeStatus.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTimeStatus.detail}>
-                {onTimeStatus.statusLabel}{!onTimeStatus.isOnTime && onTimeStatus.lateItemsCount > 0 ? ` (${onTimeStatus.lateItemsCount} late)` : ''}
-              </span>
-              {openFindings.length > 0 && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-link p-0 text-decoration-none"
-                  onClick={() => setCurrentHashView('capa', assuranceSet.vesselName || assuranceSet.vesselId)}
-                >
-                  <span className="badge bg-warning text-dark">
-                    {openFindings.length} {openFindings.length === 1 ? 'Open Finding' : 'Open Findings'}
-                  </span>
-                </button>
+        <div className="row g-4 align-items-stretch">
+          {/* Left: Assurance Set Information & Stakeholder Role Assignments Card */}
+          <div className="col-12 col-lg-8 col-md-7 w-100">
+            <div className="card map-card-custom p-4 h-100">
+              {showApproverDecisionBar && (
+                <ApproverDecisionBar
+                  assuranceSet={assuranceSet}
+                  openFindingsCount={openFindings.length}
+                  onDecisionSubmitted={(decision) => {
+                    setProjectToast(`Assurance set ${assuranceSet.id} updated to ${decision}.`);
+                  }}
+                />
               )}
-              <span className="badge bg-light text-secondary border">
-                {remainingItems.label}
-              </span>
-            </div>
-
-            <div className="small">
-              <div className="row g-4">
-                {/* Assurance Set Information */}
-                <div className="col-md-6 d-flex flex-column gap-3">
-                  <div className="d-flex align-items-center justify-content-between mb-1">
-                    <span className="text-uppercase fw-bold text-secondary" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                      Details
+              {/* On-Time, Open Findings, and Remaining Items Badges inside Info Card */}
+              <div className="d-flex flex-wrap align-items-center gap-2 mb-3 pb-3 border-bottom">
+                <span className={`badge ${onTimeStatus.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTimeStatus.detail}>
+                  {onTimeStatus.statusLabel}{!onTimeStatus.isOnTime && onTimeStatus.lateItemsCount > 0 ? ` (${onTimeStatus.lateItemsCount} late)` : ''}
+                </span>
+                {openFindings.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-link p-0 text-decoration-none"
+                    onClick={() => setCurrentHashView('capa', assuranceSet.vesselName || assuranceSet.vesselId)}
+                  >
+                    <span className="badge bg-warning text-dark">
+                      {openFindings.length} {openFindings.length === 1 ? 'Open Finding' : 'Open Findings'}
                     </span>
-                  </div>
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Set ID:</div>
-                    <div className="fw-bold text-dark font-mono-code">{assuranceSet.id}</div>
-                  </div>
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Project:</div>
-                      {canAddToProject && (
-                        <button
-                          type="button"
-                          className="btn btn-link p-0 text-decoration-none small ms-auto"
-                          style={{ fontSize: '0.7rem', color: '#0284c7' }}
-                          onClick={() => setIsAddToProjectOpen(true)}
-                        >
-                          Add to Project
-                        </button>
-                      )}
+                  </button>
+                )}
+                <span className="badge bg-light text-secondary border">
+                  {remainingItems.label}
+                </span>
+              </div>
+
+              <div className="small">
+                <div className="row g-4">
+                  {/* Assurance Set Information */}
+                  <div className="col-md-6 d-flex flex-column gap-3">
+                    <div className="d-flex align-items-center justify-content-between mb-1">
+                      <span className="text-uppercase fw-bold text-secondary" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                        Details
+                      </span>
                     </div>
-                    {linkedProject ? (
-                      <button
-                        type="button"
-                        className="d-block w-100 p-0 border-0 bg-transparent fw-bold text-dark text-start"
-                        style={{ fontSize: 'inherit', lineHeight: 'inherit', fontFamily: 'inherit', cursor: 'pointer' }}
-                        onClick={() => setCurrentHashView('project', linkedProject.id)}
-                      >
-                        {linkedProject.name} ({linkedProject.id})
-                      </button>
-                    ) : (
-                      <div className="fw-bold text-dark">No project</div>
-                    )}
-                  </div>
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Created By:</div>
-                    <div className="fw-bold text-dark">
-                      {creator.name
-                        ? creator.organization && creator.organization !== clientOwnerOrg
-                          ? `${creator.name} (${creator.organization})`
-                          : creator.name
-                        : creator.organization}
-                    </div>
-                  </div>
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Client:</div>
-                    <div className="fw-bold text-dark">{clientOwnerOrg}</div>
-                  </div>
-                  {assuranceSetTags.length > 0 && (
                     <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Tags:</div>
-                      <div className="d-flex flex-wrap gap-1 mt-1">
-                        {assuranceSetTags.map((tag) => (
-                          <span key={tag} className="badge bg-light text-dark border">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Set ID:</div>
+                      <div className="fw-bold text-dark font-mono-code">{assuranceSet.id}</div>
                     </div>
-                  )}
-                  {serviceProviderOrg && (
                     <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>{getProviderLabel(assuranceSet.assuranceType)}:</div>
-                      <div className="fw-bold text-dark">{serviceProviderOrg}</div>
-                    </div>
-                  )}
-                  {organizationParties.length > 0 && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Organizations</div>
-                      <ul className="list-unstyled mb-0 mt-1">
-                        {organizationParties.map((party) => (
-                          <li
-                            key={`${party.organization}-${party.group}`}
-                            className="d-flex justify-content-between align-items-center gap-2 py-1"
+                      <div className="d-flex align-items-center justify-content-between">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Project:</div>
+                        {canAddToProject && (
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 text-decoration-none small ms-auto"
+                            style={{ fontSize: '0.7rem', color: '#0284c7' }}
+                            onClick={() => setIsAddToProjectOpen(true)}
                           >
-                            <span className="fw-bold text-dark">{party.organization}</span>
-                            <span className="badge bg-light text-dark border">{party.group}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Scope:</div>
-                    <div className="fw-bold text-dark">{assuredAsset.typeLabel}</div>
-                  </div>
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>
-                      {assuredAsset.members && assuredAsset.members.length > 1 ? `Assets (${assuredAsset.members.length}):` : 'Asset:'}
-                    </div>
-                    {assuredAsset.members && assuredAsset.members.length > 1 ? (
-                      <ul className="list-unstyled mb-0">
-                        {assuredAsset.members.map((member) => (
-                          <li key={member.id}>
-                            <button
-                              type="button"
-                              className="d-block w-100 p-0 border-0 bg-transparent fw-bold text-dark text-start"
-                              style={{ fontSize: 'inherit', lineHeight: 'inherit', fontFamily: 'inherit', cursor: 'pointer' }}
-                              onClick={() => setCurrentHashView('crew', member.id)}
-                            >
-                              {member.name}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : assuredAsset.view ? (
-                      <button
-                        type="button"
-                        className="d-block w-100 p-0 border-0 bg-transparent fw-bold text-dark text-start"
-                        style={{ fontSize: 'inherit', lineHeight: 'inherit', fontFamily: 'inherit', cursor: 'pointer' }}
-                        onClick={() => setCurrentHashView(assuredAsset.view as string, assuredAsset.entityId)}
-                      >
-                        {assuredAsset.name}
-                      </button>
-                    ) : (
-                      <div className="fw-bold text-dark">{assuredAsset.name}</div>
-                    )}
-                  </div>
-                  <div className="map-detail-row">
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="d-flex align-items-center gap-2">
-                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Contract Period:</div>
-                        {roleActions.canChangeDates ? (
-                          <span className="badge bg-success-subtle text-success border border-success-subtle" style={{ fontSize: '0.65rem' }}>
-                            Authorized
-                          </span>
-                        ) : roleActions.canManage && !isCharterWindowLocked ? (
-                          <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style={{ fontSize: '0.65rem' }}>
-                            Permission required
-                          </span>
-                        ) : null}
-                      </div>
-                      {canEditCharterWindow && (
-                        <button
-                          type="button"
-                          className="btn btn-link p-0 text-decoration-none small ms-auto"
-                          style={{ fontSize: '0.7rem', color: '#0284c7' }}
-                          onClick={isEditingCharterWindow ? cancelCharterWindowEdit : startCharterWindowEdit}
-                        >
-                          {isEditingCharterWindow ? 'Cancel' : 'Edit'}
-                        </button>
-                      )}
-                    </div>
-                    {isEditingCharterWindow ? (
-                      <div className="mt-1 d-flex flex-column gap-2">
-                        <div>
-                          <label className="form-label text-secondary small mb-1" htmlFor="charter-window-start">
-                            Start <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            id="charter-window-start"
-                            type="date"
-                            className={`form-control form-control-sm bg-white text-dark${charterWindowErrors.start ? ' is-invalid border-danger' : ''}`}
-                            value={charterStartDraft}
-                            min={minCharterDate}
-                            onChange={(e) => {
-                              setCharterStartDraft(e.target.value);
-                              setCharterWindowErrors((prev) => ({ ...prev, start: undefined }));
-                            }}
-                          />
-                          {charterWindowErrors.start && (
-                            <div className="invalid-feedback d-block small">{charterWindowErrors.start}</div>
-                          )}
-                        </div>
-                        <div>
-                          <label className="form-label text-secondary small mb-1" htmlFor="charter-window-end">
-                            End <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            id="charter-window-end"
-                            type="date"
-                            className={`form-control form-control-sm bg-white text-dark${charterWindowErrors.end ? ' is-invalid border-danger' : ''}`}
-                            value={charterEndDraft}
-                            min={charterStartDraft && charterStartDraft > minCharterDate ? charterStartDraft : minCharterDate}
-                            onChange={(e) => {
-                              setCharterEndDraft(e.target.value);
-                              setCharterWindowErrors((prev) => ({ ...prev, end: undefined }));
-                            }}
-                          />
-                          {charterWindowErrors.end && (
-                            <div className="invalid-feedback d-block small">{charterWindowErrors.end}</div>
-                          )}
-                        </div>
-                        <div>
-                          <label className="form-label text-secondary small mb-1" htmlFor="compliance-deadline">
-                            Compliance Deadline <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            id="compliance-deadline"
-                            type="date"
-                            className={`form-control form-control-sm bg-white text-dark${charterWindowErrors.deadline ? ' is-invalid border-danger' : ''}`}
-                            value={deadlineDraft}
-                            max={charterStartDraft || undefined}
-                            onChange={(e) => {
-                              setDeadlineDraft(e.target.value);
-                              setCharterWindowErrors((prev) => ({ ...prev, deadline: undefined }));
-                            }}
-                          />
-                          <div className="form-text">When this set must be complete. On or before the contract start.</div>
-                          {charterWindowErrors.deadline && (
-                            <div className="invalid-feedback d-block small">{charterWindowErrors.deadline}</div>
-                          )}
-                        </div>
-                        <div>
-                          <label className="form-label text-secondary small mb-1" htmlFor="deadline-reason">
-                            Reason for Date Change <span className="text-muted fw-normal">(optional)</span>
-                          </label>
-                          <input
-                            id="deadline-reason"
-                            type="text"
-                            className="form-control form-control-sm bg-white text-dark"
-                            placeholder="e.g. Schedule adjustment per operational request"
-                            value={deadlineReasonDraft}
-                            onChange={(e) => setDeadlineReasonDraft(e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <button type="button" className="btn btn-sm btn-primary" onClick={saveCharterWindow}>
-                            Save
+                            Add to Project
                           </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="fw-bold text-dark">{formatMaritimeDate(assuranceSet.charterWindowStart)} - {formatMaritimeDate(assuranceSet.charterWindowEnd)}</div>
-                        <div className="text-secondary mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.75rem' }}>
-                          <span>Compliance deadline: {formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}</span>
-                        </div>
-                        <div className="d-flex align-items-center gap-2 mt-2">
-                          {(activeDateGrantsCount > 0 || activePersona === 'C Admin') && (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
-                              style={{ fontSize: '0.72rem' }}
-                              onClick={() => setIsDatePermissionsModalOpen(true)}
-                            >
-                              <Key size={12} />
-                              {activeDateGrantsCount > 0 ? `Date grants (${activeDateGrantsCount})` : 'Grant date access'}
-                            </button>
-                          )}
-                        </div>
-                        {roleActions.canManage && assuranceSet.stage !== 'Cancelled' && assuranceSet.stage !== 'Approved' && assuranceSet.stage !== 'Certified' && (
-                          <div className="d-flex flex-wrap gap-2 mt-2 pt-2 border-top">
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-danger py-0 px-2"
-                              style={{ fontSize: '0.72rem' }}
-                              onClick={() => {
-                                setPartialCloseNotes('');
-                                setPartialCloseError(null);
-                                setIsPartialCloseModalOpen(true);
-                              }}
-                            >
-                              Partial Closure
-                            </button>
-                            {complianceOverdue && (
-                              <>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-danger py-0 px-2"
-                              style={{ fontSize: '0.72rem' }}
-                              onClick={() => {
-                                setRevisedDateDraft(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '');
-                                setRevisedDateReason('');
-                                setRevisedDateError(null);
-                                setIsReviseDeadlineModalOpen(true);
-                              }}
-                            >
-                              Revise Completion Date
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-danger py-0 px-2"
-                              style={{ fontSize: '0.72rem' }}
-                              onClick={() => {
-                                setSelectedExemptTaskIds([]);
-                                setExemptionReasonDraft('');
-                                setExemptionGrantedByDraft(sessionUser?.name || 'Set Manager');
-                                setExemptionNewDateDraft('');
-                                setExemptionError(null);
-                                setIsExemptTasksModalOpen(true);
-                              }}
-                            >
-                              Exempt Tasks
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-danger text-white py-0 px-2"
-                              style={{ fontSize: '0.72rem' }}
-                              onClick={() => {
-                                setCancellationReasonDraft('');
-                                setIsCancelModalOpen(true);
-                              }}
-                            >
-                              Cancel Set
-                            </button>
-                              </>
-                            )}
-                          </div>
                         )}
                       </div>
-                    )}
-                    {roleActions.canManage && isCharterWindowLocked && (
-                      <div className="text-secondary mt-1" style={{ fontSize: '0.7rem' }}>
-                        Locked once the set is approved or certified.
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Stakeholder Role Assignments */}
-                <div className="col-md-6 d-flex flex-column gap-3">
-                  <div className="text-uppercase fw-bold text-secondary mb-1" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                    Stakeholders
-                  </div>
-                  {stakeholderError && (
-                    <div className="alert alert-danger py-2 small mb-0">{stakeholderError}</div>
-                  )}
-                  {!canEditStakeholders && stakeholderLockReason && (isCAdmin || activePersona === 'Administrator') && (
-                    <div className="alert alert-light border py-2 small mb-0 text-secondary">
-                      {stakeholderLockReason}
-                    </div>
-                  )}
-
-                  {/* Review Channel: who may verify and approve this set */}
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Review Channel:</div>
-                    <div className="fw-bold text-dark">{formatReviewChannel(assuranceSet)}</div>
-                  </div>
-
-                  {/* Submitter */}
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Submitter:</div>
-                      {canEditStakeholders && (
+                      {linkedProject ? (
                         <button
                           type="button"
-                          className="btn btn-link p-0 text-decoration-none small ms-auto"
-                          style={{ fontSize: '0.7rem', color: '#0284c7' }}
-                          onClick={() => setEditingRole(editingRole === 'Submitter' ? null : 'Submitter')}
+                          className="d-block w-100 p-0 border-0 bg-transparent fw-bold text-dark text-start"
+                          style={{ fontSize: 'inherit', lineHeight: 'inherit', fontFamily: 'inherit', cursor: 'pointer' }}
+                          onClick={() => setCurrentHashView('project', linkedProject.id)}
                         >
-                          {editingRole === 'Submitter' ? 'Cancel' : 'Assign / Change'}
+                          {linkedProject.name} ({linkedProject.id})
                         </button>
+                      ) : (
+                        <div className="fw-bold text-dark">No project</div>
                       )}
                     </div>
-                    {editingRole === 'Submitter' ? (
-                      <div className="mt-1 d-flex flex-column gap-1">
-                        <select
-                          className="form-select form-select-sm"
-                          style={{ fontSize: '0.75rem' }}
-                          value={assuranceSet.assignedSubmitter || ''}
-                          onChange={(e) => {
-                            if (e.target.value) assignStakeholder('Submitter', e.target.value);
-                          }}
-                        >
-                          <option value="">Select submitter</option>
-                          {users
-                            .filter((u) => userHasRole(u, 'Submitter') || userHasRole(u, 'Administrator'))
-                            .map((u) => (
+                    <div className="map-detail-row border-bottom pb-2">
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Created By:</div>
+                      <div className="fw-bold text-dark">
+                        {creator.name
+                          ? creator.organization && creator.organization !== clientOwnerOrg
+                            ? `${creator.name} (${creator.organization})`
+                            : creator.name
+                          : creator.organization}
+                      </div>
+                    </div>
+                    <div className="map-detail-row border-bottom pb-2">
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Client:</div>
+                      <div className="fw-bold text-dark">{clientOwnerOrg}</div>
+                    </div>
+                    {assuranceSetTags.length > 0 && (
+                      <div className="map-detail-row border-bottom pb-2">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Tags:</div>
+                        <div className="d-flex flex-wrap gap-1 mt-1">
+                          {assuranceSetTags.map((tag) => (
+                            <span key={tag} className="badge bg-light text-dark border">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {organizationParties.length > 0 && (
+                      <div className="map-detail-row border-bottom pb-2">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Parties</div>
+                        <ul className="list-unstyled mb-0 mt-1">
+                          {organizationParties.map((party) => (
+                            <li
+                              key={`${party.organization}-${party.group}`}
+                              className="d-flex justify-content-between align-items-center gap-2 py-1"
+                            >
+                              <span className="fw-bold text-dark">{party.organization}</span>
+                              <span className="badge bg-light text-dark border">{party.group}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="map-detail-row">
+                      <div className="d-flex align-items-center justify-content-between">
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Contract Period:</div>
+                          {roleActions.canChangeDates ? (
+                            <span className="badge bg-success-subtle text-success border border-success-subtle" style={{ fontSize: '0.65rem' }}>
+                              Authorized
+                            </span>
+                          ) : roleActions.canManage && !isCharterWindowLocked ? (
+                            <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style={{ fontSize: '0.65rem' }}>
+                              Permission required
+                            </span>
+                          ) : null}
+                        </div>
+                        {canEditCharterWindow && (
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 text-decoration-none small ms-auto"
+                            style={{ fontSize: '0.7rem', color: '#0284c7' }}
+                            onClick={isEditingCharterWindow ? cancelCharterWindowEdit : startCharterWindowEdit}
+                          >
+                            {isEditingCharterWindow ? 'Cancel' : 'Edit'}
+                          </button>
+                        )}
+                      </div>
+                      {isEditingCharterWindow ? (
+                        <div className="mt-1 d-flex flex-column gap-2">
+                          <div>
+                            <label className="form-label text-secondary small mb-1" htmlFor="charter-window-start">
+                              Start <span className="text-danger">*</span>
+                            </label>
+                            <input
+                              id="charter-window-start"
+                              type="date"
+                              className={`form-control form-control-sm bg-white text-dark${charterWindowErrors.start ? ' is-invalid border-danger' : ''}`}
+                              value={charterStartDraft}
+                              min={minCharterDate}
+                              onChange={(e) => {
+                                setCharterStartDraft(e.target.value);
+                                setCharterWindowErrors((prev) => ({ ...prev, start: undefined }));
+                              }}
+                            />
+                            {charterWindowErrors.start && (
+                              <div className="invalid-feedback d-block small">{charterWindowErrors.start}</div>
+                            )}
+                          </div>
+                          <div>
+                            <label className="form-label text-secondary small mb-1" htmlFor="charter-window-end">
+                              End <span className="text-danger">*</span>
+                            </label>
+                            <input
+                              id="charter-window-end"
+                              type="date"
+                              className={`form-control form-control-sm bg-white text-dark${charterWindowErrors.end ? ' is-invalid border-danger' : ''}`}
+                              value={charterEndDraft}
+                              min={charterStartDraft && charterStartDraft > minCharterDate ? charterStartDraft : minCharterDate}
+                              onChange={(e) => {
+                                setCharterEndDraft(e.target.value);
+                                setCharterWindowErrors((prev) => ({ ...prev, end: undefined }));
+                              }}
+                            />
+                            {charterWindowErrors.end && (
+                              <div className="invalid-feedback d-block small">{charterWindowErrors.end}</div>
+                            )}
+                          </div>
+                          <div>
+                            <label className="form-label text-secondary small mb-1" htmlFor="compliance-deadline">
+                              Compliance Deadline <span className="text-danger">*</span>
+                            </label>
+                            <input
+                              id="compliance-deadline"
+                              type="date"
+                              className={`form-control form-control-sm bg-white text-dark${charterWindowErrors.deadline ? ' is-invalid border-danger' : ''}`}
+                              value={deadlineDraft}
+                              max={charterStartDraft || undefined}
+                              onChange={(e) => {
+                                setDeadlineDraft(e.target.value);
+                                setCharterWindowErrors((prev) => ({ ...prev, deadline: undefined }));
+                              }}
+                            />
+                            <div className="form-text">When this set must be complete. On or before the contract start.</div>
+                            {charterWindowErrors.deadline && (
+                              <div className="invalid-feedback d-block small">{charterWindowErrors.deadline}</div>
+                            )}
+                          </div>
+                          <div>
+                            <label className="form-label text-secondary small mb-1" htmlFor="deadline-reason">
+                              Reason for Date Change <span className="text-muted fw-normal">(optional)</span>
+                            </label>
+                            <input
+                              id="deadline-reason"
+                              type="text"
+                              className="form-control form-control-sm bg-white text-dark"
+                              placeholder="e.g. Schedule adjustment per operational request"
+                              value={deadlineReasonDraft}
+                              onChange={(e) => setDeadlineReasonDraft(e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <button type="button" className="btn btn-sm btn-primary" onClick={saveCharterWindow}>
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="fw-bold text-dark">{formatMaritimeDate(assuranceSet.charterWindowStart)} - {formatMaritimeDate(assuranceSet.charterWindowEnd)}</div>
+                          <div className="text-secondary mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.75rem' }}>
+                            <span>Compliance deadline: {formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}</span>
+                          </div>
+                          <div className="d-flex align-items-center gap-2 mt-2">
+                            {(activeDateGrantsCount > 0 || activePersona === 'C Admin') && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
+                                style={{ fontSize: '0.72rem' }}
+                                onClick={() => setIsDatePermissionsModalOpen(true)}
+                              >
+                                <Key size={12} />
+                                {activeDateGrantsCount > 0 ? `Date grants (${activeDateGrantsCount})` : 'Grant date access'}
+                              </button>
+                            )}
+                          </div>
+                          {roleActions.canManage && assuranceSet.stage !== 'Cancelled' && assuranceSet.stage !== 'Approved' && assuranceSet.stage !== 'Certified' && (
+                            <div className="d-flex flex-wrap gap-2 mt-2 pt-2 border-top">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger py-0 px-2"
+                                style={{ fontSize: '0.72rem' }}
+                                onClick={() => {
+                                  setPartialCloseNotes('');
+                                  setPartialCloseError(null);
+                                  setIsPartialCloseModalOpen(true);
+                                }}
+                              >
+                                Partial Closure
+                              </button>
+                              {complianceOverdue && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger py-0 px-2"
+                                    style={{ fontSize: '0.72rem' }}
+                                    onClick={() => {
+                                      setRevisedDateDraft(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '');
+                                      setRevisedDateReason('');
+                                      setRevisedDateError(null);
+                                      setIsReviseDeadlineModalOpen(true);
+                                    }}
+                                  >
+                                    Revise Completion Date
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger py-0 px-2"
+                                    style={{ fontSize: '0.72rem' }}
+                                    onClick={() => {
+                                      setSelectedExemptTaskIds([]);
+                                      setExemptionReasonDraft('');
+                                      setExemptionGrantedByDraft(sessionUser?.name || 'Set Manager');
+                                      setExemptionNewDateDraft('');
+                                      setExemptionError(null);
+                                      setIsExemptTasksModalOpen(true);
+                                    }}
+                                  >
+                                    Exempt Tasks
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-danger text-white py-0 px-2"
+                                    style={{ fontSize: '0.72rem' }}
+                                    onClick={() => {
+                                      setCancellationReasonDraft('');
+                                      setIsCancelModalOpen(true);
+                                    }}
+                                  >
+                                    Cancel Set
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {roleActions.canManage && isCharterWindowLocked && (
+                        <div className="text-secondary mt-1" style={{ fontSize: '0.7rem' }}>
+                          Locked once the set is approved or certified.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Stakeholder Role Assignments */}
+                  <div className="col-md-6 d-flex flex-column gap-3">
+                    <div className="text-uppercase fw-bold text-secondary mb-1" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                      Stakeholders
+                    </div>
+                    {stakeholderError && (
+                      <div className="alert alert-danger py-2 small mb-0">{stakeholderError}</div>
+                    )}
+                    {!canEditStakeholders && stakeholderLockReason && (isCAdmin || activePersona === 'Administrator') && (
+                      <div className="alert alert-light border py-2 small mb-0 text-secondary">
+                        {stakeholderLockReason}
+                      </div>
+                    )}
+
+                    {/* Submitter */}
+                    <div className="map-detail-row border-bottom pb-2">
+                      <div className="d-flex align-items-center justify-content-between">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Submitter:</div>
+                        {canEditStakeholders && (
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 text-decoration-none small ms-auto"
+                            style={{ fontSize: '0.7rem', color: '#0284c7' }}
+                            onClick={() => setEditingRole(editingRole === 'Submitter' ? null : 'Submitter')}
+                          >
+                            {editingRole === 'Submitter' ? 'Cancel' : 'Assign / Change'}
+                          </button>
+                        )}
+                      </div>
+                      {editingRole === 'Submitter' ? (
+                        <div className="mt-1 d-flex flex-column gap-1">
+                          <select
+                            className="form-select form-select-sm"
+                            style={{ fontSize: '0.75rem' }}
+                            value={assuranceSet.assignedSubmitter || ''}
+                            onChange={(e) => {
+                              if (e.target.value) assignStakeholder('Submitter', e.target.value);
+                            }}
+                          >
+                            <option value="">Select submitter</option>
+                            {users
+                              .filter((u) => userHasRole(u, 'Submitter') || userHasRole(u, 'Administrator'))
+                              .map((u) => (
+                                <option key={u.id} value={`${u.name} (${u.organization})`}>
+                                  {u.name} - {u.organization}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-outline-primary align-self-start mt-1"
+                            style={{ fontSize: '0.675rem' }}
+                            onClick={() => setCurrentHashView('users')}
+                          >
+                            Add a submitter in User Management
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="fw-bold text-dark">{assuranceSet.assignedSubmitter || 'M. Chen (Northwind Marine Pty Ltd)'}</div>
+                      )}
+                    </div>
+
+                    {/* Verifier */}
+                    <div className="map-detail-row border-bottom pb-2">
+                      <div className="d-flex align-items-center justify-content-between">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Verifier:</div>
+                        {canEditStakeholders && (
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 text-decoration-none small ms-auto"
+                            style={{ fontSize: '0.7rem', color: '#0284c7' }}
+                            onClick={() => setEditingRole(editingRole === 'Verifier' ? null : 'Verifier')}
+                          >
+                            {editingRole === 'Verifier' ? 'Cancel' : 'Assign / Change'}
+                          </button>
+                        )}
+                      </div>
+                      {editingRole === 'Verifier' ? (
+                        <div className="mt-1 d-flex flex-column gap-1">
+                          <select
+                            className="form-select form-select-sm"
+                            style={{ fontSize: '0.75rem' }}
+                            value={assuranceSet.assignedVerifier || ''}
+                            onChange={(e) => {
+                              if (e.target.value) assignStakeholder('Verifier', e.target.value);
+                            }}
+                          >
+                            <option value="">Select verifier</option>
+                            {verifierCandidates.map((u) => (
                               <option key={u.id} value={`${u.name} (${u.organization})`}>
                                 {u.name} - {u.organization}
                               </option>
                             ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="btn btn-xs btn-outline-primary align-self-start mt-1"
-                          style={{ fontSize: '0.675rem' }}
-                          onClick={() => setCurrentHashView('users')}
-                        >
-                          Add a submitter in User Management
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="fw-bold text-dark">{assuranceSet.assignedSubmitter || 'M. Chen (Northwind Marine Pty Ltd)'}</div>
-                    )}
-                  </div>
-
-                  {/* Verifier */}
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Verifier:</div>
-                      {canEditStakeholders && (
-                        <button
-                          type="button"
-                          className="btn btn-link p-0 text-decoration-none small ms-auto"
-                          style={{ fontSize: '0.7rem', color: '#0284c7' }}
-                          onClick={() => setEditingRole(editingRole === 'Verifier' ? null : 'Verifier')}
-                        >
-                          {editingRole === 'Verifier' ? 'Cancel' : 'Assign / Change'}
-                        </button>
+                          </select>
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-outline-primary align-self-start mt-1"
+                            style={{ fontSize: '0.675rem' }}
+                            onClick={() => setCurrentHashView('users')}
+                          >
+                            Add a verifier in User Management
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="fw-bold text-dark">
+                          {assuranceSet.verificationRequired === false
+                            ? 'N/A (Verification Bypassed)'
+                            : (assuranceSet.assignedVerifier || 'A. Fontaine (Bureau Veritas Inspectorate)')}
+                        </div>
                       )}
                     </div>
-                    {editingRole === 'Verifier' ? (
-                      <div className="mt-1 d-flex flex-column gap-1">
-                        <select
-                          className="form-select form-select-sm"
-                          style={{ fontSize: '0.75rem' }}
-                          value={assuranceSet.assignedVerifier || ''}
-                          onChange={(e) => {
-                            if (e.target.value) assignStakeholder('Verifier', e.target.value);
-                          }}
-                        >
-                          <option value="">Select verifier</option>
-                          {verifierCandidates.map((u) => (
-                            <option key={u.id} value={`${u.name} (${u.organization})`}>
-                              {u.name} - {u.organization}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="btn btn-xs btn-outline-primary align-self-start mt-1"
-                          style={{ fontSize: '0.675rem' }}
-                          onClick={() => setCurrentHashView('users')}
-                        >
-                          Add a verifier in User Management
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="fw-bold text-dark">
-                        {assuranceSet.verificationRequired === false
-                          ? 'N/A (Verification Bypassed)'
-                          : (assuranceSet.assignedVerifier || 'A. Fontaine (Bureau Veritas Inspectorate)')}
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Inspector */}
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Inspector:</div>
-                      {canEditStakeholders && (
-                        <button
-                          type="button"
-                          className="btn btn-link p-0 text-decoration-none small ms-auto"
-                          style={{ fontSize: '0.7rem', color: '#0284c7' }}
-                          onClick={() => setEditingRole(editingRole === 'Inspector' ? null : 'Inspector')}
-                        >
-                          {editingRole === 'Inspector' ? 'Cancel' : 'Assign / Change'}
-                        </button>
+                    {/* Inspector */}
+                    <div className="map-detail-row border-bottom pb-2">
+                      <div className="d-flex align-items-center justify-content-between">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Inspector:</div>
+                        {canEditStakeholders && (
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 text-decoration-none small ms-auto"
+                            style={{ fontSize: '0.7rem', color: '#0284c7' }}
+                            onClick={() => setEditingRole(editingRole === 'Inspector' ? null : 'Inspector')}
+                          >
+                            {editingRole === 'Inspector' ? 'Cancel' : 'Assign / Change'}
+                          </button>
+                        )}
+                      </div>
+                      {editingRole === 'Inspector' ? (
+                        <div className="mt-1 d-flex flex-column gap-1">
+                          <select
+                            className="form-select form-select-sm"
+                            style={{ fontSize: '0.75rem' }}
+                            value={assuranceSet.assignedInspector || ''}
+                            onChange={(e) => {
+                              if (e.target.value) assignStakeholder('Inspector', e.target.value);
+                            }}
+                          >
+                            <option value="">Select inspector</option>
+                            {users
+                              .filter((u) => userHasRole(u, 'Inspector'))
+                              .map((u) => (
+                                <option key={u.id} value={`${u.name} (${u.organization})`}>
+                                  {u.name} - {u.organization}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-outline-primary align-self-start mt-1"
+                            style={{ fontSize: '0.675rem' }}
+                            onClick={() => setCurrentHashView('users')}
+                          >
+                            Add an inspector in User Management
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="fw-bold text-dark">
+                          {assuranceSet.mandatoryInspectionRequired
+                            ? (assuranceSet.assignedInspector || 'N. Technical (Meridian Marine Surveyors)')
+                            : (assuranceSet.assignedInspector || 'N/A (Not Required)')}
+                        </div>
                       )}
                     </div>
-                    {editingRole === 'Inspector' ? (
-                      <div className="mt-1 d-flex flex-column gap-1">
-                        <select
-                          className="form-select form-select-sm"
-                          style={{ fontSize: '0.75rem' }}
-                          value={assuranceSet.assignedInspector || ''}
-                          onChange={(e) => {
-                            if (e.target.value) assignStakeholder('Inspector', e.target.value);
-                          }}
-                        >
-                          <option value="">Select inspector</option>
-                          {users
-                            .filter((u) => userHasRole(u, 'Inspector'))
-                            .map((u) => (
+
+                    {/* Approver */}
+                    <div className="map-detail-row">
+                      <div className="d-flex align-items-center justify-content-between">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Approver:</div>
+                        {canEditStakeholders && (
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 text-decoration-none small ms-auto"
+                            style={{ fontSize: '0.7rem', color: '#0284c7' }}
+                            onClick={() => setEditingRole(editingRole === 'Approver' ? null : 'Approver')}
+                          >
+                            {editingRole === 'Approver' ? 'Cancel' : 'Assign / Change'}
+                          </button>
+                        )}
+                      </div>
+                      {editingRole === 'Approver' ? (
+                        <div className="mt-1 d-flex flex-column gap-1">
+                          <select
+                            className="form-select form-select-sm"
+                            style={{ fontSize: '0.75rem' }}
+                            value={assuranceSet.assignedApprover || ''}
+                            onChange={(e) => {
+                              if (e.target.value) assignStakeholder('Approver', e.target.value);
+                            }}
+                          >
+                            <option value="">Select approver</option>
+                            {approverCandidates.map((u) => (
                               <option key={u.id} value={`${u.name} (${u.organization})`}>
                                 {u.name} - {u.organization}
                               </option>
                             ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="btn btn-xs btn-outline-primary align-self-start mt-1"
-                          style={{ fontSize: '0.675rem' }}
-                          onClick={() => setCurrentHashView('users')}
-                        >
-                          Add an inspector in User Management
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="fw-bold text-dark">
-                        {assuranceSet.mandatoryInspectionRequired
-                          ? (assuranceSet.assignedInspector || 'N. Technical (Meridian Marine Surveyors)')
-                          : (assuranceSet.assignedInspector || 'N/A (Not Required)')}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Approver */}
-                  <div className="map-detail-row">
-                    <div className="d-flex align-items-center justify-content-between">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Approver:</div>
-                      {canEditStakeholders && (
-                        <button
-                          type="button"
-                          className="btn btn-link p-0 text-decoration-none small ms-auto"
-                          style={{ fontSize: '0.7rem', color: '#0284c7' }}
-                          onClick={() => setEditingRole(editingRole === 'Approver' ? null : 'Approver')}
-                        >
-                          {editingRole === 'Approver' ? 'Cancel' : 'Assign / Change'}
-                        </button>
+                          </select>
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-outline-primary align-self-start mt-1"
+                            style={{ fontSize: '0.675rem' }}
+                            onClick={() => setCurrentHashView('users')}
+                          >
+                            Add an approver in User Management
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="fw-bold text-dark">
+                          {assuranceSet.formalApprovalRequired === false
+                            ? 'N/A (Direct Sign-Off)'
+                            : (assuranceSet.assignedApprover || 'P. Nardelli (Marine Assurance Authority)')}
+                        </div>
                       )}
                     </div>
-                    {editingRole === 'Approver' ? (
-                      <div className="mt-1 d-flex flex-column gap-1">
-                        <select
-                          className="form-select form-select-sm"
-                          style={{ fontSize: '0.75rem' }}
-                          value={assuranceSet.assignedApprover || ''}
-                          onChange={(e) => {
-                            if (e.target.value) assignStakeholder('Approver', e.target.value);
-                          }}
-                        >
-                          <option value="">Select approver</option>
-                          {approverCandidates.map((u) => (
-                            <option key={u.id} value={`${u.name} (${u.organization})`}>
-                              {u.name} - {u.organization}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="btn btn-xs btn-outline-primary align-self-start mt-1"
-                          style={{ fontSize: '0.675rem' }}
-                          onClick={() => setCurrentHashView('users')}
-                        >
-                          Add an approver in User Management
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="fw-bold text-dark">
-                        {assuranceSet.formalApprovalRequired === false
-                          ? 'N/A (Direct Sign-Off)'
-                          : (assuranceSet.assignedApprover || 'P. Nardelli (Marine Assurance Authority)')}
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-      </div>
+        </div>
 
       )}
 
-
-      {/* Tab: Requirements */}
-      {activeTab === 'requirements' && (
-      <div className="d-flex flex-column gap-4">
-        {/* Top: Stage & Readiness Section */}
-        <div className="card map-card-custom p-4">
-          {/* Stage Pipeline Stepper */}
-          <div className="mb-4">
-            <div className="text-uppercase fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-              Stage
-            </div>
-            <PipelineStepper
-              currentStage={assuranceSet.stage}
-              readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
-              assuranceSet={assuranceSet}
-              orientation="horizontal"
-              className="border-0 p-0 mb-0 bg-transparent flex-wrap gap-3"
-            />
-          </div>
-
-          {/* Readiness Index */}
-          <div className="pt-3 border-top">
-            <div className="text-secondary text-uppercase fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-              Readiness
-            </div>
-            <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
-          </div>
-        </div>
-
-      <div className="card map-card-custom">
-        <div className="card-header border-bottom p-3">
-          <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-              <div className="fw-bold text-dark fs-6">
-                Requirements
+      {/* Tab: Objects */}
+      {activeTab === 'objects' && (
+        <div className="card map-card-custom">
+          <div className="p-3 border-bottom">
+            <div className="row g-2 align-items-center">
+              <div className="col-12 col-md-5">
+                <div className="input-group">
+                  <span className="input-group-text bg-white border-end-0 text-muted">
+                    <Search size={15} />
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control border-start-0 ps-0 bg-white text-dark"
+                    placeholder="Search objects..."
+                    value={objectSearch}
+                    onChange={(e) => setObjectSearch(e.target.value)}
+                    aria-label="Search objects"
+                  />
+                  {objectSearch && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary border-start-0"
+                      onClick={() => setObjectSearch('')}
+                      aria-label="Clear search"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="d-flex align-items-center gap-2 ms-auto">
-              {canEditTasks && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
-                  onClick={openAddTaskModal}
-                >
-                  <Plus size={14} />
-                  Add Task
-                </button>
-              )}
-              {canUploadHere && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary text-white"
-                  onClick={() => {
-                    setUploadTargetRequirement(null);
-                    setReplaceExistingDoc(null);
-                    setIsUploadModalOpen(true);
-                  }}
-                >
-                  Upload Document
-                </button>
-              )}
-            </div>
           </div>
 
-        </div>
-        {shortCertificates.length > 0 && (
-          <div className="alert alert-warning rounded-0 border-0 border-bottom mb-0" role="status">
-            {shortCertificates.length === 1
-              ? '1 certificate expires'
-              : `${shortCertificates.length} certificates expire`}{' '}
-            before the contract ends on {formatMaritimeDate(assuranceSet.charterWindowEnd)}.
-          </div>
-        )}
-        <div className="table-responsive">
-          <table className="table map-table-custom align-middle mb-0">
-            <thead>
-              <tr>
-                <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                  onClick={() => handleReqSort('title')}
-                >
-                  Title {renderSortIndicator('title')}
-                </th>
-                <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                  onClick={() => handleReqSort('targetDate')}
-                >
-                  Target Date {renderSortIndicator('targetDate')}
-                </th>
-                <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                  onClick={() => handleReqSort('ocrConfidence')}
-                >
-                  OCR Confidence {renderSortIndicator('ocrConfidence')}
-                </th>
-                <th
-                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                  onClick={() => handleReqSort('status')}
-                >
-                  Status {renderSortIndicator('status')}
-                </th>
-                <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orderedRequirements.length === 0 ? (
+          <div className="table-responsive">
+            <table className="table map-table-custom align-middle mb-0" data-testid="assurance-objects-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="text-center text-muted py-4 small">
-                    No requirements or documents recorded.
-                  </td>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Belongs To</th>
+                  <th>Verification Status</th>
+                  <th className="text-end">Actions</th>
                 </tr>
-              ) : (
-                requirementsPagination.pageItems.map((req: AssuranceRequirement, idx: number) => {
-                  const currentGroup = req.isOtherDocument ? 'Other Documents' : getPillarCategory(req);
-                  const prevReq = idx > 0 ? requirementsPagination.pageItems[idx - 1] : null;
-                  const prevGroup = prevReq ? (prevReq.isOtherDocument ? 'Other Documents' : getPillarCategory(prevReq)) : null;
-                  const isFirstOfGroupOnPage = currentGroup !== prevGroup;
+              </thead>
+              <tbody>
+                {filteredObjects.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-0">
+                      <EmptyState
+                        icon={Search}
+                        title={objectSearch ? 'No matching objects' : 'No objects'}
+                        description={
+                          objectSearch
+                            ? 'No objects match the current search term.'
+                            : 'No objects are recorded under this assurance set.'
+                        }
+                        action={objectSearch ? { label: 'Clear search', onClick: () => setObjectSearch('') } : undefined}
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  objectsPagination.pageItems.map((obj) => {
+                    const verification = deriveObjectVerification(obj.id, assuranceSets, activeDemoOrganization);
+                    const typeLabel = OBJECT_TYPE_LABELS[obj.type] || obj.type.charAt(0).toUpperCase() + obj.type.slice(1);
+                    const belongsTo = obj.ownerOrganization || assuranceSet.serviceProviderOrg || clientOwnerOrg;
+                    const assignedTarget =
+                      obj.assignments?.find((a) => a.isCurrent)?.targetName ||
+                      (obj.type !== 'vessel' && assuranceSet.vesselName ? assuranceSet.vesselName : null);
+                    const hasDetailView = obj.type === 'vessel' || obj.type === 'person' || obj.type === 'equipment';
 
-                  const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
-                  /* an approved set shows the version it was approved against, not the live one */
-                  const docView = linkedDoc ? getRequirementDocumentView(assuranceSet, req, linkedDoc) : undefined;
-                  const linkedChildSet = req.linkedAssuranceSetId
-                    ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
-                    : undefined;
-                  const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
-                  const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
-
-                  return (
-                    <React.Fragment key={req.id}>
-                      {isFirstOfGroupOnPage && (
-                        <tr className="bg-light border-top border-bottom">
-                          <td colSpan={5} className="py-2.5 px-3">
-                            <div className="d-flex align-items-center justify-content-between">
-                              <span className="fw-bold text-secondary text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                                {currentGroup}
-                              </span>
+                    return (
+                      <tr key={obj.id} data-testid="assurance-object-row">
+                        <td>
+                          <div className="fw-semibold text-dark">{obj.name}</div>
+                          {obj.identifier && (
+                            <div className="text-muted font-mono-code" style={{ fontSize: '0.75rem' }}>
+                              {obj.identifier}
                             </div>
-                          </td>
-                        </tr>
-                      )}
-                      {isLinkedSubSet(req) && linkedChildSet ? (
-                        <tr className="table-light" data-requirement-id={req.id}>
-                          <td>
-                            <div className="fw-semibold text-dark">{req.title}</div>
-                            {renderTaskPlacement(req)}
-                            <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                              <span className="font-mono-code small text-primary">{linkedChildSet.id}</span>
-                              <span className="badge bg-info text-dark" style={{ fontSize: '0.7rem' }}>
-                                Linked Sub-Set
-                              </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="badge bg-light text-dark border">
+                            {typeLabel}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="fw-semibold text-dark">{belongsTo}</div>
+                          {assignedTarget && (
+                            <div className="text-muted font-mono-code" style={{ fontSize: '0.75rem' }}>
+                              {assignedTarget}
                             </div>
-                            {req.description && (
-                              <div className="text-secondary small mt-0.5">{req.description}</div>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <span className="small text-dark">
-                              {formatMaritimeDate(req.targetDate || linkedChildSet.complianceDeadline || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
-                            </span>
-                          </td>
-                          <td>
+                          )}
+                        </td>
+                        <td>
+                          {verification ? (
+                            <ObjectVerificationBadge verification={verification} />
+                          ) : (
                             <span className="text-muted small">—</span>
-                          </td>
-                          <td>
-                            <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'}`}>
-                              {linkedChildSet.stage}
-                            </span>
-                          </td>
-                          <td className="text-end">
+                          )}
+                        </td>
+                        <td className="text-end">
+                          {hasDetailView && (
                             <button
                               type="button"
                               className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                               style={{ width: '32px', height: '32px' }}
-                              onClick={() => setCurrentHashView('assurance-sets', linkedChildSet.id)}
-                              title="View"
-                              aria-label="View"
+                              onClick={() => {
+                                if (obj.type === 'vessel') setCurrentHashView('vessels', obj.id);
+                                else if (obj.type === 'person') setCurrentHashView('crew', obj.id);
+                                else if (obj.type === 'equipment') setCurrentHashView('equipment', obj.id);
+                              }}
+                              title={`View ${obj.name}`}
+                              aria-label={`View ${obj.name}`}
                             >
-                              <FolderOpen size={16} />
+                              <Eye size={16} />
                             </button>
-                          </td>
-                        </tr>
-                      ) : (
-                        <tr data-requirement-id={req.id}>
-                          <td>
-                            <div className="fw-semibold text-dark">
-                              {req.title}
-                              {renderVersionBadge(req, docView)}
-                              {req.attemptNumber && (
-                                <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                  Attempt {req.attemptNumber}
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          {filteredObjects.length > 0 && (
+            <TablePagination {...objectsPagination.controls} />
+          )}
+        </div>
+      )}
+
+      {/* Tab: Requirements */}
+      {activeTab === 'requirements' && (
+        <div className="d-flex flex-column gap-4">
+          {/* Top: Stage & Readiness Section */}
+          <div className="card map-card-custom p-4">
+            {/* Stage Pipeline Stepper */}
+            <div className="mb-4">
+              <div className="text-uppercase fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                Stage
+              </div>
+              <PipelineStepper
+                currentStage={assuranceSet.stage}
+                readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
+                assuranceSet={assuranceSet}
+                orientation="horizontal"
+                className="border-0 p-0 mb-0 bg-transparent flex-wrap gap-3"
+              />
+            </div>
+
+            {/* Readiness Index */}
+            <div className="pt-3 border-top">
+              <div className="text-secondary text-uppercase fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                Readiness
+              </div>
+              <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
+            </div>
+          </div>
+
+          <div className="card map-card-custom">
+            <div className="card-header border-bottom p-3">
+              <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                  <div className="fw-bold text-dark fs-6">
+                    Requirements
+                  </div>
+                </div>
+                <div className="d-flex align-items-center gap-2 ms-auto">
+                  {canEditTasks && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                      onClick={openAddTaskModal}
+                    >
+                      <Plus size={14} />
+                      Add Task
+                    </button>
+                  )}
+                  {canUploadHere && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary text-white"
+                      onClick={() => {
+                        setUploadTargetRequirement(null);
+                        setReplaceExistingDoc(null);
+                        setIsUploadModalOpen(true);
+                      }}
+                    >
+                      Upload Document
+                    </button>
+                  )}
+                </div>
+              </div>
+
+            </div>
+            {shortCertificates.length > 0 && (
+              <div className="alert alert-warning rounded-0 border-0 border-bottom mb-0" role="status">
+                {shortCertificates.length === 1
+                  ? '1 certificate expires'
+                  : `${shortCertificates.length} certificates expire`}{' '}
+                before the contract ends on {formatMaritimeDate(assuranceSet.charterWindowEnd)}.
+              </div>
+            )}
+            <div className="table-responsive">
+              <table className="table map-table-custom align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th
+                      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      onClick={() => handleReqSort('title')}
+                    >
+                      Title {renderSortIndicator('title')}
+                    </th>
+                    <th
+                      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      onClick={() => handleReqSort('targetObject')}
+                    >
+                      Target Object {renderSortIndicator('targetObject')}
+                    </th>
+                    <th
+                      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      onClick={() => handleReqSort('ocrConfidence')}
+                    >
+                      OCR Confidence {renderSortIndicator('ocrConfidence')}
+                    </th>
+                    <th
+                      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      onClick={() => handleReqSort('status')}
+                    >
+                      Status {renderSortIndicator('status')}
+                    </th>
+                    <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderedRequirements.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center text-muted py-4 small">
+                        No requirements or documents recorded.
+                      </td>
+                    </tr>
+                  ) : (
+                    requirementsPagination.pageItems.map((req: AssuranceRequirement, idx: number) => {
+                      const currentGroup = req.isOtherDocument ? 'Other Documents' : getPillarCategory(req);
+                      const prevReq = idx > 0 ? requirementsPagination.pageItems[idx - 1] : null;
+                      const prevGroup = prevReq ? (prevReq.isOtherDocument ? 'Other Documents' : getPillarCategory(prevReq)) : null;
+                      const isFirstOfGroupOnPage = currentGroup !== prevGroup;
+
+                      const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+                      /* an approved set shows the version it was approved against, not the live one */
+                      const docView = linkedDoc ? getRequirementDocumentView(assuranceSet, req, linkedDoc) : undefined;
+                      const linkedChildSet = req.linkedAssuranceSetId
+                        ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
+                        : undefined;
+                      const hasAttachedDoc = Boolean(linkedDoc || req.documentId || req.linkedDocumentId);
+                      const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
+
+                      return (
+                        <React.Fragment key={req.id}>
+                          {isFirstOfGroupOnPage && (
+                            <tr className="bg-light border-top border-bottom">
+                              <td colSpan={5} className="py-2.5 px-3">
+                                <div className="d-flex align-items-center justify-content-between">
+                                  <span className="fw-bold text-secondary text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                                    {currentGroup}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          {isLinkedSubSet(req) && linkedChildSet ? (
+                            <tr className="table-light" data-requirement-id={req.id}>
+                              <td>
+                                <div className="fw-semibold text-dark">{req.title}</div>
+                                {renderTaskPlacement(req)}
+                                <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                                  <span className="font-mono-code small text-primary">{linkedChildSet.id}</span>
+                                  <span className="badge bg-info text-dark" style={{ fontSize: '0.7rem' }}>
+                                    Linked Sub-Set
+                                  </span>
+                                </div>
+                                {req.description && (
+                                  <div className="text-secondary small mt-0.5">{req.description}</div>
+                                )}
+                              </td>
+                              <td style={{ whiteSpace: 'nowrap' }}>
+                                <div className="fw-semibold text-dark">{linkedChildSet.title}</div>
+                                <div className="text-muted font-mono-code small">{linkedChildSet.id}</div>
+                              </td>
+                              <td>
+                                <span className="text-muted small">—</span>
+                              </td>
+                              <td>
+                                <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'}`}>
+                                  {linkedChildSet.stage}
                                 </span>
-                              )}
-                              {req.exemption && (
-                                <span
-                                  className="badge bg-warning text-dark ms-1.5"
-                                  style={{ fontSize: '0.65rem' }}
-                                  title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
+                              </td>
+                              <td className="text-end">
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                  style={{ width: '32px', height: '32px' }}
+                                  onClick={() => setCurrentHashView('assurance-sets', linkedChildSet.id)}
+                                  title="View"
+                                  aria-label="View"
                                 >
-                                  Exempted ({formatMaritimeDate(req.exemption.newDate)})
-                                </span>
-                              )}
-                              {renderTaskPlacement(req)}
-                              {req.isSpecialized && (
-                                <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                  Custom
-                                </span>
-                              )}
-                            </div>
-                            {renderContractShortWarning(docView?.doc || linkedDoc)}
-                            {req.description && (
-                              <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
-                                {req.description}
-                              </div>
-                            )}
-                            {(req.assignedSubmitter || req.assignedVerifier) && (
-                              <div className="text-muted mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
-                                {req.assignedSubmitter && (
-                                  <span><span className="text-secondary fw-semibold">Submitter:</span> {req.assignedSubmitter.split(' (')[0]}</span>
-                                )}
-                                {req.assignedSubmitter && req.assignedVerifier && <span>·</span>}
-                                {req.assignedVerifier && (
-                                  <span><span className="text-secondary fw-semibold">Verifier:</span> {req.assignedVerifier.split(' (')[0]}</span>
-                                )}
-                              </div>
-                            )}
-                            {/* the document judged against this set's contract period, not once for every set (gap review E5, G3) */}
-                            {docView && (() => {
-                              const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
-                              if (validity.state === 'unknown') return null;
-                              const tone =
-                                validity.state === 'valid_through_period'
-                                  ? 'bg-success-subtle text-success-emphasis border-success-subtle'
-                                  : validity.state === 'lapsed'
-                                    ? 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
-                                    : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
-                              return (
-                                <div className="mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
-                                  <span className={`badge border ${tone}`}>{validity.label}</span>
-                                  {validity.state !== 'valid_through_period' && validity.expiryDate && (
-                                    <span className="text-muted">
-                                      {formatMaritimeDate(validity.expiryDate)}
-                                      {/* a lapse names the issuer and the party responsible for renewal (paper 16.1) */}
-                                      {validity.state === 'lapsed' && (
-                                        <>
-                                          {' '}· {docView.doc.issuingAuthority || 'Issuing authority not recorded'}
-                                          {' '}· Responsible: {assuranceSet.serviceProviderOrg || 'Service provider not recorded'}
-                                        </>
-                                      )}
+                                  <FolderOpen size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          ) : (
+                            <tr data-requirement-id={req.id}>
+                              <td>
+                                <div className="fw-semibold text-dark">
+                                  {req.title}
+                                  {renderVersionBadge(req, docView)}
+                                  {req.attemptNumber && (
+                                    <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
+                                      Attempt {req.attemptNumber}
+                                    </span>
+                                  )}
+                                  {req.exemption && (
+                                    <span
+                                      className="badge bg-warning text-dark ms-1.5"
+                                      style={{ fontSize: '0.65rem' }}
+                                      title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
+                                    >
+                                      Exempted ({formatMaritimeDate(req.exemption.newDate)})
+                                    </span>
+                                  )}
+                                  {renderTaskPlacement(req)}
+                                  {req.isSpecialized && (
+                                    <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1.5" style={{ fontSize: '0.65rem' }}>
+                                      Custom
                                     </span>
                                   )}
                                 </div>
-                              );
-                            })()}
-                            {req.decisionTime && (
-                              <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
-                                <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
-                              </div>
-                            )}
-                            {/* how this set's verifier confirmed the document (gap review G1) */}
-                            {req.verifierStatus === 'Verified' && (
-                              <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
-                                <span className="text-secondary fw-semibold">Method:</span> {req.verificationMethod || 'Not recorded'}
-                                {req.overrideReason && (
-                                  <span className="ms-2 text-warning-emphasis" title={req.overrideReason}>· Override</span>
+                                {renderContractShortWarning(docView?.doc || linkedDoc)}
+                                {req.description && (
+                                  <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
+                                    {req.description}
+                                  </div>
                                 )}
-                              </div>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <div className="d-flex align-items-center gap-2">
-                              <span className="small text-dark">
-                                {formatMaritimeDate(req.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline)}
-                              </span>
-                              {roleActions.canChangeDates && !isCharterWindowLocked && (
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-link p-0 text-secondary"
-                                  title="Edit task target date"
-                                  onClick={() => openTaskDateEdit(req)}
-                                >
-                                  <Pencil size={12} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <ConfidenceBadge score={effectiveOcr} />
-                          </td>
-                          <td>
-                            {renderRequirementStatus(req)}
-                          </td>
-                          <td className="text-end">
-                            <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
-                              {canEditTasks && (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
-                                    style={{ width: '32px', height: '32px' }}
-                                    onClick={() => openEditTask(req)}
-                                    title="Edit task"
-                                    aria-label="Edit task"
-                                  >
-                                    <Pencil size={14} />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
-                                    style={{ width: '32px', height: '32px' }}
-                                    onClick={() => setTaskToDelete(req)}
-                                    title="Remove task"
-                                    aria-label="Remove task"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </>
-                              )}
-                              {linkedDoc ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                    style={{ width: '32px', height: '32px' }}
-                                    onClick={() => setSelectedDocForReview({ doc: docView?.doc || linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
-                                    title="PDF Review"
-                                    aria-label="PDF Review"
-                                  >
-                                    <FileText size={16} />
-                                  </button>
-                                  {canUploadHere && (
+                                {(req.assignedSubmitter || req.assignedVerifier) && (
+                                  <div className="text-muted mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
+                                    {req.assignedSubmitter && (
+                                      <span><span className="text-secondary fw-semibold">Submitter:</span> {req.assignedSubmitter.split(' (')[0]}</span>
+                                    )}
+                                    {req.assignedSubmitter && req.assignedVerifier && <span>·</span>}
+                                    {req.assignedVerifier && (
+                                      <span><span className="text-secondary fw-semibold">Verifier:</span> {req.assignedVerifier.split(' (')[0]}</span>
+                                    )}
+                                  </div>
+                                )}
+                                {/* the document judged against this set's contract period, not once for every set (gap review E5, G3) */}
+                                {docView && (() => {
+                                  const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
+                                  if (validity.state === 'unknown') return null;
+                                  const tone =
+                                    validity.state === 'valid_through_period'
+                                      ? 'bg-success-subtle text-success-emphasis border-success-subtle'
+                                      : validity.state === 'lapsed'
+                                        ? 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
+                                        : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+                                  return (
+                                    <div className="mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
+                                      <span className={`badge border ${tone}`}>{validity.label}</span>
+                                      {validity.state !== 'valid_through_period' && validity.expiryDate && (
+                                        <span className="text-muted">
+                                          {formatMaritimeDate(validity.expiryDate)}
+                                          {/* a lapse names the issuer and the party responsible for renewal (paper 16.1) */}
+                                          {validity.state === 'lapsed' && (
+                                            <>
+                                              {' '}· {docView.doc.issuingAuthority || 'Issuing authority not recorded'}
+                                              {' '}· Responsible: {assuranceSet.serviceProviderOrg || 'Service provider not recorded'}
+                                            </>
+                                          )}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                                {req.decisionTime && (
+                                  <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                                    <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
+                                  </div>
+                                )}
+                                {/* how this set's verifier confirmed the document (gap review G1) */}
+                                {req.verifierStatus === 'Verified' && (
+                                  <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                                    <span className="text-secondary fw-semibold">Method:</span> {req.verificationMethod || 'Not recorded'}
+                                    {req.overrideReason && (
+                                      <span className="ms-2 text-warning-emphasis" title={req.overrideReason}>· Override</span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ whiteSpace: 'nowrap' }}>
+                                {(() => {
+                                  const targetObj = resolveRequirementTargetObject(req);
+                                  return (
+                                    <div>
+                                      <div className="fw-semibold text-dark">{targetObj.name}</div>
+                                      {targetObj.identifier && (
+                                        <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
+                                          {targetObj.identifier}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+                              <td>
+                                <ConfidenceBadge score={effectiveOcr} />
+                              </td>
+                              <td>
+                                {renderRequirementStatus(req)}
+                              </td>
+                              <td className="text-end">
+                                <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
+                                  {canEditTasks && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                        style={{ width: '32px', height: '32px' }}
+                                        onClick={() => openEditTask(req)}
+                                        title="Edit task"
+                                        aria-label="Edit task"
+                                      >
+                                        <Pencil size={14} />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                        style={{ width: '32px', height: '32px' }}
+                                        onClick={() => setTaskToDelete(req)}
+                                        title="Remove task"
+                                        aria-label="Remove task"
+                                      >
+                                        <Trash2 size={14} />
+                                      </button>
+                                    </>
+                                  )}
+                                  {linkedDoc ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                        style={{ width: '32px', height: '32px' }}
+                                        onClick={() => setSelectedDocForReview({ doc: docView?.doc || linkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
+                                        title="PDF Review"
+                                        aria-label="PDF Review"
+                                      >
+                                        <FileText size={16} />
+                                      </button>
+                                      {canUploadHere && (
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                          style={{ width: '32px', height: '32px' }}
+                                          onClick={() => openRequirementUpload(req, linkedDoc)}
+                                          disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
+                                          title={getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
+                                          aria-label="Upload new version"
+                                        >
+                                          <RefreshCw size={16} />
+                                        </button>
+                                      )}
+                                    </>
+                                  ) : canUploadHere ? (
                                     <button
                                       type="button"
-                                      className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                      className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
                                       style={{ width: '32px', height: '32px' }}
-                                      onClick={() => openRequirementUpload(req, linkedDoc)}
-                                      disabled={Boolean(getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
-                                      title={getDocumentReuploadBlockReason(linkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
-                                      aria-label="Upload new version"
+                                      onClick={() => openRequirementUpload(req)}
+                                      title="Upload document"
+                                      aria-label="Upload document"
                                     >
-                                      <RefreshCw size={16} />
+                                      <Upload size={16} />
                                     </button>
+                                  ) : (
+                                    <span className="text-secondary small">No Document</span>
                                   )}
-                                </>
-                              ) : canUploadHere ? (
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
-                                  style={{ width: '32px', height: '32px' }}
-                                  onClick={() => openRequirementUpload(req)}
-                                  title="Upload document"
-                                  aria-label="Upload document"
-                                >
-                                  <Upload size={16} />
-                                </button>
-                              ) : (
-                                <span className="text-secondary small">No Document</span>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination {...requirementsPagination.controls} />
+          </div>
         </div>
-        <TablePagination {...requirementsPagination.controls} />
-      </div>
-      </div>
       )}
 
       {/* Tab: Tasks */}
       {activeTab === 'tasks' && (
         sectionSummaries.length > 0 ? (
           <div className="card map-card-custom">
-            <div className="card-header p-0">
-              <button
-                type="button"
-                className="btn btn-link text-decoration-none text-dark w-100 d-flex align-items-center gap-2 p-3 text-start"
-                aria-expanded={sectionsOpen}
-                onClick={() => setSectionsOpen((open) => !open)}
-              >
-                <ChevronDown
-                  size={16}
-                  className="flex-shrink-0"
-                  style={{ transform: sectionsOpen ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-                />
-                <span className="fw-bold">Task sections</span>
-                <span className="small text-secondary">
-                  {sectionSummaries.length} {sectionSummaries.length === 1 ? 'section' : 'sections'}
-                  {sectionSummaries.filter((section) => section.heavy).length > 0 && (
-                    <> &middot; {sectionSummaries.filter((section) => section.heavy).length} with 3+ open tasks</>
-                  )}
-                </span>
-              </button>
+            <div className="card-header d-flex align-items-center gap-2 p-3 bg-white">
+              <span className="fw-bold text-dark">Task Sections</span>
             </div>
-            {sectionsOpen && (
-              <div className="card-body border-top">
-                <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
-                <TaskSectionCards set={assuranceSet} />
-              </div>
-            )}
+            <div className="card-body border-top">
+              <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
+              <TaskSectionCards set={assuranceSet} />
+            </div>
           </div>
         ) : (
           <div className="card map-card-custom p-4">
             <EmptyState
-              title="No task sections"
-              description="No task sections have been defined for this assurance set."
+              title="No Task Sections"
+              description="No Task Sections have been defined for this assurance set."
             />
           </div>
         )

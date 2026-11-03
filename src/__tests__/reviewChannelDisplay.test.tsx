@@ -1,7 +1,7 @@
 /*
   file summary: tests for the on-screen text of an assurance set's review channel.
-  responsibilities: checks the label of each review mode, the channel list of a mixed set, the label of a set with no review mode, and the row on the assurance set detail panel.
-  role in system: guards formatReviewChannel in src/utils/formatters.ts and the Review Channel row of AssuranceDetailView.tsx.
+  responsibilities: checks the label of each review mode, the channel list of a mixed set, the label of a set with no review mode, and verifies the review channel row is removed from the detail panel.
+  role in system: guards formatReviewChannel in src/utils/formatters.ts and verifies AssuranceDetailView.tsx parties/channel layout.
 */
 
 import React from 'react';
@@ -34,7 +34,7 @@ describe('Review channel display', () => {
   });
 });
 
-describe('Review channel on the assurance set detail panel', () => {
+describe('Review channel is removed from the assurance set detail panel', () => {
   const initialState = useMapStore.getState();
 
   beforeEach(() => {
@@ -45,21 +45,8 @@ describe('Review channel on the assurance set detail panel', () => {
     cleanup();
   });
 
-  it.each([
-    ['AS-2026-024', 'Internal'],
-    ['AS-2026-001', 'Mixed (Third Party, Issuing Authority)'],
-    ['AS-2026-002', 'Mixed (Internal, Third Party)'],
-  ])('shows the review channel of %s', (setId, expected) => {
-    render(<AssuranceDetailView setId={setId} />);
-    expect(screen.getByText('Review Channel:').nextElementSibling?.textContent).toBe(expected);
-  });
-
-  it('shows not set for a set that records no review mode', () => {
-    const seeded = initialState.assuranceSets.find((s) => s.id === 'AS-2026-024')!;
-    useMapStore.setState({
-      assuranceSets: [{ ...seeded, id: 'AS-TEST-NO-MODE', reviewMode: undefined, reviewChannels: undefined }],
-    });
-    render(<AssuranceDetailView setId="AS-TEST-NO-MODE" />);
-    expect(screen.getByText('Review Channel:').nextElementSibling?.textContent).toBe(REVIEW_CHANNEL_NOT_SET_LABEL);
+  it('does not render Review Channel on AssuranceDetailView', () => {
+    render(<AssuranceDetailView setId="AS-2026-001" />);
+    expect(screen.queryByText('Review Channel:')).toBeNull();
   });
 });

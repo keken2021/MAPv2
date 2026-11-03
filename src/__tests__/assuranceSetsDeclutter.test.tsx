@@ -111,9 +111,11 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
   describe('Assurance Sets Detail (AssuranceDetailView)', () => {
     it('integrates DetailHeader with single status badge and metaItems, and no back link of its own', () => {
       const state = useMapStore.getState();
-      const openSet = state.assuranceSets.find(
+      const baseOpenSet = state.assuranceSets.find(
         (s) => s.stage !== 'Cancelled' && s.visibility !== 'draft' && !s.closureType
       ) || state.assuranceSets[0];
+      const openSet: AssuranceSet = { ...baseOpenSet, complianceDeadline: '2027-01-01', targetDate: '2027-01-01' };
+      useMapStore.setState({ assuranceSets: [openSet, ...state.assuranceSets.filter((s) => s.id !== openSet.id)] });
 
       const { container } = render(<AssuranceDetailView setId={openSet.id} />);
 
@@ -125,7 +127,8 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
 
       // Title and meta items
       expect(within(detailHeader as HTMLElement).getByText(openSet.title)).toBeDefined();
-      expect(within(detailHeader as HTMLElement).getByText(openSet.id)).toBeDefined();
+      const clientOrg = openSet.clientOrg || openSet.charterer || openSet.initiatorOrg;
+      expect(within(detailHeader as HTMLElement).getByText(clientOrg)).toBeDefined();
 
       // Exactly 1 status badge in DetailHeader
       const headerBadges = detailHeader?.querySelectorAll('.map-status-badge');
@@ -329,19 +332,19 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
         assuranceSets: state.assuranceSets.map((s) =>
           s.id === 'AS-2026-001'
             ? {
-                ...s,
-                datePermissionGrants: [
-                  {
-                    id: 'DPG-01',
-                    userId: 'USR-CLIENT-01',
-                    userName: 'John Doe',
-                    grantedBy: 'Admin',
-                    grantedAt: '2026-10-30T00:00:00Z',
-                    expiresAt: '2026-12-31T23:59:59Z',
-                    reason: 'Testing',
-                  },
-                ],
-              }
+              ...s,
+              datePermissionGrants: [
+                {
+                  id: 'DPG-01',
+                  userId: 'USR-CLIENT-01',
+                  userName: 'John Doe',
+                  grantedBy: 'Admin',
+                  grantedAt: '2026-10-30T00:00:00Z',
+                  expiresAt: '2026-12-31T23:59:59Z',
+                  reason: 'Testing',
+                },
+              ],
+            }
             : s,
         ),
       });
@@ -351,7 +354,7 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       expect(screen.getByRole('button', { name: /date grants \(1\)/i })).toBeDefined();
     });
 
-    it('replaces "Task sections 1 section · 0 heavy" by hiding 0 heavy and avoiding internal jargon', () => {
+    it('replaces "Task Sections 1 section · 0 heavy" by hiding 0 heavy and avoiding internal jargon', () => {
       render(<AssuranceDetailView setId="AS-2026-001" />);
       fireEvent.click(screen.getByRole('tab', { name: /tasks/i }));
 
@@ -360,7 +363,7 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       expect(screen.queryByText(/· 0 heavy/i)).toBeNull();
 
       // Displays plain section count
-      expect(screen.getByText('Task sections')).toBeDefined();
+      expect(screen.getByText('Task Sections')).toBeDefined();
       expect(screen.getByText('1 section')).toBeDefined();
     });
   });

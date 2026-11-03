@@ -234,15 +234,13 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         status={project.status}
         metaItems={[
           project.id,
-          `Client: ${
-            project.ownerOrganization ||
-            project.charterer ||
-            project.requestingOrganization
-          }${
-            project.charterer &&
+          `Client: ${project.ownerOrganization ||
+          project.charterer ||
+          project.requestingOrganization
+          }${project.charterer &&
             project.charterer !== project.requestingOrganization
-              ? ` · ${project.charterer}`
-              : ""
+            ? ` · ${project.charterer}`
+            : ""
           }`,
           project.serviceProvider ? `Service Provider: ${project.serviceProvider}` : "",
           `${project.charterWindowStart} → ${project.charterWindowEnd}`,
@@ -633,7 +631,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           {projectAssuranceSets.some((set) => (set.sections?.length ?? 0) > 0) && (
             <div className="card map-card-custom">
               <div className="card-header border-bottom p-3">
-                <div className="fw-bold text-dark">Task sections</div>
+                <div className="fw-bold text-dark">Task Sections</div>
                 <div className="small text-secondary">
                   Open a set to see its sections. A heavy section has three or more tasks still open.
                 </div>
@@ -677,66 +675,66 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               </div>
             </div>
           )}
-        <div className="card map-card-custom">
-          <ProjectAssuranceStatusTable
-            sets={projectAssuranceSets}
-            allSets={assuranceSets}
-            documents={documents}
-            capaItems={capaItems}
-            viewer={statusViewer}
-            canOpenSet={canOpenSet}
-            onOpenSet={(set) => setCurrentHashView("assurance-sets", set.id)}
-          />
-          {canManage && standaloneSetsForAttach.length > 0 && (
-            <div className="p-3 border-top">
-              <div className="fw-semibold small mb-2">
-                Attach Existing Assurance Set
-              </div>
-              <div className="d-flex flex-wrap gap-2 align-items-center">
-                <select
-                  className="form-select form-select-sm"
-                  style={{ maxWidth: "420px" }}
-                  value={attachSetId}
-                  onChange={(e) => {
-                    const nextId = e.target.value;
-                    setAttachSetId(nextId);
-                    if (nextId) {
+          <div className="card map-card-custom">
+            <ProjectAssuranceStatusTable
+              sets={projectAssuranceSets}
+              allSets={assuranceSets}
+              documents={documents}
+              capaItems={capaItems}
+              viewer={statusViewer}
+              canOpenSet={canOpenSet}
+              onOpenSet={(set) => setCurrentHashView("assurance-sets", set.id)}
+            />
+            {canManage && standaloneSetsForAttach.length > 0 && (
+              <div className="p-3 border-top">
+                <div className="fw-semibold small mb-2">
+                  Attach Existing Assurance Set
+                </div>
+                <div className="d-flex flex-wrap gap-2 align-items-center">
+                  <select
+                    className="form-select form-select-sm"
+                    style={{ maxWidth: "420px" }}
+                    value={attachSetId}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      setAttachSetId(nextId);
+                      if (nextId) {
+                        const selected = assuranceSets.find(
+                          (s) => s.id === nextId,
+                        );
+                        if (selected) {
+                          setPreviewAssuranceSet(selected);
+                        }
+                      }
+                    }}
+                  >
+                    <option value="">Select assurance set</option>
+                    {standaloneSetsForAttach.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.id} — {s.title}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
+                    disabled={!attachSetId}
+                    onClick={() => {
                       const selected = assuranceSets.find(
-                        (s) => s.id === nextId,
+                        (s) => s.id === attachSetId,
                       );
                       if (selected) {
                         setPreviewAssuranceSet(selected);
                       }
-                    }
-                  }}
-                >
-                  <option value="">Select assurance set</option>
-                  {standaloneSetsForAttach.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.id} — {s.title}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1"
-                  disabled={!attachSetId}
-                  onClick={() => {
-                    const selected = assuranceSets.find(
-                      (s) => s.id === attachSetId,
-                    );
-                    if (selected) {
-                      setPreviewAssuranceSet(selected);
-                    }
-                  }}
-                >
-                  <Link2 size={14} />
-                  Attach
-                </button>
+                    }}
+                  >
+                    <Link2 size={14} />
+                    Attach
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         </div>
       )}
 

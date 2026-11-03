@@ -30,14 +30,27 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(tabList).toBeDefined();
 
     const tabs = within(tabList).getAllByRole('tab');
-    expect(tabs.length).toBe(4);
+    expect(tabs.length).toBe(5);
     expect(tabs[0].textContent?.trim()).toBe('Details');
-    expect(tabs[1].textContent?.trim()).toBe('Requirements');
-    expect(tabs[2].textContent?.trim()).toBe('Tasks');
-    expect(tabs[3].textContent?.trim()).toBe('Audit Trail');
+    expect(tabs[1].textContent?.trim()).toBe('Objects');
+    expect(tabs[2].textContent?.trim()).toBe('Requirements');
+    expect(tabs[3].textContent?.trim()).toBe('Tasks');
+    expect(tabs[4].textContent?.trim()).toBe('Audit Trail');
 
     // Stage is not a tab
     expect(within(tabList).queryByRole('tab', { name: /stage/i })).toBeNull();
+  });
+
+  it('Objects tab displays objects under this set with Belongs To column', () => {
+    render(<AssuranceDetailView setId="AS-2026-001" />);
+
+    fireEvent.click(screen.getByRole('tab', { name: /^objects$/i }));
+
+    const objectsTab = screen.getByRole('tab', { name: /^objects$/i });
+    expect(objectsTab.getAttribute('aria-selected')).toBe('true');
+
+    expect(screen.getByText('Belongs To')).toBeDefined();
+    expect(screen.getByPlaceholderText('Search objects...')).toBeDefined();
   });
 
   it('Details tab opens by default and holds summary card', () => {
@@ -87,8 +100,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     const tasksTab = screen.getByRole('tab', { name: /tasks/i });
     expect(tasksTab.getAttribute('aria-selected')).toBe('true');
 
-    // Task sections card is present
-    expect(screen.getByText('Task sections')).toBeDefined();
+    // Task Sections card is present
+    expect(screen.getByText('Task Sections')).toBeDefined();
   });
 
   it('Audit Trail tab lists this set\'s audit events with time, person and role, action, and deltas', () => {
