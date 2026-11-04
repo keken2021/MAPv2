@@ -166,7 +166,7 @@ describe('ProjectTasksTable', () => {
     expect(screen.queryByText('Completed Class Certificate')).not.toBeInTheDocument();
   });
 
-  it('filters correctly with each quick filter chip: Overdue, Blocking, Pending approval, My organization', () => {
+  it('filters correctly with each count tab: Overdue, Blocking, Pending approval, My organization, and All', () => {
     const set = createSet('AS-101', 'Field Development Set', {
       requirements: [
         createRequirement({
@@ -174,6 +174,7 @@ describe('ProjectTasksTable', () => {
           title: 'Overdue Lifting Inspection',
           targetDate: '2026-11-01', // Before TEST_TODAY (2026-11-04)
           verifierStatus: 'Pending',
+          isMandatory: false,
           assignedSubmitter: 'A. Inspector (Apex Logistics)',
         }),
         createRequirement({
@@ -210,47 +211,54 @@ describe('ProjectTasksTable', () => {
       />
     );
 
+    // Verify no filter-chip-* buttons exist
+    expect(screen.queryByTestId(/^filter-chip-/)).toBeNull();
+
     // Initial: all 4 open tasks are visible
     expect(screen.getByText('Overdue Lifting Inspection')).toBeInTheDocument();
     expect(screen.getByText('Rejected Hull Thickness Measurement')).toBeInTheDocument();
     expect(screen.getByText('Submitted Bunker Delivery Note')).toBeInTheDocument();
     expect(screen.getByText('My Org Emergency Response Drill')).toBeInTheDocument();
 
-    // 1. Overdue chip
-    const overdueChip = screen.getByTestId('filter-chip-overdue');
-    fireEvent.click(overdueChip);
+    // 1. Overdue count tab
+    const overdueTab = screen.getByRole('tab', { name: /Overdue/i });
+    fireEvent.click(overdueTab);
     expect(screen.getByText('Overdue Lifting Inspection')).toBeInTheDocument();
     expect(screen.queryByText('Rejected Hull Thickness Measurement')).not.toBeInTheDocument();
     expect(screen.queryByText('Submitted Bunker Delivery Note')).not.toBeInTheDocument();
     expect(screen.queryByText('My Org Emergency Response Drill')).not.toBeInTheDocument();
 
-    // Toggle overdue off
-    fireEvent.click(overdueChip);
+    // 2. Blocking count tab
+    const blockingTab = screen.getByRole('tab', { name: /Blocking/i });
+    fireEvent.click(blockingTab);
     expect(screen.getByText('Rejected Hull Thickness Measurement')).toBeInTheDocument();
-
-    // 2. Blocking chip
-    const blockingChip = screen.getByTestId('filter-chip-blocking');
-    fireEvent.click(blockingChip);
-    expect(screen.getByText('Rejected Hull Thickness Measurement')).toBeInTheDocument();
+    expect(screen.queryByText('Overdue Lifting Inspection')).not.toBeInTheDocument();
     expect(screen.queryByText('Submitted Bunker Delivery Note')).not.toBeInTheDocument();
     expect(screen.queryByText('My Org Emergency Response Drill')).not.toBeInTheDocument();
-    fireEvent.click(blockingChip);
 
-    // 3. Pending approval chip
-    const pendingAppChip = screen.getByTestId('filter-chip-pending_approval');
-    fireEvent.click(pendingAppChip);
+    // 3. Pending approval count tab
+    const pendingAppTab = screen.getByRole('tab', { name: /Pending approval/i });
+    fireEvent.click(pendingAppTab);
     expect(screen.getByText('Submitted Bunker Delivery Note')).toBeInTheDocument();
     expect(screen.queryByText('Rejected Hull Thickness Measurement')).not.toBeInTheDocument();
     expect(screen.queryByText('Overdue Lifting Inspection')).not.toBeInTheDocument();
-    fireEvent.click(pendingAppChip);
+    expect(screen.queryByText('My Org Emergency Response Drill')).not.toBeInTheDocument();
 
-    // 4. My organization chip
-    const myOrgChip = screen.getByTestId('filter-chip-my_org');
-    fireEvent.click(myOrgChip);
+    // 4. My organization count tab
+    const myOrgTab = screen.getByRole('tab', { name: /My organization/i });
+    fireEvent.click(myOrgTab);
     expect(screen.getByText('Submitted Bunker Delivery Note')).toBeInTheDocument();
     expect(screen.getByText('My Org Emergency Response Drill')).toBeInTheDocument();
     expect(screen.queryByText('Overdue Lifting Inspection')).not.toBeInTheDocument();
     expect(screen.queryByText('Rejected Hull Thickness Measurement')).not.toBeInTheDocument();
+
+    // 5. All count tab clears the filter
+    const allTab = screen.getByRole('tab', { name: /All/i });
+    fireEvent.click(allTab);
+    expect(screen.getByText('Overdue Lifting Inspection')).toBeInTheDocument();
+    expect(screen.getByText('Rejected Hull Thickness Measurement')).toBeInTheDocument();
+    expect(screen.getByText('Submitted Bunker Delivery Note')).toBeInTheDocument();
+    expect(screen.getByText('My Org Emergency Response Drill')).toBeInTheDocument();
   });
 
   it('filters rows using search box matching task name, parent assurance set, and assignee', () => {
@@ -395,30 +403,36 @@ describe('ProjectDetailView - Tasks Tab Integration', () => {
     expect(tasksTabBtn).toHaveClass('active');
     expect(screen.getByTestId('project-tasks-tab')).toBeInTheDocument();
 
-    // 2. Use search
+    // 2. Verify no filter-chip-* buttons exist
+    expect(screen.queryByTestId(/^filter-chip-/)).toBeNull();
+
+    // 3. Use search and verify removable search chip
     const searchInput = screen.getByPlaceholderText(/Search task name, assurance set, assignee.../i);
     fireEvent.change(searchInput, { target: { value: 'Safety' } });
     expect(searchInput).toHaveValue('Safety');
-    fireEvent.change(searchInput, { target: { value: '' } });
+    const removeSearchChip = screen.getByRole('button', { name: /Remove Search filter/i });
+    expect(removeSearchChip).toBeInTheDocument();
+    fireEvent.click(removeSearchChip);
+    expect(searchInput).toHaveValue('');
+    expect(screen.queryByRole('button', { name: /Remove Search filter/i })).toBeNull();
 
-    // 3. Use each filter chip
-    const overdueChip = screen.getByTestId('filter-chip-overdue');
-    fireEvent.click(overdueChip);
-    fireEvent.click(overdueChip);
+    // 4. Use each count tab
+    const overdueTab = screen.getByRole('tab', { name: /Overdue/i });
+    fireEvent.click(overdueTab);
 
-    const blockingChip = screen.getByTestId('filter-chip-blocking');
-    fireEvent.click(blockingChip);
-    fireEvent.click(blockingChip);
+    const blockingTab = screen.getByRole('tab', { name: /Blocking/i });
+    fireEvent.click(blockingTab);
 
-    const pendingAppChip = screen.getByTestId('filter-chip-pending_approval');
-    fireEvent.click(pendingAppChip);
-    fireEvent.click(pendingAppChip);
+    const pendingAppTab = screen.getByRole('tab', { name: /Pending approval/i });
+    fireEvent.click(pendingAppTab);
 
-    const myOrgChip = screen.getByTestId('filter-chip-my_org');
-    fireEvent.click(myOrgChip);
-    fireEvent.click(myOrgChip);
+    const myOrgTab = screen.getByRole('tab', { name: /My organization/i });
+    fireEvent.click(myOrgTab);
 
-    // 4. Follow a set link
+    const allTab = screen.getByRole('tab', { name: /All/i });
+    fireEvent.click(allTab);
+
+    // 5. Follow a set link
     const setLinks = screen.getAllByRole('button').filter((btn) =>
       btn.getAttribute('title')?.startsWith('Open '),
     );

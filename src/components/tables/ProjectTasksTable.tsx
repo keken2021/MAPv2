@@ -1,6 +1,6 @@
 /*
   file summary: read-only tasks roll-up table of all assurance sets in a project.
-  responsibilities: aggregates tasks across linked sets, provides completed tasks toggle, filter chips (Overdue, Blocking, Pending approval, My organization), search, sorting, and 20-row pagination.
+  responsibilities: aggregates tasks across linked sets, provides count tabs (All, Overdue, Blocking, Pending approval, My organization), search with active filter chips, completed tasks toggle, sorting, and 20-row pagination.
   role in system: body of the Tasks tab in ProjectDetailView.tsx.
 */
 
@@ -203,7 +203,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   today = new Date(),
 }) => {
   const [showCompleted, setShowCompleted] = useState(false);
-  const [activeFilters, setActiveFilters] = useState<TaskFilterChipKey[]>([]);
+  const [activeTabKey, setActiveTabKey] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -242,13 +242,6 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     }
     return list;
   }, [sets, assuranceObjects, today, viewerOrg]);
-
-  const toggleFilter = (key: TaskFilterChipKey) => {
-    setPage(1);
-    setActiveFilters((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  };
 
   const countTotals = useMemo(() => {
     const base = showCompleted ? allRows : allRows.filter((r) => !r.isCompleted);
@@ -290,19 +283,9 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     [countTotals],
   );
 
-  const activeTabKey = useMemo(() => {
-    if (activeFilters.length === 1) return activeFilters[0];
-    if (activeFilters.length === 0) return 'all';
-    return '';
-  }, [activeFilters]);
-
   const handleCountTabChange = (key: string) => {
+    setActiveTabKey(key);
     setPage(1);
-    if (key === 'all') {
-      setActiveFilters([]);
-    } else {
-      setActiveFilters([key as TaskFilterChipKey]);
-    }
   };
 
   const filteredRows = useMemo(() => {
@@ -311,12 +294,10 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     return allRows.filter((row) => {
       if (!showCompleted && row.isCompleted) return false;
 
-      for (const filterKey of activeFilters) {
-        if (filterKey === 'overdue' && !row.isOverdue) return false;
-        if (filterKey === 'blocking' && !row.isBlocking) return false;
-        if (filterKey === 'pending_approval' && !row.isPendingApproval) return false;
-        if (filterKey === 'my_org' && !row.isMyOrg) return false;
-      }
+      if (activeTabKey === 'overdue' && !row.isOverdue) return false;
+      if (activeTabKey === 'blocking' && !row.isBlocking) return false;
+      if (activeTabKey === 'pending_approval' && !row.isPendingApproval) return false;
+      if (activeTabKey === 'my_org' && !row.isMyOrg) return false;
 
       if (q) {
         const haystack = [
@@ -338,7 +319,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
 
       return true;
     });
-  }, [allRows, showCompleted, activeFilters, searchTerm]);
+  }, [allRows, showCompleted, activeTabKey, searchTerm]);
 
   const sortedRows = useMemo(() => {
     if (!sortField) return filteredRows;
@@ -386,15 +367,12 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   };
 
   const activeFilterChips: FilterChip[] = useMemo(() => {
-    const chips: FilterChip[] = activeFilters.map((key) => ({
-      id: key,
-      label: 'Filter',
-      value: TASK_FILTER_CHIP_LABELS[key],
-      onRemove: () => toggleFilter(key),
-    }));
+    if (!searchTerm.trim()) {
+      return [];
+    }
 
-    if (searchTerm.trim()) {
-      chips.push({
+    return [
+      {
         id: 'search',
         label: 'Search',
         value: searchTerm.trim(),
@@ -402,22 +380,29 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
           setSearchTerm('');
           setPage(1);
         },
-      });
-    }
-
-    return chips;
-  }, [activeFilters, searchTerm]);
+      },
+    ];
+  }, [searchTerm]);
 
   return (
     <div className="card map-card-custom" data-testid="project-tasks-tab">
-      <div className="p-3 border-bottom d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div className="p-3 border-bottom">
         <CountTabs
           tabs={countTabs}
           active={activeTabKey}
           onChange={handleCountTabChange}
           aria-label="Filter tasks by status"
         />
+      </div>
 
+      <ListToolbar
+        searchValue={searchTerm}
+        onSearchChange={(val) => {
+          setSearchTerm(val);
+          setPage(1);
+        }}
+        searchPlaceholder="Search task name, assurance set, assignee..."
+      >
         <div className="form-check form-switch mb-0 d-flex align-items-center gap-2">
           <input
             className="form-check-input"
@@ -434,49 +419,13 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
             Show completed tasks
           </label>
         </div>
-      </div>
-
-      <ListToolbar
-        searchValue={searchTerm}
-        onSearchChange={(val) => {
-          setSearchTerm(val);
-          setPage(1);
-        }}
-        searchPlaceholder="Search task name, assurance set, assignee..."
-      />
-
-      <div className="px-3 py-2 bg-light border-bottom d-flex flex-wrap align-items-center gap-2">
-        <span className="text-secondary small fw-medium me-1">Quick filters:</span>
-        {(Object.keys(TASK_FILTER_CHIP_LABELS) as TaskFilterChipKey[]).map((key) => {
-          const isSelected = activeFilters.includes(key);
-          const count = countTotals[key];
-          return (
-            <button
-              key={key}
-              type="button"
-              data-testid={`filter-chip-${key}`}
-              className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-outline-secondary bg-white text-dark'} d-inline-flex align-items-center gap-1.5`}
-              style={{ fontSize: '0.8rem', padding: '0.25rem 0.65rem' }}
-              onClick={() => toggleFilter(key)}
-            >
-              <span>{TASK_FILTER_CHIP_LABELS[key]}</span>
-              <span
-                className={`badge ${isSelected ? 'bg-white text-primary' : 'bg-light text-secondary border'}`}
-                style={{ fontSize: '0.7rem' }}
-              >
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      </ListToolbar>
 
       {activeFilterChips.length > 0 && (
         <div className="px-3 py-2 bg-light border-bottom">
           <ActiveFilterChips
             chips={activeFilterChips}
             onClearAll={() => {
-              setActiveFilters([]);
               setSearchTerm('');
               setPage(1);
             }}
@@ -524,7 +473,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
             {sortedRows.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center py-4 text-muted">
-                  {activeFilters.length > 0 || searchTerm.trim()
+                  {activeTabKey !== 'all' || searchTerm.trim()
                     ? 'No tasks match these filters.'
                     : !showCompleted && allRows.length > 0 && allRows.every((r) => r.isCompleted)
                       ? 'All tasks are completed. Turn on "Show completed tasks" to view them.'
