@@ -420,6 +420,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     vessels,
     projects.find((project) => project.id === (selectedProjectId || lockedProjectId)),
   );
+  /* An assurance set has one Vendor organization and one Client.
+     The first assurance object chosen sets the Vendor; removing the last object frees the Vendor again. */
+  const selectedVendorOrg =
+    selectedAssuranceObjects.length > 0 ? selectedAssuranceObjects[0].ownerOrganization : undefined;
+
   const availableObjectsForType = useMemo<AssuranceObject[]>(() => {
     let list: AssuranceObject[] = [];
     switch (newObjectType) {
@@ -450,8 +455,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       default:
         list = [];
     }
-    return Array.from(new Map(list.map((o) => [o.id, o])).values());
-  }, [newObjectType, vesselChoices, crew, equipment, storeAssuranceObjects]);
+    const unique = Array.from(new Map(list.map((o) => [o.id, o])).values());
+    if (selectedVendorOrg) {
+      return unique.filter((o) => sameOrganization(o.ownerOrganization, selectedVendorOrg));
+    }
+    return unique;
+  }, [newObjectType, vesselChoices, crew, equipment, storeAssuranceObjects, selectedVendorOrg]);
 
   const selectedVesselForScope = vesselChoices.find((v) => v.id === vesselId) || vesselChoices[0];
 
@@ -464,9 +473,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const serviceProviderOrg = resolveRequestedServiceProviderOrg(
     requestContext,
     setClientOrg,
-    assetProviderOrg,
+    selectedVendorOrg || assetProviderOrg,
   );
-  const appointedProviderOrg = serviceProviderOrg;
+  const effectiveVendorOrg = selectedVendorOrg || serviceProviderOrg;
+  const appointedProviderOrg = effectiveVendorOrg;
   const isInternalDeployment = true;
 
   /* every organization on the set; the client stays first and cannot be removed */
@@ -585,7 +595,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   const handleAddObject = (id: string) => {
     const found = availableObjectsForType.find((o) => o.id === id);
-    if (found && !selectedAssuranceObjects.some((o) => o.id === found.id)) {
+    if (!found) return;
+    if (selectedVendorOrg && !sameOrganization(found.ownerOrganization, selectedVendorOrg)) {
+      return;
+    }
+    if (!selectedAssuranceObjects.some((o) => o.id === found.id)) {
       setSelectedAssuranceObjects((prev) => [...prev, found]);
       setFieldErrors((prev) => {
         const u = { ...prev };
@@ -1747,8 +1761,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assignedApprover: approvalRequired ? PENDING_ASSIGNMENT : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
-      serviceProviderOrg,
+      serviceProviderOrg: effectiveVendorOrg,
       clientOrg: ownerOrg,
+      parties: setOrganizationParties({
+        clientOrg: ownerOrg,
+        charterer: effectiveCharterer,
+        serviceProviderOrg: effectiveVendorOrg,
+      }),
       organizations,
       submitters,
       requirements: effectiveRequirements,
@@ -2040,8 +2059,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assignedApprover: approvalRequired ? PENDING_ASSIGNMENT : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
-      serviceProviderOrg,
+      serviceProviderOrg: effectiveVendorOrg,
       clientOrg: ownerOrg,
+      parties: setOrganizationParties({
+        clientOrg: ownerOrg,
+        charterer: effectiveCharterer,
+        serviceProviderOrg: effectiveVendorOrg,
+      }),
       organizations,
       submitters,
       requirements: effectiveRequirements,
@@ -3343,10 +3367,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         Covered Assurance Objects ({selectedAssuranceObjects.length})
                       </h5>
                       <div className="text-muted small mt-0.5">
-                        Add every vessel, crew member, piece of equipment, procedure, method, document or organization this set covers.
+                        Add every vessel, crew member, piece of equipment, procedure, or method this set covers.
                       </div>
                     </div>
                     <div className="d-flex align-items-center gap-2">
+                      {selectedVendorOrg && (
+                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 font-mono-code" style={{ fontSize: '0.75rem' }} data-testid="selected-vendor-badge">
+                          <Building2 className="w-3.5 h-3.5" />
+                          Vendor: {selectedVendorOrg}
+                        </span>
+                      )}
                       <button
                         type="button"
                         id="btn-load-port-entry-bundle"
@@ -3487,11 +3517,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       </div>
                       <div className="col-12 col-md-9">
                         <SearchableSelect
-                          key={newObjectType}
+                          key={`${newObjectType}-${selectedVendorOrg || 'free'}`}
                           id="grid-add-object-item"
                           aria-label="Object to add"
-                          placeholder={`Search every ${newObjectType} to add`}
-                          emptyLabel="None from the listed organizations. Search to find others."
+                          placeholder={selectedVendorOrg ? `Search ${selectedVendorOrg} ${newObjectType} to add` : `Search every ${newObjectType} to add`}
+                          emptyLabel={selectedVendorOrg ? `No ${newObjectType} found for ${selectedVendorOrg}.` : "None from the listed organizations. Search to find others."}
                           items={listedObjectItems}
                           searchOnlyItems={otherObjectItems}
                           onSelect={(item) => handleAddObject(item.id)}
@@ -4066,9 +4096,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               <span className="font-mono-code">({selectedProject.id})</span>
                             </div>
                           )}
+                          <div className="text-secondary small mt-1" data-testid="review-client">
+                            <strong>Client:</strong> <span className="text-dark fw-semibold">{setClientOrg || clientOrg}</span>
+                          </div>
+                          <div className="text-secondary small mt-1" data-testid="review-vendor">
+                            <strong>Vendor:</strong> <span className="text-dark fw-semibold">{effectiveVendorOrg}</span>
+                          </div>
                           {requestContext && (
                             <div className="text-secondary small mt-1">
-                              <strong>Client:</strong> {setClientOrg} &middot;{' '}
                               <strong>Created by:</strong> {requestContext.assigneeName}
                             </div>
                           )}

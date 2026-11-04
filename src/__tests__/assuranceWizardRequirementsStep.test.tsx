@@ -8,6 +8,7 @@ import { clickNext, addObject } from './assuranceWizardTestHelpers';
 describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
   beforeEach(() => {
     useMapStore.setState({
+      assuranceSets: [],
       isAuthenticated: true,
       activePersona: 'Administrator',
       activeDemoOrganization: 'Marine Assurance Platform',

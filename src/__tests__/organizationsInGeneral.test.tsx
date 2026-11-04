@@ -473,19 +473,18 @@ describe('wizard', () => {
     expect(listed(container)).not.toContain(THIRD_PARTY);
   });
 
-  it('shows listed organizations objects first and finds the others by searching', () => {
+  it('offers only the vendor objects when a vendor is set, and finds others when freed', () => {
     const { container } = render(<CreateAssuranceSetView />);
     const organizations = listed(container);
     clickNext();
 
-    const opened = openPicker(container, 'equipment');
-    opened.forEach((option) => expect(organizations).toContain(hint(option)));
+    const searchedBefore = objectPickerOptions(container, 'equipment');
+    searchedBefore.forEach((option) => expect(organizations).toContain(hint(option)));
 
-    const searched = objectPickerOptions(container, 'equipment');
-    expect(searched.length).toBeGreaterThan(opened.length);
-    const firstOther = searched.findIndex((option) => !organizations.includes(hint(option)));
+    removeObjectRow(container, objectRowIds(container)[0]);
+    const searchedAfter = objectPickerOptions(container, 'equipment');
+    const firstOther = searchedAfter.findIndex((option) => !organizations.includes(hint(option)));
     expect(firstOther).toBeGreaterThanOrEqual(0);
-    searched.slice(firstOther).forEach((option) => expect(organizations).not.toContain(hint(option)));
   });
 
   it('adds the owner of an object found by search to the list, with a notice', () => {
@@ -493,6 +492,7 @@ describe('wizard', () => {
     const before = listed(container);
     clickNext();
 
+    removeObjectRow(container, objectRowIds(container)[0]);
     const other = objectPickerOptions(container, 'equipment').find(
       (option) => !before.includes(hint(option)) && option.getAttribute('aria-disabled') !== 'true',
     )!;
@@ -523,6 +523,7 @@ describe('wizard', () => {
     const { container } = render(<CreateAssuranceSetView />);
     const before = listed(container);
     clickNext();
+    removeObjectRow(container, objectRowIds(container)[0]);
     const free = objectPickerOptions(container, 'equipment').find(
       (option) => option.getAttribute('aria-disabled') !== 'true' && !before.includes(hint(option)),
     )!;
@@ -543,24 +544,21 @@ describe('wizard', () => {
     expect(roleBox('Verifier', owner).disabled).toBe(true);
   });
 
-  it('stores one submitter per provider and gives each task to its owner', () => {
+  it('stores one submitter for the vendor organization and gives each task to its owner', () => {
     const { container } = render(<CreateAssuranceSetView />);
     const before = listed(container);
     fireEvent.change(container.querySelector('#grid-campaign-title') as HTMLInputElement, {
-      target: { value: 'Two Providers Vetting' },
+      target: { value: 'One Vendor Vetting' },
     });
     clickNext();
-    const free = objectPickerOptions(container, 'equipment').find(
-      (option) => option.getAttribute('aria-disabled') !== 'true' && !before.includes(hint(option)),
-    )!;
-    const second = hint(free);
-    fireEvent.click(free);
     clickNext();
     clickNext();
     fireEvent.click(screen.getByRole('button', { name: /Create Assurance Set/i }));
 
-    const created = useMapStore.getState().assuranceSets.find((set) => set.title === 'Two Providers Vetting')!;
-    expect(created.submitters?.map((submitter) => submitter.organization)).toEqual([before[1], second]);
+    const created = useMapStore.getState().assuranceSets.find((set) => set.title === 'One Vendor Vetting')!;
+    expect(created.submitters?.map((submitter) => submitter.organization)).toEqual([before[1]]);
+    expect(created.serviceProviderOrg).toBe(before[1]);
+    expect(created.clientOrg).toBe(before[0]);
     expect(created.assignedSubmitter).toBe(created.submitters?.[0].assignee);
   });
 

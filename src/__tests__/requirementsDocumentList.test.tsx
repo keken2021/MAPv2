@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { addObject, clickNext } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectRowIds, removeObjectRow } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -169,6 +169,8 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
   it('renders exactly one Crew documents section when two crew members are added', () => {
     const { container } = render(<CreateAssuranceSetView />);
     clickNext(); // To Objects
+    // Free vendor by removing initial vessel, then add crew members from same vendor
+    objectRowIds(container).forEach((id) => removeObjectRow(container, id));
 
     // Add first crew member
     addObject(container, 'person', 'CREW-101');

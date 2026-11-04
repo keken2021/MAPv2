@@ -66,6 +66,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/assuranceDetailPartyVisibility.test.tsx` : tests for assurance set detail document visibility per party (Task 5309)
 - `src/utils/assuranceSetStatus.ts` : Set status rule (Go, Conditional, No-go), `ASSURANCE_SET_STATUS_RULES` thresholds, next expiry, party roles, worst-first order (ADR 0033); tests `src/__tests__/assuranceSetStatus.test.ts`
 - `src/components/tables/ProjectAssuranceStatusTable.tsx` : status-first assurance set table on project detail; tests `src/__tests__/projectAssuranceStatusTable.test.tsx`
+- `src/components/tables/ProjectTasksTable.tsx` : read-only tasks roll-up table on project detail; tests `src/__tests__/projectTasksTable.test.tsx` (Task 5329)
 - `src/views/AssuranceObjectsView.tsx` : assurance objects catalog view with 6 target tabs (All, Vessels, Crew Directory, Equipment, Procedures, Methods); tests `src/__tests__/assuranceObjectTabs.test.tsx`
 - `src/__tests__/assuranceWizardObjects.test.tsx` : tests for assurance set wizard object type picker (5 target types) and port-entry bundle objects (Task 5300)
 - `src/__tests__/assuranceWizardRequirementsStep.test.tsx` : tests for assurance set wizard Step 3 General documents pinned section and sub-type accordions (Task 5301)
@@ -79,6 +80,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/inspectionChecklistAndDrawerRecords.test.tsx` : tests for inspection checklist and drawer dynamic set ID, location, date, checklist length, and seeded records (Task 5310 / findings 1a-12, 1a-13, 1b-06, 1b-07)
 - `src/__tests__/documentRecordsAndUpload.test.tsx` : tests for document upload real file size, version numbering from versions.length, certificate layout vessel/crew record lookups, DocumentReviewDrawer version meta, and CrewDocumentViewerModal record reads (Task 5311 / findings 1a-20, 1b-01, 1b-03, 1b-04, 1b-05, 1c-09)
 - `src/__tests__/organizationsInGeneral.test.tsx` : tests for organizations in general, wizard Step 1 Organizations table and role checkboxes, Step 2 unlisted object owner auto-addition, and multi-provider submitters (Task 5326)
+- `src/__tests__/assuranceWizardOneVendor.test.tsx` : tests for assurance wizard one vendor and one client per set, vendor locking from first object, filtered pickers, mixed object types from same vendor, and saved set party rules (Task 5332)
 
 ## Marketplace screens
 - `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)
