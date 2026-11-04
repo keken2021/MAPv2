@@ -1,7 +1,7 @@
 /*
-  file summary: read-only tasks roll-up table of all assurance sets in a project.
-  responsibilities: aggregates tasks across linked sets, provides count tabs (All, Overdue, Blocking, Pending approval, My organization), search with active filter chips, completed tasks toggle, sorting, and 20-row pagination.
-  role in system: body of the Tasks tab in ProjectDetailView.tsx.
+  file summary: shared tasks table scoped by user, project, or assurance set.
+  responsibilities: aggregates tasks across scoped assurance sets, provides status count tabs (All, Pending, On-going, Done), search with active filter chips, overdue row flags, sorting, and 20-row pagination.
+  role in system: shared Tasks table component used on ProjectDetailView, DashboardView, and AssuranceDetailView.
 */
 
 import React, { useId, useMemo, useState } from 'react';
@@ -9,10 +9,23 @@ import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from 'luci
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTab, CountTabs } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
+import { useMapStore } from '../../store/useMapStore';
 import type { AssuranceObject, AssuranceRequirement, AssuranceSet } from '../../types/assurance';
 import type { MasterDocument } from '../../types/document';
 import type { UserProfile } from '../../types/user';
 import { paginate } from '../../utils/paginationHelpers';
+
+export type TaskStatus = 'Pending' | 'On-going' | 'Done';
+
+export type TaskTableScopeType = 'user' | 'project' | 'set';
+
+export interface TaskTableScope {
+  type: TaskTableScopeType;
+  id?: string;
+  userId?: string;
+  projectId?: string;
+  setId?: string;
+}
 
 export type TaskFilterChipKey = 'overdue' | 'blocking' | 'pending_approval' | 'my_org';
 
@@ -31,23 +44,26 @@ export interface ProjectTaskRow {
   parentSet: AssuranceSet;
   targetObject: { name: string; identifier?: string; type?: string };
   assignee: string;
-  status: 'Overdue' | 'Submitted' | 'Pending' | 'Completed' | 'Correction Requested' | 'Rejected';
+  status: TaskStatus;
   targetDate?: string;
   isOverdue: boolean;
   isBlocking: boolean;
-  isPendingApproval: boolean;
   isCompleted: boolean;
   isMyOrg: boolean;
 }
 
 interface ProjectTasksTableProps {
-  sets: AssuranceSet[];
+  sets?: AssuranceSet[];
+  scope?: TaskTableScope | TaskTableScopeType;
+  projectId?: string;
+  setId?: string;
+  userId?: string;
   documents?: MasterDocument[];
   assuranceObjects?: AssuranceObject[];
   users?: UserProfile[];
   activeDemoOrganization?: string;
-  sessionUser?: { organization?: string; name?: string } | null;
-  onOpenSet: (set: AssuranceSet) => void;
+  sessionUser?: { organization?: string; name?: string; id?: string } | null;
+  onOpenSet?: (set: AssuranceSet) => void;
   today?: Date;
 }
 
@@ -131,19 +147,16 @@ function resolveStatusAndDates(
       req.fulfillmentType === 'assurance_set' ||
       req.isFulfilled,
   );
-  const isPendingApproval = !isCompleted && req.verifierStatus === 'Pending' && hasDocument;
 
-  let status: 'Overdue' | 'Submitted' | 'Pending' | 'Completed' | 'Correction Requested' | 'Rejected';
+  let status: TaskStatus;
   if (isCompleted) {
-    status = 'Completed';
-  } else if (isOverdue) {
-    status = 'Overdue';
-  } else if (req.verifierStatus === 'Rejected') {
-    status = 'Rejected';
-  } else if (req.verifierStatus === 'Correction Requested') {
-    status = 'Correction Requested';
-  } else if (hasDocument) {
-    status = 'Submitted';
+    status = 'Done';
+  } else if (
+    hasDocument ||
+    req.verifierStatus === 'Correction Requested' ||
+    req.verifierStatus === 'Rejected'
+  ) {
+    status = 'On-going';
   } else {
     status = 'Pending';
   }
@@ -153,7 +166,6 @@ function resolveStatusAndDates(
     targetDate,
     isOverdue,
     isBlocking,
-    isPendingApproval,
     isCompleted,
   };
 }
@@ -196,13 +208,23 @@ function checkMatchesMyOrg(
 
 export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   sets,
+  scope,
+  projectId,
+  setId,
+  userId,
   assuranceObjects = [],
+  documents = [],
+  users,
   activeDemoOrganization,
   sessionUser,
   onOpenSet,
   today = new Date(),
 }) => {
-  const [showCompleted, setShowCompleted] = useState(false);
+  const store = useMapStore();
+  const rawSets = sets ?? store.assuranceSets ?? [];
+  const allUsers = users ?? store.users ?? [];
+  const handleOpenSet = onOpenSet ?? ((set: AssuranceSet) => store.setCurrentHashView?.('assurance-sets', set.id));
+
   const [activeTabKey, setActiveTabKey] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField | null>(null);
@@ -213,14 +235,65 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
 
   const viewerOrg = activeDemoOrganization || sessionUser?.organization || '';
 
+  const resolvedScopeType = typeof scope === 'string' ? scope : scope?.type;
+  const resolvedScopeId =
+    (typeof scope === 'object'
+      ? scope.id || scope.projectId || scope.setId || scope.userId
+      : undefined) ||
+    projectId ||
+    setId ||
+    userId;
+
+  const scopedSets = useMemo(() => {
+    if (!resolvedScopeType || !resolvedScopeId) return rawSets;
+    if (resolvedScopeType === 'project') {
+      const matched = rawSets.filter((s) => s.projectId === resolvedScopeId);
+      return matched.length > 0 ? matched : rawSets;
+    }
+    if (resolvedScopeType === 'set') {
+      return rawSets.filter((s) => s.id === resolvedScopeId);
+    }
+    return rawSets;
+  }, [rawSets, resolvedScopeType, resolvedScopeId]);
+
   const allRows: ProjectTaskRow[] = useMemo(() => {
     const list: ProjectTaskRow[] = [];
-    for (const set of sets) {
+    for (const set of scopedSets) {
       const reqs = set.requirements || [];
       for (const req of reqs) {
         const targetObject = resolveTargetObject(req, set, assuranceObjects);
         const assignee = resolveAssignee(req, set);
-        const { status, targetDate, isOverdue, isBlocking, isPendingApproval, isCompleted } =
+
+        if (resolvedScopeType === 'user' && resolvedScopeId) {
+          const target = resolvedScopeId.toLowerCase().trim();
+          const targetUser = allUsers.find(
+            (u) =>
+              u.id.toLowerCase() === target ||
+              u.name.toLowerCase() === target ||
+              u.email.toLowerCase() === target,
+          );
+          const needles = [target];
+          if (targetUser) {
+            needles.push(targetUser.id.toLowerCase(), targetUser.name.toLowerCase(), targetUser.email.toLowerCase());
+          }
+          const haystacks = [
+            req.assignedSubmitter,
+            req.assignedVerifier,
+            req.responsibleParty,
+            ...(req.responsibleParties || []),
+            set.assignedSubmitter,
+            assignee,
+          ]
+            .filter(Boolean)
+            .map((h) => String(h).toLowerCase());
+
+          const matches = needles.some((needle) => haystacks.some((h) => h.includes(needle)));
+          if (!matches) {
+            continue;
+          }
+        }
+
+        const { status, targetDate, isOverdue, isBlocking, isCompleted } =
           resolveStatusAndDates(req, set, today);
         const isMyOrg = checkMatchesMyOrg(req, set, viewerOrg);
 
@@ -234,51 +307,29 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
           targetDate,
           isOverdue,
           isBlocking,
-          isPendingApproval,
           isCompleted,
           isMyOrg,
         });
       }
     }
     return list;
-  }, [sets, assuranceObjects, today, viewerOrg]);
+  }, [scopedSets, assuranceObjects, today, viewerOrg, resolvedScopeType, resolvedScopeId, allUsers]);
 
   const countTotals = useMemo(() => {
-    const base = showCompleted ? allRows : allRows.filter((r) => !r.isCompleted);
     return {
-      all: base.length,
-      overdue: base.filter((r) => r.isOverdue).length,
-      blocking: base.filter((r) => r.isBlocking).length,
-      pending_approval: base.filter((r) => r.isPendingApproval).length,
-      my_org: base.filter((r) => r.isMyOrg).length,
+      all: allRows.length,
+      pending: allRows.filter((r) => r.status === 'Pending').length,
+      on_going: allRows.filter((r) => r.status === 'On-going').length,
+      done: allRows.filter((r) => r.status === 'Done').length,
     };
-  }, [allRows, showCompleted]);
+  }, [allRows]);
 
   const countTabs: CountTab[] = useMemo(
     () => [
       { key: 'all', label: 'All', count: countTotals.all },
-      {
-        key: 'overdue',
-        label: 'Overdue',
-        count: countTotals.overdue,
-        tone: countTotals.overdue > 0 ? 'warn' : undefined,
-      },
-      {
-        key: 'blocking',
-        label: 'Blocking',
-        count: countTotals.blocking,
-        tone: countTotals.blocking > 0 ? 'warn' : undefined,
-      },
-      {
-        key: 'pending_approval',
-        label: 'Pending approval',
-        count: countTotals.pending_approval,
-      },
-      {
-        key: 'my_org',
-        label: 'My organization',
-        count: countTotals.my_org,
-      },
+      { key: 'pending', label: 'Pending', count: countTotals.pending },
+      { key: 'on_going', label: 'On-going', count: countTotals.on_going },
+      { key: 'done', label: 'Done', count: countTotals.done },
     ],
     [countTotals],
   );
@@ -292,12 +343,9 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     const q = searchTerm.trim().toLowerCase();
 
     return allRows.filter((row) => {
-      if (!showCompleted && row.isCompleted) return false;
-
-      if (activeTabKey === 'overdue' && !row.isOverdue) return false;
-      if (activeTabKey === 'blocking' && !row.isBlocking) return false;
-      if (activeTabKey === 'pending_approval' && !row.isPendingApproval) return false;
-      if (activeTabKey === 'my_org' && !row.isMyOrg) return false;
+      if (activeTabKey === 'pending' && row.status !== 'Pending') return false;
+      if ((activeTabKey === 'on_going' || activeTabKey === 'on-going') && row.status !== 'On-going') return false;
+      if (activeTabKey === 'done' && row.status !== 'Done') return false;
 
       if (q) {
         const haystack = [
@@ -319,7 +367,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
 
       return true;
     });
-  }, [allRows, showCompleted, activeTabKey, searchTerm]);
+  }, [allRows, activeTabKey, searchTerm]);
 
   const sortedRows = useMemo(() => {
     if (!sortField) return filteredRows;
@@ -402,24 +450,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
           setPage(1);
         }}
         searchPlaceholder="Search task name, assurance set, assignee..."
-      >
-        <div className="form-check form-switch mb-0 d-flex align-items-center gap-2">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            role="switch"
-            id="toggle-show-completed-tasks"
-            checked={showCompleted}
-            onChange={(e) => {
-              setShowCompleted(e.target.checked);
-              setPage(1);
-            }}
-          />
-          <label className="form-check-label small fw-medium user-select-none" htmlFor="toggle-show-completed-tasks">
-            Show completed tasks
-          </label>
-        </div>
-      </ListToolbar>
+      />
 
       {activeFilterChips.length > 0 && (
         <div className="px-3 py-2 bg-light border-bottom">
@@ -475,9 +506,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
                 <td colSpan={5} className="text-center py-4 text-muted">
                   {activeTabKey !== 'all' || searchTerm.trim()
                     ? 'No tasks match these filters.'
-                    : !showCompleted && allRows.length > 0 && allRows.every((r) => r.isCompleted)
-                      ? 'All tasks are completed. Turn on "Show completed tasks" to view them.'
-                      : 'No tasks found across linked assurance sets.'}
+                    : 'No tasks found across linked assurance sets.'}
                 </td>
               </tr>
             ) : (
@@ -497,7 +526,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
                       <button
                         type="button"
                         className="btn btn-link p-0 text-start fw-semibold text-decoration-none"
-                        onClick={() => onOpenSet(parentSet)}
+                        onClick={() => handleOpenSet(parentSet)}
                         title={`Open ${parentSet.title}`}
                       >
                         {parentSet.title}
@@ -519,25 +548,30 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
                     </td>
                     <td>
                       <div className="d-flex flex-column align-items-start gap-1">
-                        <span
-                          className={`badge ${
-                            status === 'Completed'
-                              ? 'bg-success text-white'
-                              : status === 'Overdue'
-                                ? 'bg-danger text-white'
-                                : status === 'Rejected'
-                                  ? 'bg-danger text-white'
-                                  : status === 'Correction Requested'
-                                    ? 'bg-warning text-dark'
-                                    : status === 'Submitted'
-                                      ? 'bg-info text-dark'
-                                      : 'bg-secondary text-white'
-                          }`}
-                          style={{ fontSize: '0.75rem' }}
-                          data-testid="task-status-badge"
-                        >
-                          {status}
-                        </span>
+                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`badge ${
+                              status === 'Done'
+                                ? 'bg-success text-white'
+                                : status === 'On-going'
+                                  ? 'bg-info text-dark'
+                                  : 'bg-secondary text-white'
+                            }`}
+                            style={{ fontSize: '0.75rem' }}
+                            data-testid="task-status-badge"
+                          >
+                            {status}
+                          </span>
+                          {row.isOverdue && (
+                            <span
+                              className="badge bg-danger text-white"
+                              style={{ fontSize: '0.7rem' }}
+                              data-testid="task-overdue-flag"
+                            >
+                              Overdue
+                            </span>
+                          )}
+                        </div>
                         {targetDate ? (
                           <span
                             className={`small font-mono-code ${

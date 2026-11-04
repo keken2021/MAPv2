@@ -120,20 +120,30 @@ describe('ProjectTasksTable', () => {
     expect(onOpenSet).toHaveBeenCalledWith(set);
   });
 
-  it('hides completed tasks by default and shows them when completed toggle is switched on', () => {
+  it('groups tasks into Pending, On-going, and Done statuses, with Overdue as a row flag', () => {
     const set = createSet('AS-101', 'Set Alpha', {
       requirements: [
         createRequirement({
-          id: 'REQ-OPEN',
-          title: 'Open Safety Document',
+          id: 'REQ-PENDING',
+          title: 'Unstarted Inspection Document',
           verifierStatus: 'Pending',
           isFulfilled: false,
+          targetDate: '2026-11-01', // Overdue relative to TEST_TODAY (2026-11-04)
+        }),
+        createRequirement({
+          id: 'REQ-ONGOING',
+          title: 'Submitted Safety Certificate',
+          documentId: 'DOC-123',
+          verifierStatus: 'Pending',
+          isFulfilled: false,
+          targetDate: '2026-11-20',
         }),
         createRequirement({
           id: 'REQ-DONE',
           title: 'Completed Class Certificate',
           verifierStatus: 'Verified',
           isFulfilled: true,
+          targetDate: '2026-11-15',
         }),
       ],
     });
@@ -146,119 +156,97 @@ describe('ProjectTasksTable', () => {
       />
     );
 
-    // Default: completed task is hidden, open task is shown
-    expect(screen.getByText('Open Safety Document')).toBeInTheDocument();
-    expect(screen.queryByText('Completed Class Certificate')).not.toBeInTheDocument();
-
-    // Switch on completed tasks toggle
-    const toggle = screen.getByRole('switch', { name: /Show completed tasks/i });
-    expect(toggle).not.toBeChecked();
-    fireEvent.click(toggle);
-    expect(toggle).toBeChecked();
-
-    // Both tasks are now visible
-    expect(screen.getByText('Open Safety Document')).toBeInTheDocument();
+    // Initial: All tab shows all 3 tasks
+    expect(screen.getByText('Unstarted Inspection Document')).toBeInTheDocument();
+    expect(screen.getByText('Submitted Safety Certificate')).toBeInTheDocument();
     expect(screen.getByText('Completed Class Certificate')).toBeInTheDocument();
 
-    // Switch off again
-    fireEvent.click(toggle);
-    expect(screen.getByText('Open Safety Document')).toBeInTheDocument();
+    // Verify overdue flag appears on REQ-PENDING row without replacing status
+    expect(screen.getByTestId('task-overdue-flag')).toHaveTextContent('Overdue');
+
+    // 1. Pending tab shows only pending tasks
+    const pendingTab = screen.getByRole('tab', { name: /Pending/i });
+    fireEvent.click(pendingTab);
+    expect(screen.getByText('Unstarted Inspection Document')).toBeInTheDocument();
+    expect(screen.queryByText('Submitted Safety Certificate')).not.toBeInTheDocument();
     expect(screen.queryByText('Completed Class Certificate')).not.toBeInTheDocument();
+
+    // 2. On-going tab shows submitted/review/correction/rejected tasks
+    const ongoingTab = screen.getByRole('tab', { name: /On-going/i });
+    fireEvent.click(ongoingTab);
+    expect(screen.queryByText('Unstarted Inspection Document')).not.toBeInTheDocument();
+    expect(screen.getByText('Submitted Safety Certificate')).toBeInTheDocument();
+    expect(screen.queryByText('Completed Class Certificate')).not.toBeInTheDocument();
+
+    // 3. Done tab shows completed tasks
+    const doneTab = screen.getByRole('tab', { name: /Done/i });
+    fireEvent.click(doneTab);
+    expect(screen.queryByText('Unstarted Inspection Document')).not.toBeInTheDocument();
+    expect(screen.queryByText('Submitted Safety Certificate')).not.toBeInTheDocument();
+    expect(screen.getByText('Completed Class Certificate')).toBeInTheDocument();
+
+    // 4. All tab shows every task again
+    const allTab = screen.getByRole('tab', { name: /All/i });
+    fireEvent.click(allTab);
+    expect(screen.getByText('Unstarted Inspection Document')).toBeInTheDocument();
+    expect(screen.getByText('Submitted Safety Certificate')).toBeInTheDocument();
+    expect(screen.getByText('Completed Class Certificate')).toBeInTheDocument();
   });
 
-  it('filters correctly with each count tab: Overdue, Blocking, Pending approval, My organization, and All', () => {
-    const set = createSet('AS-101', 'Field Development Set', {
+  it('scopes tasks using the scope prop for project, assurance set, and user', () => {
+    const setA = createSet('AS-A', 'Alpha Set', {
+      projectId: 'PROJ-1',
       requirements: [
         createRequirement({
-          id: 'REQ-OVERDUE',
-          title: 'Overdue Lifting Inspection',
-          targetDate: '2026-11-01', // Before TEST_TODAY (2026-11-04)
-          verifierStatus: 'Pending',
-          isMandatory: false,
-          assignedSubmitter: 'A. Inspector (Apex Logistics)',
+          id: 'REQ-A1',
+          title: 'Project 1 Alpha Task',
+          assignedSubmitter: 'Capt. Smith (Northwind Marine)',
         }),
+      ],
+    });
+    const setB = createSet('AS-B', 'Beta Set', {
+      projectId: 'PROJ-2',
+      requirements: [
         createRequirement({
-          id: 'REQ-BLOCKING',
-          title: 'Rejected Hull Thickness Measurement',
-          targetDate: '2026-11-20',
-          verifierStatus: 'Rejected',
-          assignedSubmitter: 'B. Engineer (Apex Logistics)',
-        }),
-        createRequirement({
-          id: 'REQ-PENDING-APP',
-          title: 'Submitted Bunker Delivery Note',
-          targetDate: '2026-11-20',
-          documentId: 'DOC-BUNKER-101',
-          verifierStatus: 'Pending',
-          assignedSubmitter: 'C. Officer (Northwind Marine)',
-        }),
-        createRequirement({
-          id: 'REQ-MY-ORG',
-          title: 'My Org Emergency Response Drill',
-          targetDate: '2026-11-22',
-          verifierStatus: 'Pending',
-          assignedSubmitter: 'D. Crew (Northwind Marine)',
+          id: 'REQ-B1',
+          title: 'Project 2 Beta Task',
+          assignedSubmitter: 'Eng. Jones (Apex Logistics)',
         }),
       ],
     });
 
-    render(
+    // 1. Scoped to Project 1
+    const { rerender } = render(
       <ProjectTasksTable
-        sets={[set]}
-        activeDemoOrganization="Northwind Marine"
-        onOpenSet={vi.fn()}
+        sets={[setA, setB]}
+        scope={{ type: 'project', id: 'PROJ-1' }}
         today={TEST_TODAY}
       />
     );
+    expect(screen.getByText('Project 1 Alpha Task')).toBeInTheDocument();
+    expect(screen.queryByText('Project 2 Beta Task')).not.toBeInTheDocument();
 
-    // Verify no filter-chip-* buttons exist
-    expect(screen.queryByTestId(/^filter-chip-/)).toBeNull();
+    // 2. Scoped to Assurance Set AS-B
+    rerender(
+      <ProjectTasksTable
+        sets={[setA, setB]}
+        scope={{ type: 'set', id: 'AS-B' }}
+        today={TEST_TODAY}
+      />
+    );
+    expect(screen.queryByText('Project 1 Alpha Task')).not.toBeInTheDocument();
+    expect(screen.getByText('Project 2 Beta Task')).toBeInTheDocument();
 
-    // Initial: all 4 open tasks are visible
-    expect(screen.getByText('Overdue Lifting Inspection')).toBeInTheDocument();
-    expect(screen.getByText('Rejected Hull Thickness Measurement')).toBeInTheDocument();
-    expect(screen.getByText('Submitted Bunker Delivery Note')).toBeInTheDocument();
-    expect(screen.getByText('My Org Emergency Response Drill')).toBeInTheDocument();
-
-    // 1. Overdue count tab
-    const overdueTab = screen.getByRole('tab', { name: /Overdue/i });
-    fireEvent.click(overdueTab);
-    expect(screen.getByText('Overdue Lifting Inspection')).toBeInTheDocument();
-    expect(screen.queryByText('Rejected Hull Thickness Measurement')).not.toBeInTheDocument();
-    expect(screen.queryByText('Submitted Bunker Delivery Note')).not.toBeInTheDocument();
-    expect(screen.queryByText('My Org Emergency Response Drill')).not.toBeInTheDocument();
-
-    // 2. Blocking count tab
-    const blockingTab = screen.getByRole('tab', { name: /Blocking/i });
-    fireEvent.click(blockingTab);
-    expect(screen.getByText('Rejected Hull Thickness Measurement')).toBeInTheDocument();
-    expect(screen.queryByText('Overdue Lifting Inspection')).not.toBeInTheDocument();
-    expect(screen.queryByText('Submitted Bunker Delivery Note')).not.toBeInTheDocument();
-    expect(screen.queryByText('My Org Emergency Response Drill')).not.toBeInTheDocument();
-
-    // 3. Pending approval count tab
-    const pendingAppTab = screen.getByRole('tab', { name: /Pending approval/i });
-    fireEvent.click(pendingAppTab);
-    expect(screen.getByText('Submitted Bunker Delivery Note')).toBeInTheDocument();
-    expect(screen.queryByText('Rejected Hull Thickness Measurement')).not.toBeInTheDocument();
-    expect(screen.queryByText('Overdue Lifting Inspection')).not.toBeInTheDocument();
-    expect(screen.queryByText('My Org Emergency Response Drill')).not.toBeInTheDocument();
-
-    // 4. My organization count tab
-    const myOrgTab = screen.getByRole('tab', { name: /My organization/i });
-    fireEvent.click(myOrgTab);
-    expect(screen.getByText('Submitted Bunker Delivery Note')).toBeInTheDocument();
-    expect(screen.getByText('My Org Emergency Response Drill')).toBeInTheDocument();
-    expect(screen.queryByText('Overdue Lifting Inspection')).not.toBeInTheDocument();
-    expect(screen.queryByText('Rejected Hull Thickness Measurement')).not.toBeInTheDocument();
-
-    // 5. All count tab clears the filter
-    const allTab = screen.getByRole('tab', { name: /All/i });
-    fireEvent.click(allTab);
-    expect(screen.getByText('Overdue Lifting Inspection')).toBeInTheDocument();
-    expect(screen.getByText('Rejected Hull Thickness Measurement')).toBeInTheDocument();
-    expect(screen.getByText('Submitted Bunker Delivery Note')).toBeInTheDocument();
-    expect(screen.getByText('My Org Emergency Response Drill')).toBeInTheDocument();
+    // 3. Scoped to User 'Jones'
+    rerender(
+      <ProjectTasksTable
+        sets={[setA, setB]}
+        scope={{ type: 'user', id: 'Jones' }}
+        today={TEST_TODAY}
+      />
+    );
+    expect(screen.queryByText('Project 1 Alpha Task')).not.toBeInTheDocument();
+    expect(screen.getByText('Project 2 Beta Task')).toBeInTheDocument();
   });
 
   it('filters rows using search box matching task name, parent assurance set, and assignee', () => {
@@ -416,21 +404,24 @@ describe('ProjectDetailView - Tasks Tab Integration', () => {
     expect(searchInput).toHaveValue('');
     expect(screen.queryByRole('button', { name: /Remove Search filter/i })).toBeNull();
 
-    // 4. Use each count tab
-    const overdueTab = screen.getByRole('tab', { name: /Overdue/i });
-    fireEvent.click(overdueTab);
+    // 4. Use each count tab: Pending, On-going, Done, All
+    const pendingTab = screen.getByRole('tab', { name: /Pending/i });
+    fireEvent.click(pendingTab);
 
-    const blockingTab = screen.getByRole('tab', { name: /Blocking/i });
-    fireEvent.click(blockingTab);
+    const ongoingTab = screen.getByRole('tab', { name: /On-going/i });
+    fireEvent.click(ongoingTab);
 
-    const pendingAppTab = screen.getByRole('tab', { name: /Pending approval/i });
-    fireEvent.click(pendingAppTab);
-
-    const myOrgTab = screen.getByRole('tab', { name: /My organization/i });
-    fireEvent.click(myOrgTab);
+    const doneTab = screen.getByRole('tab', { name: /Done/i });
+    fireEvent.click(doneTab);
 
     const allTab = screen.getByRole('tab', { name: /All/i });
     fireEvent.click(allTab);
+
+    // Verify no Task labels read "Needs action", "Action required", or "Awaiting upload"
+    const tasksTabContent = screen.getByTestId('project-tasks-tab');
+    expect(within(tasksTabContent).queryByText(/Needs action/i)).toBeNull();
+    expect(within(tasksTabContent).queryByText(/Action required/i)).toBeNull();
+    expect(within(tasksTabContent).queryByText(/Awaiting upload/i)).toBeNull();
 
     // 5. Follow a set link
     const setLinks = screen.getAllByRole('button').filter((btn) =>
