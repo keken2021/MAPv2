@@ -23,14 +23,14 @@ import {
   isTaskOpen,
 } from '../utils/readinessHelpers';
 import { toIsoLocalDate } from '../utils/validation';
-import { getAssuranceSetScopes, getAssuranceSetObjects } from '../utils/assuranceTemplates';
+import { getAssuranceSetScopes } from '../utils/assuranceTemplates';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { ReturnedDocumentsDrawer } from '../components/drawers/ReturnedDocumentsDrawer';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { filterProjectsForPersona, assuranceSetMatchesPpp, PppPillar } from '../utils/projectHelpers';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
-import { DueCell } from '../components/common/DueCell';
+import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
 import { EXPIRY_WARNING_DAYS, isExpiringWithinWarning } from '../utils/expiryPolicy';
 
 /**
@@ -60,7 +60,7 @@ export const DashboardView: React.FC = () => {
   const [submitterSearchTerm, setSubmitterSearchTerm] = useState('');
   const [submitterSortField, setSubmitterSortField] = useState<'id' | 'title' | 'vesselName' | 'charterWindowStart' | 'stage' | 'readinessScore'>('id');
   const [submitterSortDirection, setSubmitterSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [submitterTableFilter, setSubmitterTableFilter] = useState<'ALL' | 'awaiting_upload' | 'returned' | 'due_this_week'>('ALL');
+  const [submitterTableFilter, setSubmitterTableFilter] = useState<'ALL' | 'tasks' | 'returned' | 'due_this_week'>('ALL');
   const [cAdminStageFilter, setCAdminStageFilter] = useState<'ALL' | 'in_progress' | 'approved'>('ALL');
   const [cAdminPppFilter, setCAdminPppFilter] = useState<PppPillar | 'All'>('All');
 
@@ -218,7 +218,7 @@ export const DashboardView: React.FC = () => {
   };
 
   const filteredSubmitterSets = visibleSubmitterSets.filter((s) => {
-    if (submitterTableFilter === 'awaiting_upload' && !isSetAwaitingUpload(s)) return false;
+
     if (submitterTableFilter === 'returned' && !isSetReturnedForCorrection(s)) return false;
     if (submitterTableFilter === 'due_this_week' && !isSetDueThisWeek(s)) return false;
 
@@ -267,182 +267,6 @@ export const DashboardView: React.FC = () => {
     () => getFleetPerformanceSummary(relevantSetsForPerformance, capaItems),
     [relevantSetsForPerformance, capaItems],
   );
-
-  const adminVesselIds = useMemo(
-    () => new Set(visibleVessels.map((v) => v.id)),
-    [visibleVessels],
-  );
-
-  const needsActionItems = useMemo(() => {
-    interface ActionRowItem {
-      id: string;
-      kind: 'expiring_certificate' | 'returned_document' | 'overdue_capa';
-      typeBadge: 'CAPA' | 'Document' | 'Certificate';
-      kindLabel: string;
-      title: string;
-      vesselId?: string;
-      vesselName: string;
-      objectName: string;
-      dateStr: string;
-      dateMs: number;
-      isExpiry: boolean;
-      status: string;
-      actionView: string;
-      actionEntityId?: string;
-    }
-
-    const resolveObjectForDocument = (docId: string, fallbackVessel: string, doc?: MasterDocument): string => {
-      for (const s of assuranceSets) {
-        const req = s.requirements?.find((r) => r.documentId === docId || r.linkedDocumentId === docId);
-        if (req) {
-          const objs = getAssuranceSetObjects(s);
-          if (req.targetObjectId) {
-            const matched = objs.find((o) => o.id === req.targetObjectId);
-            if (matched?.name) return matched.name;
-          }
-          if (doc?.crewAttributes?.crewName) {
-            const matched = objs.find((o) => o.type === 'person' && o.name === doc.crewAttributes?.crewName);
-            if (matched?.name) return matched.name;
-          }
-          if (s.equipmentId) {
-            const matched = objs.find((o) => o.type === 'equipment' || o.id === s.equipmentId);
-            if (matched?.name) return matched.name;
-          }
-          if (s.vesselId) {
-            const matched = objs.find((o) => o.type === 'vessel' || o.id === s.vesselId);
-            if (matched?.name) return matched.name;
-          }
-          if (objs.length > 0) {
-            const primary = objs.find((o) => o.type === 'vessel' || o.type === 'equipment' || o.type === 'person');
-            if (primary?.name) return primary.name;
-          }
-        }
-      }
-      return fallbackVessel;
-    };
-
-    const resolveObjectForCapa = (capa: typeof capaItems[0], fallbackVessel: string): string => {
-      if (capa.assuranceSetId) {
-        const s = assuranceSets.find((set) => set.id === capa.assuranceSetId);
-        if (s) {
-          const objs = getAssuranceSetObjects(s);
-          if (capa.vesselId) {
-            const matched = objs.find((o) => o.id === capa.vesselId);
-            if (matched?.name) return matched.name;
-          }
-          const primary = objs.find((o) => o.type === 'vessel' || o.type === 'equipment' || o.type === 'person');
-          if (primary?.name) return primary.name;
-        }
-      }
-      return fallbackVessel;
-    };
-
-    const expCerts: ActionRowItem[] = [];
-    documents.forEach((d) => {
-      if (isExpiringWithinWarning(d.expiryDate) && d.vesselId && adminVesselIds.has(d.vesselId)) {
-        const v = visibleVessels.find((ves) => ves.id === d.vesselId);
-        const vesselName = v?.name || d.vesselAttributes?.vesselName || 'Unknown Vessel';
-        expCerts.push({
-          id: d.id,
-          kind: 'expiring_certificate',
-          typeBadge: 'Certificate',
-          kindLabel: 'Expiring Certificate',
-          title: d.title,
-          vesselId: d.vesselId,
-          vesselName,
-          objectName: resolveObjectForDocument(d.id, vesselName, d),
-          dateStr: d.expiryDate,
-          dateMs: new Date(d.expiryDate).getTime(),
-          isExpiry: true,
-          status: 'Expiring Soon',
-          actionView: 'documents',
-          actionEntityId: d.id,
-        });
-      }
-    });
-    expCerts.sort((a, b) => a.dateMs - b.dateMs);
-
-    const expCertDocIds = new Set(expCerts.map((i) => i.id));
-
-    const returnedDocs: ActionRowItem[] = [];
-    documents.forEach((d) => {
-      if (
-        (d.verificationStatus === 'Correction Requested' || d.verificationStatus === 'Rejected') &&
-        d.vesselId &&
-        adminVesselIds.has(d.vesselId) &&
-        !expCertDocIds.has(d.id)
-      ) {
-        const v = visibleVessels.find((ves) => ves.id === d.vesselId);
-        const vesselName = v?.name || d.vesselAttributes?.vesselName || 'Unknown Vessel';
-        returnedDocs.push({
-          id: d.id,
-          kind: 'returned_document',
-          typeBadge: 'Document',
-          kindLabel: 'Returned for Correction',
-          title: d.title,
-          vesselId: d.vesselId,
-          vesselName,
-          objectName: resolveObjectForDocument(d.id, vesselName, d),
-          dateStr: d.expiryDate,
-          dateMs: new Date(d.expiryDate).getTime(),
-          isExpiry: true,
-          status: d.verificationStatus || 'Correction Requested',
-          actionView: 'documents',
-          actionEntityId: d.id,
-        });
-      }
-    });
-    returnedDocs.sort((a, b) => a.dateMs - b.dateMs);
-
-    const overdueCapas: ActionRowItem[] = [];
-    const now = Date.now();
-    capaItems.forEach((c) => {
-      if (c.vesselId && adminVesselIds.has(c.vesselId) && c.status !== 'Verified & Closed') {
-        const dateMs = new Date(c.dueDate).getTime();
-        if (!Number.isNaN(dateMs) && dateMs < now) {
-          const vesselName = c.vesselName || 'Unknown Vessel';
-          overdueCapas.push({
-            id: c.id,
-            kind: 'overdue_capa',
-            typeBadge: 'CAPA',
-            kindLabel: 'Overdue CAPA',
-            title: c.title,
-            vesselId: c.vesselId,
-            vesselName,
-            objectName: resolveObjectForCapa(c, vesselName),
-            dateStr: c.dueDate,
-            dateMs,
-            isExpiry: false,
-            status: c.status,
-            actionView: 'capa',
-            actionEntityId: c.vesselName,
-          });
-        }
-      }
-    });
-    overdueCapas.sort((a, b) => a.dateMs - b.dateMs);
-
-    const targetCount = 8;
-    const selected: ActionRowItem[] = [];
-    const minPerCategory = 2;
-    const expPick = expCerts.slice(0, minPerCategory);
-    const retPick = returnedDocs.slice(0, minPerCategory);
-    const capaPick = overdueCapas.slice(0, minPerCategory);
-
-    selected.push(...expPick, ...retPick, ...capaPick);
-
-    const pickedIds = new Set(selected.map((i) => i.id));
-    const pool = [...expCerts, ...returnedDocs, ...overdueCapas].filter((i) => !pickedIds.has(i.id));
-    pool.sort((a, b) => a.dateMs - b.dateMs);
-
-    const needed = targetCount - selected.length;
-    if (needed > 0) {
-      selected.push(...pool.slice(0, needed));
-    }
-
-    selected.sort((a, b) => a.dateMs - b.dateMs);
-    return selected.slice(0, targetCount);
-  }, [documents, capaItems, adminVesselIds, visibleVessels, assuranceSets]);
 
   /* these roles get their own workspace; the check sits below every hook so the hook order never changes */
   if (activePersona === 'Verifier') {
@@ -493,16 +317,16 @@ export const DashboardView: React.FC = () => {
           <div className="col-md-3">
             <button
               type="button"
-              className={`card map-kpi-card map-kpi-clickable shadow-2xs ${submitterTableFilter === 'awaiting_upload' ? 'map-kpi-selected' : ''}`}
-              onClick={() => setSubmitterTableFilter((p) => p === 'awaiting_upload' ? 'ALL' : 'awaiting_upload')}
-              aria-label={`Open ${pendingUploads} documents awaiting upload`}
-              aria-pressed={submitterTableFilter === 'awaiting_upload'}
+              className={`card map-kpi-card map-kpi-clickable shadow-2xs ${submitterTableFilter === 'tasks' ? 'map-kpi-selected' : ''}`}
+              onClick={() => setSubmitterTableFilter((p) => p === 'tasks' ? 'ALL' : 'tasks')}
+              aria-label={`Open ${pendingUploads} tasks`}
+              aria-pressed={submitterTableFilter === 'tasks'}
             >
               <div className="map-kpi-label">
-                Awaiting Upload
+                Tasks
               </div>
               <div className="map-kpi-value text-warning mt-1">{pendingUploads}</div>
-              <div className="map-kpi-subtitle mt-1">Documents still to upload</div>
+              <div className="map-kpi-subtitle mt-1">Pending tasks</div>
             </button>
           </div>
 
@@ -959,8 +783,17 @@ export const DashboardView: React.FC = () => {
         </div>
       ) : activePersona === 'Submitter' ? (
         <div className="row g-4">
-          <div className="col-12">
-            <div className="card map-card-custom">
+          {submitterTableFilter === 'tasks' ? (
+            <div className="col-12">
+              <ProjectTasksTable
+                title="Tasks"
+                scope={sessionUser?.id ? { type: 'user', id: sessionUser.id } : sessionUser?.name ? { type: 'user', id: sessionUser.name } : undefined}
+                today={new Date()}
+              />
+            </div>
+          ) : (
+            <div className="col-12">
+              <div className="card map-card-custom">
               <div className="card-header d-flex flex-wrap align-items-center justify-between gap-2 p-3">
                 <div className="d-flex align-items-center gap-2">
                   <div className="fw-bold text-dark">
@@ -968,7 +801,6 @@ export const DashboardView: React.FC = () => {
                   </div>
                   {submitterTableFilter !== 'ALL' && (
                     <span className="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 font-mono-code">
-                      {submitterTableFilter === 'awaiting_upload' && 'Filter: Awaiting upload'}
                       {submitterTableFilter === 'returned' && 'Filter: Returned for correction'}
                       {submitterTableFilter === 'due_this_week' && 'Filter: Due this week'}
                       <button
@@ -1133,86 +965,17 @@ export const DashboardView: React.FC = () => {
               </div>
             </div>
           </div>
+          )}
         </div>
       ) : (
         <div className="row g-4">
-          {/* Needs action card for Administrator */}
+          {/* Tasks table for Administrator */}
           <div className="col-12">
-            <div className="card map-card-custom">
-              <div className="card-header d-flex align-items-center justify-between">
-                <div className="d-flex align-items-center gap-2">
-                  <span className="fw-bold text-dark">Needs action</span>
-                  <span className="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle font-mono-code">
-                    {needsActionItems.length}
-                  </span>
-                </div>
-                <span className="small text-muted">
-                  Certificates expiring, returned documents, and overdue CAPA
-                </span>
-              </div>
-              <div className="card-body p-0">
-                {needsActionItems.length === 0 ? (
-                  <div className="p-4 text-center text-muted">
-                    No urgent actions required. All items are up to date.
-                  </div>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table map-table-custom align-middle mb-0" aria-label="Needs action items">
-                      <thead>
-                        <tr>
-                          <th style={{ whiteSpace: 'nowrap' }}>Type</th>
-                          <th style={{ whiteSpace: 'nowrap' }}>Item</th>
-                          <th style={{ whiteSpace: 'nowrap' }}>Object</th>
-                          <th style={{ whiteSpace: 'nowrap' }}>Due / Expiry</th>
-                          <th style={{ whiteSpace: 'nowrap' }}>Status</th>
-                          <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {needsActionItems.map((item) => (
-                          <tr
-                            key={item.id}
-                            data-date-ms={item.dateMs}
-                            onClick={() => setCurrentHashView(item.actionView, item.actionEntityId)}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <td>
-                              <span className="badge bg-light text-dark border">{item.typeBadge}</span>
-                            </td>
-                            <td>
-                              <span className="fw-semibold text-slate-900">{item.title}</span>
-                            </td>
-                            <td className="fw-medium text-dark">{item.objectName}</td>
-                            <td>
-                              <DueCell
-                                date={item.dateStr}
-                                isExpiry={item.isExpiry}
-                                isClosed={false}
-                              />
-                            </td>
-                            <td>
-                              <StatusBadge value={item.status} />
-                            </td>
-                            <td className="text-end" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                style={{ width: '32px', height: '32px' }}
-                                onClick={() => setCurrentHashView(item.actionView, item.actionEntityId)}
-                                title="View"
-                                aria-label={`View ${item.title}`}
-                              >
-                                <Eye size={16} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
+            <ProjectTasksTable
+              title="Tasks"
+              scope={sessionUser?.id ? { type: 'user', id: sessionUser.id } : sessionUser?.name ? { type: 'user', id: sessionUser.name } : undefined}
+              today={new Date()}
+            />
           </div>
         </div>
       )}

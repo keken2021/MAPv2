@@ -53,6 +53,7 @@ export interface ProjectTaskRow {
 }
 
 interface ProjectTasksTableProps {
+  title?: string;
   sets?: AssuranceSet[];
   scope?: TaskTableScope | TaskTableScopeType;
   projectId?: string;
@@ -207,6 +208,7 @@ function checkMatchesMyOrg(
 }
 
 export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
+  title,
   sets,
   scope,
   projectId,
@@ -434,6 +436,11 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
 
   return (
     <div className="card map-card-custom" data-testid="project-tasks-tab">
+      {title && (
+        <div className="card-header p-3 border-bottom d-flex align-items-center justify-content-between">
+          <span className="fw-bold text-dark fs-6">{title}</span>
+        </div>
+      )}
       <div className="p-3 border-bottom">
         <CountTabs
           tabs={countTabs}

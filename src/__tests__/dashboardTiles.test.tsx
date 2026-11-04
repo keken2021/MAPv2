@@ -55,7 +55,7 @@ describe('Dashboard KPI tilesSuite', () => {
       expect(expiringTab).toHaveAttribute('aria-selected', 'true');
     });
 
-    it('renders Needs action card with at most 8 rows sorted by date, and counts agree with Documents tab', () => {
+    it('renders Tasks card in place of Needs action, and counts agree with Documents tab', () => {
       const setCurrentHashView = vi.fn();
       useMapStore.setState({
         activePersona: 'Administrator',
@@ -65,50 +65,25 @@ describe('Dashboard KPI tilesSuite', () => {
 
       const { unmount } = render(<DashboardView />);
 
-      // Needs action card exists
-      expect(screen.getByText('Needs action')).toBeInTheDocument();
+      // Tasks card exists in place of Needs action
+      expect(screen.getByTestId('project-tasks-tab')).toBeInTheDocument();
+      expect(screen.getByText('Tasks')).toBeInTheDocument();
 
-      // Check rows in Needs action table
-      const needsActionTable = screen.getByRole('table', { name: /needs action items/i });
-      expect(needsActionTable).toBeInTheDocument();
+      // Check CountTabs: All, Pending, On-going, Done
+      expect(screen.getByRole('tab', { name: /all/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /pending/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /on-going/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /done/i })).toBeInTheDocument();
 
-      const tbody = needsActionTable.querySelector('tbody');
-      const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
-      expect(rows.length).toBeGreaterThan(0);
-      expect(rows.length).toBeLessThanOrEqual(8);
-      expect(rows.length).toBe(8);
-
-      // Verify rows are sorted chronologically by date (most urgent first)
-      const timestamps = rows.map((r) => Number(r.getAttribute('data-date-ms')));
-      for (let i = 0; i < timestamps.length - 1; i++) {
-        expect(timestamps[i]).toBeLessThanOrEqual(timestamps[i + 1]);
-      }
-
-      // Verify column headers: Type, Item, Object, Due / Expiry, Status, Actions
-      const headers = Array.from(needsActionTable.querySelectorAll('th')).map((th) => th.textContent?.trim());
-      expect(headers).toEqual(['Type', 'Item', 'Object', 'Due / Expiry', 'Status', 'Actions']);
-
-      // Verify all three kinds of rows are represented as Type badges
-      expect(screen.getAllByText('Certificate').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Document').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('CAPA').length).toBeGreaterThan(0);
-
-      // Verify kindLabel is dropped from Item cell (shows title only)
-      expect(screen.queryByText('Expiring Certificate')).toBeNull();
-      expect(screen.queryByText('Overdue CAPA')).toBeNull();
-      rows.forEach((r) => {
-        const itemCell = r.querySelectorAll('td')[1];
-        expect(itemCell.querySelector('.small.text-muted')).toBeNull();
-      });
+      // Verify no obsolete copy remains anywhere on the dashboard
+      expect(screen.queryByText(/needs action/i)).toBeNull();
+      expect(screen.queryByText(/action required/i)).toBeNull();
+      expect(screen.queryByText(/awaiting upload/i)).toBeNull();
 
       // Verify Vessels table is removed from Administrator dashboard
       expect(screen.queryByRole('table', { name: /^vessels$/i })).toBeNull();
       expect(screen.queryByText('Operating Status')).toBeNull();
       expect(screen.queryByText('Class Society')).toBeNull();
-
-      // Verify row click opens detail
-      fireEvent.click(rows[0]);
-      expect(setCurrentHashView).toHaveBeenCalled();
 
       // Expiring soon tile on dashboard shows 2
       const expiringBtn = screen.getByRole('button', { name: /documents expiring soon/i });
@@ -139,9 +114,9 @@ describe('Dashboard KPI tilesSuite', () => {
       expect(screen.getByText('Due this week')).toBeInTheDocument();
       expect(screen.getByText('Sets with a requirement due in 7 days')).toBeInTheDocument();
 
-      const awaitingBtn = screen.getByRole('button', { name: /documents awaiting upload/i });
-      expect(awaitingBtn).toBeInTheDocument();
-      expect(awaitingBtn).toHaveClass('map-kpi-clickable');
+      const tasksBtn = screen.getByRole('button', { name: /tasks/i });
+      expect(tasksBtn).toBeInTheDocument();
+      expect(tasksBtn).toHaveClass('map-kpi-clickable');
 
       const returnedBtn = screen.getByRole('button', { name: /documents returned for correction/i });
       expect(returnedBtn).toBeInTheDocument();
@@ -150,14 +125,14 @@ describe('Dashboard KPI tilesSuite', () => {
       expect(dueThisWeekBtn).toBeInTheDocument();
     });
 
-    it('filters submitter assurance sets table on tile clicks and resets with assurance sets tile', () => {
+    it('switches between assurance sets table and tasks table on tile clicks', () => {
       render(<DashboardView />);
 
       expect(screen.getByText(/Showing 1-10 of \d+/)).toBeInTheDocument();
 
-      const awaitingBtn = screen.getByRole('button', { name: /documents awaiting upload/i });
-      fireEvent.click(awaitingBtn);
-      expect(screen.getByText('Filter: Awaiting upload')).toBeInTheDocument();
+      const tasksBtn = screen.getByRole('button', { name: /tasks/i });
+      fireEvent.click(tasksBtn);
+      expect(screen.getByTestId('project-tasks-tab')).toBeInTheDocument();
 
       const returnedBtn = screen.getByRole('button', { name: /documents returned for correction/i });
       fireEvent.click(returnedBtn);
