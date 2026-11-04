@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -114,6 +114,7 @@ describe('Assurance set parties - One requesting and one responding party (Task 
     fireEvent.change(container.querySelector('#grid-campaign-title') as HTMLInputElement, {
       target: { value: 'Exactly One Party Role Set' },
     });
+    pickReviewerRoles(container);
 
     clickNext(); // To Step 2: Objects
     clickNext(); // To Step 3: Requirements

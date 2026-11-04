@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext, addObject } from './assuranceWizardTestHelpers';
+import { clickNext, addObject, pickReviewerRoles } from './assuranceWizardTestHelpers';
 
 describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
   beforeEach(() => {
@@ -166,6 +166,7 @@ describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
 
   it('adds custom section below defaults, shows title in sentence case, and saves to set sections', () => {
     const { container } = render(<CreateAssuranceSetView />);
+    pickReviewerRoles(container);
     clickNext(); // Step 1 -> Step 2
     clickNext(); // Step 2 -> Step 3
 

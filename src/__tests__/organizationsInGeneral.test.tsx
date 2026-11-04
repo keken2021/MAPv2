@@ -1,4 +1,4 @@
-﻿/*
+/*
   file summary: the organization list on General that objects and stakeholders come from.
   responsibilities: covers the five organization rules, the object picker that shows listed organizations first, the submitter found in the library, pending roles, and the admin who chooses the person.
   role in system: covers projectHelpers.ts, userRoleHelpers.ts, SearchableSelect.tsx, CreateAssuranceSetView.tsx and updateAssuranceStakeholder in useMapStore.ts.
@@ -37,7 +37,7 @@ import {
 import { UserProfile } from '../types/user';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { AssuranceSet } from '../types/assurance';
-import { addObject, clickNext, objectItemSelect, objectPickerOptions, objectRowIds, removeObjectRow } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectItemSelect, objectPickerOptions, objectRowIds, pickReviewerRoles, removeObjectRow } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -398,7 +398,6 @@ describe('wizard', () => {
     expect(organizations.length).toBeGreaterThan(1);
     const clientRow = within(container.querySelector(`[data-testid="set-organization-${CLIENT}"]`) as HTMLElement);
     expect(clientRow.queryByRole('button')).toBeNull();
-    expect(clientRow.getByText('Client')).toBeTruthy();
   });
 
   it('has one role column per role, and no stakeholder dropdowns', () => {
@@ -408,22 +407,21 @@ describe('wizard', () => {
     expect(container.querySelector('#assign-app')).toBeNull();
     expect(container.querySelector('#assign-ins')).toBeNull();
     expect(container.querySelector('#chk-same-as-verifier')).toBeNull();
-    expect(roleBox('Verifier', CLIENT).checked).toBe(true);
+    expect(roleBox('Verifier', CLIENT).checked).toBe(false);
     expect(roleBox('Verifier', THIRD_PARTY).checked).toBe(false);
   });
 
-  it('marks an object owner Provider and Submitter, and locks its verifier and approver boxes', () => {
+  it('marks an object owner Submitter, and locks its verifier, inspector and approver boxes', () => {
     const { container } = render(<CreateAssuranceSetView />);
     const owner = listed(container)[1];
     const row = within(container.querySelector(`[data-testid="set-organization-${owner}"]`) as HTMLElement);
-    expect(row.getByText('Provider')).toBeTruthy();
     expect(row.getByText(/Submitter:/)).toBeTruthy();
     expect(roleBox('Verifier', owner).disabled).toBe(true);
     expect(roleBox('Approver', owner).disabled).toBe(true);
-    expect(roleBox('Inspector', owner).disabled).toBe(false);
+    expect(roleBox('Inspector', owner).disabled).toBe(true);
   });
 
-  it('moves a role on tick, and returns it to the client on untick', () => {
+  it('moves a role on tick, and clears it on untick', () => {
     const { container } = render(<CreateAssuranceSetView />);
     addOrganization(container, THIRD_PARTY);
     addOrganization(container, 'DNV Maritime Inspection');
@@ -437,16 +435,18 @@ describe('wizard', () => {
     expect(roleBox('Verifier', 'DNV Maritime Inspection').checked).toBe(true);
 
     fireEvent.click(roleBox('Verifier', 'DNV Maritime Inspection'));
-    expect(roleBox('Verifier', CLIENT).checked).toBe(true);
+    expect(roleBox('Verifier', 'DNV Maritime Inspection').checked).toBe(false);
   });
 
-  it('lets one organization hold several roles', () => {
+  it('enforces segregation of duties between verifier and approver', () => {
     const { container } = render(<CreateAssuranceSetView />);
     addOrganization(container, THIRD_PARTY);
     fireEvent.click(roleBox('Verifier', THIRD_PARTY));
-    fireEvent.click(roleBox('Approver', THIRD_PARTY));
+    expect(roleBox('Approver', THIRD_PARTY).disabled).toBe(true);
+    expect(roleBox('Inspector', THIRD_PARTY).disabled).toBe(false);
     fireEvent.click(roleBox('Inspector', THIRD_PARTY));
-    expect(['Verifier', 'Approver', 'Inspector'].every((role) => roleBox(role, THIRD_PARTY).checked)).toBe(true);
+    expect(roleBox('Verifier', THIRD_PARTY).checked).toBe(true);
+    expect(roleBox('Inspector', THIRD_PARTY).checked).toBe(true);
   });
 
   it('hides a role column when its stage is switched off', () => {
@@ -539,7 +539,6 @@ describe('wizard', () => {
     addObject(container, 'equipment', objectId);
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    expect(roleBox('Verifier', CLIENT).checked).toBe(true);
     expect(roleBox('Verifier', owner).checked).toBe(false);
     expect(roleBox('Verifier', owner).disabled).toBe(true);
   });
@@ -550,6 +549,7 @@ describe('wizard', () => {
     fireEvent.change(container.querySelector('#grid-campaign-title') as HTMLInputElement, {
       target: { value: 'One Vendor Vetting' },
     });
+    pickReviewerRoles(container);
     clickNext();
     clickNext();
     clickNext();
@@ -569,6 +569,8 @@ describe('wizard', () => {
     });
     addOrganization(container, THIRD_PARTY);
     fireEvent.click(roleBox('Verifier', THIRD_PARTY));
+    fireEvent.click(roleBox('Approver', CLIENT));
+    fireEvent.click(roleBox('Inspector', THIRD_PARTY));
     clickNext();
     clickNext();
     clickNext();

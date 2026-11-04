@@ -7,6 +7,7 @@ import {
   clickNext,
   objectPickerOptions,
   objectRowIds,
+  pickReviewerRoles,
   removeObjectRow,
 } from './assuranceWizardTestHelpers';
 
@@ -148,6 +149,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
     fireEvent.change(container.querySelector('#grid-campaign-title') as HTMLInputElement, {
       target: { value: 'Single Vendor and Client Set' },
     });
+    pickReviewerRoles(container);
 
     clickNext(); // Step 2: Objects
     // Add equipment from the same vendor

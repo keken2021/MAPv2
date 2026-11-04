@@ -606,27 +606,67 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       sameOrganization(organization, setClientOrg) || !sameOrganization(organization, serviceProviderOrg),
   );
 
-  const [verifierOrg, setVerifierOrg] = useState(setClientOrg);
-  const [inspectorOrg, setInspectorOrg] = useState(setClientOrg);
-  const [approverOrg, setApproverOrg] = useState(setClientOrg);
+  const [verifierOrg, setVerifierOrg] = useState('');
+  const [inspectorOrg, setInspectorOrg] = useState('');
+  const [approverOrg, setApproverOrg] = useState('');
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
-  /* a new object can make a chosen organization an owner; the role then returns to the client */
-  const reviewerKey = reviewerOrganizations.join('|');
+  /* segregation of duties: object owners, responding party, or dual roles clear automatically */
   useEffect(() => {
-    if (!reviewerOrganizations.includes(verifierOrg)) setVerifierOrg(setClientOrg);
-    if (!reviewerOrganizations.includes(approverOrg)) setApproverOrg(setClientOrg);
-  }, [reviewerKey, verifierOrg, approverOrg, setClientOrg]);
+    const owners = objectOwnerOrganizations(selectedAssuranceObjects);
+    if (verifierOrg) {
+      if (
+        owners.some((o) => sameOrganization(o, verifierOrg)) ||
+        (effectiveRespondingParty && sameOrganization(verifierOrg, effectiveRespondingParty)) ||
+        orgPartyRoles[verifierOrg] === 'Responding party'
+      ) {
+        setVerifierOrg('');
+      }
+    }
+    if (approverOrg) {
+      if (
+        owners.some((o) => sameOrganization(o, approverOrg)) ||
+        (effectiveRespondingParty && sameOrganization(approverOrg, effectiveRespondingParty)) ||
+        orgPartyRoles[approverOrg] === 'Responding party'
+      ) {
+        setApproverOrg('');
+      }
+    }
+    if (inspectorOrg) {
+      if (
+        (effectiveRespondingParty && sameOrganization(inspectorOrg, effectiveRespondingParty)) ||
+        orgPartyRoles[inspectorOrg] === 'Responding party'
+      ) {
+        setInspectorOrg('');
+      }
+    }
+    if (verifierOrg && approverOrg && sameOrganization(verifierOrg, approverOrg)) {
+      setApproverOrg('');
+    }
+  }, [selectedAssuranceObjects, effectiveRespondingParty, orgPartyRoles, verifierOrg, approverOrg, inspectorOrg]);
 
-  /* each role belongs to one organization: ticking moves it there, unticking returns it to the client */
+  /* each role belongs to one organization: ticking moves it there, unticking clears the role */
   const handleRoleToggle = (role: 'verifier' | 'inspector' | 'approver', organization: string, ticked: boolean) => {
-    const holder = ticked ? organization : setClientOrg;
-    if (role === 'verifier') setVerifierOrg(holder);
-    if (role === 'inspector') setInspectorOrg(holder);
-    if (role === 'approver') setApproverOrg(holder);
+    const holder = ticked ? organization : '';
+    if (role === 'verifier') {
+      setVerifierOrg(holder);
+      if (ticked && approverOrg && sameOrganization(approverOrg, organization)) {
+        setApproverOrg('');
+      }
+    }
+    if (role === 'inspector') {
+      setInspectorOrg(holder);
+    }
+    if (role === 'approver') {
+      setApproverOrg(holder);
+      if (ticked && verifierOrg && sameOrganization(verifierOrg, organization)) {
+        setVerifierOrg('');
+      }
+    }
     setFieldErrors((prev) => {
       const u = { ...prev };
       delete u[role];
+      delete u.dualRole;
       return u;
     });
   };
@@ -1426,19 +1466,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       if (deadlineError) {
         newErrors.complianceDeadline = deadlineError;
       }
-      /* the client chooses organizations; each organization's admin chooses the person */
-      if (verificationRequired && !verifierOrg) {
-        newErrors.verifier = 'Select a verifier organization.';
-      } else if (verificationRequired && !reviewerOrganizations.includes(verifierOrg)) {
-        newErrors.verifier = `${verifierOrg} owns an object in this set, so it cannot verify it.`;
-      }
-      if (inspectionRequired && !inspectorOrg) {
-        newErrors.inspector = 'Select an inspector organization.';
-      }
-      if (approvalRequired && !approverOrg) {
-        newErrors.approver = 'Select an approver organization.';
-      } else if (approvalRequired && !reviewerOrganizations.includes(approverOrg)) {
-        newErrors.approver = `${approverOrg} owns an object in this set, so it cannot approve it.`;
+      if (verifierOrg && approverOrg && sameOrganization(verifierOrg, approverOrg)) {
+        newErrors.dualRole = 'One organization cannot be both Verifier and Approver.';
       }
     }
 
@@ -1460,6 +1489,38 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           if (overlap) newErrors[`object_${obj.id}`] = overlap;
         }
       });
+    }
+
+    if (step.id === 'step-requirements' || step.id === 'step-review') {
+      const objectOwners = objectOwnerOrganizations(selectedAssuranceObjects);
+      if (verificationRequired) {
+        if (!verifierOrg) {
+          newErrors.verifier = 'Select a verifier organization.';
+        } else if (effectiveRespondingParty && sameOrganization(verifierOrg, effectiveRespondingParty)) {
+          newErrors.verifier = 'The responding party cannot be verifier.';
+        } else if (objectOwners.some((o) => sameOrganization(o, verifierOrg))) {
+          newErrors.verifier = `${verifierOrg} owns an object in this set, so it cannot verify it.`;
+        }
+      }
+      if (inspectionRequired) {
+        if (!inspectorOrg) {
+          newErrors.inspector = 'Select an inspector organization.';
+        } else if (effectiveRespondingParty && sameOrganization(inspectorOrg, effectiveRespondingParty)) {
+          newErrors.inspector = 'The responding party cannot be inspector.';
+        }
+      }
+      if (approvalRequired) {
+        if (!approverOrg) {
+          newErrors.approver = 'Select an approver organization.';
+        } else if (effectiveRespondingParty && sameOrganization(approverOrg, effectiveRespondingParty)) {
+          newErrors.approver = 'The responding party cannot be approver.';
+        } else if (objectOwners.some((o) => sameOrganization(o, approverOrg))) {
+          newErrors.approver = `${approverOrg} owns an object in this set, so it cannot approve it.`;
+        }
+      }
+      if (verifierOrg && approverOrg && sameOrganization(verifierOrg, approverOrg)) {
+        newErrors.dualRole = 'One organization cannot be both Verifier and Approver.';
+      }
     }
 
     if (step.id === 'step-general' || step.id === 'step-requirements' || step.id === 'step-review') {
@@ -1485,8 +1546,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setErrorMessage('');
     const newErrors = getStepErrors(currentStep);
     setFieldErrors(newErrors);
-    if (newErrors.requestingParty || newErrors.respondingParty) {
-      setErrorMessage(newErrors.requestingParty || newErrors.respondingParty || '');
+    const topError =
+      newErrors.requestingParty ||
+      newErrors.respondingParty ||
+      newErrors.verifier ||
+      newErrors.inspector ||
+      newErrors.approver ||
+      newErrors.dualRole ||
+      '';
+    if (topError) {
+      setErrorMessage(topError);
     }
     return Object.keys(newErrors).length === 0;
   };
@@ -3387,6 +3456,26 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       {fieldErrors.respondingParty}
                     </div>
                   )}
+                  {fieldErrors.verifier && (
+                    <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-verifier">
+                      {fieldErrors.verifier}
+                    </div>
+                  )}
+                  {fieldErrors.inspector && (
+                    <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-inspector">
+                      {fieldErrors.inspector}
+                    </div>
+                  )}
+                  {fieldErrors.approver && (
+                    <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-approver">
+                      {fieldErrors.approver}
+                    </div>
+                  )}
+                  {fieldErrors.dualRole && (
+                    <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-dual-role">
+                      {fieldErrors.dualRole}
+                    </div>
+                  )}
                   <div className="table-responsive mb-3">
                     <table className="table table-sm align-middle mb-0" aria-label="Organizations on this set">
                       <thead className="table-light small text-secondary">
@@ -3404,9 +3493,31 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           const isClient = sameOrganization(organization, setClientOrg);
                           const submitter = providerSubmitters.find((provider) => sameOrganization(provider.organization, organization));
                           const roleBox = (role: 'verifier' | 'inspector' | 'approver', label: string, holder: string) => {
-                            const isReviewRole = role !== 'inspector';
-                            const isLocked = isReviewRole && !reviewerOrganizations.includes(organization);
-                            const isTicked = sameOrganization(holder, organization);
+                            const isTicked = Boolean(holder && sameOrganization(holder, organization));
+                            const isResponding = Boolean(
+                              (effectiveRespondingParty && sameOrganization(organization, effectiveRespondingParty)) ||
+                              orgPartyRoles[organization] === 'Responding party',
+                            );
+                            const objectOwners = objectOwnerOrganizations(selectedAssuranceObjects);
+                            const isObjectOwner = objectOwners.some((owner) => sameOrganization(owner, organization));
+                            const isDualRoleConflict =
+                              (role === 'verifier' && Boolean(approverOrg && sameOrganization(approverOrg, organization))) ||
+                              (role === 'approver' && Boolean(verifierOrg && sameOrganization(verifierOrg, organization)));
+
+                            let disabled = false;
+                            let title: string | undefined = undefined;
+
+                            if (isResponding) {
+                              disabled = true;
+                              title = `The responding party cannot be ${label.toLowerCase()}.`;
+                            } else if ((role === 'verifier' || role === 'approver') && isObjectOwner) {
+                              disabled = true;
+                              title = 'An object owner cannot verify or approve its own objects.';
+                            } else if (isDualRoleConflict && !isTicked) {
+                              disabled = true;
+                              title = 'One organization cannot be both Verifier and Approver.';
+                            }
+
                             return (
                               <td className="text-center">
                                 <input
@@ -3414,14 +3525,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                   className="form-check-input m-0"
                                   aria-label={`${label}: ${organization}`}
                                   checked={isTicked}
-                                  disabled={isLocked || (isClient && isTicked)}
-                                  title={
-                                    isLocked
-                                      ? `A provider cannot be ${label} for its own objects.`
-                                      : isClient && isTicked
-                                        ? `Tick another organization to move this role.`
-                                        : undefined
-                                  }
+                                  disabled={disabled}
+                                  title={title}
                                   onChange={(e) => handleRoleToggle(role, organization, e.target.checked)}
                                 />
                               </td>
@@ -3898,6 +4003,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           {/* REQUIREMENTS TAB: General documents first, then one section per object type with sub-type accordions */}
           {currentStepData.id === 'step-requirements' && (
             <div className="d-flex flex-column gap-4">
+              {(fieldErrors.verifier || fieldErrors.inspector || fieldErrors.approver || fieldErrors.dualRole) && (
+                <div className="alert alert-danger py-2 px-3 small mb-0" role="alert" data-testid="error-step3-roles">
+                  {fieldErrors.verifier && <div data-testid="error-verifier">{fieldErrors.verifier}</div>}
+                  {fieldErrors.inspector && <div data-testid="error-inspector">{fieldErrors.inspector}</div>}
+                  {fieldErrors.approver && <div data-testid="error-approver">{fieldErrors.approver}</div>}
+                  {fieldErrors.dualRole && <div data-testid="error-dual-role">{fieldErrors.dualRole}</div>}
+                </div>
+              )}
               {/* Pinned General documents section comes first */}
               {renderGeneralDocumentsSection()}
 
@@ -4470,9 +4583,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               {submitter.assignee === PENDING_ASSIGNMENT ? `Pending, ${submitter.organization}` : submitter.assignee}
                             </div>
                           ))}
-                          <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? `Pending, ${verifierOrg}` : 'N/A'}</div>
-                          <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? `Pending, ${inspectorOrg}` : 'N/A'}</div>
-                          <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? `Pending, ${approverOrg}` : 'N/A'}</div>
+                          <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (verifierOrg ? `Pending, ${verifierOrg}` : 'None selected') : 'N/A'}</div>
+                          <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (inspectorOrg ? `Pending, ${inspectorOrg}` : 'None selected') : 'N/A'}</div>
+                          <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (approverOrg ? `Pending, ${approverOrg}` : 'None selected') : 'N/A'}</div>
 
                           <div className="pt-2 mt-2 border-top">
                             <strong className="text-dark small d-block mb-1">Checks</strong>

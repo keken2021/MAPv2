@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
 import { AssuranceDetailView } from '../views/AssuranceDetailView';
-import { clickNext } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
 import { AssuranceSet } from '../types/assurance';
 
 const initialState = useMapStore.getState();
@@ -57,7 +57,8 @@ describe('Assurance Set Parties - Requesting and Responding party only (Task 534
   });
 
   it('Create wizard review step displays Requesting party and Responding party lines without Client or Vendor labels', () => {
-    render(<CreateAssuranceSetView />);
+    const { container } = render(<CreateAssuranceSetView />);
+    pickReviewerRoles(container);
     clickNext(); // to Objects
     clickNext(); // to Requirements
     clickNext(); // to Review

@@ -33,3 +33,24 @@ export const addObject = (container: HTMLElement, type: string, id: string) => {
 };
 export const removeObjectRow = (container: HTMLElement, id: string) =>
   fireEvent.click(container.querySelector(`[data-testid="assurance-object-row-${id}"] button[title="Remove object"]`) as HTMLButtonElement);
+
+export const pickReviewerRoles = (container: HTMLElement, thirdParty = 'Bureau Veritas Inspectorate') => {
+  const input = container.querySelector('#grid-add-organization') as HTMLInputElement | null;
+  if (input) {
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: thirdParty } });
+    const option = container.querySelector(`#grid-add-organization-listbox [data-item-id="${thirdParty}"]`);
+    if (option) fireEvent.click(option);
+  }
+  const verifierBoxes = screen.queryAllByRole('checkbox', { name: /^Verifier: / }) as HTMLInputElement[];
+  const enabledVerifier = verifierBoxes.find((b) => !b.disabled && !b.checked);
+  if (enabledVerifier) fireEvent.click(enabledVerifier);
+
+  const approverBoxes = screen.queryAllByRole('checkbox', { name: /^Approver: / }) as HTMLInputElement[];
+  const enabledApprover = approverBoxes.find((b) => !b.disabled && !b.checked);
+  if (enabledApprover) fireEvent.click(enabledApprover);
+
+  const inspectorBoxes = screen.queryAllByRole('checkbox', { name: /^Inspector: / }) as HTMLInputElement[];
+  const enabledInspector = inspectorBoxes.find((b) => !b.disabled && !b.checked);
+  if (enabledInspector) fireEvent.click(enabledInspector);
+};
