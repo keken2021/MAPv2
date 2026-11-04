@@ -980,4 +980,90 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(within(row3!).getByTestId('badge-lapsed-REQ-BADGE-03')).toBeInTheDocument();
     expect(within(row3!).getByTestId('badge-lapsed-REQ-BADGE-03').textContent).toBe('Lapsed');
   });
+
+  it('Task 5365: renders persona-tailored columns and actions for Submitter and Verifier', () => {
+    const testSetId = 'AS-TASK-5365-PERSONA-ROWS';
+    const baseSet = useMapStore.getState().assuranceSets[0];
+    const defaultReq = baseSet.requirements[0];
+
+    const testSet: AssuranceSet = {
+      ...baseSet,
+      id: testSetId,
+      title: 'Persona Rows Test Set',
+      serviceProviderOrg: 'Northwind Marine',
+      requirements: [
+        {
+          ...defaultReq,
+          id: 'REQ-PERSONA-01',
+          title: 'Vessel Safety Radio Certificate',
+          category: 'Statutory Certificate',
+          sectionId: 'sec-statutory',
+          verifierStatus: 'Pending',
+          documentId: 'DOC-PERSONA-01',
+          documentVersion: 'v3.2',
+        },
+      ],
+    };
+
+    const testDoc = {
+      ...useMapStore.getState().documents[0],
+      id: 'DOC-PERSONA-01',
+      title: 'Safety Radio Certificate',
+      currentVersion: 'v3.2',
+      status: 'Active' as const,
+      category: 'Statutory Certificate',
+    };
+
+    useMapStore.setState({
+      assuranceSets: [testSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
+      documents: [testDoc, ...useMapStore.getState().documents],
+    });
+
+    // 1. Submitter Persona: Title, Status, Actions (3 columns); Upload action, NO PDF review
+    useMapStore.setState({ activePersona: 'Submitter' });
+    const { unmount: unmountSubmitter } = render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    const submitterTable = screen.getByRole('table');
+    const submitterHeaders = within(submitterTable.querySelector('thead tr') as HTMLElement).getAllByRole('columnheader');
+    expect(submitterHeaders.length).toBe(3);
+    expect(submitterHeaders[0].textContent).toContain('Title');
+    expect(submitterHeaders[1].textContent).toContain('Status');
+    expect(submitterHeaders[2].textContent).toContain('Actions');
+
+    const submitterRow = screen.getByTestId('toggle-req-REQ-PERSONA-01').closest('tr');
+    expect(submitterRow).not.toBeNull();
+    // Submitter row has Upload (or Upload new version) and no PDF review
+    expect(within(submitterRow!).getByTitle(/upload/i)).toBeInTheDocument();
+    expect(within(submitterRow!).queryByTitle(/pdf review/i)).toBeNull();
+
+    // In expanded detail row, Target Object is available
+    fireEvent.click(screen.getByTestId('toggle-req-REQ-PERSONA-01'));
+    const submitterDetail = screen.getByTestId('req-detail-REQ-PERSONA-01');
+    expect(within(submitterDetail).getByText(/target object:/i)).toBeInTheDocument();
+
+    unmountSubmitter();
+
+    // 2. Verifier Persona: Title, Version, Status, Actions (4 columns); Version and PDF review, NO Upload
+    useMapStore.setState({ activePersona: 'Verifier' });
+    const { unmount: unmountVerifier } = render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    const verifierTable = screen.getByRole('table');
+    const verifierHeaders = within(verifierTable.querySelector('thead tr') as HTMLElement).getAllByRole('columnheader');
+    expect(verifierHeaders.length).toBe(4);
+    expect(verifierHeaders[0].textContent).toContain('Title');
+    expect(verifierHeaders[1].textContent).toContain('Version');
+    expect(verifierHeaders[2].textContent).toContain('Status');
+    expect(verifierHeaders[3].textContent).toContain('Actions');
+
+    const verifierRow = screen.getByTestId('toggle-req-REQ-PERSONA-01').closest('tr');
+    expect(verifierRow).not.toBeNull();
+    // Verifier row has Version and PDF review and no Upload
+    expect(within(verifierRow!).getByText('v3.2')).toBeInTheDocument();
+    expect(within(verifierRow!).getByTitle(/pdf review/i)).toBeInTheDocument();
+    expect(within(verifierRow!).queryByTitle(/upload/i)).toBeNull();
+
+    unmountVerifier();
+  });
 });

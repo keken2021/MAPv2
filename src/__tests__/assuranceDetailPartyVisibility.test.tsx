@@ -276,6 +276,9 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     const { rerender } = render(<AssuranceDetailView setId="AS-TEST-PARTY" />);
     fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
 
+    // Expand rows to reveal details
+    screen.getAllByTestId(/^toggle-req-/).forEach((btn) => fireEvent.click(btn));
+
     expect(screen.getAllByRole('button', { name: /pdf review/i }).length).toBe(1);
 
     // Switch to Meridian Marine
@@ -285,6 +288,9 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     });
 
     rerender(<AssuranceDetailView setId="AS-TEST-PARTY" />);
+    screen.getAllByTestId(/^toggle-req-/).forEach((btn) => {
+      if (btn.getAttribute('aria-expanded') !== 'true') fireEvent.click(btn);
+    });
 
     // Still only 1 PDF review button, but now Meridian's document is the visible one
     const meridianReviewButtons = screen.getAllByRole('button', { name: /pdf review/i });

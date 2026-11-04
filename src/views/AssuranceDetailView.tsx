@@ -664,7 +664,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     setIsAddingCustomSection(false);
   };
 
-  type ReqSortField = 'title' | 'targetDate' | 'targetObject' | 'status';
+  type ReqSortField = 'title' | 'targetDate' | 'targetObject' | 'status' | 'version';
   useOverlayBehavior(confirmDialogRef, () => setShortCertificateConfirm(null), {
     active: shortCertificateConfirm !== null,
   });
@@ -1111,6 +1111,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         const dateA = a.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
         const dateB = b.targetDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
         comp = dateA.localeCompare(dateB);
+      } else if (reqSortField === 'version') {
+        const verA = a.documentVersion || '';
+        const verB = b.documentVersion || '';
+        comp = verA.localeCompare(verB);
       } else if (reqSortField === 'status') {
         const statusA = a.verifierStatus || (a.isFulfilled ? 'Verified' : 'Awaiting Upload');
         const statusB = b.verifierStatus || (b.isFulfilled ? 'Verified' : 'Awaiting Upload');
@@ -1215,6 +1219,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   }, [assuranceSet, reqSortField, reqSortDirection, documents, setObjects, assuranceObjects, effectiveSections]);
 
   const isCAdminPersona = activePersona === 'C Admin';
+  const isSubmitter = activePersona === 'Submitter';
+  const isVerifier = activePersona === 'Verifier';
+  const reqTableColSpan = isSubmitter ? 3 : 4;
 
   const organizations = assuranceSet ? setOrganizations(assuranceSet) : [];
   /* each list holds the people of the organization that fills the role */
@@ -3522,12 +3529,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     >
                       Title {renderSortIndicator('title')}
                     </th>
-                    <th
-                      style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                      onClick={() => handleReqSort('targetObject')}
-                    >
-                      Target Object {renderSortIndicator('targetObject')}
-                    </th>
+                    {isVerifier ? (
+                      <th
+                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                        onClick={() => handleReqSort('version')}
+                        data-testid="th-version"
+                      >
+                        Version {renderSortIndicator('version')}
+                      </th>
+                    ) : !isSubmitter ? (
+                      <th
+                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                        onClick={() => handleReqSort('targetObject')}
+                        data-testid="th-target-object"
+                      >
+                        Target Object {renderSortIndicator('targetObject')}
+                      </th>
+                    ) : null}
                     <th
                       style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                       onClick={() => handleReqSort('status')}
@@ -3540,7 +3558,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                 <tbody>
                   {effectiveSections.length === 0 && orderedRequirements.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="text-center text-muted py-4 small">
+                      <td colSpan={reqTableColSpan} className="text-center text-muted py-4 small">
                         No requirements or documents recorded.
                       </td>
                     </tr>
@@ -3556,7 +3574,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                       return (
                         <React.Fragment key={sec.id}>
                           <tr className="bg-light border-top border-bottom" data-testid={`group-section-${slug}`}>
-                            <td colSpan={4} className="py-2.5 px-3">
+                            <td colSpan={reqTableColSpan} className="py-2.5 px-3">
                               <div className="d-flex align-items-center justify-content-between">
                                 <span className="fw-bold text-secondary" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }} data-testid="section-group-header">
                                   {sectionTitle}
@@ -3566,7 +3584,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                           </tr>
                           {secReqs.length === 0 ? (
                             <tr data-testid={`empty-section-${slug}`}>
-                              <td colSpan={4} className="text-center text-muted py-3 small fst-italic">
+                              <td colSpan={reqTableColSpan} className="text-center text-muted py-3 small fst-italic">
                                 No requirements recorded in this section.
                               </td>
                             </tr>
@@ -3602,7 +3620,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                 <React.Fragment key={req.id}>
                                   {Boolean(currentSubtype && isFirstOfSubtype) && (
                                     <tr className="bg-light-subtle border-bottom" data-testid={`group-subtype-${currentSubtype.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
-                                      <td colSpan={4} className="py-1.5 px-4 text-secondary small fw-semibold">
+                                      <td colSpan={reqTableColSpan} className="py-1.5 px-4 text-secondary small fw-semibold">
                                         <div className="d-flex align-items-center gap-2">
                                           <span style={{ fontSize: '0.75rem' }} data-testid="subtype-group-header">{currentSubtype}</span>
                                         </div>
@@ -3645,10 +3663,16 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             </div>
                                           </div>
                                         </td>
-                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                          <div className="fw-semibold text-dark">{linkedChildSet.title}</div>
-                                          <div className="text-muted font-mono-code small">{linkedChildSet.id}</div>
-                                        </td>
+                                        {isVerifier ? (
+                                          <td style={{ whiteSpace: 'nowrap' }}>
+                                            <span className="text-muted small">—</span>
+                                          </td>
+                                        ) : !isSubmitter ? (
+                                          <td style={{ whiteSpace: 'nowrap' }}>
+                                            <div className="fw-semibold text-dark">{linkedChildSet.title}</div>
+                                            <div className="text-muted font-mono-code small">{linkedChildSet.id}</div>
+                                          </td>
+                                        ) : null}
                                         <td>
                                           <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'}`}>
                                             {linkedChildSet.stage}
@@ -3669,7 +3693,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                       </tr>
                                       {isReqExpanded && (
                                         <tr data-testid={`req-detail-${req.id}`} className="bg-light-subtle">
-                                          <td colSpan={4} className="py-2.5 px-4">
+                                          <td colSpan={reqTableColSpan} className="py-2.5 px-4">
                                             <div className="d-flex flex-column gap-2" style={{ fontSize: '0.78rem' }}>
                                               {req.isOtherDocument && (
                                                 <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -3681,6 +3705,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   >
                                                     Added by client
                                                   </span>
+                                                </div>
+                                              )}
+                                              {(isSubmitter || isVerifier) && (
+                                                <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                  <span className="text-secondary fw-semibold">Target Sub-Set:</span>
+                                                  <span className="text-dark">{linkedChildSet.title}</span>
+                                                  <span className="text-muted font-mono-code small">({linkedChildSet.id})</span>
                                                 </div>
                                               )}
                                               {req.description && (
@@ -3721,21 +3752,27 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             </div>
                                           </div>
                                         </td>
-                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                          {(() => {
-                                            const targetObj = resolveRequirementTargetObject(req);
-                                            return (
-                                              <div>
-                                                <div className="fw-semibold text-dark">{targetObj.name}</div>
-                                                {targetObj.identifier && (
-                                                  <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
-                                                    {targetObj.identifier}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            );
-                                          })()}
-                                        </td>
+                                        {isVerifier ? (
+                                          <td style={{ whiteSpace: 'nowrap' }}>
+                                            <span className="text-muted small">—</span>
+                                          </td>
+                                        ) : !isSubmitter ? (
+                                          <td style={{ whiteSpace: 'nowrap' }}>
+                                            {(() => {
+                                              const targetObj = resolveRequirementTargetObject(req);
+                                              return (
+                                                <div>
+                                                  <div className="fw-semibold text-dark">{targetObj.name}</div>
+                                                  {targetObj.identifier && (
+                                                    <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
+                                                      {targetObj.identifier}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })()}
+                                          </td>
+                                        ) : null}
                                         <td>
                                           {(() => {
                                             const allDone = groupTasks.every((t) => t.isFulfilled || t.verifierStatus === 'Verified' || (assuranceSet.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId)));
@@ -3792,7 +3829,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                       </tr>
                                       {isReqExpanded && (
                                         <tr data-testid={`req-detail-${req.id}`} className="bg-light-subtle">
-                                          <td colSpan={4} className="py-2.5 px-4">
+                                          <td colSpan={reqTableColSpan} className="py-2.5 px-4">
                                             <div className="d-flex flex-column gap-2" style={{ fontSize: '0.78rem' }}>
                                               {(renderVersionBadge(req, docView, canViewDoc) || req.attemptNumber || req.isOtherDocument || req.isSpecialized) && (
                                                 <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -3819,6 +3856,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   )}
                                                 </div>
                                               )}
+                                              {(isSubmitter || isVerifier) && (() => {
+                                                const targetObj = resolveRequirementTargetObject(req);
+                                                return (
+                                                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                    <span className="text-secondary fw-semibold">Target Object:</span>
+                                                    <span className="text-dark">{targetObj.name}</span>
+                                                    {targetObj.identifier && (
+                                                      <span className="text-muted font-mono-code small">({targetObj.identifier})</span>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })()}
                                               {req.description && (
                                                 <div className="text-secondary small" style={{ lineHeight: '1.4' }}>
                                                   {req.description}
@@ -3874,15 +3923,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   </div>
                                                 </div>
                                               </td>
-                                              <td>
-                                                <span className="text-muted small">—</span>
-                                              </td>
+                                              {isVerifier ? (
+                                                <td style={{ whiteSpace: 'nowrap' }}>
+                                                  {renderVersionBadge(partyTask, partyDocView, canViewPartyDoc) || (
+                                                    <span className="text-muted small">—</span>
+                                                  )}
+                                                </td>
+                                              ) : !isSubmitter ? (
+                                                <td>
+                                                  <span className="text-muted small">—</span>
+                                                </td>
+                                              ) : null}
                                               <td>
                                                 {renderRequirementStatus(partyTask, canViewPartyDoc)}
                                               </td>
                                               <td className="text-end">
                                                 <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
-                                                  {effectivePartyDoc && canViewPartyDoc && (
+                                                  {!isSubmitter && effectivePartyDoc && canViewPartyDoc && (
                                                     <button
                                                       type="button"
                                                       className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
@@ -3894,7 +3951,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                       <FileText size={16} />
                                                     </button>
                                                   )}
-                                                  {canUploadHere && (isClientViewer || canViewPartyDoc) && (
+                                                  {!isVerifier && canUploadHere && (isClientViewer || canViewPartyDoc) && (
                                                     <button
                                                       type="button"
                                                       className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
@@ -3911,7 +3968,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             </tr>
                                             {isPartyExpanded && (
                                               <tr data-testid={`req-detail-${partyTask.id}`} className="party-detail-row bg-light-subtle">
-                                                <td colSpan={4} style={{ paddingLeft: '4rem' }} className="py-2.5 pe-4">
+                                                <td colSpan={reqTableColSpan} style={{ paddingLeft: '4rem' }} className="py-2.5 pe-4">
                                                   <div className="d-flex flex-column gap-1.5" style={{ fontSize: '0.75rem' }}>
                                                     {(renderVersionBadge(partyTask, partyDocView, canViewPartyDoc) || partyTask.attemptNumber || partyTask.isOtherDocument) && (
                                                       <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -3935,6 +3992,34 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                     )}
                                                     {partyTask.notes && canViewPartyDoc && (
                                                       <div className="text-secondary">{partyTask.notes}</div>
+                                                    )}
+                                                    {isSubmitter && effectivePartyDoc && canViewPartyDoc && (
+                                                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                        <button
+                                                          type="button"
+                                                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1"
+                                                          onClick={() => setSelectedDocForReview({ doc: partyDocView?.doc || effectivePartyDoc, notes: partyTask.notes, requirementId: partyTask.id, verifierStatus: partyTask.verifierStatus, isVersionLocked: partyDocView?.isLocked })}
+                                                          title="PDF Review"
+                                                          aria-label="PDF Review"
+                                                        >
+                                                          <FileText size={14} />
+                                                          <span>PDF Review</span>
+                                                        </button>
+                                                      </div>
+                                                    )}
+                                                    {isVerifier && canUploadHere && (isClientViewer || canViewPartyDoc) && (
+                                                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                        <button
+                                                          type="button"
+                                                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-2.5 py-1"
+                                                          onClick={() => openRequirementUpload(partyTask, effectivePartyDoc)}
+                                                          title="Upload document"
+                                                          aria-label="Upload document"
+                                                        >
+                                                          <Upload size={14} />
+                                                          <span>Upload document</span>
+                                                        </button>
+                                                      </div>
                                                     )}
                                                     <div className="d-flex align-items-center gap-2 flex-wrap">
                                                       <span className="text-secondary fw-semibold">OCR Confidence:</span>
@@ -3977,21 +4062,29 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             </div>
                                           </div>
                                         </td>
-                                        <td style={{ whiteSpace: 'nowrap' }}>
-                                          {(() => {
-                                            const targetObj = resolveRequirementTargetObject(req);
-                                            return (
-                                              <div>
-                                                <div className="fw-semibold text-dark">{targetObj.name}</div>
-                                                {targetObj.identifier && (
-                                                  <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
-                                                    {targetObj.identifier}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            );
-                                          })()}
-                                        </td>
+                                        {isVerifier ? (
+                                          <td style={{ whiteSpace: 'nowrap' }}>
+                                            {renderVersionBadge(req, docView, canViewDoc) || (
+                                              <span className="text-muted small">—</span>
+                                            )}
+                                          </td>
+                                        ) : !isSubmitter ? (
+                                          <td style={{ whiteSpace: 'nowrap' }}>
+                                            {(() => {
+                                              const targetObj = resolveRequirementTargetObject(req);
+                                              return (
+                                                <div>
+                                                  <div className="fw-semibold text-dark">{targetObj.name}</div>
+                                                  {targetObj.identifier && (
+                                                    <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
+                                                      {targetObj.identifier}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              );
+                                            })()}
+                                          </td>
+                                        ) : null}
                                         <td>
                                           {renderRequirementStatus(req, canViewDoc)}
                                         </td>
@@ -4023,17 +4116,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             )}
                                             {effectiveLinkedDoc && canViewDoc ? (
                                               <>
-                                                <button
-                                                  type="button"
-                                                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                                  style={{ width: '32px', height: '32px' }}
-                                                  onClick={() => setSelectedDocForReview({ doc: docView?.doc || effectiveLinkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
-                                                  title="PDF Review"
-                                                  aria-label="PDF Review"
-                                                >
-                                                  <FileText size={16} />
-                                                </button>
-                                                {canUploadHere && (
+                                                {!isSubmitter && (
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                                    style={{ width: '32px', height: '32px' }}
+                                                    onClick={() => setSelectedDocForReview({ doc: docView?.doc || effectiveLinkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
+                                                    title="PDF Review"
+                                                    aria-label="PDF Review"
+                                                  >
+                                                    <FileText size={16} />
+                                                  </button>
+                                                )}
+                                                {!isVerifier && canUploadHere && (
                                                   <button
                                                     type="button"
                                                     className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
@@ -4047,7 +4142,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   </button>
                                                 )}
                                               </>
-                                            ) : canUploadHere && canViewDoc ? (
+                                            ) : !isVerifier && canUploadHere && canViewDoc ? (
                                               <button
                                                 type="button"
                                                 className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
@@ -4066,7 +4161,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                       </tr>
                                       {isReqExpanded && (
                                         <tr data-testid={`req-detail-${req.id}`} className="bg-light-subtle">
-                                          <td colSpan={4} className="py-2.5 px-4">
+                                          <td colSpan={reqTableColSpan} className="py-2.5 px-4">
                                             <div className="d-flex flex-column gap-2" style={{ fontSize: '0.78rem' }}>
                                               {(renderVersionBadge(req, docView, canViewDoc) || req.attemptNumber || req.isOtherDocument || req.isSpecialized) && (
                                                 <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -4093,9 +4188,50 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   )}
                                                 </div>
                                               )}
+                                              {(isSubmitter || isVerifier) && (() => {
+                                                const targetObj = resolveRequirementTargetObject(req);
+                                                return (
+                                                  <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                    <span className="text-secondary fw-semibold">Target Object:</span>
+                                                    <span className="text-dark">{targetObj.name}</span>
+                                                    {targetObj.identifier && (
+                                                      <span className="text-muted font-mono-code small">({targetObj.identifier})</span>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })()}
                                               {req.description && (
                                                 <div className="text-secondary" style={{ lineHeight: '1.4' }}>
                                                   {req.description}
+                                                </div>
+                                              )}
+                                              {isSubmitter && effectiveLinkedDoc && canViewDoc && (
+                                                <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5 px-2.5 py-1"
+                                                    onClick={() => setSelectedDocForReview({ doc: docView?.doc || effectiveLinkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
+                                                    title="PDF Review"
+                                                    aria-label="PDF Review"
+                                                  >
+                                                    <FileText size={14} />
+                                                    <span>PDF Review</span>
+                                                  </button>
+                                                </div>
+                                              )}
+                                              {isVerifier && canUploadHere && canViewDoc && (
+                                                <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-2.5 py-1"
+                                                    onClick={() => openRequirementUpload(req, effectiveLinkedDoc)}
+                                                    disabled={Boolean(effectiveLinkedDoc && getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
+                                                    title={effectiveLinkedDoc ? (getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || "Upload new version") : "Upload document"}
+                                                    aria-label={effectiveLinkedDoc ? "Upload new version" : "Upload document"}
+                                                  >
+                                                    {effectiveLinkedDoc ? <RefreshCw size={14} /> : <Upload size={14} />}
+                                                    <span>{effectiveLinkedDoc ? "Upload new version" : "Upload document"}</span>
+                                                  </button>
                                                 </div>
                                               )}
                                               <div className="d-flex align-items-center gap-3 flex-wrap">
