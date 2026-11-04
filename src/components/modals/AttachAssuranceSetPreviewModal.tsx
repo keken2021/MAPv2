@@ -462,7 +462,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                                   </div>
                                 ) : (
                                   <span className="text-muted fst-italic">
-                                    Awaiting Upload
+                                    Pending
                                   </span>
                                 )}
                               </td>

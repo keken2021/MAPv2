@@ -129,6 +129,20 @@ function resolveStatusAndDates(
   set: AssuranceSet,
   today: Date,
 ) {
+  if (req.reuploadRequested) {
+    const targetDate = req.targetDate || set.targetDate || set.complianceDeadline;
+    const todayIso = today.toISOString().split('T')[0];
+    const isOverdue = Boolean(targetDate) && targetDate! < todayIso;
+    const isBlocking = true;
+    return {
+      status: 'Pending' as TaskStatus,
+      targetDate,
+      isOverdue,
+      isBlocking,
+      isCompleted: false,
+    };
+  }
+
   const isCompleted =
     req.verifierStatus === 'Verified' ||
     Boolean(req.isFulfilled) ||
@@ -361,6 +375,8 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
           row.assignee,
           row.targetObject.name,
           row.targetObject.identifier,
+          row.requirement.reuploadRequested?.reason,
+          row.requirement.reuploadRequested ? 'reupload requested' : '',
         ]
           .filter(Boolean)
           .join(' ')
@@ -592,7 +608,26 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
                               Overdue
                             </span>
                           )}
+                          {row.requirement.reuploadRequested && (
+                            <span
+                              className="badge bg-warning text-dark"
+                              style={{ fontSize: '0.7rem' }}
+                              data-testid="task-reupload-requested-flag"
+                              title={row.requirement.reuploadRequested.reason}
+                            >
+                              Reupload requested
+                            </span>
+                          )}
                         </div>
+                        {row.requirement.reuploadRequested?.reason && (
+                          <span
+                            className="text-warning-emphasis small fst-italic"
+                            style={{ fontSize: '0.72rem', maxWidth: '240px' }}
+                            title={row.requirement.reuploadRequested.reason}
+                          >
+                            {row.requirement.reuploadRequested.reason}
+                          </span>
+                        )}
                         {targetDate ? (
                           <span
                             className={`small font-mono-code ${

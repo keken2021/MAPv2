@@ -307,6 +307,12 @@ describe('store: document renewal notifications', () => {
 
   it('keeps the notification open when it is opened, and closes it when a new version is uploaded', () => {
     useMapStore.getState().requestDocumentReupload(DOC_ID, 'Certificate is outdated.');
+    const reqAfterRequest = useMapStore.getState().assuranceSets
+      .find((s) => s.id === SET_ID)?.requirements
+      .find((r) => r.documentId === DOC_ID || r.linkedDocumentId === DOC_ID);
+    expect(reqAfterRequest?.reuploadRequested?.reason).toBe('Certificate is outdated.');
+    expect(reqAfterRequest?.reuploadRequested?.date).toBeTruthy();
+
     const request = renewalsOf(SET_ID)[0];
 
     useMapStore.getState().openNotification(request.id);
@@ -316,6 +322,11 @@ describe('store: document renewal notifications', () => {
     const closed = useMapStore.getState().notifications.find((n) => n.id === request.id);
     expect(closed?.status).toBe('actioned');
     expect(closed?.actionedAt).toBeTruthy();
+
+    const reqAfterUpload = useMapStore.getState().assuranceSets
+      .find((s) => s.id === SET_ID)?.requirements
+      .find((r) => r.documentId === DOC_ID || r.linkedDocumentId === DOC_ID);
+    expect(reqAfterUpload?.reuploadRequested).toBeUndefined();
   });
 
   it('sends an expired document to the submitter and to the administrator of the provider', () => {

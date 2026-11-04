@@ -1281,6 +1281,32 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const note = reason.trim();
     if (!document || !note) return 0;
 
+    const now = new Date().toISOString();
+    set((state) => ({
+      assuranceSets: state.assuranceSets.map((s) => {
+        let hasMatched = false;
+        const updatedReqs = s.requirements.map((r) => {
+          if (r.documentId === docId || r.linkedDocumentId === docId) {
+            hasMatched = true;
+            return {
+              ...r,
+              reuploadRequested: {
+                reason: note,
+                date: now,
+                requestedAt: now,
+              },
+            };
+          }
+          return r;
+        });
+        if (!hasMatched) return s;
+        return {
+          ...s,
+          requirements: updatedReqs,
+        };
+      }),
+    }));
+
     let raised = 0;
     get().assuranceSets.forEach((s) => {
       const requirement = s.requirements.find(
@@ -3300,6 +3326,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               isFulfilled: false,
               ocrConfidence: doc.ocrConfidence,
               inspectionReport: inspectionReport ?? r.inspectionReport,
+              reuploadRequested: undefined,
               notes: `Upload linked to requirement (${doc.versions[0]?.fileName || doc.title}).`,
             };
           });
@@ -3431,6 +3458,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               attemptNumber: nextAttempt,
               isFulfilled: false,
               ocrConfidence: 98,
+              reuploadRequested: undefined,
               notes:
                 changeSummary ||
                 `Replacement revision ${newVersionLabel} uploaded by submitter.`,

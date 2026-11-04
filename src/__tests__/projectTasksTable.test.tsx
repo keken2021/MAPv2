@@ -193,6 +193,43 @@ describe('ProjectTasksTable', () => {
     expect(screen.getByText('Completed Class Certificate')).toBeInTheDocument();
   });
 
+  it('counts a requirement with reuploadRequested as Pending with Reupload requested reason badge', () => {
+    const set = createSet('AS-101', 'Set Alpha', {
+      requirements: [
+        createRequirement({
+          id: 'REQ-REUPLOAD',
+          title: 'Class Renewal Certificate',
+          verifierStatus: 'Verified',
+          isFulfilled: true,
+          reuploadRequested: {
+            reason: 'Scan is outdated. Please upload 2026 certificate.',
+            date: '2026-11-04T10:00:00Z',
+            requestedAt: '2026-11-04T10:00:00Z',
+          },
+        }),
+      ],
+    });
+
+    render(
+      <ProjectTasksTable
+        sets={[set]}
+        onOpenSet={vi.fn()}
+        today={TEST_TODAY}
+      />
+    );
+
+    // Counts as Pending, not Done
+    expect(screen.getByTestId('task-status-badge')).toHaveTextContent('Pending');
+    expect(screen.getByTestId('task-reupload-requested-flag')).toHaveTextContent('Reupload requested');
+    expect(screen.getByText('Scan is outdated. Please upload 2026 certificate.')).toBeInTheDocument();
+
+    const pendingTab = screen.getByRole('tab', { name: /Pending/i });
+    expect(pendingTab).toHaveTextContent(/Pending\s*\(1\)/);
+
+    const doneTab = screen.getByRole('tab', { name: /Done/i });
+    expect(doneTab).toHaveTextContent(/Done\s*\(0\)/);
+  });
+
   it('scopes tasks using the scope prop for project, assurance set, and user', () => {
     const setA = createSet('AS-A', 'Alpha Set', {
       projectId: 'PROJ-1',

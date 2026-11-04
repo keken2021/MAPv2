@@ -220,6 +220,15 @@ export interface AssuranceRequirement {
   attemptNumber?: number;
   /** ISO timestamp of the review decision (BRD V4.2 change 12) */
   decisionTime?: string;
+  /** details if a reviewer requested a document reupload */
+  reuploadRequested?: ReuploadRequest;
+}
+
+/** reviewer request for a submitter to reupload a document on a requirement */
+export interface ReuploadRequest {
+  reason: string;
+  date: string;
+  requestedAt?: string;
 }
 
 /** a named group of tasks on an assurance set; the critical-path chart is not part of this prototype */
