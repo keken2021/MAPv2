@@ -2396,9 +2396,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           />
                           <label
                             htmlFor={`gen-req-toggle-${doc.id}`}
-                            className={`small fw-semibold m-0 cursor-pointer ${
-                              doc.isMandatory ? 'text-success' : 'text-secondary'
-                            }`}
+                            className={`small fw-semibold m-0 cursor-pointer ${doc.isMandatory ? 'text-success' : 'text-secondary'
+                              }`}
                             style={{ fontSize: '0.78rem', minWidth: '55px' }}
                           >
                             {doc.isMandatory ? 'Required' : 'Optional'}
@@ -2544,9 +2543,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               />
                               <label
                                 htmlFor={`req-toggle-${doc.id}`}
-                                className={`small fw-semibold m-0 cursor-pointer ${
-                                  isRequired ? 'text-success' : 'text-secondary'
-                                }`}
+                                className={`small fw-semibold m-0 cursor-pointer ${isRequired ? 'text-success' : 'text-secondary'
+                                  }`}
                                 style={{ fontSize: '0.78rem', minWidth: '55px' }}
                               >
                                 {isRequired ? 'Required' : 'Optional'}
@@ -2592,9 +2590,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               />
                               <label
                                 htmlFor={`req-toggle-${spec.id}`}
-                                className={`small fw-semibold m-0 cursor-pointer ${
-                                  isRequired ? 'text-success' : 'text-secondary'
-                                }`}
+                                className={`small fw-semibold m-0 cursor-pointer ${isRequired ? 'text-success' : 'text-secondary'
+                                  }`}
                                 style={{ fontSize: '0.78rem', minWidth: '55px' }}
                               >
                                 {isRequired ? 'Required' : 'Optional'}
@@ -2937,11 +2934,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               key={pillar}
                               type="button"
                               aria-pressed={isSelected}
-                              className={`btn btn-sm px-3 py-1.5 rounded-pill fw-medium transition-all ${
-                                isSelected
-                                  ? 'btn-primary text-white shadow-2xs'
-                                  : 'btn-outline-secondary bg-white text-secondary'
-                              }`}
+                              className={`btn btn-sm px-3 py-1.5 rounded-pill fw-medium transition-all ${isSelected
+                                ? 'btn-primary text-white shadow-2xs'
+                                : 'btn-outline-secondary bg-white text-secondary'
+                                }`}
                               onClick={() => {
                                 setPppTags((current) =>
                                   current.includes(pillar)
@@ -3041,7 +3037,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
 
               {/* General Information Section (Toggled / Collapsible) */}
-                            {/* 3. Parties Card */}
+              {/* 3. Parties Card */}
               <div className="card border shadow-2xs rounded-3 bg-white" data-testid="card-involved-organizations">
                 <div className="card-header bg-light border-bottom px-4 py-3">
                   <h5 className="fw-bold text-slate-900 m-0 fs-6">
@@ -3305,92 +3301,239 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           {/* OBJECTS TAB: everything the set covers; every object is equal (ADR 0029) */}
           {currentStepData.id === 'step-objects' && (
             <div className="d-flex flex-column gap-4">
-                {/* Covered Assurance Objects Section (ADR 0029) */}
-                <div className="card border shadow-2xs rounded-3 bg-white" id="covered-assurance-objects-card">
-                  <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div>
-                      <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                        Covered Assurance Objects ({selectedAssuranceObjects.length})
-                      </h5>
-                      <div className="text-muted small mt-0.5">
-                        Add every vessel, crew member, piece of equipment, procedure, or method this set covers.
-                      </div>
+              {/* Covered Assurance Objects Section (ADR 0029) */}
+              <div className="card border shadow-2xs rounded-3 bg-white" id="covered-assurance-objects-card">
+                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div>
+                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                      Covered Assurance Objects ({selectedAssuranceObjects.length})
+                    </h5>
+                    <div className="text-muted small mt-0.5">
+                      Add every vessel, crew member, piece of equipment, procedure, or method this set covers.
                     </div>
-                    <div className="d-flex align-items-center gap-2">
-                      {crewGroups.length > 0 && (
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
+                    {crewGroups.length > 0 && (
+                      <select
+                        id="wizard-pick-crew-group"
+                        aria-label="Pick Crew Group"
+                        className="form-select form-select-sm"
+                        style={{ minWidth: '180px' }}
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) handlePickCrewGroup(e.target.value);
+                        }}
+                      >
+                        <option value="">Pick a Crew Group...</option>
+                        {crewGroups
+                          .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
+                          .map((group) => (
+                            <option key={group.id} value={group.id}>
+                              {group.name} ({group.memberIds.length} members)
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                    <button
+                      type="button"
+                      id="btn-load-port-entry-bundle"
+                      className="btn btn-sm btn-outline-primary fw-semibold d-inline-flex align-items-center gap-1.5"
+                      onClick={() => {
+                        const v = vessels.find((x) => x.id === vesselId) || vessels[0];
+                        const c = crew.find((x) => x.id === (selectedCrewId || crew[0]?.id)) || crew[0];
+                        const eq = equipment.find((x) => x.id === (selectedEquipmentId || equipment[0]?.id)) || equipment[0];
+                        const portProc = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-PROC-PORT-01')!;
+                        const towMeth = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-METH-TOW-01')!;
+                        const portSetObjects: AssuranceObject[] = [];
+                        if (v) portSetObjects.push(vesselToAssuranceObject(v));
+                        if (c) portSetObjects.push(crewToAssuranceObject(c));
+                        if (eq) portSetObjects.push(equipmentToAssuranceObject(eq));
+                        if (portProc) portSetObjects.push(portProc);
+                        if (towMeth) portSetObjects.push(towMeth);
+                        setSelectedAssuranceObjects([
+                          ...selectedAssuranceObjects.filter((o) => lockedObjectIds.includes(o.id) && !portSetObjects.some((p) => p.id === o.id)),
+                          ...portSetObjects,
+                        ]);
+                        setTitle((prev) => prev.includes('Port Entry') ? prev : `${clientOrg} - Port Entry & Arrival Assurance Set`);
+                      }}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Load Port-Entry Bundle
+                    </button>
+                  </div>
+                </div>
+                <div className="card-body p-4">
+                  {fieldErrors.objects && (
+                    <div className="alert alert-danger small py-2 mb-3" role="alert">
+                      {fieldErrors.objects}
+                    </div>
+                  )}
+                  {selectedCrewGroups.length > 0 && (
+                    <div className="mb-3 d-flex flex-wrap align-items-center gap-2" data-testid="selected-crew-groups-bar">
+                      <span className="small text-secondary fw-semibold">Crew Groups attached:</span>
+                      {selectedCrewGroups.map((cg) => (
+                        <span key={cg.groupId} className="badge bg-light text-dark border d-inline-flex align-items-center gap-1.5 py-1.5 px-2.5">
+                          <Users className="w-3.5 h-3.5 text-primary" />
+                          <span className="fw-semibold">{cg.groupName}</span>
+                          <span className="text-muted">({cg.memberIds.length} members snapshot)</span>
+                          <button
+                            type="button"
+                            aria-label={`Remove ${cg.groupName}`}
+                            className="btn-close ms-1"
+                            style={{ fontSize: '0.65rem' }}
+                            onClick={() => {
+                              setSelectedCrewGroups((prev) => prev.filter((g) => g.groupId !== cg.groupId));
+                            }}
+                          />
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {selectedAssuranceObjects.length === 0 ? (
+                    <div className="text-muted small">No assurance objects attached yet.</div>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="table table-sm table-hover align-middle mb-0">
+                        <thead className="table-light small text-secondary">
+                          <tr>
+                            <th scope="col" style={{ width: '120px' }}>Type</th>
+                            <th scope="col">Name</th>
+                            <th scope="col">Owner Organization</th>
+                            <th scope="col">Identifier / Tag</th>
+                            <th scope="col" className="text-end" style={{ width: '80px' }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedAssuranceObjects.map((obj) => {
+                            const objectScope = getAssuranceObjectScope(obj.type);
+                            const conflicts = objectScope
+                              ? getAssetPeriodConflicts(objectScope, obj.id, startDate, endDate, assuranceSets, editingDraftId || undefined)
+                              : [];
+                            const isLockedObject = lockedObjectIds.includes(obj.id);
+                            const objectError = fieldErrors[`object_${obj.id}`];
+                            return (
+                              <React.Fragment key={obj.id}>
+                                <tr data-testid={`assurance-object-row-${obj.id}`} className={conflicts.length > 0 || objectError ? 'table-danger' : ''}>
+                                  <td>
+                                    <span className={`badge ${obj.type === 'vessel' ? 'bg-primary text-white' :
+                                      obj.type === 'person' ? 'bg-success text-white' :
+                                        obj.type === 'equipment' ? 'bg-warning text-dark' :
+                                          obj.type === 'procedure' ? 'bg-info text-dark' :
+                                            obj.type === 'method' ? 'bg-secondary text-white' : 'bg-light text-dark border'
+                                      } text-capitalize font-mono-code`}>
+                                      {obj.type}
+                                    </span>
+                                  </td>
+                                  <td className="fw-semibold text-dark">
+                                    {obj.name}
+                                    {isLockedObject && (
+                                      <div className="text-secondary small fw-normal">Set by the page you came from.</div>
+                                    )}
+                                    {objectError && conflicts.length === 0 && (
+                                      <div className="text-danger small fw-normal font-mono-code" style={{ fontSize: '0.75rem' }}>
+                                        {objectError}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="text-secondary small">{obj.ownerOrganization}</td>
+                                  <td className="font-mono-code small text-secondary">{obj.identifier || '—'}</td>
+                                  <td className="text-end">
+                                    {!isLockedObject && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-link text-danger p-0"
+                                        title="Remove object"
+                                        aria-label={`Remove ${obj.name}`}
+                                        onClick={() => {
+                                          setSelectedAssuranceObjects((prev) => prev.filter((o) => o.id !== obj.id));
+                                          setFieldErrors((prev) => {
+                                            const u = { ...prev };
+                                            delete u[`object_${obj.id}`];
+                                            return u;
+                                          });
+                                        }}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                                {objectScope && conflicts.length > 0 && (
+                                  <tr>
+                                    <td colSpan={5} className="border-0 pt-0">
+                                      {renderCollisionAlert(objectScope, obj.id, obj.name, conflicts)}
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Add Object row */}
+                  <div className="row g-2 align-items-center mt-3 pt-3 border-top">
+                    <div className="col-12 col-md-3">
+                      <select
+                        id="grid-add-object-type"
+                        aria-label="Object type"
+                        className="form-select form-select-sm"
+                        value={newObjectType}
+                        onChange={(e) => {
+                          setNewObjectType(e.target.value as AssuranceObjectType);
+                          setNewObjectId('');
+                        }}
+                      >
+                        <option value="vessel">Vessel</option>
+                        <option value="person">Person / Crew</option>
+                        <option value="equipment">Equipment</option>
+                        <option value="procedure">Procedure</option>
+                        <option value="method">Method</option>
+                      </select>
+                    </div>
+                    <div className="col-12 col-md-9">
+                      <SearchableSelect
+                        key={`${newObjectType}-${selectedVendorOrg || 'free'}`}
+                        id="grid-add-object-item"
+                        aria-label="Object to add"
+                        placeholder={selectedVendorOrg ? `Search ${selectedVendorOrg} ${newObjectType} to add` : `Search every ${newObjectType} to add`}
+                        emptyLabel={selectedVendorOrg ? `No ${newObjectType} found for ${selectedVendorOrg}.` : "None from the listed organizations. Search to find others."}
+                        items={listedObjectItems}
+                        searchOnlyItems={otherObjectItems}
+                        onSelect={(item) => handleAddObject(item.id)}
+                      />
+                    </div>
+                    {newObjectType === 'person' && crewGroups.length > 0 && (
+                      <div className="col-12 d-flex align-items-center gap-2 pt-2">
+                        <span className="text-secondary small fw-medium">Or pick an entire group:</span>
                         <select
-                          id="wizard-pick-crew-group"
-                          aria-label="Pick Crew Group"
+                          id="grid-pick-crew-group"
+                          aria-label="Pick a Crew Group"
                           className="form-select form-select-sm"
-                          style={{ minWidth: '180px' }}
+                          style={{ maxWidth: '320px' }}
                           value=""
                           onChange={(e) => {
                             if (e.target.value) handlePickCrewGroup(e.target.value);
                           }}
                         >
-                          <option value="">Pick a Crew Group...</option>
+                          <option value="">Choose a crew group...</option>
                           {crewGroups
                             .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
-                            .map((group) => (
-                              <option key={group.id} value={group.id}>
-                                {group.name} ({group.memberIds.length} members)
+                            .map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name} ({g.memberIds.length} seafarers &middot; {g.specialization})
                               </option>
                             ))}
                         </select>
-                      )}
-                      <button
-                        type="button"
-                        id="btn-load-port-entry-bundle"
-                        className="btn btn-sm btn-outline-primary fw-semibold d-inline-flex align-items-center gap-1.5"
-                        onClick={() => {
-                          const v = vessels.find((x) => x.id === vesselId) || vessels[0];
-                          const c = crew.find((x) => x.id === (selectedCrewId || crew[0]?.id)) || crew[0];
-                          const eq = equipment.find((x) => x.id === (selectedEquipmentId || equipment[0]?.id)) || equipment[0];
-                          const portProc = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-PROC-PORT-01')!;
-                          const towMeth = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-METH-TOW-01')!;
-                          const portSetObjects: AssuranceObject[] = [];
-                          if (v) portSetObjects.push(vesselToAssuranceObject(v));
-                          if (c) portSetObjects.push(crewToAssuranceObject(c));
-                          if (eq) portSetObjects.push(equipmentToAssuranceObject(eq));
-                          if (portProc) portSetObjects.push(portProc);
-                          if (towMeth) portSetObjects.push(towMeth);
-                          setSelectedAssuranceObjects([
-                            ...selectedAssuranceObjects.filter((o) => lockedObjectIds.includes(o.id) && !portSetObjects.some((p) => p.id === o.id)),
-                            ...portSetObjects,
-                          ]);
-                          setTitle((prev) => prev.includes('Port Entry') ? prev : `${clientOrg} - Port Entry & Arrival Assurance Set`);
-                        }}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Load Port-Entry Bundle
-                      </button>
-                    </div>
-                  </div>
-                  <div className="card-body p-4">
-                    {fieldErrors.objects && (
-                      <div className="alert alert-danger small py-2 mb-3" role="alert">
-                        {fieldErrors.objects}
                       </div>
                     )}
-                    {selectedCrewGroups.length > 0 && (
-                      <div className="mb-3 d-flex flex-wrap align-items-center gap-2" data-testid="selected-crew-groups-bar">
-                        <span className="small text-secondary fw-semibold">Crew Groups attached:</span>
-                        {selectedCrewGroups.map((cg) => (
-                          <span key={cg.groupId} className="badge bg-light text-dark border d-inline-flex align-items-center gap-1.5 py-1.5 px-2.5">
-                            <Users className="w-3.5 h-3.5 text-primary" />
-                            <span className="fw-semibold">{cg.groupName}</span>
-                            <span className="text-muted">({cg.memberIds.length} members snapshot)</span>
-                            <button
-                              type="button"
-                              aria-label={`Remove ${cg.groupName}`}
-                              className="btn-close ms-1"
-                              style={{ fontSize: '0.65rem' }}
-                              onClick={() => {
-                                setSelectedCrewGroups((prev) => prev.filter((g) => g.groupId !== cg.groupId));
-                              }}
-                            />
-                          </span>
-                        ))}
+                    {addedOwners.length > 0 && (
+                      <div className="col-12">
+                        <div className="alert alert-info py-2 small mb-0" role="status">
+                          {addedOwners.join(', ')} added to Organizations.
+                        </div>
                       </div>
                     )}
                     {selectedAssuranceObjects.length === 0 ? (
@@ -3420,10 +3563,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                   <tr data-testid={`assurance-object-row-${obj.id}`} className={conflicts.length > 0 || objectError ? 'table-danger' : ''}>
                                     <td>
                                       <span className={`badge ${obj.type === 'vessel' ? 'bg-primary text-white' :
-                                          obj.type === 'person' ? 'bg-success text-white' :
-                                            obj.type === 'equipment' ? 'bg-warning text-dark' :
-                                              obj.type === 'procedure' ? 'bg-info text-dark' :
-                                                obj.type === 'method' ? 'bg-secondary text-white' : 'bg-light text-dark border'
+                                        obj.type === 'person' ? 'bg-success text-white' :
+                                          obj.type === 'equipment' ? 'bg-warning text-dark' :
+                                            obj.type === 'procedure' ? 'bg-info text-dark' :
+                                              obj.type === 'method' ? 'bg-secondary text-white' : 'bg-light text-dark border'
                                         } text-capitalize font-mono-code`}>
                                         {obj.type}
                                       </span>
@@ -3509,7 +3652,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           onSelect={(item) => handleAddObject(item.id)}
                         />
                       </div>
-                     
+
                       {newObjectType === 'person' && crewGroups.length > 0 && (
                         <div className="col-12 d-flex align-items-center gap-2 pt-2">
                           <span className="text-secondary small fw-medium">Or pick an entire group:</span>
@@ -3549,6 +3692,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
                   </div>
                 </div>
+              </div>
             </div>
           )}
 
@@ -3599,12 +3743,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 value={editingSectionDraft}
                                 onChange={(e) => setEditingSectionDraft(e.target.value)}
                                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleSaveSectionTitle(sectionKey, editingSectionDraft);
-                  } else if (e.key === 'Escape') {
-                    setEditingSectionId(null);
-                  }
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleSaveSectionTitle(sectionKey, editingSectionDraft);
+                                  } else if (e.key === 'Escape') {
+                                    setEditingSectionId(null);
+                                  }
                                 }}
                                 autoFocus
                                 aria-label={`Edit ${scope} section title`}
@@ -3985,9 +4129,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                         />
                                         <label
                                           htmlFor={`req-toggle-${doc.id}`}
-                                          className={`small fw-semibold m-0 cursor-pointer ${
-                                            isRequired ? 'text-success' : 'text-secondary'
-                                          }`}
+                                          className={`small fw-semibold m-0 cursor-pointer ${isRequired ? 'text-success' : 'text-secondary'
+                                            }`}
                                           style={{ fontSize: '0.78rem', minWidth: '55px' }}
                                         >
                                           {isRequired ? 'Required' : 'Optional'}

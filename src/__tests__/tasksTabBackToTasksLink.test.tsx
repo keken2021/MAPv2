@@ -109,3 +109,4 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
     expect(screen.queryByRole('button', { name: /Back to tasks/i })).toBeNull();
   });
 });
+

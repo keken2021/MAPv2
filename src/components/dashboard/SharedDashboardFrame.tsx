@@ -220,3 +220,4 @@ export const SharedDashboardFrame: React.FC<SharedDashboardFrameProps> = ({ conf
     </div>
   );
 };
+

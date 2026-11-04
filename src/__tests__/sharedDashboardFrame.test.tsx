@@ -184,3 +184,4 @@ describe('SharedDashboardFrame', () => {
     expect(screen.getByText('No recent activity')).toBeInTheDocument();
   });
 });
+

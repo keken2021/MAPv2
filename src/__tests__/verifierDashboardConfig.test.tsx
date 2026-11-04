@@ -248,3 +248,4 @@ describe('Verifier dashboard config (Task 5387)', () => {
     expect(screen.getByText('Nothing needs you today')).toBeInTheDocument();
   });
 });
+

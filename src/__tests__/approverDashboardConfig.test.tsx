@@ -229,3 +229,4 @@ describe('Approver dashboard config (Task 5389)', () => {
     expect(screen.getByText('Nothing needs you today')).toBeInTheDocument();
   });
 });
+
