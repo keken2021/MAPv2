@@ -123,6 +123,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for KPI tile navigation: `src/__tests__/dashboardTileNavigation.test.tsx` (KPI tiles open filtered list screens with matching counts across all 5 roles)
 - Unit tests for recent activity feed: `src/__tests__/recentActivityFeed.test.tsx` (plain sentences, relative times, and role relevance filtering across all 5 roles)
 - Unit tests for Administrator as client dashboard: `src/__tests__/administratorClientDashboard.test.tsx` (4 neutral KPI tiles, needs action list sorted soonest start first, missing roles naming, Assign button)
+- Unit tests for client tables removal: `src/__tests__/removeClientTablesFromDashboard.test.tsx` (client dashboard has no tables, search, or pagination; three list screens remain functional)
 - Unit tests for UI declutter dashboard KPI tiles: `src/__tests__/dashboardTiles.test.tsx` (tile navigation to filtered lists and table filtering for Administrator, Submitter, and C Admin)
 - Unit tests for UI declutter shell header and sidebar: `src/__tests__/shellDeclutter.test.tsx` (title-only list views, detail back links, sidebar labels Inspections, CAPA, Approvals, dynamic verification queue count badge)
 - Unit tests for reusable header back navigation: `src/__tests__/headerNavigation.test.tsx` (contextual return across screens, CAPA findings return to assurance set, parent list fallbacks)

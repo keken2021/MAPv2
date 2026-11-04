@@ -530,6 +530,14 @@ export const DashboardView: React.FC = () => {
     });
   }, [isClientAdmin, assuranceSets, capaItems, auditEvents, projects, activeDemoOrganization, setCurrentHashView]);
 
+  if (isClientAdmin && adminClientConfig) {
+    return (
+      <div className="d-flex flex-column gap-4">
+        <SharedDashboardFrame config={adminClientConfig} />
+      </div>
+    );
+  }
+
   return (
     <div className="d-flex flex-column gap-4">
       <style>{`
@@ -554,12 +562,8 @@ export const DashboardView: React.FC = () => {
           box-shadow: 0 0 0 1px var(--map-focus-ring, rgb(56, 189, 248));
         }
       `}</style>
-      {/* top banner kpi summary cards or shared dashboard frame */}
-      {isClientAdmin && adminClientConfig ? (
-        <SharedDashboardFrame config={adminClientConfig} />
-      ) : (
-        renderDashboardCards()
-      )}
+      {/* top banner kpi summary cards */}
+      {renderDashboardCards()}
       {/* main content area: c admin & submitter display assurance sets; other personas display fleet overview */}
       {activePersona === 'C Admin' ? (
         <div className="row g-4">
