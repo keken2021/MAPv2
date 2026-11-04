@@ -381,7 +381,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [selectedActivityId, setSelectedActivityId] = useState<string>(() => EXISTING_ACTIVITIES[0]?.id || '');
   const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
   const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
-  const [isGeneralInfoExpanded, setIsGeneralInfoExpanded] = useState<boolean>(true);
   const charterer = setClientOrg;
   /* a handed-off asset gets a default period after its own contracts only; otherwise after every contract */
   const handedOffScope = lockedAsset?.scope || suggestedAsset?.assetType;
@@ -3427,14 +3426,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
 
               {/* General Information Section (Toggled / Collapsible) */}
-                            {/* 3. Organizations Card */}
+                            {/* 3. Parties Card */}
               <div className="card border shadow-2xs rounded-3 bg-white" data-testid="card-involved-organizations">
                 <div className="card-header bg-light border-bottom px-4 py-3">
                   <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    3. Organizations
+                    3. Parties
                   </h5>
                   <div className="text-muted small">
-                    List every organization in this set and tick who fills each role. An organization with an object on this set is a Provider and submits for it.
+                    List every party in this set, configure verification and governance stages, and assign reviewer roles.
                   </div>
                 </div>
                 <div className="card-body p-4">
@@ -3476,11 +3475,77 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       {fieldErrors.dualRole}
                     </div>
                   )}
+
+                  {/* Verification & Governance Stages */}
+                  <div className="p-3 bg-light border rounded-3 mb-3" data-testid="card-governance-stages">
+                    <div className="mb-2">
+                      <strong className="text-dark small d-block" style={{ fontSize: '0.85rem' }}>
+                        Verification &amp; Governance Stages
+                      </strong>
+                      <div className="text-muted small" style={{ fontSize: '0.75rem', lineHeight: '1.4' }}>
+                        Configure which statutory, technical, and commercial gates must be completed prior to set sign-off.
+                      </div>
+                    </div>
+
+                    <div className="d-flex flex-column gap-2.5 pt-1">
+                      <div className="form-check form-switch mb-0">
+                        <input
+                          id="wf-verify"
+                          type="checkbox"
+                          className="form-check-input"
+                          role="switch"
+                          checked={verificationRequired}
+                          onChange={(e) => setVerificationRequired(e.target.checked)}
+                        />
+                        <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-verify">
+                          Mandatory Verification Required
+                        </label>
+                        <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                          A Verifier must verify uploaded evidence against class and statutory requirements.
+                        </div>
+                      </div>
+
+                      <div className="form-check form-switch mb-0">
+                        <input
+                          id="wf-inspect"
+                          type="checkbox"
+                          className="form-check-input"
+                          role="switch"
+                          checked={inspectionRequired}
+                          onChange={(e) => setInspectionRequired(e.target.checked)}
+                        />
+                        <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-inspect">
+                          Mandatory Physical Inspection Gate
+                        </label>
+                        <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                          Requires on-site or physical survey evidence before final readiness is granted.
+                        </div>
+                      </div>
+
+                      <div className="form-check form-switch mb-0">
+                        <input
+                          id="wf-approve"
+                          type="checkbox"
+                          className="form-check-input"
+                          role="switch"
+                          checked={approvalRequired}
+                          onChange={(e) => setApprovalRequired(e.target.checked)}
+                        />
+                        <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-approve">
+                          Formal Approver Sign-Off
+                        </label>
+                        <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                          Formal sign-off is required before the set is accepted.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="table-responsive mb-3">
-                    <table className="table table-sm align-middle mb-0" aria-label="Organizations on this set">
+                    <table className="table table-sm align-middle mb-0" aria-label="Parties on this set">
                       <thead className="table-light small text-secondary">
                         <tr>
-                          <th scope="col">Organization</th>
+                          <th scope="col">Party</th>
                           {verificationRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Verifier</th>}
                           {inspectionRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Inspector</th>}
                           {approvalRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Approver</th>}
@@ -3607,9 +3672,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   ))}
                   <SearchableSelect
                     id="grid-add-organization"
-                    aria-label="Add organization"
-                    placeholder="Add organization"
-                    emptyLabel="No matching organizations"
+                    aria-label="Add party"
+                    placeholder="Add party"
+                    emptyLabel="No matching parties"
                     items={organizationOptions}
                     onSelect={(item) => handleAddOrganization(item.id)}
                   />
@@ -3619,9 +3684,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       data-testid="select-add-step1-org"
                       value={newOrgToAdd}
                       onChange={(e) => setNewOrgToAdd(e.target.value)}
-                      aria-label="Select additional organization"
+                      aria-label="Select additional party"
                     >
-                      <option value="">Select additional organization...</option>
+                      <option value="">Select additional party...</option>
                       {availablePlatformOrgs
                         .filter((org) => !step1Organizations.includes(org))
                         .map((org) => (
@@ -3641,107 +3706,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         }
                       }}
                     >
-                      Add Organization
+                      Add party
                     </button>
                   </div>
                 </div>
-              </div>
-
-              {/* General Information Section (Toggled / Collapsible) */}
-              <div className="card border shadow-2xs rounded-3 bg-white">
-                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
-                  <div>
-                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      4. Governance &amp; Checks
-                    </h5>
-                    <div className="text-muted small">
-                      Choose which checks and stages apply.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
-                    onClick={() => setIsGeneralInfoExpanded(!isGeneralInfoExpanded)}
-                  >
-                    <span>{isGeneralInfoExpanded ? 'Collapse' : 'Expand'}</span>
-                    <ChevronDown
-                      className={`w-3 h-3 transition-transform duration-200 ${isGeneralInfoExpanded ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                </div>
-
-                {isGeneralInfoExpanded && (
-                  <div className="card-body p-4">
-                    <div className="row g-4">
-                      {/* Workflow policies: validity, suitability and workflow gates */}
-                      <div className="col-12">
-                        <div className="p-4 bg-light border rounded-3 d-flex flex-column gap-3.5">
-                          <div>
-                            <strong className="text-dark small d-block mb-1.5" style={{ fontSize: '0.85rem' }}>
-                              Verification &amp; Governance Stages
-                            </strong>
-                            <div className="text-muted small" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-                              Configure which statutory, technical, and commercial gates must be completed prior to set sign-off.
-                            </div>
-                          </div>
-
-                          <div className="d-flex flex-column gap-2.5 pt-1">
-                            <div className="form-check form-switch mb-0">
-                              <input
-                                id="wf-verify"
-                                type="checkbox"
-                                className="form-check-input"
-                                role="switch"
-                                checked={verificationRequired}
-                                onChange={(e) => setVerificationRequired(e.target.checked)}
-                              />
-                              <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-verify">
-                                Mandatory Verification Required
-                              </label>
-                              <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
-                                A Verifier must verify uploaded evidence against class and statutory requirements.
-                              </div>
-                            </div>
-
-                            <div className="form-check form-switch mb-0">
-                              <input
-                                id="wf-inspect"
-                                type="checkbox"
-                                className="form-check-input"
-                                role="switch"
-                                checked={inspectionRequired}
-                                onChange={(e) => setInspectionRequired(e.target.checked)}
-                              />
-                              <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-inspect">
-                                Mandatory Physical Inspection Gate
-                              </label>
-                              <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
-                                Requires on-site or physical survey evidence before final readiness is granted.
-                              </div>
-                            </div>
-
-                            <div className="form-check form-switch mb-0">
-                              <input
-                                id="wf-approve"
-                                type="checkbox"
-                                className="form-check-input"
-                                role="switch"
-                                checked={approvalRequired}
-                                onChange={(e) => setApprovalRequired(e.target.checked)}
-                              />
-                              <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-approve">
-                                Formal Approver Sign-Off
-                              </label>
-                              <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
-                                Formal sign-off is required before the set is accepted.
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div >
           )}
