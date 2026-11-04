@@ -33,6 +33,9 @@ export const CrewView: React.FC = () => {
         onSelectCrew={(selectedCrew) => {
           setCurrentHashView('crew', selectedCrew.id);
         }}
+        onSelectGroup={(selectedGroup) => {
+          setCurrentHashView('crew-group', selectedGroup.id);
+        }}
         onRegisterCrew={() => setIsModalOpen(true)}
         onAddDocumentCrew={(selectedCrew) => handleOpenUploadDoc(selectedCrew)}
       />
