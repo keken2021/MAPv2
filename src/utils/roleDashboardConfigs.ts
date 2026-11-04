@@ -11,7 +11,12 @@ import { Project } from '../types/project';
 import { MasterDocument } from '../types/document';
 import { AppNotification } from '../types/notification';
 import { UserProfile, RoleName } from '../types/user';
-import { DashboardConfig, DashboardActionItem, DashboardKpiTile } from '../types/dashboard';
+import {
+  DashboardConfig,
+  DashboardActionItem,
+  DashboardKpiTile,
+  DashboardReadinessBar,
+} from '../types/dashboard';
 import { isAssuranceSetAssignedToPersona } from './rbacHelpers';
 import {
   isSetNeedingPeople,
@@ -991,6 +996,234 @@ export function getInspectorDashboardConfig({
     seeAllText: totalActions > 0 ? `See all ${totalActions}` : undefined,
     onSeeAll: () =>
       navigateToFilteredList('inspector-workspace', 'map_inspector_tab_preselect', 'all', setCurrentHashView),
+    emptyActionMessage: 'Nothing needs you today',
+  };
+}
+
+export interface ApproverConfigParams {
+  assuranceSets: AssuranceSet[];
+  capaItems: CapaItem[];
+  auditEvents: AuditTrailEvent[];
+  sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | { id?: string; name?: string; organization?: string; roles?: RoleName[] } | null;
+  activeOrganization?: string;
+  setCurrentHashView: (view: string, entityId?: string) => void;
+  now?: Date;
+}
+
+/**
+ * Builds the DashboardConfig for the Approver role.
+ */
+export function getApproverDashboardConfig({
+  assuranceSets,
+  capaItems,
+  auditEvents,
+  sessionUser,
+  activeOrganization = 'Northwind Marine Pty Ltd',
+  setCurrentHashView,
+  now = new Date(),
+}: ApproverConfigParams): DashboardConfig {
+  const userForRbac: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null = sessionUser
+    ? {
+        id: sessionUser.id || '',
+        name: sessionUser.name || '',
+        organization: sessionUser.organization || '',
+        roles: sessionUser.roles || ['Approver'],
+      }
+    : null;
+
+  const assignedSets = assuranceSets.filter((set) => {
+    if (!isAssuranceSetAssignedToPersona(set, 'Approver', activeOrganization, userForRbac)) {
+      return false;
+    }
+    if (userForRbac?.name && set.assignedApprover) {
+      return set.assignedApprover.toLowerCase().includes(userForRbac.name.toLowerCase());
+    }
+    return true;
+  });
+
+  const effectiveSets = assignedSets.length > 0
+    ? assignedSets
+    : assuranceSets.filter((s) => s.stage === 'Approval' || s.stage === 'Approved' || (s.stage as string) === 'Ready for Approval' || isAssuranceSetAssignedToPersona(s, 'Approver', undefined, userForRbac));
+
+  interface ApproverCandidate {
+    set: AssuranceSet;
+    waitDays: number;
+    hasOpenFindings: boolean;
+    openFindingsCount: number;
+    isReady: boolean;
+    readinessBar: DashboardReadinessBar;
+    buttonLabel: 'Decide' | 'Review';
+    subtitle: string;
+  }
+
+  const candidates: ApproverCandidate[] = [];
+
+  for (const set of effectiveSets) {
+    if (set.stage === 'Approved' || set.stage === 'Certified' || set.stage === 'Cancelled') {
+      continue;
+    }
+
+    const anySet = set as any;
+
+    // 1. Wait days
+    let waitDays = 0;
+    if (anySet.waitingDays != null) {
+      waitDays = anySet.waitingDays;
+    } else if (anySet.waitingSince) {
+      const time = new Date(anySet.waitingSince).getTime();
+      if (!Number.isNaN(time)) {
+        waitDays = Math.max(0, Math.floor((now.getTime() - time) / (1000 * 60 * 60 * 24)));
+      }
+    } else if (anySet.reachedApprovalDate) {
+      const time = new Date(anySet.reachedApprovalDate).getTime();
+      if (!Number.isNaN(time)) {
+        waitDays = Math.max(0, Math.floor((now.getTime() - time) / (1000 * 60 * 60 * 24)));
+      }
+    }
+
+    // 2. Open findings
+    const openCapas = capaItems.filter(
+      (c) =>
+        c.status !== 'Verified & Closed' &&
+        (c.assuranceSetId === set.id || (c.vesselId && c.vesselId === set.vesselId)),
+    );
+    const openFindingsCount = anySet.openFindingsCount != null ? anySet.openFindingsCount : openCapas.length;
+    const hasOpenFindings = openFindingsCount > 0 || Boolean(anySet.hasOpenFindings);
+
+    // 3. Readiness bar
+    let readinessBar: DashboardReadinessBar = {
+      submission: true,
+      verification: true,
+      inspection: true,
+    };
+
+    if (anySet.readinessBar) {
+      readinessBar = {
+        submission: anySet.readinessBar.submission !== false,
+        verification: anySet.readinessBar.verification !== false,
+        inspection: anySet.readinessBar.inspection !== false,
+      };
+    } else if (anySet.readiness) {
+      readinessBar = {
+        submission: anySet.readiness.submission !== false,
+        verification: anySet.readiness.verification !== false,
+        inspection: anySet.readiness.inspection !== false,
+      };
+    } else {
+      const sub = (set.requirements || []).length === 0 || (set.requirements || []).every((r) => r.isFulfilled || Boolean(r.documentId));
+      const ver = (set.requirements || []).length === 0 || (set.requirements || []).every((r) => r.verifierStatus === 'Verified');
+      const insp = !anySet.inspectionPending && set.stage !== 'Inspection';
+      readinessBar = { submission: sub, verification: ver, inspection: insp };
+    }
+
+    // 4. Ready to decide vs review
+    const isReady = !hasOpenFindings && (anySet.isReadyToDecide || (set.stage === 'Approval' && readinessBar.submission && readinessBar.verification && readinessBar.inspection !== false));
+    const buttonLabel: 'Decide' | 'Review' = isReady && !hasOpenFindings ? 'Decide' : 'Review';
+
+    // 5. Subtitle
+    let statusSnippet = 'decision pending';
+    if (hasOpenFindings) {
+      statusSnippet = `${openFindingsCount} open finding${openFindingsCount === 1 ? '' : 's'}`;
+    } else if (readinessBar.inspection === false || anySet.inspectionPending) {
+      statusSnippet = 'inspection pending';
+    } else if (isReady) {
+      statusSnippet = 'all verified';
+    }
+
+    const subtitle = `Waiting ${waitDays} day${waitDays === 1 ? '' : 's'} · ${statusSnippet}`;
+
+    candidates.push({
+      set,
+      waitDays,
+      hasOpenFindings,
+      openFindingsCount,
+      isReady,
+      readinessBar,
+      buttonLabel,
+      subtitle,
+    });
+  }
+
+  // Sort: longest wait first (descending waitDays)
+  candidates.sort((a, b) => b.waitDays - a.waitDays);
+
+  // Tiles:
+  // 1. Ready to decide (ok)
+  // 2. With open findings (warn)
+  // 3. Waiting over 5 days (bad)
+  // 4. Approved this month (neutral)
+  const readyToDecideCount = candidates.filter((c) => c.isReady && !c.hasOpenFindings).length;
+  const withFindingsCount = candidates.filter((c) => c.hasOpenFindings).length;
+  const waitingOver5Count = candidates.filter((c) => c.waitDays >= 5).length;
+  const approvedThisMonthCount = assuranceSets.filter((s) => s.stage === 'Approved').length;
+
+  const tiles: DashboardKpiTile[] = [
+    {
+      id: 'ready_to_decide',
+      label: 'Ready to decide',
+      value: readyToDecideCount,
+      tone: 'ok',
+      linkText: 'View →',
+      onClick: () =>
+        navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'needs-decision', setCurrentHashView),
+    },
+    {
+      id: 'with_open_findings',
+      label: 'With open findings',
+      value: withFindingsCount,
+      tone: 'warn',
+      linkText: 'View →',
+      onClick: () =>
+        navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'all', setCurrentHashView),
+    },
+    {
+      id: 'waiting_over_5',
+      label: 'Waiting over 5 days',
+      value: waitingOver5Count,
+      tone: 'bad',
+      linkText: 'View →',
+      onClick: () =>
+        navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'overdue', setCurrentHashView),
+    },
+    {
+      id: 'approved_this_month',
+      label: 'Approved this month',
+      value: approvedThisMonthCount,
+      tone: 'neutral',
+      linkText: 'View →',
+      onClick: () =>
+        navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'approved', setCurrentHashView),
+    },
+  ];
+
+  const actionItems: DashboardActionItem[] = candidates.slice(0, 5).map((c) => {
+    const vessel = c.set.vesselName;
+    const title = c.set.title;
+    const displayTitle = vessel && title && vessel !== title ? `${vessel} · ${title}` : (vessel || title || 'Assurance Set');
+
+    return {
+      id: `approver-action-${c.set.id}`,
+      title: displayTitle,
+      subtitle: c.subtitle,
+      readinessBar: c.readinessBar,
+      buttonLabel: c.buttonLabel,
+      onAction: () => {
+        setCurrentHashView('assurance-sets', c.set.id);
+      },
+    };
+  });
+
+  const totalActions = candidates.length;
+
+  return {
+    roleTitle: 'Approver',
+    subtitle: 'Decisions waiting',
+    tiles,
+    actionItems,
+    activityItems: getRoleRecentActivity('Approver', auditEvents, 5, now),
+    seeAllText: totalActions > 0 ? `See all ${totalActions}` : undefined,
+    onSeeAll: () =>
+      navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'all', setCurrentHashView),
     emptyActionMessage: 'Nothing needs you today',
   };
 }
