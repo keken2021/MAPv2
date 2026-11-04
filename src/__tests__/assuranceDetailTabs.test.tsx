@@ -67,7 +67,7 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(screen.queryByRole('table', { name: /requirements/i })).toBeNull();
   });
 
-  it('Requirements tab displays Stage & Readiness section and requirements register table', () => {
+  it('Requirements tab displays stage and readiness as one summary line without stepper, and link opens Details', () => {
     const { container } = render(<AssuranceDetailView setId="AS-2026-001" />);
 
     fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
@@ -75,21 +75,31 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     const reqTab = screen.getByRole('tab', { name: /requirements/i });
     expect(reqTab.getAttribute('aria-selected')).toBe('true');
 
-    // Stage pipeline stepper is visible inside Requirements tab
-    expect(screen.getByText('Stage')).toBeDefined();
-    expect(container.querySelector('.pipeline-stepper, [data-testid="pipeline-stepper"], .d-flex.flex-column')).not.toBeNull();
+    // Stepper and gauge are not rendered inside Requirements tab
+    expect(container.querySelector('.pipeline-stepper, [data-testid="pipeline-stepper"]')).toBeNull();
 
-    // Readiness gauge is visible inside Requirements tab
-    expect(screen.getByText('Readiness')).toBeDefined();
+    // Summary line is visible with stage and readiness %
+    const summaryLine = screen.getByTestId('requirements-summary-line');
+    expect(summaryLine).toBeInTheDocument();
+    expect(within(summaryLine).getByText(/Stage:/i)).toBeInTheDocument();
+    expect(within(summaryLine).getByText(/Readiness:/i)).toBeInTheDocument();
 
-    // Requirements header inside card
-    const reqElements = screen.getAllByText('Requirements');
-    expect(reqElements.length).toBeGreaterThanOrEqual(2);
-
-    // Requirement rows are visible
+    // Requirements table is visible
     const table = screen.getByRole('table');
     expect(table).toBeDefined();
     expect(within(table).getByText(/Certificate of Class/i)).toBeDefined();
+
+    // Clicking "View stage" link opens Details tab
+    const viewStageLink = within(summaryLine).getByRole('link', { name: /view stage/i });
+    expect(viewStageLink).toBeInTheDocument();
+    fireEvent.click(viewStageLink);
+
+    const detailsTab = screen.getByRole('tab', { name: /^details$/i });
+    expect(detailsTab.getAttribute('aria-selected')).toBe('true');
+
+    // PipelineStepper and ReadinessGauge are present on Details tab
+    expect(container.querySelector('.pipeline-stepper, [data-testid="pipeline-stepper"]')).not.toBeNull();
+    expect(screen.getByText('Readiness')).toBeDefined();
   });
 
   it('Tasks tab holds task section cards and shared Tasks table whose counts match its requirements and opens requirement', () => {

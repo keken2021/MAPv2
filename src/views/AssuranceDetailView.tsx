@@ -2331,7 +2331,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
-        <div className="row g-4 align-items-stretch">
+        <div className="d-flex flex-column gap-4">
+          <div className="row g-4 align-items-stretch">
           {/* Left: Assurance Set Information & Stakeholder Role Assignments Card */}
           <div className="col-12 col-lg-8 col-md-7 w-100">
             <div className="card map-card-custom p-4 h-100">
@@ -2881,9 +2882,33 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
               </div>
             </div>
           </div>
-
         </div>
 
+          {/* Bottom Section: Stage & Readiness */}
+          <div className="card map-card-custom p-4">
+            {/* Stage Pipeline Stepper */}
+            <div className="mb-4">
+              <div className="text-uppercase fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                Stage
+              </div>
+              <PipelineStepper
+                currentStage={assuranceSet.stage}
+                readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
+                assuranceSet={assuranceSet}
+                orientation="horizontal"
+                className="border-0 p-0 mb-0 bg-transparent flex-wrap gap-3"
+              />
+            </div>
+
+            {/* Readiness Index */}
+            <div className="pt-3 border-top">
+              <div className="text-secondary text-uppercase fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                Readiness
+              </div>
+              <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Tab: Objects */}
@@ -3248,30 +3273,27 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
       {/* Tab: Requirements */}
       {activeTab === 'requirements' && (
-        <div className="d-flex flex-column gap-4">
-          {/* Top: Stage & Readiness Section */}
-          <div className="card map-card-custom p-4">
-            {/* Stage Pipeline Stepper */}
-            <div className="mb-4">
-              <div className="text-uppercase fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                Stage
-              </div>
-              <PipelineStepper
-                currentStage={assuranceSet.stage}
-                readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
-                assuranceSet={assuranceSet}
-                orientation="horizontal"
-                className="border-0 p-0 mb-0 bg-transparent flex-wrap gap-3"
-              />
+        <div className="d-flex flex-column gap-3">
+          {/* Summary line: Stage, Readiness %, and View stage link */}
+          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 px-1 text-secondary small" data-testid="requirements-summary-line">
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <span>
+                Stage: <strong className="text-dark">{assuranceSet.stage}</strong>
+              </span>
+              <span className="text-muted">&middot;</span>
+              <span>
+                Readiness: <strong className="text-dark">{calculateAssuranceSetReadiness(assuranceSet)}%</strong>
+              </span>
             </div>
-
-            {/* Readiness Index */}
-            <div className="pt-3 border-top">
-              <div className="text-secondary text-uppercase fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                Readiness
-              </div>
-              <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
-            </div>
+            <button
+              type="button"
+              role="link"
+              className="btn btn-link p-0 text-decoration-none small"
+              style={{ fontSize: '0.8rem', color: '#0284c7' }}
+              onClick={() => handleTabChange('details')}
+            >
+              View stage
+            </button>
           </div>
 
           <div className="card map-card-custom">
