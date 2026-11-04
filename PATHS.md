@@ -125,6 +125,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for Administrator as client dashboard: `src/__tests__/administratorClientDashboard.test.tsx` (4 neutral KPI tiles, needs action list sorted soonest start first, missing roles naming, Assign button)
 - Unit tests for client tables removal: `src/__tests__/removeClientTablesFromDashboard.test.tsx` (client dashboard has no tables, search, or pagination; three list screens remain functional)
 - Unit tests for Submitter dashboard config: `src/__tests__/submitterDashboardConfig.test.tsx` (Submitter KPI tiles, 4-tier action urgency sort, tags, button labels and view routing)
+- Unit tests for Verifier dashboard config: `src/__tests__/verifierDashboardConfig.test.tsx` (Verifier KPI tiles, escalation check, 4-tier urgency action sorting, oldest wait days calculation, Verify buttons)
 - Unit tests for UI declutter dashboard KPI tiles: `src/__tests__/dashboardTiles.test.tsx` (tile navigation to filtered lists and table filtering for Administrator, Submitter, and C Admin)
 - Unit tests for UI declutter shell header and sidebar: `src/__tests__/shellDeclutter.test.tsx` (title-only list views, detail back links, sidebar labels Inspections, CAPA, Approvals, dynamic verification queue count badge)
 - Unit tests for reusable header back navigation: `src/__tests__/headerNavigation.test.tsx` (contextual return across screens, CAPA findings return to assurance set, parent list fallbacks)

@@ -60,10 +60,30 @@ export const isSetDueThisWeek = (set: AssuranceSet, now = new Date()): boolean =
   return diffDays >= 0 && diffDays <= 7;
 };
 
-export const isSetEscalated = (set: AssuranceSet): boolean => {
+export const isSetEscalated = (set: AssuranceSet, notifications?: any[] | unknown): boolean => {
   if ((set as any).hasActiveEscalationNotice) return true;
   if (Array.isArray((set as any).notices)) {
-    return (set as any).notices.some((n: any) => n.kind === 'escalation' && n.active);
+    return (set as any).notices.some(
+      (n: any) =>
+        (n.kind === 'escalation' || n.targetDateKind === 'escalation') &&
+        (n.active !== false && n.status !== 'resolved'),
+    );
+  }
+  if (Array.isArray((set as any).targetDateNotices)) {
+    return (set as any).targetDateNotices.some(
+      (n: any) =>
+        (n.kind === 'escalation' || n.targetDateKind === 'escalation') &&
+        (n.active !== false),
+    );
+  }
+  if (Array.isArray(notifications)) {
+    return notifications.some(
+      (n: any) =>
+        (n.target?.setId === set.id || n.assuranceSetId === set.id || n.setId === set.id) &&
+        (n.type === 'target_date' || n.kind === 'target_date' || n.category === 'target_date') &&
+        (n.targetDateKind === 'escalation' || n.kind === 'escalation') &&
+        !n.isRead,
+    );
   }
   return false;
 };
@@ -94,7 +114,7 @@ export const filterAssuranceSetsByDashboardFilter = (
           (s as any).status === 'Missing',
       );
     case 'escalated':
-      return sets.filter(isSetEscalated);
+      return sets.filter((s) => isSetEscalated(s));
     case 'ready_to_decide':
       return sets.filter(
         (s) =>
@@ -256,7 +276,7 @@ export const getRoleDashboardTiles = (
     }
 
     case 'Verifier': {
-      const escalated = sets.filter(isSetEscalated);
+      const escalated = sets.filter((s) => isSetEscalated(s));
       const dueThisWeek = sets.filter((s) => isSetDueThisWeek(s, now));
       const resubmitted = sets.filter((s) =>
         s.requirements?.some((r) => (r as any).isResubmitted || r.verifierStatus === 'Pending'),
