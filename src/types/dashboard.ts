@@ -1,3 +1,10 @@
+export type DashboardRole =
+  | 'Administrator as client'
+  | 'Submitter'
+  | 'Verifier'
+  | 'Inspector'
+  | 'Approver';
+
 export type KpiTone = 'neutral' | 'bad' | 'warn' | 'ok';
 
 export interface DashboardKpiTile {
@@ -32,6 +39,9 @@ export interface DashboardActivityItem {
   id: string;
   text: string;
   timeAgo: string;
+  sentence?: string;
+  relativeTime?: string;
+  timestampUtc?: string;
 }
 
 export interface DashboardConfig {
