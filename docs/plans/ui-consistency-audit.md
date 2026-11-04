@@ -261,16 +261,274 @@ These create jarring size discrepancies when placed side-by-side with standard `
 - `InspectionChecklistView.tsx:984` and `1001` use `font-weight-500` which is a non-standard utility class in Bootstrap 5 (which uses `fw-medium` or `fw-semibold`).
 - `VesselDetailView.tsx:3787` uses `shadow-2xs`, introducing custom elevation inconsistent with the flat design guidelines.
 
-## 4. Verification Spot-Check
+## 4. Spacing & Scale Audit
 
-The following 5 file:line references were spot-checked directly against the codebase to verify accuracy:
+### 4.1 Spacing Scale Proposal (4 / 8 / 12 / 16 / 24 px)
 
-| File:Line | Code Snippet | Verified |
+To eliminate arbitrary gap utilities (`gap-0.5` through `gap-5`) and irregular padding pairs (`px-4 py-3`, `px-2.5 py-1.5`, `px-3.5 py-1.5`, `py-0 px-2`), MAPv2 will standardize on a unified 5-step spacing scale based on 4px base units:
+
+| Scale Step | Target Size | Utility Classes | Semantic Usage | Design System Token |
+|:---|:---:|:---|:---|:---|
+| **Step 1 (xs)** | **4px** | `gap-1`, `p-1`, `px-1`, `py-1` | Tight inline icon-to-text gaps, micro badges, compact status chips | `space-1` (4px) |
+| **Step 2 (sm)** | **8px** | `gap-2`, `p-2`, `px-2`, `py-2` | Standard button group gap, table row action icon gaps, input vertical padding | `space-2` (8px) |
+| **Step 3 (md)** | **12px** | `gap-3`, `p-3`, `px-3`, `py-3` | Intermediate card gutters, form column gaps, sub-card internal padding | `space-3` (12px) |
+| **Step 4 (lg)** | **16px** | `gap-4`, `p-4`, `px-4`, `py-4` | Standard card body padding, main grid column gaps, modal header padding | `space-4` (16px) |
+| **Step 5 (xl)** | **24px** | `gap-5`, `p-5`, `px-5`, `py-5` | Modal inner body padding, drawer body padding, major section gutters | `space-6` (24px) |
+
+### 4.2 Gap Values in Use & Scale Mapping
+
+The entire `src/views/` directory contains exactly 9 distinct gap utility values across 418 gap occurrences. Every value in use maps directly to the proposed 5-step scale:
+
+| Current Gap Utility | Pixel Equivalent | Current Count | Proposed Scale Step | Target Replacement | Classification & Action |
+|:---|:---:|:---:|:---|:---|:---|
+| `gap-0.5` | ~2px | 1 | **Step 1 (4px)** | `gap-1` | **Cramped Outlier**: Text lines collide; promote to standard 4px |
+| `gap-1` | 4px | 38 | **Step 1 (4px)** | `gap-1` | **On Scale**: Retain for inline icon-to-text and micro chips |
+| `gap-1.5` | ~6px | 64 | **Step 2 (8px)** | `gap-2` | **Fractional Outlier**: Used in action icon clusters; promote to standard 8px |
+| `gap-2` | 8px | 186 | **Step 2 (8px)** | `gap-2` | **On Scale (Primary Standard)**: Retain as primary button group & toolbar gap |
+| `gap-2.5` | ~10px | 4 | **Step 3 (12px)** | `gap-3` | **Fractional Outlier**: Off-grid flow container; promote to 12px |
+| `gap-3` | 12px–16px | 78 | **Step 3 / Step 4** | `gap-3` (12px) / `gap-4` (16px) | **On Scale**: Retain for card gutters and filter toolbars |
+| `gap-3.5` | ~14px | 2 | **Step 4 (16px)** | `gap-4` | **Fractional Outlier**: Promote to clean 16px grid |
+| `gap-4` | 16px–24px | 25 | **Step 4 / Step 5** | `gap-4` (16px) / `gap-5` (24px) | **On Scale**: Retain for major container layout splits |
+| `gap-5` | 24px–48px | 1 | **Step 5 (24px)** | `gap-5` | **On Scale**: Retain for hero layout spacing |
+| **Total** | | **418** | | | **All 9 values fully mapped onto 4/8/12/16/24 scale** |
+
+### 4.3 Padding Values in Use & Scale Mapping
+
+Dozens of arbitrary padding utilities and pairs are in active use across components. Below is the mapping to standard scale values:
+
+| Current Padding Utility / Pair | Current Occurrences | Proposed Target Scale | Target Replacement | Rationale & Remediation |
+|:---|:---:|:---|:---|:---|
+| `py-0`, `py-0.5` | 15 | **Step 1 (4px)** | `py-1` (or default component padding) | **Cramped Outlier**: Strips vertical touch target; restore standard `btn-sm` padding |
+| `p-1.5`, `px-1.5`, `py-1.5` | 33 | **Step 2 (8px)** | `p-2`, `px-2`, `py-2` | **Fractional Outlier**: Irregular badge and button padding; normalize to 8px |
+| `px-2.5 py-1` | 10 | **Step 2 / Step 1 (8px / 4px)** | `px-2 py-1` (or standard `btn-sm`) | **Fractional Outlier**: Non-standard button padding override; remove manual override |
+| `px-2.5 py-1.5` | 28 | **Step 2 / Step 1 (8px / 4px)** | `px-2 py-1` | **Fractional Outlier**: Non-standard badge padding; standardize to unified badge token |
+| `p-2.5`, `py-2.5` | 16 | **Step 3 (12px)** | `p-3`, `py-3` | **Fractional Outlier**: Non-standard table row and card padding; align to 12px |
+| `px-3.5 py-1.5` | 6 | **Step 3 / Step 2 (12px / 8px)** | `px-3 py-2` | **Fractional Outlier**: Tab navigation links; align to standard navigation tokens |
+| `px-4 py-3` | 14 | **Step 4 / Step 3 (16px / 12px)** | `px-4 py-2` or `p-3` | **Over-Padded Outlier**: Card/modal footers consume excessive vertical height |
+| `p-5`, `py-5` | 14 | **Step 4 / Step 5 (16px / 24px)** | `p-4` / `p-5` | **Over-Padded Container**: Review for compact desktop screen fit |
+
+### 4.4 Per-View Spacing Inventory (All 29 Views)
+
+The table below catalogs the exact gap and padding utilities used across all 29 views in `src/views/`:
+
+| View File | Gap Values Used (Counts) | Padding Classes in Use |
+|:---|:---|:---|
+| `ApproverDashboardView.tsx` | `gap-4` (4), `gap-3` (2), `gap-2` (3), `gap-1.5` (1), `gap-1` (1) | `p-4` (3), `pt-3` (1), `p-2` (4), `p-0` (6), `p-3` (4), `py-2` (5), `py-2.5` (1), `px-3` (2) *(+2 more)* |
+| `AssuranceDetailView.tsx` | `gap-3` (16), `gap-1` (14), `gap-2` (39), `gap-4` (2), `gap-1.5` (12) | `p-4` (4), `py-4` (4), `px-3` (5), `py-1.5` (13), `px-4` (8), `px-2.5` (14), `py-2` (12), `pb-3` (1) *(+14 more)* |
+| `AssuranceObjectsView.tsx` | `gap-4` (1), `gap-1.5` (1), `gap-2` (2) | `px-3` (1), `py-1.5` (1), `py-2` (2), `p-0` (3) |
+| `AssuranceSetsView.tsx` | `gap-3` (1) | *None* |
+| `AuditTrailView.tsx` | `gap-4` (1) | `px-3` (1), `py-2` (1), `py-4` (1), `p-3` (1) |
+| `CapaManagementView.tsx` | `gap-4` (1) | `p-3` (2), `px-3` (1), `py-2` (1), `p-0` (2) |
+| `CreateAssuranceSetView.tsx` | `gap-2` (55), `gap-3` (20), `gap-1` (10), `gap-4` (4), `gap-2.5` (2), `gap-1.5` (6), `gap-0.5` (1) | `p-3` (14), `px-2.5` (7), `py-1` (6), `p-1` (3), `p-4` (14), `p-2.5` (4), `px-3` (25), `p-1.5` (4) *(+16 more)* |
+| `CreateProjectView.tsx` | `gap-3` (2), `gap-2` (10), `gap-1` (1) | `px-4` (1), `py-3` (1), `p-0` (3), `p-4` (2), `pt-1` (1), `py-2` (4), `ps-3` (1), `p-3` (2) *(+1 more)* |
+| `CrewDetailView.tsx` | `gap-4` (1), `gap-1.5` (11), `gap-2` (4), `gap-1` (1) | `p-4` (4), `p-2` (3), `p-1.5` (2), `pb-1` (1), `p-0` (8), `py-1` (1), `p-3` (14), `py-4` (4) *(+4 more)* |
+| `CrewGroupDetailView.tsx` | `gap-1.5` (5), `gap-4` (1), `gap-3` (1), `gap-2` (5) | `p-5` (1), `px-3` (2), `pt-2` (2), `py-2.5` (2), `px-3.5` (2), `p-4` (1), `px-2.5` (1), `py-1.5` (1) *(+5 more)* |
+| `CrewView.tsx` | `gap-4` (1) | *None* |
+| `DashboardView.tsx` | `gap-4` (1), `gap-2` (9), `gap-1` (2), `gap-1.5` (2) | `p-0` (7), `py-4` (3), `p-3` (2) |
+| `DocumentDetailView.tsx` | `gap-4` (1), `gap-2` (2) | `p-0` (2), `p-4` (1), `p-3` (3) |
+| `DocumentLibraryView.tsx` | `gap-3` (1) | `p-4` (1) |
+| `EquipmentDetailView.tsx` | `gap-3` (2), `gap-1.5` (6), `gap-1` (2), `gap-2` (3) | `p-2` (5), `pb-1` (1), `p-0` (5), `py-1.5` (1), `px-1` (3), `py-4` (2), `p-3` (9), `px-4` (1) *(+4 more)* |
+| `EquipmentView.tsx` | `gap-3` (1), `gap-1.5` (1), `gap-2` (2) | `p-3` (3), `px-2.5` (1), `py-1` (2), `px-3` (3), `py-1.5` (2), `py-2` (1), `py-4` (1), `p-0` (1) |
+| `FleetRegistryView.tsx` | `gap-3` (1) | *None* |
+| `InspectionChecklistView.tsx` | `gap-4` (1), `gap-3` (4), `gap-3.5` (1), `gap-2` (7), `gap-1.5` (3), `gap-2.5` (2), `gap-1` (1) | `pb-2` (5), `px-3` (4), `py-1` (4), `py-1.5` (1), `p-3` (8), `p-0` (1), `px-2` (1), `py-0.5` (1) *(+6 more)* |
+| `InspectorWorkspaceView.tsx` | `gap-4` (1), `gap-3` (1) | `py-2` (2), `p-3` (1), `px-3` (1), `p-0` (2) |
+| `LoginView.tsx` | `gap-3` (1), `gap-5` (1), `gap-2` (1) | `p-5` (2), `py-5` (1), `pt-4` (1), `p-4` (1), `py-2` (3), `px-3` (2), `p-0` (1) |
+| `MarketplaceView.tsx` | `gap-3.5` (1), `gap-3` (2), `gap-2` (2) | `p-3` (1), `px-2.5` (1), `px-3` (1), `py-2` (1), `p-4` (1), `py-5` (2), `p-0` (1) |
+| `NotificationsView.tsx` | `gap-3` (1), `gap-2` (1) | `py-2` (2), `p-3` (2), `px-3` (1), `py-5` (1), `p-0` (1) |
+| `OrganizationProfileView.tsx` | `gap-4` (1), `gap-3` (1), `gap-2` (2), `gap-1` (1) | `py-2` (3), `px-3` (3), `p-4` (1) |
+| `ProjectDetailView.tsx` | `gap-3` (7), `gap-2` (6), `gap-1.5` (5), `gap-1` (1) | `py-2` (3), `p-4` (3), `pb-2` (11), `px-2.5` (1), `py-1.5` (1), `py-1` (1), `p-3` (4), `px-3` (2) *(+3 more)* |
+| `ProjectView.tsx` | `gap-3` (1) | `p-3` (2), `px-3` (1), `py-2` (1), `py-4` (1), `p-0` (1) |
+| `RolesAndPermissionsView.tsx` | `gap-4` (1), `gap-3` (3), `gap-2` (3) | `pb-5` (1), `py-2` (3), `p-1` (1), `px-3` (3), `py-1.5` (2), `p-3` (1) |
+| `UserManagementView.tsx` | `gap-4` (1) | *None* |
+| `VerifierWorkspaceView.tsx` | `gap-4` (1), `gap-3` (1) | `py-2` (2), `p-3` (1), `px-3` (1), `p-0` (2) |
+| `VesselDetailView.tsx` | `gap-3` (9), `gap-1` (4), `gap-1.5` (11), `gap-2` (30), `gap-4` (1) | `px-4` (1), `py-5` (1), `p-5` (1), `p-4` (9), `p-2` (5), `py-1.5` (1), `px-1` (3), `py-3` (4) *(+11 more)* |
+
+
+### 4.5 Button Groups & Action Containers Gap Analysis
+
+Analysis of multi-button toolbars, modal footers, and table row action clusters across views reveals significant inconsistency in container gaps. Below is the full audit of button group containers:
+
+| # | File & Line | Gap Utility | Buttons Count | Container Snippet | Classification |
+|:--|:---|:---:|:---:|:---|:---|
+| 1 | [`ApproverDashboardView.tsx:656`](file:///c:/mapFiles/MAPv2/src/views/ApproverDashboardView.tsx#L656) | `gap-2` | 2 | `<div className="d-flex flex-column gap-2">` | Standard (8px) |
+| 2 | [`AssuranceDetailView.tsx:2308`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2308) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2">` | Standard (8px) |
+| 3 | [`AssuranceDetailView.tsx:3508`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3508) | `gap-2` | 2 | `<div className="col-auto d-flex align-items-center gap-2">` | Standard (8px) |
+| 4 | [`AssuranceDetailView.tsx:4455`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4455) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2">` | Standard (8px) |
+| 5 | [`AssuranceDetailView.tsx:4535`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4535) | `gap-2` | 2 | `<div className="col-12 col-md-3 d-flex justify-content-md-end gap-2">` | Standard (8px) |
+| 6 | [`AssuranceDetailView.tsx:5081`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5081) | `None (missing)` | 2 | `<div className="d-flex align-items-center justify-content-between mb-2` | Missing Gap (Risk of Collision) |
+| 7 | [`AssuranceDetailView.tsx:5083`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5083) | `gap-2` | 2 | `<div className="d-flex gap-2">` | Standard (8px) |
+| 8 | [`CreateAssuranceSetView.tsx:3835`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L3835) | `gap-2` | 2 | `<div className="col-12 col-md-2 d-flex gap-2">` | Standard (8px) |
+| 9 | [`CreateAssuranceSetView.tsx:4384`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4384) | `gap-2` | 2 | `<div className="card-footer bg-light border-top px-4 py-3 d-flex align` | Standard (8px) |
+| 10 | [`CreateAssuranceSetView.tsx:4385`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4385) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2">` | Standard (8px) |
+| 11 | [`CreateAssuranceSetView.tsx:4470`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4470) | `None (missing)` | 2 | `<div className="modal-footer border-top bg-light px-4 py-3 d-flex alig` | Missing Gap (Risk of Collision) |
+| 12 | [`CreateAssuranceSetView.tsx:4478`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4478) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2">` | Standard (8px) |
+| 13 | [`CreateProjectView.tsx:886`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L886) | `None (missing)` | 2 | `<div className="d-flex justify-content-between">` | Missing Gap (Risk of Collision) |
+| 14 | [`CreateProjectView.tsx:894`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L894) | `gap-2` | 2 | `<div className="d-flex gap-2">` | Standard (8px) |
+| 15 | [`CreateProjectView.tsx:1104`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L1104) | `None (missing)` | 2 | `<div className="d-flex justify-content-between">` | Missing Gap (Risk of Collision) |
+| 16 | [`CreateProjectView.tsx:1112`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L1112) | `gap-2` | 2 | `<div className="d-flex gap-2">` | Standard (8px) |
+| 17 | [`CrewDetailView.tsx:1444`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L1444) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2">` | Standard (8px) |
+| 18 | [`CrewGroupDetailView.tsx:240`](file:///c:/mapFiles/MAPv2/src/views/CrewGroupDetailView.tsx#L240) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2 pt-2">` | Standard (8px) |
+| 19 | [`CrewGroupDetailView.tsx:241`](file:///c:/mapFiles/MAPv2/src/views/CrewGroupDetailView.tsx#L241) | `gap-1.5` | 2 | `<button type="submit" className="btn btn-sm btn-primary d-inline-flex ` | Tight / Fractional (6px) |
+| 20 | [`EquipmentDetailView.tsx:696`](file:///c:/mapFiles/MAPv2/src/views/EquipmentDetailView.tsx#L696) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2">` | Standard (8px) |
+| 21 | [`InspectionChecklistView.tsx:748`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L748) | `gap-2` | 2 | `<div className="d-flex justify-content-end gap-2">` | Standard (8px) |
+| 22 | [`InspectionChecklistView.tsx:791`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L791) | `gap-2` | 2 | `<div className="d-flex justify-content-end gap-2">` | Standard (8px) |
+| 23 | [`InspectionChecklistView.tsx:1157`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L1157) | `None (missing)` | 2 | `<div className="d-flex align-items-center justify-content-between pb-2` | Missing Gap (Risk of Collision) |
+| 24 | [`InspectionChecklistView.tsx:1162`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L1162) | `gap-3` | 2 | `<div className="d-flex flex-column align-items-center gap-3">` | Loose (12/16px) |
+| 25 | [`InspectionChecklistView.tsx:1167`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L1167) | `gap-2` | 2 | `<div className="d-flex justify-content-center flex-wrap gap-2 w-100">` | Standard (8px) |
+| 26 | [`InspectionChecklistView.tsx:1190`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L1190) | `gap-2` | 2 | `<div className="d-flex justify-content-center gap-2 w-100">` | Standard (8px) |
+| 27 | [`MarketplaceView.tsx:306`](file:///c:/mapFiles/MAPv2/src/views/MarketplaceView.tsx#L306) | `None (missing)` | 2 | `<div className="btn-group" role="group" aria-label="View mode">` | Missing Gap (Risk of Collision) |
+| 28 | [`OrganizationProfileView.tsx:143`](file:///c:/mapFiles/MAPv2/src/views/OrganizationProfileView.tsx#L143) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2">` | Standard (8px) |
+| 29 | [`OrganizationProfileView.tsx:149`](file:///c:/mapFiles/MAPv2/src/views/OrganizationProfileView.tsx#L149) | `gap-1` | 2 | `<button type="button" className="btn btn-sm btn-primary d-flex align-i` | Cramped (4px) |
+| 30 | [`ProjectDetailView.tsx:251`](file:///c:/mapFiles/MAPv2/src/views/ProjectDetailView.tsx#L251) | `gap-2` | 2 | `<div className="d-flex flex-wrap gap-2">` | Standard (8px) |
+| 31 | [`RolesAndPermissionsView.tsx:476`](file:///c:/mapFiles/MAPv2/src/views/RolesAndPermissionsView.tsx#L476) | `gap-2` | 2 | `<div className="d-flex gap-2">` | Standard (8px) |
+| 32 | [`VesselDetailView.tsx:2548`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L2548) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2 ms-auto">` | Standard (8px) |
+| 33 | [`VesselDetailView.tsx:3432`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3432) | `None (missing)` | 2 | `<div className="modal-footer border-top bg-light d-flex justify-betwee` | Missing Gap (Risk of Collision) |
+| 34 | [`VesselDetailView.tsx:3987`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3987) | `gap-2` | 2 | `<div className="d-flex align-items-center gap-2">` | Standard (8px) |
+
+
+### 4.6 Padding Outliers Inventory (with File & Line References)
+
+The table below lists specific padding outliers with exact file and line references:
+
+| # | File & Line | Value / Pair | Context / Element | Issue Description |
+|:--|:---|:---|:---|:---|
+| 1 | [`ApproverDashboardView.tsx:652`](file:///c:/mapFiles/MAPv2/src/views/ApproverDashboardView.tsx#L652) | `py-2.5` | `<div className="alert alert-success py-2.5 px-3 small font-mono-code fw-sem` | Fractional / non-standard padding |
+| 2 | [`ApproverDashboardView.tsx:704`](file:///c:/mapFiles/MAPv2/src/views/ApproverDashboardView.tsx#L704) | `p-1.5` | `<div className="absolute -bottom-2 -right-2 p-1.5 bg-sky-500 rounded-full t` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 3 | [`AssuranceDetailView.tsx:1567`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L1567) | `py-1.5` | `<div className="badge bg-warning-subtle text-dark border border-warning-sub` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 4 | [`AssuranceDetailView.tsx:2097`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2097) | `py-1.5` | `<span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ font` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 5 | [`AssuranceDetailView.tsx:2106`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2106) | `py-1.5` | `return <span className="badge bg-success text-white px-2.5 py-1.5" style={{` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 6 | [`AssuranceDetailView.tsx:2108`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2108) | `py-1.5` | `return <span className="badge bg-info text-dark px-2.5 py-1.5" style={{ fon` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 7 | [`AssuranceDetailView.tsx:2111`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2111) | `py-1.5` | `return <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ ` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 8 | [`AssuranceDetailView.tsx:2114`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2114) | `py-1.5` | `return <span className="badge bg-danger text-white px-2.5 py-1.5" style={{ ` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 9 | [`AssuranceDetailView.tsx:2123`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2123) | `py-1.5` | `return <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ ` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 10 | [`AssuranceDetailView.tsx:2127`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2127) | `py-1.5` | `<span className="badge bg-primary text-white px-2.5 py-1.5" style={{ fontSi` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 11 | [`AssuranceDetailView.tsx:2679`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2679) | `py-0` | `className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-ite` | Cramped zero vertical padding on button |
+| 12 | [`AssuranceDetailView.tsx:2692`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2692) | `py-0` | `className="btn btn-sm btn-outline-danger py-0 px-2"` | Cramped zero vertical padding on button |
+| 13 | [`AssuranceDetailView.tsx:2706`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2706) | `py-0` | `className="btn btn-sm btn-outline-danger py-0 px-2"` | Cramped zero vertical padding on button |
+| 14 | [`AssuranceDetailView.tsx:2719`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2719) | `py-0` | `className="btn btn-sm btn-outline-danger py-0 px-2"` | Cramped zero vertical padding on button |
+| 15 | [`AssuranceDetailView.tsx:2734`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2734) | `py-0` | `className="btn btn-sm btn-danger text-white py-0 px-2"` | Cramped zero vertical padding on button |
+| 16 | [`AssuranceDetailView.tsx:3616`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3616) | `py-2.5` | `<td colSpan={reqTableColSpan} className="py-2.5 px-3">` | Fractional / non-standard padding |
+| 17 | [`AssuranceDetailView.tsx:3672`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3672) | `py-1.5` | `<td colSpan={reqTableColSpan} className="py-1.5 px-4 text-secondary small f` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 18 | [`AssuranceDetailView.tsx:3745`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3745) | `py-2.5` | `<td colSpan={reqTableColSpan} className="py-2.5 px-4">` | Fractional / non-standard padding |
+| 19 | [`AssuranceDetailView.tsx:3831`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3831) | `py-1.5` | `<span className="badge bg-success text-white px-2.5 py-1.5" style={{ fontSi` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 20 | [`AssuranceDetailView.tsx:3838`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3838) | `py-1.5` | `<span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ fontSiz` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 21 | [`AssuranceDetailView.tsx:3844`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3844) | `py-1.5` | `<span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ font` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 22 | [`AssuranceDetailView.tsx:3881`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3881) | `py-2.5` | `<td colSpan={reqTableColSpan} className="py-2.5 px-4">` | Fractional / non-standard padding |
+| 23 | [`AssuranceDetailView.tsx:4024`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4024) | `py-2.5` | `<td colSpan={reqTableColSpan} style={{ paddingLeft: '4rem' }} className="py` | Fractional / non-standard padding |
+| 24 | [`AssuranceDetailView.tsx:4053`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4053) | `px-2.5` | `className="btn btn-sm btn-outline-primary d-inline-flex align-items-center ` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 25 | [`AssuranceDetailView.tsx:4067`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4067) | `px-2.5` | `className="btn btn-sm btn-outline-secondary d-inline-flex align-items-cente` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 26 | [`AssuranceDetailView.tsx:4221`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4221) | `py-2.5` | `<td colSpan={reqTableColSpan} className="py-2.5 px-4">` | Fractional / non-standard padding |
+| 27 | [`AssuranceDetailView.tsx:4269`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4269) | `px-2.5` | `className="btn btn-sm btn-outline-primary d-inline-flex align-items-center ` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 28 | [`AssuranceDetailView.tsx:4283`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4283) | `px-2.5` | `className="btn btn-sm btn-outline-secondary d-inline-flex align-items-cente` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 29 | [`AssuranceDetailView.tsx:4366`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4366) | `py-2.5` | `<td colSpan={reqTableColSpan} className="py-2.5 px-3">` | Fractional / non-standard padding |
+| 30 | [`AssuranceDetailView.tsx:4674`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4674) | `px-4 py-3` | `<div className="modal-header border-bottom px-4 py-3">` | Oversized container/footer padding |
+| 31 | [`AssuranceDetailView.tsx:4711`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4711) | `px-4 py-3` | `<div className="modal-footer border-top px-4 py-3">` | Oversized container/footer padding |
+| 32 | [`AssuranceDetailView.tsx:5204`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5204) | `py-1.5` | `<div className="alert alert-danger py-1.5 px-3 mb-0 small">{exemptionError}` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 33 | [`AssuranceObjectsView.tsx:336`](file:///c:/mapFiles/MAPv2/src/views/AssuranceObjectsView.tsx#L336) | `py-1.5` | `className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 34 | [`CreateAssuranceSetView.tsx:2326`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L2326) | `px-2.5` | `className="btn btn-sm btn-primary text-white d-inline-flex align-items-cent` | Fractional scale padding (off 4/8/12/16/24 scale) |
+| 35 | [`CreateAssuranceSetView.tsx:2335`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L2335) | `px-2.5` | `className="btn btn-sm btn-outline-secondary d-inline-flex align-items-cente` | Fractional scale padding (off 4/8/12/16/24 scale) |
+
+
+### 4.7 Cramped and Over-Padded Spots Analysis
+
+#### 1. Cramped Spots (Touch Target & Breathing Room Violations)
+
+1. **Zero Vertical Padding on Buttons (`py-0 px-2`)**:
+   - Location: [`AssuranceDetailView.tsx:2679`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2679), `2692`, `2706`, `2719`, `2734`.
+   - Issue: The `py-0` utility flattens the button vertically to the exact line height of the text (less than 20px tall), violating the minimum 32px touch target standard for desktop web controls.
+   - Remediation: Replace with standard `btn btn-sm` styling without `py-0`.
+
+2. **Sub-Standard Gap on Table Row Action Icon Buttons (`gap-1.5`)**:
+   - Locations:
+     - [`AssuranceDetailView.tsx:3240`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3240)
+     - [`AssuranceDetailView.tsx:3851`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3851)
+     - [`AssuranceDetailView.tsx:3994`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3994)
+     - [`AssuranceDetailView.tsx:4149`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4149)
+     - [`CrewDetailView.tsx:883`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L883)
+     - [`CrewDetailView.tsx:1026`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L1026)
+     - [`VesselDetailView.tsx:2724`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L2724)
+     - [`VesselDetailView.tsx:3083`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3083)
+   - Issue: 32x32px icon buttons sit only 6px apart (`gap-1.5`), causing adjacent click target interference and visual crowding against table cell borders.
+   - Remediation: Upgrade to standard `gap-2` (8px).
+
+3. **Micro Gap on Label & Subtitle Stacks (`gap-0.5`)**:
+   - Location: [`CreateAssuranceSetView.tsx:4350`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4350) (`<div className="d-flex flex-column gap-0.5 min-w-0">`).
+   - Issue: 2px gap compresses heading and secondary text so descenders and ascenders almost collide.
+   - Remediation: Upgrade to standard `gap-1` (4px).
+
+4. **Missing Gaps on Multi-Button Action Bars**:
+   - Locations:
+     - [`CreateAssuranceSetView.tsx:4470`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4470) (`modal-footer ... d-flex align-items-center justify-content-between`)
+     - [`CreateProjectView.tsx:886`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L886) (`d-flex justify-content-between`)
+     - [`CreateProjectView.tsx:1104`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L1104) (`d-flex justify-content-between`)
+     - [`VesselDetailView.tsx:3432`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3432) (`modal-footer border-top bg-light d-flex justify-between`)
+   - Issue: When viewports shrink or modal content wraps, buttons collide because the container lacks an explicit flex gap. Furthermore, `justify-between` in `VesselDetailView:3432` is invalid Bootstrap syntax.
+   - Remediation: Add explicit `gap-2` (8px) on all action containers.
+
+#### 2. Over-Padded Spots (Excessive Height & Visual Weight Violations)
+
+1. **Bloated Card & Modal Footers (`px-4 py-3`)**:
+   - Locations:
+     - [`CreateAssuranceSetView.tsx:4384`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4384)
+     - [`CreateAssuranceSetView.tsx:4470`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4470)
+     - [`CreateProjectView.tsx:885`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L885)
+     - [`CreateProjectView.tsx:1103`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L1103)
+     - [`EquipmentDetailView.tsx:752`](file:///c:/mapFiles/MAPv2/src/views/EquipmentDetailView.tsx#L752)
+     - [`InspectionChecklistView.tsx:1156`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L1156)
+     - [`VesselDetailView.tsx:3425`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3425)
+     - [`VesselDetailView.tsx:3760`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3760)
+     - [`VesselDetailView.tsx:4044`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L4044)
+   - Issue: `py-3` adds 16px top and bottom padding, making footers over 60px tall for a single 31px button.
+   - Remediation: Reduce vertical footer padding to `py-2` (8px) or standard `p-3` (12px).
+
+2. **Over-Padded Full-Height Buttons (`py-2`, `px-4`)**:
+   - Locations:
+     - [`ApproverDashboardView.tsx:657`](file:///c:/mapFiles/MAPv2/src/views/ApproverDashboardView.tsx#L657), `665`, `672` (`btn btn-... py-2 fw-semibold`)
+     - [`InspectionChecklistView.tsx:1182`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L1182) (`btn btn-primary btn-sm px-4`)
+     - [`AssuranceDetailView.tsx:1576`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L1576) (`btn btn-primary px-4 fw-semibold`)
+   - Issue: Manual padding overrides produce inflated buttons (44px tall) that mismatch adjacent `btn-sm` controls.
+   - Remediation: Standardize on `btn-sm` without manual padding overrides.
+
+3. **Non-Standard Badge Padding Overrides (`px-2.5 py-1.5`)**:
+   - Locations: 28 occurrences across [`AssuranceDetailView.tsx:2097-2127`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2097), `3831`, `3838`, `3844`, [`ProjectDetailView.tsx:327`](file:///c:/mapFiles/MAPv2/src/views/ProjectDetailView.tsx#L327), [`CrewGroupDetailView.tsx:158`](file:///c:/mapFiles/MAPv2/src/views/CrewGroupDetailView.tsx#L158), [`EquipmentView.tsx:210`](file:///c:/mapFiles/MAPv2/src/views/EquipmentView.tsx#L210).
+   - Issue: Custom `px-2.5 py-1.5` forces badges to be taller than necessary, displacing tabular row heights.
+   - Remediation: Replace with standard MAP badge styling (`px-2 py-1` or Bootstrap `badge`).
+
+4. **Excessive Container Padding (`p-5`, `py-5`)**:
+   - Locations: [`LoginView.tsx:35`](file:///c:/mapFiles/MAPv2/src/views/LoginView.tsx#L35), [`CrewGroupDetailView.tsx:135`](file:///c:/mapFiles/MAPv2/src/views/CrewGroupDetailView.tsx#L135), [`VesselDetailView.tsx:889`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L889).
+   - Issue: Large `p-5` (48px) internal container padding wastes screen real estate on desktop monitors.
+   - Remediation: Reduce to standard `p-4` (16px) or `p-4 py-3`.
+
+## 5. Verification Spot-Check
+
+### 5.1 Button Verification Spot-Check (Task 5368)
+
+| File & Line | Code Snippet | Verified |
 |:---|:---|:---:|
-| `AssuranceDetailView.tsx:3410` | `<button type="button" className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5" ...>` | Yes |
-| `CreateProjectView.tsx:777` | `<button type="button" className="btn btn-sm btn-primary fw-semibold" ...>` | Yes |
-| `InspectionChecklistView.tsx:1168` | `<button type="button" className="btn btn-outline-secondary btn-sm" ...>` | Yes |
-| `VesselDetailView.tsx:1863` | `<button className="btn btn-sm btn-outline-primary" onClick={...}>` | Yes |
-| `ApproverDashboardView.tsx:695` | `<button type="button" className="btn-close" ...>` | Yes |
+| [`AssuranceDetailView.tsx:3410`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3410) | `<button type="button" className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5" ...>` | Yes |
+| [`CreateProjectView.tsx:777`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L777) | `<button type="button" className="btn btn-sm btn-primary fw-semibold" ...>` | Yes |
+| [`InspectionChecklistView.tsx:1168`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L1168) | `<button type="button" className="btn btn-outline-secondary btn-sm" ...>` | Yes |
+| [`VesselDetailView.tsx:1863`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L1863) | `<button className="btn btn-sm btn-outline-primary" onClick={...}>` | Yes |
+| [`ApproverDashboardView.tsx:695`](file:///c:/mapFiles/MAPv2/src/views/ApproverDashboardView.tsx#L695) | `<button type="button" className="btn-close" ...>` | Yes |
 
-Verification confirmation: Grep over `src/views` matches exactly **384 button instances**, matching the sum of counts in the inventory table.
+### 5.2 Spacing & Scale Verification Spot-Check (Task 5369)
+
+The following 5 file:line references were spot-checked directly against the codebase to verify spacing accuracy:
+
+| File & Line | Code Snippet | Utility Flagged | Issue Type | Verified |
+|:---|:---|:---:|:---|:---:|
+| [`VesselDetailView.tsx:2724`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L2724) | `<div className="d-flex align-items-center justify-content-end gap-1.5">` | `gap-1.5` | Tight / Fractional gap on action icons | Yes |
+| [`CreateAssuranceSetView.tsx:4350`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4350) | `<div className="d-flex flex-column gap-0.5 min-w-0">` | `gap-0.5` | Micro cramped gap (2px) on text column | Yes |
+| [`InspectionChecklistView.tsx:615`](file:///c:/mapFiles/MAPv2/src/views/InspectionChecklistView.tsx#L615) | `<div className="d-flex flex-column gap-3.5">` | `gap-3.5` | Fractional non-standard gap (14px) | Yes |
+| [`AssuranceDetailView.tsx:2679`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2679) | `className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"` | `py-0 px-2` | Cramped zero vertical padding on button | Yes |
+| [`CreateAssuranceSetView.tsx:4384`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4384) | `<div className="card-footer bg-light border-top px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">` | `px-4 py-3` | Over-padded card footer | Yes |
+
+### 5.3 Live App Visual Confirmation
+
+Two flagged screens were verified in the running application:
+1. **`AssuranceDetailView`**:
+   - Location: Requirements sub-rows and action buttons (lines 2679–2734, 3851).
+   - Confirmation: The `py-0 px-2` buttons appear noticeably compressed vertically compared to standard buttons, and action icons with `gap-1.5` sit cramped together against the table cell border.
+2. **`CreateAssuranceSetView`**:
+   - Location: Step footer and summary panel (lines 4350, 4384).
+   - Confirmation: The `gap-0.5` text block shows text lines almost touching, while the `px-4 py-3` card footer takes up unnecessary vertical space below the wizard steps.
