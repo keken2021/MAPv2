@@ -8,7 +8,7 @@ import React, { useMemo, useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { formatMaritimeDate, formatMaritimeDateTime } from '../utils/formatters';
-import { AuditTrailEvent, auditEventMatchesSearch, formatAuditTarget } from '../types/audit';
+import { AuditEventTarget, AuditTrailEvent, auditEventMatchesSearch, formatAuditTarget } from '../types/audit';
 import { filterAuditTrailForPersona } from '../utils/rbacHelpers';
 import {
   getDemoSessionContext,
@@ -63,7 +63,7 @@ export const AuditTrailView: React.FC = () => {
   } = useMapStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
-  const [targetKindFilter, setTargetKindFilter] = useState<'ALL' | 'set' | 'task' | 'date'>('ALL');
+  const [targetKindFilter, setTargetKindFilter] = useState<'ALL' | AuditEventTarget['kind']>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   const sessionUser = useMemo(
@@ -322,11 +322,18 @@ export const AuditTrailView: React.FC = () => {
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
                 value={targetKindFilter}
-                onChange={(e) => setTargetKindFilter(e.target.value as 'ALL' | 'set' | 'task' | 'date')}
+                onChange={(e) => setTargetKindFilter(e.target.value as 'ALL' | AuditEventTarget['kind'])}
               >
                 <option value="ALL">All targets</option>
                 <option value="set">Set</option>
+                <option value="stage">Stage</option>
+                <option value="object">Object</option>
+                <option value="requirement">Requirement</option>
+                <option value="document">Document</option>
                 <option value="task">Task</option>
+                <option value="stakeholder">Stakeholder</option>
+                <option value="party">Party</option>
+                <option value="finding">Finding</option>
                 <option value="date">Date</option>
               </select>
             </div>
