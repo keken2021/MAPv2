@@ -173,12 +173,16 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
     const { container } = render(<AssuranceDetailView setId={testSetId} initialTab="requirements" />);
 
     const headers = container.querySelectorAll('[data-testid="section-group-header"]');
-    expect(headers.length).toBe(3);
+    expect(headers.length).toBe(2);
     expect(headers[0].textContent?.trim()).toBe('General documents');
     expect(headers[1].textContent?.trim()).toBe('Vessel documents');
-    expect(headers[2].textContent?.trim()).toBe('Navigational equipment');
 
+    expect(screen.getByText('1 empty section')).toBeInTheDocument();
+    expect(screen.queryByTestId('empty-section-navigational-equipment')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('toggle-empty-sections'));
     expect(screen.getByTestId('empty-section-navigational-equipment')).toBeInTheDocument();
+    expect(screen.getByTestId('empty-section-navigational-equipment')).toHaveTextContent('Navigational equipment');
   });
 
   it('adds a new custom section on the tab, displays it in sentence case, and saves to assuranceSet.sections', () => {
@@ -212,9 +216,10 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
     const saveBtn = screen.getByTestId('btn-save-custom-section');
     fireEvent.click(saveBtn);
 
-    const headers = container.querySelectorAll('[data-testid="section-group-header"]');
-    expect(headers.length).toBe(3);
-    expect(headers[2].textContent?.trim()).toBe('Environmental compliance');
+    expect(screen.getByText('3 empty sections')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('toggle-empty-sections'));
+    expect(screen.getByTestId('empty-section-environmental-compliance')).toBeInTheDocument();
+    expect(screen.getByTestId('empty-section-environmental-compliance')).toHaveTextContent('Environmental compliance');
 
     const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === testSetId);
     expect(updatedSet).toBeDefined();
@@ -305,11 +310,79 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
       expect(h.className).not.toContain('text-uppercase');
     });
 
-    expect(headers[0].textContent?.trim()).toBe('General documents');
-    expect(headers[1].textContent?.trim()).toBe('Vessel documents');
-    expect(headers[2].textContent?.trim()).toBe('Crew directory documents');
+    expect(headers.length).toBe(1);
+    expect(headers[0].textContent?.trim()).toBe('Vessel documents');
+
+    expect(screen.getByText('2 empty sections')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('toggle-empty-sections'));
+
+    const emptyGeneral = screen.getByTestId('empty-section-general-documents');
+    const emptyCrew = screen.getByTestId('empty-section-crew-directory-documents');
+    expect(emptyGeneral).toHaveTextContent('General documents');
+    expect(emptyCrew).toHaveTextContent('Crew directory documents');
 
     fireEvent.click(screen.getByRole('tab', { name: /tasks/i }));
     expect(screen.getByText('Task sections')).toBeInTheDocument();
+  });
+
+  it('Task 5367: groups all empty sections at the end into one line that expands to list their names', () => {
+    const testSetId = 'AS-TEST-EMPTY-SECTIONS-COLLAPSE';
+    const testSet: AssuranceSet = {
+      ...initialState.assuranceSets[0],
+      id: testSetId,
+      title: 'Empty Sections Collapse Test',
+      subtypes: ['Vessel', 'Crew'],
+      sections: [
+        { id: 'sec-general', name: 'General documents', order: 1 },
+        { id: 'sec-vessel', name: 'Vessel documents', order: 2 },
+        { id: 'sec-crew', name: 'Crew directory documents', order: 3 },
+      ],
+      requirements: [
+        {
+          id: 'REQ-GEN-01',
+          title: 'Document of Compliance (DOC)',
+          category: 'Statutory Certificate',
+          sectionId: 'sec-general',
+          isMandatory: true,
+          isFulfilled: false,
+          ocrConfidence: 95,
+          verifierStatus: 'Pending',
+        },
+      ],
+    };
+
+    useMapStore.setState({
+      assuranceSets: [testSet, ...initialState.assuranceSets],
+    });
+
+    const { container } = render(<AssuranceDetailView setId={testSetId} initialTab="requirements" />);
+
+    // Non-empty section (General documents) has regular section header
+    const headers = container.querySelectorAll('[data-testid="section-group-header"]');
+    expect(headers.length).toBe(1);
+    expect(headers[0].textContent?.trim()).toBe('General documents');
+
+    // The two empty sections (Vessel documents and Crew directory documents) are collapsed into one line
+    const emptyToggle = screen.getByTestId('toggle-empty-sections');
+    expect(emptyToggle).toBeInTheDocument();
+    expect(emptyToggle.textContent).toContain('2 empty sections');
+
+    // Before expanding, individual empty section rows are not in document
+    expect(screen.queryByTestId('empty-section-vessel-documents')).toBeNull();
+    expect(screen.queryByTestId('empty-section-crew-directory-documents')).toBeNull();
+
+    // Expanding lists both empty section names
+    fireEvent.click(emptyToggle);
+    const vesselEmpty = screen.getByTestId('empty-section-vessel-documents');
+    const crewEmpty = screen.getByTestId('empty-section-crew-directory-documents');
+    expect(vesselEmpty).toBeInTheDocument();
+    expect(vesselEmpty).toHaveTextContent('Vessel documents');
+    expect(crewEmpty).toBeInTheDocument();
+    expect(crewEmpty).toHaveTextContent('Crew directory documents');
+
+    // Collapsing hides them again
+    fireEvent.click(emptyToggle);
+    expect(screen.queryByTestId('empty-section-vessel-documents')).toBeNull();
+    expect(screen.queryByTestId('empty-section-crew-directory-documents')).toBeNull();
   });
 });

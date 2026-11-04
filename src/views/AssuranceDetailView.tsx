@@ -698,6 +698,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(() => initialTab || parseTabFromUrl());
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(() => new Set());
   const [expandedReqIds, setExpandedReqIds] = useState<Set<string>>(() => new Set());
+  const [isEmptySectionsExpanded, setIsEmptySectionsExpanded] = useState<boolean>(false);
 
   const toggleGroupExpand = (groupId: string) => {
     setExpandedGroupIds((prev) => {
@@ -3587,50 +3588,57 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                       </td>
                     </tr>
                   ) : (
-                    effectiveSections.map((sec) => {
-                      const slug = (sec.name || sec.id).toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                      const sectionTitle = toSentenceCase(sec.name);
-                      const secReqs = orderedRequirements.filter((req) => {
-                        const info = getRequirementSectionInfo(req, assuranceSet?.sections);
-                        return info.sectionId === sec.id;
-                      });
+                    (() => {
+                      const sectionsWithReqs: { sec: TaskSection; secReqs: AssuranceRequirement[] }[] = [];
+                      const emptySections: TaskSection[] = [];
+
+                      for (const sec of effectiveSections) {
+                        const secReqs = orderedRequirements.filter((req) => {
+                          const info = getRequirementSectionInfo(req, assuranceSet?.sections);
+                          return info.sectionId === sec.id;
+                        });
+                        if (secReqs.length > 0) {
+                          sectionsWithReqs.push({ sec, secReqs });
+                        } else {
+                          emptySections.push(sec);
+                        }
+                      }
 
                       return (
-                        <React.Fragment key={sec.id}>
-                          <tr className="bg-light border-top border-bottom" data-testid={`group-section-${slug}`}>
-                            <td colSpan={reqTableColSpan} className="py-2.5 px-3">
-                              <div className="d-flex align-items-center justify-content-between">
-                                <span className="fw-bold text-secondary" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }} data-testid="section-group-header">
-                                  {sectionTitle}
-                                </span>
-                                {isAdminViewer && (() => {
-                                  const secDoneCount = secReqs.filter((r) => {
-                                    if (r.verifierStatus === 'Verified' || r.isFulfilled) return true;
-                                    if (r.requirementGroupId?.trim()) {
-                                      const groupTasks = assuranceSet.requirements.filter((t) => t.requirementGroupId === r.requirementGroupId);
-                                      if (groupTasks.length > 0 && groupTasks.every((t) => t.isFulfilled || t.verifierStatus === 'Verified')) {
-                                        return true;
-                                      }
-                                    }
-                                    return false;
-                                  }).length;
-                                  return (
-                                    <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.7rem' }} data-testid={`section-count-${slug}`}>
-                                      {secDoneCount}/{secReqs.length}
-                                    </span>
-                                  );
-                                })()}
-                              </div>
-                            </td>
-                          </tr>
-                          {secReqs.length === 0 ? (
-                            <tr data-testid={`empty-section-${slug}`}>
-                              <td colSpan={reqTableColSpan} className="text-center text-muted py-3 small fst-italic">
-                                No requirements recorded in this section.
-                              </td>
-                            </tr>
-                          ) : (
-                            secReqs.map((req: AssuranceRequirement, rIdx: number) => {
+                        <>
+                          {sectionsWithReqs.map(({ sec, secReqs }) => {
+                            const slug = (sec.name || sec.id).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                            const sectionTitle = toSentenceCase(sec.name);
+
+                            return (
+                              <React.Fragment key={sec.id}>
+                                <tr className="bg-light border-top border-bottom" data-testid={`group-section-${slug}`}>
+                                  <td colSpan={reqTableColSpan} className="py-2.5 px-3">
+                                    <div className="d-flex align-items-center justify-content-between">
+                                      <span className="fw-bold text-secondary" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }} data-testid="section-group-header">
+                                        {sectionTitle}
+                                      </span>
+                                      {isAdminViewer && (() => {
+                                        const secDoneCount = secReqs.filter((r) => {
+                                          if (r.verifierStatus === 'Verified' || r.isFulfilled) return true;
+                                          if (r.requirementGroupId?.trim()) {
+                                            const groupTasks = assuranceSet.requirements.filter((t) => t.requirementGroupId === r.requirementGroupId);
+                                            if (groupTasks.length > 0 && groupTasks.every((t) => t.isFulfilled || t.verifierStatus === 'Verified')) {
+                                              return true;
+                                            }
+                                          }
+                                          return false;
+                                        }).length;
+                                        return (
+                                          <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.7rem' }} data-testid={`section-count-${slug}`}>
+                                            {secDoneCount}/{secReqs.length}
+                                          </span>
+                                        );
+                                      })()}
+                                    </div>
+                                  </td>
+                                </tr>
+                                {secReqs.map((req: AssuranceRequirement, rIdx: number) => {
                               const secInfo = getRequirementSectionInfo(req, assuranceSet?.sections);
                               const currentSubtype = getRequirementSubtype(req, secInfo);
 
@@ -4348,12 +4356,54 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                   )}
                                 </React.Fragment>
                               );
-                            })
-                          )}
-                        </React.Fragment>
-                      );
-                    })
-                  )}
+                            })}
+                          </React.Fragment>
+                        );
+                      })}
+                      {emptySections.length > 0 && (
+                        <>
+                          <tr className="bg-light border-top border-bottom" data-testid="empty-sections-row">
+                            <td colSpan={reqTableColSpan} className="py-2.5 px-3">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-link p-0 text-secondary text-decoration-none d-inline-flex align-items-center gap-2 fw-semibold"
+                                style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }}
+                                onClick={() => setIsEmptySectionsExpanded((prev) => !prev)}
+                                aria-expanded={isEmptySectionsExpanded}
+                                data-testid="toggle-empty-sections"
+                              >
+                                {isEmptySectionsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                <span>
+                                  {emptySections.length} empty {emptySections.length === 1 ? 'section' : 'sections'}
+                                </span>
+                              </button>
+                            </td>
+                          </tr>
+                          {isEmptySectionsExpanded &&
+                            emptySections.map((sec) => {
+                              const slug = (sec.name || sec.id).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                              const sectionTitle = toSentenceCase(sec.name);
+                              return (
+                                <tr
+                                  key={sec.id}
+                                  data-testid={`empty-section-${slug}`}
+                                  className="border-bottom bg-white"
+                                >
+                                  <td colSpan={reqTableColSpan} className="py-2 px-3 ps-4 text-muted small">
+                                    <span className="fw-medium text-dark">{sectionTitle}</span>
+                                    <span className="ms-2 text-secondary fst-italic" style={{ fontSize: '0.75rem' }}>
+                                      (No requirements recorded)
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </>
+                      )}
+                    </>
+                  );
+                })()
+              )}
                 </tbody>
               </table>
             </div>
