@@ -5,9 +5,13 @@ import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { getReadinessTextClass } from '../config/readinessScale';
 import { formatMaritimeDate } from '../utils/formatters';
-import { VerifierWorkspaceView } from './VerifierWorkspaceView';
-import { InspectorWorkspaceView } from './InspectorWorkspaceView';
-import { ApproverDashboardView } from './ApproverDashboardView';
+import {
+  getAdministratorClientDashboardConfig,
+  getSubmitterDashboardConfig,
+  getVerifierDashboardConfig,
+  getInspectorDashboardConfig,
+  getApproverDashboardConfig,
+} from '../utils/roleDashboardConfigs';
 import { Vessel } from '../types/vessel';
 import { AssuranceSet, AssuranceRequirement } from '../types/assurance';
 import { MasterDocument } from '../types/document';
@@ -33,10 +37,6 @@ import { TablePagination } from '../components/common/TablePagination';
 import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
 import { EXPIRY_WARNING_DAYS, isExpiringWithinWarning } from '../utils/expiryPolicy';
 import { SharedDashboardFrame } from '../components/dashboard/SharedDashboardFrame';
-import {
-  getAdministratorClientDashboardConfig,
-  getSubmitterDashboardConfig,
-} from '../utils/roleDashboardConfigs';
 
 /**
   what: renders the executive dashboard workspace view in light theme.
@@ -52,6 +52,7 @@ export const DashboardView: React.FC = () => {
     users,
     capaItems,
     auditEvents,
+    notifications,
     activePersona,
     activeDemoOrganization,
     setCurrentHashView,
@@ -274,17 +275,108 @@ export const DashboardView: React.FC = () => {
     [relevantSetsForPerformance, capaItems],
   );
 
-  /* these roles get their own workspace; the check sits below every hook so the hook order never changes */
-  if (activePersona === 'Verifier') {
-    return <VerifierWorkspaceView />;
+  const isClientAdmin = activePersona === 'Administrator' || activePersona === 'C Admin';
+
+  const adminClientConfig = useMemo(() => {
+    if (!isClientAdmin) return null;
+    return getAdministratorClientDashboardConfig({
+      assuranceSets,
+      capaItems,
+      auditEvents,
+      projects,
+      activeOrganization: activeDemoOrganization,
+      setCurrentHashView,
+    });
+  }, [isClientAdmin, assuranceSets, capaItems, auditEvents, projects, activeDemoOrganization, setCurrentHashView]);
+
+  const submitterConfig = useMemo(() => {
+    if (activePersona !== 'Submitter') return null;
+    return getSubmitterDashboardConfig({
+      assuranceSets,
+      documents,
+      capaItems,
+      auditEvents,
+      sessionUser,
+      activeOrganization: activeDemoOrganization,
+      setCurrentHashView,
+    });
+  }, [activePersona, assuranceSets, documents, capaItems, auditEvents, sessionUser, activeDemoOrganization, setCurrentHashView]);
+
+  const verifierConfig = useMemo(() => {
+    if (activePersona !== 'Verifier') return null;
+    return getVerifierDashboardConfig({
+      assuranceSets,
+      documents,
+      auditEvents,
+      notifications,
+      sessionUser,
+      activeOrganization: activeDemoOrganization,
+      setCurrentHashView,
+    });
+  }, [activePersona, assuranceSets, documents, auditEvents, notifications, sessionUser, activeDemoOrganization, setCurrentHashView]);
+
+  const inspectorConfig = useMemo(() => {
+    if (activePersona !== 'Inspector') return null;
+    return getInspectorDashboardConfig({
+      assuranceSets,
+      capaItems,
+      auditEvents,
+      sessionUser,
+      activeOrganization: activeDemoOrganization,
+      setCurrentHashView,
+    });
+  }, [activePersona, assuranceSets, capaItems, auditEvents, sessionUser, activeDemoOrganization, setCurrentHashView]);
+
+  const approverConfig = useMemo(() => {
+    if (activePersona !== 'Approver') return null;
+    return getApproverDashboardConfig({
+      assuranceSets,
+      capaItems,
+      auditEvents,
+      sessionUser,
+      activeOrganization: activeDemoOrganization,
+      setCurrentHashView,
+    });
+  }, [activePersona, assuranceSets, capaItems, auditEvents, sessionUser, activeDemoOrganization, setCurrentHashView]);
+
+  if (isClientAdmin && adminClientConfig) {
+    return (
+      <div className="d-flex flex-column gap-4">
+        <SharedDashboardFrame config={adminClientConfig} />
+      </div>
+    );
   }
 
-  if (activePersona === 'Inspector') {
-    return <InspectorWorkspaceView />;
+  if (activePersona === 'Submitter' && submitterConfig) {
+    return (
+      <div className="d-flex flex-column gap-4">
+        <SharedDashboardFrame config={submitterConfig} />
+      </div>
+    );
   }
 
-  if (activePersona === 'Approver') {
-    return <ApproverDashboardView />;
+  if (activePersona === 'Verifier' && verifierConfig) {
+    return (
+      <div className="d-flex flex-column gap-4">
+        <SharedDashboardFrame config={verifierConfig} />
+      </div>
+    );
+  }
+
+  if (activePersona === 'Inspector' && inspectorConfig) {
+    return (
+      <div className="d-flex flex-column gap-4">
+        <SharedDashboardFrame config={inspectorConfig} />
+      </div>
+    );
+  }
+
+  if (activePersona === 'Approver' && approverConfig) {
+    return (
+      <div className="d-flex flex-column gap-4">
+        <SharedDashboardFrame config={approverConfig} />
+      </div>
+    );
   }
 
   /* compute role-specific top summary metrics for activePersona */
@@ -519,48 +611,7 @@ export const DashboardView: React.FC = () => {
       ).length
       : 0;
 
-  const isClientAdmin = activePersona === 'Administrator' || activePersona === 'C Admin';
 
-  const adminClientConfig = useMemo(() => {
-    if (!isClientAdmin) return null;
-    return getAdministratorClientDashboardConfig({
-      assuranceSets,
-      capaItems,
-      auditEvents,
-      projects,
-      activeOrganization: activeDemoOrganization,
-      setCurrentHashView,
-    });
-  }, [isClientAdmin, assuranceSets, capaItems, auditEvents, projects, activeDemoOrganization, setCurrentHashView]);
-
-  if (isClientAdmin && adminClientConfig) {
-    return (
-      <div className="d-flex flex-column gap-4">
-        <SharedDashboardFrame config={adminClientConfig} />
-      </div>
-    );
-  }
-
-  const submitterConfig = useMemo(() => {
-    if (activePersona !== 'Submitter') return null;
-    return getSubmitterDashboardConfig({
-      assuranceSets,
-      documents,
-      capaItems,
-      auditEvents,
-      sessionUser,
-      activeOrganization: activeDemoOrganization,
-      setCurrentHashView,
-    });
-  }, [activePersona, assuranceSets, documents, capaItems, auditEvents, sessionUser, activeDemoOrganization, setCurrentHashView]);
-
-  if (activePersona === 'Submitter' && submitterConfig) {
-    return (
-      <div className="d-flex flex-column gap-4">
-        <SharedDashboardFrame config={submitterConfig} />
-      </div>
-    );
-  }
 
   return (
     <div className="d-flex flex-column gap-4">
