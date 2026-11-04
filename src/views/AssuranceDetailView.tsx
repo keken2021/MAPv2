@@ -696,6 +696,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const assuranceSet = assuranceSets.find((s) => s.id === cleanSetId || s.id === setId) || assuranceSets[0];
 
   const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(() => initialTab || parseTabFromUrl());
+  const [showBackToTasks, setShowBackToTasks] = useState<boolean>(false);
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(() => new Set());
   const [expandedReqIds, setExpandedReqIds] = useState<Set<string>>(() => new Set());
   const [isEmptySectionsExpanded, setIsEmptySectionsExpanded] = useState<boolean>(false);
@@ -823,6 +824,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   }, [isMemberExcluded, assuranceSets, activeDemoOrganization, assuranceSet?.requirements, crew]);
 
   const handleTabChange = (tab: AssuranceDetailTab) => {
+    setShowBackToTasks(false);
     setActiveTab(tab);
     if (typeof window !== 'undefined') {
       const baseHash = `#/assurance-sets/${assuranceSet.id}`;
@@ -836,6 +838,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   useEffect(() => {
     const onHashChange = () => {
+      setShowBackToTasks(false);
       const tabFromUrl = parseTabFromUrl();
       setActiveTab((prev) => (prev !== tabFromUrl ? tabFromUrl : prev));
     };
@@ -2357,6 +2360,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       <DetailHeader
         title={assuranceSet.title}
         status={headerStatus}
+        backLink={
+          showBackToTasks && activeTab === 'requirements'
+            ? {
+                label: 'tasks',
+                onClick: () => {
+                  setShowBackToTasks(false);
+                  handleTabChange('tasks');
+                },
+              }
+            : undefined
+        }
         metaItems={[
           clientOwnerOrg,
           assuranceSet.complianceDeadline || assuranceSet.targetDate
@@ -4445,6 +4459,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             viewerParty={viewerParty}
             onOpenRequirement={(req) => {
               setFocusedRequirementId(req.id);
+              setShowBackToTasks(true);
               setActiveTab('requirements');
             }}
           />
