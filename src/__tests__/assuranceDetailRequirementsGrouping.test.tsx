@@ -232,7 +232,9 @@ describe('AssuranceDetailView Requirements Tab Step 3 Grouping (Findings 5d-01, 
     expect(screen.getByText('Cargo Ship Safety Construction Certificate')).toBeInTheDocument();
     expect(screen.getByText('Specialized Port State Inspection Waiver')).toBeInTheDocument();
 
-    // Verify other document has "Added by client" badge
+    // Verify other document has "Added by client" badge in detail row when expanded
+    const toggleBtn = screen.getByTestId('toggle-req-REQ-OTHER-01');
+    fireEvent.click(toggleBtn);
     const otherDocBadge = container.querySelector('[data-testid="badge-other-doc-REQ-OTHER-01"]');
     expect(otherDocBadge).not.toBeNull();
     expect(otherDocBadge?.textContent).toBe('Added by client');

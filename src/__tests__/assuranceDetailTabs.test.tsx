@@ -842,4 +842,142 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(firstReqToggle).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByTestId('req-detail-REQ-101')).toBeInTheDocument();
   });
+
+  it('Task 5364: shows at most one status badge on requirement row with precedence (Exempted > Shared > Lapsed), moving secondary badges to detail row', () => {
+    const testSetId = 'AS-TASK-5364-ONE-BADGE';
+    const baseSet = useMapStore.getState().assuranceSets[0];
+
+    const defaultReq = useMapStore.getState().assuranceSets[0].requirements[0];
+
+    const testSet: AssuranceSet = {
+      ...baseSet,
+      id: testSetId,
+      title: 'One Status Badge Test Set',
+      charterWindowStart: '2026-01-01',
+      charterWindowEnd: '2026-12-31',
+      requirements: [
+        // 1. Exemption + Attempt + Version + Added by client + Lapsed doc
+        // Precedence: Exempted wins over Lapsed, and Version/Attempt/Added by client move to detail row
+        {
+          ...defaultReq,
+          id: 'REQ-BADGE-01',
+          title: 'Exempted Priority Requirement',
+          category: 'Statutory Certificate',
+          sectionId: 'sec-statutory',
+          verifierStatus: 'Verified',
+          documentVersion: 'v2.1',
+          attemptNumber: 3,
+          isOtherDocument: true,
+          isSpecialized: true,
+          documentId: 'DOC-LAPSED-01',
+          exemption: {
+            reason: 'Flag state waiver granted',
+            grantedBy: 'Maritime Authority',
+            grantedAt: '2026-10-01T00:00:00Z',
+            newDate: '2026-12-31',
+          },
+        },
+        // 2. Shared requirement with 2 parties (no exemption)
+        // Precedence: Shared (2 parties)
+        {
+          ...defaultReq,
+          id: 'REQ-BADGE-02-A',
+          requirementGroupId: 'grp-badge-02',
+          title: 'Shared Radio Operator Requirement',
+          category: 'Crew Endorsement',
+          sectionId: 'sec-crew',
+          verifierStatus: 'Pending',
+          responsibleParty: 'Alpha Maritime',
+        },
+        {
+          ...defaultReq,
+          id: 'REQ-BADGE-02-B',
+          requirementGroupId: 'grp-badge-02',
+          title: 'Shared Radio Operator Requirement',
+          category: 'Crew Endorsement',
+          sectionId: 'sec-crew',
+          verifierStatus: 'Pending',
+          responsibleParty: 'Beta Shipping',
+        },
+        // 3. Lapsed document requirement (no exemption, not shared)
+        // Precedence: Lapsed
+        {
+          ...defaultReq,
+          id: 'REQ-BADGE-03',
+          title: 'Lapsed Certificate Requirement',
+          category: 'Statutory Certificate',
+          sectionId: 'sec-statutory',
+          verifierStatus: 'Pending',
+          documentId: 'DOC-LAPSED-02',
+        },
+      ],
+    };
+
+    const lapsedDoc1 = {
+      ...useMapStore.getState().documents[0],
+      id: 'DOC-LAPSED-01',
+      title: 'Expired Certificate 1',
+      expiryDate: '2020-01-01',
+      currentVersion: 'v2.1',
+      status: 'Active' as const,
+      category: 'Statutory Certificate',
+      uploadedAt: '2020-01-01T00:00:00Z',
+      fileSize: 1024,
+      fileType: 'pdf',
+      ocrConfidence: 95,
+    };
+
+    const lapsedDoc2 = {
+      ...useMapStore.getState().documents[0],
+      id: 'DOC-LAPSED-02',
+      title: 'Expired Certificate 2',
+      expiryDate: '2021-06-01',
+      currentVersion: 'v1.0',
+      status: 'Active' as const,
+      category: 'Statutory Certificate',
+      uploadedAt: '2021-06-01T00:00:00Z',
+      fileSize: 1024,
+      fileType: 'pdf',
+      ocrConfidence: 90,
+    };
+
+    useMapStore.setState({
+      assuranceSets: [testSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
+      documents: [lapsedDoc1, lapsedDoc2, ...useMapStore.getState().documents],
+      activePersona: 'Administrator',
+    });
+
+    render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    // Requirement 1 Row: Has Exemption -> ONLY Exempted badge is on the row
+    const row1 = screen.getByTestId('toggle-req-REQ-BADGE-01').closest('tr');
+    expect(row1).not.toBeNull();
+    expect(within(row1!).getByTestId('badge-exempted-REQ-BADGE-01')).toBeInTheDocument();
+    // Secondary badges NOT on the row
+    expect(within(row1!).queryByTestId('badge-other-doc-REQ-BADGE-01')).toBeNull();
+    expect(within(row1!).queryByText('Attempt 3')).toBeNull();
+    expect(within(row1!).queryByText('Custom')).toBeNull();
+    expect(within(row1!).queryByText('v2.1')).toBeNull();
+    expect(within(row1!).queryByTestId('badge-lapsed-REQ-BADGE-01')).toBeNull();
+
+    // Expand Requirement 1: Secondary badges appear in detail row
+    fireEvent.click(screen.getByTestId('toggle-req-REQ-BADGE-01'));
+    const detailRow1 = screen.getByTestId('req-detail-REQ-BADGE-01');
+    expect(detailRow1).toBeInTheDocument();
+    expect(within(detailRow1).getByTestId('badge-other-doc-REQ-BADGE-01')).toBeInTheDocument();
+    expect(within(detailRow1).getByText('Attempt 3')).toBeInTheDocument();
+    expect(within(detailRow1).getByText('Custom')).toBeInTheDocument();
+    expect(within(detailRow1).getByText('v2.1')).toBeInTheDocument();
+
+    // Requirement 2 Row: Shared across multiple parties -> Shared (2 parties) badge
+    expect(screen.getByTestId('badge-shared-requirement')).toBeInTheDocument();
+    expect(screen.getByTestId('badge-shared-requirement').textContent).toContain('Shared (2 parties)');
+
+    // Requirement 3 Row: Has Lapsed doc and no exemption -> Lapsed badge
+    const row3 = screen.getByTestId('toggle-req-REQ-BADGE-03').closest('tr');
+    expect(row3).not.toBeNull();
+    expect(within(row3!).getByTestId('badge-lapsed-REQ-BADGE-03')).toBeInTheDocument();
+    expect(within(row3!).getByTestId('badge-lapsed-REQ-BADGE-03').textContent).toBe('Lapsed');
+  });
 });

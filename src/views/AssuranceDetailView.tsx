@@ -2155,6 +2155,55 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     );
   };
 
+  /* at most one badge on the row, the first that applies: Exempted, Shared (n), Lapsed */
+  const renderRowStatusBadge = (
+    req: AssuranceRequirement,
+    docView?: RequirementDocumentView,
+    canViewDoc: boolean = true,
+    isShared: boolean = false,
+    sharedCount: number = 0,
+  ) => {
+    if (req.exemption) {
+      return (
+        <span
+          className="badge bg-warning text-dark ms-1.5"
+          style={{ fontSize: '0.65rem' }}
+          data-testid={`badge-exempted-${req.id}`}
+          title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
+        >
+          Exempted ({formatMaritimeDate(req.exemption.newDate)})
+        </span>
+      );
+    }
+    if (isShared && sharedCount > 1) {
+      return (
+        <span
+          className="badge bg-secondary-subtle text-secondary border ms-1.5"
+          style={{ fontSize: '0.65rem' }}
+          data-testid="badge-shared-requirement"
+          title="Requirement shared across multiple parties"
+        >
+          Shared ({sharedCount} parties)
+        </span>
+      );
+    }
+    if (docView && canViewDoc) {
+      const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
+      if (validity.state === 'lapsed') {
+        return (
+          <span
+            className="badge border bg-danger-subtle text-danger-emphasis border-danger-subtle ms-1.5"
+            style={{ fontSize: '0.65rem' }}
+            data-testid={`badge-lapsed-${req.id}`}
+          >
+            Lapsed
+          </span>
+        );
+      }
+    }
+    return null;
+  };
+
   const openRequirementUpload = (req: AssuranceRequirement, existingDoc?: MasterDocument) => {
     const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
     if (!isClientViewer && !canViewDoc) return;
@@ -3584,16 +3633,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             <div>
                                               <div className="fw-semibold text-dark">
                                                 {req.title}
-                                                {req.isOtherDocument && (
-                                                  <span
-                                                    className="badge bg-secondary-subtle text-dark border ms-1.5"
-                                                    style={{ fontSize: '0.65rem' }}
-                                                    data-testid={`badge-other-doc-${req.id}`}
-                                                    title="Added by client"
-                                                  >
-                                                    Added by client
-                                                  </span>
-                                                )}
+                                                {renderRowStatusBadge(req, undefined, false, false, 0)}
                                               </div>
                                               {renderTaskPlacement(req)}
                                               <div className="d-flex align-items-center gap-1.5 flex-wrap">
@@ -3627,10 +3667,26 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                           </button>
                                         </td>
                                       </tr>
-                                      {isReqExpanded && req.description && (
+                                      {isReqExpanded && (
                                         <tr data-testid={`req-detail-${req.id}`} className="bg-light-subtle">
                                           <td colSpan={4} className="py-2.5 px-4">
-                                            <div className="text-secondary small">{req.description}</div>
+                                            <div className="d-flex flex-column gap-2" style={{ fontSize: '0.78rem' }}>
+                                              {req.isOtherDocument && (
+                                                <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                  <span
+                                                    className="badge bg-secondary-subtle text-dark border"
+                                                    style={{ fontSize: '0.65rem' }}
+                                                    data-testid={`badge-other-doc-${req.id}`}
+                                                    title="Added by client"
+                                                  >
+                                                    Added by client
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {req.description && (
+                                                <div className="text-secondary small">{req.description}</div>
+                                              )}
+                                            </div>
                                           </td>
                                         </tr>
                                       )}
@@ -3659,24 +3715,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             <div>
                                               <div className="fw-semibold text-dark">
                                                 {req.title}
-                                                <span
-                                                  className="badge bg-secondary-subtle text-secondary border ms-1.5"
-                                                  style={{ fontSize: '0.65rem' }}
-                                                  data-testid="badge-shared-requirement"
-                                                  title="Requirement shared across multiple parties"
-                                                >
-                                                  Shared ({groupTasks.length} parties)
-                                                </span>
-                                                {req.isOtherDocument && (
-                                                  <span
-                                                    className="badge bg-secondary-subtle text-dark border ms-1.5"
-                                                    style={{ fontSize: '0.65rem' }}
-                                                    data-testid={`badge-other-doc-${req.id}`}
-                                                    title="Added by client"
-                                                  >
-                                                    Added by client
-                                                  </span>
-                                                )}
+                                                {renderRowStatusBadge(req, docView, canViewDoc, true, groupTasks.length)}
                                               </div>
                                               {renderTaskPlacement(req)}
                                             </div>
@@ -3751,11 +3790,40 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                           </div>
                                         </td>
                                       </tr>
-                                      {isReqExpanded && req.description && (
+                                      {isReqExpanded && (
                                         <tr data-testid={`req-detail-${req.id}`} className="bg-light-subtle">
                                           <td colSpan={4} className="py-2.5 px-4">
-                                            <div className="text-secondary small" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
-                                              {req.description}
+                                            <div className="d-flex flex-column gap-2" style={{ fontSize: '0.78rem' }}>
+                                              {(renderVersionBadge(req, docView, canViewDoc) || req.attemptNumber || req.isOtherDocument || req.isSpecialized) && (
+                                                <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                  {renderVersionBadge(req, docView, canViewDoc)}
+                                                  {req.attemptNumber && (
+                                                    <span className="badge bg-light text-secondary border" style={{ fontSize: '0.65rem' }}>
+                                                      Attempt {req.attemptNumber}
+                                                    </span>
+                                                  )}
+                                                  {req.isOtherDocument && (
+                                                    <span
+                                                      className="badge bg-secondary-subtle text-dark border"
+                                                      style={{ fontSize: '0.65rem' }}
+                                                      data-testid={`badge-other-doc-${req.id}`}
+                                                      title="Added by client"
+                                                    >
+                                                      Added by client
+                                                    </span>
+                                                  )}
+                                                  {req.isSpecialized && (
+                                                    <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle" style={{ fontSize: '0.65rem' }}>
+                                                      Custom
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              )}
+                                              {req.description && (
+                                                <div className="text-secondary small" style={{ lineHeight: '1.4' }}>
+                                                  {req.description}
+                                                </div>
+                                              )}
                                             </div>
                                           </td>
                                         </tr>
@@ -3802,22 +3870,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                     <span className="fw-semibold text-dark small" data-testid="party-name">
                                                       {partyName}
                                                     </span>
-                                                    {renderVersionBadge(partyTask, partyDocView, canViewPartyDoc)}
-                                                    {partyTask.attemptNumber && (
-                                                      <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                                        Attempt {partyTask.attemptNumber}
-                                                      </span>
-                                                    )}
-                                                    {partyTask.isOtherDocument && (
-                                                      <span
-                                                        className="badge bg-secondary-subtle text-dark border ms-1.5"
-                                                        style={{ fontSize: '0.65rem' }}
-                                                        data-testid={`badge-other-doc-${partyTask.id}`}
-                                                        title="Added by client"
-                                                      >
-                                                        Added by client
-                                                      </span>
-                                                    )}
+                                                    {renderRowStatusBadge(partyTask, partyDocView, canViewPartyDoc, false, 0)}
                                                   </div>
                                                 </div>
                                               </td>
@@ -3860,6 +3913,26 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                               <tr data-testid={`req-detail-${partyTask.id}`} className="party-detail-row bg-light-subtle">
                                                 <td colSpan={4} style={{ paddingLeft: '4rem' }} className="py-2.5 pe-4">
                                                   <div className="d-flex flex-column gap-1.5" style={{ fontSize: '0.75rem' }}>
+                                                    {(renderVersionBadge(partyTask, partyDocView, canViewPartyDoc) || partyTask.attemptNumber || partyTask.isOtherDocument) && (
+                                                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                        {renderVersionBadge(partyTask, partyDocView, canViewPartyDoc)}
+                                                        {partyTask.attemptNumber && (
+                                                          <span className="badge bg-light text-secondary border" style={{ fontSize: '0.65rem' }}>
+                                                            Attempt {partyTask.attemptNumber}
+                                                          </span>
+                                                        )}
+                                                        {partyTask.isOtherDocument && (
+                                                          <span
+                                                            className="badge bg-secondary-subtle text-dark border"
+                                                            style={{ fontSize: '0.65rem' }}
+                                                            data-testid={`badge-other-doc-${partyTask.id}`}
+                                                            title="Added by client"
+                                                          >
+                                                            Added by client
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    )}
                                                     {partyTask.notes && canViewPartyDoc && (
                                                       <div className="text-secondary">{partyTask.notes}</div>
                                                     )}
@@ -3899,36 +3972,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             <div>
                                               <div className="fw-semibold text-dark">
                                                 {req.title}
-                                                {renderVersionBadge(req, docView, canViewDoc)}
-                                                {req.attemptNumber && (
-                                                  <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                                    Attempt {req.attemptNumber}
-                                                  </span>
-                                                )}
-                                                {req.exemption && (
-                                                  <span
-                                                    className="badge bg-warning text-dark ms-1.5"
-                                                    style={{ fontSize: '0.65rem' }}
-                                                    title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
-                                                  >
-                                                    Exempted ({formatMaritimeDate(req.exemption.newDate)})
-                                                  </span>
-                                                )}
-                                                {renderTaskPlacement(req)}
-                                                {req.isOtherDocument ? (
-                                                  <span
-                                                    className="badge bg-secondary-subtle text-dark border ms-1.5"
-                                                    style={{ fontSize: '0.65rem' }}
-                                                    data-testid={`badge-other-doc-${req.id}`}
-                                                    title="Added by client"
-                                                  >
-                                                    Added by client
-                                                  </span>
-                                                ) : req.isSpecialized ? (
-                                                  <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                                    Custom
-                                                  </span>
-                                                ) : null}
+                                                {renderRowStatusBadge(req, docView, canViewDoc, false, 0)}
                                               </div>
                                             </div>
                                           </div>
@@ -4024,6 +4068,31 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                         <tr data-testid={`req-detail-${req.id}`} className="bg-light-subtle">
                                           <td colSpan={4} className="py-2.5 px-4">
                                             <div className="d-flex flex-column gap-2" style={{ fontSize: '0.78rem' }}>
+                                              {(renderVersionBadge(req, docView, canViewDoc) || req.attemptNumber || req.isOtherDocument || req.isSpecialized) && (
+                                                <div className="d-flex align-items-center gap-2 flex-wrap">
+                                                  {renderVersionBadge(req, docView, canViewDoc)}
+                                                  {req.attemptNumber && (
+                                                    <span className="badge bg-light text-secondary border" style={{ fontSize: '0.65rem' }}>
+                                                      Attempt {req.attemptNumber}
+                                                    </span>
+                                                  )}
+                                                  {req.isOtherDocument && (
+                                                    <span
+                                                      className="badge bg-secondary-subtle text-dark border"
+                                                      style={{ fontSize: '0.65rem' }}
+                                                      data-testid={`badge-other-doc-${req.id}`}
+                                                      title="Added by client"
+                                                    >
+                                                      Added by client
+                                                    </span>
+                                                  )}
+                                                  {req.isSpecialized && (
+                                                    <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle" style={{ fontSize: '0.65rem' }}>
+                                                      Custom
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              )}
                                               {req.description && (
                                                 <div className="text-secondary" style={{ lineHeight: '1.4' }}>
                                                   {req.description}
