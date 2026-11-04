@@ -95,7 +95,16 @@ export const ApproverDashboardView: React.FC = () => {
   const usesApproverAssignment =
     activePersona === 'Approver' || (activePersona === 'Verifier' && canAccessApprovalGate);
 
-  const [activeTab, setActiveTab] = useState<ApproverTabKey>('needs-decision');
+  const [activeTab, setActiveTab] = useState<ApproverTabKey>(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      const stored = sessionStorage.getItem('map_approver_tab_preselect');
+      if (stored) {
+        sessionStorage.removeItem('map_approver_tab_preselect');
+        return stored as ApproverTabKey;
+      }
+    }
+    return 'needs-decision';
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('All');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);

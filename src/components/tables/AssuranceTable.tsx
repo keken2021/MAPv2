@@ -28,6 +28,7 @@ import {
 } from '../../utils/rbacHelpers';
 import { getProjectForAssuranceSet } from '../../utils/projectHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
+import { filterAssuranceSetsByDashboardFilter } from '../../utils/dashboardTileNavigation';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { ASSURANCE_SCOPE_OPTIONS } from '../../utils/assuranceTemplates';
 import { usePagination } from '../../utils/usePagination';
@@ -72,6 +73,16 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   const [activeTab, setActiveTab] = useState<AssuranceViewTab>(defaultTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('ALL');
+  const [dashboardFilter, setDashboardFilter] = useState<string>(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      const stored = sessionStorage.getItem('map_assurance_filter');
+      if (stored) {
+        sessionStorage.removeItem('map_assurance_filter');
+        return stored;
+      }
+    }
+    return '';
+  });
   const [scopeFilter, setScopeFilter] = useState<string>('ALL');
   const [projectFilter, setProjectFilter] = useState<string>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -158,7 +169,10 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
     return sortDirection === 'asc' ? comparison : -comparison;
   });
 
-  const filteredSets = accessibleSets.filter((s) => {
+  const baseAccessibleSets = dashboardFilter
+    ? filterAssuranceSetsByDashboardFilter(accessibleSets, dashboardFilter)
+    : accessibleSets;
+  const filteredSets = baseAccessibleSets.filter((s) => {
     let matchesTab = true;
     if (activeTab === 'organization') {
       matchesTab = isOrgSet(s);
@@ -194,6 +208,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
 
   const activeChips: FilterChip[] = [
     ...(stageFilter !== 'ALL' && activeTab !== 'public' ? [{ id: 'stage', label: 'Stage', value: stageFilter, onRemove: () => setStageFilter('ALL') }] : []),
+    ...(dashboardFilter ? [{ id: 'dashboardFilter', label: 'Filter', value: dashboardFilter, onRemove: () => setDashboardFilter('') }] : []),
     ...(scopeFilter !== 'ALL' ? [{ id: 'scope', label: 'Scope', value: scopeFilter, onRemove: () => setScopeFilter('ALL') }] : []),
     ...(projectFilter !== 'ALL' && activeTab !== 'public'
       ? [{
@@ -206,6 +221,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
   ];
 
   const handleResetFilters = () => {
+    setDashboardFilter('');
     setStageFilter('ALL');
     setScopeFilter('ALL');
     setProjectFilter('ALL');

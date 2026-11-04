@@ -38,7 +38,16 @@ export const InspectorWorkspaceView: React.FC = () => {
     [activePersona, users, activeDemoOrganization, activeSessionUserId],
   );
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<InspectorTabKey>('to-inspect');
+  const [activeTab, setActiveTab] = useState<InspectorTabKey>(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      const stored = sessionStorage.getItem('map_inspector_tab_preselect');
+      if (stored) {
+        sessionStorage.removeItem('map_inspector_tab_preselect');
+        return stored as InspectorTabKey;
+      }
+    }
+    return 'to-inspect';
+  });
   const [sortField, setSortField] = useState<InspectorSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchQuery, setSearchQuery] = useState('');

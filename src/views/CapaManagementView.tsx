@@ -105,7 +105,16 @@ export const CapaManagementView: React.FC<CapaManagementViewProps> = ({ vesselNa
       );
 
   /* filter, sort & search state */
-  const [activeTab, setActiveTab] = useState<'All' | CapaStatus>('All');
+  const [activeTab, setActiveTab] = useState<'All' | CapaStatus>(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      const stored = sessionStorage.getItem('map_capa_tab_preselect');
+      if (stored) {
+        sessionStorage.removeItem('map_capa_tab_preselect');
+        return stored as 'All' | CapaStatus;
+      }
+    }
+    return 'All';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<CapaSortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');

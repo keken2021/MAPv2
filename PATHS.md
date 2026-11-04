@@ -41,6 +41,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/config/featureFlags.ts` : feature flags
 - `src/config/readinessScale.ts` : unified readiness scale cut-offs, tones, and CSS class helpers
 - `src/utils/formatters.ts` : dates, status labels, and `getProviderLabel` (Vessel Provider, Crew Provider, Equipment Provider, or Provider)
+- `src/utils/dashboardTileNavigation.ts` : KPI tile navigation and list filtering for role dashboards
 
 ## Notifications
 - `src/views/NotificationsView.tsx`, `src/components/layout/NotificationPanel.tsx`, `src/components/modals/NotificationDetailModal.tsx` : inbox page, header bell panel, detail modal
@@ -117,6 +118,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter Approver Dashboard: `src/__tests__/approverDashboardDeclutter.test.tsx` (CountTabs, Due column, 1 badge/action per row, detail view cleanup)
 - Unit tests for UI declutter Submitter Dashboard: `src/__tests__/dashboardSubmitterSession.test.tsx` (per-person filtering with useSessionUser, 13 sets for M. Chen)
 - Unit tests for shared dashboard frame: `src/__tests__/sharedDashboardFrame.test.tsx` (role dashboard shared frame layout, KPI tiles, responsive stacking below 900px, empty action state)
+- Unit tests for KPI tile navigation: `src/__tests__/dashboardTileNavigation.test.tsx` (KPI tiles open filtered list screens with matching counts across all 5 roles)
 - Unit tests for UI declutter dashboard KPI tiles: `src/__tests__/dashboardTiles.test.tsx` (tile navigation to filtered lists and table filtering for Administrator, Submitter, and C Admin)
 - Unit tests for UI declutter shell header and sidebar: `src/__tests__/shellDeclutter.test.tsx` (title-only list views, detail back links, sidebar labels Inspections, CAPA, Approvals, dynamic verification queue count badge)
 - Unit tests for reusable header back navigation: `src/__tests__/headerNavigation.test.tsx` (contextual return across screens, CAPA findings return to assurance set, parent list fallbacks)

@@ -75,7 +75,16 @@ export const VerifierWorkspaceView: React.FC = () => {
   const [selectedDoc, setSelectedDoc] = useState<MasterDocument | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<VerifierTabKey>('to-verify');
+  const [activeTab, setActiveTab] = useState<VerifierTabKey>(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      const stored = sessionStorage.getItem('map_verifier_tab_preselect');
+      if (stored) {
+        sessionStorage.removeItem('map_verifier_tab_preselect');
+        return stored as VerifierTabKey;
+      }
+    }
+    return 'to-verify';
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
