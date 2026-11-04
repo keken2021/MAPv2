@@ -55,7 +55,7 @@ describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
     });
   });
 
-  it('nests requirements under object type with sub-type accordions', () => {
+  it('renders requirements under object type with a flat list and one Add other document button', () => {
     const { container } = render(<CreateAssuranceSetView />);
     clickNext();
     clickNext();
@@ -64,41 +64,19 @@ describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
     expect(vesselSection).not.toBeNull();
     expect(vesselSection?.textContent).toContain('Vessel documents');
 
-    // Verify sub-type accordions under Vessel
-    const statutoryAccordion = container.querySelector('[data-testid="subtype-accordion-vessel-statutory-certificate"]');
-    expect(statutoryAccordion).not.toBeNull();
-    expect(statutoryAccordion?.textContent).toContain('Statutory Certificate');
+    // Verify flat list of documents under Vessel
+    const docsList = container.querySelector('[data-testid="docs-list-vessel"]');
+    expect(docsList).not.toBeNull();
+    expect(docsList?.textContent).toContain('Certificate of Class');
+    expect(docsList?.textContent).toContain('Cargo Ship Safety Certificate (SOLAS Combined)');
 
-    const classAccordion = container.querySelector('[data-testid="subtype-accordion-vessel-class-notation-certificate"]');
-    expect(classAccordion).not.toBeNull();
-    expect(classAccordion?.textContent).toContain('Class Notation Certificate');
-
-    const envAccordion = container.querySelector('[data-testid="subtype-accordion-vessel-environmental-certificate"]');
-    expect(envAccordion).not.toBeNull();
-    expect(envAccordion?.textContent).toContain('Environmental Certificate');
-
-    // Verify accordion header toggles collapse
-    const statutoryHeader = container.querySelector('[data-testid="accordion-header-vessel-statutory-certificate"]') as HTMLButtonElement;
-    expect(statutoryHeader).not.toBeNull();
-    expect(statutoryHeader.getAttribute('aria-expanded')).toBe('true');
-
-    // Click to collapse
-    fireEvent.click(statutoryHeader);
-    expect(statutoryHeader.getAttribute('aria-expanded')).toBe('false');
-    expect(container.querySelector('[data-testid="accordion-body-vessel-statutory-certificate"]')).toBeNull();
-
-    // Click to expand
-    fireEvent.click(statutoryHeader);
-    expect(statutoryHeader.getAttribute('aria-expanded')).toBe('true');
-    expect(container.querySelector('[data-testid="accordion-body-vessel-statutory-certificate"]')).not.toBeNull();
-
-    // Verify Add other document button exists in each accordion
-    const addOtherBtn = container.querySelector('[data-testid="btn-add-other-doc-vessel-statutory-certificate"]');
+    // Verify single Add other document button exists
+    const addOtherBtn = container.querySelector('[data-testid="btn-add-other-doc-vessel"]');
     expect(addOtherBtn).not.toBeNull();
     expect(addOtherBtn?.textContent).toContain('Add other document');
   });
 
-  it('renders sections for each covered object type with their respective sub-type accordions and sentence case titles', () => {
+  it('renders sections for each covered object type with their respective flat lists and sentence case titles', () => {
     const { container } = render(<CreateAssuranceSetView />);
     clickNext(); // To Step 2
 
@@ -122,14 +100,13 @@ describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
     const crewSection = container.querySelector('[data-testid="section-object-crew"]');
     expect(crewSection).not.toBeNull();
     expect(crewSection?.textContent).toContain('Crew directory documents');
-    expect(container.querySelector('[data-testid="subtype-accordion-crew-crew-credential"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="subtype-accordion-crew-medical-fitness-certificate"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="docs-list-crew"]')).not.toBeNull();
 
     // Section 4: Equipment documents in sentence case
     const equipSection = container.querySelector('[data-testid="section-object-equipment"]');
     expect(equipSection).not.toBeNull();
     expect(equipSection?.textContent).toContain('Equipment documents');
-    expect(container.querySelector('[data-testid="subtype-accordion-equipment-equipment-register"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="docs-list-equipment"]')).not.toBeNull();
   });
 
   it('rejects blank section name when adding a custom section', () => {

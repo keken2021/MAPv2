@@ -907,15 +907,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     },
   ]);
 
-  /* Accordion expansion state: true by default so all active accordions open initially */
-  const [expandedAccordions, setExpandedAccordions] = useState<Record<string, boolean>>({});
-  const toggleAccordion = (key: string) => {
-    setExpandedAccordions((prev) => ({
-      ...prev,
-      [key]: prev[key] === undefined ? false : !prev[key],
-    }));
-  };
-  const isAccordionOpen = (key: string) => expandedAccordions[key] !== false;
 
   const handleToggleGeneralDocRequired = (id: string, current: boolean) => {
     setGeneralDocs((prev) =>
@@ -2601,25 +2592,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </button>
             </div>
           )}
-          <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.75rem' }}>
-            {activeGeneralDocs.length} Organization-wide {activeGeneralDocs.length === 1 ? 'doc' : 'docs'}
-          </span>
         </div>
-        <p className="text-secondary small m-0">
-          Organization-wide files (DOC, NDA, MSA) assigned to organizations, not to an asset.
-        </p>
 
         <div className="card border shadow-2xs rounded-3 bg-white">
-          <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <div>
-              <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                Organization Requirements ({activeGeneralDocs.length})
-              </h5>
-              <div className="text-muted small mt-0.5">
-                Standard organizational compliance and contractual documentation.
-              </div>
-            </div>
-          </div>
           <div className="card-body p-4 d-flex flex-column gap-2" data-testid="general-docs-list">
             {activeGeneralDocs.length === 0 ? (
               <div className="p-4 text-center text-secondary small bg-light rounded-2 border border-dashed">
@@ -2710,41 +2685,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         hint: d.category,
       }));
 
-    /* Collect all sub-type categories for this subtype */
-    const standardCategories = SUBTYPE_CATEGORIES[subtype] || [];
-    const extraCategories = activeSpecializedDocs
-      .map((d) => d.category)
-      .filter((cat) => !standardCategories.includes(cat as any));
-    const allSubtypeCategories = [...standardCategories, ...extraCategories];
-
     return (
       <div className="d-flex flex-column gap-3" id={`subtype-docs-container-${subtype}`}>
-        {/* Template Selector Card */}
         <div className="card border shadow-2xs rounded-3 bg-white">
-          <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <div>
-              <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                Assurance Templates <span className="text-secondary fw-normal fs-7">(Optional)</span>
-              </h5>
-              <div className="text-muted small mt-0.5">
-                Start from a template to fill in the required documents.
-              </div>
-            </div>
-            {activeTemplateId && (
-              <span className="badge bg-primary text-white font-mono-code px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
-                Template Applied
-              </span>
-            )}
-          </div>
-          <div className="card-body p-4">
-            <div className="row g-3">
-              <div className="col-12 col-md-8 col-lg-6">
-                <label className="form-label text-secondary small fw-semibold" htmlFor={`template-select-${subtype}`}>
-                  Select Template
+          <div className="card-body p-4 d-flex flex-column gap-3">
+            {/* One line with the template select and the count */}
+            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2" data-testid={`template-line-${subtype.toLowerCase()}`}>
+              <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '450px' }}>
+                <label className="form-label text-secondary small fw-semibold m-0 flex-shrink-0" htmlFor={`template-select-${subtype}`}>
+                  Template:
                 </label>
                 <select
                   id={`template-select-${subtype}`}
-                  className="form-select bg-white text-dark border-secondary-subtle"
+                  className="form-select form-select-sm bg-white text-dark border-secondary-subtle"
                   value={activeTemplateId}
                   onChange={(e) => handleSelectSubtypeTemplate(subtype, e.target.value)}
                 >
@@ -2768,47 +2721,24 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </optgroup>
                   )}
                 </select>
+                {activeTemplateId && (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-link text-secondary text-decoration-none p-0 small flex-shrink-0"
+                    onClick={() => handleSelectSubtypeTemplate(subtype, '')}
+                    title="Clear template"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="text-secondary small fw-medium" data-testid={`docs-count-${subtype.toLowerCase()}`}>
+                {totalActiveCount} {totalActiveCount === 1 ? 'document' : 'documents'}
               </div>
             </div>
 
-            {activeTemplateId && (
-              <div className="mt-3 p-3 bg-light-subtle border border-primary-subtle rounded-2 d-flex align-items-center justify-content-between">
-                <div className="small text-secondary">
-                  <strong className="text-primary d-block">
-                    Active: {activeTemplate?.name}
-                  </strong>
-                  <span>{activeTemplate?.description}</span>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => handleSelectSubtypeTemplate(subtype, '')}
-                >
-                  Clear Template
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Searchable Picker Card */}
-        <div className="card border shadow-2xs rounded-3 bg-white">
-          <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+            {/* Then the search */}
             <div>
-              <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                Documents ({totalActiveCount})
-              </h5>
-              <div className="text-muted small mt-0.5">
-                Requirements grouped into sub-type accordions. Search to add more.
-              </div>
-            </div>
-          </div>
-          <div className="card-body p-4 d-flex flex-column gap-3">
-            {/* Searchable document picker */}
-            <div>
-              <label className="form-label text-secondary small fw-semibold" htmlFor={`search-docs-${subtype}`}>
-                Add Document
-              </label>
               <SearchableSelect
                 id={`search-docs-${subtype}`}
                 items={availableSearchItems}
@@ -2820,206 +2750,160 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               />
             </div>
 
-            {/* Sub-type Accordions */}
-            <div className="d-flex flex-column gap-2.5 mt-2" id={`subtype-accordions-${subtype}`}>
-              {allSubtypeCategories.map((category) => {
-                const standardForCat = activeStandardDocs.filter((d) => d.category === category);
-                const specializedForCat = activeSpecializedDocs.filter((d) => d.category === category);
-                const totalCatCount = standardForCat.length + specializedForCat.length;
-                const accordionKey = `${subtype}-${category}`;
-                const isOpen = isAccordionOpen(accordionKey);
-                const slug = category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
-                return (
-                  <div
-                    key={category}
-                    className="border rounded-3 bg-white overflow-hidden shadow-2xs"
-                    data-testid={`subtype-accordion-${subtype.toLowerCase()}-${slug}`}
-                  >
-                    <button
-                      type="button"
-                      className="w-100 px-3 py-2.5 bg-light border-0 d-flex align-items-center justify-content-between text-start cursor-pointer hover-bg-light transition-all"
-                      onClick={() => toggleAccordion(accordionKey)}
-                      aria-expanded={isOpen}
-                      data-testid={`accordion-header-${subtype.toLowerCase()}-${slug}`}
-                    >
-                      <div className="d-flex align-items-center gap-2">
-                        <ChevronDown
-                          className={`w-4 h-4 text-secondary transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-                          aria-hidden="true"
-                        />
-                        <span className="fw-semibold text-slate-900 small">
-                          {category}
-                        </span>
-                      </div>
-                      <span className="badge bg-white text-secondary border font-mono-code" style={{ fontSize: '0.72rem' }}>
-                        {totalCatCount} {totalCatCount === 1 ? 'doc' : 'docs'}
-                      </span>
-                    </button>
-
-                    {isOpen && (
-                      <div className="p-3 border-top d-flex flex-column gap-2 bg-white" data-testid={`accordion-body-${subtype.toLowerCase()}-${slug}`}>
-                        {totalCatCount === 0 ? (
-                          <div className="p-2.5 text-center text-secondary small bg-light rounded-2 border border-dashed" style={{ fontSize: '0.78rem' }}>
-                            No documents in {category}.
+            {/* Then every document in one list (no category accordions) */}
+            <div className="d-flex flex-column gap-2" data-testid={`docs-list-${subtype.toLowerCase()}`}>
+              {totalActiveCount === 0 ? (
+                <div className="p-3 text-center text-secondary small bg-light rounded-2 border border-dashed">
+                  No documents in {subtype}. Search above or select a template to add documents.
+                </div>
+              ) : (
+                <>
+                  {activeStandardDocs.map((doc) => {
+                    const isRequired = docRequired[doc.id] ?? doc.isMandatory;
+                    const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
+                    return (
+                      <div
+                        key={doc.id}
+                        className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
+                        data-testid={`requirement-row-${doc.id}`}
+                      >
+                        <div className="d-flex align-items-center justify-content-between gap-3">
+                          <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                            <span className="fw-semibold text-dark small text-truncate">
+                              {doc.title}
+                            </span>
                           </div>
-                        ) : (
-                          <>
-                            {standardForCat.map((doc) => {
-                              const isRequired = docRequired[doc.id] ?? doc.isMandatory;
-                              const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
-                              return (
-                                <div
-                                  key={doc.id}
-                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
-                                  data-testid={`requirement-row-${doc.id}`}
-                                >
-                                  <div className="d-flex align-items-center justify-content-between gap-3">
-                                    <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                      <span className="fw-semibold text-dark small text-truncate">
-                                        {doc.title}
-                                      </span>
-                                    </div>
-                                    <div className="d-flex align-items-center gap-3 flex-shrink-0">
-                                      <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                                        <input
-                                          className="form-check-input cursor-pointer"
-                                          type="checkbox"
-                                          id={`req-toggle-${doc.id}`}
-                                          checked={isRequired}
-                                          onChange={() => handleToggleStandardDocRequired(doc.id, isRequired)}
-                                          style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
-                                        />
-                                        <label
-                                          htmlFor={`req-toggle-${doc.id}`}
-                                          className={`small fw-semibold m-0 cursor-pointer ${
-                                            isRequired ? 'text-success' : 'text-secondary'
-                                          }`}
-                                          style={{ fontSize: '0.78rem', minWidth: '55px' }}
-                                        >
-                                          {isRequired ? 'Required' : 'Optional'}
-                                        </label>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
-                                        title="Remove document"
-                                        aria-label={`Remove ${doc.title}`}
-                                        onClick={() => handleRemoveStandardDoc(doc.id)}
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                  {renderResponsiblePartyChecklist(doc.id, defaultParties, doc.title)}
-                                </div>
-                              );
-                            })}
-                            {specializedForCat.map((spec) => {
-                              const isRequired = spec.isMandatory;
-                              const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
-                              return (
-                                <div
-                                  key={spec.id}
-                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
-                                  data-testid={`requirement-row-${spec.id}`}
-                                >
-                                  <div className="d-flex align-items-center justify-content-between gap-3">
-                                    <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                      <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${spec.id}`}>
-                                        {spec.title}
-                                      </span>
-                                    </div>
-                                    <div className="d-flex align-items-center gap-3 flex-shrink-0">
-                                      <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                                        <input
-                                          className="form-check-input cursor-pointer"
-                                          type="checkbox"
-                                          id={`req-toggle-${spec.id}`}
-                                          checked={isRequired}
-                                          onChange={() => handleToggleCustomDocRequired(spec.id)}
-                                          style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
-                                        />
-                                        <label
-                                          htmlFor={`req-toggle-${spec.id}`}
-                                          className={`small fw-semibold m-0 cursor-pointer ${
-                                            isRequired ? 'text-success' : 'text-secondary'
-                                          }`}
-                                          style={{ fontSize: '0.78rem', minWidth: '55px' }}
-                                        >
-                                          {isRequired ? 'Required' : 'Optional'}
-                                        </label>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
-                                        title="Remove document"
-                                        aria-label={`Remove ${spec.title}`}
-                                        onClick={() => handleRemoveCustomDoc(spec.id)}
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                  {renderResponsiblePartyChecklist(spec.id, defaultParties, spec.title)}
-                                </div>
-                              );
-                            })}
-                          </>
-                        )}
-                        <div className="pt-2 border-top d-flex align-items-center justify-content-between">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-link text-primary text-decoration-none p-0 d-inline-flex align-items-center gap-1 font-sans"
-                            style={{ fontSize: '0.78rem' }}
-                            data-testid={`btn-add-other-doc-${subtype.toLowerCase()}-${slug}`}
-                            onClick={() => handleCreateCustomDoc(subtype, `Other ${category} Document`, category as AssuranceRequirementCategory, true)}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            Add other document
-                          </button>
+                          <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                            <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                              <input
+                                className="form-check-input cursor-pointer"
+                                type="checkbox"
+                                id={`req-toggle-${doc.id}`}
+                                checked={isRequired}
+                                onChange={() => handleToggleStandardDocRequired(doc.id, isRequired)}
+                                style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                              />
+                              <label
+                                htmlFor={`req-toggle-${doc.id}`}
+                                className={`small fw-semibold m-0 cursor-pointer ${
+                                  isRequired ? 'text-success' : 'text-secondary'
+                                }`}
+                                style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                              >
+                                {isRequired ? 'Required' : 'Optional'}
+                              </label>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                              title="Remove document"
+                              aria-label={`Remove ${doc.title}`}
+                              onClick={() => handleRemoveStandardDoc(doc.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                          </div>
                         </div>
+                        {renderResponsiblePartyChecklist(doc.id, defaultParties, doc.title)}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                  {activeSpecializedDocs.map((spec) => {
+                    const isRequired = spec.isMandatory;
+                    const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
+                    return (
+                      <div
+                        key={spec.id}
+                        className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
+                        data-testid={`requirement-row-${spec.id}`}
+                      >
+                        <div className="d-flex align-items-center justify-content-between gap-3">
+                          <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                            <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${spec.id}`}>
+                              {spec.title}
+                            </span>
+                          </div>
+                          <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                            <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                              <input
+                                className="form-check-input cursor-pointer"
+                                type="checkbox"
+                                id={`req-toggle-${spec.id}`}
+                                checked={isRequired}
+                                onChange={() => handleToggleCustomDocRequired(spec.id)}
+                                style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                              />
+                              <label
+                                htmlFor={`req-toggle-${spec.id}`}
+                                className={`small fw-semibold m-0 cursor-pointer ${
+                                  isRequired ? 'text-success' : 'text-secondary'
+                                }`}
+                                style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                              >
+                                {isRequired ? 'Required' : 'Optional'}
+                              </label>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                              title="Remove document"
+                              aria-label={`Remove ${spec.title}`}
+                              onClick={() => handleRemoveCustomDoc(spec.id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                          </div>
+                        </div>
+                        {renderResponsiblePartyChecklist(spec.id, defaultParties, spec.title)}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
 
-            {/* Document list container preserving backwards-compatible query selection */}
-            <div id={`docs-list-${subtype}`} style={{ display: 'none' }}>
-              {activeStandardDocs.map((doc) => (
-                <div key={doc.id} className="doc-item">
-                  <span>Doc: {doc.title}</span>
-                  <button
-                    type="button"
-                    title="Remove document"
-                    onClick={() => handleRemoveStandardDoc(doc.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              {activeSpecializedDocs.map((spec) => (
-                <div key={spec.id} className="doc-item">
-                  <span>Doc: {spec.title}</span>
-                  <button
-                    type="button"
-                    title="Remove document"
-                    onClick={() => handleRemoveCustomDoc(spec.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+            {/* Then one Add other document */}
+            <div className="pt-2 border-top d-flex align-items-center justify-content-between">
+              <button
+                type="button"
+                className="btn btn-sm btn-link text-primary text-decoration-none p-0 d-inline-flex align-items-center gap-1 font-sans"
+                style={{ fontSize: '0.78rem' }}
+                data-testid={`btn-add-other-doc-${subtype.toLowerCase()}`}
+                onClick={() => handleCreateCustomDoc(subtype, `Other ${SUBTYPE_CATEGORIES[subtype]?.[0] || subtype} Document`, SUBTYPE_CATEGORIES[subtype]?.[0] || ('Statutory Certificate' as AssuranceRequirementCategory), true)}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add other document
+              </button>
             </div>
-
-            {totalActiveCount === 0 && (
-              <div className="p-4 text-center text-secondary small bg-light rounded-2 border border-dashed">
-                No {subtype} documents. Search to add one.
-              </div>
-            )}
           </div>
+        </div>
+
+        {/* Document list container preserving backwards-compatible query selection */}
+        <div id={`docs-list-${subtype}`} style={{ display: 'none' }}>
+          {activeStandardDocs.map((doc) => (
+            <div key={doc.id} className="doc-item">
+              <span>Doc: {doc.title}</span>
+              <button
+                type="button"
+                title="Remove document"
+                onClick={() => handleRemoveStandardDoc(doc.id)}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+          {activeSpecializedDocs.map((spec) => (
+            <div key={spec.id} className="doc-item">
+              <span>Doc: {spec.title}</span>
+              <button
+                type="button"
+                title="Remove document"
+                onClick={() => handleRemoveCustomDoc(spec.id)}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -4316,9 +4200,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 <span className="d-none" data-testid={`raw-section-title-${slug}`} aria-hidden="true">{rawTitle}</span>
                               )}
                             </h4>
-                            <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
-                              Tenant Section
-                            </span>
                             <button
                               type="button"
                               className="btn btn-sm btn-link text-secondary text-decoration-none p-1 d-inline-flex align-items-center"
@@ -4347,16 +4228,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       </div>
 
                       <div className="card border shadow-2xs rounded-3 bg-white">
-                        <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                          <div>
-                            <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                              Requirements ({secDocs.length})
-                            </h5>
-                            <div className="text-muted small mt-0.5">
-                              {sec.description || `Tenant-defined requirements under ${currentTitle}.`}
-                            </div>
-                          </div>
-                        </div>
                         <div className="card-body p-4 d-flex flex-column gap-2" data-testid={`custom-section-body-${slug}`}>
                           {secDocs.length === 0 ? (
                             <div className="p-3 text-center text-secondary small bg-light rounded-2 border border-dashed">

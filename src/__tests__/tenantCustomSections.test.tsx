@@ -168,7 +168,6 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
       const customSection = container.querySelector('[data-testid^="section-custom-sec-tenant-"]');
       expect(customSection).not.toBeNull();
       expect(customSection?.textContent).toContain('Berth Clearance');
-      expect(customSection?.textContent).toContain('Tenant Section');
 
       // Verify saved in store for Chevron
       const savedInStore = useMapStore.getState().getTenantCustomSections('Chevron');

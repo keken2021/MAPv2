@@ -76,7 +76,7 @@ describe('Task 5353: Requirements Declutter - Compact Rows', () => {
     const { container } = setupWizardAtRequirementsStep();
 
     // Add an other document under Statutory Certificate
-    const addOtherBtn = container.querySelector('[data-testid="btn-add-other-doc-vessel-statutory-certificate"]') as HTMLButtonElement;
+    const addOtherBtn = container.querySelector('[data-testid^="btn-add-other-doc-vessel"]') as HTMLButtonElement;
     expect(addOtherBtn).not.toBeNull();
     fireEvent.click(addOtherBtn);
 
@@ -160,7 +160,7 @@ describe('Task 5353: Requirements Declutter - Compact Rows', () => {
     expect(container.querySelector('label[for="req-toggle-vessel-class-cert"]')?.textContent?.trim()).toBe('Optional');
 
     // 3. Custom / Other doc toggle
-    const addOtherBtn = container.querySelector('[data-testid="btn-add-other-doc-vessel-statutory-certificate"]') as HTMLButtonElement;
+    const addOtherBtn = container.querySelector('[data-testid^="btn-add-other-doc-vessel"]') as HTMLButtonElement;
     fireEvent.click(addOtherBtn);
     const specializedRow = container.querySelector('[data-testid^="requirement-row-custom-doc-"]');
     const specToggle = specializedRow?.querySelector('input[type="checkbox"][id^="req-toggle-"]') as HTMLInputElement;
@@ -186,7 +186,7 @@ describe('Task 5353: Requirements Declutter - Compact Rows', () => {
     expect(container.querySelector('[data-testid="requirement-row-vessel-class-cert"]')).toBeNull();
 
     // 3. Remove specialized doc
-    const addOtherBtn = container.querySelector('[data-testid="btn-add-other-doc-vessel-statutory-certificate"]') as HTMLButtonElement;
+    const addOtherBtn = container.querySelector('[data-testid^="btn-add-other-doc-vessel"]') as HTMLButtonElement;
     fireEvent.click(addOtherBtn);
     const specRow = container.querySelector('[data-testid^="requirement-row-custom-doc-"]');
     expect(specRow).not.toBeNull();

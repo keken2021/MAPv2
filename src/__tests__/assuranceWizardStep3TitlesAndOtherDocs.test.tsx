@@ -86,16 +86,16 @@ describe('CreateAssuranceSetView Step 3 Editable Section Titles and Add Other Do
     // Verify General title updated in place
     expect(container.querySelector('[data-testid="section-title-general"]')?.textContent).toBe('Corporate Compliance Requirements');
 
-    // 4. Add other document action in sub-type accordion
-    const addOtherBtn = container.querySelector('[data-testid="btn-add-other-doc-vessel-statutory-certificate"]') as HTMLButtonElement;
+    // 4. Add other document action in flat document list
+    const addOtherBtn = container.querySelector('[data-testid^="btn-add-other-doc-vessel"]') as HTMLButtonElement;
     expect(addOtherBtn).not.toBeNull();
     fireEvent.click(addOtherBtn);
 
-    // Verify added document appears in Statutory Certificate accordion with Other Document badge
-    const statutoryAccordion = container.querySelector('[data-testid="subtype-accordion-vessel-statutory-certificate"]');
-    expect(statutoryAccordion).not.toBeNull();
-    expect(statutoryAccordion?.textContent).toContain('Other Statutory Certificate Document');
-        // 5. Test survival across Next and Back
+    // Verify added document appears in vessel documents list
+    const vesselDocsList = container.querySelector('[data-testid="docs-list-vessel"]');
+    expect(vesselDocsList).not.toBeNull();
+    expect(vesselDocsList?.textContent).toContain('Other Statutory Certificate Document');
+    // 5. Test survival across Next and Back
     // Step 3 -> Step 4 (Review)
     clickNext();
 
@@ -108,7 +108,7 @@ describe('CreateAssuranceSetView Step 3 Editable Section Titles and Add Other Do
     // Verify edited titles and added document survived navigation
     expect(container.querySelector('[data-testid="section-title-vessel"]')?.textContent).toBe('Main Fleet Vessel Compliance');
     expect(container.querySelector('[data-testid="section-title-general"]')?.textContent).toBe('Corporate Compliance Requirements');
-    expect(container.querySelector('[data-testid="subtype-accordion-vessel-statutory-certificate"]')?.textContent).toContain(
+    expect(container.querySelector('[data-testid="docs-list-vessel"]')?.textContent).toContain(
       'Other Statutory Certificate Document',
     );
 
