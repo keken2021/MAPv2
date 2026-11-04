@@ -139,6 +139,7 @@ import {
   buildDraftAssetLinkFromAssuranceSet,
   generateUniqueProjectId,
   getProjectClientOrganization,
+  getProjectOrganizationForPersona,
   getProjectEffectiveCharterer,
   getProjectForAssuranceSet,
   recalculateSetReadiness,
@@ -1374,6 +1375,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         : input.suggestedScope ||
           (assetScopeTypes.length === 1 ? assetScopeTypes[0] : undefined);
 
+    const sender = get().users.find((u) => u.id === input.senderUserId);
+    const requestingParty =
+      sender?.organization ||
+      getProjectOrganizationForPersona(get().activePersona, get().users, get().activeDemoOrganization) ||
+      getProjectClientOrganization(project);
+    const respondingParty = assignee.organization;
+
+    const partyRoles = {
+      requestingParty,
+      respondingParty,
+      [requestingParty]: 'Requesting party',
+      [respondingParty]: 'Responding party',
+    };
+
     const notificationId = get().pushNotification({
       type: "assurance_set_request",
       subject: assuranceInvitationSubject(project.name),
@@ -1383,10 +1398,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       senderName: input.senderName,
       projectId: project.id,
       projectName: project.name,
+      requestingParty,
+      respondingParty,
+      partyRoles,
       request: {
         assigneeUserId: assignee.id,
         assigneeName: assignee.name,
         clientOrganization: getProjectClientOrganization(project),
+        requestingParty,
+        respondingParty,
+        partyRoles,
         suggestedScope,
         suggestedScopes: suggestedScopes.length > 0 ? suggestedScopes : undefined,
         suggestedAssets: suggestedAssets.length > 0 ? suggestedAssets : undefined,

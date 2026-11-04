@@ -1,3 +1,7 @@
+import { render, screen } from '@testing-library/react';
+import React from 'react';
+import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
+import { AssuranceDetailView } from '../views/AssuranceDetailView';
 import { describe, expect, it } from 'vitest';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import {
@@ -192,6 +196,63 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
       const auditHelper = OIL_CO_PILOT_AUDIT.find((a) => a.action === 'Recorded Pending Helper Organization');
       expect(auditHelper).toBeDefined();
       expect(auditHelper?.justificationNotes).toContain('pending');
+    });
+  });
+
+  describe('Scenario 8: Organization party role on assurance set request (Task 5333)', () => {
+    it('carries party roles in request payload, pre-fills in wizard with note, and saves on assurance set', () => {
+      const store = useMapStore.getState();
+      const proj = MOCK_PROJECTS.find((p) => p.id === OIL_CO_LNG_PROJECT_ID)!;
+
+      // 1. Party role in the request notification payload
+      const reqResult = store.requestAssuranceSet({
+        projectId: proj.id,
+        recipientUserId: 'USR-102',
+        senderUserId: 'USR-228',
+        senderName: 'A. Okonkwo',
+        suggestedScope: 'Vessel',
+        message: 'Please initiate vetting set for the charter window.',
+      });
+      expect(reqResult.success).toBe(true);
+
+      const notif = useMapStore.getState().notifications.find((n) => n.recipientUserId === 'USR-102' && n.type === 'assurance_set_request');
+      expect(notif).toBeDefined();
+      expect(notif?.request?.requestingParty).toBe(OIL_CO_ORG);
+      expect(notif?.request?.respondingParty).toBe('Northwind Marine Pty Ltd');
+      expect(notif?.request?.partyRoles?.requestingParty).toBe(OIL_CO_ORG);
+      expect(notif?.request?.partyRoles?.respondingParty).toBe('Northwind Marine Pty Ltd');
+
+      // 2. Wizard pre-fill and note
+      useMapStore.setState({ pendingAssuranceRequestNotificationId: notif?.id });
+      const { unmount } = render(React.createElement(CreateAssuranceSetView));
+      expect(screen.getAllByText(/Pre-filled from request/i).length).toBeGreaterThan(0);
+      unmount();
+
+      // 3. Saved set carries party roles and shows on detail view
+      const testSetId = 'AS-PARTY-ROLE-TEST';
+      const createdSet = {
+        ...ss01!,
+        id: testSetId,
+        title: 'Aurora Party Role Test Set',
+        requestingParty: OIL_CO_ORG,
+        respondingParty: NORTHWIND_ORG,
+        partyRoles: {
+          [OIL_CO_ORG]: 'Requesting party',
+          [NORTHWIND_ORG]: 'Responding party',
+        },
+        parties: [
+          { organization: OIL_CO_ORG, group: 'Client' as const, partyRole: 'Requesting party' },
+          { organization: NORTHWIND_ORG, group: 'Vendor' as const, partyRole: 'Responding party' },
+        ],
+      };
+      useMapStore.setState({ assuranceSets: [createdSet, ...useMapStore.getState().assuranceSets] });
+
+      const { unmount: unmountDetail } = render(React.createElement(AssuranceDetailView, { setId: testSetId }));
+      expect(screen.getAllByText(OIL_CO_ORG).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(NORTHWIND_ORG).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Requesting party/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/Responding party/i).length).toBeGreaterThan(0);
+      unmountDetail();
     });
   });
 });

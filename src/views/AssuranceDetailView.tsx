@@ -103,9 +103,9 @@ function getRequirementSectionInfo(
     Boolean(
       req.title &&
       (req.title.includes('Document of Compliance (DOC)') ||
-       req.title.includes('Company ISM Document of Compliance') ||
-       req.title.includes('Non-Disclosure Agreement (NDA)') ||
-       req.title.includes('Master Service Agreement (MSA)'))
+        req.title.includes('Company ISM Document of Compliance') ||
+        req.title.includes('Non-Disclosure Agreement (NDA)') ||
+        req.title.includes('Master Service Agreement (MSA)'))
     );
 
   if (isGeneral) {
@@ -177,27 +177,27 @@ function getRequirementSectionInfo(
     scope === 'Vessel'
       ? 'Vessel documents'
       : scope === 'Crew'
-      ? 'Crew directory documents'
-      : scope === 'Equipment'
-      ? 'Equipment documents'
-      : scope === 'Activity'
-      ? 'Activity documents'
-      : scope === 'procedure'
-      ? 'Procedures'
-      : 'Methods';
+        ? 'Crew directory documents'
+        : scope === 'Equipment'
+          ? 'Equipment documents'
+          : scope === 'Activity'
+            ? 'Activity documents'
+            : scope === 'procedure'
+              ? 'Procedures'
+              : 'Methods';
 
   const defaultOrder =
     scope === 'Vessel'
       ? 10
       : scope === 'Crew'
-      ? 20
-      : scope === 'Equipment'
-      ? 30
-      : scope === 'Activity'
-      ? 40
-      : scope === 'procedure'
-      ? 50
-      : 60;
+        ? 20
+        : scope === 'Equipment'
+          ? 30
+          : scope === 'Activity'
+            ? 40
+            : scope === 'procedure'
+              ? 50
+              : 60;
 
   return {
     sectionId: secId,
@@ -1208,15 +1208,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     const baseSet = isClientViewer
       ? assuranceSet
       : {
-          ...assuranceSet,
-          requirements:
-            assuranceSet.requirements?.map((req) => {
-              const canView = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
-              if (canView) return req;
-              const { documentId, linkedDocumentId, ...rest } = req;
-              return rest as AssuranceRequirement;
-            }) || [],
-        };
+        ...assuranceSet,
+        requirements:
+          assuranceSet.requirements?.map((req) => {
+            const canView = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+            if (canView) return req;
+            const { documentId, linkedDocumentId, ...rest } = req;
+            return rest as AssuranceRequirement;
+          }) || [],
+      };
     return {
       ...baseSet,
       sections: (baseSet.sections || []).map((sec) => ({
@@ -1899,6 +1899,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
           assuranceSet.complianceDeadline || assuranceSet.targetDate
             ? formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')
             : '',
+          assuranceSet.requestingParty ? `Requesting party: ${assuranceSet.requestingParty}` : '',
+          assuranceSet.respondingParty ? `Responding party: ${assuranceSet.respondingParty}` : '',
         ].filter(Boolean)}
         mainAction={detailHeaderActions}
         onExportCsv={handleExportCsv}
@@ -2077,15 +2079,39 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                         </div>
                       </div>
                     )}
+                    {assuranceSet.requestingParty && (
+                      <div className="map-detail-row border-bottom pb-2">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party:</div>
+                        <div className="fw-bold text-dark">{assuranceSet.requestingParty}</div>
+                      </div>
+                    )}
+                    {assuranceSet.respondingParty && (
+                      <div className="map-detail-row border-bottom pb-2">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Responding party:</div>
+                        <div className="fw-bold text-dark">{assuranceSet.respondingParty}</div>
+                      </div>
+                    )}
                     {organizations.length > 0 && (
                       <div className="map-detail-row border-bottom pb-2">
                         <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Organizations</div>
                         <ul className="list-unstyled mb-0 mt-1">
-                          {organizations.map((organization) => (
-                            <li key={organization} className="fw-bold text-dark py-1">
-                              {organization}
-                            </li>
-                          ))}
+                          {organizations.map((organization) => {
+                            const partyRole =
+                              assuranceSet.partyRoles?.[organization] ||
+                              (assuranceSet.requestingParty === organization ? 'Requesting party' : undefined) ||
+                              (assuranceSet.respondingParty === organization ? 'Responding party' : undefined) ||
+                              assuranceSet.parties?.find((p) => p.organization === organization)?.partyRole;
+                            return (
+                              <li key={organization} className="fw-bold text-dark py-1 d-flex align-items-center justify-content-between">
+                                <span>{organization}</span>
+                                {partyRole && (
+                                  <span className="badge bg-light text-secondary border ms-2" style={{ fontSize: '0.7rem' }}>
+                                    {partyRole}
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}
@@ -2886,447 +2912,447 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                     <tr className="bg-light-subtle border-bottom" data-testid={`group-subtype-${currentSubtype.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
                                       <td colSpan={5} className="py-1.5 px-4 text-secondary small fw-semibold">
                                         <div className="d-flex align-items-center gap-2">
-                                  <span style={{ fontSize: '0.75rem' }} data-testid="subtype-group-header">{currentSubtype}</span>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                          {isLinkedSubSet(req) && linkedChildSet ? (
-                            <tr className="table-light" data-requirement-id={req.id}>
-                              <td>
-                                <div className="fw-semibold text-dark">
-                                  {req.title}
-                                  {req.isOtherDocument && (
-                                    <span
-                                      className="badge bg-secondary-subtle text-dark border ms-1.5"
-                                      style={{ fontSize: '0.65rem' }}
-                                      data-testid={`badge-other-doc-${req.id}`}
-                                      title="Added by client"
-                                    >
-                                      Added by client
-                                    </span>
+                                          <span style={{ fontSize: '0.75rem' }} data-testid="subtype-group-header">{currentSubtype}</span>
+                                        </div>
+                                      </td>
+                                    </tr>
                                   )}
-                                </div>
-                                {renderTaskPlacement(req)}
-                                <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                                  <span className="font-mono-code small text-primary">{linkedChildSet.id}</span>
-                                  <span className="badge bg-info text-dark" style={{ fontSize: '0.7rem' }}>
-                                    Linked Sub-Set
-                                  </span>
-                                </div>
-                                {req.description && (
-                                  <div className="text-secondary small mt-0.5">{req.description}</div>
-                                )}
-                              </td>
-                              <td style={{ whiteSpace: 'nowrap' }}>
-                                <div className="fw-semibold text-dark">{linkedChildSet.title}</div>
-                                <div className="text-muted font-mono-code small">{linkedChildSet.id}</div>
-                              </td>
-                              <td>
-                                <span className="text-muted small">—</span>
-                              </td>
-                              <td>
-                                <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'}`}>
-                                  {linkedChildSet.stage}
-                                </span>
-                              </td>
-                              <td className="text-end">
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                  style={{ width: '32px', height: '32px' }}
-                                  onClick={() => setCurrentHashView('assurance-sets', linkedChildSet.id)}
-                                  title="View"
-                                  aria-label="View"
-                                >
-                                  <FolderOpen size={16} />
-                                </button>
-                              </td>
-                            </tr>
-                          ) : isSharedRequirement ? (
-                            <>
-                              <tr data-requirement-id={req.id} data-testid="shared-requirement-row" className="table-row-shared">
-                                <td>
-                                  <div className="fw-semibold text-dark">
-                                    {req.title}
-                                    <span
-                                      className="badge bg-secondary-subtle text-secondary border ms-1.5"
-                                      style={{ fontSize: '0.65rem' }}
-                                      data-testid="badge-shared-requirement"
-                                      title="Requirement shared across multiple parties"
-                                    >
-                                      Shared ({groupTasks.length} parties)
-                                    </span>
-                                    {req.isOtherDocument && (
-                                      <span
-                                        className="badge bg-secondary-subtle text-dark border ms-1.5"
-                                        style={{ fontSize: '0.65rem' }}
-                                        data-testid={`badge-other-doc-${req.id}`}
-                                        title="Added by client"
-                                      >
-                                        Added by client
-                                      </span>
-                                    )}
-                                  </div>
-                                  {renderTaskPlacement(req)}
-                                  {req.description && (
-                                    <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
-                                      {req.description}
-                                    </div>
-                                  )}
-                                </td>
-                                <td style={{ whiteSpace: 'nowrap' }}>
-                                  {(() => {
-                                    const targetObj = resolveRequirementTargetObject(req);
-                                    return (
-                                      <div>
-                                        <div className="fw-semibold text-dark">{targetObj.name}</div>
-                                        {targetObj.identifier && (
-                                          <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
-                                            {targetObj.identifier}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })()}
-                                </td>
-                                <td>
-                                  <span className="text-muted small">—</span>
-                                </td>
-                                <td>
-                                  {(() => {
-                                    const allDone = groupTasks.every((t) => t.isFulfilled || t.verifierStatus === 'Verified' || (assuranceSet.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId)));
-                                    const doneCount = groupTasks.filter((t) => t.isFulfilled || t.verifierStatus === 'Verified' || (assuranceSet.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId))).length;
-                                    if (allDone) {
-                                      return (
-                                        <span className="badge bg-success text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
-                                          Verified
-                                        </span>
-                                      );
-                                    }
-                                    if (doneCount > 0) {
-                                      return (
-                                        <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
-                                          In Progress ({doneCount}/{groupTasks.length})
-                                        </span>
-                                      );
-                                    }
-                                    return (
-                                      <span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
-                                        Pending
-                                      </span>
-                                    );
-                                  })()}
-                                </td>
-                                <td className="text-end">
-                                  <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
-                                    {canEditTasks && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
-                                          style={{ width: '32px', height: '32px' }}
-                                          onClick={() => openEditTask(req)}
-                                          title="Edit task"
-                                          aria-label="Edit task"
-                                        >
-                                          <Pencil size={14} />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
-                                          style={{ width: '32px', height: '32px' }}
-                                          onClick={() => setTaskToDelete(req)}
-                                          title="Remove task"
-                                          aria-label="Remove task"
-                                        >
-                                          <Trash2 size={14} />
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                              {groupTasks.map((partyTask) => {
-                                const canViewPartyDoc = isRequirementDocumentVisible(partyTask, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
-                                const partyLinkedDoc = documents.find((d) => d.id === partyTask.documentId || (partyTask.linkedDocumentId && d.id === partyTask.linkedDocumentId));
-                                const effectivePartyDoc = canViewPartyDoc ? partyLinkedDoc : undefined;
-                                const partyDocView = effectivePartyDoc ? getRequirementDocumentView(assuranceSet, partyTask, effectivePartyDoc) : undefined;
-                                const partyHasDoc = Boolean(effectivePartyDoc || (canViewPartyDoc && (partyTask.documentId || partyTask.linkedDocumentId)));
-                                const partyOcr = partyHasDoc ? (partyTask.ocrConfidence || partyLinkedDoc?.ocrConfidence || 0) : 0;
-                                const partyName = getRequirementPartyLabel(partyTask, assuranceSet, users, setObjects);
-
-                                return (
-                                  <tr
-                                    key={partyTask.id}
-                                    data-requirement-id={partyTask.id}
-                                    data-testid="party-sub-row"
-                                    data-party={partyName}
-                                    className="party-sub-row bg-light-subtle border-top-0"
-                                  >
-                                    <td style={{ paddingLeft: '2.5rem' }}>
-                                      <div className="d-flex align-items-center gap-2">
-                                        <span className="text-secondary small fw-bold" style={{ fontSize: '0.85rem' }}>↳</span>
-                                        <div>
-                                          <span className="fw-semibold text-dark small" data-testid="party-name">
-                                            {partyName}
-                                          </span>
-                                          {renderVersionBadge(partyTask, partyDocView, canViewPartyDoc)}
-                                          {partyTask.attemptNumber && (
-                                            <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                              Attempt {partyTask.attemptNumber}
-                                            </span>
-                                          )}
-                                          {partyTask.isOtherDocument && (
+                                  {isLinkedSubSet(req) && linkedChildSet ? (
+                                    <tr className="table-light" data-requirement-id={req.id}>
+                                      <td>
+                                        <div className="fw-semibold text-dark">
+                                          {req.title}
+                                          {req.isOtherDocument && (
                                             <span
                                               className="badge bg-secondary-subtle text-dark border ms-1.5"
                                               style={{ fontSize: '0.65rem' }}
-                                              data-testid={`badge-other-doc-${partyTask.id}`}
+                                              data-testid={`badge-other-doc-${req.id}`}
                                               title="Added by client"
                                             >
                                               Added by client
                                             </span>
                                           )}
-                                          {partyTask.notes && canViewPartyDoc && (
-                                            <div className="text-secondary small mt-0.5" style={{ fontSize: '0.72rem' }}>
-                                              {partyTask.notes}
-                                            </div>
-                                          )}
                                         </div>
-                                      </div>
-                                    </td>
-                                    <td>
-                                      <span className="text-muted small">—</span>
-                                    </td>
-                                    <td>
-                                      <ConfidenceBadge score={partyOcr} />
-                                    </td>
-                                    <td>
-                                      {renderRequirementStatus(partyTask, canViewPartyDoc)}
-                                    </td>
-                                    <td className="text-end">
-                                      <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
-                                        {effectivePartyDoc && canViewPartyDoc && (
-                                          <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                            style={{ width: '32px', height: '32px' }}
-                                            onClick={() => setSelectedDocForReview({ doc: partyDocView?.doc || effectivePartyDoc, notes: partyTask.notes, requirementId: partyTask.id, verifierStatus: partyTask.verifierStatus, isVersionLocked: partyDocView?.isLocked })}
-                                            title="PDF Review"
-                                            aria-label="PDF Review"
-                                          >
-                                            <FileText size={16} />
-                                          </button>
+                                        {renderTaskPlacement(req)}
+                                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                                          <span className="font-mono-code small text-primary">{linkedChildSet.id}</span>
+                                          <span className="badge bg-info text-dark" style={{ fontSize: '0.7rem' }}>
+                                            Linked Sub-Set
+                                          </span>
+                                        </div>
+                                        {req.description && (
+                                          <div className="text-secondary small mt-0.5">{req.description}</div>
                                         )}
-                                        {canUploadHere && (isClientViewer || canViewPartyDoc) && (
-                                          <button
-                                            type="button"
-                                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
-                                            style={{ width: '32px', height: '32px' }}
-                                            onClick={() => openRequirementUpload(partyTask, effectivePartyDoc)}
-                                            title="Upload document"
-                                            aria-label="Upload document"
-                                          >
-                                            <Upload size={14} />
-                                          </button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </>
-                          ) : (
-                            <tr data-requirement-id={req.id}>
-                              <td>
-                                <div className="fw-semibold text-dark">
-                                  {req.title}
-                                  {renderVersionBadge(req, docView, canViewDoc)}
-                                  {req.attemptNumber && (
-                                    <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                      Attempt {req.attemptNumber}
-                                    </span>
-                                  )}
-                                  {req.exemption && (
-                                    <span
-                                      className="badge bg-warning text-dark ms-1.5"
-                                      style={{ fontSize: '0.65rem' }}
-                                      title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
-                                    >
-                                      Exempted ({formatMaritimeDate(req.exemption.newDate)})
-                                    </span>
-                                  )}
-                                  {renderTaskPlacement(req)}
-                                  {req.isOtherDocument ? (
-                                    <span
-                                      className="badge bg-secondary-subtle text-dark border ms-1.5"
-                                      style={{ fontSize: '0.65rem' }}
-                                      data-testid={`badge-other-doc-${req.id}`}
-                                      title="Added by client"
-                                    >
-                                      Added by client
-                                    </span>
-                                  ) : req.isSpecialized ? (
-                                    <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1.5" style={{ fontSize: '0.65rem' }}>
-                                      Custom
-                                    </span>
-                                  ) : null}
-                                </div>
-                                {renderContractShortWarning(docView?.doc || effectiveLinkedDoc, canViewDoc)}
-                                {req.description && (
-                                  <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
-                                    {req.description}
-                                  </div>
-                                )}
-                                {(req.assignedSubmitter || req.assignedVerifier) && (
-                                  <div className="text-muted mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
-                                    {req.assignedSubmitter && (
-                                      <span><span className="text-secondary fw-semibold">Submitter:</span> {req.assignedSubmitter.split(' (')[0]}</span>
-                                    )}
-                                    {req.assignedSubmitter && req.assignedVerifier && <span>·</span>}
-                                    {req.assignedVerifier && (
-                                      <span><span className="text-secondary fw-semibold">Verifier:</span> {req.assignedVerifier.split(' (')[0]}</span>
-                                    )}
-                                  </div>
-                                )}
-                                {/* the document judged against this set's contract period, not once for every set (gap review E5, G3) */}
-                                {docView && canViewDoc && (() => {
-                                  const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
-                                  if (validity.state === 'unknown') return null;
-                                  const tone =
-                                    validity.state === 'valid_through_period'
-                                      ? 'bg-success-subtle text-success-emphasis border-success-subtle'
-                                      : validity.state === 'lapsed'
-                                        ? 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
-                                        : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
-                                  return (
-                                    <div className="mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
-                                      <span className={`badge border ${tone}`}>{validity.label}</span>
-                                      {validity.state !== 'valid_through_period' && validity.expiryDate && (
-                                        <span className="text-muted">
-                                          {formatMaritimeDate(validity.expiryDate)}
-                                          {/* a lapse names the issuer and the party responsible for renewal (paper 16.1) */}
-                                          {validity.state === 'lapsed' && (
-                                            <>
-                                              {' '}· {docView.doc.issuingAuthority || 'Issuing authority not recorded'}
-                                              {' '}· Responsible: {assuranceSet.serviceProviderOrg || 'Service provider not recorded'}
-                                            </>
-                                          )}
+                                      </td>
+                                      <td style={{ whiteSpace: 'nowrap' }}>
+                                        <div className="fw-semibold text-dark">{linkedChildSet.title}</div>
+                                        <div className="text-muted font-mono-code small">{linkedChildSet.id}</div>
+                                      </td>
+                                      <td>
+                                        <span className="text-muted small">—</span>
+                                      </td>
+                                      <td>
+                                        <span className={`badge ${linkedChildSet.stage === 'Approved' || linkedChildSet.stage === 'Certified' ? 'bg-success' : 'bg-secondary'}`}>
+                                          {linkedChildSet.stage}
                                         </span>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
-                                {req.decisionTime && (
-                                  <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
-                                    <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
-                                  </div>
-                                )}
-                                {/* how this set's verifier confirmed the document (gap review G1) */}
-                                {req.verifierStatus === 'Verified' && (
-                                  <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
-                                    <span className="text-secondary fw-semibold">Method:</span> {req.verificationMethod || 'Not recorded'}
-                                    {req.overrideReason && (
-                                      <span className="ms-2 text-warning-emphasis" title={req.overrideReason}>· Override</span>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                              <td style={{ whiteSpace: 'nowrap' }}>
-                                {(() => {
-                                  const targetObj = resolveRequirementTargetObject(req);
-                                  return (
-                                    <div>
-                                      <div className="fw-semibold text-dark">{targetObj.name}</div>
-                                      {targetObj.identifier && (
-                                        <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
-                                          {targetObj.identifier}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
-                              </td>
-                              <td>
-                                <ConfidenceBadge score={effectiveOcr} />
-                              </td>
-                              <td>
-                                {renderRequirementStatus(req, canViewDoc)}
-                              </td>
-                              <td className="text-end">
-                                <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
-                                  {canEditTasks && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
-                                        style={{ width: '32px', height: '32px' }}
-                                        onClick={() => openEditTask(req)}
-                                        title="Edit task"
-                                        aria-label="Edit task"
-                                      >
-                                        <Pencil size={14} />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
-                                        style={{ width: '32px', height: '32px' }}
-                                        onClick={() => setTaskToDelete(req)}
-                                        title="Remove task"
-                                        aria-label="Remove task"
-                                      >
-                                        <Trash2 size={14} />
-                                      </button>
-                                    </>
-                                  )}
-                                  {effectiveLinkedDoc && canViewDoc ? (
-                                    <>
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                        style={{ width: '32px', height: '32px' }}
-                                        onClick={() => setSelectedDocForReview({ doc: docView?.doc || effectiveLinkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
-                                        title="PDF Review"
-                                        aria-label="PDF Review"
-                                      >
-                                        <FileText size={16} />
-                                      </button>
-                                      {canUploadHere && (
+                                      </td>
+                                      <td className="text-end">
                                         <button
                                           type="button"
-                                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
                                           style={{ width: '32px', height: '32px' }}
-                                          onClick={() => openRequirementUpload(req, effectiveLinkedDoc)}
-                                          disabled={Boolean(getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
-                                          title={getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
-                                          aria-label="Upload new version"
+                                          onClick={() => setCurrentHashView('assurance-sets', linkedChildSet.id)}
+                                          title="View"
+                                          aria-label="View"
                                         >
-                                          <RefreshCw size={16} />
+                                          <FolderOpen size={16} />
                                         </button>
-                                      )}
+                                      </td>
+                                    </tr>
+                                  ) : isSharedRequirement ? (
+                                    <>
+                                      <tr data-requirement-id={req.id} data-testid="shared-requirement-row" className="table-row-shared">
+                                        <td>
+                                          <div className="fw-semibold text-dark">
+                                            {req.title}
+                                            <span
+                                              className="badge bg-secondary-subtle text-secondary border ms-1.5"
+                                              style={{ fontSize: '0.65rem' }}
+                                              data-testid="badge-shared-requirement"
+                                              title="Requirement shared across multiple parties"
+                                            >
+                                              Shared ({groupTasks.length} parties)
+                                            </span>
+                                            {req.isOtherDocument && (
+                                              <span
+                                                className="badge bg-secondary-subtle text-dark border ms-1.5"
+                                                style={{ fontSize: '0.65rem' }}
+                                                data-testid={`badge-other-doc-${req.id}`}
+                                                title="Added by client"
+                                              >
+                                                Added by client
+                                              </span>
+                                            )}
+                                          </div>
+                                          {renderTaskPlacement(req)}
+                                          {req.description && (
+                                            <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
+                                              {req.description}
+                                            </div>
+                                          )}
+                                        </td>
+                                        <td style={{ whiteSpace: 'nowrap' }}>
+                                          {(() => {
+                                            const targetObj = resolveRequirementTargetObject(req);
+                                            return (
+                                              <div>
+                                                <div className="fw-semibold text-dark">{targetObj.name}</div>
+                                                {targetObj.identifier && (
+                                                  <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
+                                                    {targetObj.identifier}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })()}
+                                        </td>
+                                        <td>
+                                          <span className="text-muted small">—</span>
+                                        </td>
+                                        <td>
+                                          {(() => {
+                                            const allDone = groupTasks.every((t) => t.isFulfilled || t.verifierStatus === 'Verified' || (assuranceSet.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId)));
+                                            const doneCount = groupTasks.filter((t) => t.isFulfilled || t.verifierStatus === 'Verified' || (assuranceSet.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId))).length;
+                                            if (allDone) {
+                                              return (
+                                                <span className="badge bg-success text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
+                                                  Verified
+                                                </span>
+                                              );
+                                            }
+                                            if (doneCount > 0) {
+                                              return (
+                                                <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
+                                                  In Progress ({doneCount}/{groupTasks.length})
+                                                </span>
+                                              );
+                                            }
+                                            return (
+                                              <span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
+                                                Pending
+                                              </span>
+                                            );
+                                          })()}
+                                        </td>
+                                        <td className="text-end">
+                                          <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
+                                            {canEditTasks && (
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                                  style={{ width: '32px', height: '32px' }}
+                                                  onClick={() => openEditTask(req)}
+                                                  title="Edit task"
+                                                  aria-label="Edit task"
+                                                >
+                                                  <Pencil size={14} />
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                                  style={{ width: '32px', height: '32px' }}
+                                                  onClick={() => setTaskToDelete(req)}
+                                                  title="Remove task"
+                                                  aria-label="Remove task"
+                                                >
+                                                  <Trash2 size={14} />
+                                                </button>
+                                              </>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+                                      {groupTasks.map((partyTask) => {
+                                        const canViewPartyDoc = isRequirementDocumentVisible(partyTask, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+                                        const partyLinkedDoc = documents.find((d) => d.id === partyTask.documentId || (partyTask.linkedDocumentId && d.id === partyTask.linkedDocumentId));
+                                        const effectivePartyDoc = canViewPartyDoc ? partyLinkedDoc : undefined;
+                                        const partyDocView = effectivePartyDoc ? getRequirementDocumentView(assuranceSet, partyTask, effectivePartyDoc) : undefined;
+                                        const partyHasDoc = Boolean(effectivePartyDoc || (canViewPartyDoc && (partyTask.documentId || partyTask.linkedDocumentId)));
+                                        const partyOcr = partyHasDoc ? (partyTask.ocrConfidence || partyLinkedDoc?.ocrConfidence || 0) : 0;
+                                        const partyName = getRequirementPartyLabel(partyTask, assuranceSet, users, setObjects);
+
+                                        return (
+                                          <tr
+                                            key={partyTask.id}
+                                            data-requirement-id={partyTask.id}
+                                            data-testid="party-sub-row"
+                                            data-party={partyName}
+                                            className="party-sub-row bg-light-subtle border-top-0"
+                                          >
+                                            <td style={{ paddingLeft: '2.5rem' }}>
+                                              <div className="d-flex align-items-center gap-2">
+                                                <span className="text-secondary small fw-bold" style={{ fontSize: '0.85rem' }}>↳</span>
+                                                <div>
+                                                  <span className="fw-semibold text-dark small" data-testid="party-name">
+                                                    {partyName}
+                                                  </span>
+                                                  {renderVersionBadge(partyTask, partyDocView, canViewPartyDoc)}
+                                                  {partyTask.attemptNumber && (
+                                                    <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
+                                                      Attempt {partyTask.attemptNumber}
+                                                    </span>
+                                                  )}
+                                                  {partyTask.isOtherDocument && (
+                                                    <span
+                                                      className="badge bg-secondary-subtle text-dark border ms-1.5"
+                                                      style={{ fontSize: '0.65rem' }}
+                                                      data-testid={`badge-other-doc-${partyTask.id}`}
+                                                      title="Added by client"
+                                                    >
+                                                      Added by client
+                                                    </span>
+                                                  )}
+                                                  {partyTask.notes && canViewPartyDoc && (
+                                                    <div className="text-secondary small mt-0.5" style={{ fontSize: '0.72rem' }}>
+                                                      {partyTask.notes}
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </td>
+                                            <td>
+                                              <span className="text-muted small">—</span>
+                                            </td>
+                                            <td>
+                                              <ConfidenceBadge score={partyOcr} />
+                                            </td>
+                                            <td>
+                                              {renderRequirementStatus(partyTask, canViewPartyDoc)}
+                                            </td>
+                                            <td className="text-end">
+                                              <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
+                                                {effectivePartyDoc && canViewPartyDoc && (
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                                    style={{ width: '32px', height: '32px' }}
+                                                    onClick={() => setSelectedDocForReview({ doc: partyDocView?.doc || effectivePartyDoc, notes: partyTask.notes, requirementId: partyTask.id, verifierStatus: partyTask.verifierStatus, isVersionLocked: partyDocView?.isLocked })}
+                                                    title="PDF Review"
+                                                    aria-label="PDF Review"
+                                                  >
+                                                    <FileText size={16} />
+                                                  </button>
+                                                )}
+                                                {canUploadHere && (isClientViewer || canViewPartyDoc) && (
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                                    style={{ width: '32px', height: '32px' }}
+                                                    onClick={() => openRequirementUpload(partyTask, effectivePartyDoc)}
+                                                    title="Upload document"
+                                                    aria-label="Upload document"
+                                                  >
+                                                    <Upload size={14} />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
                                     </>
-                                  ) : canUploadHere && canViewDoc ? (
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
-                                      style={{ width: '32px', height: '32px' }}
-                                      onClick={() => openRequirementUpload(req)}
-                                      title="Upload document"
-                                      aria-label="Upload document"
-                                    >
-                                      <Upload size={16} />
-                                    </button>
                                   ) : (
-                                    <span className="text-secondary small">No Document</span>
+                                    <tr data-requirement-id={req.id}>
+                                      <td>
+                                        <div className="fw-semibold text-dark">
+                                          {req.title}
+                                          {renderVersionBadge(req, docView, canViewDoc)}
+                                          {req.attemptNumber && (
+                                            <span className="badge bg-light text-secondary border ms-1.5" style={{ fontSize: '0.65rem' }}>
+                                              Attempt {req.attemptNumber}
+                                            </span>
+                                          )}
+                                          {req.exemption && (
+                                            <span
+                                              className="badge bg-warning text-dark ms-1.5"
+                                              style={{ fontSize: '0.65rem' }}
+                                              title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
+                                            >
+                                              Exempted ({formatMaritimeDate(req.exemption.newDate)})
+                                            </span>
+                                          )}
+                                          {renderTaskPlacement(req)}
+                                          {req.isOtherDocument ? (
+                                            <span
+                                              className="badge bg-secondary-subtle text-dark border ms-1.5"
+                                              style={{ fontSize: '0.65rem' }}
+                                              data-testid={`badge-other-doc-${req.id}`}
+                                              title="Added by client"
+                                            >
+                                              Added by client
+                                            </span>
+                                          ) : req.isSpecialized ? (
+                                            <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle ms-1.5" style={{ fontSize: '0.65rem' }}>
+                                              Custom
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        {renderContractShortWarning(docView?.doc || effectiveLinkedDoc, canViewDoc)}
+                                        {req.description && (
+                                          <div className="text-secondary small mt-0.5" style={{ fontSize: '0.78rem', lineHeight: '1.4' }}>
+                                            {req.description}
+                                          </div>
+                                        )}
+                                        {(req.assignedSubmitter || req.assignedVerifier) && (
+                                          <div className="text-muted mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
+                                            {req.assignedSubmitter && (
+                                              <span><span className="text-secondary fw-semibold">Submitter:</span> {req.assignedSubmitter.split(' (')[0]}</span>
+                                            )}
+                                            {req.assignedSubmitter && req.assignedVerifier && <span>·</span>}
+                                            {req.assignedVerifier && (
+                                              <span><span className="text-secondary fw-semibold">Verifier:</span> {req.assignedVerifier.split(' (')[0]}</span>
+                                            )}
+                                          </div>
+                                        )}
+                                        {/* the document judged against this set's contract period, not once for every set (gap review E5, G3) */}
+                                        {docView && canViewDoc && (() => {
+                                          const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
+                                          if (validity.state === 'unknown') return null;
+                                          const tone =
+                                            validity.state === 'valid_through_period'
+                                              ? 'bg-success-subtle text-success-emphasis border-success-subtle'
+                                              : validity.state === 'lapsed'
+                                                ? 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
+                                                : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+                                          return (
+                                            <div className="mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.7rem' }}>
+                                              <span className={`badge border ${tone}`}>{validity.label}</span>
+                                              {validity.state !== 'valid_through_period' && validity.expiryDate && (
+                                                <span className="text-muted">
+                                                  {formatMaritimeDate(validity.expiryDate)}
+                                                  {/* a lapse names the issuer and the party responsible for renewal (paper 16.1) */}
+                                                  {validity.state === 'lapsed' && (
+                                                    <>
+                                                      {' '}· {docView.doc.issuingAuthority || 'Issuing authority not recorded'}
+                                                      {' '}· Responsible: {assuranceSet.serviceProviderOrg || 'Service provider not recorded'}
+                                                    </>
+                                                  )}
+                                                </span>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                        {req.decisionTime && (
+                                          <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                                            <span className="text-secondary fw-semibold">Decision:</span> {formatMaritimeDateTime(req.decisionTime)}
+                                          </div>
+                                        )}
+                                        {/* how this set's verifier confirmed the document (gap review G1) */}
+                                        {req.verifierStatus === 'Verified' && (
+                                          <div className="text-muted mt-1" style={{ fontSize: '0.7rem' }}>
+                                            <span className="text-secondary fw-semibold">Method:</span> {req.verificationMethod || 'Not recorded'}
+                                            {req.overrideReason && (
+                                              <span className="ms-2 text-warning-emphasis" title={req.overrideReason}>· Override</span>
+                                            )}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td style={{ whiteSpace: 'nowrap' }}>
+                                        {(() => {
+                                          const targetObj = resolveRequirementTargetObject(req);
+                                          return (
+                                            <div>
+                                              <div className="fw-semibold text-dark">{targetObj.name}</div>
+                                              {targetObj.identifier && (
+                                                <div className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }}>
+                                                  {targetObj.identifier}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
+                                      </td>
+                                      <td>
+                                        <ConfidenceBadge score={effectiveOcr} />
+                                      </td>
+                                      <td>
+                                        {renderRequirementStatus(req, canViewDoc)}
+                                      </td>
+                                      <td className="text-end">
+                                        <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
+                                          {canEditTasks && (
+                                            <>
+                                              <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                                style={{ width: '32px', height: '32px' }}
+                                                onClick={() => openEditTask(req)}
+                                                title="Edit task"
+                                                aria-label="Edit task"
+                                              >
+                                                <Pencil size={14} />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                                style={{ width: '32px', height: '32px' }}
+                                                onClick={() => setTaskToDelete(req)}
+                                                title="Remove task"
+                                                aria-label="Remove task"
+                                              >
+                                                <Trash2 size={14} />
+                                              </button>
+                                            </>
+                                          )}
+                                          {effectiveLinkedDoc && canViewDoc ? (
+                                            <>
+                                              <button
+                                                type="button"
+                                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                                style={{ width: '32px', height: '32px' }}
+                                                onClick={() => setSelectedDocForReview({ doc: docView?.doc || effectiveLinkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
+                                                title="PDF Review"
+                                                aria-label="PDF Review"
+                                              >
+                                                <FileText size={16} />
+                                              </button>
+                                              {canUploadHere && (
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                                                  style={{ width: '32px', height: '32px' }}
+                                                  onClick={() => openRequirementUpload(req, effectiveLinkedDoc)}
+                                                  disabled={Boolean(getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
+                                                  title={getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
+                                                  aria-label="Upload new version"
+                                                >
+                                                  <RefreshCw size={16} />
+                                                </button>
+                                              )}
+                                            </>
+                                          ) : canUploadHere && canViewDoc ? (
+                                            <button
+                                              type="button"
+                                              className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
+                                              style={{ width: '32px', height: '32px' }}
+                                              onClick={() => openRequirementUpload(req)}
+                                              title="Upload document"
+                                              aria-label="Upload document"
+                                            >
+                                              <Upload size={16} />
+                                            </button>
+                                          ) : (
+                                            <span className="text-secondary small">No Document</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
                                   )}
-                                </div>
-                              </td>
-                            </tr>
+                                </React.Fragment>
+                              );
+                            })
                           )}
-                        </React.Fragment>
-                      );
-                    })
-                  )}
                         </React.Fragment>
                       );
                     })
@@ -3428,16 +3454,16 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       <DocumentReviewDrawer
         document={
           selectedDocForReview &&
-          (isClientViewer ||
-            !selectedDocForReview.requirementId ||
-            isRequirementDocumentVisible(
-              assuranceSet.requirements?.find((r) => r.id === selectedDocForReview.requirementId) || ({ id: '' } as any),
-              isClientViewer,
-              viewerPartyOrg,
-              assuranceSet,
-              users,
-              setObjects,
-            ))
+            (isClientViewer ||
+              !selectedDocForReview.requirementId ||
+              isRequirementDocumentVisible(
+                assuranceSet.requirements?.find((r) => r.id === selectedDocForReview.requirementId) || ({ id: '' } as any),
+                isClientViewer,
+                viewerPartyOrg,
+                assuranceSet,
+                users,
+                setObjects,
+              ))
             ? selectedDocForReview.doc
             : null
         }

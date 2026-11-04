@@ -11,7 +11,7 @@ import {
   getAssuranceSetRequestRecipients,
   getProjectOrganizationForPersona,
 } from '../../utils/projectHelpers';
-import { formatUserRoles, getSessionUserForPersona } from '../../utils/userRoleHelpers';
+import { getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { ScopeChecklist } from '../common/ScopeChecklist';
 
 const SCOPE_OPTIONS: ProjectAssetType[] = ['Vessel', 'Equipment', 'Crew'];
@@ -117,10 +117,13 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
             <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
           </div>
           <div className="modal-body">
-            <p className="text-muted small mb-3">
-              Ask someone in <strong>{senderOrg}</strong> or an organization invited to{' '}
-              <strong>{project.name}</strong> to create an assurance set.
+            <p className="text-muted small mb-2">
+              Ask an organization invited to <strong>{project.name}</strong> to create an assurance set for <strong>{senderOrg}</strong>.
             </p>
+            <div className="mb-3 p-2 bg-light rounded border small" data-testid="requesting-party-banner">
+              <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party</div>
+              <div className="fw-semibold text-dark">{senderOrg}</div>
+            </div>
             {error && <div className="alert alert-danger py-2 small">{error}</div>}
             <div className="mb-3">
               <label className="form-label small fw-semibold">
@@ -134,7 +137,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
                 <option value="">Select recipient</option>
                 {recipients.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} — {u.organization} — {formatUserRoles(u.roles)}
+                    {u.name} — {u.organization} — Responding party
                   </option>
                 ))}
               </select>

@@ -333,6 +333,8 @@ describe('store: assurance set request', () => {
         assigneeUserId: 'USR-102',
         assigneeName: 'M. Chen',
         clientOrganization: 'Chevron Australia Pty Ltd',
+        requestingParty: 'Northwind Marine Pty Ltd',
+        respondingParty: 'Northwind Marine Pty Ltd',
         suggestedScope: 'Equipment',
       },
     });
@@ -367,6 +369,10 @@ describe('store: assurance set request', () => {
     expect(context?.assigneeName).toBe('M. Chen');
     expect(context?.assignee?.id).toBe('USR-102');
     expect(context?.requestedByName).toBe('K. Osei');
+    expect(context?.requestingParty).toBe('Northwind Marine Pty Ltd');
+    expect(context?.respondingParty).toBe('Northwind Marine Pty Ltd');
+    expect(context?.partyRoles?.requestingParty).toBe('Northwind Marine Pty Ltd');
+    expect(context?.partyRoles?.respondingParty).toBe('Northwind Marine Pty Ltd');
 
     const assignment = MOCK_NOTIFICATIONS.find((n) => n.type === 'stakeholder_assigned');
     expect(resolveAssuranceRequestContext(assignment, projects, users)).toBeUndefined();

@@ -50,6 +50,16 @@ export interface AssuranceSetRequestPayload {
   assigneeName: string;
   /** client of the project at the time of the request; the created set takes this client */
   clientOrganization: string;
+  /** requesting party organization (requester's organization) */
+  requestingParty?: string;
+  /** responding party organization (recipient's organization) */
+  respondingParty?: string;
+  /** party roles map on the assurance set */
+  partyRoles?: {
+    requestingParty?: string;
+    respondingParty?: string;
+    [organization: string]: string | undefined;
+  };
   /** legacy single scope hint; set when exactly one scope is suggested */
   suggestedScope?: ProjectAssetType;
   /** optional scope hints; empty means no preference */
@@ -75,6 +85,16 @@ export interface AppNotification {
   senderName: string;
   projectId?: string;
   projectName?: string;
+  /** requesting party organization for assurance set request */
+  requestingParty?: string;
+  /** responding party organization for assurance set request */
+  respondingParty?: string;
+  /** party roles map on the requested assurance set */
+  partyRoles?: {
+    requestingParty?: string;
+    respondingParty?: string;
+    [organization: string]: string | undefined;
+  };
   status: NotificationStatus;
   createdAt: string; // ISO 8601 UTC
   readAt?: string;

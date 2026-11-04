@@ -99,6 +99,7 @@ export type OrganizationGroup = 'Client' | 'Vendor' | 'Third party';
 export interface OrganizationParty {
   organization: string;
   group: OrganizationGroup;
+  partyRole?: 'Requesting party' | 'Responding party' | (string & {});
 }
 export type AuthorityValidationMethod = 'api' | 'direct_link' | 'manual';
 
@@ -400,6 +401,9 @@ export interface AssuranceSet {
   organizations?: string[];
   /** organizations on this set, each placed as Client, Vendor, or Third party */
   parties?: OrganizationParty[];
+  requestingParty?: string;
+  respondingParty?: string;
+  partyRoles?: Record<string, string>;
   /** one submitter per provider; assignedSubmitter mirrors the first */
   submitters?: SetSubmitter[];
   /** true when C Admin runs assurance on their own fleet (internal deployment, not third-party charter) */

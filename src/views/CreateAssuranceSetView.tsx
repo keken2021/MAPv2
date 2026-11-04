@@ -484,8 +484,32 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     addObjectOwners([setClientOrg].filter(Boolean), [
       ...selectedAssuranceObjects,
       { ownerOrganization: serviceProviderOrg },
+      ...(requestContext?.requestingParty ? [{ ownerOrganization: requestContext.requestingParty }] : []),
+      ...(requestContext?.respondingParty ? [{ ownerOrganization: requestContext.respondingParty }] : []),
     ]),
   );
+
+  const [orgPartyRoles, setOrgPartyRoles] = useState<Record<string, string>>(() => {
+    const roles: Record<string, string> = {};
+    if (requestContext) {
+      if (requestContext.requestingParty) {
+        roles[requestContext.requestingParty] = 'Requesting party';
+      }
+      if (requestContext.respondingParty) {
+        roles[requestContext.respondingParty] = 'Responding party';
+      }
+    }
+    return roles;
+  });
+
+  const [prefilledPartyRoles] = useState<Record<string, boolean>>(() => {
+    const prefilled: Record<string, boolean> = {};
+    if (requestContext) {
+      if (requestContext.requestingParty) prefilled[requestContext.requestingParty] = true;
+      if (requestContext.respondingParty) prefilled[requestContext.respondingParty] = true;
+    }
+    return prefilled;
+  });
   const [addedOwners, setAddedOwners] = useState<string[]>([]);
 
   /* every object, whether picked, bundled, templated or restored, puts its owner on the list */
@@ -1763,10 +1787,24 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       suitabilityCheckRequired,
       serviceProviderOrg: effectiveVendorOrg,
       clientOrg: ownerOrg,
-      parties: setOrganizationParties({
-        clientOrg: ownerOrg,
-        charterer: effectiveCharterer,
-        serviceProviderOrg: effectiveVendorOrg,
+      requestingParty:
+        Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Requesting party') ||
+        requestContext?.requestingParty,
+      respondingParty:
+        Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
+        requestContext?.respondingParty,
+      partyRoles: orgPartyRoles,
+      parties: organizations.map((org) => {
+        const existingParty = setOrganizationParties({
+          clientOrg: ownerOrg,
+          charterer: effectiveCharterer,
+          serviceProviderOrg: effectiveVendorOrg,
+        }).find((p) => sameOrganization(p.organization, org));
+        return {
+          organization: org,
+          group: existingParty?.group || (sameOrganization(org, ownerOrg) ? 'Client' : sameOrganization(org, effectiveVendorOrg) ? 'Vendor' : 'Third party'),
+          partyRole: orgPartyRoles[org] || (org === requestContext?.requestingParty ? 'Requesting party' : org === requestContext?.respondingParty ? 'Responding party' : undefined),
+        };
       }),
       organizations,
       submitters,
@@ -3116,6 +3154,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   </div>
                 </div>
                 <div className="card-body p-4">
+                  {requestContext && (
+                    <div className="alert alert-info py-2 px-3 small mb-3 d-flex align-items-center justify-content-between" data-testid="prefilled-request-note">
+                      <div>
+                        <span className="fw-semibold">Pre-filled from request:</span> Organization party roles have been pre-filled from the assurance set request ({requestContext.requestingParty} as Requesting party, {requestContext.respondingParty} as Responding party). You can adjust them as needed.
+                      </div>
+                      <span className="badge bg-light text-dark border">Pre-filled from request</span>
+                    </div>
+                  )}
                   <div className="table-responsive mb-3">
                     <table className="table table-sm align-middle mb-0" aria-label="Organizations on this set">
                       <thead className="table-light small text-secondary">
@@ -3176,6 +3222,31 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                       Provider
                                     </span>
                                   )}
+                                  <div className="d-inline-flex align-items-center gap-1 ms-auto">
+                                    <label className="visually-hidden" htmlFor={`party-role-${organization}`}>
+                                      Party role: {organization}
+                                    </label>
+                                    <select
+                                      id={`party-role-${organization}`}
+                                      className="form-select form-select-sm py-0 px-2"
+                                      style={{ fontSize: '0.75rem', height: '24px', width: 'auto' }}
+                                      aria-label={`Party role: ${organization}`}
+                                      value={orgPartyRoles[organization] || ''}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setOrgPartyRoles((prev) => ({ ...prev, [organization]: val }));
+                                      }}
+                                    >
+                                      <option value="">No party role</option>
+                                      <option value="Requesting party">Requesting party</option>
+                                      <option value="Responding party">Responding party</option>
+                                    </select>
+                                    {prefilledPartyRoles[organization] && (
+                                      <span className="badge bg-secondary-subtle text-secondary border font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                        Pre-filled from request
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 {submitter && (
                                   <div className="text-muted" style={{ fontSize: '0.75rem' }}>

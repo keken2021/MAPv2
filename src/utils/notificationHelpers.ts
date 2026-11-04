@@ -266,6 +266,16 @@ export interface AssuranceRequestContext {
   requestedByName: string;
   /** organization that sent the request */
   requestedByOrganization?: string;
+  /** requesting party organization */
+  requestingParty?: string;
+  /** responding party organization */
+  respondingParty?: string;
+  /** party roles map on the assurance set */
+  partyRoles?: {
+    requestingParty?: string;
+    respondingParty?: string;
+    [organization: string]: string | undefined;
+  };
 }
 
 /**
@@ -286,6 +296,16 @@ export function resolveAssuranceRequestContext(
 
   const assignee = users.find((u) => u.id === notification.request?.assigneeUserId);
   const sender = users.find((u) => u.id === notification.senderUserId);
+  const requestingParty =
+    notification.request.requestingParty ||
+    notification.request.partyRoles?.requestingParty ||
+    sender?.organization ||
+    '';
+  const respondingParty =
+    notification.request.respondingParty ||
+    notification.request.partyRoles?.respondingParty ||
+    assignee?.organization ||
+    '';
   return {
     notification,
     project,
@@ -295,6 +315,13 @@ export function resolveAssuranceRequestContext(
     assignee,
     requestedByName: notification.senderName,
     requestedByOrganization: sender?.organization,
+    requestingParty,
+    respondingParty,
+    partyRoles: {
+      requestingParty,
+      respondingParty,
+      ...(notification.request.partyRoles || {}),
+    },
   };
 }
 
