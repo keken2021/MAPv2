@@ -13,7 +13,7 @@ import { DetailHeader } from '../components/common/DetailHeader';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
-import { formatMaritimeDate, formatMaritimeDateTime, formatReviewChannel, getProviderLabel, getStatusDisplayLabel } from '../utils/formatters';
+import { formatMaritimeDate, formatMaritimeDateTime, formatReviewChannel, getProviderLabel, getStatusDisplayLabel, toSentenceCase } from '../utils/formatters';
 import { setOrganizations, setOrganizationParties } from '../utils/projectHelpers';
 import {
   toIsoLocalDate,
@@ -112,7 +112,7 @@ function getRequirementSectionInfo(
     const sec = setSections?.find((s) => s.id === 'sec-general' || s.id === 'general');
     return {
       sectionId: 'sec-general',
-      sectionTitle: sec?.name || 'General documents',
+      sectionTitle: toSentenceCase(sec?.name || 'General documents'),
       sectionOrder: sec?.order ?? 0,
       isGeneral: true,
       isCustom: false,
@@ -128,7 +128,7 @@ function getRequirementSectionInfo(
     if (customSec) {
       return {
         sectionId: customSec.id,
-        sectionTitle: customSec.name,
+        sectionTitle: toSentenceCase(customSec.name),
         sectionOrder: customSec.order ?? 100,
         isGeneral: false,
         isCustom: true,
@@ -177,7 +177,7 @@ function getRequirementSectionInfo(
     scope === 'Vessel'
       ? 'Vessel documents'
       : scope === 'Crew'
-      ? 'Crew documents'
+      ? 'Crew directory documents'
       : scope === 'Equipment'
       ? 'Equipment documents'
       : scope === 'Activity'
@@ -201,7 +201,7 @@ function getRequirementSectionInfo(
 
   return {
     sectionId: secId,
-    sectionTitle: matchedSec?.name || defaultTitle,
+    sectionTitle: toSentenceCase(matchedSec?.name || defaultTitle),
     sectionOrder: matchedSec?.order ?? defaultOrder,
     isGeneral: false,
     isCustom: false,
@@ -381,6 +381,7 @@ function isRequirementDocumentVisible(
 
 interface AssuranceDetailViewProps {
   setId: string;
+  initialTab?: AssuranceDetailTab;
 }
 
 /**
@@ -388,7 +389,7 @@ interface AssuranceDetailViewProps {
   how: displays pipeline stepper header, requirement register table with export controls, and opens DocumentReviewDrawer, VersionHistoryDrawer, or DocumentUploadModal based on persona RBAC.
   with what file: src/views/AssuranceDetailView.tsx loaded by App.tsx.
 */
-export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId }) => {
+export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId, initialTab }) => {
   const {
     assuranceSets,
     assuranceObjects,
@@ -502,6 +503,35 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const [editingSubmitterOrg, setEditingSubmitterOrg] = useState<string | null>(null);
 
   const [objectSearch, setObjectSearch] = useState('');
+  const [isAddingCustomSection, setIsAddingCustomSection] = useState(false);
+  const [customSectionName, setCustomSectionName] = useState('');
+  const [customSectionError, setCustomSectionError] = useState('');
+
+  const handleSaveCustomSection = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = customSectionName.trim();
+    if (!trimmed) {
+      setCustomSectionError('A section name is required.');
+      return;
+    }
+    const formattedName = toSentenceCase(trimmed);
+    const newSectionId = `csec-${Date.now()}`;
+    const currentSections = assuranceSet?.sections || [];
+    const newSection: TaskSection = {
+      id: newSectionId,
+      name: formattedName,
+      order: currentSections.length + 10,
+    };
+    if (assuranceSet) {
+      updateAssuranceSet({
+        ...assuranceSet,
+        sections: [...currentSections, newSection],
+      });
+    }
+    setCustomSectionName('');
+    setCustomSectionError('');
+    setIsAddingCustomSection(false);
+  };
 
   type ReqSortField = 'title' | 'targetDate' | 'targetObject' | 'ocrConfidence' | 'status';
   useOverlayBehavior(confirmDialogRef, () => setShortCertificateConfirm(null), {
@@ -534,7 +564,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const cleanSetId = setId ? setId.split('?')[0].split('/')[0] : '';
   const assuranceSet = assuranceSets.find((s) => s.id === cleanSetId || s.id === setId) || assuranceSets[0];
 
-  const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(() => parseTabFromUrl());
+  const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(() => initialTab || parseTabFromUrl());
 
   const handleTabChange = (tab: AssuranceDetailTab) => {
     setActiveTab(tab);
@@ -645,6 +675,126 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     return map;
   }, [assuranceSet?.requirements]);
 
+  const effectiveSections = useMemo(() => {
+    if (!assuranceSet) return [];
+
+    const declaredGeneral = assuranceSet.sections?.find((s) => s.id === 'sec-general' || s.id === 'general');
+    const generalSection: TaskSection = {
+      id: 'sec-general',
+      name: toSentenceCase(declaredGeneral?.name || 'General documents'),
+      order: declaredGeneral?.order ?? 0,
+    };
+
+    const linkedScopes = new Set<string>();
+    if (
+      assuranceSet.vesselId ||
+      assuranceSet.subtypes?.includes('Vessel') ||
+      assuranceSet.assuranceType === 'Vessel' ||
+      setObjects.some((o) => o.type === 'vessel') ||
+      assuranceSet.requirements?.some((r) => r.subtype === 'Vessel')
+    ) {
+      linkedScopes.add('Vessel');
+    }
+    if (
+      setObjects.some((o) => o.type === 'person') ||
+      assuranceSet.subtypes?.includes('Crew') ||
+      assuranceSet.requirements?.some((r) => r.subtype === 'Crew')
+    ) {
+      linkedScopes.add('Crew');
+    }
+    if (
+      setObjects.some((o) => o.type === 'equipment') ||
+      assuranceSet.subtypes?.includes('Equipment') ||
+      assuranceSet.requirements?.some((r) => r.subtype === 'Equipment')
+    ) {
+      linkedScopes.add('Equipment');
+    }
+    if (
+      setObjects.some((o) => o.type === 'procedure') ||
+      assuranceSet.subtypes?.some((s) => s.toLowerCase() === 'procedure') ||
+      assuranceSet.requirements?.some((r) => r.subtype?.toLowerCase() === 'procedure')
+    ) {
+      linkedScopes.add('Procedure');
+    }
+    if (
+      setObjects.some((o) => o.type === 'method') ||
+      assuranceSet.subtypes?.some((s) => s.toLowerCase() === 'method') ||
+      assuranceSet.requirements?.some((r) => r.subtype?.toLowerCase() === 'method')
+    ) {
+      linkedScopes.add('Method');
+    }
+
+    (assuranceSet.sections || []).forEach((sec) => {
+      const id = sec.id.toLowerCase();
+      if (id === 'sec-vessel' || id === 'vessel') linkedScopes.add('Vessel');
+      else if (id === 'sec-crew' || id === 'crew') linkedScopes.add('Crew');
+      else if (id === 'sec-equipment' || id === 'equipment') linkedScopes.add('Equipment');
+      else if (id === 'sec-procedure' || id === 'procedure') linkedScopes.add('Procedure');
+      else if (id === 'sec-method' || id === 'method') linkedScopes.add('Method');
+    });
+
+    const objectSectionList: TaskSection[] = [];
+    const scopeOrder: Record<string, number> = {
+      Vessel: 10,
+      Crew: 20,
+      Equipment: 30,
+      Procedure: 40,
+      Method: 50,
+    };
+
+    ['Vessel', 'Crew', 'Equipment', 'Procedure', 'Method'].forEach((scope) => {
+      if (!linkedScopes.has(scope)) return;
+      const slug = scope.toLowerCase();
+      const secId = `sec-${slug}`;
+      const declared = assuranceSet.sections?.find((s) => s.id === secId || s.id === slug || s.name.toLowerCase().includes(slug));
+      const defaultName = scope === 'Crew' ? 'Crew directory documents' : scope === 'Procedure' ? 'Procedures' : scope === 'Method' ? 'Methods' : `${scope} documents`;
+      objectSectionList.push({
+        id: secId,
+        name: toSentenceCase(declared?.name || defaultName),
+        order: declared?.order ?? scopeOrder[scope],
+      });
+    });
+
+    const standardIds = new Set([
+      'sec-general', 'general',
+      'sec-vessel', 'vessel',
+      'sec-crew', 'crew',
+      'sec-equipment', 'equipment',
+      'sec-procedure', 'procedure',
+      'sec-method', 'method',
+      'sec-activity', 'activity'
+    ]);
+
+    const customSectionList: TaskSection[] = (assuranceSet.sections || [])
+      .filter((s) => !standardIds.has(s.id.toLowerCase()) && Boolean(s.name?.trim()))
+      .map((s, idx) => ({
+        id: s.id,
+        name: toSentenceCase(s.name),
+        order: s.order ?? (100 + idx),
+      }));
+
+    const all = [
+      generalSection,
+      ...objectSectionList.sort((a, b) => a.order - b.order),
+      ...customSectionList.sort((a, b) => a.order - b.order),
+    ];
+
+    const recognizedSectionIds = new Set(all.map((s) => s.id));
+    (assuranceSet.requirements || []).forEach((req) => {
+      const info = getRequirementSectionInfo(req, assuranceSet.sections);
+      if (!recognizedSectionIds.has(info.sectionId)) {
+        recognizedSectionIds.add(info.sectionId);
+        all.push({
+          id: info.sectionId,
+          name: toSentenceCase(info.sectionTitle),
+          order: info.sectionOrder,
+        });
+      }
+    });
+
+    return all.filter((s) => Boolean(s.id?.trim()) && Boolean(s.name?.trim()));
+  }, [assuranceSet, setObjects]);
+
   const {
     orderedRequirements,
     peopleRequirements,
@@ -695,6 +845,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         requirements: AssuranceRequirement[];
       }
     >();
+
+    for (const sec of effectiveSections) {
+      sectionBuckets.set(sec.id, {
+        info: {
+          sectionId: sec.id,
+          sectionTitle: sec.name,
+          sectionOrder: sec.order,
+          isGeneral: sec.id === 'sec-general',
+          isCustom: !['sec-general', 'sec-vessel', 'sec-crew', 'sec-equipment', 'sec-procedure', 'sec-method'].includes(sec.id),
+        },
+        requirements: [],
+      });
+    }
 
     for (const req of assuranceSet.requirements) {
       const info = getRequirementSectionInfo(req, assuranceSet.sections);
@@ -768,7 +931,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
       processRequirements: [],
       otherRequirements: [],
     };
-  }, [assuranceSet, reqSortField, reqSortDirection, documents, setObjects, assuranceObjects]);
+  }, [assuranceSet, reqSortField, reqSortDirection, documents, setObjects, assuranceObjects, effectiveSections]);
 
   const isCAdminPersona = activePersona === 'C Admin';
 
@@ -789,7 +952,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
     [users, assuranceSet],
   );
 
-  const sectionSummaries = useMemo(() => summarizeTaskSections(assuranceSet), [assuranceSet]);
+  const sectionSummaries = useMemo(
+    () =>
+      summarizeTaskSections({
+        ...assuranceSet,
+        sections: (assuranceSet.sections || []).map((sec) => ({
+          ...sec,
+          name: toSentenceCase(sec.name),
+        })),
+      }),
+    [assuranceSet]
+  );
   const onTimeStatus = useMemo(() => getAssuranceSetOnTimeStatus(assuranceSet), [assuranceSet]);
   const openFindings = useMemo(() => getAssuranceSetOpenFindings(assuranceSet, capaItems), [assuranceSet, capaItems]);
   const remainingItems = useMemo(() => getAssuranceSetRemainingItems(assuranceSet), [assuranceSet]);
@@ -1032,15 +1205,24 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const isCAdmin = isCAdminPersona;
   const roleActions = getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization, sessionUser);
   const taskSectionsSet = useMemo(() => {
-    if (isClientViewer) return assuranceSet;
+    const baseSet = isClientViewer
+      ? assuranceSet
+      : {
+          ...assuranceSet,
+          requirements:
+            assuranceSet.requirements?.map((req) => {
+              const canView = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+              if (canView) return req;
+              const { documentId, linkedDocumentId, ...rest } = req;
+              return rest as AssuranceRequirement;
+            }) || [],
+        };
     return {
-      ...assuranceSet,
-      requirements: assuranceSet.requirements?.map((req) => {
-        const canView = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
-        if (canView) return req;
-        const { documentId, linkedDocumentId, ...rest } = req;
-        return rest as AssuranceRequirement;
-      }) || [],
+      ...baseSet,
+      sections: (baseSet.sections || []).map((sec) => ({
+        ...sec,
+        name: toSentenceCase(sec.name),
+      })),
     };
   }, [assuranceSet, isClientViewer, viewerPartyOrg, users, setObjects]);
 
@@ -1117,7 +1299,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
   const isCharterWindowLocked = assuranceSet.stage === 'Approved' || assuranceSet.stage === 'Certified' || assuranceSet.stage === 'Cancelled';
   const canEditCharterWindow = roleActions.canManage && roleActions.canChangeDates && !isCharterWindowLocked;
   const isSetOpen = !isClosedAssuranceSet(assuranceSet) && assuranceSet.stage !== 'Cancelled';
-  const canEditTasks = isClientUser(sessionUser, assuranceSet, activePersona) && isSetOpen;
+  const canEditTasks = (isClientUser(sessionUser, assuranceSet, activePersona) || activePersona === 'Administrator' || roleActions.canManage) && isSetOpen;
   const activeDateGrantsCount = (assuranceSet.datePermissionGrants || []).filter((g) => isDatePermissionActive(g)).length;
 
   const openAddTaskModal = () => {
@@ -2500,6 +2682,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </div>
                 </div>
                 <div className="d-flex align-items-center gap-2 ms-auto">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                    onClick={() => {
+                      setIsAddingCustomSection(true);
+                      setCustomSectionError('');
+                      setCustomSectionName('');
+                    }}
+                    data-testid="btn-add-custom-section"
+                  >
+                    <Plus size={14} />
+                    Add custom section
+                  </button>
                   {canEditTasks && (
                     <button
                       type="button"
@@ -2527,6 +2722,65 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
               </div>
 
             </div>
+            {isAddingCustomSection && (
+              <div className="p-3 bg-light border-bottom" data-testid="form-add-custom-section">
+                <form onSubmit={handleSaveCustomSection}>
+                  <div className="row g-2 align-items-end">
+                    <div className="col-12 col-md-6">
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="input-custom-section-name">
+                        Section name <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        id="input-custom-section-name"
+                        type="text"
+                        className={`form-control form-control-sm ${customSectionError ? 'is-invalid' : ''}`}
+                        placeholder="e.g. Navigational equipment, Environmental compliance"
+                        value={customSectionName}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomSectionName(val);
+                          if (!val.trim()) {
+                            setCustomSectionError('A section name is required.');
+                          } else {
+                            setCustomSectionError('');
+                          }
+                        }}
+                        data-testid="input-custom-section-name"
+                        autoFocus
+                      />
+                      {customSectionError && (
+                        <div className="text-danger small mt-1" data-testid="error-custom-section-name">
+                          {customSectionError}
+                        </div>
+                      )}
+                    </div>
+                    <div className="col-auto d-flex align-items-center gap-2">
+                      <button
+                        type="submit"
+                        className="btn btn-sm btn-primary text-white"
+                        data-testid="btn-save-custom-section"
+                        disabled={!customSectionName.trim()}
+                        onClick={handleSaveCustomSection}
+                      >
+                        Save section
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={() => {
+                          setIsAddingCustomSection(false);
+                          setCustomSectionName('');
+                          setCustomSectionError('');
+                        }}
+                        data-testid="btn-cancel-custom-section"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            )}
             {shortCertificates.length > 0 && (
               <div className="alert alert-warning rounded-0 border-0 border-bottom mb-0" role="status">
                 {shortCertificates.length === 1
@@ -2567,58 +2821,71 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                   </tr>
                 </thead>
                 <tbody>
-                  {orderedRequirements.length === 0 ? (
+                  {effectiveSections.length === 0 && orderedRequirements.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="text-center text-muted py-4 small">
                         No requirements or documents recorded.
                       </td>
                     </tr>
                   ) : (
-                    requirementsPagination.pageItems.map((req: AssuranceRequirement, idx: number) => {
-                      const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
-                      const groupKey = getRequirementGroupKey(req);
-                      const groupTasks = requirementGroupTasksMap.get(groupKey) || [req];
-                      const isSharedRequirement = groupTasks.length > 1;
-                      const secInfo = getRequirementSectionInfo(req, assuranceSet?.sections);
-                      const currentSection = secInfo.sectionTitle;
-                      const currentSubtype = getRequirementSubtype(req, secInfo);
-
-                      const prevReq = idx > 0 ? requirementsPagination.pageItems[idx - 1] : null;
-                      const prevSecInfo = prevReq ? getRequirementSectionInfo(prevReq, assuranceSet?.sections) : null;
-                      const prevSection = prevSecInfo ? prevSecInfo.sectionTitle : null;
-                      const prevSubtype = prevReq && prevSecInfo ? getRequirementSubtype(prevReq, prevSecInfo) : null;
-
-                      const isFirstOfSection = currentSection !== prevSection;
-                      const isFirstOfSubtype = isFirstOfSection || currentSubtype !== prevSubtype;
-
-                      const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
-                      const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
-                      /* an approved set shows the version it was approved against, not the live one */
-                      const docView = effectiveLinkedDoc ? getRequirementDocumentView(assuranceSet, req, effectiveLinkedDoc) : undefined;
-                      const linkedChildSet = req.linkedAssuranceSetId
-                        ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
-                        : undefined;
-
-                      const hasAttachedDoc = Boolean(effectiveLinkedDoc || (canViewDoc && (req.documentId || req.linkedDocumentId)));
-                      const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
+                    effectiveSections.map((sec) => {
+                      const slug = (sec.name || sec.id).toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                      const sectionTitle = toSentenceCase(sec.name);
+                      const secReqs = orderedRequirements.filter((req) => {
+                        const info = getRequirementSectionInfo(req, assuranceSet?.sections);
+                        return info.sectionId === sec.id;
+                      });
 
                       return (
-                        <React.Fragment key={req.id}>
-                          {isFirstOfSection && (
-                            <tr className="bg-light border-top border-bottom" data-testid={`group-section-${currentSection.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
-                              <td colSpan={5} className="py-2.5 px-3">
-                                <div className="d-flex align-items-center justify-content-between">
-                                  <span className="fw-bold text-secondary text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }} data-testid="section-group-header">
-                                    {currentSection}
-                                  </span>
-                                </div>
+                        <React.Fragment key={sec.id}>
+                          <tr className="bg-light border-top border-bottom" data-testid={`group-section-${slug}`}>
+                            <td colSpan={5} className="py-2.5 px-3">
+                              <div className="d-flex align-items-center justify-content-between">
+                                <span className="fw-bold text-secondary" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }} data-testid="section-group-header">
+                                  {sectionTitle}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                          {secReqs.length === 0 ? (
+                            <tr data-testid={`empty-section-${slug}`}>
+                              <td colSpan={5} className="text-center text-muted py-3 small fst-italic">
+                                No requirements recorded in this section.
                               </td>
                             </tr>
-                          )}
-                          {Boolean(currentSubtype && isFirstOfSubtype) && (
-                            <tr className="bg-light-subtle border-bottom" data-testid={`group-subtype-${currentSubtype.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
-                              <td colSpan={5} className="py-1.5 px-4 text-secondary small fw-semibold">
-                                <div className="d-flex align-items-center gap-2">
+                          ) : (
+                            secReqs.map((req: AssuranceRequirement, rIdx: number) => {
+                              const secInfo = getRequirementSectionInfo(req, assuranceSet?.sections);
+                              const currentSubtype = getRequirementSubtype(req, secInfo);
+
+                              const prevReq = rIdx > 0 ? secReqs[rIdx - 1] : null;
+                              const prevSecInfo = prevReq ? getRequirementSectionInfo(prevReq, assuranceSet?.sections) : null;
+                              const prevSubtype = prevReq && prevSecInfo ? getRequirementSubtype(prevReq, prevSecInfo) : null;
+
+                              const isFirstOfSubtype = !prevReq || currentSubtype !== prevSubtype;
+
+                              const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+                              const groupKey = getRequirementGroupKey(req);
+                              const groupTasks = requirementGroupTasksMap.get(groupKey) || [req];
+                              const isSharedRequirement = groupTasks.length > 1;
+
+                              const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+                              const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
+                              /* an approved set shows the version it was approved against, not the live one */
+                              const docView = effectiveLinkedDoc ? getRequirementDocumentView(assuranceSet, req, effectiveLinkedDoc) : undefined;
+                              const linkedChildSet = req.linkedAssuranceSetId
+                                ? assuranceSets.find((s) => s.id === req.linkedAssuranceSetId)
+                                : undefined;
+
+                              const hasAttachedDoc = Boolean(effectiveLinkedDoc || (canViewDoc && (req.documentId || req.linkedDocumentId)));
+                              const effectiveOcr = hasAttachedDoc ? (req.ocrConfidence || linkedDoc?.ocrConfidence || 0) : 0;
+
+                              return (
+                                <React.Fragment key={req.id}>
+                                  {Boolean(currentSubtype && isFirstOfSubtype) && (
+                                    <tr className="bg-light-subtle border-bottom" data-testid={`group-subtype-${currentSubtype.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
+                                      <td colSpan={5} className="py-1.5 px-4 text-secondary small fw-semibold">
+                                        <div className="d-flex align-items-center gap-2">
                                   <span style={{ fontSize: '0.75rem' }} data-testid="subtype-group-header">{currentSubtype}</span>
                                 </div>
                               </td>
@@ -3060,6 +3327,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                       );
                     })
                   )}
+                        </React.Fragment>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -3073,7 +3344,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         sectionSummaries.length > 0 ? (
           <div className="card map-card-custom">
             <div className="card-header d-flex align-items-center gap-2 p-3 bg-white">
-              <span className="fw-bold text-dark">Task Sections</span>
+              <span className="fw-bold text-dark">Task sections</span>
             </div>
             <div className="card-body border-top">
               <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
@@ -3083,8 +3354,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
         ) : (
           <div className="card map-card-custom p-4">
             <EmptyState
-              title="No Task Sections"
-              description="No Task Sections have been defined for this assurance set."
+              title="No task sections"
+              description="No task sections have been defined for this assurance set."
             />
           </div>
         )
@@ -3927,9 +4198,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         onChange={(e) => setNewTaskDraft({ ...newTaskDraft, sectionId: e.target.value })}
                       >
                         <option value="">No section</option>
-                        {assuranceSet.sections.map((sec) => (
+                        {assuranceSet.sections.filter((sec) => Boolean(sec.name?.trim())).map((sec) => (
                           <option key={sec.id} value={sec.id}>
-                            {sec.name}
+                            {toSentenceCase(sec.name)}
                           </option>
                         ))}
                       </select>
@@ -4079,9 +4350,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId 
                         onChange={(e) => setEditTaskDraft({ ...editTaskDraft, sectionId: e.target.value })}
                       >
                         <option value="">No section</option>
-                        {assuranceSet.sections.map((sec) => (
+                        {assuranceSet.sections.filter((sec) => Boolean(sec.name?.trim())).map((sec) => (
                           <option key={sec.id} value={sec.id}>
-                            {sec.name}
+                            {toSentenceCase(sec.name)}
                           </option>
                         ))}
                       </select>

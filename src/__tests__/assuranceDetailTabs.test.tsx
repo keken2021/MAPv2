@@ -100,8 +100,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     const tasksTab = screen.getByRole('tab', { name: /tasks/i });
     expect(tasksTab.getAttribute('aria-selected')).toBe('true');
 
-    // Task Sections card is present
-    expect(screen.getByText('Task Sections')).toBeDefined();
+    // Task sections card is present
+    expect(screen.getByText(/task sections/i)).toBeDefined();
   });
 
   it('Audit Trail tab lists this set\'s audit events with time, person and role, action, and deltas', () => {
