@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -135,6 +135,7 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
         fireEvent.change(titleInput, { target: { value: 'Task 5303 Chevron Campaign' } });
       }
 
+      pickReviewerRoles(container);
       // Step 1 -> Step 2 (Objects)
       clickNext();
       // Step 2 -> Step 3 (Requirements)
@@ -196,9 +197,7 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
 
       // Verify added document appears in custom section
       expect(customSection?.textContent).toContain('Custom Requirement 1');
-      expect(customSection?.textContent).toContain('Tenant Doc');
-
-      // Step 3 -> Step 4 (Review)
+            // Step 3 -> Step 4 (Review)
       clickNext();
 
       // Verify Step 4 review displays the custom section title

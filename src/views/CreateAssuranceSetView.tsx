@@ -2627,7 +2627,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
             ) : (
               activeGeneralDocs.map((doc) => {
-                const assignedOrg = getGeneralDocAssignedOrg(doc.code);
                 const defaultParties = (
                   doc.code === 'MSA'
                     ? [setClientOrg]
@@ -2635,35 +2634,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       ? [setClientOrg, appointedProviderOrg || serviceProviderOrg]
                       : [appointedProviderOrg || serviceProviderOrg]
                 ).filter(Boolean);
-                const currentParties = getRequirementResponsibleParties(doc.id, defaultParties);
 
                 return (
                   <div
                     key={doc.id}
-                    className="p-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
+                    className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
                     data-testid={`general-doc-row-${doc.id}`}
                   >
                     <div className="d-flex align-items-center justify-content-between gap-3">
-                      <div className="d-flex flex-column gap-1 flex-grow-1 min-w-0">
-                        <div className="d-flex align-items-center gap-2 flex-wrap">
-                          <span className="fw-semibold text-dark small text-truncate">
-                            {doc.title}
-                          </span>
-                          <span
-                            className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code"
-                            style={{ fontSize: '0.675rem' }}
-                          >
-                            {doc.code}
-                          </span>
-                          <span
-                            className="badge bg-light text-secondary border font-mono-code"
-                            style={{ fontSize: '0.675rem' }}
-                          >
-                            Assigned: {currentParties.join(', ') || assignedOrg}
-                          </span>
-                        </div>
-                        <span className="text-secondary small" style={{ fontSize: '0.75rem' }}>
-                          {doc.description}
+                      <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                        <span className="fw-semibold text-dark small text-truncate">
+                          {doc.title}
                         </span>
                       </div>
 
@@ -2947,12 +2928,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                     <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
                                       <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${spec.id}`}>
                                         {spec.title}
-                                      </span>
-                                      <span
-                                        className="badge bg-secondary-subtle text-dark border font-mono-code"
-                                        style={{ fontSize: '0.675rem' }}
-                                      >
-                                        {spec.isOtherDocument ? 'Other Document' : 'Custom'}
                                       </span>
                                     </div>
                                     <div className="d-flex align-items-center gap-3 flex-shrink-0">
@@ -4401,9 +4376,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                     <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
                                       <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${doc.id}`}>
                                         {doc.title}
-                                      </span>
-                                      <span className="badge bg-secondary-subtle text-dark border font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                        Tenant Doc
                                       </span>
                                     </div>
                                     <div className="d-flex align-items-center gap-3 flex-shrink-0">

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -39,6 +39,7 @@ describe('CreateAssuranceSetView Step 3 Editable Section Titles and Add Other Do
       fireEvent.change(titleInput, { target: { value: 'Task 5302 Unique Vetting Campaign' } });
     }
 
+    pickReviewerRoles(container);
     // Step 1 -> Step 2 (Covered Objects)
     clickNext();
     // Step 2 -> Step 3 (Requirements)
@@ -94,9 +95,7 @@ describe('CreateAssuranceSetView Step 3 Editable Section Titles and Add Other Do
     const statutoryAccordion = container.querySelector('[data-testid="subtype-accordion-vessel-statutory-certificate"]');
     expect(statutoryAccordion).not.toBeNull();
     expect(statutoryAccordion?.textContent).toContain('Other Statutory Certificate Document');
-    expect(statutoryAccordion?.textContent).toContain('Other Document');
-
-    // 5. Test survival across Next and Back
+        // 5. Test survival across Next and Back
     // Step 3 -> Step 4 (Review)
     clickNext();
 
