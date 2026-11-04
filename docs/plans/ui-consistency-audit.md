@@ -499,9 +499,130 @@ The table below lists specific padding outliers with exact file and line referen
    - Issue: Large `p-5` (48px) internal container padding wastes screen real estate on desktop monitors.
    - Remediation: Reduce to standard `p-4` (16px) or `p-4 py-3`.
 
-## 5. Verification Spot-Check
+## 5. Modal Architecture Audit
 
-### 5.1 Button Verification Spot-Check (Task 5368)
+### 5.1 Overview & Architecture Anti-Patterns
+
+Across the MAPv2 codebase, modals are implemented via three competing paradigms:
+1. **15 Standalone Modal Components**: Specialized modals located in `src/components/modals/` and `src/components/common/`.
+2. **6 Views with Inline Modal Markup**: Views that implement modal DOM trees directly inside the page component rather than delegating to reusable wrappers (`AssuranceDetailView.tsx`, `CreateAssuranceSetView.tsx`, `CrewDetailView.tsx`, `EquipmentDetailView.tsx`, `RolesAndPermissionsView.tsx`, `VesselDetailView.tsx`).
+3. **Card-in-Backdrop Abstraction**: Instead of standard Bootstrap `modal-dialog` / `modal-content`, two modals (`AddUserModal.tsx` and `EditUserModal.tsx`) assemble a modal using a custom `map-modal-backdrop` wrapping a standard Bootstrap `card`.
+
+In total, exactly **21 modal implementations** exist across the application. Across these 21 modals, significant variance exists in header padding, footer padding, modal widths, close button styling, and the position and order of Cancel and Confirm buttons.
+
+### 5.2 Standalone Modal Components Inventory (15 Modals)
+
+The table below catalogs all 15 standalone modal components in the application:
+
+| # | Modal Component | File & Line | Width / MaxWidth | Header Padding | Footer Padding | Close Button | Cancel / Confirm Order & Alignment |
+|:--|:---|:---|:---|:---|:---|:---|:---|
+| 1 | **Add Crew** | [`AddCrewModal.tsx:187`](file:///c:/mapFiles/MAPv2/src/components/modals/AddCrewModal.tsx#L187) | `maxWidth: 620px` / `modal-lg` | `p-3` | `p-3` | Lucide `X` & `btn-close` | Split: Cancel Left / Save Right |
+| 2 | **Add User** | [`AddUserModal.tsx:138`](file:///c:/mapFiles/MAPv2/src/components/modals/AddUserModal.tsx#L138) | `maxWidth: 580px` (Card) | `p-3` | `p-3` | Lucide `X` | Right-aligned: Cancel then Add (Standard) |
+| 3 | **Attach Assurance Set Preview** | [`AttachAssuranceSetPreviewModal.tsx:288`](file:///c:/mapFiles/MAPv2/src/components/modals/AttachAssuranceSetPreviewModal.tsx#L288) | `maxWidth: 720px` | `px-4 py-3` | `px-4 py-3` | `btn-close` | Split: Cancel Left / Attach Right |
+| 4 | **Crew Document Upload** | [`CrewDocumentUploadModal.tsx:758`](file:///c:/mapFiles/MAPv2/src/components/modals/CrewDocumentUploadModal.tsx#L758) | Dynamic: `1100px` / `720px` | `p-3` | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Upload (Standard) |
+| 5 | **Crew Document Viewer** | [`CrewDocumentViewerModal.tsx:45`](file:///c:/mapFiles/MAPv2/src/components/modals/CrewDocumentViewerModal.tsx#L45) | Delegates to `modal-xl` | `px-4 py-3` | `p-3` | Lucide `X` | Split: Cancel Left / Verify Right |
+| 6 | **Document Upload** | [`DocumentUploadModal.tsx:854`](file:///c:/mapFiles/MAPv2/src/components/modals/DocumentUploadModal.tsx#L854) | Dynamic: `1100px` / `720px` | `p-3` | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Upload (Standard) |
+| 7 | **Edit User** | [`EditUserModal.tsx:138`](file:///c:/mapFiles/MAPv2/src/components/modals/EditUserModal.tsx#L138) | `maxWidth: 580px` (Card) | `p-3` | `p-3` | Lucide `X` | Right-aligned: Cancel then Save (Standard) |
+| 8 | **Equipment Modal** | [`EquipmentModal.tsx:130`](file:///c:/mapFiles/MAPv2/src/components/modals/EquipmentModal.tsx#L130) | `modal-lg` (800px) | `p-3` | `p-3` | Lucide `X` | Split: Cancel Left (`me-auto`) / Save Right |
+| 9 | **Filter Modal** | [`FilterModal.tsx:49`](file:///c:/mapFiles/MAPv2/src/components/common/FilterModal.tsx#L49) | Default (500px) | `p-3.5` (Outlier) | `p-3` | `btn-close` | Split: Reset Left / Apply Right |
+| 10 | **Notification Detail** | [`NotificationDetailModal.tsx:173`](file:///c:/mapFiles/MAPv2/src/components/modals/NotificationDetailModal.tsx#L173) | `map-notif-modal-dialog` (540px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Split: Dismiss Left / View Target Right |
+| 11 | **Project Add Asset** | [`ProjectAddAssetModal.tsx:547`](file:///c:/mapFiles/MAPv2/src/components/modals/ProjectAddAssetModal.tsx#L547) | `maxWidth: 940px` | `px-4 py-3` | `px-4 py-3` | Lucide `X` | Split: Cancel Left / Add Assets Right |
+| 12 | **Request Assurance Set** | [`RequestAssuranceSetModal.tsx:113`](file:///c:/mapFiles/MAPv2/src/components/modals/RequestAssuranceSetModal.tsx#L113) | Default (500px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Request (Standard) |
+| 13 | **Universal Document Preview** | [`UniversalDocumentPreviewModal.tsx:72`](file:///c:/mapFiles/MAPv2/src/components/modals/UniversalDocumentPreviewModal.tsx#L72) | `modal-xl` (1140px) | `px-4 py-3` | `p-3` | Lucide `X` | Split: Close Left / Actions Right |
+| 14 | **Vessel Image Crop** | [`VesselImageCropModal.tsx:300`](file:///c:/mapFiles/MAPv2/src/components/modals/VesselImageCropModal.tsx#L300) | `modal-lg` (800px) | `px-4 py-3` | `px-4 py-3` | Lucide `X` | Split: Cancel Left / Crop Right |
+| 15 | **Vessel Modal** | [`VesselModal.tsx:775`](file:///c:/mapFiles/MAPv2/src/components/modals/VesselModal.tsx#L775) | `modal-xl` (1140px) | `p-3` | Rogue `justify-between` | Lucide `X` | Split: Cancel Left / Save Right |
+
+### 5.3 Inline Modal Implementations in Views (6 Views)
+
+The table below catalogs the inline modal markup written by hand across 6 view files:
+
+| # | View File & Modal Purpose | File & Line | Width / MaxWidth | Header Padding | Footer Padding | Close Button | Cancel / Confirm Order & Alignment |
+|:--|:---|:---|:---|:---|:---|:---|:---|
+| 16a | **AssuranceDetailView** - Add to Project | [`AssuranceDetailView.tsx:4672`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4672) | `maxWidth: 480px` | `px-4 py-3` | `px-4 py-3` | `btn-close` | Right-aligned: Cancel / Close only |
+| 16b | **AssuranceDetailView** - Certificates Expire Warning | [`AssuranceDetailView.tsx:4733`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4733) | Default (500px) | Default (`p-3`) | Default (`p-3`) | *None* | Right-aligned: Cancel then Save (Standard) |
+| 16c | **AssuranceDetailView** - Edit Task Target Date | [`AssuranceDetailView.tsx:4788`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4788) | Default (500px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Save (Standard) |
+| 16d | **AssuranceDetailView** - Target Date Grants | [`AssuranceDetailView.tsx:4855`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4855) | `modal-lg` (800px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Close only |
+| 16e | **AssuranceDetailView** - Revise Completion Date | [`AssuranceDetailView.tsx:5003`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5003) | Default (500px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Save (Standard) |
+| 16f | **AssuranceDetailView** - Exempt Tasks | [`AssuranceDetailView.tsx:5070`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5070) | `modal-lg` (800px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Close only |
+| 16g | **AssuranceDetailView** - Confirm Partial Closure | [`AssuranceDetailView.tsx:5226`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5226) | Default (500px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Confirm (Standard) |
+| 16h | **AssuranceDetailView** - Cancel Assurance Set | [`AssuranceDetailView.tsx:5303`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5303) | Default (500px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Back then Confirm (Standard) |
+| 16i | **AssuranceDetailView** - Add Task | [`AssuranceDetailView.tsx:5349`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5349) | Default (500px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Add (Standard) |
+| 16j | **AssuranceDetailView** - Edit Task | [`AssuranceDetailView.tsx:5496`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5496) | Default (500px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Save (Standard) |
+| 16k | **AssuranceDetailView** - Remove Task | [`AssuranceDetailView.tsx:5649`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5649) | Default (500px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Remove (Standard) |
+| 16l | **AssuranceDetailView** - Exclude Seafarer | [`AssuranceDetailView.tsx:5685`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L5685) | Default (500px) | Default (`p-3`) | `bg-light py-2` (Outlier) | `btn-close` | Right-aligned: Cancel then Exclude (Standard) |
+| 17 | **CreateAssuranceSetView** - Unsaved Changes | [`CreateAssuranceSetView.tsx:4443`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4443) | `maxWidth: 480px` | `px-4 py-3 bg-light` | `px-4 py-3` | `btn-close` | Split: Cancel Left / Discard Right |
+| 18a | **CrewDetailView** - Manage Photos | [`CrewDetailView.tsx:1202`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L1202) | `modal-lg` (800px) | `p-3` | `p-3` | `btn-close` | Split: Cancel Left / Save Right |
+| 18b | **CrewDetailView** - Add Photo | [`CrewDetailView.tsx:1491`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L1491) | `modal-lg` (800px) | `p-3` | Default (`p-3`) | `btn-close` | Split: Cancel Left / Upload Right |
+| 19a | **EquipmentDetailView** - Manage Photos | [`EquipmentDetailView.tsx:518`](file:///c:/mapFiles/MAPv2/src/views/EquipmentDetailView.tsx#L518) | `modal-lg` (800px) | `px-4 py-3` | `p-3` | Lucide `X` | Split: Cancel Left / Save Right |
+| 19b | **EquipmentDetailView** - Add Photo | [`EquipmentDetailView.tsx:743`](file:///c:/mapFiles/MAPv2/src/views/EquipmentDetailView.tsx#L743) | `modal-lg` (800px) | `p-3` | Default (`p-3`) | `btn-close` | Split: Cancel Left / Upload Right |
+| 20 | **RolesAndPermissionsView** - Create Role | [`RolesAndPermissionsView.tsx:499`](file:///c:/mapFiles/MAPv2/src/views/RolesAndPermissionsView.tsx#L499) | Default (500px) | Default (`p-3`) | Default (`p-3`) | `btn-close` | Right-aligned: Cancel then Create (Standard) |
+| 21a | **VesselDetailView** - Inspection Detail | [`VesselDetailView.tsx:3144`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3144) | `modal-xl` (1140px) | `p-3` | Rogue `justify-between` | `btn-close` | Split: Cancel Left / View Right |
+| 21b | **VesselDetailView** - Audit Event Detail | [`VesselDetailView.tsx:3468`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3468) | `modal-lg` (800px) | `p-3` | Default (`p-3`) | `btn-close` | Right-aligned: Close only |
+| 21c | **VesselDetailView** - Company Fleet Detail | [`VesselDetailView.tsx:3588`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3588) | `modal-lg` (800px) | `p-3` | Default (`p-3`) | `btn-close` | Right-aligned: Close only |
+| 21d | **VesselDetailView** - Manage Photos | [`VesselDetailView.tsx:3750`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3750) | `modal-lg` (800px) | `p-3` | `p-3` | `btn-close` | Split: Cancel Left / Save Right |
+| 21e | **VesselDetailView** - Add Photo | [`VesselDetailView.tsx:4034`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L4034) | `modal-lg` (800px) | `p-3` | Default (`p-3`) | `btn-close` | Split: Cancel Left / Upload Right |
+
+### 5.4 Cross-Modal Differences and Outlier Analysis
+
+#### 1. Header and Footer Padding Fragmentation
+- **Over-Padded Footers (`px-4 py-3`)**: 7 modals (`AttachAssuranceSetPreviewModal`, `ProjectAddAssetModal`, `VesselImageCropModal`, `CreateAssuranceSetView:4445`, `EquipmentDetailView:518`, `AssuranceDetailView:4672`) apply `px-4 py-3`, producing 64px tall headers and footers that crowd dialog content on low-resolution displays.
+- **Micro / Sub-Scale Padding**: `FilterModal.tsx:58` uses fractional `p-3.5`, while `AssuranceDetailView.tsx:5685` uses `py-2`.
+- **Default Bootstrap Padding**: 10 modals use standard unclassed `modal-header` and `modal-footer` (defaulting to 16px `p-3`).
+
+#### 2. Width Fragmentation (Arbitrary `maxWidth` vs Bootstrap Grid)
+- Rather than adhering to Bootstrap standard modal widths (`modal-sm: 300px`, default `500px`, `modal-lg: 800px`, `modal-xl: 1140px`), 8 modals apply custom inline `maxWidth` styles:
+  - `maxWidth: 480px`: `AssuranceDetailView.tsx:4672`, `CreateAssuranceSetView.tsx:4443`
+  - `maxWidth: 580px`: `AddUserModal.tsx:138`, `EditUserModal.tsx:138`
+  - `maxWidth: 620px`: `AddCrewModal.tsx:187`
+  - `maxWidth: 940px`: `ProjectAddAssetModal.tsx:547`
+  - Dynamic `maxWidth`: `CrewDocumentUploadModal.tsx`, `DocumentUploadModal.tsx` (720px / 1100px based on OCR extraction state).
+
+#### 3. Conflicting Button Alignments and Orders
+- **Split Footer (Cancel Left, Confirm Right)**: 12 modals use `justify-content-between` or `me-auto` to pin Cancel to the left edge and Confirm/Save to the right edge.
+- **Right-Aligned Footer (Cancel preceding Confirm)**: 8 modals group all actions on the right, with secondary/cancel preceding primary/confirm (`btn-outline-secondary` followed by `btn-primary`).
+- **Inverted Action Order within AssuranceDetailView**: While `AssuranceDetailView` generally uses Right-aligned buttons, `Certificates Expire Warning` (line 4733) omits a close button and places Cancel and Save without standard spacing, while other dialogs in the same view place Close only.
+- **Rogue Tailwind Class**: Both `VesselModal.tsx:1608` and `VesselDetailView.tsx:3144` write `className="modal-footer ... d-flex justify-between"`. In Bootstrap 5, `justify-between` does not exist (the Bootstrap class is `justify-content-between`), causing the flex container to fail to justify buttons and leaving them touching.
+
+#### 4. Close Button Inconsistency
+- **Bootstrap Native (`btn-close`)**: Used by 13 modals.
+- **Lucide Icon (`<X size={18} />` inside custom button)**: Used by 7 modals (`AddUserModal`, `EditUserModal`, `EquipmentModal`, `ProjectAddAssetModal`, `UniversalDocumentPreviewModal`, `VesselImageCropModal`, `VesselModal`).
+- **Missing Close Button**: `CrewDocumentViewerModal.tsx` and `AssuranceDetailView.tsx:4733` lack an explicit header close button, forcing the user to interact with the footer to dismiss.
+
+### 5.5 Proposed Standard Modal Architecture
+
+To eliminate all 21 one-off variations, MAPv2 should implement a single canonical `<Modal>` component in `src/components/common/Modal.tsx` with the following architecture:
+
+```tsx
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  size?: 'sm' | 'md' | 'lg' | 'xl'; // sm: 400px, md: 540px, lg: 800px, xl: 1140px
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  primaryAction?: { label: string; onClick: () => void; variant?: 'primary' | 'danger'; loading?: boolean };
+  secondaryAction?: { label: string; onClick: () => void };
+}
+```
+
+1. **Standard Sizes**:
+   - `sm`: Confirmation and alert dialogs (400px).
+   - `md` (default): Single-column forms and inputs (540px).
+   - `lg`: Multi-column forms, asset selection tables (800px).
+   - `xl`: Document viewers, complex asset managers (1140px).
+2. **Standard Padding**:
+   - Header: Standard `px-4 py-3` with bottom border.
+   - Body: Standard `p-4`.
+   - Footer: Standard `px-4 py-3` with top border.
+3. **Standard Action Alignment**:
+   - Right-aligned by default: Cancel (`btn-outline-secondary`) on the left of the button cluster, Confirm (`btn-primary` or `btn-danger`) on the right, separated by `gap-2` (8px).
+   - Optional split footer when a destructive or secondary action belongs on the left (`justify-content-between`).
+4. **Standard Close Control**:
+   - Native `btn-close` with `aria-label="Close"` top right.
+
+## 6. Verification Spot-Check
+
+### 6.1 Button Verification Spot-Check (Task 5368)
 
 | File & Line | Code Snippet | Verified |
 |:---|:---|:---:|
@@ -511,9 +632,7 @@ The table below lists specific padding outliers with exact file and line referen
 | [`VesselDetailView.tsx:1863`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L1863) | `<button className="btn btn-sm btn-outline-primary" onClick={...}>` | Yes |
 | [`ApproverDashboardView.tsx:695`](file:///c:/mapFiles/MAPv2/src/views/ApproverDashboardView.tsx#L695) | `<button type="button" className="btn-close" ...>` | Yes |
 
-### 5.2 Spacing & Scale Verification Spot-Check (Task 5369)
-
-The following 5 file:line references were spot-checked directly against the codebase to verify spacing accuracy:
+### 6.2 Spacing & Scale Verification Spot-Check (Task 5369)
 
 | File & Line | Code Snippet | Utility Flagged | Issue Type | Verified |
 |:---|:---|:---:|:---|:---:|
@@ -523,12 +642,23 @@ The following 5 file:line references were spot-checked directly against the code
 | [`AssuranceDetailView.tsx:2679`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2679) | `className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"` | `py-0 px-2` | Cramped zero vertical padding on button | Yes |
 | [`CreateAssuranceSetView.tsx:4384`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4384) | `<div className="card-footer bg-light border-top px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">` | `px-4 py-3` | Over-padded card footer | Yes |
 
-### 5.3 Live App Visual Confirmation
+### 6.3 Modal Verification Spot-Check (Task 5370)
 
-Two flagged screens were verified in the running application:
-1. **`AssuranceDetailView`**:
-   - Location: Requirements sub-rows and action buttons (lines 2679–2734, 3851).
-   - Confirmation: The `py-0 px-2` buttons appear noticeably compressed vertically compared to standard buttons, and action icons with `gap-1.5` sit cramped together against the table cell border.
-2. **`CreateAssuranceSetView`**:
-   - Location: Step footer and summary panel (lines 4350, 4384).
-   - Confirmation: The `gap-0.5` text block shows text lines almost touching, while the `px-4 py-3` card footer takes up unnecessary vertical space below the wizard steps.
+The following 5 file:line references were spot-checked directly against the codebase to verify modal accuracy:
+
+| File & Line | Code Snippet | Feature Verified | Issue Type | Verified |
+|:---|:---|:---|:---|:---:|
+| [`AddCrewModal.tsx:187`](file:///c:/mapFiles/MAPv2/src/components/modals/AddCrewModal.tsx#L187) | `<div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '620px' }}>` | Width | Non-standard inline maxWidth (620px) | Yes |
+| [`ProjectAddAssetModal.tsx:558`](file:///c:/mapFiles/MAPv2/src/components/modals/ProjectAddAssetModal.tsx#L558) | `className="modal-header d-flex align-items-center justify-content-between px-4 py-3 border-bottom flex-shrink-0"` | Header Padding | Over-padded header (`px-4 py-3`) | Yes |
+| [`AssuranceDetailView.tsx:4672`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4672) | `<div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '480px' }}>` | Width | Inline view modal with custom 480px width | Yes |
+| [`CreateAssuranceSetView.tsx:4445`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4445) | `<div className="modal-header border-bottom px-4 py-3 bg-light">` | Header Styling | Custom `px-4 py-3 bg-light` header | Yes |
+| [`VesselDetailView.tsx:3144`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3144) | `<div className="modal-dialog modal-xl modal-dialog-centered">` | Dialog Sizing | Full-width XL modal with `modal-dialog-centered` | Yes |
+
+### 6.4 Live App Visual Confirmation
+
+Modals were checked in the running application to confirm button alignment and order discrepancies:
+1. **`AssuranceDetailView` Modals**:
+   - Target Date modal (line 4788) vs Add to Project modal (line 4672).
+   - Confirmation: Target Date modal uses Right-aligned buttons with standard `btn btn-sm btn-outline-secondary` followed by primary action, whereas Add to Project uses a single Close button and 480px custom width.
+2. **`AddUserModal` vs `DocumentUploadModal`**:
+   - Confirmation: `AddUserModal` renders as a custom card with Lucide `X` close icon and right-aligned buttons, while `DocumentUploadModal` renders a dynamic width dialog with native `btn-close`.
