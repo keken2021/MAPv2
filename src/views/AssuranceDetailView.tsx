@@ -1221,6 +1221,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const isCAdminPersona = activePersona === 'C Admin';
   const isSubmitter = activePersona === 'Submitter';
   const isVerifier = activePersona === 'Verifier';
+  const isApproverOrInspector = activePersona === 'Approver' || activePersona === 'Inspector';
+  const isAdminViewer = activePersona === 'Administrator' || activePersona === 'C Admin';
   const reqTableColSpan = isSubmitter ? 3 : 4;
 
   const organizations = assuranceSet ? setOrganizations(assuranceSet) : [];
@@ -2209,6 +2211,24 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       }
     }
     return null;
+  };
+
+  /* validity badge in contract period for Approver and Inspector rows */
+  const renderValidityBadge = (req: AssuranceRequirement, docView?: RequirementDocumentView, canViewDoc: boolean = true) => {
+    if (!docView || !canViewDoc) return <span className="text-muted small">—</span>;
+    const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
+    if (validity.state === 'unknown') return <span className="text-muted small">—</span>;
+    const tone =
+      validity.state === 'valid_through_period'
+        ? 'bg-success-subtle text-success-emphasis border-success-subtle'
+        : validity.state === 'lapsed'
+          ? 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
+          : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+    return (
+      <span className={`badge border ${tone}`} data-testid={`badge-validity-${req.id}`}>
+        {validity.label}
+      </span>
+    );
   };
 
   const openRequirementUpload = (req: AssuranceRequirement, existingDoc?: MasterDocument) => {
@@ -3537,6 +3557,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                       >
                         Version {renderSortIndicator('version')}
                       </th>
+                    ) : isApproverOrInspector ? (
+                      <th style={{ whiteSpace: 'nowrap' }} data-testid="th-validity">
+                        Validity
+                      </th>
                     ) : !isSubmitter ? (
                       <th
                         style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
@@ -3579,6 +3603,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                 <span className="fw-bold text-secondary" style={{ fontSize: '0.75rem', letterSpacing: '0.05em' }} data-testid="section-group-header">
                                   {sectionTitle}
                                 </span>
+                                {isAdminViewer && (() => {
+                                  const secDoneCount = secReqs.filter((r) => {
+                                    if (r.verifierStatus === 'Verified' || r.isFulfilled) return true;
+                                    if (r.requirementGroupId?.trim()) {
+                                      const groupTasks = assuranceSet.requirements.filter((t) => t.requirementGroupId === r.requirementGroupId);
+                                      if (groupTasks.length > 0 && groupTasks.every((t) => t.isFulfilled || t.verifierStatus === 'Verified')) {
+                                        return true;
+                                      }
+                                    }
+                                    return false;
+                                  }).length;
+                                  return (
+                                    <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.7rem' }} data-testid={`section-count-${slug}`}>
+                                      {secDoneCount}/{secReqs.length}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </td>
                           </tr>
@@ -3663,7 +3704,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             </div>
                                           </div>
                                         </td>
-                                        {isVerifier ? (
+                                        {isVerifier || isApproverOrInspector ? (
                                           <td style={{ whiteSpace: 'nowrap' }}>
                                             <span className="text-muted small">—</span>
                                           </td>
@@ -3707,7 +3748,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   </span>
                                                 </div>
                                               )}
-                                              {(isSubmitter || isVerifier) && (
+                                              {(isSubmitter || isVerifier || isApproverOrInspector) && (
                                                 <div className="d-flex align-items-center gap-2 flex-wrap">
                                                   <span className="text-secondary fw-semibold">Target Sub-Set:</span>
                                                   <span className="text-dark">{linkedChildSet.title}</span>
@@ -3752,7 +3793,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             </div>
                                           </div>
                                         </td>
-                                        {isVerifier ? (
+                                        {isVerifier || isApproverOrInspector ? (
                                           <td style={{ whiteSpace: 'nowrap' }}>
                                             <span className="text-muted small">—</span>
                                           </td>
@@ -3856,7 +3897,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   )}
                                                 </div>
                                               )}
-                                              {(isSubmitter || isVerifier) && (() => {
+                                              {(isSubmitter || isVerifier || isApproverOrInspector) && (() => {
                                                 const targetObj = resolveRequirementTargetObject(req);
                                                 return (
                                                   <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -3929,6 +3970,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                     <span className="text-muted small">—</span>
                                                   )}
                                                 </td>
+                                              ) : isApproverOrInspector ? (
+                                                <td style={{ whiteSpace: 'nowrap' }}>
+                                                  {renderValidityBadge(partyTask, partyDocView, canViewPartyDoc)}
+                                                </td>
                                               ) : !isSubmitter ? (
                                                 <td>
                                                   <span className="text-muted small">—</span>
@@ -3951,7 +3996,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                       <FileText size={16} />
                                                     </button>
                                                   )}
-                                                  {!isVerifier && canUploadHere && (isClientViewer || canViewPartyDoc) && (
+                                                  {!isVerifier && !isApproverOrInspector && canUploadHere && (isClientViewer || canViewPartyDoc) && (
                                                     <button
                                                       type="button"
                                                       className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
@@ -4068,6 +4113,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                               <span className="text-muted small">—</span>
                                             )}
                                           </td>
+                                        ) : isApproverOrInspector ? (
+                                          <td style={{ whiteSpace: 'nowrap' }}>
+                                            {renderValidityBadge(req, docView, canViewDoc)}
+                                          </td>
                                         ) : !isSubmitter ? (
                                           <td style={{ whiteSpace: 'nowrap' }}>
                                             {(() => {
@@ -4090,7 +4139,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                         </td>
                                         <td className="text-end">
                                           <div className="d-flex align-items-center justify-content-end gap-1.5 flex-wrap">
-                                            {canEditTasks && (
+                                            {canEditTasks && !isApproverOrInspector && !isSubmitter && !isVerifier && (
                                               <>
                                                 <button
                                                   type="button"
@@ -4128,7 +4177,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                     <FileText size={16} />
                                                   </button>
                                                 )}
-                                                {!isVerifier && canUploadHere && (
+                                                {!isVerifier && !isApproverOrInspector && canUploadHere && (
                                                   <button
                                                     type="button"
                                                     className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
@@ -4142,7 +4191,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   </button>
                                                 )}
                                               </>
-                                            ) : !isVerifier && canUploadHere && canViewDoc ? (
+                                            ) : !isVerifier && !isApproverOrInspector && canUploadHere && canViewDoc ? (
                                               <button
                                                 type="button"
                                                 className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
@@ -4188,7 +4237,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   )}
                                                 </div>
                                               )}
-                                              {(isSubmitter || isVerifier) && (() => {
+                                              {(isSubmitter || isVerifier || isApproverOrInspector) && (() => {
                                                 const targetObj = resolveRequirementTargetObject(req);
                                                 return (
                                                   <div className="d-flex align-items-center gap-2 flex-wrap">

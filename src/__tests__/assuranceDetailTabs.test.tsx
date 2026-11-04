@@ -1066,4 +1066,138 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
 
     unmountVerifier();
   });
+
+  it('Task 5366: renders persona-tailored columns and actions for Approver, Inspector and Administrator with section counts', () => {
+    const testSetId = 'AS-TASK-5366-ADMIN-APPROVER';
+    const baseSet = useMapStore.getState().assuranceSets[0];
+    const defaultReq = baseSet.requirements[0];
+
+    const testSet: AssuranceSet = {
+      ...baseSet,
+      id: testSetId,
+      title: 'Approver Inspector Admin Test Set',
+      stage: 'Verification',
+      approverDecision: undefined,
+      charterWindowStart: '2026-01-01',
+      charterWindowEnd: '2026-12-31',
+      cancelledAt: undefined,
+      cancellationReason: undefined,
+      sections: [
+        { id: 'sec-statutory', name: 'Statutory Certificates', order: 1 },
+      ],
+      requirements: [
+        // Req 1: Verified (Done) with document valid in contract period
+        {
+          ...defaultReq,
+          id: 'REQ-APP-01',
+          title: 'Load Line Certificate',
+          category: 'Statutory Certificate',
+          sectionId: 'sec-statutory',
+          verifierStatus: 'Verified',
+          isFulfilled: true,
+          documentId: 'DOC-APP-01',
+        },
+        // Req 2: Pending (Open)
+        {
+          ...defaultReq,
+          id: 'REQ-APP-02',
+          title: 'Safety Radio Certificate',
+          category: 'Statutory Certificate',
+          sectionId: 'sec-statutory',
+          verifierStatus: 'Pending',
+          isFulfilled: false,
+          documentId: 'DOC-APP-02',
+        },
+      ],
+    };
+
+    const doc1 = {
+      ...useMapStore.getState().documents[0],
+      id: 'DOC-APP-01',
+      title: 'Load Line Cert',
+      expiryDate: '2027-06-01',
+      currentVersion: 'v1.0',
+      status: 'Active' as const,
+      category: 'Statutory Certificate',
+    };
+
+    const doc2 = {
+      ...useMapStore.getState().documents[0],
+      id: 'DOC-APP-02',
+      title: 'Safety Radio Cert',
+      expiryDate: '2026-06-01',
+      currentVersion: 'v1.0',
+      status: 'Active' as const,
+      category: 'Statutory Certificate',
+    };
+
+    useMapStore.setState({
+      assuranceSets: [testSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
+      documents: [doc1, doc2, ...useMapStore.getState().documents],
+    });
+
+    // 1. Administrator Persona:
+    // - Header has Target Object
+    // - Section header shows done/total count (e.g. 1/2)
+    // - Row has Edit and Remove actions
+    useMapStore.setState({ activePersona: 'Administrator' });
+    const { unmount: unmountAdmin } = render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    const adminTable = screen.getByRole('table');
+    const adminHeaders = within(adminTable.querySelector('thead tr') as HTMLElement).getAllByRole('columnheader');
+    expect(adminHeaders.length).toBe(4);
+    expect(adminHeaders[1].textContent).toContain('Target Object');
+
+    // Section header reads 1/2
+    const sectionCountBadge = screen.getByTestId('section-count-statutory-certificates');
+    expect(sectionCountBadge).toBeInTheDocument();
+    expect(sectionCountBadge.textContent).toBe('1/2');
+
+    // Row has Edit and Remove
+    const adminRow = screen.getByTestId('toggle-req-REQ-APP-01').closest('tr');
+    expect(within(adminRow!).getByTitle(/edit task/i)).toBeInTheDocument();
+    expect(within(adminRow!).getByTitle(/remove task/i)).toBeInTheDocument();
+
+    unmountAdmin();
+
+    // 2. Approver Persona:
+    // - Header has Validity column
+    // - Section header does NOT show count badge
+    // - Row has validity badge (e.g. Valid Through Contract Period)
+    // - Row has NO Edit or Remove actions
+    useMapStore.setState({ activePersona: 'Approver' });
+    const { unmount: unmountApprover } = render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    const approverTable = screen.getByRole('table');
+    const approverHeaders = within(approverTable.querySelector('thead tr') as HTMLElement).getAllByRole('columnheader');
+    expect(approverHeaders.length).toBe(4);
+    expect(approverHeaders[1].textContent).toContain('Validity');
+
+    // Section header does not have count badge
+    expect(screen.queryByTestId('section-count-statutory-certificates')).toBeNull();
+
+    // Row has validity badge and no Edit
+    const approverRow = screen.getByTestId('toggle-req-REQ-APP-01').closest('tr');
+    expect(within(approverRow!).getByTestId('badge-validity-REQ-APP-01')).toBeInTheDocument();
+    expect(within(approverRow!).getByTestId('badge-validity-REQ-APP-01').textContent).toBe('Valid Through Contract Period');
+    expect(within(approverRow!).queryByTitle(/edit task/i)).toBeNull();
+    expect(within(approverRow!).queryByTitle(/remove task/i)).toBeNull();
+
+    unmountApprover();
+
+    // 3. Inspector Persona:
+    // - Row has validity badge and no Edit or Remove actions
+    useMapStore.setState({ activePersona: 'Inspector' });
+    const { unmount: unmountInspector } = render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    const inspectorRow = screen.getByTestId('toggle-req-REQ-APP-02').closest('tr');
+    expect(within(inspectorRow!).getByTestId('badge-validity-REQ-APP-02')).toBeInTheDocument();
+    expect(within(inspectorRow!).queryByTitle(/edit task/i)).toBeNull();
+    expect(within(inspectorRow!).queryByTitle(/remove task/i)).toBeNull();
+
+    unmountInspector();
+  });
 });
