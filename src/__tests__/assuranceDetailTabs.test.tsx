@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { AssuranceDetailView } from '../views/AssuranceDetailView';
 import { useMapStore } from '../store/useMapStore';
@@ -416,5 +416,333 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
 
     const reqTab = screen.getByRole('tab', { name: /requirements/i });
     expect(reqTab.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('Audit Trail tab includes events across all 10 domain target kinds for this assurance set', () => {
+    const testSetId = 'AS-10-DOMAINS-01';
+    const baseSet: AssuranceSet = {
+      ...useMapStore.getState().assuranceSets[0],
+      id: testSetId,
+      title: 'Ten Domains Assurance Set',
+      targetDateHistory: [],
+    };
+
+    const domainEvents: AuditTrailEvent[] = [
+      {
+        id: 'EV-SET-01',
+        timestampUtc: '2026-10-25T10:00:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Updated status',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'set', setId: testSetId },
+      },
+      {
+        id: 'EV-STAGE-01',
+        timestampUtc: '2026-10-25T10:05:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'System Transition: Preparation -> Verification',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'stage', setId: testSetId, stage: 'Verification' },
+        fieldDelta: { fieldName: 'Stage', oldValue: 'Preparation', newValue: 'Verification' },
+      },
+      {
+        id: 'EV-OBJ-01',
+        timestampUtc: '2026-10-25T10:10:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Attached vessel object',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'object', setId: testSetId, objectId: 'VESSEL-001' },
+      },
+      {
+        id: 'EV-REQ-01',
+        timestampUtc: '2026-10-25T10:15:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Updated requirement priority',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'requirement', setId: testSetId, requirementId: 'REQ-101' },
+      },
+      {
+        id: 'EV-DOC-01',
+        timestampUtc: '2026-10-25T10:20:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Uploaded revision',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'document', setId: testSetId, documentId: 'MAP-DOC-001', version: 'v2.0' },
+        fieldDelta: { fieldName: 'Version', oldValue: 'v1.0', newValue: 'v2.0' },
+      },
+      {
+        id: 'EV-TASK-01',
+        timestampUtc: '2026-10-25T10:25:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Exempted task',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'task', setId: testSetId, taskId: 'TASK-101' },
+        fieldDelta: { fieldName: 'Exemption', oldValue: 'Active', newValue: 'Exempted until 2026-12-01' },
+      },
+      {
+        id: 'EV-STAKE-01',
+        timestampUtc: '2026-10-25T10:30:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Assigned stakeholder',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'stakeholder', setId: testSetId, userId: 'USR-102', role: 'Verifier' },
+        fieldDelta: { fieldName: 'Verifier', oldValue: '—', newValue: 'USR-102' },
+      },
+      {
+        id: 'EV-PARTY-01',
+        timestampUtc: '2026-10-25T10:35:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Changed party',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'party', setId: testSetId, organization: 'Northwind Marine', partyRole: 'Service Provider' },
+        fieldDelta: { fieldName: 'Service Provider', oldValue: '—', newValue: 'Northwind Marine' },
+      },
+      {
+        id: 'EV-FIND-01',
+        timestampUtc: '2026-10-25T10:40:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Raised finding CAPA-001',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'finding', setId: testSetId, findingId: 'CAPA-001' },
+      },
+      {
+        id: 'EV-DATE-01',
+        timestampUtc: '2026-10-25T10:45:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Changed date',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'date', setId: testSetId, dateField: 'complianceDeadline' },
+        fieldDelta: { fieldName: 'Compliance deadline', oldValue: '2026-11-01', newValue: '2026-11-20' },
+      },
+    ];
+
+    useMapStore.setState({
+      assuranceSets: [baseSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
+      auditEvents: domainEvents,
+      activePersona: 'Administrator',
+    });
+
+    render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /audit trail/i }));
+
+    // All 10 domain targets rendered
+    expect(screen.getByText(`Set ${testSetId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Stage Verification · Set ${testSetId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Object VESSEL-001 · Set ${testSetId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Requirement REQ-101 · Set ${testSetId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Document MAP-DOC-001 (v2.0) · Set ${testSetId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Task TASK-101 · Set ${testSetId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Stakeholder Verifier · USR-102 · Set ${testSetId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Party Northwind Marine · Service Provider · Set ${testSetId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Finding CAPA-001 · Set ${testSetId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Date Compliance deadline · Set ${testSetId}`)).toBeInTheDocument();
+  });
+
+  it('Audit Trail tab live search and category filter filter events', () => {
+    const testSetId = 'AS-FILTER-TEST-01';
+    const baseSet: AssuranceSet = {
+      ...useMapStore.getState().assuranceSets[0],
+      id: testSetId,
+      title: 'Filter Test Set',
+      targetDateHistory: [],
+    };
+
+    const events: AuditTrailEvent[] = [
+      {
+        id: 'EV-STG-1',
+        timestampUtc: '2026-10-25T10:00:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'System Transition: Preparation -> Verification',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'stage', setId: testSetId, stage: 'Verification' },
+        fieldDelta: { fieldName: 'Stage', oldValue: 'Preparation', newValue: 'Verification' },
+      },
+      {
+        id: 'EV-DOC-1',
+        timestampUtc: '2026-10-25T10:05:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Uploaded revision',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'document', setId: testSetId, documentId: 'MAP-DOC-001', version: 'v2.0' },
+        fieldDelta: { fieldName: 'Version', oldValue: 'v1.0', newValue: 'v2.0' },
+      },
+      {
+        id: 'EV-STK-1',
+        timestampUtc: '2026-10-25T10:10:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'Assigned stakeholder',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'stakeholder', setId: testSetId, userId: 'USR-102', role: 'Verifier' },
+        fieldDelta: { fieldName: 'Verifier', oldValue: '—', newValue: 'USR-102' },
+      },
+    ];
+
+    useMapStore.setState({
+      assuranceSets: [baseSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
+      auditEvents: events,
+      activePersona: 'Administrator',
+    });
+
+    render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /audit trail/i }));
+
+    const searchInput = screen.getByPlaceholderText('Search audit trail...');
+    expect(searchInput).toBeInTheDocument();
+
+    // Type "revision" in search input
+    fireEvent.change(searchInput, { target: { value: 'revision' } });
+    expect(screen.getByText('Uploaded revision')).toBeInTheDocument();
+    expect(screen.queryByText(/System Transition/i)).toBeNull();
+    expect(screen.queryByText('Assigned stakeholder')).toBeNull();
+
+    // Clear search
+    fireEvent.change(searchInput, { target: { value: '' } });
+    expect(screen.getByText(/System Transition/i)).toBeInTheDocument();
+
+    // Filter by category: "Documents & Requirements"
+    const categorySelect = screen.getByLabelText(/filter by category/i);
+    fireEvent.change(categorySelect, { target: { value: 'docs_reqs' } });
+    expect(screen.getByText('Uploaded revision')).toBeInTheDocument();
+    expect(screen.queryByText(/System Transition/i)).toBeNull();
+    expect(screen.queryByText('Assigned stakeholder')).toBeNull();
+
+    // Filter by category: "Stakeholders & Parties"
+    fireEvent.change(categorySelect, { target: { value: 'stakeholders_parties' } });
+    expect(screen.getByText('Assigned stakeholder')).toBeInTheDocument();
+    expect(screen.queryByText('Uploaded revision')).toBeNull();
+  });
+
+  it('Audit Trail tab export buttons invoke logExport with format, setId, and screen details', () => {
+    const testSetId = 'AS-EXPORT-TEST-01';
+    const baseSet: AssuranceSet = {
+      ...useMapStore.getState().assuranceSets[0],
+      id: testSetId,
+      title: 'Export Test Set',
+      targetDateHistory: [],
+    };
+
+    const events: AuditTrailEvent[] = [
+      {
+        id: 'EV-EXP-1',
+        timestampUtc: '2026-10-25T10:00:00Z',
+        userId: 'USR-101',
+        userRole: 'Administrator',
+        organization: 'Oil Co Global',
+        action: 'System Transition: Preparation -> Verification',
+        targetAsset: `${testSetId}`,
+        target: { kind: 'stage', setId: testSetId, stage: 'Verification' },
+        fieldDelta: { fieldName: 'Stage', oldValue: 'Preparation', newValue: 'Verification' },
+      },
+    ];
+
+    const logExportSpy = vi.fn();
+    useMapStore.setState({
+      assuranceSets: [baseSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
+      auditEvents: events,
+      activePersona: 'Administrator',
+      logExport: logExportSpy,
+    });
+
+    // Mock link click and window open
+    const clickMock = vi.fn();
+    HTMLAnchorElement.prototype.click = clickMock;
+    window.open = vi.fn().mockReturnValue({
+      document: { write: vi.fn(), close: vi.fn() },
+      print: vi.fn(),
+      close: vi.fn(),
+      focus: vi.fn(),
+    });
+
+    render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /audit trail/i }));
+
+    const csvBtn = screen.getAllByRole('button', { name: /^export csv$/i })[0];
+    fireEvent.click(csvBtn);
+    expect(logExportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        screen: 'Assurance set detail - Audit',
+        format: 'CSV',
+        setId: testSetId,
+      }),
+    );
+
+    const pdfBtn = screen.getAllByRole('button', { name: /^export pdf$/i })[0];
+    fireEvent.click(pdfBtn);
+    expect(logExportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        screen: 'Assurance set detail - Audit',
+        format: 'PDF',
+        setId: testSetId,
+      }),
+    );
+  });
+
+  it('Audit Trail tab integrates pagination controls when event count exceeds page size', () => {
+    const testSetId = 'AS-PAGE-TEST-01';
+    const baseSet: AssuranceSet = {
+      ...useMapStore.getState().assuranceSets[0],
+      id: testSetId,
+      title: 'Pagination Test Set',
+      targetDateHistory: [],
+    };
+
+    // 15 events
+    const events: AuditTrailEvent[] = Array.from({ length: 15 }, (_, i) => ({
+      id: `EV-PAGE-${i + 1}`,
+      timestampUtc: `2026-10-${String(10 + i).padStart(2, '0')}T10:00:00Z`,
+      userId: 'USR-101',
+      userRole: 'Administrator',
+      organization: 'Oil Co Global',
+      action: `Action ${i + 1}`,
+      targetAsset: `${testSetId}`,
+      target: { kind: 'set', setId: testSetId },
+    }));
+
+    useMapStore.setState({
+      assuranceSets: [baseSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
+      auditEvents: events,
+      activePersona: 'Administrator',
+    });
+
+    render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /audit trail/i }));
+
+    // Pagination nav is displayed
+    const paginationNav = screen.getByRole('navigation', { name: /table pagination/i });
+    expect(paginationNav).toBeInTheDocument();
+    expect(screen.getByText(/showing 1-10 of 15/i)).toBeInTheDocument();
+
+    // Page size dropdown exists with 10, 25, 50
+    const pageSizeSelect = screen.getByRole('combobox', { name: /rows per page/i });
+    expect(pageSizeSelect).toBeInTheDocument();
+    expect(within(pageSizeSelect).getByRole('option', { name: '10' })).toBeInTheDocument();
+    expect(within(pageSizeSelect).getByRole('option', { name: '25' })).toBeInTheDocument();
+    expect(within(pageSizeSelect).getByRole('option', { name: '50' })).toBeInTheDocument();
   });
 });

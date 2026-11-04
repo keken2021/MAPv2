@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Users, UserMinus, RotateCcw, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Users, UserMinus, RotateCcw, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search, Download } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -79,7 +79,7 @@ import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { getValidityInContractPeriod } from '../utils/expiryPolicy';
 import { EmptyState } from '../components/common/EmptyState';
-import { AuditTrailEvent } from '../types/audit';
+import { AuditEventTarget, AuditTrailEvent, formatAuditTarget, auditEventMatchesSearch } from '../types/audit';
 import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 
 export type AssuranceDetailTab = 'details' | 'objects' | 'requirements' | 'tasks' | 'audit';
@@ -252,10 +252,113 @@ function parseTabFromUrl(): AssuranceDetailTab {
   return 'details';
 }
 
+export type AuditMovementCategory =
+  | 'all'
+  | 'stage_workflow'
+  | 'docs_reqs'
+  | 'stakeholders_parties'
+  | 'tasks_findings'
+  | 'dates_scope';
+
+/**
+  what: checks if an audit event matches a movement category.
+  how: checks target kind and falls back to keywords in action and delta field name.
+  with what file: src/views/AssuranceDetailView.tsx used by the Audit Trail tab filter.
+*/
+export function matchesAuditCategory(ev: AuditTrailEvent, category: AuditMovementCategory): boolean {
+  if (category === 'all') return true;
+
+  const targetKind = ev.target?.kind;
+  const action = ev.action.toLowerCase();
+  const field = ev.fieldDelta?.fieldName?.toLowerCase() ?? '';
+
+  switch (category) {
+    case 'stage_workflow':
+      return (
+        targetKind === 'stage' ||
+        targetKind === 'set' ||
+        action.startsWith('system transition') ||
+        action.includes('stage') ||
+        action.includes('workflow') ||
+        action.includes('status') ||
+        action.includes('approval') ||
+        action.includes('decision') ||
+        action.includes('sign-off') ||
+        action.includes('readiness') ||
+        field === 'stage' ||
+        field === 'status'
+      );
+    case 'docs_reqs':
+      return (
+        targetKind === 'document' ||
+        targetKind === 'requirement' ||
+        Boolean(ev.documentStatusDelta) ||
+        action.includes('document') ||
+        action.includes('certificate') ||
+        action.includes('requirement') ||
+        action.includes('upload') ||
+        action.includes('verify') ||
+        action.includes('version') ||
+        field.includes('document') ||
+        field.includes('version') ||
+        field.includes('requirement')
+      );
+    case 'stakeholders_parties':
+      return (
+        targetKind === 'stakeholder' ||
+        targetKind === 'party' ||
+        action.includes('stakeholder') ||
+        action.includes('party') ||
+        action.includes('assign') ||
+        action.includes('role') ||
+        field.includes('stakeholder') ||
+        field.includes('party') ||
+        field.includes('role') ||
+        field.includes('candidate')
+      );
+    case 'tasks_findings':
+      return (
+        targetKind === 'task' ||
+        targetKind === 'finding' ||
+        action.includes('task') ||
+        action.includes('finding') ||
+        action.includes('capa') ||
+        action.includes('defect') ||
+        action.includes('exemption') ||
+        field.includes('task') ||
+        field.includes('finding') ||
+        field.includes('capa')
+      );
+    case 'dates_scope':
+      return (
+        targetKind === 'date' ||
+        targetKind === 'object' ||
+        action.includes('date') ||
+        action.includes('deadline') ||
+        action.includes('window') ||
+        action.includes('permission') ||
+        action.includes('scope') ||
+        action.includes('object') ||
+        action.includes('vessel') ||
+        field.includes('date') ||
+        field.includes('deadline') ||
+        field.includes('window')
+      );
+    default:
+      return true;
+  }
+}
+
 function displayAuditValue(value: string): string {
   if (!/^\d{4}-\d{2}-\d{2}/.test(value)) return value;
   const formatted = formatMaritimeDate(value);
   return formatted === 'N/A' ? value : formatted;
+}
+
+function displayAuditTarget(event: AuditTrailEvent): string {
+  return formatAuditTarget(event.target)
+    .split('Set unscoped').join('No assurance set')
+    .split('Date targetDate').join('Target date');
 }
 
 function displayAuditChange(event: AuditTrailEvent): string {
@@ -404,6 +507,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     crew = [],
     vessels,
     auditEvents,
+    logExport,
     updateRequirementStatus,
     updateAssuranceStakeholder,
     updateAssuranceInspector,
@@ -1199,11 +1303,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const setAuditEvents = useMemo(() => {
     const rawSetEvents = visibleEvents.filter((ev) => {
       const target = ev.target;
-      return (
-        target &&
-        (target.kind === 'set' || target.kind === 'task' || target.kind === 'date') &&
-        target.setId === assuranceSet.id
-      );
+      if (target && target.setId === assuranceSet.id) {
+        return true;
+      }
+      if (!target && ev.targetAsset && ev.targetAsset.includes(assuranceSet.id)) {
+        return true;
+      }
+      return false;
     });
 
     const dateHistoryEvents: AuditTrailEvent[] = (assuranceSet.targetDateHistory || []).map((row) => {
@@ -1286,16 +1392,52 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       }
 
       const auditTarget = ev.target;
-      if (auditTarget && auditTarget.kind === 'task' && auditTarget.taskId) {
-        const req = assuranceSet.requirements?.find((r) => r.id === auditTarget.taskId);
-        if (req) {
-          const isDocRelated =
-            Boolean(ev.documentStatusDelta) ||
-            /document|certificate|upload|dossier/i.test(ev.action) ||
-            /document|version/i.test(ev.fieldDelta?.fieldName || '');
-          if (isDocRelated) {
+      if (auditTarget) {
+        if (auditTarget.kind === 'task' && auditTarget.taskId) {
+          const req = assuranceSet.requirements?.find((r) => r.id === auditTarget.taskId);
+          if (req) {
+            const isDocRelated =
+              Boolean(ev.documentStatusDelta) ||
+              /document|certificate|upload|dossier/i.test(ev.action) ||
+              /document|version/i.test(ev.fieldDelta?.fieldName || '');
+            if (isDocRelated) {
+              return isRequirementDocumentVisible(
+                req,
+                isClientViewer,
+                viewerPartyOrg,
+                assuranceSet,
+                users,
+                setObjects,
+              );
+            }
+          }
+        } else if (auditTarget.kind === 'requirement' && auditTarget.requirementId) {
+          const req = assuranceSet.requirements?.find((r) => r.id === auditTarget.requirementId);
+          if (req) {
+            const isDocRelated =
+              Boolean(ev.documentStatusDelta) ||
+              /document|certificate|upload|dossier/i.test(ev.action) ||
+              /document|version/i.test(ev.fieldDelta?.fieldName || '');
+            if (isDocRelated) {
+              return isRequirementDocumentVisible(
+                req,
+                isClientViewer,
+                viewerPartyOrg,
+                assuranceSet,
+                users,
+                setObjects,
+              );
+            }
+          }
+        } else if (auditTarget.kind === 'document' && auditTarget.documentId) {
+          const reqWithDoc = assuranceSet.requirements?.find(
+            (r) =>
+              r.documentId === auditTarget.documentId ||
+              r.linkedDocumentId === auditTarget.documentId,
+          );
+          if (reqWithDoc) {
             return isRequirementDocumentVisible(
-              req,
+              reqWithDoc,
               isClientViewer,
               viewerPartyOrg,
               assuranceSet,
@@ -1315,6 +1457,61 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       return true;
     });
   }, [visibleEvents, assuranceSet, activePersona, assuranceSets, vessels, currentUserId, isClientViewer, viewerPartyOrg, users, setObjects, clientOwnerOrg]);
+
+  const [auditSearchTerm, setAuditSearchTerm] = useState('');
+  const [auditCategoryFilter, setAuditCategoryFilter] = useState<AuditMovementCategory>('all');
+
+  const filteredAuditEvents = useMemo(() => {
+    return setAuditEvents.filter((ev) => {
+      const matchesSearch = auditEventMatchesSearch(ev, auditSearchTerm);
+      const matchesCat = matchesAuditCategory(ev, auditCategoryFilter);
+      return matchesSearch && matchesCat;
+    });
+  }, [setAuditEvents, auditSearchTerm, auditCategoryFilter]);
+
+  const auditPagination = usePagination(filteredAuditEvents, [
+    assuranceSet?.id,
+    auditSearchTerm,
+    auditCategoryFilter,
+  ]);
+
+  const handleAuditExportCsv = () => {
+    const exportData = filteredAuditEvents.map((ev) => ({
+      TimestampUtc: ev.timestampUtc,
+      Action: ev.action,
+      Target: displayAuditTarget(ev),
+      Change: displayAuditChange(ev),
+      TargetAsset: ev.targetAsset,
+      UserRole: ev.userRole,
+      Organization: ev.organization,
+      Notes: ev.justificationNotes || '',
+    }));
+    exportToCsv(`${assuranceSet.id}_Audit_Trail`, exportData);
+    logExport({
+      screen: 'Assurance set detail - Audit',
+      format: 'CSV',
+      setId: assuranceSet.id,
+      detail: `${filteredAuditEvents.length} events`,
+    });
+  };
+
+  const handleAuditExportPdf = () => {
+    const headers = ['Timestamp (UTC)', 'Action', 'Target', 'Role', 'Notes'];
+    const rows = filteredAuditEvents.map((ev) => [
+      ev.timestampUtc,
+      ev.action,
+      displayAuditTarget(ev),
+      `${getRoleDisplayLabel(ev.userRole)} (${ev.organization})`,
+      ev.justificationNotes || '-',
+    ]);
+    exportToPdf(`${assuranceSet.id} Audit Trail`, headers, rows);
+    logExport({
+      screen: 'Assurance set detail - Audit',
+      format: 'PDF',
+      setId: assuranceSet.id,
+      detail: `${filteredAuditEvents.length} events`,
+    });
+  };
 
   const isApproverViewer = activePersona === 'Approver';
   const isNamedApprover =
@@ -3775,13 +3972,37 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       {/* Tab: Audit Trail */}
       {activeTab === 'audit' && (
         <div className="card map-card-custom p-4">
-          <div className="d-flex align-items-center justify-content-between mb-3">
+          <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3 mb-3">
             <div>
               <h5 className="fw-bold text-dark mb-1">Audit Trail</h5>
               <div className="small text-secondary">
                 Immutable ledger of changes to this assurance set, its tasks, and target dates.
               </div>
             </div>
+            {setAuditEvents.length > 0 && (
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                  onClick={handleAuditExportCsv}
+                  title="Export audit trail to CSV"
+                  aria-label="Export CSV"
+                >
+                  <Download size={14} />
+                  <span>CSV</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                  onClick={handleAuditExportPdf}
+                  title="Export audit trail to PDF"
+                  aria-label="Export PDF"
+                >
+                  <Download size={14} />
+                  <span>PDF</span>
+                </button>
+              </div>
+            )}
           </div>
           {setAuditEvents.length === 0 ? (
             <EmptyState
@@ -3789,44 +4010,151 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
               description="There are no audit events recorded for this assurance set."
             />
           ) : (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>
-                <thead className="table-light">
-                  <tr>
-                    <th>Timestamp</th>
-                    <th>User &amp; Role</th>
-                    <th>Action</th>
-                    <th>Change Details</th>
-                    <th>Justification</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {setAuditEvents.map((ev) => {
-                    const note = ev.justificationNotes?.trim() ?? '';
-                    return (
-                      <tr key={ev.id} data-event-id={ev.id}>
-                        <td className="font-mono-code small">{formatMaritimeDateTime(ev.timestampUtc)}</td>
-                        <td className="small text-dark">
-                          <div className="fw-semibold">{ev.userId}</div>
-                          <span className="text-secondary">{getRoleDisplayLabel(ev.userRole)} &middot; {ev.organization}</span>
-                        </td>
-                        <td className="fw-semibold text-primary">{ev.action}</td>
-                        <td className="small text-dark">{displayAuditChange(ev)}</td>
-                        <td className="small text-secondary">
-                          {note ? (
-                            <span className="d-block text-truncate" title={note} tabIndex={0}>
-                              {note}
-                            </span>
-                          ) : (
-                            '—'
-                          )}
+            <>
+              {/* Card Header Toolbar */}
+              <div className="p-3 bg-light border rounded mb-3">
+                <div className="row g-2 align-items-center">
+                  <div className="col-12 col-md-5">
+                    <div className="input-group input-group-sm">
+                      <span className="input-group-text bg-white border-end-0 text-muted">
+                        <Search size={14} />
+                      </span>
+                      <input
+                        type="text"
+                        className="form-control border-start-0 ps-0 bg-white text-dark"
+                        placeholder="Search audit trail..."
+                        value={auditSearchTerm}
+                        onChange={(e) => setAuditSearchTerm(e.target.value)}
+                        aria-label="Search audit trail"
+                      />
+                      {auditSearchTerm && (
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary border-start-0"
+                          onClick={() => setAuditSearchTerm('')}
+                          aria-label="Clear search"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <div className="d-flex align-items-center gap-2">
+                      <label htmlFor="audit-category-select" className="small text-secondary text-nowrap mb-0">
+                        Category:
+                      </label>
+                      <select
+                        id="audit-category-select"
+                        className="form-select form-select-sm bg-white text-dark border-secondary"
+                        value={auditCategoryFilter}
+                        onChange={(e) => setAuditCategoryFilter(e.target.value as AuditMovementCategory)}
+                        aria-label="Filter by category"
+                      >
+                        <option value="all">All categories</option>
+                        <option value="stage_workflow">Stage &amp; Workflow</option>
+                        <option value="docs_reqs">Documents &amp; Requirements</option>
+                        <option value="stakeholders_parties">Stakeholders &amp; Parties</option>
+                        <option value="tasks_findings">Tasks &amp; Findings</option>
+                        <option value="dates_scope">Dates &amp; Scope</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-3 d-flex justify-content-md-end gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                      onClick={handleAuditExportCsv}
+                      title="Export audit trail to CSV"
+                      aria-label="Export CSV"
+                    >
+                      <Download size={14} />
+                      <span>CSV</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                      onClick={handleAuditExportPdf}
+                      title="Export audit trail to PDF"
+                      aria-label="Export PDF"
+                    >
+                      <Download size={14} />
+                      <span>PDF</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="table-responsive">
+                <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>
+                  <thead className="table-light">
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>User &amp; Role</th>
+                      <th>Action</th>
+                      <th>Target</th>
+                      <th>Change Details</th>
+                      <th>Justification</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditPagination.pageItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="text-center py-4 text-secondary small">
+                          No audit events match your search or filter criteria.
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      auditPagination.pageItems.map((ev) => {
+                        const note = ev.justificationNotes?.trim() ?? '';
+                        return (
+                          <tr key={ev.id} data-event-id={ev.id}>
+                            <td className="font-mono-code small">{formatMaritimeDateTime(ev.timestampUtc)}</td>
+                            <td className="small text-dark">
+                              <div className="fw-semibold">{ev.userId}</div>
+                              <span className="text-secondary">{getRoleDisplayLabel(ev.userRole)} &middot; {ev.organization}</span>
+                            </td>
+                            <td className="fw-semibold text-primary">{ev.action}</td>
+                            <td className="small text-dark">
+                              <div className="fw-semibold text-truncate" style={{ maxWidth: '240px' }} title={displayAuditTarget(ev)}>
+                                {displayAuditTarget(ev)}
+                              </div>
+                              <span className="badge bg-light text-secondary border mt-1" style={{ fontSize: '0.7rem' }}>
+                                {ev.target?.kind ? ev.target.kind.toUpperCase() : 'SET'}
+                              </span>
+                            </td>
+                            <td className="small text-dark">
+                              <div>{displayAuditChange(ev)}</div>
+                              {ev.fieldDelta && (
+                                <div className="d-flex align-items-center gap-1 mt-1 flex-wrap">
+                                  <span className="badge bg-light text-dark border px-2 py-1 font-mono-code" style={{ fontSize: '0.72rem' }}>
+                                    {displayAuditValue(ev.fieldDelta.oldValue)}
+                                  </span>
+                                  <span className="text-secondary small">&rarr;</span>
+                                  <span className="badge bg-primary text-white px-2 py-1 font-mono-code" style={{ fontSize: '0.72rem' }}>
+                                    {displayAuditValue(ev.fieldDelta.newValue)}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="small text-secondary">
+                              {note ? (
+                                <span className="d-block text-truncate" title={note} tabIndex={0}>
+                                  {note}
+                                </span>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination {...auditPagination.controls} />
+            </>
           )}
         </div>
       )}
