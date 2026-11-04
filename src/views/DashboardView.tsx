@@ -33,7 +33,10 @@ import { TablePagination } from '../components/common/TablePagination';
 import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
 import { EXPIRY_WARNING_DAYS, isExpiringWithinWarning } from '../utils/expiryPolicy';
 import { SharedDashboardFrame } from '../components/dashboard/SharedDashboardFrame';
-import { getAdministratorClientDashboardConfig } from '../utils/roleDashboardConfigs';
+import {
+  getAdministratorClientDashboardConfig,
+  getSubmitterDashboardConfig,
+} from '../utils/roleDashboardConfigs';
 
 /**
   what: renders the executive dashboard workspace view in light theme.
@@ -534,6 +537,27 @@ export const DashboardView: React.FC = () => {
     return (
       <div className="d-flex flex-column gap-4">
         <SharedDashboardFrame config={adminClientConfig} />
+      </div>
+    );
+  }
+
+  const submitterConfig = useMemo(() => {
+    if (activePersona !== 'Submitter') return null;
+    return getSubmitterDashboardConfig({
+      assuranceSets,
+      documents,
+      capaItems,
+      auditEvents,
+      sessionUser,
+      activeOrganization: activeDemoOrganization,
+      setCurrentHashView,
+    });
+  }, [activePersona, assuranceSets, documents, capaItems, auditEvents, sessionUser, activeDemoOrganization, setCurrentHashView]);
+
+  if (activePersona === 'Submitter' && submitterConfig) {
+    return (
+      <div className="d-flex flex-column gap-4">
+        <SharedDashboardFrame config={submitterConfig} />
       </div>
     );
   }
