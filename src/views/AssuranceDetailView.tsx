@@ -4438,33 +4438,35 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       )}
 
       {/* Tab: Tasks */}
-      {activeTab === 'tasks' && (
-        <div className="d-flex flex-column gap-3">
-          {sectionSummaries.length > 0 && (
-            <div className="card map-card-custom">
-              <div className="card-header d-flex align-items-center gap-2 p-3 bg-white">
-                <span className="fw-bold text-dark">Task sections</span>
-              </div>
-              <div className="card-body border-top">
-                <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
-                <TaskSectionCards set={taskSectionsSet} />
-              </div>
+      <div
+        style={{ display: activeTab === 'tasks' ? 'flex' : 'none' }}
+        className="flex-column gap-3"
+        data-testid="assurance-detail-tasks-tab-pane"
+      >
+        {sectionSummaries.length > 0 && (
+          <div className="card map-card-custom">
+            <div className="card-header d-flex align-items-center gap-2 p-3 bg-white">
+              <span className="fw-bold text-dark">Task sections</span>
             </div>
-          )}
-          <ProjectTasksTable
-            sets={assuranceSet ? [assuranceSet] : []}
-            scope={{ type: 'set', id: assuranceSet?.id || '' }}
-            today={new Date()}
-            showActions
-            viewerParty={viewerParty}
-            onOpenRequirement={(req) => {
-              setFocusedRequirementId(req.id);
-              setShowBackToTasks(true);
-              setActiveTab('requirements');
-            }}
-          />
-        </div>
-      )}
+            <div className="card-body border-top">
+              <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
+              <TaskSectionCards set={taskSectionsSet} />
+            </div>
+          </div>
+        )}
+        <ProjectTasksTable
+          sets={assuranceSet ? [assuranceSet] : []}
+          scope={{ type: 'set', id: assuranceSet?.id || '' }}
+          today={new Date()}
+          showActions
+          viewerParty={viewerParty}
+          onOpenRequirement={(req) => {
+            setFocusedRequirementId(req.id);
+            setShowBackToTasks(true);
+            setActiveTab('requirements');
+          }}
+        />
+      </div>
 
       {/* Bottom Row: Requirements Register Table taking full 100% width across two columns */}
 

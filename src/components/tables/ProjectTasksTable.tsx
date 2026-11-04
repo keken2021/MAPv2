@@ -73,6 +73,26 @@ export interface ProjectTasksTableProps {
   /** Viewer's party perspective: 'requesting' (client/approver/verifier) or 'responding' (service provider/submitter) */
   viewerParty?: 'requesting' | 'responding' | 'other' | string;
   party?: 'requesting' | 'responding' | 'other' | string;
+
+  // Optional controlled/initial state props for state lifting/persistence
+  initialSearch?: string;
+  initialStatusTab?: string;
+  initialSortField?: SortField;
+  initialSortDirection?: 'asc' | 'desc';
+  initialPage?: number;
+  initialPageSize?: number;
+
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
+  statusTab?: string;
+  onStatusTabChange?: (tab: string) => void;
+  sortField?: SortField | null;
+  sortDirection?: 'asc' | 'desc';
+  onSortChange?: (field: SortField, direction: 'asc' | 'desc') => void;
+  page?: number;
+  onPageChange?: (page: number) => void;
+  pageSize?: number;
+  onPageSizeChange?: (size: number) => void;
 }
 
 export function getTaskRowActionLabel(
@@ -310,6 +330,23 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   showActionColumn,
   viewerParty,
   party,
+  initialSearch,
+  initialStatusTab,
+  initialSortField,
+  initialSortDirection,
+  initialPage,
+  initialPageSize,
+  searchTerm: controlledSearchTerm,
+  onSearchChange,
+  statusTab: controlledStatusTab,
+  onStatusTabChange,
+  sortField: controlledSortField,
+  sortDirection: controlledSortDirection,
+  onSortChange,
+  page: controlledPage,
+  onPageChange,
+  pageSize: controlledPageSize,
+  onPageSizeChange,
 }) => {
   const hasActions = Boolean(showActions ?? showActionColumn);
   const explicitParty = viewerParty ?? party;
@@ -318,12 +355,56 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   const allUsers = users ?? store.users ?? [];
   const handleOpenSet = onOpenSet ?? ((set: AssuranceSet) => store.setCurrentHashView?.('assurance-sets', set.id));
 
-  const [activeTabKey, setActiveTabKey] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [pageSize, setPageSize] = useState(20);
-  const [page, setPage] = useState(1);
+  const [internalActiveTabKey, setInternalActiveTabKey] = useState<string>(initialStatusTab ?? 'all');
+  const activeTabKey = controlledStatusTab ?? internalActiveTabKey;
+  const handleCountTabChange = (key: string) => {
+    setInternalActiveTabKey(key);
+    onStatusTabChange?.(key);
+    setPage(1);
+  };
+
+  const [internalSearchTerm, setInternalSearchTerm] = useState(initialSearch ?? '');
+  const searchTerm = controlledSearchTerm ?? internalSearchTerm;
+  const handleSearchChange = (val: string) => {
+    setInternalSearchTerm(val);
+    onSearchChange?.(val);
+    setPage(1);
+  };
+
+  const [internalSortField, setInternalSortField] = useState<SortField | null>(initialSortField ?? null);
+  const sortField = controlledSortField !== undefined ? controlledSortField : internalSortField;
+
+  const [internalSortDirection, setInternalSortDirection] = useState<'asc' | 'desc'>(initialSortDirection ?? 'asc');
+  const sortDirection = controlledSortDirection ?? internalSortDirection;
+
+  const [internalPageSize, setInternalPageSize] = useState(initialPageSize ?? 20);
+  const pageSize = controlledPageSize ?? internalPageSize;
+
+  const [internalPage, setInternalPage] = useState(initialPage ?? 1);
+  const page = controlledPage ?? internalPage;
+  const setPage = (p: number | ((prev: number) => number)) => {
+    if (typeof p === 'function') {
+      setInternalPage((prev) => {
+        const next = p(prev);
+        onPageChange?.(next);
+        return next;
+      });
+    } else {
+      setInternalPage(p);
+      onPageChange?.(p);
+    }
+  };
+
+  const handleSort = (field: SortField) => {
+    let nextDirection: 'asc' | 'desc' = 'asc';
+    if (sortField === field) {
+      nextDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    }
+    setInternalSortField(field);
+    setInternalSortDirection(nextDirection);
+    onSortChange?.(field, nextDirection);
+  };
+
   const pageSizeSelectId = useId();
 
   const viewerOrg = activeDemoOrganization || sessionUser?.organization || '';
@@ -427,11 +508,6 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     [countTotals],
   );
 
-  const handleCountTabChange = (key: string) => {
-    setActiveTabKey(key);
-    setPage(1);
-  };
-
   const filteredRows = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
 
@@ -489,15 +565,6 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     return paginate(sortedRows, page, pageSize);
   }, [sortedRows, page, pageSize]);
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
   const renderSortIndicator = (field: SortField) => {
     if (sortField !== field) {
       return <ArrowUpDown size={14} className="text-muted ms-1 opacity-50 inline-block align-middle" />;
@@ -520,8 +587,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
         label: 'Search',
         value: searchTerm.trim(),
         onRemove: () => {
-          setSearchTerm('');
-          setPage(1);
+          handleSearchChange('');
         },
       },
     ];
@@ -545,10 +611,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
 
       <ListToolbar
         searchValue={searchTerm}
-        onSearchChange={(val) => {
-          setSearchTerm(val);
-          setPage(1);
-        }}
+        onSearchChange={handleSearchChange}
         searchPlaceholder="Search task name, assurance set, assignee..."
       />
 
@@ -557,8 +620,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
           <ActiveFilterChips
             chips={activeFilterChips}
             onClearAll={() => {
-              setSearchTerm('');
-              setPage(1);
+              handleSearchChange('');
             }}
           />
         </div>
@@ -767,7 +829,9 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
               className="form-select form-select-sm map-table-pagination-select"
               value={pageSize}
               onChange={(e) => {
-                setPageSize(Number(e.target.value));
+                const nextSize = Number(e.target.value);
+                setInternalPageSize(nextSize);
+                onPageSizeChange?.(nextSize);
                 setPage(1);
               }}
             >
