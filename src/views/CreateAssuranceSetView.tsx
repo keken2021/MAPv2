@@ -19,6 +19,7 @@ import {
   AssuranceRequirementCategory,
   AssuranceObject,
   AssuranceObjectType,
+  AssuranceSetGroupRef,
   TaskSection,
   TenantCustomSection,
 } from '../types/assurance';
@@ -128,6 +129,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     vessels,
     equipment,
     crew,
+    crewGroups = [],
     documents,
     assuranceSets,
     assuranceTemplates = [],
@@ -287,6 +289,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [editingDraftId, setEditingDraftId] = useState<string | undefined>(undefined);
   const [pppTags, setPppTags] = useState<ThreePillarsCategory[]>([]);
+  const [selectedCrewGroups, setSelectedCrewGroups] = useState<AssuranceSetGroupRef[]>(() => {
+    if (editingDraftId) {
+      const draft = assuranceSets.find((s) => s.id === editingDraftId);
+      return draft?.crewGroups ? JSON.parse(JSON.stringify(draft.crewGroups)) : [];
+    }
+    return [];
+  });
 
   /* Step 1: Scope & General Information */
   const [title, setTitle] = useState(
@@ -424,6 +433,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
      The first assurance object chosen sets the Vendor; removing the last object frees the Vendor again. */
   const selectedVendorOrg =
     selectedAssuranceObjects.length > 0 ? selectedAssuranceObjects[0].ownerOrganization : undefined;
+  const isDefaultPlaceholderVessel =
+    !isScopeLocked &&
+    !lockedAsset &&
+    selectedAssuranceObjects.length === 1 &&
+    selectedAssuranceObjects[0].type === 'vessel' &&
+    selectedAssuranceObjects[0].id === initialVesselId;
+  const effectiveVendorFilter = isDefaultPlaceholderVessel ? undefined : selectedVendorOrg;
 
   const availableObjectsForType = useMemo<AssuranceObject[]>(() => {
     let list: AssuranceObject[] = [];
@@ -630,6 +646,69 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         delete u.objects;
         return u;
       });
+    }
+  };
+
+  const handlePickCrewGroup = (groupId: string) => {
+    const group = crewGroups.find((g) => g.id === groupId);
+    if (!group) return;
+
+    if (!isDefaultPlaceholderVessel && selectedVendorOrg && group.organization && !sameOrganization(group.organization, selectedVendorOrg)) {
+      return;
+    }
+
+    const snapshot: AssuranceSetGroupRef = {
+      groupId: group.id,
+      groupName: group.name,
+      specialization: group.specialization,
+      memberIds: [...group.memberIds],
+      addedAt: new Date().toISOString(),
+      exclusions: [],
+    };
+
+    setSelectedCrewGroups((prev) => {
+      const idx = prev.findIndex((g) => g.groupId === group.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = snapshot;
+        return next;
+      }
+      return [...prev, snapshot];
+    });
+
+    const membersToAdd: AssuranceObject[] = [];
+    group.memberIds.forEach((memberId) => {
+      const seafarer = crew.find((c) => c.id === memberId);
+      if (seafarer) {
+        const obj = crewToAssuranceObject(seafarer);
+        if (!selectedAssuranceObjects.some((o) => o.id === obj.id) && !membersToAdd.some((o) => o.id === obj.id)) {
+          membersToAdd.push(obj);
+        }
+      }
+    });
+
+    if (membersToAdd.length > 0) {
+      if (isDefaultPlaceholderVessel) {
+        setSelectedAssuranceObjects(membersToAdd);
+        if (initialVesselName && title.includes(initialVesselName)) {
+          setTitle((prev) => prev.replace(initialVesselName, group.name));
+        }
+      } else {
+        setSelectedAssuranceObjects((prev) => [
+          ...prev,
+          ...membersToAdd.filter((m) => !prev.some((o) => o.id === m.id)),
+        ]);
+      }
+      setFieldErrors((prev) => {
+        const u = { ...prev };
+        delete u.objects;
+        return u;
+      });
+    }
+
+    if (group.organization && !organizations.some((o) => sameOrganization(o, group.organization!))) {
+      setOrganizationList((prev) => [...prev, group.organization!]);
+      setAddedOwners((prev) => [...prev, group.organization!]);
     }
   };
 
@@ -1030,6 +1109,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           if (canTemplateReplaceObjects) {
             const restoredObjects = getAssuranceSetObjects(target);
             if (restoredObjects.length > 0) setSelectedAssuranceObjects(restoredObjects);
+          }
+          if (target.crewGroups) {
+            setSelectedCrewGroups(JSON.parse(JSON.stringify(target.crewGroups)));
           }
           if (target.projectId && !lockedProjectId) setSelectedProjectId(target.projectId);
           if (target.activityId) setSelectedActivityId(target.activityId);
@@ -1825,6 +1907,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assuranceObjects: selectedAssuranceObjects,
       tags: pppTags.length > 0 ? pppTags : undefined,
       pppTags: pppTags.length > 0 ? pppTags : undefined,
+      crewGroups: selectedCrewGroups.length > 0 ? selectedCrewGroups.map((g) => ({
+        groupId: g.groupId,
+        groupName: g.groupName,
+        specialization: g.specialization,
+        memberIds: [...g.memberIds],
+        addedAt: g.addedAt || new Date().toISOString(),
+        exclusions: g.exclusions ? JSON.parse(JSON.stringify(g.exclusions)) : [],
+      })) : undefined,
     };
 
     newSet.readinessScore = calculateAssuranceSetReadiness(newSet);
@@ -2168,6 +2258,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assuranceObjects: selectedAssuranceObjects,
       tags: pppTags.length > 0 ? pppTags : undefined,
       pppTags: pppTags.length > 0 ? pppTags : undefined,
+      crewGroups: selectedCrewGroups.length > 0 ? selectedCrewGroups.map((g) => ({
+        groupId: g.groupId,
+        groupName: g.groupName,
+        specialization: g.specialization,
+        memberIds: [...g.memberIds],
+        addedAt: g.addedAt || new Date().toISOString(),
+        exclusions: g.exclusions ? JSON.parse(JSON.stringify(g.exclusions)) : [],
+      })) : undefined,
     };
 
     draftSet.readinessScore = calculateAssuranceSetReadiness(draftSet);
@@ -3449,6 +3547,27 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       </div>
                     </div>
                     <div className="d-flex align-items-center gap-2">
+                      {crewGroups.length > 0 && (
+                        <select
+                          id="wizard-pick-crew-group"
+                          aria-label="Pick Crew Group"
+                          className="form-select form-select-sm"
+                          style={{ minWidth: '180px' }}
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) handlePickCrewGroup(e.target.value);
+                          }}
+                        >
+                          <option value="">Pick a Crew Group...</option>
+                          {crewGroups
+                            .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
+                            .map((group) => (
+                              <option key={group.id} value={group.id}>
+                                {group.name} ({group.memberIds.length} members)
+                              </option>
+                            ))}
+                        </select>
+                      )}
                       {selectedVendorOrg && (
                         <span className="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 font-mono-code" style={{ fontSize: '0.75rem' }} data-testid="selected-vendor-badge">
                           <Building2 className="w-3.5 h-3.5" />
@@ -3487,6 +3606,27 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     {fieldErrors.objects && (
                       <div className="alert alert-danger small py-2 mb-3" role="alert">
                         {fieldErrors.objects}
+                      </div>
+                    )}
+                    {selectedCrewGroups.length > 0 && (
+                      <div className="mb-3 d-flex flex-wrap align-items-center gap-2" data-testid="selected-crew-groups-bar">
+                        <span className="small text-secondary fw-semibold">Crew Groups attached:</span>
+                        {selectedCrewGroups.map((cg) => (
+                          <span key={cg.groupId} className="badge bg-light text-dark border d-inline-flex align-items-center gap-1.5 py-1.5 px-2.5">
+                            <Users className="w-3.5 h-3.5 text-primary" />
+                            <span className="fw-semibold">{cg.groupName}</span>
+                            <span className="text-muted">({cg.memberIds.length} members snapshot)</span>
+                            <button
+                              type="button"
+                              aria-label={`Remove ${cg.groupName}`}
+                              className="btn-close ms-1"
+                              style={{ fontSize: '0.65rem' }}
+                              onClick={() => {
+                                setSelectedCrewGroups((prev) => prev.filter((g) => g.groupId !== cg.groupId));
+                              }}
+                            />
+                          </span>
+                        ))}
                       </div>
                     )}
                     {selectedAssuranceObjects.length === 0 ? (
@@ -3608,6 +3748,30 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       {newObjectType === 'vessel' && (
                         <div className="col-12 text-secondary small" style={{ fontSize: '0.78rem' }}>
                           Your own vessels are not listed. You become the client of the vessel you select.
+                        </div>
+                      )}
+                      {newObjectType === 'person' && crewGroups.length > 0 && (
+                        <div className="col-12 d-flex align-items-center gap-2 pt-2">
+                          <span className="text-secondary small fw-medium">Or pick an entire group:</span>
+                          <select
+                            id="grid-pick-crew-group"
+                            aria-label="Pick a Crew Group"
+                            className="form-select form-select-sm"
+                            style={{ maxWidth: '320px' }}
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) handlePickCrewGroup(e.target.value);
+                            }}
+                          >
+                            <option value="">Choose a crew group...</option>
+                            {crewGroups
+                              .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
+                              .map((g) => (
+                                <option key={g.id} value={g.id}>
+                                  {g.name} ({g.memberIds.length} seafarers &middot; {g.specialization})
+                                </option>
+                              ))}
+                          </select>
                         </div>
                       )}
                       {addedOwners.length > 0 && (
@@ -4274,6 +4438,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                         </span>
                                         <span>Standard: {standardCount} &middot; Custom: {customCount}</span>
                                       </div>
+                                      {selectedCrewGroups.length > 0 && (
+                                        <div className="mb-2 d-flex flex-wrap align-items-center gap-1.5" data-testid="review-crew-groups-snapshot">
+                                          <span className="text-secondary small fw-medium">Crew Groups:</span>
+                                          {selectedCrewGroups.map((g) => (
+                                            <span key={g.groupId} className="badge bg-light text-dark border">
+                                              {g.groupName} ({g.memberIds.length} members snapshot)
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
                                       <div className="table-responsive border rounded-3 overflow-hidden bg-white mt-1">
                                         <table className="table table-hover table-sm align-middle mb-0" style={{ fontSize: '0.8rem' }}>
                                           <thead className="table-light text-secondary border-bottom">

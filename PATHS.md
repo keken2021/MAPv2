@@ -108,6 +108,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/crewGroupsStore.test.ts` : tests for crew groups store actions (Task 5338)
 - `src/__tests__/crewGroupsToggle.test.tsx` : tests for CrewTable groups toggle (Task 5339)
 - `src/__tests__/crewGroupDetailView.test.tsx` : tests for CrewGroupDetailView (Task 5340)
+- `src/__tests__/crewGroupsWizardPick.test.tsx` : tests for picking crew groups in assurance set wizard and member snapshot (Task 5341)
 
 ## Unit tests named in the Task lists
 - `src/__tests__/` : all prototype tests. Run a subset with `npx vitest run src/__tests__/<file>`
