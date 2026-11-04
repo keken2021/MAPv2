@@ -46,21 +46,7 @@ export const SEEDED_AUDIT_EVENTS: AuditTrailEvent[] = ([
     target: { kind: 'task', setId: 'AS-2026-001', taskId: 'REQ-101' },
     fieldDelta: { fieldName: 'Status', oldValue: 'Pending', newValue: 'Verified' },
     justificationNotes: 'Certificate of Class matched the DNV registry.',
-  },
-  {
-    id: 'AUD-SEED-009',
-    timestampUtc: '2026-10-22T01:05:00Z',
-    ...northwind,
-    action: 'Edited task',
-    targetAsset: 'AS-2026-008 · Schilling ROV System Mobilization Assurance',
-    target: { kind: 'task', setId: 'AS-2026-008', taskId: 'REQ-EQP-007-2' },
-    fieldDelta: {
-      fieldName: 'Task',
-      oldValue: 'IMCA R004 ROV Spread Audit',
-      newValue: 'IMCA R004 ROV Spread Audit & High Voltage Clearance',
-    },
-    justificationNotes: 'Task title widened to cover high-voltage clearance on the ROV spread.',
-  },
+  },
   {
     id: 'AUD-SEED-008',
     timestampUtc: '2026-10-20T11:30:00Z',

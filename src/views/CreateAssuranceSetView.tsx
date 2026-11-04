@@ -1390,7 +1390,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     person: selectedAssuranceObjects
       .filter((object) => sameOrganization(object.ownerOrganization, organization))
       .map((object) => findObjectSubmitter(object, documents, users))
-      .find(Boolean),
+      .find(Boolean) ||
+      /* no earlier uploader: the organization's own submitter is appointed at once, its admins are told as well */
+      users.find(
+        (user) =>
+          user.status === 'Active' &&
+          userHasRole(user, 'Submitter') &&
+          sameOrganization(user.organization || '', organization),
+      ),
   }));
   const submitters: SetSubmitter[] = providerSubmitters.map(({ organization, person }) => ({
     organization,

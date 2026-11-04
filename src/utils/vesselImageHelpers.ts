@@ -35,8 +35,6 @@ const VESSEL_STOCK_PHOTOS: Record<string, string> = {
   'VESSEL-006': 'https://images.unsplash.com/photo-1732515742827-b46fba760ff1?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Kimberley Guardian (ERRV)
   'VESSEL-007': 'https://plus.unsplash.com/premium_photo-1661881151268-8c3ee3de4c38?q=80&w=1332&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Ningaloo Voyager (Fast Crew Craft)
   'VESSEL-008': 'https://plus.unsplash.com/premium_photo-1661879449050-069f67e200bd?q=80&w=1122&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Meridian Pioneer (PSV DP2)
-  'VESSEL-009': 'https://plus.unsplash.com/premium_photo-1661962278758-d529030366fb?q=80&w=1228&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Austral Horizon (Liquid Cargo PSV)
-  'VESSEL-010': 'https://plus.unsplash.com/premium_photo-1664298003939-e93f37196118?q=80&w=1333&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Oceanic Sentinel (Heavy 180T AHTS)
   'VESSEL-011': 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1000&q=80', // MV Southern Basin Pioneer (Subsea Construction)
   'VESSEL-012': 'https://images.unsplash.com/photo-1583857671904-a716bf4ee5d8?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D', // MV Northwind Resolute (PSV DP2)
 };
@@ -354,13 +352,10 @@ export const CURATED_EQUIPMENT_PHOTOS = [
 const EQUIPMENT_STOCK_PHOTOS: Record<string, string> = {
   'EQ-001': 'https://images.unsplash.com/photo-1517524008697-84bbe3c3fd98?auto=format&fit=crop&w=1000&q=80',
   'EQ-002': 'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=1000&q=80',
-  'EQ-003': 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80',
-  'EQ-004': 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=1000&q=80',
   'EQ-005': 'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=1000&q=80',
   'EQ-006': 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1000&q=80',
   'EQ-007': 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?auto=format&fit=crop&w=1000&q=80',
   'EQ-008': 'https://images.unsplash.com/photo-1519074069444-1ba4ea16e91f?auto=format&fit=crop&w=1000&q=80',
-  'EQ-009': 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1000&q=80',
 };
 
 export const getEquipmentStockPhoto = (

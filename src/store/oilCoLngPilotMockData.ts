@@ -937,6 +937,38 @@ export const OIL_CO_PILOT_USERS: UserProfile[] = [
     departmentOrScope: "OT security",
     status: "Active",
     lastActive: "2026-10-13 05:10 UTC",
+  },  {
+    id: "USR-245",
+    name: "L. Moreau",
+    email: "l.moreau@coastalfuel.example",
+    roles: ["C Admin"],
+    userType: "Third-Party",
+    organization: COASTAL_ORG,
+    departmentOrScope: "Organization admin, appoints the SS-04 reviewers",
+    status: "Active",
+    lastActive: "2026-10-13 06:00 UTC",
+  },
+  {
+    id: "USR-246",
+    name: "D. Varga",
+    email: "d.varga@kestrelcontrols.example",
+    roles: ["C Admin"],
+    userType: "Organization",
+    organization: KESTREL_ORG,
+    departmentOrScope: "Organization admin, appoints the SS-05 submitter",
+    status: "Active",
+    lastActive: "2026-10-13 06:00 UTC",
+  },
+  {
+    id: "USR-247",
+    name: "E. Navarro",
+    email: "e.navarro@sentinelcyber.example",
+    roles: ["C Admin"],
+    userType: "Third-Party",
+    organization: SENTINEL_ORG,
+    departmentOrScope: "Organization admin, appoints the SS-05 reviewers",
+    status: "Active",
+    lastActive: "2026-10-13 06:00 UTC",
   },
 ];
 
@@ -1094,6 +1126,27 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
       },
     ],
   }),
+  // Demo vessel owned by Kestrel Control Systems so SS-05 (IT / Control Systems) has Kestrel as a provider.
+  {
+    ...pilotVessel({
+      id: "VES-OILCO-KESTREL-INTEGRATOR",
+      name: "MV Kestrel Integrator",
+      imoNumber: "9876127",
+      officialRegNumber: "MV-KI-2026",
+      mmsiNumber: "503812230",
+      callSign: "VJQ7730",
+      status: "Standby",
+      registeredOwner: KESTREL_ORG,
+      ismCompany: KESTREL_ORG,
+      technicalManager: KESTREL_ORG,
+      vesselType: "Offshore Support Vessel (OSV)",
+      vesselSubtype: "Control systems integration platform",
+      intendedUse: "Control system integration for Oil Company LNG development",
+      masterName: "Capt. R. Lindqvist",
+      complianceReadinessScore: 100,
+    }),
+    ownerOrg: KESTREL_ORG,
+  } as Vessel,
 ];
 
 export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [

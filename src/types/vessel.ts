@@ -120,7 +120,7 @@ export interface VesselInformation {
   mainEnginePowerKW: string; // e.g. 2x 2400 kW Wärtsilä
 
   // Category 5 - Ownership & Management
-  registeredOwner: string; // e.g. Pacific Ocean Logistics Pty Ltd
+  registeredOwner: string; // e.g. Northwind Marine Pty Ltd
   ownerType: string; // e.g. Corporate Entity
   corporateRegistryNo: string; // e.g. ACN 894 123 765
   ismCompany: string; // e.g. Ocean Fleet Management Services

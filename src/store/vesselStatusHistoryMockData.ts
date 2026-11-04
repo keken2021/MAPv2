@@ -256,7 +256,7 @@ export const MOCK_VESSEL_STATUS_HISTORY: VesselStatusHistoryEntry[] = [
     changedAt: '2026-09-28T02:00:00.000Z',
     changedBy: 'K. Osei',
     changedByRole: 'Administrator',
-    notes: 'Alongside at port. Inpex Ichthys assurance set is at Initiated, so the vessel is not cleared to transit.',
+    notes: 'Alongside at port. Its assurance set is at Initiated, so the vessel is not cleared to transit.',
     source: 'system',
   },
 ];

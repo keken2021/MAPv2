@@ -369,12 +369,19 @@ function isRequirementDocumentVisible(
   req: AssuranceRequirement,
   isClient: boolean,
   viewerOrg: string,
-  set: { assignedSubmitter?: string; serviceProviderOrg?: string },
+  set: {
+    assignedSubmitter?: string;
+    serviceProviderOrg?: string;
+    stakeholders?: { verifierOrg?: string; inspectorOrg?: string; approverOrg?: string };
+  },
   users: Array<{ id: string; name: string; organization?: string }>,
   objects: AssuranceObject[],
 ): boolean {
   if (isClient) return true;
   if (!viewerOrg.trim()) return false;
+  // Reviewing organizations (verifier / inspector / approver) must be able to read the documents they review.
+  const reviewerOrgs = [set.stakeholders?.verifierOrg, set.stakeholders?.inspectorOrg, set.stakeholders?.approverOrg];
+  if (reviewerOrgs.some((org) => org?.trim() && orgFieldMatches(viewerOrg, org))) return true;
   const partyOrg = getRequirementResponsiblePartyOrg(req, set, users, objects);
   if (!partyOrg.trim()) return false;
   return orgFieldMatches(viewerOrg, partyOrg);
@@ -1869,7 +1876,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         <button
           type="button"
           className="btn btn-sm btn-primary"
-          onClick={() => setCurrentHashView('inspector', assuranceSet.vesselName)}
+          onClick={() => setCurrentHashView('inspector', assuranceSet.id)}
         >
           Open Inspection
         </button>

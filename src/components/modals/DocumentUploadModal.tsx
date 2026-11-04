@@ -286,8 +286,10 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setIsNewExtractionAnimate(true);
       setAiOcrConfidence(99.2);
 
-      /* stagger 1: certificate number — the demo extraction reads no number, the user enters it */
+      /* stagger 1: certificate number — the demo extraction fills a mock number the user can edit, so the upload can finish */
       setTimeout(() => {
+        const mockCertNo = `DEMO-${selectedName.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase() || 'DOC'}-${String(Math.abs(Array.from(selectedName).reduce((sum, ch) => sum * 31 + ch.charCodeAt(0), 7)) % 100000).padStart(5, '0')}`;
+        setCertificateNo((prev) => (prev.trim() ? prev : mockCertNo));
         setRevealedFields((prev) => ({ ...prev, certNo: true }));
         setAnimatingFields((prev) => new Set(prev).add('doc-cert-no'));
         setTimeout(() => setAnimatingFields((prev) => { const n = new Set(prev); n.delete('doc-cert-no'); return n; }), 750);
@@ -301,8 +303,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         setTimeout(() => setAnimatingFields((prev) => { const n = new Set(prev); n.delete('doc-issuing-authority'); return n; }), 750);
       }, 420);
 
-      /* stagger 3: expiry date — the demo extraction reads no date, the user enters it */
+      /* stagger 3: expiry date — the demo extraction fills a mock date two years out the user can edit */
       setTimeout(() => {
+        const mockExpiry = new Date();
+        mockExpiry.setFullYear(mockExpiry.getFullYear() + 2);
+        setExpiryDate((prev) => (prev ? prev : mockExpiry.toISOString().slice(0, 10)));
         setRevealedFields((prev) => ({ ...prev, expiry: true }));
         setAnimatingFields((prev) => new Set(prev).add('doc-expiry-date'));
         setTimeout(() => setAnimatingFields((prev) => { const n = new Set(prev); n.delete('doc-expiry-date'); return n; }), 750);

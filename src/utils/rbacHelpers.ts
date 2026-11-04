@@ -9,7 +9,7 @@ import { AuditTrailEvent, UserRolePersona } from "../types/audit";
 import { MasterDocument } from "../types/document";
 import { VesselInformation } from "../types/vessel";
 import { EquipmentAsset } from "../types/equipment";
-import { setSubmitters, userMatchesAnyRole } from "./userRoleHelpers";
+import { userMatchesAnyRole } from "./userRoleHelpers";
 import { isDatePermissionActive } from "./validation";
 import { VIEW_TO_SCOPE, canPerform, isUserOverride, getEffectiveUserScopeFlags, getRoleScopeFlags } from "./permissionHelpers";
 import { RolePermissionMatrix, UserPermissionOverrides } from "../types/permissions";
@@ -65,11 +65,7 @@ export function isAssuranceSetAssignedToPersona(
         set.initiatorOrg,
         set.assignedSubmitter,
         set.stakeholders?.submitterOrg,
-        set.stakeholders?.verifierOrg,
-        set.stakeholders?.inspectorOrg,
-        set.stakeholders?.approverOrg,
         set.assignedStakeholders?.submitterOrg,
-        ...setSubmitters(set).map((submitter) => submitter.organization),
       );
       const isOwnerVessel =
         (organization.toLowerCase().includes("northwind") || organization.toLowerCase().includes("pacific")) &&
@@ -101,7 +97,7 @@ export function isAssuranceSetAssignedToPersona(
   }
   if (persona === "Submitter") {
     if (user) {
-      return setSubmitters(set).some((submitter) => assigneeMatchesUser(submitter.assignee, user));
+      return assigneeMatchesUser(set.assignedSubmitter, user);
     }
     /* submitter / vessel admin can only access assurance sets for their own organization */
     const isAssignedToOrg = Boolean(
@@ -121,7 +117,6 @@ export function isAssuranceSetAssignedToPersona(
         set.assignedSubmitter,
         set.serviceProviderOrg,
         set.stakeholders?.submitterOrg,
-        ...setSubmitters(set).map((submitter) => submitter.organization),
       );
     }
     return isAssignedToOrg;
@@ -168,13 +163,20 @@ export function isAssuranceSetAssignedToPersona(
       set.initiatorOrg === "Chevron Australia Pty Ltd" ||
       set.charterer === "Chevron Australia Pty Ltd" ||
       set.charterer === "Southern Basin Energy Pty Ltd" ||
-      set.initiatorOrg === "Southern Basin Energy Pty Ltd" ||
-      set.initiatorOrg === "Woodside Energy Ltd" ||
-      set.charterer === "Woodside Energy Ltd" ||
-      set.initiatorOrg === "Inpex Operations Australia" ||
-      set.charterer === "Inpex Operations Australia";
+      set.initiatorOrg === "Southern Basin Energy Pty Ltd";
     if (!organization) return legacy;
-    return pilotPartyMatches(organization, set.clientOrg, set.charterer, set.initiatorOrg);
+    /* the client admin of a provider or assurance organization is a party too: the pending submitter, verifier, inspector and approver notices go to it and it chooses the person */
+    return pilotPartyMatches(
+      organization,
+      set.clientOrg,
+      set.charterer,
+      set.initiatorOrg,
+      set.serviceProviderOrg,
+      set.stakeholders?.submitterOrg,
+      set.stakeholders?.verifierOrg,
+      set.stakeholders?.inspectorOrg,
+      set.stakeholders?.approverOrg,
+    );
   }
   return true;
 }
@@ -1214,7 +1216,7 @@ export function matchesVesselSearch(
       s.stage?.toLowerCase().includes(term) ||
       s.initiatorOrg?.toLowerCase().includes(term) ||
       s.initiatorRole?.toLowerCase().includes(term) ||
-      setSubmitters(s).some((submitter) => submitter.assignee.toLowerCase().includes(term)) ||
+      s.assignedSubmitter?.toLowerCase().includes(term) ||
       s.assignedVerifier?.toLowerCase().includes(term) ||
       s.assignedInspector?.toLowerCase().includes(term) ||
       s.assignedApprover?.toLowerCase().includes(term) ||

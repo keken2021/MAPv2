@@ -172,15 +172,9 @@ export interface InspectionListProgress {
 
 /** one location and one checklist count for each inspection on the Meridian surveyor's list */
 export const INSPECTION_LIST_PROGRESS: InspectionListProgress[] = [
-  { assuranceSetId: 'AS-2026-001', location: 'Fremantle, WA', checklistCompleted: 30, checklistTotal: 30 },
-  { assuranceSetId: 'AS-2026-004', location: 'Dampier, WA', checklistCompleted: 30, checklistTotal: 30 },
-  { assuranceSetId: 'AS-2026-005', location: 'Port Hedland, WA', checklistCompleted: 30, checklistTotal: 30 },
-  { assuranceSetId: 'AS-2026-008', location: 'Henderson, WA', checklistCompleted: 12, checklistTotal: 30 },
-  { assuranceSetId: 'AS-2026-011', location: 'Fremantle, WA', checklistCompleted: 30, checklistTotal: 30 },
-  { assuranceSetId: 'AS-ACT-2026-SURF-01', location: 'Wheatstone field', checklistCompleted: 18, checklistTotal: 30 },
+  { assuranceSetId: 'AS-2026-001', location: 'Fremantle, WA', checklistCompleted: 30, checklistTotal: 30 },
   { assuranceSetId: 'AS-EQP-005-01', location: 'Australian Marine Complex', checklistCompleted: 30, checklistTotal: 30 },
-  { assuranceSetId: 'AS-01-V001', location: 'Fremantle Berth 2', checklistCompleted: 4, checklistTotal: 30 },
-  { assuranceSetId: 'AS-SBE-011-V001', location: 'Geographe field', checklistCompleted: 0, checklistTotal: 30 },
+  { assuranceSetId: 'AS-01-V001', location: 'Fremantle Berth 2', checklistCompleted: 4, checklistTotal: 30 },
   { assuranceSetId: 'AS-EQP-007-01', location: 'Gorgon field', checklistCompleted: 30, checklistTotal: 30 },
 ];
 
@@ -230,71 +224,7 @@ export const PHYSICAL_INSPECTIONS: PhysicalInspectionRecord[] = [
       { time: '2026-10-14 14:15 UTC', action: 'CAPA_RAISED', user: 'N. Technical', notes: 'Corrective Action CAPA-118 automatically generated.' },
       { time: '2026-10-14 16:00 UTC', action: 'INSPECTION_COMPLETED', user: 'N. Technical', notes: 'Visual inspection completed. Report signed off.' },
     ],
-  },
-  {
-    id: 'INSP-2026-004',
-    assuranceSetId: 'AS-2026-004',
-    title: 'Visual Vessel Inspection & Safety Audit — Woodside Scarborough Subsea Charter',
-    inspector: 'Capt. Robert Shaw (Meridian Marine Surveyors)',
-    inspectorRole: 'Inspector',
-    date: '02 Sep 2026',
-    location: 'Dampier, WA',
-    client: 'Woodside Energy Ltd',
-    status: 'Completed',
-    findingsSummary: {
-      satisfactory: 14,
-      observations: 1,
-      deficiencies: 0,
-      capaCode: 'CAPA-118',
-    },
-    checklists: checklistFromDefaults(),
-    auditTrail: [
-      { time: '2026-09-02 09:00 UTC', action: 'INSPECTION_INITIATED', user: 'Capt. Robert Shaw', notes: 'Inspector boarded at Dampier.' },
-      { time: '2026-09-02 15:30 UTC', action: 'INSPECTION_COMPLETED', user: 'Capt. Robert Shaw', notes: 'Inspection completed.' },
-    ],
-  },
-  {
-    id: 'INSP-2026-005',
-    assuranceSetId: 'AS-2026-005',
-    title: 'Visual Vessel Inspection & Safety Audit — Southern Basin Platform Support Charter',
-    inspector: 'N. Technical (Meridian Marine Surveyors)',
-    inspectorRole: 'Inspector',
-    date: '18 Aug 2026',
-    location: 'Port Hedland, WA',
-    client: 'Southern Basin Energy Pty Ltd',
-    status: 'Completed',
-    findingsSummary: {
-      satisfactory: 13,
-      observations: 2,
-      deficiencies: 0,
-      capaCode: 'CAPA-118',
-    },
-    checklists: checklistFromDefaults(),
-    auditTrail: [
-      { time: '2026-08-18 08:15 UTC', action: 'INSPECTION_INITIATED', user: 'N. Technical', notes: 'Inspector boarded at Port Hedland.' },
-      { time: '2026-08-18 16:40 UTC', action: 'INSPECTION_COMPLETED', user: 'N. Technical', notes: 'Inspection completed.' },
-    ],
-  },
-  {
-    id: 'INSP-2026-008',
-    assuranceSetId: 'AS-2026-008',
-    title: 'Visual Vessel Inspection & Safety Audit — Schilling ROV System Mobilization Assurance',
-    inspector: 'N. Technical (Meridian Marine Surveyors)',
-    inspectorRole: 'Inspector',
-    date: '22 Oct 2026',
-    location: 'Henderson, WA',
-    client: 'Northwind Marine Pty Ltd',
-    status: 'In Progress',
-    findingsSummary: {
-      satisfactory: 4,
-      observations: 1,
-      deficiencies: 0,
-    },
-    checklists: checklistFromDefaults(DEFAULT_INSPECTION_CHECKLIST_ITEMS.slice(0, 3)),
-    auditTrail: [
-      { time: '2026-10-22 09:00 UTC', action: 'INSPECTION_INITIATED', user: 'N. Technical', notes: 'Inspection started at Henderson.' },
-    ],
-  },
+  },
 ];
 
 export type AssuranceSetInspectionFields = {

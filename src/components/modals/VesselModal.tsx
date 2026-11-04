@@ -403,7 +403,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
       }
       if (!registeredOwner) {
         setTimeout(() => {
-          setRegisteredOwner('Pacific Ocean Logistics Pty Ltd');
+          setRegisteredOwner('Northwind Marine Pty Ltd');
           setRevealedVesselFields((p) => ({ ...p, registeredOwner: true }));
           triggerAutofillAnimation(['registered-owner']);
         }, 550);
@@ -506,7 +506,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
           triggerAutofillAnimation(['gt', 'dwt']);
         }, 900);
         setTimeout(() => {
-          setRegisteredOwner('Pacific Ocean Logistics Pty Ltd');
+          setRegisteredOwner('Northwind Marine Pty Ltd');
           setRevealedVesselFields((p) => ({ ...p, registeredOwner: true }));
           triggerAutofillAnimation(['registered-owner']);
         }, 1050);
@@ -1388,7 +1388,7 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                       <input
                         type="text"
                         className={`form-control form-control-sm ${errorMessage && !registeredOwner.trim() ? 'is-invalid' : ''}${animatingFields.has('registered-owner') ? ' map-autofill-animate' : ''}`}
-                        placeholder="e.g. Pacific Ocean Logistics Pty Ltd"
+                        placeholder="e.g. Northwind Marine Pty Ltd"
                         value={registeredOwner}
                         onChange={(e) => setRegisteredOwner(e.target.value)}
                         required

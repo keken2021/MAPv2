@@ -22,7 +22,7 @@ const STATUSES: ObjectVerificationStatus[] = [
 
 /* two client checks per object, rotating status and channel so every value appears */
 function clientChecks(index: number): ObjectVerification[] {
-  const clients = ['Chevron Australia Pty Ltd', 'Woodside Energy Ltd'];
+  const clients = ['Chevron Australia Pty Ltd', 'Oil Company'];
   return clients.map((clientOrganization, offset) => {
     const slot = index * 2 + offset;
     const channel: ObjectVerificationChannel = slot % 2 === 0 ? 'external' : 'internal';
@@ -120,7 +120,7 @@ export const SEEDED_PROCEDURE_OBJECTS: AssuranceObject[] = [
     id: 'OBJ-PROC-CRANE-01',
     type: 'procedure',
     name: 'Crane Lift Procedure',
-    ownerOrganization: 'Woodside Energy Ltd',
+    ownerOrganization: 'Oil Company',
     identifier: 'SOP-LIFT-014',
     description: 'Deck crane lift procedure, including exclusion zones and communications',
   }, 12),

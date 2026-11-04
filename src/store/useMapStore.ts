@@ -998,9 +998,9 @@ function notifyAssignedStakeholders(
     });
   });
 
-  /* a role left pending goes to the admin of its organization, who chooses the person */
+  /* a role left pending goes to the admin of its organization, who chooses the person; a submitter's admins are told too, so they can follow the set */
   assignments.forEach(({ role, label, organization }) => {
-    if (label !== PENDING_ASSIGNMENT) return;
+    if (label !== PENDING_ASSIGNMENT && role !== "Submitter") return;
     const roleOrganization = (
       organization || getStakeholderRoleOrganization(assuranceSet, role as StakeholderRole)
     )?.trim().toLowerCase();

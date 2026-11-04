@@ -43,61 +43,7 @@ export const MOCK_ORGANIZATION_PROFILES: OrganizationProfile[] = [
     phone: '+61 8 9312 8800',
     website: 'https://www.meridianmarine.com.au',
     address: '45 Rous Head Road, North Fremantle WA 6159',
-  }),
-  profile('ORG-AUSTRAL-OCEAN', 'Austral Ocean Shipping Ltd', {
-    email: 'charter@australocean.com.au',
-    phone: '+61 8 9481 2200',
-    website: 'https://www.australocean.com.au',
-    address: '88 Marine Terrace, Fremantle WA 6160',
-  }),
-  profile('ORG-OCEANIC', 'Oceanic Horizon Logistics Pty Ltd', {
-    email: 'brokerage@oceanichorizon.com.au',
-    phone: '+61 8 9335 4100',
-    website: 'https://www.oceanichorizon.com.au',
-    address: '7 Slip Street, Henderson WA 6166',
-  }),
-  profile('ORG-PACIFIC', 'Pacific Ocean Logistics Pty Ltd', {
-    email: 'fleet@pacificoceanlogistics.com.au',
-    phone: '+61 8 9430 1200',
-    address: '22 Queen Victoria Street, Fremantle WA 6160',
-  }),
-  profile('ORG-PACIFIC-OFF', 'Pacific Offshore Maritime Personnel', {
-    email: 'marine.crew@pacificoffshore.com.au',
-    phone: '+61 8 9221 9000',
-  }),
-  profile('ORG-SUBSEA7', 'Subsea 7 Engineering & Robotics', {
-    email: 'subsea.tooling@subsea7.com',
-    phone: '+61 8 6314 1000',
-    website: 'https://www.subsea7.com',
-  }),
-  profile('ORG-BOSKALIS', 'Boskalis Heavy Marine Transport', {
-    email: 'cranes@boskalis.com.au',
-    phone: '+61 8 9410 2800',
-  }),
-  profile('ORG-KONGSBERG', 'Kongsberg Maritime Services', {
-    email: 'support.dp@kongsberg.com',
-    phone: '+61 8 9336 7600',
-  }),
-  profile('ORG-ATLAS', 'Atlas Professionals Marine Crewing', {
-    email: 'crewing.wa@atlasprofessionals.com.au',
-    phone: '+61 8 9322 4500',
-  }),
-  profile('ORG-BRUNEL', 'Brunel International Marine Staffing', {
-    email: 'marine.perth@brunel.net',
-    phone: '+61 8 9486 8000',
-  }),
-  profile('ORG-SOUTHERN-CREW', 'Southern Marine Personnel Ltd', {
-    email: 'placements@southernmarine.com.au',
-    phone: '+61 8 9430 5500',
-  }),
-  profile('ORG-OCEANEERING', 'Oceaneering Marine Subsea Staffing', {
-    email: 'rov.crewing@oceaneering.com',
-    phone: '+61 8 6250 4000',
-  }),
-  profile('ORG-GLOBAL-MAR', 'Global Maritime Assurance Group', {
-    email: 'qhse.crewing@globalmaritime.com',
-    phone: '+61 8 9226 1100',
-  }),
+  }),
   profile('ORG-OIL-CO', 'Oil Company', {
     email: 'marine.assurance@oilcompany.example',
     phone: '+61 8 9263 0000',
@@ -122,19 +68,7 @@ export const MOCK_ORGANIZATION_PROFILES: OrganizationProfile[] = [
   profile('ORG-CHEVRON', 'Chevron Australia Pty Ltd', {
     email: 'marine@chevron.com',
     phone: '+61 8 9216 4000',
-  }),
-  profile('ORG-WOODSIDE', 'Woodside Energy Ltd', {
-    email: 'marine@woodside.com.au',
-    phone: '+61 8 9348 4000',
-  }),
-  profile('ORG-INPEX', 'Inpex Operations Australia', {
-    email: 'marine@inpex.com.au',
-    phone: '+61 8 6213 6000',
-  }),
-  profile('ORG-SHELL', 'Shell Australia Pty Ltd', {
-    email: 'marine@shell.com.au',
-    phone: '+61 8 9333 6000',
-  }),
+  }),
   profile('ORG-BV', 'Bureau Veritas Inspectorate', {
     email: 'marine.au@bureauveritas.com',
     phone: '+61 8 9381 7000',
@@ -167,13 +101,7 @@ export const MOCK_VESSEL_MANAGER_EFFECT_DATES: VesselManagerEffectDate[] = [
   { vesselId: 'VESSEL-003', role: 'technicalManager', dateOfEffect: '2020-01-10' },
   { vesselId: 'VESSEL-008', role: 'registeredOwner', dateOfEffect: '2021-09-01' },
   { vesselId: 'VESSEL-008', role: 'ismCompany', dateOfEffect: '2021-09-01' },
-  { vesselId: 'VESSEL-008', role: 'technicalManager', dateOfEffect: '' },
-  { vesselId: 'VESSEL-009', role: 'registeredOwner', dateOfEffect: '2022-04-20' },
-  { vesselId: 'VESSEL-009', role: 'ismCompany', dateOfEffect: '2022-04-20' },
-  { vesselId: 'VESSEL-009', role: 'technicalManager', dateOfEffect: '2022-04-20' },
-  { vesselId: 'VESSEL-010', role: 'registeredOwner', dateOfEffect: '2021-11-08' },
-  { vesselId: 'VESSEL-010', role: 'ismCompany', dateOfEffect: '2021-11-08' },
-  { vesselId: 'VESSEL-010', role: 'technicalManager', dateOfEffect: '2021-11-08' },
+  { vesselId: 'VESSEL-008', role: 'technicalManager', dateOfEffect: '' },
   { vesselId: 'VESSEL-011', role: 'registeredOwner', dateOfEffect: '2022-07-01' },
   { vesselId: 'VESSEL-011', role: 'ismCompany', dateOfEffect: '2022-07-01' },
   { vesselId: 'VESSEL-011', role: 'technicalManager', dateOfEffect: '2022-07-01' },

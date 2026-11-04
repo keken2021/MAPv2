@@ -108,8 +108,6 @@ export function vesselToAssuranceObject(vessel: {
   name: string;
   imoNumber?: string;
   ownerOrg?: string;
-  registeredOwner?: string;
-  ismCompany?: string;
   operator?: string;
   clientOrganization?: string;
 }): AssuranceObject {
@@ -117,7 +115,7 @@ export function vesselToAssuranceObject(vessel: {
     id: vessel.id,
     type: 'vessel',
     name: vessel.name,
-    ownerOrganization: vessel.ownerOrg || vessel.registeredOwner || vessel.ismCompany || vessel.operator || 'Vessel Provider',
+    ownerOrganization: vessel.ownerOrg || vessel.operator || 'Vessel Provider',
     identifier: vessel.imoNumber ? 'IMO: ' + vessel.imoNumber : undefined,
   };
 }
@@ -1177,35 +1175,7 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
       'act-mop-method', 'act-hazid-hazop', 'act-mooring-analysis', 'act-emergency-response', 'act-simops-matrix',
       'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-helideck-cert', 'eq-rigging-slings',
     ],
-  },
-  {
-    id: 'tmpl-org-woodside-scarborough',
-    subtype: 'All',
-    name: 'Woodside Scarborough Project Standard',
-    source: 'organization',
-    organizationName: 'Woodside Energy Ltd',
-    description: 'Offshore project assurance package covering full DP2/DP3 subsea intervention, heavy lift, drilling support, and crew safety compliance.',
-    recommendedDocIds: [
-      'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert',
-      'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook',
-      'act-mop-method', 'act-hazid-hazop', 'act-emergency-response',
-      'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-rigging-slings',
-    ],
-  },
-  {
-    id: 'tmpl-org-inpex-ichthys',
-    subtype: 'All',
-    name: 'Inpex Ichthys Field Operations Standard',
-    source: 'organization',
-    organizationName: 'Inpex Operations Australia',
-    description: 'Operational compliance standard for Darwin offshore field supply, topside heavy lift, and marine support campaigns.',
-    recommendedDocIds: [
-      'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert',
-      'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training',
-      'act-mop-method', 'act-hazid-hazop', 'act-emergency-response',
-      'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rigging-slings',
-    ],
-  },
+  },
   {
     id: 'tmpl-org-santos-barossa',
     subtype: 'All',
@@ -1219,21 +1189,7 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
       'act-mop-method', 'act-hazid-hazop', 'act-mooring-analysis', 'act-emergency-response',
       'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-rigging-slings',
     ],
-  },
-  {
-    id: 'tmpl-org-shell-prelude',
-    subtype: 'All',
-    name: 'Shell Prelude FLNG Marine Project Assurance Pack',
-    source: 'organization',
-    organizationName: 'Shell Australia Pty Ltd',
-    description: 'FLNG exclusion boundary escort, emergency standby, crew survival certification, and offshore lifting appliance verification package.',
-    recommendedDocIds: [
-      'vessel-class-cert', 'vessel-solas-safety', 'vessel-flag-registry', 'vessel-safe-manning', 'vessel-iopp-cert',
-      'crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook',
-      'act-mop-method', 'act-hazid-hazop', 'act-emergency-response', 'act-simops-matrix',
-      'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-helideck-cert', 'eq-rigging-slings',
-    ],
-  },
+  },
   {
     id: 'tmpl-org-northwind-integrated-project',
     subtype: 'All',
