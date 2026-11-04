@@ -4,8 +4,8 @@
   role in system: full-page view at #/objects, opened from All Objects in the Assurance Objects sidebar group.
 */
 
-import React, { useMemo, useState } from 'react';
-import { Eye, Search } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, Download, Eye, FileSpreadsheet, FileText, Search } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceObject, AssuranceObjectType, AssuranceSet, ObjectVerificationStatus } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
@@ -17,11 +17,8 @@ import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { usePagination } from '../utils/usePagination';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
-import { CountTabs } from '../components/common/CountTabs';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { EmptyState } from '../components/common/EmptyState';
-import { FilterModal } from '../components/common/FilterModal';
-import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { TablePagination } from '../components/common/TablePagination';
 import {
   AssuranceObjectDrawer,
@@ -44,13 +41,13 @@ export function canOpenObjectsList(persona: UserRolePersona): boolean {
   return OBJECTS_LIST_PERSONAS.includes(persona);
 }
 
-const TYPE_TABS: { key: 'all' | AssuranceObjectType; label: string }[] = [
+export const TYPE_OPTIONS: { key: 'all' | AssuranceObjectType; label: string }[] = [
   { key: 'all', label: 'All' },
-  { key: 'vessel', label: 'Vessels' },
-  { key: 'person', label: 'Crew Directory' },
+  { key: 'vessel', label: 'Vessel' },
+  { key: 'person', label: 'Person' },
   { key: 'equipment', label: 'Equipment' },
-  { key: 'procedure', label: 'Procedures' },
-  { key: 'method', label: 'Methods' },
+  { key: 'procedure', label: 'Procedure' },
+  { key: 'method', label: 'Method' },
 ];
 
 const TYPE_LABEL: Record<string, string> = {
@@ -194,10 +191,23 @@ export const AssuranceObjectsView: React.FC = () => {
   const [search, setSearch] = useState('');
   const [owner, setOwner] = useState('');
   const [verificationStatus, setVerificationStatus] = useState('');
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [draftOwner, setDraftOwner] = useState('');
   const [drawerObjectId, setDrawerObjectId] = useState<string | null>(null);
-  const [draftStatus, setDraftStatus] = useState('');
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
+        setIsExportOpen(false);
+      }
+    };
+    if (isExportOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isExportOpen]);
 
   const sessionUser = useMemo(
     () =>
@@ -239,8 +249,8 @@ export const AssuranceObjectsView: React.FC = () => {
         } as ObjectRow;
       })
       .sort((left, right) => {
-        const typeDelta = TYPE_TABS.findIndex((tab) => tab.key === left.object.type)
-          - TYPE_TABS.findIndex((tab) => tab.key === right.object.type);
+        const typeDelta = TYPE_OPTIONS.findIndex((tab) => tab.key === left.object.type)
+          - TYPE_OPTIONS.findIndex((tab) => tab.key === right.object.type);
         if (typeDelta !== 0) return typeDelta;
         return left.object.name.localeCompare(right.object.name);
       });
@@ -268,28 +278,20 @@ export const AssuranceObjectsView: React.FC = () => {
   const matchedRows = rows.filter((row) => matchedIds.has(row.object.id));
   const visibleRows = matchedRows.filter((row) => activeType === 'all' || row.object.type === activeType);
 
-  const tabs = TYPE_TABS.map((tab) => ({
-    ...tab,
-    count: tab.key === 'all'
+  const typeOptions = TYPE_OPTIONS.map((opt) => ({
+    ...opt,
+    count: opt.key === 'all'
       ? matchedRows.length
-      : matchedRows.filter((row) => row.object.type === tab.key).length,
+      : matchedRows.filter((row) => row.object.type === opt.key).length,
   }));
 
   const pagination = usePagination(visibleRows, [activeType, search, owner, verificationStatus]);
   const isFiltered = Boolean(search.trim() || owner || verificationStatus || activeType !== 'all');
 
-  const openFilters = () => {
-    setDraftOwner(owner);
-    setDraftStatus(verificationStatus);
-    setIsFilterOpen(true);
-  };
-
   const clearFilters = () => {
     setSearch('');
     setOwner('');
     setVerificationStatus('');
-    setDraftOwner('');
-    setDraftStatus('');
     setActiveType('all');
   };
 
@@ -320,55 +322,133 @@ export const AssuranceObjectsView: React.FC = () => {
     'Used in': row.usedIn,
   }));
 
-  const chips: FilterChip[] = [
-    ...(owner
-      ? [{ id: 'owner', label: 'Owner', value: owner, onRemove: () => setOwner('') }]
-      : []),
-    ...(verificationStatus
-      ? [{ id: 'status', label: 'Verification', value: verificationStatus, onRemove: () => setVerificationStatus('') }]
-      : []),
-  ];
-
   return (
     <div className="d-flex flex-column gap-4">
       <div className="card map-card-custom">
-        <div className="p-3 border-bottom">
-          <CountTabs
-            tabs={tabs}
-            active={activeType}
-            onChange={(key) => setActiveType(key as ObjectListFilters['type'])}
-            aria-label="Object type tabs"
-          />
-        </div>
         <ListToolbar
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search name or identifier..."
-          onFilterClick={openFilters}
-          activeFilterCount={(owner ? 1 : 0) + (verificationStatus ? 1 : 0)}
-          onExportCsv={() => exportToCsv('assurance-objects', exportRows)}
-          onExportPdf={() =>
-            exportToPdf(
-              'Assurance objects',
-              ['Type', 'Name', 'Identifier', 'Owner', 'Verification', 'Used in'],
-              exportRows.map((row) => [
-                row.Type,
-                row.Name,
-                row.Identifier,
-                row.Owner,
-                row.Verification,
-                row['Used in'],
-              ]),
-            )
-          }
-          exportDisabled={visibleRows.length === 0}
-        />
+          primaryAction={
+            <div className="position-relative" ref={exportRef}>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5 px-3 py-1.5 bg-white text-dark"
+                style={{ height: '36px' }}
+                disabled={visibleRows.length === 0}
+                onClick={() => setIsExportOpen(!isExportOpen)}
+                aria-expanded={isExportOpen}
+                aria-haspopup="true"
+                aria-label="Export options"
+              >
+                <Download size={15} className="text-secondary" />
+                <span className="fw-medium">Export</span>
+                <ChevronDown size={14} className="text-muted ms-0.5" />
+              </button>
 
-        {chips.length > 0 && (
-          <div className="px-3 py-2 bg-light border-bottom">
-            <ActiveFilterChips chips={chips} onClearAll={clearFilters} />
-          </div>
-        )}
+              {isExportOpen && (
+                <div
+                  className="dropdown-menu show shadow-sm position-absolute mt-1 end-0"
+                  style={{ zIndex: 1050, minWidth: '150px' }}
+                  role="menu"
+                >
+                  <button
+                    type="button"
+                    className="dropdown-item d-flex align-items-center gap-2 py-2"
+                    onClick={() => {
+                      setIsExportOpen(false);
+                      exportToCsv('assurance-objects', exportRows);
+                    }}
+                    role="menuitem"
+                  >
+                    <FileSpreadsheet size={15} className="text-success" />
+                    <span>CSV</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="dropdown-item d-flex align-items-center gap-2 py-2"
+                    onClick={() => {
+                      setIsExportOpen(false);
+                      exportToPdf(
+                        'Assurance objects',
+                        ['Type', 'Name', 'Identifier', 'Owner', 'Verification', 'Used in'],
+                        exportRows.map((row) => [
+                          row.Type,
+                          row.Name,
+                          row.Identifier,
+                          row.Owner,
+                          row.Verification,
+                          row['Used in'],
+                        ]),
+                      );
+                    }}
+                    role="menuitem"
+                  >
+                    <FileText size={15} className="text-danger" />
+                    <span>PDF</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          }
+        >
+          <select
+            id="objects-type-filter"
+            className="form-select form-select-sm"
+            style={{ order: -1, width: 'auto', minWidth: '140px', height: '36px' }}
+            value={activeType}
+            onChange={(event) => setActiveType(event.target.value as ObjectListFilters['type'])}
+            aria-label="Filter by type"
+          >
+            {typeOptions.map((opt) => (
+              <option key={opt.key} value={opt.key}>
+                {opt.label} ({opt.count})
+              </option>
+            ))}
+          </select>
+
+          <select
+            id="objects-owner-filter"
+            className="form-select form-select-sm"
+            style={{ width: 'auto', minWidth: '150px', height: '36px' }}
+            value={owner}
+            onChange={(event) => setOwner(event.target.value)}
+            aria-label="Filter by owner"
+          >
+            <option value="">All owners</option>
+            {owners.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            id="objects-verification-filter"
+            className="form-select form-select-sm"
+            style={{ width: 'auto', minWidth: '160px', height: '36px' }}
+            value={verificationStatus}
+            onChange={(event) => setVerificationStatus(event.target.value)}
+            aria-label="Filter by verification"
+          >
+            <option value="">All statuses</option>
+            {VERIFICATION_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+
+          {isFiltered && (
+            <button
+              type="button"
+              className="btn btn-sm btn-link text-primary text-decoration-none p-0 d-inline-flex align-items-center"
+              onClick={clearFilters}
+            >
+              Clear
+            </button>
+          )}
+        </ListToolbar>
 
         <div className="table-responsive">
           <table className="table map-table-custom align-middle mb-0" data-testid="assurance-objects-table">
@@ -436,7 +516,7 @@ export const AssuranceObjectsView: React.FC = () => {
                       title={isFiltered ? 'No matches' : 'No assurance objects'}
                       description={
                         isFiltered
-                          ? 'No objects match these tabs, search and filters.'
+                          ? 'No objects match these filters.'
                           : 'Objects your role can see will appear here.'
                       }
                       action={isFiltered ? { label: 'Clear filters', onClick: clearFilters } : undefined}
@@ -462,55 +542,6 @@ export const AssuranceObjectsView: React.FC = () => {
           }}
         />
       )}
-
-      <FilterModal
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        onReset={() => {
-          setDraftOwner('');
-          setDraftStatus('');
-        }}
-        onApply={() => {
-          setOwner(draftOwner);
-          setVerificationStatus(draftStatus);
-        }}
-        title="Filter objects"
-        subtitle="Owner and verification status"
-        activeCount={(draftOwner ? 1 : 0) + (draftStatus ? 1 : 0)}
-      >
-        <label className="form-label small mb-1" htmlFor="objects-owner-filter">
-          Owner
-        </label>
-        <select
-          id="objects-owner-filter"
-          className="form-select form-select-sm"
-          value={draftOwner}
-          onChange={(event) => setDraftOwner(event.target.value)}
-        >
-          <option value="">All owners</option>
-          {owners.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <label className="form-label small mb-1" htmlFor="objects-verification-filter">
-          Verification status
-        </label>
-        <select
-          id="objects-verification-filter"
-          className="form-select form-select-sm"
-          value={draftStatus}
-          onChange={(event) => setDraftStatus(event.target.value)}
-        >
-          <option value="">All statuses</option>
-          {VERIFICATION_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {status}
-            </option>
-          ))}
-        </select>
-      </FilterModal>
     </div>
   );
 };

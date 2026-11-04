@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { AppSidebar } from '../components/layout/AppSidebar';
 import { AssuranceObjectsView } from '../views/AssuranceObjectsView';
 import { useMapStore } from '../store/useMapStore';
@@ -19,22 +19,20 @@ describe('Assurance objects sidebar and settings suite', () => {
     });
   });
 
-  it('lists exactly the 6 items under Assurance Objects matching the object tabs', () => {
-    const { unmount: unmountTabs } = render(<AssuranceObjectsView />);
-    const tabElements = screen.getAllByRole('tab');
-    const tabLabels = tabElements.map((tab) => {
-      const label = tab.querySelector('.map-count-tab-label') || tab;
-      return label.textContent?.trim() || '';
-    });
-    expect(tabLabels).toEqual([
+  it('lists exactly the 6 items under Assurance Objects matching the object type options', () => {
+    const { unmount: unmountView } = render(<AssuranceObjectsView />);
+    const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
+    const optionElements = within(typeSelect).getAllByRole('option');
+    const optionLabels = optionElements.map((opt) => opt.textContent?.replace(/\s*\(\d+\)$/, '').trim() || '');
+    expect(optionLabels).toEqual([
       'All',
-      'Vessels',
-      'Crew Directory',
+      'Vessel',
+      'Person',
       'Equipment',
-      'Procedures',
-      'Methods',
+      'Procedure',
+      'Method',
     ]);
-    unmountTabs();
+    unmountView();
 
     cleanup();
     render(<AppSidebar />);
@@ -53,17 +51,17 @@ describe('Assurance objects sidebar and settings suite', () => {
     expect(proceduresBtn).toBeInTheDocument();
     expect(methodsBtn).toBeInTheDocument();
 
-    const expectedTabBySidebarLabel: Record<string, string> = {
+    const expectedOptionBySidebarLabel: Record<string, string> = {
       'All Objects': 'All',
-      Vessels: 'Vessels',
+      Vessels: 'Vessel',
       Equipment: 'Equipment',
-      'Crew Directory': 'Crew Directory',
-      Procedures: 'Procedures',
-      Methods: 'Methods',
+      'Crew Directory': 'Person',
+      Procedures: 'Procedure',
+      Methods: 'Method',
     };
 
-    Object.entries(expectedTabBySidebarLabel).forEach(([, tabName]) => {
-      expect(tabLabels).toContain(tabName);
+    Object.entries(expectedOptionBySidebarLabel).forEach(([, optName]) => {
+      expect(optionLabels).toContain(optName);
     });
   });
 

@@ -1,10 +1,10 @@
 import React from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { AssuranceObjectsView } from '../views/AssuranceObjectsView';
 import { useMapStore } from '../store/useMapStore';
 
-describe('AssuranceObjectsView tabs', () => {
+describe('AssuranceObjectsView type filter', () => {
   beforeEach(() => {
     useMapStore.setState({
       isAuthenticated: true,
@@ -13,30 +13,30 @@ describe('AssuranceObjectsView tabs', () => {
     });
   });
 
-  it('renders exactly the 6 tabs: All, Vessels, Crew Directory, Equipment, Procedures, Methods', () => {
+  it('renders exactly the 6 options: All, Vessel, Person, Equipment, Procedure, Method and no tabs', () => {
     render(<AssuranceObjectsView />);
 
-    const tabs = screen.getAllByRole('tab');
-    const tabLabels = tabs.map((tab) => {
-      const labelEl = tab.querySelector('.map-count-tab-label') || tab;
-      return labelEl.textContent?.trim() || '';
-    });
+    expect(screen.queryByRole('tab')).toBeNull();
 
-    expect(tabLabels).toEqual([
+    const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
+    const options = within(typeSelect).getAllByRole('option');
+    const optionLabels = options.map((opt) => opt.textContent?.replace(/\s*\(\d+\)$/, '').trim() || '');
+
+    expect(optionLabels).toEqual([
       'All',
-      'Vessels',
-      'Crew Directory',
+      'Vessel',
+      'Person',
       'Equipment',
-      'Procedures',
-      'Methods',
+      'Procedure',
+      'Method',
     ]);
   });
 
-  it('does not render dropped tabs (Organizations, Documents, Persons)', () => {
+  it('does not render dropped options (Organizations, Documents)', () => {
     render(<AssuranceObjectsView />);
 
-    expect(screen.queryByRole('tab', { name: /Organizations/i })).toBeNull();
-    expect(screen.queryByRole('tab', { name: /Documents/i })).toBeNull();
-    expect(screen.queryByRole('tab', { name: /Persons/i })).toBeNull();
+    const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
+    expect(within(typeSelect).queryByRole('option', { name: /Organizations/i })).toBeNull();
+    expect(within(typeSelect).queryByRole('option', { name: /Documents/i })).toBeNull();
   });
 });

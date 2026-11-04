@@ -56,15 +56,20 @@ describe('assurance objects list', () => {
     const rows = visible('Administrator');
     render(<AssuranceObjectsView />);
 
-    ['All', 'Vessels', 'Crew Directory', 'Equipment', 'Procedures', 'Methods'].forEach(
-      (label) => {
-        expect(screen.getByRole('tab', { name: new RegExp(label) })).toBeTruthy();
-      },
-    );
+    expect(screen.queryByRole('tab')).toBeNull();
+    expect(screen.queryByRole('dialog', { name: /Filter/i })).toBeNull();
+    expect(screen.queryByTestId('active-filter-chips')).toBeNull();
 
-    expect(screen.getByRole('tab', { name: `All (${rows.length})` })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: `Vessels (${rows.filter((row) => row.type === 'vessel').length})` })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: `Procedures (${rows.filter((row) => row.type === 'procedure').length})` })).toBeTruthy();
+    const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
+    expect(typeSelect).toBeTruthy();
+
+    ['All', 'Vessel', 'Person', 'Equipment', 'Procedure', 'Method'].forEach((label) => {
+      expect(within(typeSelect).getByRole('option', { name: new RegExp(label) })).toBeTruthy();
+    });
+
+    expect(within(typeSelect).getByRole('option', { name: `All (${rows.length})` })).toBeTruthy();
+    expect(within(typeSelect).getByRole('option', { name: `Vessel (${rows.filter((row) => row.type === 'vessel').length})` })).toBeTruthy();
+    expect(within(typeSelect).getByRole('option', { name: `Procedure (${rows.filter((row) => row.type === 'procedure').length})` })).toBeTruthy();
     expect(rows.length).toBeGreaterThan(0);
   });
 
@@ -83,25 +88,43 @@ describe('assurance objects list', () => {
       rows.map((object) => ({ object, verificationStatus: '' })),
       { type: 'all', search: sample!.identifier || '', owner: '', verificationStatus: '' },
     );
-    expect(screen.getByRole('tab', { name: `All (${matched.length})` })).toBeTruthy();
+    const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
+    expect(within(typeSelect).getByRole('option', { name: `All (${matched.length})` })).toBeTruthy();
     expect(screen.getByText(sample!.name)).toBeTruthy();
   });
 
-  it('filters by owner together with the type tabs', () => {
+  it('filters by owner together with the type dropdown', () => {
     signIn('C Admin');
     const rows = visible('C Admin');
     const other = rows.find((row) => !row.ownerOrganization.toLowerCase().includes('northwind'));
     expect(other).toBeTruthy();
     render(<AssuranceObjectsView />);
 
-    fireEvent.click(screen.getByRole('button', { name: /Filters/ }));
-    fireEvent.change(screen.getByLabelText('Owner'), { target: { value: other!.ownerOrganization } });
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by owner' }), {
+      target: { value: other!.ownerOrganization },
+    });
 
     const owned = rows.filter((row) => row.ownerOrganization === other!.ownerOrganization);
-    expect(screen.getByRole('tab', { name: `All (${owned.length})` })).toBeTruthy();
+    const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
+    expect(within(typeSelect).getByRole('option', { name: `All (${owned.length})` })).toBeTruthy();
     expect(screen.getByText(other!.name)).toBeTruthy();
-    expect(screen.queryByRole('tab', { name: `All (${rows.length})` })).toBeNull();
+    expect(within(typeSelect).queryByRole('option', { name: `All (${rows.length})` })).toBeNull();
+
+    const clearBtn = screen.getByRole('button', { name: 'Clear' });
+    fireEvent.click(clearBtn);
+    expect(within(typeSelect).getByRole('option', { name: `All (${rows.length})` })).toBeTruthy();
+  });
+
+  it('filters by verification status and resets with clear', () => {
+    signIn('Administrator');
+    render(<AssuranceObjectsView />);
+
+    const verificationSelect = screen.getByRole('combobox', { name: 'Filter by verification' });
+    fireEvent.change(verificationSelect, { target: { value: 'Internally verified' } });
+
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.queryByRole('button', { name: 'Clear' })).toBeNull();
   });
 
   it('scopes the catalogue by role', () => {
@@ -154,16 +177,18 @@ describe('assurance objects list', () => {
     });
     expect(screen.getByTestId('empty-state')).toBeTruthy();
     expect(screen.getByText('No matches')).toBeTruthy();
+    expect(screen.getByText('No objects match these filters.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(screen.queryByTestId('empty-state')).toBeNull();
   });
 
   it('opens a drawer for each type that has no detail page', () => {
     signIn('C Admin');
     render(<AssuranceObjectsView />);
     const samples = [
-      { name: 'Fremantle Port Authority', assignments: false },
       { name: 'James Okello', assignments: true },
       { name: 'Emergency Response Procedure', assignments: false },
-      { name: 'Bridging Document', assignments: false },
+      { name: 'Crane Lift Procedure', assignments: false },
       { name: 'Lift Plan', assignments: false },
     ];
 
@@ -197,8 +222,10 @@ describe('assurance objects list', () => {
     const checks = within(dialog).getAllByTestId('object-verification');
     expect(checks).toHaveLength(1);
     expect(checks[0].textContent).toContain('Northwind Marine Pty Ltd');
-    expect(within(dialog).queryByText(/Chevron/)).toBeNull();
-    expect(within(dialog).queryByText(/Woodside/)).toBeNull();
+    checks.forEach((check) => {
+      expect(check.textContent).not.toContain('Chevron Australia');
+      expect(check.textContent).not.toContain('Oil Company');
+    });
   });
 
   it('shows an administrator each client verification without another client’s documents', () => {
@@ -209,7 +236,7 @@ describe('assurance objects list', () => {
     fireEvent.click(screen.getByRole('button', { name: 'View Emergency Response Procedure' }));
     const dialog = screen.getByRole('dialog', { name: 'Emergency Response Procedure' });
     expect(within(dialog).getByText('Chevron Australia Pty Ltd')).toBeTruthy();
-    expect(within(dialog).getByText('Woodside Energy Ltd')).toBeTruthy();
+    expect(within(dialog).getByText('Oil Company')).toBeTruthy();
     expect(within(dialog).queryByText(/documentId/i)).toBeNull();
   });
 
