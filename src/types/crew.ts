@@ -72,3 +72,34 @@ export interface CrewMember {
   layer1CoreDocuments: STCWDocumentItem[];
   layer2Endorsements: STCWDocumentItem[];
 }
+
+export interface SetMemberExclusion {
+  memberId: string;
+  reason: string;
+  excludedBy: string;
+  excludedAt: string;
+  restored?: boolean;
+  restoredAt?: string;
+  restoredBy?: string;
+}
+
+export interface AssuranceSetGroupRef {
+  groupId: string;
+  groupName: string;
+  specialization?: string;
+  memberIds: string[];
+  addedAt?: string;
+  exclusions?: SetMemberExclusion[];
+}
+
+export interface CrewGroup {
+  id: string;
+  name: string;
+  description?: string;
+  specialization: string;
+  specializations?: string[];
+  memberIds: string[];
+  organization?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}

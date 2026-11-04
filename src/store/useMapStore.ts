@@ -43,7 +43,7 @@ import {
 } from "./mockData";
 import { SEEDED_AUDIT_EVENTS } from "./auditMockData";
 import { MOCK_EQUIPMENT } from "./equipmentMockData";
-import { MOCK_CREW } from "./crewMockData";
+import { MOCK_CREW, MOCK_CREW_GROUPS } from "./crewMockData";
 import { OIL_CO_PILOT_ASSURANCE_OBJECTS } from "./oilCoLngPilotMockData";
 import {
   isDuplicateVessel,
@@ -60,7 +60,7 @@ import {
   orgFieldMatches,
 } from "../utils/rbacHelpers";
 import { UserProfile } from "../types/user";
-import { CrewMember, STCWDocumentItem } from "../types/crew";
+import { CrewMember, CrewGroup, STCWDocumentItem } from "../types/crew";
 import { CapaItem, CapaStatus, CapaEvidenceItem } from "../types/capa";
 import { MOCK_CAPA_ITEMS } from "./capaMockData";
 import {
@@ -580,6 +580,12 @@ export interface MapStoreState {
   addCrewDocument: (crewId: string, doc: STCWDocumentItem) => void;
   updateCrewDocument: (crewId: string, doc: STCWDocumentItem) => void;
   deleteCrewDocument: (crewId: string, docId: string) => void;
+  crewGroups: CrewGroup[];
+  addCrewGroup: (group: CrewGroup) => void;
+  updateCrewGroup: (group: Partial<CrewGroup> & { id: string }) => void;
+  setCrewGroupMembers: (groupId: string, memberIds: string[]) => void;
+  addMemberToCrewGroup: (groupId: string, memberId: string) => void;
+  removeMemberFromCrewGroup: (groupId: string, memberId: string) => void;
 
   // Global Drawers State
   isAuditDrawerOpen: boolean;
@@ -4356,6 +4362,72 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetAsset: `Crew ${crewId} / Doc ${docId}`,
       justificationNotes: "Removed STCW certificate record from crew profile.",
     });
+  },
+
+  // Crew Groups
+  crewGroups: MOCK_CREW_GROUPS,
+  addCrewGroup: (newGroup) => {
+    set((state) => ({
+      crewGroups: [...state.crewGroups, newGroup],
+    }));
+    get().logAuditEvent({
+      action: "Created Crew Group",
+      targetAsset: `${newGroup.name} (${newGroup.id})`,
+      justificationNotes: `Created crew group with ${newGroup.memberIds.length} initial member(s).`,
+    });
+  },
+  updateCrewGroup: (updatedGroup) => {
+    set((state) => ({
+      crewGroups: state.crewGroups.map((g) =>
+        g.id === updatedGroup.id
+          ? { ...g, ...updatedGroup, updatedAt: new Date().toISOString() }
+          : g
+      ),
+    }));
+    get().logAuditEvent({
+      action: "Updated Crew Group",
+      targetAsset: `Crew Group ${updatedGroup.id}`,
+      justificationNotes: `Updated details for crew group ${updatedGroup.id}.`,
+    });
+  },
+  setCrewGroupMembers: (groupId, memberIds) => {
+    set((state) => ({
+      crewGroups: state.crewGroups.map((g) =>
+        g.id === groupId
+          ? { ...g, memberIds, updatedAt: new Date().toISOString() }
+          : g
+      ),
+    }));
+    get().logAuditEvent({
+      action: "Updated Crew Group Roster",
+      targetAsset: `Crew Group ${groupId}`,
+      justificationNotes: `Updated roster for crew group ${groupId} (${memberIds.length} members).`,
+    });
+  },
+  addMemberToCrewGroup: (groupId, memberId) => {
+    set((state) => ({
+      crewGroups: state.crewGroups.map((g) => {
+        if (g.id !== groupId) return g;
+        if (g.memberIds.includes(memberId)) return g;
+        return {
+          ...g,
+          memberIds: [...g.memberIds, memberId],
+          updatedAt: new Date().toISOString(),
+        };
+      }),
+    }));
+  },
+  removeMemberFromCrewGroup: (groupId, memberId) => {
+    set((state) => ({
+      crewGroups: state.crewGroups.map((g) => {
+        if (g.id !== groupId) return g;
+        return {
+          ...g,
+          memberIds: g.memberIds.filter((id) => id !== memberId),
+          updatedAt: new Date().toISOString(),
+        };
+      }),
+    }));
   },
 
   isAuditDrawerOpen: false,

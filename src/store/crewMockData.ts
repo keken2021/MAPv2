@@ -4,7 +4,7 @@
   role in system: loaded by Zustand store (useMapStore.ts).
 */
 
-import { CrewMember } from '../types/crew';
+import { CrewMember, CrewGroup } from '../types/crew';
 
 export const MOCK_CREW: CrewMember[] = [
   {
@@ -670,5 +670,30 @@ export const MOCK_CREW: CrewMember[] = [
         fileSizeBytes: 2400000,
       },
     ],
+  },
+];
+
+export const MOCK_CREW_GROUPS: CrewGroup[] = [
+  {
+    id: 'CG-001',
+    name: 'Dive Team',
+    description: 'Specialist offshore diving and subsea inspection operations team.',
+    specialization: 'Subsea & Diving Operations',
+    specializations: ['Subsea & Diving Operations', 'Underwater Inspection', 'Hyperbaric Safety'],
+    memberIds: ['CREW-101', 'CREW-104'],
+    organization: 'Northwind Marine Pty Ltd',
+    createdAt: '2026-01-15T08:00:00Z',
+    updatedAt: '2026-03-01T10:00:00Z',
+  },
+  {
+    id: 'CG-002',
+    name: 'Survey Team',
+    description: 'Hydrographic, geophysical and environmental marine survey specialists.',
+    specialization: 'Hydrographic Survey',
+    specializations: ['Hydrographic Survey', 'Bathymetry', 'Seismic Operations'],
+    memberIds: ['CREW-102', 'CREW-103', 'CREW-105'],
+    organization: 'Northwind Marine Pty Ltd',
+    createdAt: '2026-01-20T09:30:00Z',
+    updatedAt: '2026-03-10T14:15:00Z',
   },
 ];

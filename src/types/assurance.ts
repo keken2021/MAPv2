@@ -4,6 +4,10 @@
   role in system: consumed by assurance set command center, tables, state management, and approver readiness dial.
 */
 
+import type { CrewGroup, AssuranceSetGroupRef, SetMemberExclusion } from './crew';
+
+export type { CrewGroup, AssuranceSetGroupRef, SetMemberExclusion };
+
 export type AssuranceStage =
   | 'Initiated'
   | 'Validation'
@@ -415,6 +419,10 @@ export interface AssuranceSet {
   lockedAt?: string;
   /** assurance objects covered by this set across multiple types (ADR 0029) */
   assuranceObjects?: AssuranceObject[];
+  /** crew groups referenced by this set (ADR 0023 / BRD V4.2) */
+  crewGroups?: AssuranceSetGroupRef[];
+  /** members excluded from this set with mandatory justification */
+  memberExclusions?: SetMemberExclusion[];
   /** target date for the set (aligned with complianceDeadline; BRD V4.2 change 6) */
   targetDate?: string;
   /** short-term date change permission grants to named client users (BRD V4.2 change 6) */
