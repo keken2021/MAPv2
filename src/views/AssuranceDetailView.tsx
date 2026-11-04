@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Users, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Users, UserMinus, RotateCcw, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -421,6 +421,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     notifications,
     grantDatePermission,
     revokeDatePermission,
+    excludeGroupMember,
+    restoreGroupMember,
     updateTaskTargetDate,
     reviseAssuranceSetDeadline,
     focusedRequirementId,
@@ -586,6 +588,38 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       }
       return next;
     });
+  };
+
+  const [excludingMember, setExcludingMember] = useState<{ memberId: string; memberName: string; groupId: string } | null>(null);
+  const [excludeReason, setExcludeReason] = useState('');
+  const [excludeError, setExcludeError] = useState('');
+
+  const openExcludeModal = (memberId: string, memberName: string, groupId: string) => {
+    setExcludingMember({ memberId, memberName, groupId });
+    setExcludeReason('');
+    setExcludeError('');
+  };
+
+  const closeExcludeModal = () => {
+    setExcludingMember(null);
+    setExcludeReason('');
+    setExcludeError('');
+  };
+
+  const handleConfirmExclude = () => {
+    if (!excludingMember) return;
+    if (!excludeReason.trim()) {
+      setExcludeError('Reason for exclusion is required.');
+      return;
+    }
+    const actor = sessionUser?.name || activePersona;
+    excludeGroupMember(assuranceSet.id, excludingMember.memberId, excludeReason.trim(), actor);
+    closeExcludeModal();
+  };
+
+  const handleRestoreMember = (memberId: string) => {
+    const actor = sessionUser?.name || activePersona;
+    restoreGroupMember(assuranceSet.id, memberId, actor);
   };
 
   const isMemberExcluded = useCallback((memberId: string) => {
@@ -2823,6 +2857,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                 activeDemoOrganization,
                               );
 
+                              const activeMembersInGroup = group.memberIds.filter((id) => !isMemberExcluded(id));
+                              const isLastMember = activeMembersInGroup.length <= 1 && activeMembersInGroup.includes(memberId);
+                              const canManageMemberExclusions = activePersona === 'Administrator';
+
                               return (
                                 <tr
                                   key={`member-${group.groupId}-${memberId}`}
@@ -2865,12 +2903,14 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                         >
                                           Excluded
                                         </span>
-                                        {exclusion?.reason && (
+                                        {exclusion && (
                                           <div
-                                            className="text-muted fst-italic mt-0.5"
-                                            style={{ fontSize: '0.72rem' }}
+                                            className="text-muted mt-1"
+                                            style={{ fontSize: '0.72rem', lineHeight: '1.3' }}
+                                            data-testid={`member-exclusion-details-${memberId}`}
                                           >
-                                            {exclusion.reason}
+                                            <div><strong className="text-secondary">Reason:</strong> {exclusion.reason}</div>
+                                            <div className="text-secondary"><strong className="text-secondary">By:</strong> {exclusion.excludedBy} &middot; {formatMaritimeDate(exclusion.excludedAt)}</div>
                                           </div>
                                         )}
                                       </div>
@@ -2881,16 +2921,57 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                     )}
                                   </td>
                                   <td className="text-end">
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                      style={{ width: '32px', height: '32px' }}
-                                      onClick={() => setCurrentHashView('crew', memberId)}
-                                      title={`View ${memberName}`}
-                                      aria-label={`View ${memberName}`}
-                                    >
-                                      <Eye size={16} />
-                                    </button>
+                                    <div className="d-inline-flex align-items-center justify-content-end gap-1.5">
+                                      <button
+                                        type="button"
+                                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                        style={{ width: '32px', height: '32px' }}
+                                        onClick={() => setCurrentHashView('crew', memberId)}
+                                        title={`View ${memberName}`}
+                                        aria-label={`View ${memberName}`}
+                                      >
+                                        <Eye size={16} />
+                                      </button>
+                                      {canManageMemberExclusions && (
+                                        isExcluded ? (
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-success d-inline-flex align-items-center justify-content-center p-0"
+                                            style={{ width: '32px', height: '32px' }}
+                                            onClick={() => handleRestoreMember(memberId)}
+                                            title={`Restore ${memberName}`}
+                                            aria-label={`Restore ${memberName}`}
+                                            data-testid={`restore-member-btn-${memberId}`}
+                                          >
+                                            <RotateCcw size={15} />
+                                          </button>
+                                        ) : isLastMember ? (
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0 opacity-50"
+                                            style={{ width: '32px', height: '32px', cursor: 'not-allowed' }}
+                                            disabled
+                                            title="The last member of a group cannot be excluded"
+                                            aria-label="Cannot exclude last member"
+                                            data-testid={`exclude-member-btn-${memberId}`}
+                                          >
+                                            <UserMinus size={15} />
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
+                                            style={{ width: '32px', height: '32px' }}
+                                            onClick={() => openExcludeModal(memberId, memberName, group.groupId)}
+                                            title={`Exclude ${memberName}`}
+                                            aria-label={`Exclude ${memberName}`}
+                                            data-testid={`exclude-member-btn-${memberId}`}
+                                          >
+                                            <UserMinus size={15} />
+                                          </button>
+                                        )
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -4788,6 +4869,72 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                   </button>
                   <button type="button" className="btn btn-sm btn-danger text-white" onClick={handleConfirmDeleteTask}>
                     Remove Task
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {excludingMember && (
+        <>
+          <div className="modal-backdrop fade show" style={{ zIndex: 1050 }} />
+          <div
+            className="modal fade show d-block"
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exclude-member-modal-title"
+            style={{ zIndex: 1055 }}
+          >
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content shadow border-0">
+                <div className="modal-header border-bottom">
+                  <h5 className="modal-title fs-6 fw-bold text-danger d-flex align-items-center gap-2" id="exclude-member-modal-title">
+                    <UserMinus size={18} />
+                    Exclude Seafarer from Set
+                  </h5>
+                  <button type="button" className="btn-close" aria-label="Close" onClick={closeExcludeModal} />
+                </div>
+                <div className="modal-body">
+                  <p className="text-secondary small mb-3">
+                    You are excluding <strong className="text-dark">{excludingMember.memberName}</strong> from this assurance set.
+                    The master crew group in the directory will remain unchanged.
+                  </p>
+                  <div className="mb-2">
+                    <label htmlFor="exclude-member-reason-input" className="form-label small fw-semibold text-dark">
+                      Reason for Exclusion <span className="text-danger">*</span>
+                    </label>
+                    <textarea
+                      id="exclude-member-reason-input"
+                      className={`form-control form-control-sm ${excludeError ? 'is-invalid' : ''}`}
+                      rows={3}
+                      placeholder="Enter required operational or medical justification..."
+                      value={excludeReason}
+                      onChange={(e) => {
+                        setExcludeReason(e.target.value);
+                        if (e.target.value.trim()) setExcludeError('');
+                      }}
+                      data-testid="exclude-reason-input"
+                    />
+                    {excludeError && (
+                      <div className="invalid-feedback d-block mt-1">{excludeError}</div>
+                    )}
+                  </div>
+                </div>
+                <div className="modal-footer bg-light py-2">
+                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={closeExcludeModal}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-danger text-white"
+                    onClick={handleConfirmExclude}
+                    disabled={!excludeReason.trim()}
+                    data-testid="confirm-exclude-btn"
+                  >
+                    Confirm Exclusion
                   </button>
                 </div>
               </div>

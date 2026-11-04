@@ -31,6 +31,7 @@ import {
   AssuranceObject,
   AssuranceObjectType,
   TenantCustomSection,
+  SetMemberExclusion,
 } from "../types/assurance";
 import { MasterDocument } from "../types/document";
 import {
@@ -356,6 +357,8 @@ export interface MapStoreState {
   updateAssuranceSet: (set: AssuranceSet) => void;
   grantDatePermission: (setId: string, grant: Omit<DatePermissionGrant, 'id' | 'grantedAt'>) => void;
   revokeDatePermission: (setId: string, grantId: string) => void;
+  excludeGroupMember: (setId: string, memberId: string, reason: string, excludedBy: string) => void;
+  restoreGroupMember: (setId: string, memberId: string, restoredBy: string) => void;
   reviseAssuranceSetDeadline: (
     setId: string,
     revisedDate: string,
@@ -2281,6 +2284,59 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       action: "Revoked Date Permission",
       targetAsset: setId,
       justificationNotes: `Revoked target date change permission ${grantId}.`,
+    });
+  },
+  excludeGroupMember: (setId, memberId, reason, excludedBy) => {
+    set((state) => {
+      const target = state.assuranceSets.find((s) => s.id === setId);
+      if (!target) return state;
+      const existingExclusions = target.memberExclusions || [];
+      const newExclusion: SetMemberExclusion = {
+        memberId,
+        reason,
+        excludedBy,
+        excludedAt: new Date().toISOString(),
+        restored: false,
+      };
+      const updatedExclusions = [
+        ...existingExclusions.filter((e) => e.memberId !== memberId),
+        newExclusion,
+      ];
+      const updatedSet: AssuranceSet = { ...target, memberExclusions: updatedExclusions };
+      return {
+        assuranceSets: state.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
+      };
+    });
+    get().logAuditEvent({
+      action: "Excluded Group Member",
+      targetAsset: setId,
+      justificationNotes: `Excluded member ${memberId} from set: ${reason}`,
+    });
+  },
+  restoreGroupMember: (setId, memberId, restoredBy) => {
+    set((state) => {
+      const target = state.assuranceSets.find((s) => s.id === setId);
+      if (!target || !target.memberExclusions) return state;
+      const updatedExclusions = target.memberExclusions.map((e) => {
+        if (e.memberId === memberId && !e.restored) {
+          return {
+            ...e,
+            restored: true,
+            restoredAt: new Date().toISOString(),
+            restoredBy,
+          };
+        }
+        return e;
+      });
+      const updatedSet: AssuranceSet = { ...target, memberExclusions: updatedExclusions };
+      return {
+        assuranceSets: state.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
+      };
+    });
+    get().logAuditEvent({
+      action: "Restored Group Member",
+      targetAsset: setId,
+      justificationNotes: `Restored member ${memberId} to set by ${restoredBy}`,
     });
   },
   addAssuranceTask: (setId, taskInput) => {
