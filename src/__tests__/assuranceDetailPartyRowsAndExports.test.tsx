@@ -141,7 +141,8 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
     expect(party1).toBe('Oceanic Horizon Logistics Pty Ltd');
     expect(within(subRows[0] as HTMLElement).getByText('Oceanic Horizon Logistics Pty Ltd')).toBeInTheDocument();
     expect(within(subRows[0] as HTMLElement).getByText('Verified')).toBeInTheDocument();
-    expect(within(subRows[0] as HTMLElement).getByText('94%')).toBeInTheDocument();
+    fireEvent.click(within(subRows[0] as HTMLElement).getByTestId('toggle-req-REQ-CLASS-01'));
+    expect(screen.getByText('94%')).toBeInTheDocument();
 
     // Sub-row 2: Chevron Australia Pty Ltd (Awaiting Upload / Pending)
     const party2 = subRows[1].getAttribute('data-party');

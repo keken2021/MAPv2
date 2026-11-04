@@ -792,4 +792,54 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(screen.getByTestId('btn-add-custom-section')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /add task/i })).toBeNull();
   });
+
+  it('Requirements tab renders four table columns and expandable requirement rows toggled by click and Enter', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Oil Co Global',
+      activeSessionUserId: 'USR-101',
+    });
+
+    render(<AssuranceDetailView setId="AS-2026-001" />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    // 1. Table has four columns: Title, Target Object, Status, Actions (no OCR Confidence header)
+    const table = screen.getByRole('table');
+    const headerRow = table.querySelector('thead tr');
+    expect(headerRow).not.toBeNull();
+    const ths = within(headerRow as HTMLElement).getAllByRole('columnheader');
+    expect(ths.length).toBe(4);
+    expect(ths[0].textContent).toContain('Title');
+    expect(ths[1].textContent).toContain('Target Object');
+    expect(ths[2].textContent).toContain('Status');
+    expect(ths[3].textContent).toContain('Actions');
+    expect(within(headerRow as HTMLElement).queryByText(/ocr confidence/i)).toBeNull();
+
+    // 2. Requirement row starts collapsed: description and OCR badge are not visible
+    const firstReqToggle = screen.getByTestId('toggle-req-REQ-101');
+    expect(firstReqToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('req-detail-REQ-101')).toBeNull();
+    expect(screen.queryByText(/Classification society certificate issued by IACS authority/i)).toBeNull();
+
+    // 3. Clicking chevron expands the row and reveals description and OCR badge
+    fireEvent.click(firstReqToggle);
+    expect(firstReqToggle).toHaveAttribute('aria-expanded', 'true');
+    const detailRow = screen.getByTestId('req-detail-REQ-101');
+    expect(detailRow).toBeInTheDocument();
+    expect(within(detailRow).getByText(/Classification society certificate issued by IACS authority/i)).toBeInTheDocument();
+    expect(within(detailRow).getByText(/ocr confidence:/i)).toBeInTheDocument();
+    const confBadge = detailRow.querySelector('.badge-conf-low, [class*="badge-conf"]');
+    expect(confBadge).not.toBeNull();
+    expect(confBadge?.textContent).toContain('0%');
+
+    // 4. Keyboard Enter toggles the row
+    fireEvent.keyDown(firstReqToggle, { key: 'Enter', code: 'Enter' });
+    expect(firstReqToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('req-detail-REQ-101')).toBeNull();
+
+    // Re-opening with Enter
+    fireEvent.keyDown(firstReqToggle, { key: 'Enter', code: 'Enter' });
+    expect(firstReqToggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('req-detail-REQ-101')).toBeInTheDocument();
+  });
 });

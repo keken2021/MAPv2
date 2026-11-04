@@ -184,7 +184,9 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     expect(screen.getByText('Northwind Class Certificate')).toBeDefined();
     expect(screen.getByText('Meridian Safety Certificate')).toBeDefined();
 
-    // Both have OCR confidence badges
+    // Both have OCR confidence badges when expanded
+    const toggleButtons = screen.getAllByTestId(/^toggle-req-/);
+    toggleButtons.forEach((btn) => fireEvent.click(btn));
     expect(screen.getByText('95%')).toBeDefined();
     expect(screen.getByText('88%')).toBeDefined();
 
@@ -211,6 +213,10 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     // Both requirements exist in structure
     expect(screen.getByText('Northwind Class Certificate')).toBeDefined();
     expect(screen.getByText('Meridian Safety Certificate')).toBeDefined();
+
+    // Expand rows to reveal details
+    const toggleButtons = screen.getAllByTestId(/^toggle-req-/);
+    toggleButtons.forEach((btn) => fireEvent.click(btn));
 
     // Northwind task shows its own document details
     expect(screen.getByText('95%')).toBeDefined();
