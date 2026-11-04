@@ -12,6 +12,7 @@ import {
   MOCK_USERS,
   MOCK_VESSELS,
 } from '../store/mockData';
+import { SEEDED_AUDIT_EVENTS } from '../store/auditMockData';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import { MOCK_EQUIPMENT } from '../store/equipmentMockData';
 import { MOCK_CREW } from '../store/crewMockData';
@@ -198,13 +199,16 @@ describe('Seeded projects and marketplace offerings respect asset ownership', ()
         const crew = link.assetType === 'Crew' ? MOCK_CREW.find((c) => c.id === link.assetId) : undefined;
         const equipment = link.assetType === 'Equipment' ? MOCK_EQUIPMENT.find((e) => e.id === link.assetId) : undefined;
         expect(vessel || crew || equipment, `${project.id} ${link.id} asset ${link.assetId}`).toBeDefined();
-        expect(
-          isAssetOwnedByOrganization(link.assetType, link.providerOrganization, vessel, crew, equipment),
-          `${project.id} ${link.id} provider owns ${link.assetId}`,
-        ).toBe(true);
-
         const linkedSet = ALL_SETS.find((s) => s.id === link.assuranceSetId);
         expect(linkedSet, `${project.id} ${link.id} set ${link.assuranceSetId}`).toBeDefined();
+        if (linkedSet?.assuranceType === 'Activity') {
+          expect(isOrganizationMatch(link.providerOrganization, linkedSet.serviceProviderOrg ?? '')).toBe(true);
+        } else {
+          expect(
+            isAssetOwnedByOrganization(link.assetType, link.providerOrganization, vessel, crew, equipment),
+            `${project.id} ${link.id} provider owns ${link.assetId}`,
+          ).toBe(true);
+        }
         if (!linkedSet) return;
         expect(isOrganizationMatch(client, linkedSet.clientOrg ?? ''), `${project.id} ${link.id} set client`).toBe(true);
         /* a client supplying its own asset is an internal deployment */
@@ -241,7 +245,7 @@ describe('Seeded actors are real users acting in a role they hold', () => {
   });
 
   it('records audit events against an existing user, role and organization', () => {
-    MOCK_AUDIT_TRAIL.forEach((event) => {
+    [...MOCK_AUDIT_TRAIL, ...SEEDED_AUDIT_EVENTS].forEach((event) => {
       const user = findUser(event.userId);
       expect(user, `${event.id} user ${event.userId}`).toBeDefined();
       if (!user) return;

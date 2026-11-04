@@ -619,6 +619,31 @@ const ASSURANCE_DATE_FIELDS = [
 ] as const;
 
 /**
+  what: logs an automated system stage transition when an assurance set meets readiness conditions.
+  how: writes a structured audit event with target kind stage, field delta, and session actor attribution (Approach A).
+  with what file: src/store/useMapStore.ts, called when stage movements occur.
+*/
+function logStageTransitionAudit(
+  get: () => MapStoreState,
+  set: { id: string; title: string },
+  prevStage: string,
+  nextStage: string,
+) {
+  if (!prevStage || !nextStage || prevStage === nextStage) return;
+  get().logAuditEvent({
+    action: `System Transition: ${prevStage} -> ${nextStage}`,
+    targetAsset: `${set.id} (${set.title})`,
+    target: { kind: "stage", setId: set.id, stage: nextStage },
+    fieldDelta: {
+      fieldName: "Stage",
+      oldValue: prevStage,
+      newValue: nextStage,
+    },
+    justificationNotes: `Pipeline stage advanced automatically from ${prevStage} to ${nextStage} upon meeting readiness criteria.`,
+  });
+}
+
+/**
   what: writes one audit event for each date or task that changed on an assurance set.
   how: compares the stored set with the set the caller submitted, and logs a date target or a task target for each difference.
   with what file: src/store/useMapStore.ts, called by updateAssuranceSet.
@@ -654,6 +679,11 @@ function logAssuranceSetAuditDiff(
         action: "Added task",
         targetAsset: `${nextSet.id} · ${task.title}`,
         target: { kind: "task", setId: nextSet.id, taskId },
+        fieldDelta: {
+          fieldName: "Task",
+          oldValue: "—",
+          newValue: task.title,
+        },
         justificationNotes: `Added task ${task.title}.`,
       });
       notifyVendorOfTaskChange(get, nextSet, "added", task.title);
@@ -696,9 +726,86 @@ function logAssuranceSetAuditDiff(
       action: "Removed task",
       targetAsset: `${previousSet.id} · ${task.title}`,
       target: { kind: "task", setId: previousSet.id, taskId },
+      fieldDelta: {
+        fieldName: "Task",
+        oldValue: task.title,
+        newValue: "—",
+      },
       justificationNotes: `Removed task ${task.title}.`,
     });
     notifyVendorOfTaskChange(get, previousSet, "removed", task.title);
+  }
+
+  const stakeholderRoles: Array<{ key: keyof AssuranceSet; role: string }> = [
+    { key: "assignedSubmitter", role: "Submitter" },
+    { key: "assignedVerifier", role: "Verifier" },
+    { key: "assignedInspector", role: "Inspector" },
+    { key: "assignedApprover", role: "Approver" },
+  ];
+
+  for (const { key, role } of stakeholderRoles) {
+    const oldAssignee = (previousSet[key] as string) || "";
+    const newAssignee = (nextSet[key] as string) || "";
+    if (oldAssignee !== newAssignee) {
+      get().logAuditEvent({
+        action: oldAssignee ? "Reassigned stakeholder" : "Assigned stakeholder",
+        targetAsset: `${nextSet.id} · ${role}`,
+        target: {
+          kind: "stakeholder",
+          setId: nextSet.id,
+          role,
+          userId: newAssignee || undefined,
+        },
+        fieldDelta: {
+          fieldName: role,
+          oldValue: oldAssignee || "Unassigned",
+          newValue: newAssignee || "Unassigned",
+        },
+        justificationNotes: `${role} changed from ${oldAssignee || "unassigned"} to ${newAssignee || "unassigned"}.`,
+      });
+    }
+  }
+
+  if (previousSet.requestingParty !== nextSet.requestingParty) {
+    const oldParty = previousSet.requestingParty || "";
+    const newParty = nextSet.requestingParty || "";
+    get().logAuditEvent({
+      action: "Changed party",
+      targetAsset: `${nextSet.id} · Requesting Party`,
+      target: {
+        kind: "party",
+        setId: nextSet.id,
+        organization: newParty || undefined,
+        partyRole: "Requesting Party",
+      },
+      fieldDelta: {
+        fieldName: "Requesting Party",
+        oldValue: oldParty || "—",
+        newValue: newParty || "—",
+      },
+      justificationNotes: `Requesting party changed from ${oldParty || "—"} to ${newParty || "—"}.`,
+    });
+  }
+
+  if (previousSet.respondingParty !== nextSet.respondingParty) {
+    const oldParty = previousSet.respondingParty || "";
+    const newParty = nextSet.respondingParty || "";
+    get().logAuditEvent({
+      action: "Changed party",
+      targetAsset: `${nextSet.id} · Responding Party`,
+      target: {
+        kind: "party",
+        setId: nextSet.id,
+        organization: newParty || undefined,
+        partyRole: "Responding Party",
+      },
+      fieldDelta: {
+        fieldName: "Responding Party",
+        oldValue: oldParty || "—",
+        newValue: newParty || "—",
+      },
+      justificationNotes: `Responding party changed from ${oldParty || "—"} to ${newParty || "—"}.`,
+    });
   }
 }
 
@@ -2271,6 +2378,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     /* date changes and task edits are recorded against the set the caller submitted */
     if (previousSet) {
       logAssuranceSetAuditDiff(get, previousSet, updatedSet);
+      if (previousSet.stage !== computedSet.stage) {
+        logStageTransitionAudit(get, computedSet, previousSet.stage, computedSet.stage);
+      }
     }
   },
   grantDatePermission: (setId, grantInput) => {
@@ -2661,9 +2771,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetDateHistory: [...(setTarget.targetDateHistory || []), ...historyRows],
     };
     get().updateAssuranceSet(updatedSet);
+    for (const taskId of taskIds) {
+      const task = setTarget.requirements.find((r) => r.id === taskId);
+      get().logAuditEvent({
+        action: "Exempted task",
+        targetAsset: `${setId} · ${task?.title || taskId}`,
+        target: { kind: "task", setId, taskId },
+        fieldDelta: {
+          fieldName: "Exemption",
+          oldValue: "Active",
+          newValue: `Exempted until ${newDate}`,
+        },
+        justificationNotes: `Exempted task ${task?.title || taskId} until ${newDate} by ${grantedBy}. Reason: ${reason}`,
+      });
+    }
     get().logAuditEvent({
       action: "Exempted Tasks",
       targetAsset: setId,
+      target: { kind: "set", setId },
       justificationNotes: `Exempted ${taskIds.length} task(s) until ${newDate} by ${grantedBy}. Reason: ${reason}`,
     });
     return { success: true };
@@ -2919,6 +3044,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       .map((s) => s.id);
     if (completedIds.length === 0) return [];
 
+    const prevSets = get().assuranceSets.filter((s) => completedIds.includes(s.id));
+
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) =>
         completedIds.includes(s.id)
@@ -2928,6 +3055,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       const { updatedProjects, updatedAssuranceSets } =
         syncAllAffectedProjectRollups(state.projects, updatedSets, completedIds);
       return { assuranceSets: updatedAssuranceSets, projects: updatedProjects };
+    });
+
+    prevSets.forEach((prev) => {
+      const updated = get().assuranceSets.find((s) => s.id === prev.id);
+      if (updated && prev.stage !== updated.stage) {
+        logStageTransitionAudit(get, updated, prev.stage, updated.stage);
+      }
     });
 
     /* a set that has just reached the approval stage goes to its approver */
@@ -2945,9 +3079,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   updateRequirementStatus: (setId, reqId, status, notes) => {
     const reviewedAt = new Date().toISOString();
     const reviewerId = getSessionActor(get).userId;
-    const previousStatus = get()
-      .assuranceSets.find((set) => set.id === setId)
-      ?.requirements.find((requirement) => requirement.id === reqId)?.verifierStatus;
+    const previousSet = get().assuranceSets.find((set) => set.id === setId);
+    const previousStatus = previousSet?.requirements.find((requirement) => requirement.id === reqId)?.verifierStatus;
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -3032,6 +3165,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         notes ||
         `Verifier status set to ${status}${isDenial ? " — Submitter revision required." : ""}`,
     });
+
+    const updatedSet = get().assuranceSets.find((s) => s.id === setId);
+    if (previousSet && updatedSet && previousSet.stage !== updatedSet.stage) {
+      logStageTransitionAudit(get, updatedSet, previousSet.stage, updatedSet.stage);
+    }
   },
   isRequirementDone: (setId, requirementIdentifier) => {
     const s = get().assuranceSets.find((set) => set.id === setId);
@@ -3080,6 +3218,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   denyRequirementByApprover: (setId, reqId, decision, notes) => {
     let requirementTitle = reqId;
+    const previousSet = get().assuranceSets.find((s) => s.id === setId);
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -3128,6 +3267,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetAsset: `${setId} / ${requirementTitle}`,
       justificationNotes: `Approver denied verified document (${decision}): ${notes || "Revision requested from submitter."}`,
     });
+
+    const updatedSet = get().assuranceSets.find((s) => s.id === setId);
+    if (previousSet && updatedSet && previousSet.stage !== updatedSet.stage) {
+      logStageTransitionAudit(get, updatedSet, previousSet.stage, updatedSet.stage);
+    }
   },
   setApproverDecision: (setId, decision, notes) => {
     const isDenial =
@@ -3136,6 +3280,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       decision === "Returned for Correction"
         ? "Correction Requested"
         : "Rejected";
+    const previousSet = get().assuranceSets.find((s) => s.id === setId);
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -3185,6 +3330,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     const decidedSet = get().assuranceSets.find((s) => s.id === setId);
+    if (previousSet && decidedSet && previousSet.stage !== decidedSet.stage) {
+      logStageTransitionAudit(get, decidedSet, previousSet.stage, decidedSet.stage);
+    }
     if (decidedSet) {
       notifyAssuranceSetUser(
         get,
@@ -3200,6 +3348,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   sendAssuranceForReview: (setId) => {
+    const previousSet = get().assuranceSets.find((s) => s.id === setId);
     const now = new Date().toISOString();
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -3226,6 +3375,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       justificationNotes:
         "Campaign submitted to verification / review workflow. Documents are read-only for client.",
     });
+
+    const updatedSet = get().assuranceSets.find((s) => s.id === setId);
+    if (previousSet && updatedSet && previousSet.stage !== updatedSet.stage) {
+      logStageTransitionAudit(get, updatedSet, previousSet.stage, updatedSet.stage);
+    }
 
     const reviewSet = get().assuranceSets.find((s) => s.id === setId);
     if (reviewSet) {
@@ -3299,9 +3453,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   uploadDocumentForRequirement: (setId, requirementId, doc, inspectionReport) => {
     /* the document this upload replaces on the requirement, if any */
-    const replacedDocumentId = get()
-      .assuranceSets.find((s) => s.id === setId)
-      ?.requirements.find((r) => r.id === requirementId)?.documentId;
+    const previousSet = get().assuranceSets.find((s) => s.id === setId);
+    const replacedDocumentId = previousSet?.requirements.find((r) => r.id === requirementId)?.documentId;
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
@@ -3380,6 +3533,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       justificationNotes: `Upload: ${doc.title} (${doc.certificateNo}) queued for verifier review.`,
     });
 
+    const updatedSet = get().assuranceSets.find((s) => s.id === setId);
+    if (previousSet && updatedSet && previousSet.stage !== updatedSet.stage) {
+      logStageTransitionAudit(get, updatedSet, previousSet.stage, updatedSet.stage);
+    }
+
     /* a submitted document goes straight to the set's verifier, when one is appointed */
     notifySubmittedForReview(get, setId, requirementId, doc.id);
 
@@ -3396,6 +3554,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     expiryDate,
     scope,
   ) => {
+    const matchingDoc = get().documents.find((d) => d.id === docId);
+    const prevVersionLabel =
+      matchingDoc?.versions?.[0]?.versionLabel ||
+      matchingDoc?.currentVersion ||
+      "v1.0";
+    const prevMatchingSets = get().assuranceSets.filter((s) =>
+      s.requirements.some((r) => r.documentId === docId || r.linkedDocumentId === docId),
+    );
+    const targetSet = scope
+      ? get().assuranceSets.find((s) => s.id === scope.assuranceSetId)
+      : prevMatchingSets[0];
+
     /* open sets that use the document but were not the one the version was submitted for */
     const noticeSetIds: string[] = [];
     set((state) => {
@@ -3485,8 +3655,31 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     get().logAuditEvent({
       action: `Uploaded Document Revision ${newVersionLabel}`,
-      targetAsset: `Document ${docId}`,
+      targetAsset: `${targetSet ? `${targetSet.id} · ` : ""}Document ${docId} (${matchingDoc?.title || "Document"})`,
+      target: {
+        kind: "document",
+        setId: targetSet?.id || "unscoped",
+        documentId: docId,
+        version: newVersionLabel,
+      },
+      fieldDelta: {
+        fieldName: "Version",
+        oldValue: prevVersionLabel,
+        newValue: newVersionLabel,
+      },
+      documentStatusDelta: {
+        documentId: docId,
+        oldStatus: matchingDoc?.verificationStatus || "Correction Requested",
+        newStatus: "Pending Verification",
+      },
       justificationNotes: changeSummary,
+    });
+
+    prevMatchingSets.forEach((prev) => {
+      const updated = get().assuranceSets.find((s) => s.id === prev.id);
+      if (updated && prev.stage !== updated.stage) {
+        logStageTransitionAudit(get, updated, prev.stage, updated.stage);
+      }
     });
 
     /* the version submitted for one requirement goes back to that set's verifier */
@@ -3651,6 +3844,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
       /* a set that has just reached the approval stage goes to its approver */
       const previousStage = setsBeforeVerification.find((prev) => prev.id === s.id)?.stage;
+      if (previousStage && previousStage !== s.stage) {
+        logStageTransitionAudit(get, s, previousStage, s.stage);
+      }
       if (s.stage === "Approval" && previousStage !== "Approval") {
         notifyAssuranceSetUser(get, s, s.assignedApprover, {
           type: "approval_requested",

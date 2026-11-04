@@ -36,4 +36,109 @@ describe('audit actor', () => {
     const [latest] = useMapStore.getState().auditEvents;
     expect(latest.userId).not.toMatch(/^USR-(CURRENT|ADMIN|VERIFY|APPROVE|SUBMIT|CADMIN|INSPEC)/);
   });
+
+  it('logs an automated System Transition event with Approach A session actor attribution when condition is met', () => {
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
+
+    const store = useMapStore.getState();
+    const set = store.assuranceSets.find((s) => s.stage === 'Verification' && s.requirements.length > 0)!;
+    expect(set).toBeDefined();
+
+    // Verify all requirements on this set to complete the Verification stage
+    for (const req of set.requirements) {
+      useMapStore.getState().updateRequirementStatus(set.id, req.id, 'Verified', 'Verified for test.');
+    }
+
+    const events = useMapStore.getState().auditEvents;
+    const transitionEvent = events.find((e) => e.action.startsWith('System Transition:'));
+    expect(transitionEvent).toBeDefined();
+    expect(transitionEvent?.target.kind).toBe('stage');
+    expect(transitionEvent?.target.setId).toBe(set.id);
+    expect(transitionEvent?.fieldDelta?.fieldName).toBe('Stage');
+    expect(transitionEvent?.fieldDelta?.oldValue).toBe('Verification');
+    expect(transitionEvent?.userId).toBe('USR-202');
+    expect(transitionEvent?.userRole).toBe('Verifier');
+    expect(transitionEvent?.organization).toBe('Bureau Veritas Inspectorate');
+  });
+
+  it('logs field-level deltas for stakeholder reassignment', () => {
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
+
+    const set = useMapStore.getState().assuranceSets[0];
+    const prevSubmitter = set.assignedSubmitter || 'Unassigned';
+    const nextSubmitter = 'USR-104';
+
+    useMapStore.getState().updateAssuranceSet({
+      ...set,
+      assignedSubmitter: nextSubmitter,
+    });
+
+    const events = useMapStore.getState().auditEvents;
+    const reassignEvent = events.find(
+      (e) => (e.action === 'Reassigned stakeholder' || e.action === 'Assigned stakeholder') && e.target.kind === 'stakeholder',
+    );
+    expect(reassignEvent).toBeDefined();
+    expect(reassignEvent?.fieldDelta).toEqual({
+      fieldName: 'Submitter',
+      oldValue: prevSubmitter,
+      newValue: nextSubmitter,
+    });
+    expect(reassignEvent?.userId).toBe('USR-101');
+  });
+
+  it('logs field-level deltas for task exemption', () => {
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
+
+    const set = useMapStore.getState().assuranceSets.find((s) => s.requirements.length > 0)!;
+    const task = set.requirements[0];
+
+    useMapStore.getState().exemptAssuranceTasks(set.id, [task.id], 'Drydock waiver', 'K. Osei', '2027-04-01');
+
+    const events = useMapStore.getState().auditEvents;
+    const exemptEvent = events.find((e) => e.action === 'Exempted task' && e.target.kind === 'task');
+    expect(exemptEvent).toBeDefined();
+    expect(exemptEvent?.fieldDelta?.fieldName).toBe('Exemption');
+    expect(exemptEvent?.fieldDelta?.newValue).toContain('2027-04-01');
+    expect(exemptEvent?.userId).toBe('USR-101');
+  });
+
+  it('logs field-level deltas for document revision uploads', () => {
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
+
+    const doc = useMapStore.getState().documents[0];
+    const newVersion = 'v3.5';
+
+    useMapStore.getState().addDocumentVersion(
+      doc.id,
+      newVersion,
+      'revised_cert.pdf',
+      2048,
+      'Annual renewal',
+    );
+
+    const events = useMapStore.getState().auditEvents;
+    const revisionEvent = events.find(
+      (e) => e.action === `Uploaded Document Revision ${newVersion}` && e.target.kind === 'document',
+    );
+    expect(revisionEvent).toBeDefined();
+    expect(revisionEvent?.fieldDelta?.fieldName).toBe('Version');
+    expect(revisionEvent?.fieldDelta?.newValue).toBe(newVersion);
+    expect(revisionEvent?.userId).toBe('USR-101');
+  });
 });
