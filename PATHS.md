@@ -25,6 +25,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/views/` : one file per screen
 - `src/components/tables/` : data tables used by the list screens
 - `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
+- `src/components/dashboard/` : role dashboard components (`SharedDashboardFrame.tsx` shared frame)
 - `src/components/modals/` : modals (centered)
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
 - `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, DetailHeader, SearchableSelect, EmptyState, DueCell, ApproverDecisionBar)
@@ -32,7 +33,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/headerNavigation.tsx` : reusable header back navigation helper, hook (`useHeaderBackNavigation`), and back button component (`HeaderBackButton`) preserving contextual return to originating entities (e.g. Assurance Set from CAPA open findings)
 - `src/store/useMapStore.ts` : the single app store
 - `src/store/*MockData.ts` : mock data, one file per domain
-- `src/types/` : TypeScript types per domain
+- `src/types/` : TypeScript types per domain (`dashboard.ts` role dashboard configuration types)
 - `src/utils/rbacHelpers.ts` : which role sees which set, asset and action
 - `src/utils/useSessionUser.ts` : hook returning the active demo session user profile for the current persona and organization
 - `src/utils/permissionHelpers.ts`, `src/utils/permissionDefaults.ts` : role permission matrix
@@ -115,6 +116,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter shared pieces: `src/__tests__/sharedPieces.test.tsx` (CountTabs, StatusBadge, ListToolbar, DetailHeader)
 - Unit tests for UI declutter Approver Dashboard: `src/__tests__/approverDashboardDeclutter.test.tsx` (CountTabs, Due column, 1 badge/action per row, detail view cleanup)
 - Unit tests for UI declutter Submitter Dashboard: `src/__tests__/dashboardSubmitterSession.test.tsx` (per-person filtering with useSessionUser, 13 sets for M. Chen)
+- Unit tests for shared dashboard frame: `src/__tests__/sharedDashboardFrame.test.tsx` (role dashboard shared frame layout, KPI tiles, responsive stacking below 900px, empty action state)
 - Unit tests for UI declutter dashboard KPI tiles: `src/__tests__/dashboardTiles.test.tsx` (tile navigation to filtered lists and table filtering for Administrator, Submitter, and C Admin)
 - Unit tests for UI declutter shell header and sidebar: `src/__tests__/shellDeclutter.test.tsx` (title-only list views, detail back links, sidebar labels Inspections, CAPA, Approvals, dynamic verification queue count badge)
 - Unit tests for reusable header back navigation: `src/__tests__/headerNavigation.test.tsx` (contextual return across screens, CAPA findings return to assurance set, parent list fallbacks)
