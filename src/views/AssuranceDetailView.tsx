@@ -2218,10 +2218,16 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                           : creator.organization}
                       </div>
                     </div>
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Client:</div>
-                      <div className="fw-bold text-dark">{clientOwnerOrg}</div>
+                    <div className="map-detail-row border-bottom pb-2" data-testid="detail-requesting-party">
+                      <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party:</div>
+                      <div className="fw-bold text-dark">{assuranceSet.requestingParty || clientOwnerOrg}</div>
                     </div>
+                    {(assuranceSet.respondingParty || assuranceSet.serviceProviderOrg) && (
+                      <div className="map-detail-row border-bottom pb-2" data-testid="detail-responding-party">
+                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Responding party:</div>
+                        <div className="fw-bold text-dark">{assuranceSet.respondingParty || assuranceSet.serviceProviderOrg}</div>
+                      </div>
+                    )}
                     {assuranceSetTags.length > 0 && (
                       <div className="map-detail-row border-bottom pb-2">
                         <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Tags:</div>
@@ -2232,18 +2238,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                             </span>
                           ))}
                         </div>
-                      </div>
-                    )}
-                    {assuranceSet.requestingParty && (
-                      <div className="map-detail-row border-bottom pb-2">
-                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party:</div>
-                        <div className="fw-bold text-dark">{assuranceSet.requestingParty}</div>
-                      </div>
-                    )}
-                    {assuranceSet.respondingParty && (
-                      <div className="map-detail-row border-bottom pb-2">
-                        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Responding party:</div>
-                        <div className="fw-bold text-dark">{assuranceSet.respondingParty}</div>
                       </div>
                     )}
                     {organizations.length > 0 && (

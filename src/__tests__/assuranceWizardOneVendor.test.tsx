@@ -19,11 +19,34 @@ const VENDOR_PACIFIC = 'Pacific Ocean Logistics Pty Ltd';
 describe('Assurance wizard - One vendor and one client per set (Task 5332)', () => {
   beforeEach(() => {
     useMapStore.setState(initialState, true);
+    const currentEquipment = useMapStore.getState().equipment;
     useMapStore.setState({
       assuranceSets: [],
       isAuthenticated: true,
       activePersona: 'Administrator',
       activeDemoOrganization: 'Marine Assurance Platform',
+      equipment: [
+        ...currentEquipment,
+        {
+          id: 'EQ-PACIFIC-01',
+          name: 'Pacific Ocean Crane #1',
+          equipmentIdentifier: 'EQP-PAC-001',
+          category: 'Machinery & Propulsion',
+          manufacturer: 'Liebherr',
+          model: 'RL-K 4200',
+          parentVesselId: 'VESSEL-002',
+          owningOrganization: VENDOR_PACIFIC,
+          complianceReadinessScore: 90,
+          availabilityStatus: 'Available',
+          availabilityUpdatedAt: '2026-09-15T08:00:00.000Z',
+          registrationStatus: 'Registered',
+          registrationUpdatedAt: '2026-09-15T08:00:00.000Z',
+          classStatus: 'In Class',
+          classStatusUpdatedAt: '2026-09-15T08:00:00.000Z',
+          complianceStatus: 'Compliant',
+          complianceUpdatedAt: '2026-09-15T08:00:00.000Z',
+        },
+      ],
     });
   });
 
@@ -38,10 +61,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
     const rowIds = objectRowIds(container);
     expect(rowIds.length).toBeGreaterThan(0);
 
-    // Vendor badge is displayed
-    const vendorBadge = container.querySelector('[data-testid="selected-vendor-badge"]');
-    expect(vendorBadge).not.toBeNull();
-    expect(vendorBadge?.textContent).toContain(VENDOR_NORTHWIND);
+    expect(container.querySelector('[data-testid="selected-vendor-badge"]')).toBeNull();
 
     // Equipment picker only lists Northwind Marine equipment
     const equipmentOptions = objectPickerOptions(container, 'equipment');
@@ -114,8 +134,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
     fireEvent.click(pacificEq!);
 
     // Pacific Ocean Logistics is now the set's vendor
-    const updatedVendorBadge = container.querySelector('[data-testid="selected-vendor-badge"]');
-    expect(updatedVendorBadge?.textContent).toContain(VENDOR_PACIFIC);
+    expect(container.querySelector('[data-testid="selected-vendor-badge"]')).toBeNull();
 
     // Now pickers only list Pacific Ocean Logistics objects
     const newEquipmentOptions = objectPickerOptions(container, 'equipment');
@@ -143,11 +162,11 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
     clickNext(); // Step 3: Requirements
     clickNext(); // Step 4: Review
 
-    // Review step displays Client and Vendor under Details
+    // Review step displays Requesting party and Responding party under Details
     const clientEl = screen.getByTestId('review-client');
     const vendorEl = screen.getByTestId('review-vendor');
-    expect(clientEl.textContent).toContain('Client:');
-    expect(vendorEl.textContent).toContain('Vendor:');
+    expect(clientEl.textContent).toContain('Requesting party:');
+    expect(vendorEl.textContent).toContain('Responding party:');
     expect(vendorEl.textContent).toContain(VENDOR_NORTHWIND);
 
     // Create the assurance set
@@ -158,6 +177,8 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
       .assuranceSets.find((s) => s.title === 'Single Vendor and Client Set');
     expect(createdSet).toBeDefined();
     expect(createdSet?.serviceProviderOrg).toBe(VENDOR_NORTHWIND);
+    expect(createdSet?.requestingParty).toBe('Marine Assurance Platform');
+    expect(createdSet?.respondingParty).toBe(VENDOR_NORTHWIND);
     expect(createdSet?.parties?.some((p) => p.group === 'Vendor' && p.organization === VENDOR_NORTHWIND)).toBe(true);
     expect(createdSet?.parties?.some((p) => p.group === 'Client')).toBe(true);
   });

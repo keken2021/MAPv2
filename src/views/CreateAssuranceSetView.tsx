@@ -526,6 +526,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     }
     return prefilled;
   });
+
+  const effectiveRequestingParty =
+    Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Requesting party') ||
+    requestContext?.requestingParty ||
+    setClientOrg ||
+    clientOrg;
+
+  const effectiveRespondingParty =
+    Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
+    requestContext?.respondingParty ||
+    effectiveVendorOrg;
+
   const [addedOwners, setAddedOwners] = useState<string[]>([]);
 
   /* every object, whether picked, bundled, templated or restored, puts its owner on the list */
@@ -1878,10 +1890,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       clientOrg: ownerOrg,
       requestingParty:
         Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Requesting party') ||
-        requestContext?.requestingParty,
+        requestContext?.requestingParty ||
+        ownerOrg,
       respondingParty:
         Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
-        requestContext?.respondingParty,
+        requestContext?.respondingParty ||
+        effectiveVendorOrg,
       partyRoles: orgPartyRoles,
       parties: organizations.map((org) => {
         const existingParty = setOrganizationParties({
@@ -2196,6 +2210,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       suitabilityCheckRequired,
       serviceProviderOrg: effectiveVendorOrg,
       clientOrg: ownerOrg,
+      requestingParty:
+        Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Requesting party') ||
+        requestContext?.requestingParty ||
+        ownerOrg,
+      respondingParty:
+        Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
+        requestContext?.respondingParty ||
+        effectiveVendorOrg,
+      partyRoles: orgPartyRoles,
       parties: setOrganizationParties({
         clientOrg: ownerOrg,
         charterer: effectiveCharterer,
@@ -3317,16 +3340,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                   >
                                     {organization}
                                   </span>
-                                  {isClient && (
-                                    <span className="badge bg-light text-dark border" style={{ fontSize: '0.7rem' }}>
-                                      Client
-                                    </span>
-                                  )}
-                                  {submitter && (
-                                    <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{ fontSize: '0.7rem' }}>
-                                      Provider
-                                    </span>
-                                  )}
                                   <div className="d-inline-flex align-items-center gap-1 ms-auto">
                                     <label className="visually-hidden" htmlFor={`party-role-${organization}`}>
                                       Party role: {organization}
@@ -3567,12 +3580,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               </option>
                             ))}
                         </select>
-                      )}
-                      {selectedVendorOrg && (
-                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle d-inline-flex align-items-center gap-1 font-mono-code" style={{ fontSize: '0.75rem' }} data-testid="selected-vendor-badge">
-                          <Building2 className="w-3.5 h-3.5" />
-                          Vendor: {selectedVendorOrg}
-                        </span>
                       )}
                       <button
                         type="button"
@@ -4339,10 +4346,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             </div>
                           )}
                           <div className="text-secondary small mt-1" data-testid="review-client">
-                            <strong>Client:</strong> <span className="text-dark fw-semibold">{setClientOrg || clientOrg}</span>
+                            <strong>Requesting party:</strong> <span className="text-dark fw-semibold">{effectiveRequestingParty}</span>
                           </div>
                           <div className="text-secondary small mt-1" data-testid="review-vendor">
-                            <strong>Vendor:</strong> <span className="text-dark fw-semibold">{effectiveVendorOrg}</span>
+                            <strong>Responding party:</strong> <span className="text-dark fw-semibold">{effectiveRespondingParty}</span>
                           </div>
                           {requestContext && (
                             <div className="text-secondary small mt-1">
