@@ -515,8 +515,39 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         roles[requestContext.respondingParty] = 'Responding party';
       }
     }
+    const defaultRequesting = requestContext?.requestingParty || setClientOrg || clientOrg;
+    if (defaultRequesting && !Object.values(roles).includes('Requesting party')) {
+      roles[defaultRequesting] = 'Requesting party';
+    }
+    const defaultResponding = requestContext?.respondingParty || effectiveVendorOrg;
+    if (defaultResponding && defaultResponding !== defaultRequesting && !Object.values(roles).includes('Responding party')) {
+      roles[defaultResponding] = 'Responding party';
+    }
     return roles;
   });
+
+  const handlePartyRoleChange = (organization: string, role: string) => {
+    setOrgPartyRoles((prev) => {
+      const next: Record<string, string> = { ...prev };
+      if (role) {
+        for (const [org, currentRole] of Object.entries(next)) {
+          if (currentRole === role && org !== organization) {
+            delete next[org];
+          }
+        }
+        next[organization] = role;
+      } else {
+        delete next[organization];
+      }
+      return next;
+    });
+    setFieldErrors((prev) => {
+      const u = { ...prev };
+      delete u.requestingParty;
+      delete u.respondingParty;
+      return u;
+    });
+  };
 
   const [prefilledPartyRoles] = useState<Record<string, boolean>>(() => {
     const prefilled: Record<string, boolean> = {};
@@ -617,6 +648,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     }
     setOrganizationList((current) => current.filter((listed) => listed !== organization));
     setAddedOwners((current) => current.filter((listed) => listed !== organization));
+    setOrgPartyRoles((prev) => {
+      const u = { ...prev };
+      delete u[organization];
+      return u;
+    });
   };
 
   /* label of an asset already contracted in the chosen period, with the dates of the set that holds it */
@@ -1426,6 +1462,21 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     }
 
+    if (step.id === 'step-general' || step.id === 'step-requirements' || step.id === 'step-review') {
+      const requestingCount = Object.values(orgPartyRoles).filter((r) => r === 'Requesting party').length;
+      const respondingCount = Object.values(orgPartyRoles).filter((r) => r === 'Responding party').length;
+      if (requestingCount !== 1) {
+        newErrors.requestingParty = requestingCount === 0
+          ? 'Select exactly one Requesting party.'
+          : 'An assurance set cannot have more than one Requesting party.';
+      }
+      if (respondingCount !== 1) {
+        newErrors.respondingParty = respondingCount === 0
+          ? 'Select exactly one Responding party.'
+          : 'An assurance set cannot have more than one Responding party.';
+      }
+    }
+
     return newErrors;
   };
 
@@ -1434,6 +1485,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setErrorMessage('');
     const newErrors = getStepErrors(currentStep);
     setFieldErrors(newErrors);
+    if (newErrors.requestingParty || newErrors.respondingParty) {
+      setErrorMessage(newErrors.requestingParty || newErrors.respondingParty || '');
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -1787,6 +1841,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       setFieldErrors((prev) => ({
         ...prev,
         complianceDeadline: TASK_DATE_AFTER_SET_DATE,
+      }));
+      return;
+    }
+
+    const requestingCount = Object.values(orgPartyRoles).filter((r) => r === 'Requesting party').length;
+    const respondingCount = Object.values(orgPartyRoles).filter((r) => r === 'Responding party').length;
+    if (requestingCount !== 1 || respondingCount !== 1) {
+      setErrorMessage('An assurance set must have exactly one Requesting party and one Responding party.');
+      setFieldErrors((prev) => ({
+        ...prev,
+        ...(requestingCount !== 1 ? { requestingParty: 'Select exactly one Requesting party.' } : {}),
+        ...(respondingCount !== 1 ? { respondingParty: 'Select exactly one Responding party.' } : {}),
       }));
       return;
     }
@@ -2149,6 +2215,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       setFieldErrors((prev) => ({
         ...prev,
         complianceDeadline: TASK_DATE_AFTER_SET_DATE,
+      }));
+      return;
+    }
+
+    const requestingCount = Object.values(orgPartyRoles).filter((r) => r === 'Requesting party').length;
+    const respondingCount = Object.values(orgPartyRoles).filter((r) => r === 'Responding party').length;
+    if (requestingCount !== 1 || respondingCount !== 1) {
+      setErrorMessage('An assurance set must have exactly one Requesting party and one Responding party.');
+      setFieldErrors((prev) => ({
+        ...prev,
+        ...(requestingCount !== 1 ? { requestingParty: 'Select exactly one Requesting party.' } : {}),
+        ...(respondingCount !== 1 ? { respondingParty: 'Select exactly one Responding party.' } : {}),
       }));
       return;
     }
@@ -2932,7 +3010,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     }`}
                   style={{ fontSize: '0.8125rem' }}
                   onClick={() => {
-                    if (isPast || validateCurrentStep()) {
+                    if (currentStep === 3) {
+                      if (validateCurrentStep()) {
+                        setCurrentStep(stepNum);
+                      }
+                    } else if (isPast || validateCurrentStep()) {
                       setCurrentStep(stepNum);
                     }
                   }}
@@ -2972,6 +3054,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
         {/* Wizard Main Content Body */}
         <div className="card-body p-4">
+          {errorMessage && (
+            <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="wizard-error-message">
+              {errorMessage}
+            </div>
+          )}
           {/* GENERAL TAB: identification, contract period, template privacy and stakeholders */}
           {currentStepData.id === 'step-general' && (
             <div className="d-flex flex-column gap-4">
@@ -3290,6 +3377,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <span className="badge bg-light text-dark border">Pre-filled from request</span>
                     </div>
                   )}
+                  {fieldErrors.requestingParty && (
+                    <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-requesting-party">
+                      {fieldErrors.requestingParty}
+                    </div>
+                  )}
+                  {fieldErrors.respondingParty && (
+                    <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-responding-party">
+                      {fieldErrors.respondingParty}
+                    </div>
+                  )}
                   <div className="table-responsive mb-3">
                     <table className="table table-sm align-middle mb-0" aria-label="Organizations on this set">
                       <thead className="table-light small text-secondary">
@@ -3351,8 +3448,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                       aria-label={`Party role: ${organization}`}
                                       value={orgPartyRoles[organization] || ''}
                                       onChange={(e) => {
-                                        const val = e.target.value;
-                                        setOrgPartyRoles((prev) => ({ ...prev, [organization]: val }));
+                                        handlePartyRoleChange(organization, e.target.value);
                                       }}
                                     >
                                       <option value="">No party role</option>
