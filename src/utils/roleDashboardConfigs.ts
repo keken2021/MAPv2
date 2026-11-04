@@ -754,3 +754,243 @@ export function getVerifierDashboardConfig({
     emptyActionMessage: 'Nothing needs you today',
   };
 }
+
+export interface InspectorConfigParams {
+  assuranceSets: AssuranceSet[];
+  capaItems: CapaItem[];
+  auditEvents: AuditTrailEvent[];
+  sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | { id?: string; name?: string; organization?: string; roles?: RoleName[] } | null;
+  activeOrganization?: string;
+  setCurrentHashView: (view: string, entityId?: string) => void;
+  now?: Date;
+}
+
+/**
+ * Builds the DashboardConfig for the Inspector role.
+ */
+export function getInspectorDashboardConfig({
+  assuranceSets,
+  capaItems,
+  auditEvents,
+  sessionUser,
+  activeOrganization = 'Northwind Marine Pty Ltd',
+  setCurrentHashView,
+  now = new Date(),
+}: InspectorConfigParams): DashboardConfig {
+  const userForRbac: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null = sessionUser
+    ? {
+        id: sessionUser.id || '',
+        name: sessionUser.name || '',
+        organization: sessionUser.organization || '',
+        roles: sessionUser.roles || ['Inspector'],
+      }
+    : null;
+
+  // Assigned sets for this inspector
+  const assignedSets = assuranceSets.filter((set) => {
+    if (!isAssuranceSetAssignedToPersona(set, 'Inspector', activeOrganization, userForRbac)) {
+      return false;
+    }
+    if (userForRbac?.name && set.assignedInspector) {
+      return set.assignedInspector.toLowerCase().includes(userForRbac.name.toLowerCase());
+    }
+    return true;
+  });
+
+  const effectiveSets = assignedSets.length > 0
+    ? assignedSets
+    : assuranceSets.filter((s) => s.stage === 'Inspection' || isAssuranceSetAssignedToPersona(s, 'Inspector', activeOrganization, userForRbac));
+
+  const assignedSetIds = new Set(effectiveSets.map((s) => s.id));
+  const assignedVesselIds = new Set(effectiveSets.map((s) => s.vesselId).filter(Boolean));
+
+  const relevantCapas = capaItems.filter((c) => {
+    if (c.status === 'Verified & Closed') return false;
+    if (c.assuranceSetId && assignedSetIds.has(c.assuranceSetId)) return true;
+    if (c.vesselId && assignedVesselIds.has(c.vesselId)) return true;
+    if (effectiveSets.some((s) => s.vesselName && c.vesselName && s.vesselName.toLowerCase() === c.vesselName.toLowerCase())) return true;
+    return assignedSets.length === 0;
+  });
+
+  // 1. Reports overdue / reports to finish
+  const overdueReports = effectiveSets.filter((s) => isSetOverdue(s, now) || Boolean((s as any).hasInspectionReportToFinish) || Boolean((s as any).isReportOverdue));
+
+  // 2. Re-inspections from CAPA flaggedForReinspection
+  const reinspections = relevantCapas.filter(
+    (c) => c.status === 'Under Re-Inspection' || Boolean((c as any).flaggedForReinspection),
+  );
+
+  // 3. Inspections in next 7 days
+  const next7Days = effectiveSets.filter((s) => isSetDueThisWeek(s, now) || Boolean((s as any).isNext7Days));
+
+  // 4. Fixes to check
+  const fixesToCheck = relevantCapas.filter(
+    (c) =>
+      Boolean((c as any).hasFixEvidence) ||
+      (Array.isArray(c.evidences) && c.evidences.length > 0 && c.status !== 'Verified & Closed') ||
+      (c as any).status === 'Pending Verification',
+  );
+
+  const tiles: DashboardKpiTile[] = [
+    {
+      id: 'reports_overdue',
+      label: 'Reports overdue',
+      value: overdueReports.length,
+      tone: 'bad',
+      linkText: 'View →',
+      onClick: () =>
+        navigateToFilteredList('inspector-workspace', 'map_inspector_tab_preselect', 'overdue', setCurrentHashView),
+    },
+    {
+      id: 'reinspections',
+      label: 'Re-inspections',
+      value: reinspections.length,
+      tone: 'warn',
+      linkText: 'View →',
+      onClick: () =>
+        navigateToFilteredList('capa', 'map_capa_subfilter', 'reinspections', setCurrentHashView),
+    },
+    {
+      id: 'next_7_days',
+      label: 'Next 7 days',
+      value: next7Days.length,
+      tone: 'neutral',
+      linkText: 'View →',
+      onClick: () =>
+        navigateToFilteredList('inspector-workspace', 'map_inspector_tab_preselect', 'to-inspect', setCurrentHashView),
+    },
+    {
+      id: 'fixes_to_check',
+      label: 'Fixes to check',
+      value: fixesToCheck.length,
+      tone: 'neutral',
+      linkText: 'View →',
+      onClick: () =>
+        navigateToFilteredList('capa', 'map_capa_subfilter', 'fixes_to_check', setCurrentHashView),
+    },
+  ];
+
+  // Needs your action: sorted in strict 4-tier urgency:
+  // 1. Reports to finish (Finish report)
+  // 2. Re-inspections from CAPA flaggedForReinspection (Schedule)
+  // 3. Inspections in the next 7 days (Prepare)
+  // 4. Fixes to check (Review fix)
+  const reportItems: DashboardActionItem[] = [];
+  const reinspectionItems: DashboardActionItem[] = [];
+  const upcomingItems: DashboardActionItem[] = [];
+  const fixItems: DashboardActionItem[] = [];
+
+  // Tier 1: Reports to finish
+  const candidateReportSets = effectiveSets.filter(
+    (s) =>
+      Boolean((s as any).hasInspectionReportToFinish) ||
+      Boolean((s as any).reportStatus) ||
+      (s as any).checklistDone != null ||
+      (s.stage === 'Inspection' && isSetOverdue(s, now)) ||
+      Boolean((s as any).isReportOverdue),
+  );
+
+  for (const set of candidateReportSets) {
+    const vessel = set.vesselName || set.title;
+    const anySet = set as any;
+    const inspectedDateSnippet = anySet.inspectedDate ? `inspected ${formatShortDate(anySet.inspectedDate)}` : 'inspection report';
+    const checklistSnippet = anySet.checklistDone != null && anySet.checklistTotal != null
+      ? `Checklist ${anySet.checklistDone} of ${anySet.checklistTotal} done`
+      : (anySet.checklistSnippet || 'Checklist pending completion');
+
+    reportItems.push({
+      id: `report-${set.id}`,
+      tag: 'Report',
+      tagTone: 'bad',
+      title: `${vessel} · ${inspectedDateSnippet}`,
+      subtitle: checklistSnippet,
+      buttonLabel: 'Finish report',
+      onAction: () => {
+        setCurrentHashView('inspector-workspace', set.id);
+      },
+    });
+  }
+
+  // Tier 2: Re-inspections from CAPA flaggedForReinspection
+  for (const capa of reinspections) {
+    const anyCapa = capa as any;
+    const vessel = capa.vesselName || 'Assigned vessel';
+    const flaggedSnippet = anyCapa.flaggedDate
+      ? `Flagged by client ${formatShortDate(anyCapa.flaggedDate)}`
+      : (anyCapa.flaggedSnippet || (capa.dueDate ? `Response due ${formatShortDate(capa.dueDate)}` : 'Flagged for re-inspection'));
+
+    reinspectionItems.push({
+      id: `reinspect-${capa.id}`,
+      tag: 'Re-inspect',
+      tagTone: 'warn',
+      title: `${capa.title} · ${vessel}`,
+      subtitle: flaggedSnippet,
+      buttonLabel: 'Schedule',
+      onAction: () => {
+        setCurrentHashView('capa', capa.id);
+      },
+    });
+  }
+
+  // Tier 3: Inspections in next 7 days
+  const candidateUpcomingSets = next7Days.filter((s) => !candidateReportSets.some((r) => r.id === s.id));
+  for (const set of candidateUpcomingSets) {
+    const vessel = set.vesselName || set.title;
+    const anySet = set as any;
+    const locationSnippet = anySet.port || anySet.location || (set.targetDate ? formatShortDate(set.targetDate) : 'Upcoming inspection');
+    const timeSnippet = anySet.scheduledTime || (set.targetDate ? `Due ${formatShortDate(set.targetDate)}` : 'Inspection scheduled');
+
+    upcomingItems.push({
+      id: `upcoming-${set.id}`,
+      tag: 'Upcoming',
+      tagTone: 'neutral',
+      title: `${vessel} · ${locationSnippet}`,
+      subtitle: timeSnippet,
+      buttonLabel: 'Prepare',
+      onAction: () => {
+        setCurrentHashView('inspector-workspace', set.id);
+      },
+    });
+  }
+
+  // Tier 4: Fixes to check
+  const candidateFixes = fixesToCheck.filter((c) => !reinspections.some((r) => r.id === c.id));
+  for (const capa of candidateFixes) {
+    const vessel = capa.vesselName || 'Assigned vessel';
+    const anyCapa = capa as any;
+    const fixSnippet = anyCapa.fixSnippet || (anyCapa.updatedAt ? `Uploaded ${formatShortDate(anyCapa.updatedAt)}` : 'Fix evidence uploaded');
+
+    fixItems.push({
+      id: `fix-${capa.id}`,
+      tag: 'Fix',
+      tagTone: 'neutral',
+      title: `${capa.title} · ${vessel}`,
+      subtitle: fixSnippet,
+      buttonLabel: 'Review fix',
+      onAction: () => {
+        setCurrentHashView('capa', capa.id);
+      },
+    });
+  }
+
+  const actionItems: DashboardActionItem[] = [
+    ...reportItems,
+    ...reinspectionItems,
+    ...upcomingItems,
+    ...fixItems,
+  ].slice(0, 5);
+
+  const totalActions = reportItems.length + reinspectionItems.length + upcomingItems.length + fixItems.length;
+
+  return {
+    roleTitle: 'Inspector',
+    subtitle: 'Your inspections',
+    tiles,
+    actionItems,
+    activityItems: getRoleRecentActivity('Inspector', auditEvents, 5, now),
+    seeAllText: totalActions > 0 ? `See all ${totalActions}` : undefined,
+    onSeeAll: () =>
+      navigateToFilteredList('inspector-workspace', 'map_inspector_tab_preselect', 'all', setCurrentHashView),
+    emptyActionMessage: 'Nothing needs you today',
+  };
+}

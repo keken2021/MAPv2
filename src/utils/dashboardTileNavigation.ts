@@ -46,15 +46,17 @@ export const isSetNeedingPeople = (set: AssuranceSet): boolean => {
 
 export const isSetOverdue = (set: AssuranceSet, now = new Date()): boolean => {
   if (set.stage === 'Certified' || set.stage === 'Cancelled') return false;
-  if (!set.targetDate && !set.charterWindowEnd) return false;
-  const deadline = new Date(set.targetDate || set.charterWindowEnd || '');
+  const raw = set.targetDate || set.complianceDeadline || set.charterWindowEnd || '';
+  if (!raw) return false;
+  const deadline = new Date(raw);
   return !Number.isNaN(deadline.getTime()) && deadline.getTime() < now.getTime();
 };
 
 export const isSetDueThisWeek = (set: AssuranceSet, now = new Date()): boolean => {
   if (set.stage === 'Certified' || set.stage === 'Cancelled') return false;
-  if (!set.targetDate && !set.charterWindowEnd) return false;
-  const deadline = new Date(set.targetDate || set.charterWindowEnd || '');
+  const raw = set.targetDate || set.complianceDeadline || set.charterWindowEnd || '';
+  if (!raw) return false;
+  const deadline = new Date(raw);
   if (Number.isNaN(deadline.getTime())) return false;
   const diffDays = (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
   return diffDays >= 0 && diffDays <= 7;
