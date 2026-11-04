@@ -32,6 +32,8 @@ import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
 import { EXPIRY_WARNING_DAYS, isExpiringWithinWarning } from '../utils/expiryPolicy';
+import { SharedDashboardFrame } from '../components/dashboard/SharedDashboardFrame';
+import { getAdministratorClientDashboardConfig } from '../utils/roleDashboardConfigs';
 
 /**
   what: renders the executive dashboard workspace view in light theme.
@@ -46,6 +48,7 @@ export const DashboardView: React.FC = () => {
     projects,
     users,
     capaItems,
+    auditEvents,
     activePersona,
     activeDemoOrganization,
     setCurrentHashView,
@@ -513,6 +516,20 @@ export const DashboardView: React.FC = () => {
       ).length
       : 0;
 
+  const isClientAdmin = activePersona === 'Administrator' || activePersona === 'C Admin';
+
+  const adminClientConfig = useMemo(() => {
+    if (!isClientAdmin) return null;
+    return getAdministratorClientDashboardConfig({
+      assuranceSets,
+      capaItems,
+      auditEvents,
+      projects,
+      activeOrganization: activeDemoOrganization,
+      setCurrentHashView,
+    });
+  }, [isClientAdmin, assuranceSets, capaItems, auditEvents, projects, activeDemoOrganization, setCurrentHashView]);
+
   return (
     <div className="d-flex flex-column gap-4">
       <style>{`
@@ -537,8 +554,12 @@ export const DashboardView: React.FC = () => {
           box-shadow: 0 0 0 1px var(--map-focus-ring, rgb(56, 189, 248));
         }
       `}</style>
-      {/* top banner kpi summary cards */}
-      {renderDashboardCards()}
+      {/* top banner kpi summary cards or shared dashboard frame */}
+      {isClientAdmin && adminClientConfig ? (
+        <SharedDashboardFrame config={adminClientConfig} />
+      ) : (
+        renderDashboardCards()
+      )}
       {/* main content area: c admin & submitter display assurance sets; other personas display fleet overview */}
       {activePersona === 'C Admin' ? (
         <div className="row g-4">
