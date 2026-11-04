@@ -43,39 +43,39 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
     });
   });
 
-  it('creates one independent upload task per selected party on wizard submission', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+  it('creates one independent upload task per selected party', () => {
+    const testSetId = 'AS-TEST-INDEPENDENT-001';
+    useMapStore.setState((prev) => ({
+      ...prev,
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      assuranceSets: [
+        ...prev.assuranceSets,
+        {
+          id: testSetId,
+          title: 'Task 5305 Independent Tasks Set',
+          stage: 'Initiated',
+          clientOrg: 'Chevron Australia Pty Ltd',
+          charterer: 'Chevron Australia Pty Ltd',
+          serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
+          requirements: [],
+          mandatoryInspectionRequired: false,
+          formalApprovalRequired: true,
+          readinessScore: 0,
+          assuranceType: 'Vessel',
+        } as any,
+      ],
+    }));
 
-    // Step 1: Set unique title
-    const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
-    if (titleInput) {
-      fireEvent.change(titleInput, { target: { value: 'Task 5305 Independent Tasks Set' } });
-    }
+    const result = useMapStore.getState().addAssuranceTask(testSetId, {
+      title: 'Certificate of Class',
+      category: 'Statutory Certificate',
+      responsibleParties: ['Oceanic Horizon Logistics Pty Ltd', 'Chevron Australia Pty Ltd'],
+    });
+    expect(result.success).toBe(true);
 
-    // Step 1 -> Step 2
-    clickNext();
-    // Step 2 -> Step 3
-    clickNext();
-
-    // Select second party (Chevron Australia Pty Ltd) on Certificate of Class (vessel-class-cert)
-    const chevCheckbox = container.querySelector(
-      '[data-testid="chk-party-vessel-class-cert-chevron-australia-pty-ltd"]',
-    ) as HTMLInputElement;
-    expect(chevCheckbox).not.toBeNull();
-    fireEvent.click(chevCheckbox);
-    expect(chevCheckbox.checked).toBe(true);
-
-    // Step 3 -> Step 4 (Review)
-    clickNext();
-
-    // Click "Create Assurance Set"
-    const createBtn = screen.getByRole('button', { name: /create assurance set/i });
-    expect(createBtn).not.toBeNull();
-    fireEvent.click(createBtn);
-
-    // Verify created set in store
     const sets = useMapStore.getState().assuranceSets;
-    const createdSet = sets.find((s) => s.title === 'Task 5305 Independent Tasks Set');
+    const createdSet = sets.find((s) => s.id === testSetId);
     expect(createdSet).toBeDefined();
 
     // Find all upload tasks created for Certificate of Class
@@ -106,31 +106,39 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
   });
 
   it('keeps requirement open when one party task is done, and completes only when all are done', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const setId = 'AS-TEST-COMPLETION-001';
+    useMapStore.setState((prev) => ({
+      ...prev,
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      assuranceSets: [
+        ...prev.assuranceSets,
+        {
+          id: setId,
+          title: 'Task 5305 Completion Test Set',
+          stage: 'Initiated',
+          clientOrg: 'Chevron Australia Pty Ltd',
+          charterer: 'Chevron Australia Pty Ltd',
+          serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
+          requirements: [],
+          mandatoryInspectionRequired: false,
+          formalApprovalRequired: true,
+          readinessScore: 0,
+          assuranceType: 'Vessel',
+        } as any,
+      ],
+    }));
 
-    const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
-    if (titleInput) {
-      fireEvent.change(titleInput, { target: { value: 'Task 5305 Completion Test Set' } });
-    }
-
-    // Step 1 -> Step 2 -> Step 3
-    clickNext();
-    clickNext();
-
-    // Add second party to Certificate of Class
-    const chevCheckbox = container.querySelector(
-      '[data-testid="chk-party-vessel-class-cert-chevron-australia-pty-ltd"]',
-    ) as HTMLInputElement;
-    fireEvent.click(chevCheckbox);
-
-    // Step 3 -> Step 4 -> Submit
-    clickNext();
-    fireEvent.click(screen.getByRole('button', { name: /create assurance set/i }));
+    const result = useMapStore.getState().addAssuranceTask(setId, {
+      title: 'Certificate of Class',
+      category: 'Statutory Certificate',
+      responsibleParties: ['Oceanic Horizon Logistics Pty Ltd', 'Chevron Australia Pty Ltd'],
+    });
+    expect(result.success).toBe(true);
 
     const store = useMapStore.getState();
-    const createdSet = store.assuranceSets.find((s) => s.title === 'Task 5305 Completion Test Set');
+    const createdSet = store.assuranceSets.find((s) => s.id === setId);
     expect(createdSet).toBeDefined();
-    const setId = createdSet!.id;
 
     const classTasks = createdSet!.requirements.filter((r) =>
       r.title.includes('Certificate of Class'),

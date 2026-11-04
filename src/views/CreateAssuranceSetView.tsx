@@ -958,91 +958,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     [organizations, additionalStep1Orgs],
   );
 
-  /* Responsible parties selected per requirement ID (finding 5c-01) */
-  const [requirementResponsibleParties, setRequirementResponsibleParties] = useState<Record<string, string[]>>({});
-
-  const getRequirementResponsibleParties = (
-    reqId: string,
-    defaultParties?: string[],
-  ): string[] => {
-    if (requirementResponsibleParties[reqId] !== undefined) {
-      return requirementResponsibleParties[reqId].filter((org) => step1Organizations.includes(org));
-    }
-    if (defaultParties && defaultParties.length > 0) {
-      const validDefaults = defaultParties.filter((org) => step1Organizations.includes(org));
-      if (validDefaults.length > 0) return validDefaults;
-    }
-    const provider = appointedProviderOrg || serviceProviderOrg;
-    if (provider && step1Organizations.includes(provider)) {
-      return [provider];
-    }
-    return step1Organizations.slice(0, 1);
-  };
-
-  const handleToggleRequirementParty = (reqId: string, org: string, defaultParties?: string[]) => {
-    if (!step1Organizations.includes(org)) return;
-    setRequirementResponsibleParties((prev) => {
-      const current = prev[reqId] !== undefined ? prev[reqId] : (defaultParties || getRequirementResponsibleParties(reqId, defaultParties));
-      const filteredCurrent = current.filter((o) => step1Organizations.includes(o));
-      let next: string[];
-      if (filteredCurrent.includes(org)) {
-        next = filteredCurrent.filter((o) => o !== org);
-      } else {
-        next = [...filteredCurrent, org];
-      }
-      return { ...prev, [reqId]: next };
-    });
-  };
-
-  const renderResponsiblePartyChecklist = (
-    reqId: string,
-    defaultParties?: string[],
-    docTitle?: string,
-  ) => {
-    const currentParties = getRequirementResponsibleParties(reqId, defaultParties);
-    return (
-      <div className="mt-2 pt-2 border-top d-flex flex-column gap-1.5" data-testid={`responsible-party-container-${reqId}`}>
-        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-          <span className="text-secondary small fw-semibold" style={{ fontSize: '0.75rem' }}>
-            Responsible party:
-          </span>
-          {currentParties.length > 0 && (
-            <span className="text-muted small font-mono-code" style={{ fontSize: '0.7rem' }} data-testid={`party-count-${reqId}`}>
-              {currentParties.length} {currentParties.length === 1 ? 'party' : 'parties'} selected
-            </span>
-          )}
-        </div>
-        <div className="d-flex flex-wrap align-items-center gap-2" data-testid={`responsible-party-checklist-${reqId}`}>
-          {step1Organizations.map((org) => {
-            const isChecked = currentParties.includes(org);
-            const slug = org.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-            return (
-              <label
-                key={org}
-                className={`d-inline-flex align-items-center gap-1.5 px-2.5 py-1 rounded-2 border text-nowrap cursor-pointer transition-all user-select-none ${
-                  isChecked
-                    ? 'bg-primary-subtle text-primary border-primary-subtle fw-semibold shadow-2xs'
-                    : 'bg-light text-secondary border-secondary-subtle'
-                }`}
-                style={{ fontSize: '0.75rem' }}
-                data-testid={`label-party-${reqId}-${slug}`}
-              >
-                <input
-                  type="checkbox"
-                  className="form-check-input m-0 cursor-pointer"
-                  checked={isChecked}
-                  onChange={() => handleToggleRequirementParty(reqId, org, defaultParties)}
-                  data-testid={`chk-party-${reqId}-${slug}`}
-                  aria-label={`${org} responsible for ${docTitle || reqId}`}
-                />
-                <span>{org}</span>
-              </label>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
 
   /* Wizard tabs: General, Objects, Requirements, Review */
   const steps = buildAssuranceWizardSteps();
@@ -1655,168 +1570,82 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const finalRequirements: AssuranceRequirement[] = [];
     let reqIndex = 0;
 
+    const respondingParty =
+      effectiveRespondingParty ||
+      appointedProviderOrg ||
+      serviceProviderOrg ||
+      'Service Provider';
+
     /* Include general documents (DOC, NDA, MSA) assigned to organizations */
     generalDocs.filter((d) => d.isEnabled).forEach((doc) => {
-      const defaultParties = (
-        doc.code === 'MSA'
-          ? [setClientOrg]
-          : doc.code === 'NDA'
-            ? [setClientOrg, appointedProviderOrg || serviceProviderOrg]
-            : [appointedProviderOrg || serviceProviderOrg]
-      ).filter(Boolean);
-      const reqParties = getRequirementResponsibleParties(doc.id, defaultParties);
-      const parties = reqParties.length > 0 ? reqParties : defaultParties;
-      if (parties.length > 1) {
-        parties.forEach((party) => {
+      finalRequirements.push({
+        id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+        category: doc.category as AssuranceRequirementCategory,
+        title: doc.title,
+        description: doc.description,
+        isMandatory: doc.isMandatory,
+        sectionId: 'sec-general',
+        isFulfilled: false,
+        ocrConfidence: 0,
+        verifierStatus: 'Pending',
+        assignedSubmitter: respondingParty,
+        responsibleParty: respondingParty,
+        responsibleParties: [respondingParty],
+        requirementGroupId: doc.id,
+        assignedVerifier: reqAssignedVerifier,
+        verifierId: undefined,
+        targetDate: complianceDeadline,
+      });
+    });
+
+    activeSubtypes.forEach((subtype) => {
+      const standardList = SUBTYPE_STANDARD_DOCS[subtype];
+      standardList.forEach((doc) => {
+        if (docToggles[doc.id]) {
           finalRequirements.push({
             id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
-            category: doc.category as AssuranceRequirementCategory,
+            category: doc.category,
             title: doc.title,
             description: doc.description,
-            isMandatory: doc.isMandatory,
-            sectionId: 'sec-general',
+            subtype: doc.subtype,
+            isMandatory: docRequired[doc.id] ?? doc.isMandatory,
             isFulfilled: false,
             ocrConfidence: 0,
             verifierStatus: 'Pending',
-            assignedSubmitter: party,
-            responsibleParty: party,
-            responsibleParties: reqParties,
+            assignedSubmitter: respondingParty,
+            responsibleParty: respondingParty,
+            responsibleParties: [respondingParty],
             requirementGroupId: doc.id,
             assignedVerifier: reqAssignedVerifier,
             verifierId: undefined,
             targetDate: complianceDeadline,
           });
-        });
-      } else {
-        const singleParty = parties[0] || getGeneralDocAssignedOrg(doc.code);
-        finalRequirements.push({
-          id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
-          category: doc.category as AssuranceRequirementCategory,
-          title: doc.title,
-          description: doc.description,
-          isMandatory: doc.isMandatory,
-          sectionId: 'sec-general',
-          isFulfilled: false,
-          ocrConfidence: 0,
-          verifierStatus: 'Pending',
-          assignedSubmitter: singleParty,
-          responsibleParty: singleParty,
-          responsibleParties: reqParties,
-          requirementGroupId: doc.id,
-          assignedVerifier: reqAssignedVerifier,
-          verifierId: undefined,
-          targetDate: complianceDeadline,
-        });
-      }
-    });
-
-    activeSubtypes.forEach((subtype) => {
-      const reqAssignedSubmitter = taskSubmitter(subtype);
-
-      const standardList = SUBTYPE_STANDARD_DOCS[subtype];
-      standardList.forEach((doc) => {
-        if (docToggles[doc.id]) {
-          const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
-          const reqParties = getRequirementResponsibleParties(doc.id, defaultParties);
-          const parties = reqParties.length > 0 ? reqParties : defaultParties;
-          if (parties.length > 1) {
-            parties.forEach((party) => {
-              finalRequirements.push({
-                id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
-                category: doc.category,
-                title: doc.title,
-                description: doc.description,
-                subtype: doc.subtype,
-                isMandatory: docRequired[doc.id] ?? doc.isMandatory,
-                isFulfilled: false,
-                ocrConfidence: 0,
-                verifierStatus: 'Pending',
-                assignedSubmitter: party,
-                responsibleParty: party,
-                responsibleParties: reqParties,
-                requirementGroupId: doc.id,
-                assignedVerifier: reqAssignedVerifier,
-                verifierId: undefined,
-                targetDate: complianceDeadline,
-              });
-            });
-          } else {
-            const singleParty = parties[0] || reqAssignedSubmitter;
-            finalRequirements.push({
-              id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
-              category: doc.category,
-              title: doc.title,
-              description: doc.description,
-              subtype: doc.subtype,
-              isMandatory: docRequired[doc.id] ?? doc.isMandatory,
-              isFulfilled: false,
-              ocrConfidence: 0,
-              verifierStatus: 'Pending',
-              assignedSubmitter: singleParty,
-              responsibleParty: singleParty,
-              responsibleParties: reqParties,
-              requirementGroupId: doc.id,
-              assignedVerifier: reqAssignedVerifier,
-              verifierId: undefined,
-              targetDate: complianceDeadline,
-            });
-          }
         }
       });
 
       const customList = specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled);
       customList.forEach((spec) => {
-        const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
-        const reqParties = getRequirementResponsibleParties(spec.id, defaultParties);
-        const parties = reqParties.length > 0 ? reqParties : defaultParties;
-        if (parties.length > 1) {
-          parties.forEach((party) => {
-            finalRequirements.push({
-              id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
-              category: spec.category,
-              title: spec.title,
-              description: spec.description,
-              subtype: savedRequirementSubtype(spec),
-              isMandatory: spec.isMandatory,
-              isSpecialized: true,
-              isOtherDocument: spec.isOtherDocument ?? false,
-              sectionId: spec.sectionId || `sec-${subtype.toLowerCase()}`,
-              targetDate: spec.targetDate || complianceDeadline,
-              isFulfilled: false,
-              ocrConfidence: 0,
-              verifierStatus: 'Pending',
-              assignedSubmitter: party,
-              responsibleParty: party,
-              responsibleParties: reqParties,
-              requirementGroupId: spec.id,
-              assignedVerifier: reqAssignedVerifier,
-              verifierId: undefined,
-            });
-          });
-        } else {
-          const singleParty = parties[0] || reqAssignedSubmitter;
-          finalRequirements.push({
-            id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
-            category: spec.category,
-            title: spec.title,
-            description: spec.description,
-            subtype: savedRequirementSubtype(spec),
-            isMandatory: spec.isMandatory,
-            isSpecialized: true,
-            isOtherDocument: spec.isOtherDocument ?? false,
-            sectionId: spec.sectionId || `sec-${subtype.toLowerCase()}`,
-            targetDate: spec.targetDate || complianceDeadline,
-            isFulfilled: false,
-            ocrConfidence: 0,
-            verifierStatus: 'Pending',
-            assignedSubmitter: singleParty,
-            responsibleParty: singleParty,
-            responsibleParties: reqParties,
-            requirementGroupId: spec.id,
-            assignedVerifier: reqAssignedVerifier,
-            verifierId: undefined,
-          });
-        }
+        finalRequirements.push({
+          id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
+          category: spec.category,
+          title: spec.title,
+          description: spec.description,
+          subtype: savedRequirementSubtype(spec),
+          isMandatory: spec.isMandatory,
+          isSpecialized: true,
+          isOtherDocument: spec.isOtherDocument ?? false,
+          sectionId: spec.sectionId || `sec-${subtype.toLowerCase()}`,
+          targetDate: spec.targetDate || complianceDeadline,
+          isFulfilled: false,
+          ocrConfidence: 0,
+          verifierStatus: 'Pending',
+          assignedSubmitter: respondingParty,
+          responsibleParty: respondingParty,
+          responsibleParties: [respondingParty],
+          requirementGroupId: spec.id,
+          assignedVerifier: reqAssignedVerifier,
+          verifierId: undefined,
+        });
       });
     });
 
@@ -2139,109 +1968,58 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const finalRequirements: AssuranceRequirement[] = [];
     let reqIndex = 0;
 
-    activeSubtypes.forEach((subtype) => {
-      const reqAssignedSubmitter = taskSubmitter(subtype);
+    const respondingParty =
+      effectiveRespondingParty ||
+      appointedProviderOrg ||
+      serviceProviderOrg ||
+      'Service Provider';
 
+    activeSubtypes.forEach((subtype) => {
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
         if (docToggles[doc.id]) {
-          const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
-          const reqParties = getRequirementResponsibleParties(doc.id, defaultParties);
-          const parties = reqParties.length > 0 ? reqParties : defaultParties;
-          if (parties.length > 1) {
-            parties.forEach((party) => {
-              finalRequirements.push({
-                id: generateUniqueRequirementId(targetSetId, reqIndex++),
-                category: doc.category,
-                title: doc.title,
-                description: doc.description,
-                subtype: doc.subtype,
-                isMandatory: docRequired[doc.id] ?? doc.isMandatory,
-                isFulfilled: false,
-                ocrConfidence: 0,
-                verifierStatus: 'Pending',
-                assignedSubmitter: party,
-                responsibleParty: party,
-                responsibleParties: reqParties,
-                requirementGroupId: doc.id,
-                assignedVerifier: reqAssignedVerifier,
-                verifierId: undefined,
-                targetDate: complianceDeadline,
-              });
-            });
-          } else {
-            const singleParty = parties[0] || reqAssignedSubmitter;
-            finalRequirements.push({
-              id: generateUniqueRequirementId(targetSetId, reqIndex++),
-              category: doc.category,
-              title: doc.title,
-              description: doc.description,
-              subtype: doc.subtype,
-              isMandatory: docRequired[doc.id] ?? doc.isMandatory,
-              isFulfilled: false,
-              ocrConfidence: 0,
-              verifierStatus: 'Pending',
-              assignedSubmitter: singleParty,
-              responsibleParty: singleParty,
-              responsibleParties: reqParties,
-              requirementGroupId: doc.id,
-              assignedVerifier: reqAssignedVerifier,
-              verifierId: undefined,
-              targetDate: complianceDeadline,
-            });
-          }
+          finalRequirements.push({
+            id: generateUniqueRequirementId(targetSetId, reqIndex++),
+            category: doc.category,
+            title: doc.title,
+            description: doc.description,
+            subtype: doc.subtype,
+            isMandatory: docRequired[doc.id] ?? doc.isMandatory,
+            isFulfilled: false,
+            ocrConfidence: 0,
+            verifierStatus: 'Pending',
+            assignedSubmitter: respondingParty,
+            responsibleParty: respondingParty,
+            responsibleParties: [respondingParty],
+            requirementGroupId: doc.id,
+            assignedVerifier: reqAssignedVerifier,
+            verifierId: undefined,
+            targetDate: complianceDeadline,
+          });
         }
       });
 
       const customList = specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled);
       customList.forEach((spec) => {
-        const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
-        const reqParties = getRequirementResponsibleParties(spec.id, defaultParties);
-        const parties = reqParties.length > 0 ? reqParties : defaultParties;
-        if (parties.length > 1) {
-          parties.forEach((party) => {
-            finalRequirements.push({
-              id: generateUniqueRequirementId(targetSetId, reqIndex++),
-              category: spec.category,
-              title: spec.title,
-              description: spec.description,
-              subtype: savedRequirementSubtype(spec),
-              isMandatory: spec.isMandatory,
-              isSpecialized: true,
-              targetDate: spec.targetDate || complianceDeadline,
-              isFulfilled: false,
-              ocrConfidence: 0,
-              verifierStatus: 'Pending',
-              assignedSubmitter: party,
-              responsibleParty: party,
-              responsibleParties: reqParties,
-              requirementGroupId: spec.id,
-              assignedVerifier: reqAssignedVerifier,
-              verifierId: undefined,
-            });
-          });
-        } else {
-          const singleParty = parties[0] || reqAssignedSubmitter;
-          finalRequirements.push({
-            id: generateUniqueRequirementId(targetSetId, reqIndex++),
-            category: spec.category,
-            title: spec.title,
-            description: spec.description,
-            subtype: savedRequirementSubtype(spec),
-            isMandatory: spec.isMandatory,
-            isSpecialized: true,
-            targetDate: spec.targetDate || complianceDeadline,
-            isFulfilled: false,
-            ocrConfidence: 0,
-            verifierStatus: 'Pending',
-            assignedSubmitter: singleParty,
-            responsibleParty: singleParty,
-            responsibleParties: reqParties,
-            requirementGroupId: spec.id,
-            assignedVerifier: reqAssignedVerifier,
-            verifierId: undefined,
-          });
-        }
+        finalRequirements.push({
+          id: generateUniqueRequirementId(targetSetId, reqIndex++),
+          category: spec.category,
+          title: spec.title,
+          description: spec.description,
+          subtype: savedRequirementSubtype(spec),
+          isMandatory: spec.isMandatory,
+          isSpecialized: true,
+          targetDate: spec.targetDate || complianceDeadline,
+          isFulfilled: false,
+          ocrConfidence: 0,
+          verifierStatus: 'Pending',
+          assignedSubmitter: respondingParty,
+          responsibleParty: respondingParty,
+          responsibleParties: [respondingParty],
+          requirementGroupId: spec.id,
+          assignedVerifier: reqAssignedVerifier,
+          verifierId: undefined,
+        });
       });
     });
 
@@ -2602,14 +2380,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               </div>
             ) : (
               activeGeneralDocs.map((doc) => {
-                const defaultParties = (
-                  doc.code === 'MSA'
-                    ? [setClientOrg]
-                    : doc.code === 'NDA'
-                      ? [setClientOrg, appointedProviderOrg || serviceProviderOrg]
-                      : [appointedProviderOrg || serviceProviderOrg]
-                ).filter(Boolean);
-
                 return (
                   <div
                     key={doc.id}
@@ -2654,7 +2424,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         </button>
                       </div>
                     </div>
-                    {renderResponsiblePartyChecklist(doc.id, defaultParties, doc.title)}
                   </div>
                 );
               })
@@ -2760,7 +2529,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <>
                   {activeStandardDocs.map((doc) => {
                     const isRequired = docRequired[doc.id] ?? doc.isMandatory;
-                    const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
                     return (
                       <div
                         key={doc.id}
@@ -2804,13 +2572,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             </button>
                           </div>
                         </div>
-                        {renderResponsiblePartyChecklist(doc.id, defaultParties, doc.title)}
                       </div>
                     );
                   })}
                   {activeSpecializedDocs.map((spec) => {
                     const isRequired = spec.isMandatory;
-                    const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
                     return (
                       <div
                         key={spec.id}
@@ -2854,7 +2620,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             </button>
                           </div>
                         </div>
-                        {renderResponsiblePartyChecklist(spec.id, defaultParties, spec.title)}
                       </div>
                     );
                   })}
@@ -4236,7 +4001,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           ) : (
                             secDocs.map((doc) => {
                               const isRequired = doc.isMandatory;
-                              const defaultParties = [appointedProviderOrg || serviceProviderOrg].filter(Boolean);
                               return (
                                 <div
                                   key={doc.id}
@@ -4280,7 +4044,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                       </button>
                                     </div>
                                   </div>
-                                  {renderResponsiblePartyChecklist(doc.id, defaultParties, doc.title)}
                                 </div>
                               );
                             })
@@ -4533,7 +4296,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                 title: doc.title,
                                 isCustom: false,
                                 isMandatory: docRequired[doc.id] ?? doc.isMandatory,
-                                responsibleParties: getRequirementResponsibleParties(doc.id, [appointedProviderOrg || serviceProviderOrg].filter(Boolean)),
+                                responsibleParties: [effectiveRespondingParty || appointedProviderOrg || serviceProviderOrg].filter(Boolean),
                               });
                             }
                           });
@@ -4543,7 +4306,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               title: spec.title,
                               isCustom: true,
                               isMandatory: spec.isMandatory,
-                              responsibleParties: getRequirementResponsibleParties(spec.id, [appointedProviderOrg || serviceProviderOrg].filter(Boolean)),
+                              responsibleParties: [effectiveRespondingParty || appointedProviderOrg || serviceProviderOrg].filter(Boolean),
                             });
                           });
                         });

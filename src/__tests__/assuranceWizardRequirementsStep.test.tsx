@@ -34,8 +34,8 @@ describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
     expect(generalSection?.textContent).toContain('Non-Disclosure Agreement (NDA)');
     expect(generalSection?.textContent).toContain('Master Service Agreement (MSA)');
 
-    // Verify assigned to organizations, not an asset
-    expect(generalSection?.textContent).toContain('Responsible party:');
+    // Verify not assigned to an asset, and no party picker on requirements
+    expect(generalSection?.textContent).not.toContain('Responsible party:');
     expect(generalSection?.textContent).not.toContain('VESSEL-');
 
     // Verify General documents section appears before object type sections
