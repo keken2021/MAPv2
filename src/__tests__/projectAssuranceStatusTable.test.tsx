@@ -264,14 +264,37 @@ describe('ProjectDetailView assurance tab', () => {
     expect(screen.getByRole('tab', { name: /vessel/i })).toBeInTheDocument();
   });
 
-  it('has a Details tab showing project information and contract parties', () => {
+  it('has a Details tab showing project readiness first and two cards for metadata and commercial terms', () => {
     render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
     const detailsTab = screen.getByRole('button', { name: 'Details' });
     expect(detailsTab).toBeInTheDocument();
 
     fireEvent.click(detailsTab);
-    expect(screen.getByText('Project Information')).toBeInTheDocument();
-    expect(screen.getByText('Contract & Parties')).toBeInTheDocument();
-    expect(screen.getByText('Overall Project Readiness')).toBeInTheDocument();
+
+    // New card titles
+    const metadataTitle = screen.getByText('Project metadata and scope');
+    const commercialTitle = screen.getByText('Commercial terms and contract chain');
+    expect(metadataTitle).toBeInTheDocument();
+    expect(commercialTitle).toBeInTheDocument();
+
+    // Old card titles are removed
+    expect(screen.queryByText('Project Information')).toBeNull();
+    expect(screen.queryByText('Contract & Parties')).toBeNull();
+
+    // Readiness bar and badges are at the top before the metadata card
+    const readiness = screen.getByText('Overall Project Readiness');
+    expect(readiness).toBeInTheDocument();
+    expect(readiness.compareDocumentPosition(metadataTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // Removed fields: Project ID and Project Name do not repeat in the metadata card
+    const metadataCard = metadataTitle.closest('.card') as HTMLElement;
+    expect(within(metadataCard).queryByText(/Project ID:/i)).toBeNull();
+    expect(within(metadataCard).queryByText(/Project Name:/i)).toBeNull();
+
+    // Preserved fields in metadata card
+    expect(within(metadataCard).getByText(/Work Location:/i)).toBeInTheDocument();
+    expect(within(metadataCard).getByText(/Project Window:/i)).toBeInTheDocument();
+    expect(within(metadataCard).getByText(/Risk Profile:/i)).toBeInTheDocument();
+    expect(within(metadataCard).getByText(/Description:/i)).toBeInTheDocument();
   });
 });
