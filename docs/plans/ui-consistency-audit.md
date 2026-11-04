@@ -724,9 +724,87 @@ To eliminate inline duplication and enforce enterprise consistency:
 2. **Mandatory Pagination Enforcement**: Wire `usePagination` and `<TablePagination />` into the 17 unpaginated tables.
 3. **Standardize Action Column Template**: Replace all ad-hoc action buttons with the canonical 32x32px icon-only pattern with `title` and `aria-label` tooltips.
 
-## 7. Verification Spot-Check
+## 7. Other Repeated Patterns Audit
 
-### 7.1 Button Verification Spot-Check (Task 5368)
+### 7.1 Overview & Redundancy Summary
+
+Beyond buttons, spacing, modals, and tables, several core UI patterns are repeatedly rebuilt by hand throughout `src/views/`, despite official design system components already existing in `src/components/common/`. Over **130 hand-built copies** of badges, empty states, toolbars, detail headers, and KPI tiles were cataloged across views.
+
+### 7.2 Hand-Built Status Badges (vs `StatusBadge`)
+
+- **Current State**: Over **97 instances** of hand-built badge elements (`<span className="badge ...">`) exist across 15 views (most notably 43 in `AssuranceDetailView.tsx` and 26 in `VesselDetailView.tsx`).
+- **Issues**:
+  - Many apply non-standard fractional padding (`px-2.5 py-1.5`) and manual inline font sizing (`style={{ fontSize: '0.75rem' }}`).
+  - Colors are hardcoded with Bootstrap classes (`bg-success`, `bg-info text-dark`, `bg-warning text-dark`, `bg-danger`) rather than leveraging semantic status tone mapping.
+- **Target Replacement**: Standardize on `<StatusBadge value={status} tone={optionalTone} />` from `src/components/common/StatusBadge.tsx`, which automatically resolves semantic background, border, text color, and icon badge styling.
+
+### 7.3 Hand-Built Empty States (vs `EmptyState`)
+
+- **Current State**: Exactly **25 inline empty state blocks** are hardcoded in views using raw `<td colSpan={...} className="text-center py-4 text-muted">` or `<div className="text-center py-5">` with unstyled text strings like `"No records found"`, `"No assignments yet"`, or `"No documents uploaded"`.
+- **Issues**:
+  - Empty states lack visual anchors (illustrations or Lucide icons).
+  - Empty states lack primary call-to-action buttons (e.g., "Add Document", "Assign Crew").
+  - Deviates from the enterprise empty state heuristic established in `map-design-system`.
+- **Target Replacement**: Replace all table and card empty states with `<EmptyState icon={Icon} title="No Records" description="Prompt message..." action={{ label: "Add", onClick: ... }} />` from `src/components/common/EmptyState.tsx`.
+
+### 7.4 Hand-Built Toolbars & Search Rows (vs `ListToolbar`)
+
+- **Current State**: Multiple views (including 7 tabs in `VesselDetailView.tsx`, 3 sections in `DashboardView.tsx`, and `AssuranceDetailView.tsx`) assemble custom search rows with raw `<input type="text" className="form-control form-control-sm" placeholder="Search..." />` accompanied by manual icon search decorators and export buttons.
+- **Issues**:
+  - Inconsistent search input widths, paddings, and placeholder wording.
+  - Search inputs lack standard filter counter badges and uniform CSV/PDF export button alignment.
+- **Target Replacement**: Standardize on `<ListToolbar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Search..." />` from `src/components/common/ListToolbar.tsx`.
+
+### 7.5 Hand-Built Detail Headers (vs `DetailHeader`)
+
+- **Current State**: While `DetailHeader` is adopted in several views, views like `CreateAssuranceSetView.tsx:2200`, `CreateProjectView.tsx:452`, and `RolesAndPermissionsView.tsx:238` hand-craft page titles, breadcrumb trails, and metadata strips.
+- **Target Replacement**: Adopt `<DetailHeader title="Title" status="Active" metaItems={[...]} backLink={{ label: "Back", onClick: ... }} />` from `src/components/common/DetailHeader.tsx`.
+
+### 7.6 Hand-Built KPI Metric Cards (Proposed Unified Component)
+
+- **Current State**: Exactly **16 hand-assembled KPI metric tiles** exist in `DashboardView.tsx` (12 tiles), `ApproverDashboardView.tsx`, and `VesselDetailView.tsx` using classes like `card map-kpi-card map-kpi-clickable shadow-2xs`.
+- **Current Component Status**: **None exists yet in the codebase**. This is an open architectural gap tracked under **Task 4734** / Feature 5209.
+- **Recommendation**: Create a unified reusable component `<KpiTile title="Label" value={count} tone="primary" selected={isSelected} onClick={...} />` to eliminate inline card styling duplication.
+
+### 7.7 Representative Inventory of Hand-Built Repeated Patterns
+
+| # | Pattern Category | File & Line | Current Hand-Built Implementation | Matching Shared Component |
+|:--|:---|:---|:---|:---|
+| 1 | **Status Badge** | [`ApproverDashboardView.tsx:505`](file:///c:/mapFiles/MAPv2/src/views/ApproverDashboardView.tsx#L505) | `<span className="badge bg-light text-dark border small">{req` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 2 | **Status Badge** | [`ApproverDashboardView.tsx:885`](file:///c:/mapFiles/MAPv2/src/views/ApproverDashboardView.tsx#L885) | `<span className="badge bg-warning text-dark font-mono-code">` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 3 | **Status Badge** | [`AssuranceDetailView.tsx:1567`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L1567) | `<div className="badge bg-warning-subtle text-dark border bor` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 4 | **Status Badge** | [`AssuranceDetailView.tsx:2097`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2097) | `<span className="badge bg-secondary text-white px-2.5 py-1.5` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 5 | **Status Badge** | [`AssuranceDetailView.tsx:2106`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2106) | `return <span className="badge bg-success text-white px-2.5 p` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 6 | **Status Badge** | [`AssuranceDetailView.tsx:2108`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2108) | `return <span className="badge bg-info text-dark px-2.5 py-1.` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 7 | **Status Badge** | [`AssuranceDetailView.tsx:2111`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2111) | `return <span className="badge bg-warning text-dark px-2.5 py` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 8 | **Status Badge** | [`AssuranceDetailView.tsx:2114`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2114) | `return <span className="badge bg-danger text-white px-2.5 py` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 9 | **Status Badge** | [`AssuranceDetailView.tsx:2123`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2123) | `return <span className="badge bg-warning text-dark px-2.5 py` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 10 | **Status Badge** | [`AssuranceDetailView.tsx:2127`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2127) | `<span className="badge bg-primary text-white px-2.5 py-1.5" ` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 11 | **Status Badge** | [`AssuranceDetailView.tsx:2459`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2459) | `<span className="badge bg-warning text-dark">` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 12 | **Status Badge** | [`AssuranceDetailView.tsx:2464`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2464) | `<span className="badge bg-light text-secondary border">` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 13 | **Status Badge** | [`AssuranceDetailView.tsx:2534`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2534) | `<span key={tag} className="badge bg-light text-dark border">` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 14 | **Status Badge** | [`AssuranceDetailView.tsx:2555`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2555) | `<span className="badge bg-light text-secondary border ms-2" ` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 15 | **Status Badge** | [`AssuranceDetailView.tsx:2570`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2570) | `<span className="badge bg-success-subtle text-success border` | `StatusBadge` (`src/components/common/StatusBadge.tsx`) |
+| 16 | **Empty State** | [`AssuranceDetailView.tsx:3586`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L3586) | `<td colSpan={reqTableColSpan} className="text-center text-mu` | `EmptyState` (`src/components/common/EmptyState.tsx`) |
+| 17 | **Empty State** | [`AssuranceDetailView.tsx:4575`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L4575) | `<td colSpan={6} className="text-center py-4 text-secondary s` | `EmptyState` (`src/components/common/EmptyState.tsx`) |
+| 18 | **Empty State** | [`AuditTrailView.tsx:258`](file:///c:/mapFiles/MAPv2/src/views/AuditTrailView.tsx#L258) | `<td colSpan={6} className="text-center py-4 text-secondary s` | `EmptyState` (`src/components/common/EmptyState.tsx`) |
+| 19 | **Empty State** | [`CreateAssuranceSetView.tsx:4254`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4254) | `<td colSpan={4} className="py-3 px-3 text-center text-second` | `EmptyState` (`src/components/common/EmptyState.tsx`) |
+| 20 | **Empty State** | [`CrewDetailView.tsx:731`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L731) | `<td colSpan={6} className="text-center py-4 text-muted">` | `EmptyState` (`src/components/common/EmptyState.tsx`) |
+| 21 | **Empty State** | [`CrewDetailView.tsx:992`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L992) | `<td colSpan={6} className="text-center py-4 text-muted">` | `EmptyState` (`src/components/common/EmptyState.tsx`) |
+| 22 | **Empty State** | [`CrewDetailView.tsx:1096`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L1096) | `<td colSpan={5} className="text-center text-muted py-4">` | `EmptyState` (`src/components/common/EmptyState.tsx`) |
+| 23 | **Empty State** | [`CrewDetailView.tsx:1145`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L1145) | `<td colSpan={5} className="text-center text-muted py-4">` | `EmptyState` (`src/components/common/EmptyState.tsx`) |
+| 24 | **KPI Tile** | [`DashboardView.tsx:304`](file:///c:/mapFiles/MAPv2/src/views/DashboardView.tsx#L304) | `className={`card map-kpi-card map-kpi-clickable shadow-2xs $` | *None exists yet* (Proposed in Task 4734 / Feature 5209) |
+| 25 | **KPI Tile** | [`DashboardView.tsx:320`](file:///c:/mapFiles/MAPv2/src/views/DashboardView.tsx#L320) | `className={`card map-kpi-card map-kpi-clickable shadow-2xs $` | *None exists yet* (Proposed in Task 4734 / Feature 5209) |
+| 26 | **KPI Tile** | [`DashboardView.tsx:336`](file:///c:/mapFiles/MAPv2/src/views/DashboardView.tsx#L336) | `className={`card map-kpi-card map-kpi-clickable shadow-2xs $` | *None exists yet* (Proposed in Task 4734 / Feature 5209) |
+| 27 | **KPI Tile** | [`DashboardView.tsx:352`](file:///c:/mapFiles/MAPv2/src/views/DashboardView.tsx#L352) | `className={`card map-kpi-card map-kpi-clickable shadow-2xs $` | *None exists yet* (Proposed in Task 4734 / Feature 5209) |
+| 28 | **KPI Tile** | [`DashboardView.tsx:381`](file:///c:/mapFiles/MAPv2/src/views/DashboardView.tsx#L381) | `className={`card map-kpi-card map-kpi-clickable shadow-2xs $` | *None exists yet* (Proposed in Task 4734 / Feature 5209) |
+| 29 | **KPI Tile** | [`DashboardView.tsx:395`](file:///c:/mapFiles/MAPv2/src/views/DashboardView.tsx#L395) | `<div className="card map-kpi-card shadow-2xs">` | *None exists yet* (Proposed in Task 4734 / Feature 5209) |
+| 30 | **KPI Tile** | [`DashboardView.tsx:407`](file:///c:/mapFiles/MAPv2/src/views/DashboardView.tsx#L407) | `className={`card map-kpi-card map-kpi-clickable shadow-2xs $` | *None exists yet* (Proposed in Task 4734 / Feature 5209) |
+
+
+## 8. Verification Spot-Check
+
+### 8.1 Button Verification Spot-Check (Task 5368)
 
 | File & Line | Code Snippet | Verified |
 |:---|:---|:---:|
@@ -736,7 +814,7 @@ To eliminate inline duplication and enforce enterprise consistency:
 | [`VesselDetailView.tsx:1863`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L1863) | `<button className="btn btn-sm btn-outline-primary" onClick={...}>` | Yes |
 | [`ApproverDashboardView.tsx:695`](file:///c:/mapFiles/MAPv2/src/views/ApproverDashboardView.tsx#L695) | `<button type="button" className="btn-close" ...>` | Yes |
 
-### 7.2 Spacing & Scale Verification Spot-Check (Task 5369)
+### 8.2 Spacing & Scale Verification Spot-Check (Task 5369)
 
 | File & Line | Code Snippet | Utility Flagged | Issue Type | Verified |
 |:---|:---|:---:|:---|:---:|
@@ -746,7 +824,7 @@ To eliminate inline duplication and enforce enterprise consistency:
 | [`AssuranceDetailView.tsx:2679`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2679) | `className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"` | `py-0 px-2` | Cramped zero vertical padding on button | Yes |
 | [`CreateAssuranceSetView.tsx:4384`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4384) | `<div className="card-footer bg-light border-top px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">` | `px-4 py-3` | Over-padded card footer | Yes |
 
-### 7.3 Modal Verification Spot-Check (Task 5370)
+### 8.3 Modal Verification Spot-Check (Task 5370)
 
 | File & Line | Code Snippet | Feature Verified | Issue Type | Verified |
 |:---|:---|:---|:---|:---:|
@@ -756,9 +834,7 @@ To eliminate inline duplication and enforce enterprise consistency:
 | [`CreateAssuranceSetView.tsx:4445`](file:///c:/mapFiles/MAPv2/src/views/CreateAssuranceSetView.tsx#L4445) | `<div className="modal-header border-bottom px-4 py-3 bg-light">` | Header Styling | Custom `px-4 py-3 bg-light` header | Yes |
 | [`VesselDetailView.tsx:3144`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L3144) | `<div className="modal-dialog modal-xl modal-dialog-centered">` | Dialog Sizing | Full-width XL modal with `modal-dialog-centered` | Yes |
 
-### 7.4 Table Verification Spot-Check (Task 5371)
-
-The following 5 file:line references were spot-checked directly against the codebase to verify inline table accuracy:
+### 8.4 Table Verification Spot-Check (Task 5371)
 
 | File & Line | Code Snippet | Feature Verified | Issue Type | Verified |
 |:---|:---|:---|:---|:---:|
@@ -768,9 +844,22 @@ The following 5 file:line references were spot-checked directly against the code
 | [`CrewDetailView.tsx:1083`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L1083) | `<table className="table map-table-custom align-middle mb-0">` | Action Controls | Inline endorsements table with non-standard actions | Yes |
 | [`VesselDetailView.tsx:1691`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L1691) | `<table className="table map-table-custom align-middle mb-0">` | Shared Standards | Inline table consuming `<TablePagination>` | Yes |
 
-### 7.5 Grep Count & Line Verification Confirmation
+### 8.5 Other Repeated Patterns Verification Spot-Check (Task 5372)
 
-- **Total Inline Tables in `src/views/`**: Exactly **42 tables** (matches `grep -c "<table" src/views/*`).
-- **Total Buttons in `src/views/`**: Exactly **384 buttons** (matches `grep -c "<button" src/views/*`).
-- **Total Gap Values in Use**: Exactly **9 distinct values** (`gap-0.5` to `gap-5`).
+The following 5 file:line references were spot-checked directly against the codebase to verify repeated pattern accuracy:
+
+| File & Line | Code Snippet | Pattern Category | Target Shared Component | Verified |
+|:---|:---|:---|:---|:---:|
+| [`AssuranceDetailView.tsx:2097`](file:///c:/mapFiles/MAPv2/src/views/AssuranceDetailView.tsx#L2097) | `<span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>` | Status Badge | `StatusBadge` (`src/components/common/StatusBadge.tsx`) | Yes |
+| [`DashboardView.tsx:304`](file:///c:/mapFiles/MAPv2/src/views/DashboardView.tsx#L304) | `className={`card map-kpi-card map-kpi-clickable shadow-2xs ...`}` | KPI Tile | *None exists yet* (Proposed in Task 4734) | Yes |
+| [`CrewDetailView.tsx:731`](file:///c:/mapFiles/MAPv2/src/views/CrewDetailView.tsx#L731) | `<td colSpan={6} className="text-center py-4 text-muted">No assignments yet.</td>` | Empty State | `EmptyState` (`src/components/common/EmptyState.tsx`) | Yes |
+| [`VesselDetailView.tsx:1658`](file:///c:/mapFiles/MAPv2/src/views/VesselDetailView.tsx#L1658) | `placeholder="Search documents..."` | List Toolbar | `ListToolbar` (`src/components/common/ListToolbar.tsx`) | Yes |
+| [`CreateProjectView.tsx:452`](file:///c:/mapFiles/MAPv2/src/views/CreateProjectView.tsx#L452) | `<h2 className="h4 fw-bold text-dark mb-1">Create Project</h2>` | Detail Header | `DetailHeader` (`src/components/common/DetailHeader.tsx`) | Yes |
+
+### 8.6 Grep Count & Line Verification Confirmation
+
+- **Total Buttons in `src/views/`**: Exactly **384 buttons** across 174 distinct class strings (matches `grep -c "<button" src/views/*`).
+- **Total Spacing Gap Values in Use**: Exactly **9 distinct values** (`gap-0.5` to `gap-5`).
 - **Total Modals Audited**: Exactly **21 implementations** (15 standalone components + 6 view files writing modal markup by hand).
+- **Total Inline Tables in `src/views/`**: Exactly **42 tables** across 19 views (matches `grep -c "<table" src/views/*`).
+- **Total Hand-Built Repeated Patterns**: Over **130 instances** (97+ badges, 25+ empty states, 16 KPI tiles, multiple toolbars/headers).
