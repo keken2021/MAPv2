@@ -1558,6 +1558,17 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     assuranceSet?.approverDecision !== 'Rejected';
   const showApproverDecisionBar = isNamedApprover && isApprovalStage;
 
+  const viewerParty: 'requesting' | 'responding' | 'other' = useMemo(() => {
+    const respondingPartyOrg = assuranceSet?.respondingParty || assuranceSet?.serviceProviderOrg;
+    if (isSubmitter || (respondingPartyOrg && viewerPartyOrg && orgFieldMatches(viewerPartyOrg, respondingPartyOrg))) {
+      return 'responding';
+    }
+    if (isClientViewer || isVerifier || isApproverViewer || isCAdminPersona || activePersona === 'Administrator') {
+      return 'requesting';
+    }
+    return 'other';
+  }, [isSubmitter, isClientViewer, isVerifier, isApproverViewer, isCAdminPersona, activePersona, assuranceSet?.respondingParty, assuranceSet?.serviceProviderOrg, viewerPartyOrg]);
+
   if (!assuranceSet) return <div>Assurance Set not found.</div>;
 
   if (assuranceSet.visibility === 'draft') {
@@ -4430,6 +4441,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             sets={assuranceSet ? [assuranceSet] : []}
             scope={{ type: 'set', id: assuranceSet?.id || '' }}
             today={new Date()}
+            showActions
+            viewerParty={viewerParty}
             onOpenRequirement={(req) => {
               setFocusedRequirementId(req.id);
               setActiveTab('requirements');

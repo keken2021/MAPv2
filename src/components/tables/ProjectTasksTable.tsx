@@ -52,7 +52,7 @@ export interface ProjectTaskRow {
   isMyOrg: boolean;
 }
 
-interface ProjectTasksTableProps {
+export interface ProjectTasksTableProps {
   title?: string;
   sets?: AssuranceSet[];
   scope?: TaskTableScope | TaskTableScopeType;
@@ -67,6 +67,75 @@ interface ProjectTasksTableProps {
   onOpenSet?: (set: AssuranceSet) => void;
   onOpenRequirement?: (requirement: AssuranceRequirement, set: AssuranceSet) => void;
   today?: Date;
+  /** When true, renders an action column per row (Upload, Review, View) */
+  showActions?: boolean;
+  showActionColumn?: boolean;
+  /** Viewer's party perspective: 'requesting' (client/approver/verifier) or 'responding' (service provider/submitter) */
+  viewerParty?: 'requesting' | 'responding' | 'other' | string;
+  party?: 'requesting' | 'responding' | 'other' | string;
+}
+
+export function getTaskRowActionLabel(
+  row: { requirement: AssuranceRequirement; status?: string; parentSet?: AssuranceSet },
+  viewerParty?: 'requesting' | 'responding' | 'other' | string,
+): 'Upload' | 'Review' | 'View' {
+  const party = (viewerParty || '').toLowerCase();
+  const req = row.requirement;
+  const statusLower = (row.status || '').toLowerCase();
+
+  const isReuploadRequested =
+    Boolean(req?.reuploadRequested) ||
+    statusLower === 'reupload_requested' ||
+    statusLower === 'reupload requested';
+
+  const isPending =
+    statusLower === 'pending' ||
+    isReuploadRequested ||
+    (!req?.documentId && !req?.linkedDocumentId && req?.verifierStatus !== 'Verified');
+
+  const isSubmitted =
+    statusLower === 'submitted' ||
+    (!isReuploadRequested &&
+      Boolean(req?.documentId || req?.linkedDocumentId) &&
+      (req?.verifierStatus === 'Pending' || statusLower === 'on-going'));
+
+  if (party === 'responding') {
+    if (isPending || isReuploadRequested) {
+      return 'Upload';
+    }
+  }
+
+  if (party === 'requesting') {
+    if (isSubmitted) {
+      return 'Review';
+    }
+  }
+
+  return 'View';
+}
+
+function resolveViewerPartyForRow(
+  parentSet: AssuranceSet,
+  explicitParty?: string,
+  sessionUser?: { organization?: string; name?: string; id?: string } | null,
+  activeDemoOrganization?: string,
+): 'requesting' | 'responding' | 'other' {
+  if (explicitParty) {
+    const p = explicitParty.toLowerCase();
+    if (p === 'requesting' || p === 'responding') return p;
+  }
+  const org = (activeDemoOrganization || sessionUser?.organization || '').trim().toLowerCase();
+  if (org && parentSet) {
+    const responding = (parentSet.respondingParty || parentSet.serviceProviderOrg || '').trim().toLowerCase();
+    const requesting = (parentSet.requestingParty || parentSet.clientOrg || '').trim().toLowerCase();
+    if (responding && (org === responding || org.includes(responding) || responding.includes(org))) {
+      return 'responding';
+    }
+    if (requesting && (org === requesting || org.includes(requesting) || requesting.includes(org))) {
+      return 'requesting';
+    }
+  }
+  return 'other';
 }
 
 function resolveTargetObject(
@@ -237,7 +306,13 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   onOpenSet,
   onOpenRequirement,
   today = new Date(),
+  showActions,
+  showActionColumn,
+  viewerParty,
+  party,
 }) => {
+  const hasActions = Boolean(showActions ?? showActionColumn);
+  const explicitParty = viewerParty ?? party;
   const store = useMapStore();
   const rawSets = sets ?? store.assuranceSets ?? [];
   const allUsers = users ?? store.users ?? [];
@@ -523,12 +598,17 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
               >
                 Status {renderSortIndicator('status')}
               </th>
+              {hasActions && (
+                <th style={{ whiteSpace: 'nowrap', textAlign: 'end' }}>
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-4 text-muted">
+                <td colSpan={hasActions ? 6 : 5} className="text-center py-4 text-muted">
                   {activeTabKey !== 'all' || searchTerm.trim()
                     ? 'No tasks match these filters.'
                     : 'No tasks found across linked assurance sets.'}
@@ -537,6 +617,10 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
             ) : (
               pagination.pageItems.map((row) => {
                 const { requirement, parentSet, targetObject, assignee, status, targetDate } = row;
+                const rowParty =
+                  explicitParty ||
+                  resolveViewerPartyForRow(parentSet, explicitParty, sessionUser, activeDemoOrganization);
+                const actionLabel = getTaskRowActionLabel(row, rowParty);
                 return (
                   <tr key={row.id} data-task-id={requirement.id} data-set-id={parentSet.id}>
                     <td>
@@ -644,6 +728,23 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
                         )}
                       </div>
                     </td>
+                    {hasActions && (
+                      <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
+                        <button
+                          type="button"
+                          className={`btn btn-sm ${
+                            actionLabel === 'Upload' || actionLabel === 'Review'
+                              ? 'btn-primary'
+                              : 'btn-outline-primary'
+                          }`}
+                          onClick={() => onOpenRequirement?.(requirement, parentSet)}
+                          data-testid={`task-action-btn-${requirement.id}`}
+                          aria-label={`${actionLabel} requirement ${requirement.title}`}
+                        >
+                          {actionLabel}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })
