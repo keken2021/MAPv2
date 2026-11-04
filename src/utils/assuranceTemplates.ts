@@ -108,6 +108,7 @@ export function vesselToAssuranceObject(vessel: {
   name: string;
   imoNumber?: string;
   ownerOrg?: string;
+  registeredOwner?: string;
   operator?: string;
   clientOrganization?: string;
 }): AssuranceObject {
@@ -115,7 +116,7 @@ export function vesselToAssuranceObject(vessel: {
     id: vessel.id,
     type: 'vessel',
     name: vessel.name,
-    ownerOrganization: vessel.ownerOrg || vessel.operator || 'Vessel Provider',
+    ownerOrganization: vessel.registeredOwner || vessel.ownerOrg || vessel.operator || 'Vessel Provider',
     identifier: vessel.imoNumber ? 'IMO: ' + vessel.imoNumber : undefined,
   };
 }
@@ -1175,7 +1176,7 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
       'act-mop-method', 'act-hazid-hazop', 'act-mooring-analysis', 'act-emergency-response', 'act-simops-matrix',
       'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-helideck-cert', 'eq-rigging-slings',
     ],
-  },
+  },
   {
     id: 'tmpl-org-santos-barossa',
     subtype: 'All',
@@ -1189,7 +1190,7 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
       'act-mop-method', 'act-hazid-hazop', 'act-mooring-analysis', 'act-emergency-response',
       'eq-lifting-register', 'eq-dp-fmea-trials', 'eq-rov-winch-test', 'eq-rigging-slings',
     ],
-  },
+  },
   {
     id: 'tmpl-org-northwind-integrated-project',
     subtype: 'All',

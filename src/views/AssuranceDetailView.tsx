@@ -4,8 +4,8 @@
   role in system: deep-dive view rendered when an assurance set row is selected.
 */
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Users, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -27,7 +27,7 @@ import {
   isDatePermissionActive,
 } from '../utils/validation';
 import { MasterDocument } from '../types/document';
-import { AssuranceObject, AssuranceRequirement, AssuranceSubtype, DatePermissionGrant, TargetDateChangeRecord, TaskSection, ThreePillarsCategory } from '../types/assurance';
+import { AssuranceObject, AssuranceRequirement, AssuranceSetGroupRef, AssuranceSubtype, DatePermissionGrant, TargetDateChangeRecord, TaskSection, ThreePillarsCategory } from '../types/assurance';
 import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrphaned } from '../utils/projectHelpers';
 
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
@@ -372,7 +372,7 @@ function isRequirementDocumentVisible(
   set: {
     assignedSubmitter?: string;
     serviceProviderOrg?: string;
-    stakeholders?: { verifierOrg?: string; inspectorOrg?: string; approverOrg?: string };
+    stakeholders?: { verifierOrg?: string; inspectorOrg?: string; approverOrg?: string } | null;
   },
   users: Array<{ id: string; name: string; organization?: string }>,
   objects: AssuranceObject[],
@@ -401,6 +401,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const {
     assuranceSets,
     assuranceObjects,
+    crew = [],
     vessels,
     auditEvents,
     updateRequirementStatus,
@@ -573,6 +574,85 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const assuranceSet = assuranceSets.find((s) => s.id === cleanSetId || s.id === setId) || assuranceSets[0];
 
   const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(() => initialTab || parseTabFromUrl());
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(() => new Set());
+
+  const toggleGroupExpand = (groupId: string) => {
+    setExpandedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  const isMemberExcluded = useCallback((memberId: string) => {
+    return Boolean(
+      assuranceSet?.memberExclusions?.some(
+        (ex) => ex.memberId === memberId && !ex.restored,
+      ),
+    );
+  }, [assuranceSet?.memberExclusions]);
+
+  const getGroupRollupStatus = useCallback((group: AssuranceSetGroupRef) => {
+    const included = group.memberIds.filter((id) => !isMemberExcluded(id));
+    if (included.length === 0) {
+      return {
+        label: 'No Active Members',
+        badgeText: 'Excluded',
+        tone: 'neutral' as const,
+        verifiedCount: 0,
+        totalCount: 0,
+      };
+    }
+    let verifiedCount = 0;
+    included.forEach((memberId) => {
+      const v = deriveObjectVerification(memberId, assuranceSets, activeDemoOrganization);
+      if (v && v.status.toLowerCase().includes('verified')) {
+        verifiedCount++;
+        return;
+      }
+      const memberReqs = (assuranceSet?.requirements || []).filter(
+        (r) => r.targetObjectId === memberId,
+      );
+      if (memberReqs.length > 0 && memberReqs.every((r) => r.verifierStatus === 'Verified')) {
+        verifiedCount++;
+        return;
+      }
+      const c = (crew || []).find((x) => x.id === memberId);
+      if (c?.complianceStatus === 'Fully Compliant') {
+        verifiedCount++;
+      }
+    });
+
+    if (verifiedCount === included.length) {
+      return {
+        label: 'Verified',
+        badgeText: 'Fully Verified',
+        tone: 'success' as const,
+        verifiedCount,
+        totalCount: included.length,
+      };
+    }
+    if (verifiedCount > 0) {
+      return {
+        label: 'Partial',
+        badgeText: 'Partially Verified',
+        tone: 'warning' as const,
+        verifiedCount,
+        totalCount: included.length,
+      };
+    }
+    return {
+      label: 'Pending',
+      badgeText: 'Pending',
+      tone: 'neutral' as const,
+      verifiedCount: 0,
+      totalCount: included.length,
+    };
+  }, [isMemberExcluded, assuranceSets, activeDemoOrganization, assuranceSet?.requirements, crew]);
 
   const handleTabChange = (tab: AssuranceDetailTab) => {
     setActiveTab(tab);
@@ -669,6 +749,38 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   }, [setObjects, objectSearch]);
 
   const objectsPagination = usePagination(filteredObjects, [assuranceSet?.id, objectSearch]);
+
+  const setCrewGroups: AssuranceSetGroupRef[] = useMemo(() => {
+    return assuranceSet?.crewGroups || [];
+  }, [assuranceSet?.crewGroups]);
+
+  const groupMemberIdSet = useMemo(() => {
+    return new Set(setCrewGroups.flatMap((g) => g.memberIds));
+  }, [setCrewGroups]);
+
+  const filteredCrewGroups = useMemo(() => {
+    if (!objectSearch.trim()) return setCrewGroups;
+    const q = objectSearch.toLowerCase();
+    return setCrewGroups.filter((g) => {
+      if (g.groupName.toLowerCase().includes(q)) return true;
+      if (g.specialization && g.specialization.toLowerCase().includes(q)) return true;
+      return g.memberIds.some((id) => {
+        const c = crew.find((x) => x.id === id);
+        return (
+          id.toLowerCase().includes(q) ||
+          (c && (c.fullName || '').toLowerCase().includes(q)) ||
+          (c?.rank && c.rank.toLowerCase().includes(q))
+        );
+      });
+    });
+  }, [setCrewGroups, objectSearch, crew]);
+
+  const standaloneObjects = useMemo(() => {
+    if (setCrewGroups.length === 0) return filteredObjects;
+    return filteredObjects.filter((obj) => !groupMemberIdSet.has(obj.id));
+  }, [filteredObjects, setCrewGroups.length, groupMemberIdSet]);
+
+  const standalonePagination = usePagination(standaloneObjects, [assuranceSet?.id, objectSearch]);
 
   const requirementGroupTasksMap = useMemo(() => {
     const map = new Map<string, AssuranceRequirement[]>();
@@ -2594,7 +2706,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                 </tr>
               </thead>
               <tbody>
-                {filteredObjects.length === 0 ? (
+                {filteredObjects.length === 0 && filteredCrewGroups.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-0">
                       <EmptyState
@@ -2610,72 +2722,254 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     </td>
                   </tr>
                 ) : (
-                  objectsPagination.pageItems.map((obj) => {
-                    const verification = deriveObjectVerification(obj.id, assuranceSets, activeDemoOrganization);
-                    const typeLabel = OBJECT_TYPE_LABELS[obj.type] || obj.type.charAt(0).toUpperCase() + obj.type.slice(1);
-                    const belongsTo = obj.ownerOrganization || assuranceSet.serviceProviderOrg || clientOwnerOrg;
-                    const assignedTarget =
-                      obj.assignments?.find((a) => a.isCurrent)?.targetName ||
-                      (obj.type !== 'vessel' && assuranceSet.vesselName ? assuranceSet.vesselName : null);
-                    const hasDetailView = obj.type === 'vessel' || obj.type === 'person' || obj.type === 'equipment';
+                  <>
+                    {/* Crew Groups as top-level expandable rows (ADR 0029 / BRD v4.2) */}
+                    {filteredCrewGroups.map((group) => {
+                      const isExpanded = expandedGroupIds.has(group.groupId);
+                      const rollup = getGroupRollupStatus(group);
+                      const groupOrg = assuranceSet.serviceProviderOrg || clientOwnerOrg;
 
-                    return (
-                      <tr key={obj.id} data-testid="assurance-object-row">
-                        <td>
-                          <div className="fw-semibold text-dark">{obj.name}</div>
-                          {obj.identifier && (
-                            <div className="text-muted font-mono-code" style={{ fontSize: '0.75rem' }}>
-                              {obj.identifier}
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          <span className="badge bg-light text-dark border">
-                            {typeLabel}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="fw-semibold text-dark">{belongsTo}</div>
-                          {assignedTarget && (
-                            <div className="text-muted font-mono-code" style={{ fontSize: '0.75rem' }}>
-                              {assignedTarget}
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          {verification ? (
-                            <ObjectVerificationBadge verification={verification} />
-                          ) : (
-                            <span className="text-muted small">—</span>
-                          )}
-                        </td>
-                        <td className="text-end">
-                          {hasDetailView && (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                              style={{ width: '32px', height: '32px' }}
-                              onClick={() => {
-                                if (obj.type === 'vessel') setCurrentHashView('vessels', obj.id);
-                                else if (obj.type === 'person') setCurrentHashView('crew', obj.id);
-                                else if (obj.type === 'equipment') setCurrentHashView('equipment', obj.id);
-                              }}
-                              title={`View ${obj.name}`}
-                              aria-label={`View ${obj.name}`}
-                            >
-                              <Eye size={16} />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
+                      return (
+                        <React.Fragment key={`group-${group.groupId}`}>
+                          <tr
+                            data-testid="crew-group-row"
+                            data-group-id={group.groupId}
+                            className="bg-light bg-opacity-50"
+                          >
+                            <td>
+                              <div className="d-flex align-items-center">
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-link p-0 me-2 text-dark text-decoration-none d-inline-flex align-items-center"
+                                  onClick={() => toggleGroupExpand(group.groupId)}
+                                  aria-expanded={isExpanded}
+                                  aria-label={isExpanded ? `Collapse ${group.groupName}` : `Expand ${group.groupName}`}
+                                  data-testid={`toggle-group-${group.groupId}`}
+                                >
+                                  {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                </button>
+                                <Users size={16} className="text-primary me-2 flex-shrink-0" />
+                                <div>
+                                  <span className="fw-semibold text-dark">{group.groupName}</span>
+                                  <span className="badge bg-light text-secondary border ms-2">
+                                    {group.memberIds.length} {group.memberIds.length === 1 ? 'member' : 'members'}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                Crew Group
+                              </span>
+                            </td>
+                            <td>
+                              <div className="fw-semibold text-dark">{groupOrg}</div>
+                              {group.specialization && (
+                                <div className="text-muted font-mono-code" style={{ fontSize: '0.75rem' }}>
+                                  {group.specialization}
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <span
+                                className={`badge ${
+                                  rollup.tone === 'success'
+                                    ? 'bg-success-subtle text-success border border-success-subtle'
+                                    : rollup.tone === 'warning'
+                                    ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
+                                    : 'bg-light text-secondary border'
+                                } d-inline-flex align-items-center gap-1`}
+                                data-testid={`group-rollup-${group.groupId}`}
+                              >
+                                {rollup.tone === 'success' && <ShieldCheck size={13} />}
+                                <span>{rollup.verifiedCount}/{rollup.totalCount} verified</span>
+                              </span>
+                            </td>
+                            <td className="text-end">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
+                                onClick={() => setCurrentHashView('crew-group', group.groupId)}
+                                title={`View ${group.groupName}`}
+                                aria-label={`View ${group.groupName}`}
+                              >
+                                <Eye size={16} />
+                              </button>
+                            </td>
+                          </tr>
+
+                          {/* Member sub-rows directly under group (no nesting) */}
+                          {isExpanded &&
+                            group.memberIds.map((memberId) => {
+                              const isExcluded = isMemberExcluded(memberId);
+                              const exclusion = assuranceSet.memberExclusions?.find(
+                                (ex) => ex.memberId === memberId && !ex.restored,
+                              );
+                              const memberCrew = crew.find((c) => c.id === memberId);
+                              const memberObj =
+                                setObjects.find((o) => o.id === memberId || o.identifier === memberId) ||
+                                assuranceObjects.find((o) => o.id === memberId || o.identifier === memberId);
+                              const memberName =
+                                memberObj?.name || memberCrew?.fullName || memberId;
+                              const memberRank = memberCrew?.rank || 'Seafarer';
+                              const memberOrg =
+                                memberCrew?.organization ||
+                                memberObj?.ownerOrganization ||
+                                groupOrg;
+                              const verification = deriveObjectVerification(
+                                memberId,
+                                assuranceSets,
+                                activeDemoOrganization,
+                              );
+
+                              return (
+                                <tr
+                                  key={`member-${group.groupId}-${memberId}`}
+                                  data-testid="crew-group-member-row"
+                                  data-member-id={memberId}
+                                  className={isExcluded ? 'table-light opacity-75' : ''}
+                                >
+                                  <td>
+                                    <div className="d-flex align-items-center ps-4">
+                                      <span className="text-muted me-2 select-none" aria-hidden="true">&#x21b3;</span>
+                                      <div>
+                                        <div
+                                          className={`fw-medium ${
+                                            isExcluded ? 'text-decoration-line-through text-muted' : 'text-dark'
+                                          }`}
+                                        >
+                                          {memberName}
+                                        </div>
+                                        <div
+                                          className="text-muted font-mono-code"
+                                          style={{ fontSize: '0.75rem' }}
+                                        >
+                                          {memberRank} &middot; {memberId}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <span className="badge bg-light text-secondary border">Person</span>
+                                  </td>
+                                  <td>
+                                    <div className="fw-semibold text-dark">{memberOrg}</div>
+                                  </td>
+                                  <td>
+                                    {isExcluded ? (
+                                      <div>
+                                        <span
+                                          className="badge bg-secondary text-white"
+                                          data-testid={`member-excluded-badge-${memberId}`}
+                                        >
+                                          Excluded
+                                        </span>
+                                        {exclusion?.reason && (
+                                          <div
+                                            className="text-muted fst-italic mt-0.5"
+                                            style={{ fontSize: '0.72rem' }}
+                                          >
+                                            {exclusion.reason}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : verification ? (
+                                      <ObjectVerificationBadge verification={verification} />
+                                    ) : (
+                                      <span className="text-muted small">—</span>
+                                    )}
+                                  </td>
+                                  <td className="text-end">
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                      style={{ width: '32px', height: '32px' }}
+                                      onClick={() => setCurrentHashView('crew', memberId)}
+                                      title={`View ${memberName}`}
+                                      aria-label={`View ${memberName}`}
+                                    >
+                                      <Eye size={16} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </React.Fragment>
+                      );
+                    })}
+
+                    {/* Standalone objects (not belonging to any attached crew group) */}
+                    {(setCrewGroups.length > 0 ? standaloneObjects : objectsPagination.pageItems).map((obj) => {
+                      const verification = deriveObjectVerification(obj.id, assuranceSets, activeDemoOrganization);
+                      const typeLabel = OBJECT_TYPE_LABELS[obj.type] || obj.type.charAt(0).toUpperCase() + obj.type.slice(1);
+                      const belongsTo = obj.ownerOrganization || assuranceSet.serviceProviderOrg || clientOwnerOrg;
+                      const assignedTarget =
+                        obj.assignments?.find((a) => a.isCurrent)?.targetName ||
+                        (obj.type !== 'vessel' && assuranceSet.vesselName ? assuranceSet.vesselName : null);
+                      const hasDetailView = obj.type === 'vessel' || obj.type === 'person' || obj.type === 'equipment';
+
+                      return (
+                        <tr key={obj.id} data-testid="assurance-object-row">
+                          <td>
+                            <div className="fw-semibold text-dark">{obj.name}</div>
+                            {obj.identifier && (
+                              <div className="text-muted font-mono-code" style={{ fontSize: '0.75rem' }}>
+                                {obj.identifier}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <span className="badge bg-light text-dark border">
+                              {typeLabel}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="fw-semibold text-dark">{belongsTo}</div>
+                            {assignedTarget && (
+                              <div className="text-muted font-mono-code" style={{ fontSize: '0.75rem' }}>
+                                {assignedTarget}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {verification ? (
+                              <ObjectVerificationBadge verification={verification} />
+                            ) : (
+                              <span className="text-muted small">—</span>
+                            )}
+                          </td>
+                          <td className="text-end">
+                            {hasDetailView && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                style={{ width: '32px', height: '32px' }}
+                                onClick={() => {
+                                  if (obj.type === 'vessel') setCurrentHashView('vessels', obj.id);
+                                  else if (obj.type === 'person') setCurrentHashView('crew', obj.id);
+                                  else if (obj.type === 'equipment') setCurrentHashView('equipment', obj.id);
+                                }}
+                                title={`View ${obj.name}`}
+                                aria-label={`View ${obj.name}`}
+                              >
+                                <Eye size={16} />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </>
                 )}
               </tbody>
             </table>
           </div>
-          {filteredObjects.length > 0 && (
+          {setCrewGroups.length === 0 && filteredObjects.length > 0 && (
             <TablePagination {...objectsPagination.controls} />
+          )}
+          {setCrewGroups.length > 0 && standaloneObjects.length > 10 && (
+            <TablePagination {...standalonePagination.controls} />
           )}
         </div>
       )}

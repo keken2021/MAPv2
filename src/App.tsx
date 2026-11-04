@@ -238,6 +238,7 @@ export const App: React.FC = () => {
       case 'organization-profile':
         return <OrganizationProfileView />;
       case 'crew-group':
+      case 'crew-groups':
         return currentEntityId ? <CrewGroupDetailView groupId={currentEntityId} /> : <CrewView />;
       case 'crew':
         return currentEntityId ? <CrewDetailView crewId={currentEntityId} /> : <CrewView />;
