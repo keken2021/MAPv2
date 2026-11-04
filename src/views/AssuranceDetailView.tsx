@@ -33,6 +33,7 @@ import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrph
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
+import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
 import {
   canAssignStakeholderRole,
   getOrganizationRoleCandidates,
@@ -1006,9 +1007,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       requirementsPagination.controls.onPageChange(page);
       return;
     }
-    document
-      .querySelector(`[data-requirement-id="${focusedRequirementId}"]`)
-      ?.scrollIntoView({ block: 'center' });
+    const targetEl = document.querySelector(`[data-requirement-id="${focusedRequirementId}"]`);
+    if (targetEl && typeof targetEl.scrollIntoView === 'function') {
+      targetEl.scrollIntoView({ block: 'center' });
+    }
     setFocusedRequirementId(undefined);
   }, [focusedRequirementId, orderedRequirements, requirementsPagination.controls.page, requirementsPagination.controls.pageSize, setFocusedRequirementId]);
 
@@ -3367,24 +3369,28 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
       {/* Tab: Tasks */}
       {activeTab === 'tasks' && (
-        sectionSummaries.length > 0 ? (
-          <div className="card map-card-custom">
-            <div className="card-header d-flex align-items-center gap-2 p-3 bg-white">
-              <span className="fw-bold text-dark">Task sections</span>
+        <div className="d-flex flex-column gap-3">
+          {sectionSummaries.length > 0 && (
+            <div className="card map-card-custom">
+              <div className="card-header d-flex align-items-center gap-2 p-3 bg-white">
+                <span className="fw-bold text-dark">Task sections</span>
+              </div>
+              <div className="card-body border-top">
+                <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
+                <TaskSectionCards set={taskSectionsSet} />
+              </div>
             </div>
-            <div className="card-body border-top">
-              <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
-              <TaskSectionCards set={taskSectionsSet} />
-            </div>
-          </div>
-        ) : (
-          <div className="card map-card-custom p-4">
-            <EmptyState
-              title="No task sections"
-              description="No task sections have been defined for this assurance set."
-            />
-          </div>
-        )
+          )}
+          <ProjectTasksTable
+            sets={assuranceSet ? [assuranceSet] : []}
+            scope={{ type: 'set', id: assuranceSet?.id || '' }}
+            today={new Date()}
+            onOpenRequirement={(req) => {
+              setFocusedRequirementId(req.id);
+              setActiveTab('requirements');
+            }}
+          />
+        </div>
       )}
 
       {/* Bottom Row: Requirements Register Table taking full 100% width across two columns */}

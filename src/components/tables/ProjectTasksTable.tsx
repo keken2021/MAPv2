@@ -65,6 +65,7 @@ interface ProjectTasksTableProps {
   activeDemoOrganization?: string;
   sessionUser?: { organization?: string; name?: string; id?: string } | null;
   onOpenSet?: (set: AssuranceSet) => void;
+  onOpenRequirement?: (requirement: AssuranceRequirement, set: AssuranceSet) => void;
   today?: Date;
 }
 
@@ -220,6 +221,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   activeDemoOrganization,
   sessionUser,
   onOpenSet,
+  onOpenRequirement,
   today = new Date(),
 }) => {
   const store = useMapStore();
@@ -522,7 +524,19 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
                 return (
                   <tr key={row.id} data-task-id={requirement.id} data-set-id={parentSet.id}>
                     <td>
-                      <div className="fw-semibold text-dark">{requirement.title}</div>
+                      {onOpenRequirement ? (
+                        <button
+                          type="button"
+                          className="btn btn-link p-0 text-start fw-semibold text-decoration-none"
+                          onClick={() => onOpenRequirement(requirement, parentSet)}
+                          title={`Open ${requirement.title}`}
+                          data-testid={`task-open-req-${requirement.id}`}
+                        >
+                          {requirement.title}
+                        </button>
+                      ) : (
+                        <div className="fw-semibold text-dark">{requirement.title}</div>
+                      )}
                       {requirement.category && (
                         <div className="text-secondary small mt-0.5" style={{ fontSize: '0.75rem' }}>
                           {requirement.category}

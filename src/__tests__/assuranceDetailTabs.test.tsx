@@ -92,16 +92,52 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(within(table).getByText(/Certificate of Class/i)).toBeDefined();
   });
 
-  it('Tasks tab holds task section cards and their exempt and edit actions', () => {
-    render(<AssuranceDetailView setId="AS-2026-001" />);
+  it('Tasks tab holds task section cards and shared Tasks table whose counts match its requirements and opens requirement', () => {
+    const state = useMapStore.getState();
+    const testSet = state.assuranceSets.find((s) => s.id === 'AS-2026-001') || state.assuranceSets[0];
+    const totalReqs = testSet.requirements.length;
 
-    fireEvent.click(screen.getByRole('tab', { name: /tasks/i }));
+    render(<AssuranceDetailView setId={testSet.id} />);
 
-    const tasksTab = screen.getByRole('tab', { name: /tasks/i });
+    fireEvent.click(screen.getByRole('tab', { name: /^tasks$/i }));
+
+    const tasksTab = screen.getByRole('tab', { name: /^tasks$/i });
     expect(tasksTab.getAttribute('aria-selected')).toBe('true');
 
     // Task sections card is present
     expect(screen.getByText(/task sections/i)).toBeDefined();
+
+    // Shared Tasks table is present
+    const tasksTableTab = screen.getByTestId('project-tasks-tab');
+    expect(tasksTableTab).toBeInTheDocument();
+
+    // CountTabs are present: All, Pending, On-going, Done
+    const allTab = within(tasksTableTab).getByRole('tab', { name: /all/i });
+    const pendingTab = within(tasksTableTab).getByRole('tab', { name: /pending/i });
+    const onGoingTab = within(tasksTableTab).getByRole('tab', { name: /on-going/i });
+    const doneTab = within(tasksTableTab).getByRole('tab', { name: /done/i });
+
+    expect(allTab).toBeInTheDocument();
+    expect(pendingTab).toBeInTheDocument();
+    expect(onGoingTab).toBeInTheDocument();
+    expect(doneTab).toBeInTheDocument();
+
+    // All count matches requirements length
+    expect(allTab.textContent).toContain(String(totalReqs));
+
+    // Standard task table columns
+    expect(within(tasksTableTab).getByText(/Task \/ requirement/i)).toBeInTheDocument();
+    expect(within(tasksTableTab).getByText(/^Status/i)).toBeInTheDocument();
+
+    // Clicking a requirement title opens the matching requirement
+    const firstReq = testSet.requirements[0];
+    const openReqBtn = within(tasksTableTab).getByTestId(`task-open-req-${firstReq.id}`);
+    expect(openReqBtn).toBeInTheDocument();
+    fireEvent.click(openReqBtn);
+
+    // Switched to Requirements tab
+    const reqTab = screen.getByRole('tab', { name: /^requirements$/i });
+    expect(reqTab.getAttribute('aria-selected')).toBe('true');
   });
 
   it('Audit Trail tab lists this set\'s audit events with time, person and role, action, and deltas', () => {
