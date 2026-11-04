@@ -29,6 +29,7 @@ import { RolesAndPermissionsView } from './views/RolesAndPermissionsView';
 import { OrganizationProfileView } from './views/OrganizationProfileView';
 import { CrewView } from './views/CrewView';
 import { CrewDetailView } from './views/CrewDetailView';
+import { CrewGroupDetailView } from './views/CrewGroupDetailView';
 import { CapaManagementView } from './views/CapaManagementView';
 import { ApproverDashboardView } from './views/ApproverDashboardView';
 import { ProjectView } from './views/ProjectView';
@@ -236,6 +237,8 @@ export const App: React.FC = () => {
         );
       case 'organization-profile':
         return <OrganizationProfileView />;
+      case 'crew-group':
+        return currentEntityId ? <CrewGroupDetailView groupId={currentEntityId} /> : <CrewView />;
       case 'crew':
         return currentEntityId ? <CrewDetailView crewId={currentEntityId} /> : <CrewView />;
       case 'dashboard':

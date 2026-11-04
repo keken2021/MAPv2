@@ -101,6 +101,14 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/vesselImageHelpers.ts`, `src/utils/vesselStatusHistoryHelpers.ts` : photo and status chip helpers, status history helpers
 - `src/types/vessel.ts`, `src/types/asset.ts` : vessel and asset status types
 
+## Crew screens and groups
+- `src/views/CrewView.tsx` : crew directory view with Individuals and Groups toggle
+- `src/components/tables/CrewTable.tsx` : crew directory table and groups table with shared search/filter/pagination
+- `src/views/CrewGroupDetailView.tsx` : crew group detail view (Details & Specializations, Roster tabs, master group editing)
+- `src/__tests__/crewGroupsStore.test.ts` : tests for crew groups store actions (Task 5338)
+- `src/__tests__/crewGroupsToggle.test.tsx` : tests for CrewTable groups toggle (Task 5339)
+- `src/__tests__/crewGroupDetailView.test.tsx` : tests for CrewGroupDetailView (Task 5340)
+
 ## Unit tests named in the Task lists
 - `src/__tests__/` : all prototype tests. Run a subset with `npx vitest run src/__tests__/<file>`
 - Unit tests for UI declutter shared pieces: `src/__tests__/sharedPieces.test.tsx` (CountTabs, StatusBadge, ListToolbar, DetailHeader)
@@ -175,6 +183,7 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/work-items/requirements-custom-sections-tasks.csv` : 2 Tasks under User Story 5207 (not yet on the board), wizard Define requirements step and detail Requirements tab: no blank sections, General plus object sections, Add custom section saved to the set, sentence case titles, assigned to Creishen Ayuman, 0.5 h each
 - `docs/work-items/audit-fixes-tasks.csv` : 28 Tasks under User Story 5207 from `docs/plans/shown-data-without-basis-audit.md` Part 7, 14 each for Creishen Ayuman (assurance sets) and Kurt Grava (projects, assets, others), 0.5 h each
 - `docs/work-items/brd-v4.2-gap-tasks.csv` : 6 Tasks (5285 to 5290) under User Story 5207 for the BRD V4.2 gaps that wait on nothing (G3, G4, G6, G7, G12), assigned to Creishen Ayuman, 0.25 or 0.5 h each. Source: `docs/plans/brd-gap-status-2026-11-02.md`
+- `docs/work-items/assurance-set-audit-trail-tasks.csv` : 3 Tasks under User Story 5207 for assurance set audit trail movement logging (target kinds, condition-met stage transitions, Audit tab search/filter/pagination/export), assigned to Creishen Ayuman, 0.5 h each
 - `docs/work-items/role-views-tasks.csv` : 11 Tasks (5231 to 5241, under User Story 5209) for per-person views and the sidebar, split between Creishen Ayuman and Kurt Grava, 0.75 or 1 h each. Design: `docs/plans/per-person-views-and-sidebar.md`
 - `docs/azure-boards/` : everything for the Azure Boards connection and the `board-comment` and `task-branch` skills (12 files)
 - `docs/azure-boards/task-branch-skill.md` : plan and build record of the `task-branch` skill and of its Task notes (decisions 1 to 20, files, what is tested and what is not)
