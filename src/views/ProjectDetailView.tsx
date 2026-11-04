@@ -28,6 +28,7 @@ import { RequestAssuranceSetModal } from "../components/modals/RequestAssuranceS
 import { usePagination } from "../utils/usePagination";
 import { TablePagination } from "../components/common/TablePagination";
 import { ProjectAssuranceStatusTable } from "../components/tables/ProjectAssuranceStatusTable";
+import { ProjectTasksTable } from "../components/tables/ProjectTasksTable";
 
 interface ProjectDetailViewProps {
   projectId: string;
@@ -63,7 +64,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     [activePersona, users, activeDemoOrganization, activeSessionUserId],
   );
 
-  const [activeTab, setActiveTab] = useState<"details" | "assurance" | "roster">(
+  const [activeTab, setActiveTab] = useState<"details" | "assurance" | "roster" | "tasks">(
     "assurance",
   );
   const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
@@ -278,7 +279,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       />
 
       <ul className="nav nav-tabs">
-        {(["details", "assurance", "roster"] as const).map((tab) => (
+        {(["details", "assurance", "roster", "tasks"] as const).map((tab) => (
           <li className="nav-item" key={tab}>
             <button
               type="button"
@@ -289,7 +290,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 ? "Details"
                 : tab === "roster"
                   ? "Objects"
-                  : "Assurance Sets"}
+                  : tab === "tasks"
+                    ? "Tasks"
+                    : "Assurance Sets"}
             </button>
           </li>
         ))}
@@ -736,6 +739,23 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
             )}
           </div>
         </div>
+      )}
+
+      {activeTab === "tasks" && (
+        <ProjectTasksTable
+          sets={projectAssuranceSets}
+          documents={documents}
+          assuranceObjects={project.assetLinks?.map((l) => ({
+            id: l.assetId,
+            name: l.assetName,
+            type: l.assetType as any,
+            ownerOrganization: l.providerOrganization,
+          }))}
+          users={users}
+          activeDemoOrganization={activeDemoOrganization}
+          sessionUser={sessionUser}
+          onOpenSet={(set) => setCurrentHashView("assurance-sets", set.id)}
+        />
       )}
 
       <ProjectAddAssetModal
