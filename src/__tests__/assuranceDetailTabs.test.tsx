@@ -755,4 +755,41 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(within(pageSizeSelect).getByRole('option', { name: '25' })).toBeInTheDocument();
     expect(within(pageSizeSelect).getByRole('option', { name: '50' })).toBeInTheDocument();
   });
+
+  it('Requirements tab consolidates Add Task and Add custom section in one Add menu, and Submitter sees no Add Task', () => {
+    // 1. As Administrator (service provider who can edit tasks and upload document)
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+    });
+
+    const { rerender } = render(<AssuranceDetailView setId="AS-2026-001" />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    // Both Add menu and primary Upload Document button are present
+    const addMenuBtn = screen.getByRole('button', { name: /^add$/i });
+    expect(addMenuBtn).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /upload document/i })).toBeInTheDocument();
+
+    // Opening Add menu reveals both actions
+    fireEvent.click(addMenuBtn);
+    expect(screen.getByRole('button', { name: /add task/i })).toBeInTheDocument();
+    expect(screen.getByTestId('btn-add-custom-section')).toBeInTheDocument();
+
+    // 2. As Submitter
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeSessionUserId: 'USR-102',
+    });
+
+    rerender(<AssuranceDetailView setId="AS-2026-001" />);
+
+    // Submitter can open Add menu
+    const submitterAddBtn = screen.getByRole('button', { name: /^add$/i });
+    fireEvent.click(submitterAddBtn);
+
+    // Submitter sees Add custom section, but no Add Task
+    expect(screen.getByTestId('btn-add-custom-section')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add task/i })).toBeNull();
+  });
 });

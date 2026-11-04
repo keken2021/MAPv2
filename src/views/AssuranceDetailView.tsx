@@ -621,6 +621,22 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const [isAddingCustomSection, setIsAddingCustomSection] = useState(false);
   const [customSectionName, setCustomSectionName] = useState('');
   const [customSectionError, setCustomSectionError] = useState('');
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+        setIsAddMenuOpen(false);
+      }
+    };
+    if (isAddMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isAddMenuOpen]);
 
   const handleSaveCustomSection = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -3305,29 +3321,57 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                   </div>
                 </div>
                 <div className="d-flex align-items-center gap-2 ms-auto">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-                    onClick={() => {
-                      setIsAddingCustomSection(true);
-                      setCustomSectionError('');
-                      setCustomSectionName('');
-                    }}
-                    data-testid="btn-add-custom-section"
-                  >
-                    <Plus size={14} />
-                    Add custom section
-                  </button>
-                  {canEditTasks && (
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
-                      onClick={openAddTaskModal}
-                    >
-                      <Plus size={14} />
-                      Add Task
-                    </button>
+                  {(isSetOpen || canEditTasks) && (
+                    <div className="dropdown position-relative" ref={addMenuRef}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                        onClick={() => setIsAddMenuOpen((prev) => !prev)}
+                        aria-expanded={isAddMenuOpen}
+                        aria-haspopup="true"
+                        aria-label="Add"
+                        data-testid="btn-add-menu"
+                      >
+                        <Plus size={14} />
+                        <span>Add</span>
+                        <ChevronDown size={14} className="text-muted ms-0.5" />
+                      </button>
+
+                      <div
+                        className={`dropdown-menu shadow-sm position-absolute mt-1 end-0 ${isAddMenuOpen ? 'show' : ''}`}
+                        style={{ zIndex: 1050, minWidth: '180px' }}
+                      >
+                        {canEditTasks && (
+                          <button
+                            type="button"
+                            className="dropdown-item d-flex align-items-center gap-2 py-2"
+                            onClick={() => {
+                              setIsAddMenuOpen(false);
+                              openAddTaskModal();
+                            }}
+                          >
+                            <Plus size={14} className="text-primary" />
+                            <span>Add Task</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="dropdown-item d-flex align-items-center gap-2 py-2"
+                          onClick={() => {
+                            setIsAddMenuOpen(false);
+                            setIsAddingCustomSection(true);
+                            setCustomSectionError('');
+                            setCustomSectionName('');
+                          }}
+                          data-testid="btn-add-custom-section"
+                        >
+                          <Plus size={14} className="text-secondary" />
+                          <span>Add custom section</span>
+                        </button>
+                      </div>
+                    </div>
                   )}
+
                   {canUploadHere && (
                     <button
                       type="button"
