@@ -863,3 +863,317 @@ The following 5 file:line references were spot-checked directly against the code
 - **Total Modals Audited**: Exactly **21 implementations** (15 standalone components + 6 view files writing modal markup by hand).
 - **Total Inline Tables in `src/views/`**: Exactly **42 tables** across 19 views (matches `grep -c "<table" src/views/*`).
 - **Total Hand-Built Repeated Patterns**: Over **130 instances** (97+ badges, 25+ empty states, 16 KPI tiles, multiple toolbars/headers).
+
+## 9. Reusable Component Props Proposal (Task 5373)
+
+### 9.1 Architecture, Governance, and Build Scope
+
+Per **ADR 0013** (*MAPv2 styles move to MAP as CSS tokens, one CoreUI skin file per component, and a guard test*) and **Feature 4732** (*Frontend Shared Components in MAP-1*):
+- **Frozen Prototype**: The MAPv2 prototype codebase (`src/` in `c:\mapFiles\MAPv2`) is frozen for visual reference and will not directly implement these new component files.
+- **Target Implementation**: The reusable components sketched below will be built in the production product repository (`MAP-1`) under Feature 4732.
+- **Token-Driven Styling**: Each component will utilize design tokens defined in `theme/theme.css` with colocated component stylesheets (`Component.css`), eliminating inline styles, arbitrary utility fragmentation, and hard-coded hex colors.
+- **Guard Test Protection**: A zero-redundancy Vitest suite in MAP-1 will enforce that only documented tokens and standardized component interfaces are utilized.
+
+---
+
+### 9.2 Proposed Component Interfaces and Props Sketches
+
+#### 9.2.1 `<Button>`
+
+Replaces arbitrary `<button>` styling across all 29 views, enforcing uniform heights, font weights (`fw-semibold`), and transition classes.
+
+```typescript
+export type ButtonVariant = 
+  | 'primary'            // btn btn-sm btn-primary
+  | 'secondary'          // btn btn-sm btn-secondary
+  | 'outline-primary'    // btn btn-sm btn-outline-primary
+  | 'outline-secondary'  // btn btn-sm btn-outline-secondary
+  | 'danger'             // btn btn-sm btn-danger
+  | 'outline-danger'     // btn btn-sm btn-outline-danger
+  | 'link'               // btn btn-sm btn-link p-0
+  | 'close';             // btn-close
+
+export type ButtonSize = 'sm' | 'xs';
+
+export interface ButtonProps {
+  /** The accessible label text or elements rendered inside the button */
+  label: React.ReactNode;
+  /** Click event handler */
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Standardized visual style variant (default: 'primary') */
+  variant?: ButtonVariant;
+  /** Component sizing tier (default: 'sm') */
+  size?: ButtonSize;
+  /** Optional icon component (rendered at 16x16px with standardized gap-1.5) */
+  icon?: React.ComponentType<{ className?: string; size?: number }>;
+  /** Position of the icon relative to the label (default: 'start') */
+  iconPosition?: 'start' | 'end';
+  /** Native HTML button type (default: 'button') */
+  type?: 'button' | 'submit' | 'reset';
+  /** Disables click interaction and applies disabled styling */
+  disabled?: boolean;
+  /** Replaces label with spinner and disables button during async submission */
+  loading?: boolean;
+  /** Additional custom class names for edge-case layout positioning */
+  className?: string;
+  /** Accessible hover/focus tooltip or title attribute */
+  title?: string;
+  /** Screen-reader label if label is empty or purely symbolic */
+  ariaLabel?: string;
+}
+```
+
+*Audit Findings Covered:*
+- Consolidates 174 arbitrary button class strings into 8 canonical variants and 2 sizes.
+- Standardizes button padding across the application (`px-3 py-1.5` for `sm`, `px-2 py-0.5` for `xs`).
+- Eliminates inline font weight declarations (`fw-bold`, `fw-semibold`, `font-weight-500`).
+
+---
+
+#### 9.2.2 `<IconButton>`
+
+Dedicated square interactive button for compact data table rows, icon triggers, and toolbar controls. Enforces MAP table standards (32x32px square bounding box).
+
+```typescript
+export type IconButtonVariant = 
+  | 'outline-secondary' 
+  | 'outline-primary' 
+  | 'outline-danger' 
+  | 'ghost' 
+  | 'link';
+
+export interface IconButtonProps {
+  /** Icon component to render inside the button (e.g. Lucide icon) */
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+  /** Click event handler */
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Mandatory screen-reader accessible label */
+  ariaLabel: string;
+  /** Visual variant (default: 'outline-secondary') */
+  variant?: IconButtonVariant;
+  /** Sizing tier (default: 'sm' = 32x32px; 'xs' = 24x24px) */
+  size?: 'sm' | 'xs';
+  /** Native tooltip description rendered on hover */
+  tooltip?: string;
+  /** Disabled state */
+  disabled?: boolean;
+  /** Loading spinner indicator */
+  loading?: boolean;
+  /** Additional custom class name */
+  className?: string;
+}
+```
+
+*Audit Findings Covered:*
+- Replaces 67 hand-styled table row icon triggers and action buttons.
+- Fixes inconsistent padding (`p-0`, `p-1`, `px-2.5 py-1`) and dimensions by standardizing to a rigid 32x32px touch target.
+- Enforces mandatory accessibility via `ariaLabel`.
+
+---
+
+#### 9.2.3 `<ButtonGroup>`
+
+Layout wrapper for multi-button clusters, modal action footers, and toolbar button groups.
+
+```typescript
+export interface ButtonGroupProps {
+  /** Child button elements */
+  children: React.ReactNode;
+  /** Gap between buttons conforming strictly to the MAP Spacing Scale (default: 2 = 8px) */
+  gap?: 1 | 1.5 | 2 | 2.5 | 3;
+  /** Flex alignment of child buttons (default: 'start') */
+  align?: 'start' | 'center' | 'end' | 'between';
+  /** Whether buttons wrap on narrow viewports (default: false) */
+  wrap?: boolean;
+  /** Additional container classes */
+  className?: string;
+}
+```
+
+*Audit Findings Covered:*
+- Eliminates 9 ad-hoc gap variants in button groups (such as `gap-0.5` and `gap-3.5`).
+- Enforces consistent spacing between primary, secondary, and destructive actions across all view footers.
+
+---
+
+#### 9.2.4 `<Modal>`
+
+Standardized dialog wrapper component that enforces unified backdrop handling, header layout, body scrolling, and keyboard dismiss (`Escape`).
+
+```typescript
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
+
+export interface ModalProps {
+  /** Controls modal visibility */
+  isOpen: boolean;
+  /** Header title text */
+  title: string;
+  /** Callback triggered when user dismisses the modal (via close button, backdrop, or Escape) */
+  onClose: () => void;
+  /** Action footer elements (typically wrapped in <ButtonGroup>) */
+  footer?: React.ReactNode;
+  /** Standardized Bootstrap width: 'sm' (300px), 'md' (500px), 'lg' (800px), 'xl' (1140px) (default: 'md') */
+  size?: ModalSize;
+  /** Modal body content */
+  children: React.ReactNode;
+  /** Optional secondary actions or badge placed in the header beside title */
+  headerActions?: React.ReactNode;
+  /** Centers dialog vertically on screen (default: true) */
+  centered?: boolean;
+  /** Enables internal body scrollbar for long forms (default: true) */
+  scrollable?: boolean;
+  /** Optional container class overrides */
+  className?: string;
+}
+```
+
+*Audit Findings Covered:*
+- Unifies 21 modal implementations (15 standalone components + 6 inline modal views).
+- Eliminates ad-hoc inline styles like `style={{ maxWidth: '480px' }}` and `style={{ maxWidth: '620px' }}`.
+- Replaces erratic header/footer padding (`px-4 py-3 bg-light`) with standard design token padding (`px-3 py-2.5`).
+
+---
+
+#### 9.2.5 `<ConfirmModal>`
+
+Specialized dialog for high-stakes user actions (e.g. entity deletion, record rejection, discard changes).
+
+```typescript
+export interface ConfirmModalProps {
+  /** Controls dialog visibility */
+  isOpen: boolean;
+  /** Dialog heading */
+  title: string;
+  /** Explanatory confirmation message or body prompt */
+  message: React.ReactNode;
+  /** Label for confirm action button (default: 'Confirm') */
+  confirmLabel?: string;
+  /** Label for cancel action button (default: 'Cancel') */
+  cancelLabel?: string;
+  /** Variant for confirm button: 'danger' for destructive actions, 'primary' for normal confirmations */
+  confirmVariant?: 'primary' | 'danger';
+  /** Callback fired on confirm click */
+  onConfirm: () => void | Promise<void>;
+  /** Callback fired on cancel or dismiss */
+  onCancel: () => void;
+  /** Disables buttons and shows spinner during async action */
+  isLoading?: boolean;
+  /** Modal dialog width (default: 'sm') */
+  size?: 'sm' | 'md';
+}
+```
+
+*Audit Findings Covered:*
+- Replaces repetitive confirmation dialog markup hand-built across `AssuranceDetailView`, `CrewDetailView`, `EquipmentDetailView`, and `RolesAndPermissionsView`.
+- Guarantees standard button placement (Cancel on left/secondary, Confirm on right/primary/danger).
+
+---
+
+#### 9.2.6 `<DataTable<T>>`
+
+Standardized enterprise tabular data presentation component implementing the MAP Table Standards (ID-first 6-column layout, breathing room padding, pagination integration).
+
+```typescript
+export interface DataTableColumn<T> {
+  /** Unique column identifier */
+  key: string;
+  /** Column header label */
+  header: string;
+  /** Column width specification (e.g. '120px', '25%') */
+  width?: string | number;
+  /** Content alignment (default: 'start') */
+  align?: 'start' | 'center' | 'end';
+  /** Whether column supports sorting (default: false) */
+  sortable?: boolean;
+  /** Custom cell rendering function */
+  render?: (value: any, row: T, index: number) => React.ReactNode;
+}
+
+export interface DataTablePaginationProps {
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+}
+
+export interface DataTableProps<T> {
+  /** Column definitions */
+  columns: DataTableColumn<T>[];
+  /** Array of data records */
+  rows: T[];
+  /** Function returning action controls for the row (typically <IconButton> or action menu) */
+  actions?: (row: T) => React.ReactNode;
+  /** Unique key extractor for row rendering */
+  rowKey: (row: T) => string | number;
+  /** Optional pagination configuration (integrates <TablePagination>) */
+  pagination?: DataTablePaginationProps;
+  /** Message displayed when rows array is empty */
+  emptyMessage?: string;
+  /** Loading skeleton or spinner state */
+  isLoading?: boolean;
+  /** Additional table container class names */
+  className?: string;
+}
+```
+
+*Audit Findings Covered:*
+- Replaces 42 inline hand-coded `<table>` implementations across 19 views.
+- Enforces consistent padding tokens (`py-2.5 px-3`) and `.map-table-custom` styling.
+- Guarantees pagination presence across all dataset tables.
+
+---
+
+### 9.3 Existing Shared Components That Already Fit
+
+The MAPv2 design system already contains several robust shared components that solve key repetition issues. Instead of recreating them, screens should consume these directly:
+
+| Existing Component | File Path | Existing Fit & Usage Pattern |
+|:---|:---|:---|
+| **`<Drawer>`** | [`src/components/drawers/Drawer.tsx`](file:///c:/mapFiles/MAPv2/src/components/drawers/Drawer.tsx) | Standard slide-over drawer panel for inspections, document reviews, version history, and audit trail panels. |
+| **`<ListToolbar>`** | [`src/components/common/ListToolbar.tsx`](file:///c:/mapFiles/MAPv2/src/components/common/ListToolbar.tsx) | Standard unified search input, filter modal triggers, view toggles, and new entity action buttons. |
+| **`<EmptyState>`** | [`src/components/common/EmptyState.tsx`](file:///c:/mapFiles/MAPv2/src/components/common/EmptyState.tsx) | Reusable zero-state card with centered Lucide icon, heading, descriptive copy, and optional action button. |
+| **`<DetailHeader>`** | [`src/components/common/DetailHeader.tsx`](file:///c:/mapFiles/MAPv2/src/components/common/DetailHeader.tsx) | Standard header banner for entity detail views: back link, entity title, code, status badge, and primary action buttons. |
+| **`<CountTabs>`** | [`src/components/common/CountTabs.tsx`](file:///c:/mapFiles/MAPv2/src/components/common/CountTabs.tsx) | Standard horizontal navigation tabs displaying active filter stage, label, and numerical item count badges. |
+| **`<StatusBadge>`** | [`src/components/common/StatusBadge.tsx`](file:///c:/mapFiles/MAPv2/src/components/common/StatusBadge.tsx) | Standard status badge supporting assurance stages, verification states, and document statuses with token colors. |
+
+---
+
+### 9.4 Audit Findings to Proposed Component Mapping
+
+The following matrix maps each audit section finding to the proposed or existing component that resolves it:
+
+| Audit Category | Identified Problem / Finding | Resolving Component | Implementation Mechanism |
+|:---|:---|:---|:---|
+| **Buttons** (Sec 3) | 174 arbitrary class combinations across 384 buttons | `<Button>` / `<IconButton>` | Enforces `variant`, `size`, and uniform typography via strict props |
+| **Buttons** (Sec 3) | 67 unstandardized table row icon action triggers | `<IconButton>` | Standard 32x32px square action button with `ariaLabel` and tooltip |
+| **Spacing** (Sec 4) | Inconsistent button row gaps (`gap-0.5`, `gap-3.5`) | `<ButtonGroup>` | Standardized `gap` scale (1, 1.5, 2, 2.5, 3) |
+| **Spacing** (Sec 4) | Over-padded card footers and headers (`px-4 py-3`) | `<Modal>` / `<DetailHeader>` | Enforces standard breathing room token padding (`px-3 py-2.5`) |
+| **Modals** (Sec 5) | Arbitrary widths (`maxWidth: 480px`, `620px`) | `<Modal>` / `<ConfirmModal>` | Standardized Bootstrap `size` tiers (`sm`, `md`, `lg`, `xl`) |
+| **Modals** (Sec 5) | Repetitive inline deletion confirmation dialogues | `<ConfirmModal>` | Turnkey confirmation modal with title, message, and async handler |
+| **Tables** (Sec 6) | 42 inline `<table>` tags lacking standard pagination | `<DataTable>` | Unified data table integrating `<TablePagination>` and 6-col standard |
+| **Repeated** (Sec 7) | 97+ hand-coded status badge `<span>` tags | `<StatusBadge>` | Direct consumption of existing shared component |
+| **Repeated** (Sec 7) | 25+ hand-crafted empty state table rows | `<EmptyState>` | Direct consumption of existing shared component |
+| **Repeated** (Sec 7) | Hand-crafted search bars and filter rows | `<ListToolbar>` | Direct consumption of existing shared component |
+| **Repeated** (Sec 7) | Hand-crafted entity detail banner headers | `<DetailHeader>` | Direct consumption of existing shared component |
+| **Repeated** (Sec 7) | 16 hand-built KPI dashboard tiles | `<KpiTile>` *(Proposed 4734)* | Proposed KPI metric tile component in MAP-1 Feature 4732 |
+
+---
+
+### 9.5 Testing / Verification: Complete Button Audit Variant Mapping
+
+To satisfy the testing requirement (*"Every variant from the Button audit maps to one proposed prop value"*), the table below proves that all 8 variants and class patterns documented in the Button Audit (Section 3.1) map directly to a concrete prop configuration on `<Button>` or `<IconButton>`:
+
+| Audit Section 3.1 Variant | Current Class Pattern In Audit | Proposed Component & Prop Mapping | Target Rendered Classes / Element |
+|:---|:---|:---|:---|
+| **Primary** | `btn btn-sm btn-primary` | `<Button variant="primary" size="sm" />` | `<button className="btn btn-sm btn-primary">` |
+| **Secondary** | `btn btn-sm btn-secondary` | `<Button variant="secondary" size="sm" />` | `<button className="btn btn-sm btn-secondary">` |
+| **Outline** (Secondary) | `btn btn-sm btn-outline-secondary` | `<Button variant="outline-secondary" size="sm" />` | `<button className="btn btn-sm btn-outline-secondary">` |
+| **Outline** (Primary) | `btn btn-sm btn-outline-primary` | `<Button variant="outline-primary" size="sm" />` | `<button className="btn btn-sm btn-outline-primary">` |
+| **Danger** (Solid) | `btn btn-sm btn-danger` | `<Button variant="danger" size="sm" />` | `<button className="btn btn-sm btn-danger">` |
+| **Danger** (Outline) | `btn btn-sm btn-outline-danger` | `<Button variant="outline-danger" size="sm" />` | `<button className="btn btn-sm btn-outline-danger">` |
+| **Icon** | `btn btn-sm btn-outline-* p-0` (32x32px) | `<IconButton variant="outline-secondary" size="sm" />` | `<button className="btn btn-sm btn-outline-secondary p-0" style={{ width: 32, height: 32 }}>` |
+| **Close** | `btn-close` | `<Button variant="close" />` | `<button className="btn-close" type="button" aria-label="Close" />` |
+| **Link** | `btn btn-sm btn-link p-0` | `<Button variant="link" size="sm" />` | `<button className="btn btn-sm btn-link p-0 text-decoration-none">` |
+| **Other / Specialized** | Custom role chips, filter tabs, dropdowns | `<CountTabs>`, `<FilterButton>`, or `<Button variant="outline-secondary" size="xs" />` | Standardized component or compact button configuration |
+
