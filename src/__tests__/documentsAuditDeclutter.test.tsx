@@ -82,7 +82,7 @@ describe('Documents and audit trail declutter', () => {
     expect(all.textContent).toContain('(4)');
     expect(rows()).toHaveLength(4);
     rows().forEach((row) => {
-      expect(row.querySelectorAll('.badge')).toHaveLength(1);
+      expect(row.querySelectorAll('.map-status-badge')).toHaveLength(1);
     });
     expect(within(card).queryByRole('button', { name: /pdf review|view details/i })).toBeNull();
     expect(within(card).getAllByRole('button', { name: 'View' })).toHaveLength(4);
@@ -117,7 +117,7 @@ describe('Documents and audit trail declutter', () => {
     expect(within(card).getAllByText(/Administrator/).length).toBeGreaterThan(0);
 
     within(card).getAllByRole('row').slice(1).forEach((row) => {
-      expect(row.querySelectorAll('.badge')).toHaveLength(0);
+      expect(row.querySelectorAll('.map-status-badge')).toHaveLength(0);
       row.querySelectorAll('td').forEach((cell, index) => {
         expect(cell.querySelector('div')).toBeNull();
         if (index !== 5) expect(cell.querySelector('[title]')).toBeNull();

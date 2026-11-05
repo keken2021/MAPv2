@@ -223,10 +223,10 @@ describe('ProjectDetailView assurance tab', () => {
     expect(screen.queryByText('Your role')).toBeNull();
     expect(screen.queryByText('Next expiry')).toBeNull();
 
-    expect(screen.getByRole('button', { name: 'Objects' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Objects' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Asset Roster' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Objects' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Objects' }));
     expect(screen.queryByText('Asset ID')).toBeNull();
     expect(screen.getByText('Name')).toBeInTheDocument();
     expect(screen.getByText('Type')).toBeInTheDocument();
@@ -234,7 +234,7 @@ describe('ProjectDetailView assurance tab', () => {
 
   it('allows searching in the Objects tab using ListToolbar', () => {
     const { container } = render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Objects' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Objects' }));
 
     expect(container.querySelector('.map-list-toolbar')).not.toBeNull();
     const searchInput = screen.getByRole('textbox', { name: /search objects/i });
@@ -255,7 +255,7 @@ describe('ProjectDetailView assurance tab', () => {
     expect(container.querySelector('.card .map-list-toolbar')).not.toBeNull();
 
     // Switch to Objects tab
-    fireEvent.click(screen.getByRole('button', { name: 'Objects' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Objects' }));
 
     // Objects tab layout has matching CountTabs and ListToolbar structure
     expect(container.querySelector('.card .map-count-tabs')).not.toBeNull();
@@ -266,7 +266,7 @@ describe('ProjectDetailView assurance tab', () => {
 
   it('has a Details tab showing project readiness first and two cards for metadata and commercial terms', () => {
     render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
-    const detailsTab = screen.getByRole('button', { name: 'Details' });
+    const detailsTab = screen.getByRole('tab', { name: 'Details' });
     expect(detailsTab).toBeInTheDocument();
 
     fireEvent.click(detailsTab);

@@ -393,10 +393,10 @@ describe('ProjectDetailView - Tasks Tab Integration', () => {
     render(<ProjectDetailView projectId={targetProject.id} />);
 
     // Verify all 4 tabs exist
-    expect(screen.getByRole('button', { name: 'Details' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Assurance Sets' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Objects' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tasks' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Details' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Assurance Sets' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Objects' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Tasks' })).toBeInTheDocument();
   });
 
   it('navigates to Tasks tab and renders ProjectTasksTable for the project', () => {
@@ -405,10 +405,10 @@ describe('ProjectDetailView - Tasks Tab Integration', () => {
 
     render(<ProjectDetailView projectId={targetProject.id} />);
 
-    const tasksTabBtn = screen.getByRole('button', { name: 'Tasks' });
+    const tasksTabBtn = screen.getByRole('tab', { name: 'Tasks' });
     fireEvent.click(tasksTabBtn);
 
-    expect(tasksTabBtn).toHaveClass('active');
+    expect(tasksTabBtn).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('project-tasks-tab')).toBeInTheDocument();
     expect(screen.getByText(/Task \/ requirement/i)).toBeInTheDocument();
     expect(screen.getByText(/Parent assurance set/i)).toBeInTheDocument();
@@ -423,9 +423,9 @@ describe('ProjectDetailView - Tasks Tab Integration', () => {
     render(<ProjectDetailView projectId={marineProject!.id} />);
 
     // 1. Open the Tasks tab
-    const tasksTabBtn = screen.getByRole('button', { name: 'Tasks' });
+    const tasksTabBtn = screen.getByRole('tab', { name: 'Tasks' });
     fireEvent.click(tasksTabBtn);
-    expect(tasksTabBtn).toHaveClass('active');
+    expect(tasksTabBtn).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('project-tasks-tab')).toBeInTheDocument();
 
     // 2. Verify no filter-chip-* buttons exist
