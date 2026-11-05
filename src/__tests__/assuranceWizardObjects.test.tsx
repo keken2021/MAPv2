@@ -114,4 +114,40 @@ describe('CreateAssuranceSetView Objects Step', () => {
     expect(container.querySelector('[data-testid="section-object-procedure"]')).toBeNull();
     expect(container.querySelector('[data-testid="section-object-method"]')).toBeNull();
   });
+
+  it('renders grid-add-object-type, grid-add-object-item, and grid-pick-crew-group once without duplicated objects block', () => {
+    const { container } = render(<CreateAssuranceSetView />);
+    setupStep1(container);
+    clickNext();
+
+    expect(container.querySelectorAll('#grid-add-object-type')).toHaveLength(1);
+    expect(container.querySelectorAll('#grid-add-object-item')).toHaveLength(1);
+
+    const emptyStates = Array.from(container.querySelectorAll('.text-muted.small'))
+      .filter((el) => el.textContent?.includes('No assurance objects attached yet.'));
+    expect(emptyStates).toHaveLength(1);
+
+    expect(container.textContent).toContain('Your own vessels are not listed. You become the client of the vessel you select.');
+
+    const typeSelect = container.querySelector('#grid-add-object-type') as HTMLSelectElement;
+    fireEvent.change(typeSelect, { target: { value: 'person' } });
+    expect(container.querySelectorAll('#grid-pick-crew-group')).toHaveLength(1);
+  });
+
+  it('renders a single objects table and adding an object adds one row', () => {
+    const { container } = render(<CreateAssuranceSetView />);
+    setupStep1(container);
+    clickNext();
+
+    expect(container.querySelectorAll('[data-testid^="assurance-object-row-"]')).toHaveLength(0);
+
+    const input = container.querySelector('#grid-add-object-item') as HTMLInputElement;
+    fireEvent.focus(input);
+    const firstOption = container.querySelector('#grid-add-object-item-listbox [data-item-id]') as HTMLElement;
+    expect(firstOption).not.toBeNull();
+    fireEvent.click(firstOption);
+
+    expect(container.querySelectorAll('table')).toHaveLength(1);
+    expect(container.querySelectorAll('[data-testid^="assurance-object-row-"]')).toHaveLength(1);
+  });
 });
