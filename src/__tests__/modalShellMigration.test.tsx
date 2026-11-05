@@ -7,8 +7,13 @@ import { VesselImageCropModal } from '../components/modals/VesselImageCropModal'
 import { NotificationDetailModal } from '../components/modals/NotificationDetailModal';
 import { RequestAssuranceSetModal } from '../components/modals/RequestAssuranceSetModal';
 import { AttachAssuranceSetPreviewModal } from '../components/modals/AttachAssuranceSetPreviewModal';
+import { ProjectAddAssetModal } from '../components/modals/ProjectAddAssetModal';
+import { MarketplaceDetailModal } from '../components/marketplace/MarketplaceDetailModal';
+import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
+import { DocumentCertificatePreview } from '../components/common/DocumentCertificatePreview';
 import { useMapStore } from '../store/useMapStore';
 import { MOCK_NOTIFICATIONS } from '../store/notificationMockData';
+import { MOCK_MARKETPLACE_ITEMS } from '../store/marketplaceMockData';
 import { AppNotification } from '../types/notification';
 
 const initialState = useMapStore.getState();
@@ -181,6 +186,107 @@ describe('AttachAssuranceSetPreviewModal on Modal shell (Task 5417)', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('ProjectAddAssetModal on Modal shell (Task 5418)', () => {
+  const project = useMapStore.getState().projects[0];
+
+  it('shows "Add Asset to Project" as the Modal header title', () => {
+    render(<ProjectAddAssetModal isOpen={true} onClose={vi.fn()} project={project} />);
+    expect(screen.getByRole('heading', { name: 'Add Asset to Project' })).toBeInTheDocument();
+  });
+
+  it('closes when the Modal close button is clicked', () => {
+    const onClose = vi.fn();
+    render(<ProjectAddAssetModal isOpen={true} onClose={onClose} project={project} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('MarketplaceDetailModal on Modal shell (Task 5418)', () => {
+  const item = MOCK_MARKETPLACE_ITEMS[0];
+
+  it('shows the item name as the Modal header title', () => {
+    render(
+      <MarketplaceDetailModal
+        item={item}
+        isOpen={true}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: item.name })).toBeInTheDocument();
+  });
+
+  it('closes when the Modal close button is clicked', () => {
+    const onClose = vi.fn();
+    render(
+      <MarketplaceDetailModal
+        item={item}
+        isOpen={true}
+        onClose={onClose}
+      />,
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('UniversalDocumentPreviewModal on Modal shell (Task 5418)', () => {
+  const document = useMapStore.getState().documents[0];
+
+  it('shows "Certificate Layout & PDF Review" as the default Modal header title', () => {
+    render(
+      <UniversalDocumentPreviewModal
+        isOpen={true}
+        document={document}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Certificate Layout & PDF Review' })).toBeInTheDocument();
+  });
+
+  it('closes when the Modal close button is clicked', () => {
+    const onClose = vi.fn();
+    render(
+      <UniversalDocumentPreviewModal
+        isOpen={true}
+        document={document}
+        onClose={onClose}
+      />,
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('DocumentCertificatePreview fullscreen on Modal shell (Task 5418)', () => {
+  const document = useMapStore.getState().documents[0];
+
+  it('shows PDF Review heading when fullscreen is opened', () => {
+    render(
+      <DocumentCertificatePreview
+        document={document}
+        showToolbar={true}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Fullscreen' }));
+    expect(
+      screen.getByRole('heading', { name: `PDF Review — ${document.title}` }),
+    ).toBeInTheDocument();
+  });
+
+  it('closes fullscreen when the Modal close button is clicked', () => {
+    render(
+      <DocumentCertificatePreview
+        document={document}
+        showToolbar={true}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Fullscreen' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('heading', { name: `PDF Review — ${document.title}` })).toBeNull();
   });
 });
 

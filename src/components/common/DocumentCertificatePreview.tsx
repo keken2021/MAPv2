@@ -7,7 +7,8 @@
 import React, { useState } from 'react';
 import { MasterDocument } from '../../types/document';
 import { getDocumentCertificateLayout, exportDocumentAsPdf } from '../../utils/documentTemplateHelpers';
-import { Printer, ZoomIn, ZoomOut, Maximize2, Minimize2, X } from 'lucide-react';
+import { Printer, ZoomIn, ZoomOut, Maximize2, Minimize2 } from 'lucide-react';
+import { Modal } from '../modals/Modal';
 
 interface DocumentCertificatePreviewProps {
   document: MasterDocument;
@@ -261,52 +262,23 @@ export const DocumentCertificatePreview: React.FC<DocumentCertificatePreviewProp
 
       {/* Main Document Preview Scroller */}
       {isFullscreen ? (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1070 }}
-          onClick={() => setIsFullscreen(false)}
+        <Modal
+          isOpen={true}
+          onClose={() => setIsFullscreen(false)}
+          title={`PDF Review — ${document.title}`}
+          meta={
+            <span className="font-mono-code" style={{ fontSize: '0.75rem' }}>
+              {document.certificateNo} · {document.entityType} · {document.issuingAuthority}
+            </span>
+          }
+          size="xl"
+          zIndex={1080}
+          bodyClassName="p-4 d-flex justify-content-center bg-slate-50"
         >
-          <div
-            className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-content bg-white text-dark border shadow-lg overflow-hidden">
-              <div
-                className="modal-header d-flex align-items-center justify-content-between px-4 py-3"
-                style={{ backgroundColor: '#0B1B2B', color: '#FFFFFF' }}
-              >
-                <div className="d-flex align-items-center gap-2.5 min-w-0">
-                  <div className="p-2 bg-primary-subtle text-primary rounded-3 flex-shrink-0">
-                    <Printer size={16} className="text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <h5 className="modal-title fw-bold text-white m-0 text-truncate" style={{ fontSize: '1.05rem' }}>
-                      PDF Review — {document.title}
-                    </h5>
-                    <div className="small font-mono-code text-truncate" style={{ color: '#94A3B8', fontSize: '0.78rem' }}>
-                      {document.certificateNo} · {document.entityType} · {document.issuingAuthority}
-                    </div>
-                  </div>
-                </div>
-                <div className="d-flex align-items-center gap-2 flex-shrink-0">
-                  <button
-                    type="button"
-                    className="btn btn-sm text-white p-2 border-0 bg-transparent opacity-75 hover-opacity-100"
-                    onClick={() => setIsFullscreen(false)}
-                    aria-label="Close"
-                    title="Close"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-              </div>
-              <div className="modal-body p-4 d-flex justify-content-center bg-slate-50" style={{ minHeight: '620px' }}>
-                {content}
-              </div>
-            </div>
+          <div style={{ minHeight: '620px', display: 'flex', justifyContent: 'center', width: '100%' }}>
+            {content}
           </div>
-        </div>
+        </Modal>
       ) : showOuterCard ? (
         <div
           className="w-100 overflow-auto bg-slate-100 p-2.5 border rounded-3 d-flex justify-content-center"

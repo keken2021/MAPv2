@@ -6,7 +6,6 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  X,
   Ship,
   Wrench,
   Users,
@@ -25,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument } from '../../types/document';
+import { Modal } from '../modals/Modal';
 import { UniversalDocumentPreviewModal } from '../modals/UniversalDocumentPreviewModal';
 import { Tabs } from '../common/Tabs';
 import { MarketplaceItem } from '../../types/marketplace';
@@ -58,16 +58,6 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
   const [inquirySent, setInquirySent] = useState(false);
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string>('');
   const [previewCertDoc, setPreviewCertDoc] = useState<MasterDocument | null>(null);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (isOpen) {
@@ -126,78 +116,82 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
     }, 4000);
   };
 
-  return (
-    <div
-      className="modal show d-block map-modal-backdrop"
-      tabIndex={-1}
-      role="dialog"
-      style={{
-        zIndex: 1055,
-        overflowY: 'auto',
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="modal-dialog modal-dialog-centered modal-dialog-scrollable"
-        role="document"
-        style={{ maxWidth: '860px', width: '92%', margin: '1.75rem auto' }}
-      >
-        <div
-          className="modal-content border-0 shadow-lg overflow-hidden w-100"
-          style={{
-            borderRadius: '10px',
-            backgroundColor: '#FFFFFF',
-          }}
-          onClick={(e) => e.stopPropagation()}
+  const footerNode = (
+    <div className="d-flex flex-wrap align-items-center justify-content-between w-100">
+      <div className="d-flex align-items-center gap-2">
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5 px-3 py-1.5"
+          onClick={handleExportDossierPdf}
+          title="Export as PDF"
+          style={{ fontSize: '0.82rem', height: '34px' }}
         >
-          {/* Modal Header */}
-          <div
-            className="modal-header d-flex align-items-center justify-content-between px-4 py-3 border-bottom flex-shrink-0"
+          <Download size={14} />
+          <span>Export</span>
+        </button>
+      </div>
+      <div className="d-flex align-items-center gap-2">
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary px-3 py-1.5"
+          onClick={onClose}
+          style={{ fontSize: '0.82rem', height: '34px' }}
+        >
+          Close
+        </button>
+        <span
+          className="d-inline-flex"
+          title={charterDisabledReason}
+          tabIndex={charterDisabledReason ? 0 : undefined}
+        >
+          <button
+            type="button"
+            className="btn btn-sm btn-primary px-3.5 py-1.5 fw-medium text-white"
+            disabled={Boolean(charterDisabledReason)}
+            aria-describedby={charterDisabledReason ? 'marketplace-charter-reason' : undefined}
+            onClick={() => {
+              if (onCharter) {
+                onCharter(item);
+              } else {
+                handleSendInquiry();
+              }
+            }}
             style={{
               backgroundColor: '#0B1B2B',
-              color: '#FFFFFF',
-              borderBottomColor: 'rgba(255, 255, 255, 0.12)',
+              borderColor: '#0B1B2B',
+              fontSize: '0.82rem',
+              height: '34px',
+              pointerEvents: charterDisabledReason ? 'none' : undefined,
             }}
           >
-            <div className="d-flex align-items-center gap-3 min-w-0">
-              <div
-                className="d-flex align-items-center justify-content-center bg-white rounded-2 p-1.5 shadow-sm flex-shrink-0"
-                style={{ width: '38px', height: '38px' }}
-              >
-                {getCategoryIcon()}
-              </div>
-              <div className="d-flex flex-column min-w-0">
-                <h5
-                  className="modal-title fw-bold text-white mb-0 text-truncate"
-                  style={{ fontSize: '1.15rem', letterSpacing: '0.01em', fontFamily: "'IBM Plex Sans', sans-serif" }}
-                  title={item.name}
-                >
-                  {item.name}
-                </h5>
-                <span
-                  className="small text-truncate mt-0.5"
-                  style={{ fontSize: '0.8rem', color: '#94A3B8' }}
-                >
-                  {item.subcategory} · Listed by <strong className="text-white fw-semibold">{item.providerOrg}</strong>
-                </span>
-              </div>
-            </div>
+            {getMarketplaceCharterLabel(item)}
+          </button>
+          {charterDisabledReason && (
+            <span id="marketplace-charter-reason" className="visually-hidden">
+              {charterDisabledReason}
+            </span>
+          )}
+        </span>
+      </div>
+    </div>
+  );
 
-            <button
-              type="button"
-              className="btn btn-sm text-white p-2 rounded-2 border-0 bg-transparent opacity-75 hover-opacity-100 ms-3 flex-shrink-0"
-              onClick={onClose}
-              aria-label="Close"
-              style={{ cursor: 'pointer' }}
-            >
-              <X size={20} />
-            </button>
-          </div>
-
-          {/* Modal Body */}
-          <div className="modal-body p-0">
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={item.name}
+      meta={
+        <span>
+          {item.subcategory} · Listed by <strong>{item.providerOrg}</strong>
+        </span>
+      }
+      size="lg"
+      paused={Boolean(previewCertDoc)}
+      footer={footerNode}
+      bodyClassName="p-0"
+    >
+      <div>
             {/* Hero Image & Overlay Banner */}
             {item.category === 'crew' ? (
               /* Dedicated Square 1:1 Portrait Layout for Crew Members */
@@ -783,108 +777,30 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
               )}
             </div>
 
-            {inquirySent && (
-              <div
-                className="mx-4 mb-3 p-3 rounded-2 d-flex align-items-center gap-2 text-success small border"
-                style={{
-                  backgroundColor: '#F0FDF4',
-                  borderColor: '#BBF7D0',
-                  color: '#15803D',
-                  fontSize: '0.82rem',
-                }}
-              >
-                <CheckCircle2 size={16} className="flex-shrink-0" />
-                <span>Your request was sent to {item.providerOrg}. They will contact you shortly.</span>
-              </div>
-            )}
-          </div>
-
-          {/* Modal Footer */}
-          <div
-            className="modal-footer d-flex flex-wrap align-items-center justify-content-between px-4 py-3 border-top flex-shrink-0"
-            style={{
-              backgroundColor: '#F8FAFC',
-              borderColor: '#E2E8F0',
-            }}
-          >
-            <div className="d-flex align-items-center gap-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5 px-3 py-1.5"
-                onClick={handleExportDossierPdf}
-                title="Export as PDF"
-                style={{ fontSize: '0.82rem', height: '34px' }}
-              >
-                <Download size={14} />
-                <span>Export</span>
-              </button>
-            </div>
-
-            <div className="d-flex align-items-center gap-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary px-3 py-1.5"
-                onClick={onClose}
-                style={{ fontSize: '0.82rem', height: '34px' }}
-              >
-                Close
-              </button>
-              {/* wrapper carries the tooltip because a disabled button does not fire hover events */}
-              <span
-                className="d-inline-flex"
-                title={charterDisabledReason}
-                tabIndex={charterDisabledReason ? 0 : undefined}
-              >
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary px-3.5 py-1.5 fw-medium text-white"
-                  disabled={Boolean(charterDisabledReason)}
-                  aria-describedby={charterDisabledReason ? 'marketplace-charter-reason' : undefined}
-                  onClick={() => {
-                    if (onCharter) {
-                      onCharter(item);
-                    } else {
-                      handleSendInquiry();
-                    }
-                  }}
-                  style={{
-                    backgroundColor: '#0B1B2B',
-                    borderColor: '#0B1B2B',
-                    fontSize: '0.82rem',
-                    height: '34px',
-                    pointerEvents: charterDisabledReason ? 'none' : undefined,
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#1E3A5F';
-                    e.currentTarget.style.borderColor = '#1E3A5F';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0B1B2B';
-                    e.currentTarget.style.borderColor = '#0B1B2B';
-                  }}
-                >
-                  {getMarketplaceCharterLabel(item)}
-                </button>
-                {charterDisabledReason && (
-                  <span id="marketplace-charter-reason" className="visually-hidden">
-                    {charterDisabledReason}
-                  </span>
-                )}
-              </span>
-            </div>
-          </div>
+        {inquirySent && (
+        <div
+          className="mx-4 mb-3 p-3 rounded-2 d-flex align-items-center gap-2 text-success small border"
+          style={{
+            backgroundColor: '#F0FDF4',
+            borderColor: '#BBF7D0',
+            color: '#15803D',
+            fontSize: '0.82rem',
+          }}
+        >
+          <CheckCircle2 size={16} className="flex-shrink-0" />
+          <span>Your request was sent to {item.providerOrg}. They will contact you shortly.</span>
         </div>
-      </div>
-
-      {/* Universal PDF Review Modal for Marketplace Certification */}
+      )}
       <UniversalDocumentPreviewModal
         isOpen={Boolean(previewCertDoc)}
         document={previewCertDoc}
         onClose={() => setPreviewCertDoc(null)}
         title={previewCertDoc ? `Official Certificate PDF — ${previewCertDoc.title}` : undefined}
         subtitle={item ? `${item.name} · ${item.providerOrg}` : undefined}
+        zIndex={1070}
       />
     </div>
+    </Modal>
   );
 };
 

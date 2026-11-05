@@ -6,7 +6,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  X,
   Ship,
   Wrench,
   Users,
@@ -22,6 +21,7 @@ import {
   Eye,
   Sparkles,
 } from 'lucide-react';
+import { Modal } from './Modal';
 import { useMapStore } from '../../store/useMapStore';
 import { Project, ProjectAssetLink, ProjectAssetType } from '../../types/project';
 import { MasterDocument, ComplianceState } from '../../types/document';
@@ -497,8 +497,6 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
   const comparisonPagination = usePagination(comparisonResults, [selectedAsset?.assetId, selectedAssuranceSetId]);
   const vaultPagination = usePagination(vaultDocuments, [selectedAsset?.assetId]);
 
-  if (!isOpen) return null;
-
   const getCategoryIcon = (type?: ProjectAssetType) => {
     switch (type || selectedAsset?.assetType) {
       case 'Vessel':
@@ -512,82 +510,65 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
     }
   };
 
-  return (
-    <div
-      className="modal show d-block map-modal-backdrop"
-      tabIndex={-1}
-      role="dialog"
-      style={{ zIndex: 1060, overflowY: 'auto' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) onClose();
-      }}
-    >
-      <div
-        className="modal-dialog modal-dialog-centered modal-dialog-scrollable"
-        role="document"
-        style={{ maxWidth: '940px', width: '94%', margin: '1.75rem auto' }}
+  const footerNode = selectedAsset ? (
+    <>
+      <button
+        type="button"
+        className="btn btn-sm btn-outline-secondary px-3 py-2 fw-medium"
+        onClick={() => setSelectedAsset(null)}
+        disabled={isSubmitting}
       >
-        <div
-          className="modal-content border-0 shadow-lg overflow-hidden w-100"
-          style={{ borderRadius: '10px', backgroundColor: '#FFFFFF' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* 1. Modal Header (Exact Marketplace Header Styling) */}
-          <div
-            className="modal-header d-flex align-items-center justify-content-between px-4 py-3 border-bottom flex-shrink-0"
-            style={{
-              backgroundColor: '#0B1B2B',
-              color: '#FFFFFF',
-              borderBottomColor: 'rgba(255, 255, 255, 0.12)',
-            }}
-          >
-            <div className="d-flex align-items-center gap-3 min-w-0">
-              <div
-                className="d-flex align-items-center justify-content-center bg-white rounded-2 p-1.5 shadow-sm flex-shrink-0"
-                style={{ width: '38px', height: '38px' }}
-              >
-                {selectedAsset ? getCategoryIcon(selectedAsset.assetType) : <Users size={18} className="text-primary" />}
-              </div>
-              <div className="d-flex flex-column min-w-0">
-                <h5
-                  className="modal-title fw-bold text-white mb-0 text-truncate"
-                  style={{ fontSize: '1.15rem', letterSpacing: '0.01em', fontFamily: "'IBM Plex Sans', sans-serif" }}
-                >
-                  Add Asset to Project
-                </h5>
-                <span className="small text-truncate mt-0.5" style={{ fontSize: '0.8rem', color: '#94A3B8' }}>
-                  Check the asset's documents against the project requirements.
-                </span>
-              </div>
-            </div>
+        Cancel
+      </button>
+      <button
+        type="button"
+        className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 px-4 py-2 fw-semibold"
+        style={{ backgroundColor: '#0B1B2B', borderColor: '#0B1B2B' }}
+        onClick={handleConfirmAddAsset}
+        disabled={isSubmitting || !selectedAssuranceSetId}
+      >
+        <Plus size={16} />
+        <span>{isSubmitting ? 'Linking to Charter...' : 'Add Asset to Project'}</span>
+      </button>
+    </>
+  ) : (
+    <>
+      <button
+        type="button"
+        className="btn btn-sm btn-outline-secondary px-3 py-2 fw-medium"
+        onClick={onClose}
+      >
+        Cancel
+      </button>
+      <div className="text-muted small">{pickerAssets.length} assets</div>
+    </>
+  );
 
-            <button
-              type="button"
-              className="btn btn-sm text-white p-2 rounded-2 border-0 bg-transparent opacity-75 hover-opacity-100 ms-3 flex-shrink-0"
-              onClick={onClose}
-              disabled={isSubmitting}
-              aria-label="Close"
-              style={{ cursor: 'pointer' }}
-            >
-              <X size={20} />
-            </button>
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Add Asset to Project"
+      meta={<span>Check the asset's documents against the project requirements.</span>}
+      size="xl"
+      dismissible={!isSubmitting}
+      footer={footerNode}
+      bodyClassName="p-0"
+    >
+      <div className="p-4" style={{ backgroundColor: '#F8FAFC' }}>
+        {errorMessage && (
+          <div className="alert alert-danger d-flex align-items-center gap-2 py-2.5 px-3 mb-3 small">
+            <AlertCircle size={16} />
+            <span>{errorMessage}</span>
           </div>
+        )}
 
-          {/* 2. Modal Body */}
-          <div className="modal-body p-4" style={{ backgroundColor: '#F8FAFC' }}>
-            {errorMessage && (
-              <div className="alert alert-danger d-flex align-items-center gap-2 py-2.5 px-3 mb-3 small">
-                <AlertCircle size={16} />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {successToast && (
-              <div className="alert alert-success d-flex align-items-center gap-2 py-2.5 px-3 mb-3 small">
-                <CheckCircle2 size={16} />
-                <span>{selectedAsset?.assetName} successfully nominated and linked to {project.name}.</span>
-              </div>
-            )}
+        {successToast && (
+          <div className="alert alert-success d-flex align-items-center gap-2 py-2.5 px-3 mb-3 small">
+            <CheckCircle2 size={16} />
+            <span>{selectedAsset?.assetName} successfully nominated and linked to {project.name}.</span>
+          </div>
+        )}
 
             {/* VIEW A: ASSET SELECTION CATALOG */}
             {!selectedAsset ? (
@@ -1088,53 +1069,6 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
               </div>
             )}
           </div>
-
-          {/* 3. Modal Footer */}
-          <div
-            className="modal-footer d-flex align-items-center justify-content-between px-4 py-3 border-top flex-shrink-0"
-            style={{ backgroundColor: '#FFFFFF', borderTopColor: '#E2E8F0' }}
-          >
-            {selectedAsset ? (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary px-3 py-2 fw-medium"
-                  onClick={() => setSelectedAsset(null)}
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 px-4 py-2 fw-semibold"
-                  style={{
-                    backgroundColor: '#0B1B2B',
-                    borderColor: '#0B1B2B',
-                  }}
-                  onClick={handleConfirmAddAsset}
-                  disabled={isSubmitting || !selectedAssuranceSetId}
-                >
-                  <Plus size={16} />
-                  <span>{isSubmitting ? 'Linking to Charter...' : 'Add Asset to Project'}</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary px-3 py-2 fw-medium"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                <div className="text-muted small">
-                  {pickerAssets.length} assets
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
