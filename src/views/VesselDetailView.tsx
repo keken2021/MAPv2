@@ -14,7 +14,7 @@ import {
 } from '../types/vessel';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
-import { formatMaritimeDate, getDaysUntilExpiry, getStatusDisplayLabel, getVesselStatusBadgeClass } from '../utils/formatters';
+import { formatMaritimeDate, getDaysUntilExpiry, getStatusDisplayLabel } from '../utils/formatters';
 import {
   getDemoSessionContext,
   getRoleDisplayLabel,
@@ -37,6 +37,7 @@ import { getVesselStockPhoto, CURATED_VESSEL_PHOTOS } from '../utils/vesselImage
 import { VesselImageCropModal } from '../components/modals/VesselImageCropModal';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
+import { StatusBadge } from '../components/common/StatusBadge';
 import { getVesselAssetStatus } from '../types/asset';
 import { getPhysicalInspectionsForAssuranceSets } from '../store/inspectionMockData';
 import { VesselActivityTab } from '../components/vessels/VesselActivityTab';
@@ -739,21 +740,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const renderClientOutcomeBadge = (outcome: VesselInformation['clientHistory'][0]['outcome']) => {
-    switch (outcome) {
-      case 'Approved':
-      case 'Completed':
-        return <span className="badge bg-success text-white">{outcome}</span>;
-      case 'Rejected':
-        return <span className="badge bg-danger text-white">{outcome}</span>;
-      case 'Returned for Correction':
-        return <span className="badge bg-warning text-dark">{outcome}</span>;
-      case 'In Progress':
-        return <span className="badge bg-primary text-white">{outcome}</span>;
-      default:
-        return <span className="badge bg-secondary">{outcome}</span>;
-    }
-  };
+  const renderClientOutcomeBadge = (outcome: VesselInformation['clientHistory'][0]['outcome']) => (
+    <StatusBadge value={outcome} />
+  );
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -1728,7 +1717,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       <div className="fw-semibold">{item.name}</div>
                       <div className="text-muted small">{item.category} · {item.equipmentIdentifier}</div>
                     </div>
-                    <span className="badge bg-light text-dark border">{item.availabilityStatus}</span>
+                    <StatusBadge value={item.availabilityStatus} />
                   </button>
                 ))}
               </div>
@@ -1950,9 +1939,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                             <div className="text-secondary small">{insp.location}</div>
                           </td>
                           <td>
-                            <span className={`badge ${insp.status === 'Completed' ? 'bg-success text-white' : 'bg-primary text-white'} font-mono-code`}>
-                              {insp.status}
-                            </span>
+                            <StatusBadge value={insp.status} />
                           </td>
                           <td className="text-end">
                             <div className="d-flex align-items-center justify-content-end gap-1.5">
@@ -2154,9 +2141,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                 <div className="text-secondary font-mono-code" style={{ fontSize: '0.725rem' }}>{chk.ref}</div>
                               </td>
                               <td>
-                                <span className={`badge ${chk.status === 'Satisfactory' ? 'bg-success text-white' : chk.status === 'Observation' ? 'bg-warning text-dark' : 'bg-danger text-white'} font-mono-code`}>
-                                  {chk.status}
-                                </span>
+                                <StatusBadge value={chk.status} />
                               </td>
                               <td className="small text-dark">
                                 {chk.notes}
@@ -2263,9 +2248,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                                 <td className="small">{capa.owner}</td>
                                 <td className="font-mono-code small">{capa.dueDate}</td>
                                 <td>
-                                  <span className={`badge ${capa.status === 'Verified & Closed' ? 'bg-success text-white' : capa.status === 'Under Re-Inspection' ? 'bg-warning text-dark' : 'bg-danger text-white'} font-mono-code`}>
-                                    {capa.status}
-                                  </span>
+                                  <StatusBadge value={capa.status} />
                                 </td>
                                 <td className="text-end">
                                   <button
@@ -2430,7 +2413,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                               {effectDisplay}
                             </td>
                             <td>
-                              <span className={`badge ${getVesselStatusBadgeClass(v.status)}`}>{v.status}</span>
+                              <StatusBadge value={v.status} />
                             </td>
                             <td>
                               <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
