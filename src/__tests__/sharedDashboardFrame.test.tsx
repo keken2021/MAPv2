@@ -183,5 +183,33 @@ describe('SharedDashboardFrame', () => {
     expect(screen.getByTestId('empty-activity-state')).toBeInTheDocument();
     expect(screen.getByText('No recent activity')).toBeInTheDocument();
   });
-});
 
+  it('ensures the frame root has no card background or border', () => {
+    const config = createSampleConfig();
+    render(<SharedDashboardFrame config={config} />);
+
+    const frame = screen.getByTestId('shared-dashboard-frame');
+    expect(frame.className).toContain('map-dashboard-frame');
+    expect(frame.className).not.toMatch(/\bbg-(?:slate|white|gray)\b/);
+    expect(frame.className).not.toMatch(/\bborder\b/);
+    expect(frame.className).not.toMatch(/\brounded\b/);
+  });
+
+  it('ensures no rendered element carries a red-, amber-, green-, blue- or slate- palette class', () => {
+    const config = createSampleConfig();
+    const { container } = render(<SharedDashboardFrame config={config} />);
+
+    const allElements = container.querySelectorAll('*');
+    const palettePattern = /(?:red|amber|green|blue|slate)-[0-9]+/i;
+
+    const violatingElements: { tag: string; className: string }[] = [];
+    allElements.forEach((el) => {
+      const cls = el.getAttribute('class') || '';
+      if (palettePattern.test(cls)) {
+        violatingElements.push({ tag: el.tagName, className: cls });
+      }
+    });
+
+    expect(violatingElements).toEqual([]);
+  });
+});
