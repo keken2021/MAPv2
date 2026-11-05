@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
 import { MOCK_CREW_GROUPS } from '../store/crewMockData';
-import { clickNext, objectRowIds } from './assuranceWizardTestHelpers';
+import { clickNext, objectRowIds, pickReviewerRoles } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -58,6 +58,7 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
 
   it('copies member snapshot at creation and preserves snapshot when master roster changes', () => {
     const { container } = render(<CreateAssuranceSetView />);
+    pickReviewerRoles(container);
 
     // Step 1: Set unique title
     const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
@@ -74,6 +75,9 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
     expect(rowIds).toContain('CREW-102');
     expect(rowIds).toContain('CREW-103');
     expect(rowIds).toContain('CREW-105');
+    fireEvent.click(screen.getByRole('button', { name: /^1\s*General/ }));
+    pickReviewerRoles(container);
+    clickNext();
 
     // Step 3: Requirements
     clickNext();

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { addObject, clickNext, objectRowIds, removeObjectRow } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectRowIds, removeObjectRow, pickReviewerRoles } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -89,6 +89,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
 
   it('saves an Optional document with isMandatory: false', () => {
     const { container } = render(<CreateAssuranceSetView />);
+    pickReviewerRoles(container);
     // Set unique title on General tab
     const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: 'Optional Document Vetting Campaign' } });
@@ -127,6 +128,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
 
   it('adds a custom document from the search', () => {
     const { container } = render(<CreateAssuranceSetView />);
+    pickReviewerRoles(container);
     // Set unique title on General tab
     const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: 'Custom Search Document Vetting Campaign' } });
@@ -189,6 +191,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
 
   it('shows empty state when all documents of a type are removed', () => {
     const { container } = render(<CreateAssuranceSetView />);
+    pickReviewerRoles(container);
     clickNext(); // To Objects
     clickNext(); // To Requirements
 
@@ -196,6 +199,6 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
     const removeButtons = container.querySelectorAll('#docs-list-Vessel button[title="Remove document"]');
     removeButtons.forEach((btn) => fireEvent.click(btn));
 
-    expect(screen.getByText('No Vessel documents. Search to add one.')).toBeInTheDocument();
+    expect(screen.getByText('No documents in Vessel. Search above or select a template to add documents.')).toBeInTheDocument();
   });
 });

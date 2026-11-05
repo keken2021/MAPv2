@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { addObject, clickNext, objectItemSelect, objectRowIds, removeObjectRow } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectItemSelect, objectRowIds, removeObjectRow, pickReviewerRoles } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -135,6 +135,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
 
   it('renders itemized individual table rows for each selected crew member in review', () => {
     const { container } = render(<CreateAssuranceSetView />);
+    pickReviewerRoles(container);
     clickNext();
     removeObjectRow(container, objectRowIds(container)[0]);
 
@@ -144,6 +145,9 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
     const [firstId, secondId] = [free[0].value, free[1].value];
     addObject(container, 'person', firstId);
     addObject(container, 'person', secondId);
+    fireEvent.click(screen.getByRole('button', { name: /^1\s*General/ }));
+    pickReviewerRoles(container);
+    clickNext();
 
     /* Next to Requirements, then Review */
     clickNext();

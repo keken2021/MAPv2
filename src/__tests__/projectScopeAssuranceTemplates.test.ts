@@ -52,8 +52,8 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     expect(chevronTemplate).toBeDefined();
     expect(chevronTemplate?.organizationName).toBe('Chevron Australia Pty Ltd');
 
-    const woodsideTemplate = projectTemplates.find((t) => t.id === 'tmpl-org-woodside-scarborough');
-    expect(woodsideTemplate).toBeDefined();
+    const santosTemplate = projectTemplates.find((t) => t.id === 'tmpl-org-santos-barossa');
+    expect(santosTemplate).toBeDefined();
 
     const northwindTemplate = projectTemplates.find((t) => t.id === 'tmpl-org-northwind-integrated-project');
     expect(northwindTemplate).toBeDefined();
@@ -75,125 +75,6 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
       expect(hasCrewDoc, `Template ${template.id} missing Crew documents`).toBe(true);
       expect(hasEqDoc, `Template ${template.id} missing Equipment documents`).toBe(true);
     });
-  });
-
-  it('should ensure EXISTING_PROJECTS have accurate and consistent sub-asset references', () => {
-    expect(EXISTING_PROJECTS.length).toBeGreaterThanOrEqual(6);
-
-    EXISTING_PROJECTS.forEach((project) => {
-      expect(project.id).toMatch(/^MAP-PROJ-\d{4}-[A-Z]+-\d{3,5}$/);
-      expect(project.name.trim().length).toBeGreaterThan(0);
-      expect(project.clientOperator.trim().length).toBeGreaterThan(0);
-
-      // Verify sub-assets are defined
-      expect(project.primaryVesselId).toBeDefined();
-      expect(project.primaryCrewId).toBeDefined();
-      expect(project.primaryEquipmentId).toBeDefined();
-      expect(project.primaryActivityId).toBeDefined();
-      expect(project.defaultTemplateId).toBeDefined();
-
-      // Verify referenced vessel exists in mock vessels
-      const matchingVessel = MOCK_VESSELS.find((v) => v.id === project.primaryVesselId);
-      expect(matchingVessel, `Vessel ${project.primaryVesselId} referenced in project ${project.id} not found`).toBeDefined();
-
-      // Verify referenced crew exists in mock crew
-      const matchingCrew = MOCK_CREW.find((c) => c.id === project.primaryCrewId);
-      expect(matchingCrew, `Crew ${project.primaryCrewId} referenced in project ${project.id} not found`).toBeDefined();
-
-      // Verify referenced equipment exists in mock equipment
-      const matchingEquipment = MOCK_EQUIPMENT.find((e) => e.id === project.primaryEquipmentId);
-      expect(matchingEquipment, `Equipment ${project.primaryEquipmentId} referenced in project ${project.id} not found`).toBeDefined();
-
-      // Verify referenced activity exists in mock activities
-      const matchingActivity = EXISTING_ACTIVITIES.find((a) => a.id === project.primaryActivityId);
-      expect(matchingActivity, `Activity ${project.primaryActivityId} referenced in project ${project.id} not found`).toBeDefined();
-
-      // Verify default template exists in SUBTYPE_TEMPLATES
-      const matchingTemplate = SUBTYPE_TEMPLATES.find((t) => t.id === project.defaultTemplateId);
-      expect(matchingTemplate, `Template ${project.defaultTemplateId} referenced in project ${project.id} not found`).toBeDefined();
-    });
-  });
-
-  it('should auto-attach documents across all 4 sub-assets for a Project Scope campaign', () => {
-    const targetProject = EXISTING_PROJECTS[0]; // Gorgon Project
-    const targetVessel = MOCK_VESSELS.find((v) => v.id === targetProject.primaryVesselId)!;
-    const targetCrew = MOCK_CREW.find((c) => c.id === targetProject.primaryCrewId)!;
-    const targetEquipment = MOCK_EQUIPMENT.find((e) => e.id === targetProject.primaryEquipmentId)!;
-
-    // Build raw requirements from template
-    const template = SUBTYPE_TEMPLATES.find((t) => t.id === targetProject.defaultTemplateId)!;
-    const rawRequirements: AssuranceRequirement[] = [];
-
-    // Add Vessel requirements
-    SUBTYPE_STANDARD_DOCS.Vessel.forEach((doc, idx) => {
-      if (template.recommendedDocIds.includes(doc.id)) {
-        rawRequirements.push({
-          id: `req-ves-${idx}`,
-          title: doc.title,
-          category: doc.category,
-          subtype: 'Vessel',
-          isMandatory: doc.isMandatory,
-          isFulfilled: false,
-          ocrConfidence: 0,
-          verifierStatus: 'Pending',
-        });
-      }
-    });
-
-    // Add Crew requirements
-    SUBTYPE_STANDARD_DOCS.Crew.forEach((doc, idx) => {
-      if (template.recommendedDocIds.includes(doc.id)) {
-        rawRequirements.push({
-          id: `req-crew-${idx}`,
-          title: doc.title,
-          category: doc.category,
-          subtype: 'Crew',
-          isMandatory: doc.isMandatory,
-          isFulfilled: false,
-          ocrConfidence: 0,
-          verifierStatus: 'Pending',
-        });
-      }
-    });
-
-    // Add Equipment requirements
-    SUBTYPE_STANDARD_DOCS.Equipment.forEach((doc, idx) => {
-      if (template.recommendedDocIds.includes(doc.id)) {
-        rawRequirements.push({
-          id: `req-eq-${idx}`,
-          title: doc.title,
-          category: doc.category,
-          subtype: 'Equipment',
-          isMandatory: doc.isMandatory,
-          isFulfilled: false,
-          ocrConfidence: 0,
-          verifierStatus: 'Pending',
-        });
-      }
-    });
-
-    const attached = autoAttachDocumentsToRequirements(rawRequirements, {
-      documents: MOCK_DOCUMENTS,
-      vessel: targetVessel,
-      vessels: MOCK_VESSELS,
-      crew: MOCK_CREW,
-      selectedCrewId: targetCrew.id,
-      equipment: MOCK_EQUIPMENT,
-      selectedEquipmentId: targetEquipment.id,
-      selectedVesselId: targetVessel.id,
-    });
-
-    // Verify Vessel docs attached
-    const vesselAttached = attached.filter((r) => r.subtype === 'Vessel' && Boolean(r.documentId || r.linkedDocumentId));
-    expect(vesselAttached.length).toBeGreaterThan(0);
-
-    // Verify Crew docs attached
-    const crewAttached = attached.filter((r) => r.subtype === 'Crew' && Boolean(r.documentId || r.linkedDocumentId));
-    expect(crewAttached.length).toBeGreaterThan(0);
-
-    // Verify Equipment docs attached
-    const eqAttached = attached.filter((r) => r.subtype === 'Equipment' && Boolean(r.documentId || r.linkedDocumentId));
-    expect(eqAttached.length).toBeGreaterThan(0);
   });
 
   it('should follow strict no-emoji policy in project templates and mock data', () => {

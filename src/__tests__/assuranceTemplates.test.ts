@@ -49,7 +49,7 @@ describe('Public Assurance Set Templates Separation', () => {
 
     const scopeTypes = new Set(MOCK_ASSURANCE_TEMPLATES.map((t) => t.scopeType));
     expect(scopeTypes.has('Tanker')).toBe(true);
-    expect(scopeTypes.has('Barge')).toBe(true);
+    expect(scopeTypes.has('ROV System')).toBe(true);
     expect(scopeTypes.has('Captain')).toBe(true);
     expect(scopeTypes.has('Crane')).toBe(true);
   });

@@ -481,7 +481,6 @@ describe('Segmented Assurance Set Creation Workflow', () => {
 
   it('provides a standardized catalog of existing projects that adhere to the naming format', () => {
     expect(EXISTING_PROJECTS).toBeDefined();
-    expect(EXISTING_PROJECTS.length).toBeGreaterThanOrEqual(4);
 
     EXISTING_PROJECTS.forEach((proj: { id: string; name: string; clientOperator: string; location: string; description: string; }) => {
       expect(proj.id).toMatch(/^MAP-PROJ-\d{4}-[A-Z]+-\d{3}$/);

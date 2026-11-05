@@ -2699,16 +2699,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               );
             })}
           </div>
-          <div className="progress mt-2.5" style={{ height: '4px' }}>
-            <div
-              className="progress-bar bg-primary"
-              role="progressbar"
-              style={{ width: `${(currentStep / totalSteps) * 100}%`, transition: 'width 0.3s ease' }}
-              aria-valuenow={(currentStep / totalSteps) * 100}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            />
-          </div>
         </div>
 
         {/* Wizard Main Content Body */}
@@ -2725,7 +2715,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <div className="card border shadow-2xs rounded-3 bg-white">
                 <div className="card-header bg-light border-bottom px-4 py-3">
                   <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    1. Assurance Set Identification
+                    Identification
                   </h5>
                 </div>
                 <div className="card-body p-4">
@@ -2943,7 +2933,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <div>
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      2. Template Privacy &amp; Distribution Scope
+                      Template Privacy
                     </h5>
                     <div className="text-muted small">
                       Choose who can reuse this assurance set as a template.

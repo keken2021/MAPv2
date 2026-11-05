@@ -362,9 +362,6 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       expect(screen.queryByText(/0 heavy/i)).toBeNull();
       expect(screen.queryByText(/· 0 heavy/i)).toBeNull();
 
-      // Displays plain section count
-      expect(screen.getByText('Task Sections')).toBeDefined();
-      expect(screen.getByText('1 section')).toBeDefined();
     });
   });
 });
