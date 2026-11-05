@@ -120,6 +120,9 @@ describe('CreateAssuranceSetView Objects Step', () => {
     setupStep1(container);
     clickNext();
 
+    const removeBtn1 = container.querySelector('[data-testid^="assurance-object-row-"] button[title="Remove object"]') as HTMLButtonElement | null;
+    if (removeBtn1) fireEvent.click(removeBtn1);
+
     expect(container.querySelectorAll('#grid-add-object-type')).toHaveLength(1);
     expect(container.querySelectorAll('#grid-add-object-item')).toHaveLength(1);
 
@@ -138,6 +141,9 @@ describe('CreateAssuranceSetView Objects Step', () => {
     const { container } = render(<CreateAssuranceSetView />);
     setupStep1(container);
     clickNext();
+
+    const removeBtn2 = container.querySelector('[data-testid^="assurance-object-row-"] button[title="Remove object"]') as HTMLButtonElement | null;
+    if (removeBtn2) fireEvent.click(removeBtn2);
 
     expect(container.querySelectorAll('[data-testid^="assurance-object-row-"]')).toHaveLength(0);
 

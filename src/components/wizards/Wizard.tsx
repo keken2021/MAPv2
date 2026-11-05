@@ -11,6 +11,8 @@ export interface WizardProps {
   steps: WizardStep[];
   currentStepId: string;
   onStepChange: (stepId: string) => void;
+  onCancel?: () => void;
+  cancelLabel?: string;
   onSaveDraft?: () => void;
   saveDraftLabel?: string;
   onSubmit: () => void;
@@ -26,6 +28,7 @@ export interface WizardProps {
   isSubmitting?: boolean;
   isSavingDraft?: boolean;
   layout?: 'page' | 'modal';
+  showProgressBar?: boolean;
   children: React.ReactNode;
   className?: string;
 }
@@ -34,6 +37,8 @@ export const Wizard: React.FC<WizardProps> = ({
   steps,
   currentStepId,
   onStepChange,
+  onCancel,
+  cancelLabel,
   onSaveDraft,
   saveDraftLabel,
   onSubmit,
@@ -46,6 +51,7 @@ export const Wizard: React.FC<WizardProps> = ({
   isSubmitting = false,
   isSavingDraft = false,
   layout = 'page',
+  showProgressBar = true,
   children,
   className = '',
 }) => {
@@ -216,16 +222,18 @@ export const Wizard: React.FC<WizardProps> = ({
             })}
           </div>
 
-          <div className="progress mt-2.5" style={{ height: '4px' }}>
-            <div
-              className="progress-bar bg-primary"
-              role="progressbar"
-              style={{ width: `${progressPercent}%`, transition: 'width 0.3s ease' }}
-              aria-valuenow={progressPercent}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            />
-          </div>
+          {showProgressBar && (
+            <div className="progress mt-2.5" style={{ height: '4px' }}>
+              <div
+                className="progress-bar bg-primary"
+                role="progressbar"
+                style={{ width: `${progressPercent}%`, transition: 'width 0.3s ease' }}
+                aria-valuenow={progressPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -244,24 +252,21 @@ export const Wizard: React.FC<WizardProps> = ({
         className={
           isModal
             ? 'd-flex align-items-center justify-content-between pt-2 border-top'
-            : 'card border shadow-sm rounded-3 bg-white p-3 d-flex flex-row align-items-center justify-content-between'
+            : 'card border shadow-sm rounded-3 bg-white p-3 d-flex flex-row align-items-center justify-content-between flex-wrap gap-2'
         }
       >
-        <div>
-          {currentIndex > 0 && (
+        <div className="d-flex align-items-center gap-2">
+          {onCancel && (
             <button
               type="button"
               className="btn btn-sm btn-outline-secondary"
-              onClick={handleBack}
+              onClick={onCancel}
               disabled={isSubmitting}
-              data-testid="wizard-back"
+              data-testid="wizard-cancel"
             >
-              {backLabel || 'Back'}
+              {cancelLabel || 'Cancel'}
             </button>
           )}
-        </div>
-
-        <div className="d-flex align-items-center gap-2">
           {onSaveDraft && (
             <button
               type="button"
@@ -271,6 +276,20 @@ export const Wizard: React.FC<WizardProps> = ({
               data-testid="wizard-save-draft"
             >
               {isSavingDraft ? 'Saving...' : saveDraftLabel || 'Save Draft'}
+            </button>
+          )}
+        </div>
+
+        <div className="d-flex align-items-center gap-2">
+          {currentIndex > 0 && (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={handleBack}
+              disabled={isSubmitting}
+              data-testid="wizard-back"
+            >
+              {backLabel || 'Back'}
             </button>
           )}
 

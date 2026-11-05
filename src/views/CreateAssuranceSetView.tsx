@@ -100,6 +100,7 @@ import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resol
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X, FolderPlus, Layers } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
+import { Wizard, WizardStep } from '../components/wizards/Wizard';
 
 interface SpecializedDoc {
   id: string;
@@ -1516,6 +1517,68 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       scope === 'Crew' ? (selectedCrewMembers.map((c) => `${c.fullName} (${c.rank})`).join(', ') || 'Crew') :
         `${getScopeAssetName(scope)} (Tag: ${selectedEquipment?.equipmentIdentifier || 'N/A'})`;
 
+  const currentStepId = steps[currentStep - 1]?.id || steps[0].id;
+
+  const wizardSteps = useMemo<WizardStep[]>(
+    () =>
+      steps.map((step, idx) => ({
+        id: step.id,
+        label: step.label,
+        check: () => {
+          setErrorMessage('');
+          const errs = getStepErrors(idx + 1);
+          setFieldErrors(errs);
+          return Object.keys(errs).length > 0 ? errs : null;
+        },
+      })),
+    [
+      steps,
+      title,
+      startDate,
+      endDate,
+      complianceDeadline,
+      verifierOrg,
+      approverOrg,
+      inspectorOrg,
+      verificationRequired,
+      approvalRequired,
+      inspectionRequired,
+      selectedAssuranceObjects,
+      orgPartyRoles,
+      effectiveRespondingParty,
+      editingDraftId,
+      assuranceSets,
+      vesselChoices,
+    ],
+  );
+
+  const canJumpTo = useCallback(
+    (targetStepId: string): boolean => {
+      const targetIdx = steps.findIndex((s) => s.id === targetStepId);
+      const targetStepNum = targetIdx + 1;
+      if (targetStepNum === currentStep) return true;
+      if (currentStep === 3) {
+        return Object.keys(getStepErrors(3)).length === 0;
+      }
+      const isPast = currentStep > targetStepNum;
+      if (isPast) return true;
+      return Object.keys(getStepErrors(currentStep)).length === 0;
+    },
+    [steps, currentStep, getStepErrors],
+  );
+
+  const handleStepChange = useCallback(
+    (targetStepId: string) => {
+      setErrorMessage('');
+      setFieldErrors({});
+      const targetIdx = steps.findIndex((s) => s.id === targetStepId);
+      if (targetIdx !== -1) {
+        setCurrentStep(targetIdx + 1);
+      }
+    },
+    [steps],
+  );
+
   /* providers submit: each object owner submits for its own objects, the service provider submits for the rest */
   const providers = setProviders(selectedAssuranceObjects, setClientOrg, serviceProviderOrg);
   const providerSubmitters = providers.map((organization) => ({
@@ -2688,86 +2751,34 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         </div>
       </div>
 
-      {/* Segmented Step Header & Progress Bar */}
-      <div className="card border shadow-sm rounded-3 bg-white mb-4 overflow-hidden">
-        <div className="bg-light px-4 py-3 border-bottom">
-          <div className="d-flex align-items-center justify-content-between flex-nowrap overflow-x-auto text-nowrap gap-2 pb-1">
-            {steps.map((step, idx) => {
-              const stepNum = idx + 1;
-              const isCurrent = currentStep === stepNum;
-              const isPast = currentStep > stepNum;
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  className={`btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 text-nowrap transition-all ${isCurrent ? 'text-primary fw-bold' : isPast ? 'text-dark fw-semibold' : 'text-muted'
-                    }`}
-                  style={{ fontSize: '0.8125rem' }}
-                  onClick={() => {
-                    if (currentStep === 3) {
-                      if (validateCurrentStep()) {
-                        setCurrentStep(stepNum);
-                      }
-                    } else if (isPast || validateCurrentStep()) {
-                      setCurrentStep(stepNum);
-                    }
-                  }}
-                >
-                  <span
-                    className={`d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0 ${isCurrent
-                      ? 'bg-primary text-white shadow-2xs'
-                      : isPast
-                        ? 'bg-success text-white'
-                        : 'bg-white text-secondary border'
-                      }`}
-                    style={{ width: '22px', height: '22px', fontSize: '0.725rem', fontWeight: 700 }}
-                  >
-                    {stepNum}
-                  </span>
-                  <span>{step.label}</span>
-                  {idx < steps.length - 1 && (
-                    <span className="text-secondary-subtle opacity-50 ms-1 select-none" style={{ fontSize: '0.75rem' }}>
-                      &rsaquo;
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <div className="progress mt-2.5" style={{ height: '4px' }}>
-            <div
-              className="progress-bar bg-primary"
-              role="progressbar"
-              style={{ width: `${(currentStep / totalSteps) * 100}%`, transition: 'width 0.3s ease' }}
-              aria-valuenow={(currentStep / totalSteps) * 100}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            />
-          </div>
-        </div>
-
-        {/* Wizard Main Content Body */}
-        <div className="card-body p-4">
-          {dateNotice && (
-            <div
-              className="toast show position-fixed top-0 end-0 m-3 border-0 shadow"
-              style={{ zIndex: 2000, maxWidth: '380px' }}
-              role="status"
-              aria-live="polite"
-              data-testid="date-change-notice"
-            >
-              <div className="toast-header">
-                <strong className="me-auto small">Date adjusted</strong>
-                <button type="button" className="btn-close" aria-label="Dismiss" onClick={() => setDateNotice('')} />
-              </div>
-              <div className="toast-body small">{dateNotice}</div>
+      <Wizard
+        steps={wizardSteps}
+        currentStepId={currentStepId}
+        onStepChange={handleStepChange}
+        canJumpTo={canJumpTo}
+        onCancel={handleCancelClick}
+        onSaveDraft={handleSaveDraft}
+        saveDraftLabel={editingDraftId ? 'Save Draft' : 'Save as Draft'}
+        onSubmit={handleSubmit}
+        submitLabel="Create Assurance Set"
+        errorMessage={errorMessage}
+        showProgressBar={false}
+      >
+        {dateNotice && (
+          <div
+            className="toast show position-fixed top-0 end-0 m-3 border-0 shadow"
+            style={{ zIndex: 2000, maxWidth: '380px' }}
+            role="status"
+            aria-live="polite"
+            data-testid="date-change-notice"
+          >
+            <div className="toast-header">
+              <strong className="me-auto small">Date adjusted</strong>
+              <button type="button" className="btn-close" aria-label="Dismiss" onClick={() => setDateNotice('')} />
             </div>
-          )}
-          {errorMessage && (
-            <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="wizard-error-message">
-              {errorMessage}
-            </div>
-          )}
+            <div className="toast-body small">{dateNotice}</div>
+          </div>
+        )}
           {/* GENERAL TAB: identification, contract period, template privacy and stakeholders */}
           {currentStepData.id === 'step-general' && (
             <div className="d-flex flex-column gap-4">
@@ -2775,7 +2786,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <div className="card border shadow-2xs rounded-3 bg-white">
                 <div className="card-header bg-light border-bottom px-4 py-3">
                   <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    1. Assurance Set Identification
+                    Identification
                   </h5>
                 </div>
                 <div className="card-body p-4">
@@ -4028,9 +4039,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   <div>
 
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">
-
-                      Template Privacy &amp; Distribution Scope
-
+                      Template Privacy
                     </h5>
 
                     <div className="text-muted small">
@@ -4481,60 +4490,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                 </div>
               </div>
             )}
-        </div>
-
-        {/* Wizard Footer Navigation Bar */}
-        <div className="card-footer bg-light border-top px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-          <div className="d-flex align-items-center gap-2">
-            <button
-              type="button"
-              className="btn btn-outline-secondary px-3.5 py-1.5"
-              onClick={handleCancelClick}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary px-3.5 py-1.5 fw-semibold"
-              onClick={handleSaveDraft}
-              title={editingDraftId ? "Save updated state to current draft" : "Save current progress as a draft and resume later"}
-            >
-              {editingDraftId ? 'Save Draft' : 'Save as Draft'}
-            </button>
-          </div>
-
-          <div className="d-flex align-items-center gap-2">
-            {currentStep > 1 && (
-              <button
-                type="button"
-                className="btn btn-outline-primary px-3.5 py-1.5 fw-semibold"
-                onClick={handlePrevious}
-              >
-                Back
-              </button>
-            )}
-
-            {currentStep < totalSteps ? (
-              <button
-                type="button"
-                className="btn btn-primary text-white px-4 py-1.5 fw-semibold"
-                onClick={handleNext}
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn text-white px-5 py-2 fw-semibold shadow-sm"
-                style={{ backgroundColor: 'rgb(11, 27, 43)', borderColor: 'rgb(11, 27, 43)' }}
-                onClick={handleSubmit}
-              >
-                Create Assurance Set
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      </Wizard>
 
       {/* Cancel / Exit Confirmation Modal with Save Draft Option */}
       {showCancelPrompt && (
