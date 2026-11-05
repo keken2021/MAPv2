@@ -629,6 +629,19 @@ div.map-autofill-animate {
   z-index: 1040;
 }
 
+/* Shared Modal Shell */
+@media (max-width: 575.98px) {
+  .map-modal-dialog {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  .map-modal-container {
+    padding: 0 !important;
+  }
+}
+
 /* ============================================================
    drawer shell: a panel that slides in from the right edge.
    a modal is centered; a drawer keeps the page visible behind it.
