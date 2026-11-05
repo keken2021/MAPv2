@@ -28,6 +28,7 @@ import {
 import { formatUserRoles, getRoleDisplayLabel } from '../utils/userRoleHelpers';
 import { filterUsersForPersona } from '../utils/rbacHelpers';
 import { UserProfile } from '../types/user';
+import { SearchableSelect } from '../components/common/SearchableSelect';
 
 type SettingsTab = 'role-defaults' | 'user-permissions';
 
@@ -63,8 +64,6 @@ export const RolesAndPermissionsView: React.FC = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>(
     () => visibleUsers[0]?.id ?? '',
   );
-  const [userSearchQuery, setUserSearchQuery] = useState('');
-  const [userPickerOpen, setUserPickerOpen] = useState(false);
 
   const [draftRoleMatrix, setDraftRoleMatrix] = useState<RolePermissionMatrix>(() =>
     cloneMatrix(rolePermissionDefaults),
@@ -83,22 +82,16 @@ export const RolesAndPermissionsView: React.FC = () => {
     [visibleUsers, selectedUserId],
   );
 
-  const filteredUsers = useMemo(() => {
-    const q = userSearchQuery.trim().toLowerCase();
-    if (!q) return visibleUsers;
-    return visibleUsers.filter((u) => {
-      const haystack = [
-        u.name,
-        u.email,
-        u.organization,
-        u.departmentOrScope,
-        formatUserRoles(u.roles),
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [visibleUsers, userSearchQuery]);
+  const userSelectItems = useMemo(
+    () =>
+      visibleUsers.map((u) => ({
+        id: u.id,
+        label: u.name,
+        hint: `${formatUserRoles(u.roles)} · ${u.organization}`,
+        searchText: `${u.email} ${u.departmentOrScope ?? ''}`,
+      })),
+    [visibleUsers],
+  );
 
   const canEdit = activePersona === 'Administrator';
   const allRoles = useMemo(
@@ -218,8 +211,6 @@ export const RolesAndPermissionsView: React.FC = () => {
 
   const selectUser = (user: UserProfile) => {
     setSelectedUserId(user.id);
-    setUserSearchQuery('');
-    setUserPickerOpen(false);
   };
 
   return (
@@ -342,61 +333,24 @@ export const RolesAndPermissionsView: React.FC = () => {
                 <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="perm-user-search">
                   User
                 </label>
-                <div className="map-user-search-wrap position-relative">
-                  <input
-                    id="perm-user-search"
-                    type="search"
-                    className="form-control"
-                    placeholder="Search users..."
-                    value={
-                      userPickerOpen || userSearchQuery
-                        ? userSearchQuery
-                        : selectedUser
-                          ? `${selectedUser.name} · ${formatUserRoles(selectedUser.roles)}`
-                          : ''
-                    }
-                    onChange={(e) => {
-                      setUserSearchQuery(e.target.value);
-                      setUserPickerOpen(true);
-                    }}
-                    onFocus={() => {
-                      setUserPickerOpen(true);
-                      setUserSearchQuery('');
-                    }}
-                    onBlur={() => {
-                      window.setTimeout(() => setUserPickerOpen(false), 150);
-                    }}
-                    autoComplete="off"
-                  />
-                  {userPickerOpen && (
-                    <div className="map-user-search-dropdown" role="listbox">
-                      {filteredUsers.length === 0 ? (
-                        <div className="map-user-search-empty text-secondary small px-3 py-2">
-                          No users match “{userSearchQuery}”
-                        </div>
-                      ) : (
-                        filteredUsers.map((u) => (
-                          <button
-                            key={u.id}
-                            type="button"
-                            role="option"
-                            className={`map-user-search-option ${u.id === selectedUser?.id ? 'is-active' : ''}`}
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => selectUser(u)}
-                          >
-                            <span className="fw-semibold text-dark d-block">{u.name}</span>
-                            <span className="small text-secondary">
-                              {u.email} · {formatUserRoles(u.roles)} · {u.organization}
-                            </span>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
+                <SearchableSelect
+                  id="perm-user-search"
+                  items={userSelectItems}
+                  onSelect={(item) => {
+                    const user = visibleUsers.find((u) => u.id === item.id);
+                    if (user) selectUser(user);
+                  }}
+                  placeholder={
+                    selectedUser
+                      ? `${selectedUser.name} · ${formatUserRoles(selectedUser.roles)}`
+                      : 'Search users...'
+                  }
+                  emptyLabel="No users match"
+                  aria-label="Search users"
+                />
                 <div className="form-text">
                   {visibleUsers.length} user{visibleUsers.length === 1 ? '' : 's'} available
-                  {userSearchQuery.trim() ? ` · showing ${filteredUsers.length}` : ''}
+                  {selectedUser ? ` · selected ${selectedUser.name}` : ''}
                 </div>
               </div>
               <div className="col-md-5">
