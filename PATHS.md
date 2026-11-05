@@ -119,7 +119,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter shared pieces: `src/__tests__/sharedPieces.test.tsx` (CountTabs, StatusBadge, ListToolbar, DetailHeader)
 - Unit tests for UI declutter Approver Dashboard: `src/__tests__/approverDashboardDeclutter.test.tsx` (CountTabs, Due column, 1 badge/action per row, detail view cleanup)
 - Unit tests for UI declutter Submitter Dashboard: `src/__tests__/dashboardSubmitterSession.test.tsx` (per-person filtering with useSessionUser, 13 sets for M. Chen)
-- Unit tests for shared dashboard frame: `src/__tests__/sharedDashboardFrame.test.tsx` (role dashboard shared frame layout, KPI tiles, responsive stacking below 900px, empty action state)
+- Unit tests for shared dashboard frame: `src/__tests__/sharedDashboardFrame.test.tsx` (role dashboard shared frame layout, KPI tiles, responsive stacking below 900px, empty action state, zero raw Tailwind palette colors, outer card removal, system spacing)
 - Unit tests for KPI tile navigation: `src/__tests__/dashboardTileNavigation.test.tsx` (KPI tiles open filtered list screens with matching counts across all 5 roles)
 - Unit tests for recent activity feed: `src/__tests__/recentActivityFeed.test.tsx` (plain sentences, relative times, and role relevance filtering across all 5 roles)
 - Unit tests for Administrator as client dashboard: `src/__tests__/administratorClientDashboard.test.tsx` (4 neutral KPI tiles, needs action list sorted soonest start first, missing roles naming, Assign button)
