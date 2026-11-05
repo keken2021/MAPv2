@@ -40,7 +40,7 @@ describe('vessel detail status shown once', () => {
     };
 
     render(<ObjectVerificationBadge verification={verification} />);
-    expect(screen.getByText('Proven')).toBeInTheDocument();
+    expect(screen.getByText('Several')).toBeInTheDocument();
     expect(screen.getByTitle(LONG_STATUS)).toBeInTheDocument();
     expect(screen.queryByText(LONG_STATUS)).toBeNull();
   });

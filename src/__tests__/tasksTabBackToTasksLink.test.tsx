@@ -70,14 +70,14 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
 
     // Requirements tab is active
     const reqTab = screen.getByRole('tab', { name: 'Requirements' });
-    expect(reqTab).toHaveClass('active');
+    expect(reqTab).toHaveAttribute('aria-selected', 'true');
 
     // 4. Click Back to tasks
     fireEvent.click(backToTasksBtn);
 
     // 5. Lands on Tasks tab and the link is gone
     const tasksTab = screen.getByRole('tab', { name: 'Tasks' });
-    expect(tasksTab).toHaveClass('active');
+    expect(tasksTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('project-tasks-tab')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Back to tasks/i })).toBeNull();
   });
@@ -95,7 +95,7 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
     // Switch to Details tab by hand
     const detailsTab = screen.getByRole('tab', { name: 'Details' });
     fireEvent.click(detailsTab);
-    expect(detailsTab).toHaveClass('active');
+    expect(detailsTab).toHaveAttribute('aria-selected', 'true');
 
     // Link must be cleared
     expect(screen.queryByRole('button', { name: /Back to tasks/i })).toBeNull();
@@ -103,7 +103,7 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
     // Switch to Requirements tab by hand directly
     const reqTab = screen.getByRole('tab', { name: 'Requirements' });
     fireEvent.click(reqTab);
-    expect(reqTab).toHaveClass('active');
+    expect(reqTab).toHaveAttribute('aria-selected', 'true');
 
     // Link must still be absent because it wasn't reached from opening a task
     expect(screen.queryByRole('button', { name: /Back to tasks/i })).toBeNull();

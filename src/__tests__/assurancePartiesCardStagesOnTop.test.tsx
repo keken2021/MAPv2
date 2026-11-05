@@ -35,7 +35,7 @@ describe('Assurance set parties - Rename to Parties, stages on top (Task 5352)',
     // "Add party" searchable select placeholder / aria-label
     const addPartyInput = container.querySelector('#grid-add-organization');
     expect(addPartyInput?.getAttribute('aria-label')).toBe('Add party');
-    expect(addPartyInput?.getAttribute('placeholder')).toBe('Add party');
+    expect(addPartyInput?.getAttribute('placeholder')).toBe('Search parties...');
 
     // "4. Governance & Checks" card is removed
     expect(screen.queryByText(/4\. Governance & Checks/i)).toBeNull();

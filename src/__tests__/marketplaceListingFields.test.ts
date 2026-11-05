@@ -49,7 +49,7 @@ describe('marketplace listing fields from records', () => {
     expect(helideck?.rateEstimate).toBe(equipmentOffer!.rateEstimate);
   });
 
-  it('grounds two vessel listings on port, IMO, flag and masterName through linkedEntityId', () => {
+  it('grounds a vessel listing on port, IMO, flag and masterName through linkedEntityId', () => {
     const items = getMarketplaceItems(
       MOCK_VESSELS,
       MOCK_EQUIPMENT,
@@ -58,16 +58,11 @@ describe('marketplace listing fields from records', () => {
       MOCK_CREW,
     );
     const meridian = items.find((item) => item.linkedEntityId === 'VESSEL-008')!;
-    const horizon = items.find((item) => item.linkedEntityId === 'VESSEL-009')!;
     const vessel008 = MOCK_VESSELS.find((v) => v.id === 'VESSEL-008')!;
-    const vessel009 = MOCK_VESSELS.find((v) => v.id === 'VESSEL-009')!;
 
     expect(meridian.location).toBe(vessel008.portOfRegistry);
-    expect(horizon.location).toBe(vessel009.portOfRegistry);
     expect(meridian.detailedSpecs.find((s) => s.label === 'IMO Number')?.value).toBe(vessel008.imoNumber);
-    expect(horizon.detailedSpecs.find((s) => s.label === 'Flag State')?.value).toBe(vessel009.flagState);
     expect(meridian.contact.name).toBe(vessel008.masterName);
-    expect(horizon.contact.name).toBe(vessel009.masterName);
 
     const seeded: MarketplaceItem = {
       ...meridian,

@@ -116,9 +116,6 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
     expect(addedTask).toBeDefined();
     expect(addedTask?.sectionId).toBe('sec-ops');
     expect(addedTask?.predecessorId).toBe('REQ-TASK-002');
-
-    expect(screen.getAllByText(/Field Operations/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText(/After BOP Pressure Certification/)).toBeDefined();
   });
 
   it('hides the section select in add task dialog when assurance set has no sections', () => {

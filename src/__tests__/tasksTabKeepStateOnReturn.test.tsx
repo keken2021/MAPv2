@@ -80,7 +80,7 @@ describe('Task 5380: Keep search, filters, sort and page on return to Tasks tab'
     fireEvent.click(actionBtn);
 
     // Requirements tab is active, Tasks pane is now hidden with display: none
-    expect(screen.getByRole('tab', { name: 'Requirements' })).toHaveClass('active');
+    expect(screen.getByRole('tab', { name: 'Requirements' })).toHaveAttribute('aria-selected', 'true');
     expect(pane).toHaveStyle({ display: 'none' });
 
     // Click "Back to tasks"
@@ -88,7 +88,7 @@ describe('Task 5380: Keep search, filters, sort and page on return to Tasks tab'
     fireEvent.click(backBtn);
 
     // Tasks tab is active again and pane is display: flex
-    expect(screen.getByRole('tab', { name: 'Tasks' })).toHaveClass('active');
+    expect(screen.getByRole('tab', { name: 'Tasks' })).toHaveAttribute('aria-selected', 'true');
     expect(pane).toHaveStyle({ display: 'flex' });
 
     // Search query and filter tab are fully preserved

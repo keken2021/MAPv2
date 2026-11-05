@@ -4019,85 +4019,164 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           {
             currentStepData.id === 'step-review' && (
               <div className="d-flex flex-column gap-4">
-              {/* Template Privacy & Access Scope Card */}
-              <div className="card border shadow-2xs rounded-3 bg-white">
-                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <div>
-                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      Template Privacy &amp; Distribution Scope
-                    </h5>
-                    <div className="text-muted small">
-                      Choose who can reuse this assurance set as a template.
-                    </div>
-                  </div>
-                  <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.7rem' }}>
-                    {templatePrivacy === 'public' ? 'Public Template' : 'Organization Only'}
-                  </span>
-                </div>
-                <div className="card-body p-4">
-                  <div className="row g-3">
-                    {/* Organization Only Option */}
-                    <div className="col-12 col-md-6">
-                      <label
-                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'organization'
-                          ? 'border-primary bg-primary-subtle shadow-2xs'
-                          : 'bg-white hover-bg-light'
-                          }`}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <div className="d-flex align-items-start gap-3">
-                          <input
-                            type="radio"
-                            name="create-view-template-privacy"
-                            value="organization"
-                            checked={templatePrivacy === 'organization'}
-                            onChange={() => setTemplatePrivacy('organization')}
-                            className="form-check-input mt-1 cursor-pointer"
-                          />
-                          <div>
-                            <div className="d-flex align-items-center gap-2">
-                              <strong className="text-dark small">Organization Only</strong>
-                            </div>
-                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-                              Only your organization can use this template.
-                            </p>
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-
-                    {/* Public Template Option */}
-                    <div className="col-12 col-md-6">
-                      <label
-                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'public'
-                          ? 'border-primary bg-primary-subtle shadow-2xs'
-                          : 'bg-white hover-bg-light'
-                          }`}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <div className="d-flex align-items-start gap-3">
-                          <input
-                            type="radio"
-                            name="create-view-template-privacy"
-                            value="public"
-                            checked={templatePrivacy === 'public'}
-                            onChange={() => setTemplatePrivacy('public')}
-                            className="form-check-input mt-1 cursor-pointer"
-                          />
-                          <div>
-                            <div className="d-flex align-items-center gap-2">
-                              <strong className="text-dark small">Public</strong>
-                            </div>
-                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-                              Any organization on the platform can use this template.
-                            </p>
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Template Privacy & Access Scope Card */}
+
+              <div className="card border shadow-2xs rounded-3 bg-white">
+
+                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+
+                  <div>
+
+                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
+
+                      Template Privacy &amp; Distribution Scope
+
+                    </h5>
+
+                    <div className="text-muted small">
+
+                      Choose who can reuse this assurance set as a template.
+
+                    </div>
+
+                  </div>
+
+                  <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.7rem' }}>
+
+                    {templatePrivacy === 'public' ? 'Public Template' : 'Organization Only'}
+
+                  </span>
+
+                </div>
+
+                <div className="card-body p-4">
+
+                  <div className="row g-3">
+
+                    {/* Organization Only Option */}
+
+                    <div className="col-12 col-md-6">
+
+                      <label
+
+                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'organization'
+
+                          ? 'border-primary bg-primary-subtle shadow-2xs'
+
+                          : 'bg-white hover-bg-light'
+
+                          }`}
+
+                        style={{ cursor: 'pointer' }}
+
+                      >
+
+                        <div className="d-flex align-items-start gap-3">
+
+                          <input
+
+                            type="radio"
+
+                            name="create-view-template-privacy"
+
+                            value="organization"
+
+                            checked={templatePrivacy === 'organization'}
+
+                            onChange={() => setTemplatePrivacy('organization')}
+
+                            className="form-check-input mt-1 cursor-pointer"
+
+                          />
+
+                          <div>
+
+                            <div className="d-flex align-items-center gap-2">
+
+                              <strong className="text-dark small">Organization Only</strong>
+
+                            </div>
+
+                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
+
+                              Only your organization can use this template.
+
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                      </label>
+
+                    </div>
+
+
+
+                    {/* Public Template Option */}
+
+                    <div className="col-12 col-md-6">
+
+                      <label
+
+                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'public'
+
+                          ? 'border-primary bg-primary-subtle shadow-2xs'
+
+                          : 'bg-white hover-bg-light'
+
+                          }`}
+
+                        style={{ cursor: 'pointer' }}
+
+                      >
+
+                        <div className="d-flex align-items-start gap-3">
+
+                          <input
+
+                            type="radio"
+
+                            name="create-view-template-privacy"
+
+                            value="public"
+
+                            checked={templatePrivacy === 'public'}
+
+                            onChange={() => setTemplatePrivacy('public')}
+
+                            className="form-check-input mt-1 cursor-pointer"
+
+                          />
+
+                          <div>
+
+                            <div className="d-flex align-items-center gap-2">
+
+                              <strong className="text-dark small">Public</strong>
+
+                            </div>
+
+                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
+
+                              Any organization on the platform can use this template.
+
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                      </label>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
                 <div className="card border shadow-2xs rounded-3 bg-white">
                   <div className="card-header bg-light border-bottom px-4 py-3">
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">

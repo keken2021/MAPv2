@@ -25,7 +25,7 @@ describe('Inspections list location and checklist', () => {
     fireEvent.click(screen.getByRole('tab', { name: /all/i }));
     const rows = dataRows();
     expect(rows.length).toBeGreaterThan(0);
-    expect(INSPECTION_LIST_PROGRESS).toHaveLength(10);
+    expect(INSPECTION_LIST_PROGRESS).toHaveLength(7);
 
     rows.forEach((row) => {
       const cells = within(row).getAllByRole('cell');
