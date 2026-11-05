@@ -40,6 +40,10 @@ export interface CrewTableProps {
   onRegisterCrew?: () => void;
   onAddDocumentCrew?: (crew: CrewMember) => void;
   initialMode?: 'individuals' | 'groups';
+  /** When set, lists only crew linked to this vessel (current or historical assignment). */
+  vesselId?: string;
+  /** Extra actions next to Add Crew (e.g. Assign on vessel detail). */
+  primaryActions?: React.ReactNode;
 }
 
 /**
@@ -53,6 +57,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
   onRegisterCrew,
   onAddDocumentCrew,
   initialMode = 'individuals',
+  vesselId,
+  primaryActions,
 }) => {
   const {
     crew,
@@ -65,7 +71,10 @@ export const CrewTable: React.FC<CrewTableProps> = ({
     customScopes,
   } = useMapStore();
 
-  const [directoryMode, setDirectoryMode] = useState<'individuals' | 'groups'>(initialMode);
+  const [directoryMode, setDirectoryMode] = useState<'individuals' | 'groups'>(
+    vesselId ? 'individuals' : initialMode,
+  );
+  const scopedToVessel = Boolean(vesselId);
   const [searchTerm, setSearchTerm] = useState('');
   const [rankFilter, setRankFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -115,8 +124,17 @@ export const CrewTable: React.FC<CrewTableProps> = ({
     }
   };
 
+  const vesselScopedCrew = useMemo(() => {
+    if (!vesselId) return crew;
+    return crew.filter(
+      (c) =>
+        c.currentVesselId === vesselId ||
+        (c.assignments || []).some((a) => a.vesselId === vesselId),
+    );
+  }, [crew, vesselId]);
+
   /* --- INDIVIDUALS FILTERING & SORTING --- */
-  const filteredCrew = crew.filter((c) => {
+  const filteredCrew = vesselScopedCrew.filter((c) => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
       c.id.toLowerCase().includes(term) ||
@@ -127,9 +145,10 @@ export const CrewTable: React.FC<CrewTableProps> = ({
 
     const matchesRank = rankFilter === 'ALL' || c.rank.toLowerCase().includes(rankFilter.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || c.complianceStatus === statusFilter;
-    const matchesVessel =
-      vesselFilter === 'ALL' ||
-      (vesselFilter === 'UNASSIGNED' ? !c.currentVesselId : c.currentVesselId === vesselFilter || c.currentVesselName === vesselFilter);
+    const matchesVessel = scopedToVessel
+      ? true
+      : vesselFilter === 'ALL' ||
+        (vesselFilter === 'UNASSIGNED' ? !c.currentVesselId : c.currentVesselId === vesselFilter || c.currentVesselName === vesselFilter);
 
     return matchesSearch && matchesRank && matchesStatus && matchesVessel;
   });
@@ -360,48 +379,50 @@ export const CrewTable: React.FC<CrewTableProps> = ({
   ]);
 
   const crewTabs = [
-    { key: 'ALL', label: 'All', count: crew.length },
+    { key: 'ALL', label: 'All', count: vesselScopedCrew.length },
     {
       key: 'Fully Compliant',
       label: 'Compliant',
-      count: crew.filter((member) => member.complianceStatus === 'Fully Compliant').length,
+      count: vesselScopedCrew.filter((member) => member.complianceStatus === 'Fully Compliant').length,
     },
     {
       key: 'Expiring < 60 Days',
       label: 'Expiring Soon',
-      count: crew.filter((member) => member.complianceStatus === 'Expiring < 60 Days').length,
+      count: vesselScopedCrew.filter((member) => member.complianceStatus === 'Expiring < 60 Days').length,
       tone: 'warn' as const,
     },
     {
       key: 'Document Deficient',
       label: 'Non-Compliant',
-      count: crew.filter((member) => member.complianceStatus === 'Document Deficient').length,
+      count: vesselScopedCrew.filter((member) => member.complianceStatus === 'Document Deficient').length,
     },
   ];
   const activeCrewTab = crewTabs.some((tab) => tab.key === statusFilter) ? statusFilter : '';
 
   return (
-    <div className="card map-card-custom">
+    <div className="card map-card-custom" data-testid={scopedToVessel ? 'vessel-scoped-crew-table' : 'crew-directory-table'}>
       <div className="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-3">
         {/* Individuals / Groups Toggle */}
-        <div className="btn-group" role="group" aria-label="Crew view mode">
-          <button
-            type="button"
-            className={`btn btn-sm ${directoryMode === 'individuals' ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => handleModeChange('individuals')}
-            aria-pressed={directoryMode === 'individuals'}
-          >
-            Individuals
-          </button>
-          <button
-            type="button"
-            className={`btn btn-sm ${directoryMode === 'groups' ? 'btn-primary' : 'btn-outline-secondary'}`}
-            onClick={() => handleModeChange('groups')}
-            aria-pressed={directoryMode === 'groups'}
-          >
-            Groups
-          </button>
-        </div>
+        {!scopedToVessel && (
+          <div className="btn-group" role="group" aria-label="Crew view mode">
+            <button
+              type="button"
+              className={`btn btn-sm ${directoryMode === 'individuals' ? 'btn-primary' : 'btn-outline-secondary'}`}
+              onClick={() => handleModeChange('individuals')}
+              aria-pressed={directoryMode === 'individuals'}
+            >
+              Individuals
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${directoryMode === 'groups' ? 'btn-primary' : 'btn-outline-secondary'}`}
+              onClick={() => handleModeChange('groups')}
+              aria-pressed={directoryMode === 'groups'}
+            >
+              Groups
+            </button>
+          </div>
+        )}
 
         {/* CountTabs for Active Mode */}
         {directoryMode === 'individuals' ? (
@@ -431,10 +452,15 @@ export const CrewTable: React.FC<CrewTableProps> = ({
         onExportCsv={directoryMode === 'individuals' ? handleExportCsv : handleExportGroupsCsv}
         onExportPdf={directoryMode === 'individuals' ? handleExportPdf : handleExportGroupsPdf}
         primaryAction={
-          directoryMode === 'individuals' && canRegisterCrew && onRegisterCrew ? (
-            <button type="button" className="btn btn-sm btn-primary" onClick={onRegisterCrew}>
-              Add Crew
-            </button>
+          directoryMode === 'individuals' ? (
+            <div className="d-flex align-items-center gap-2">
+              {primaryActions}
+              {canRegisterCrew && onRegisterCrew && (
+                <button type="button" className="btn btn-sm btn-primary" onClick={onRegisterCrew}>
+                  Add Crew
+                </button>
+              )}
+            </div>
           ) : undefined
         }
       />
@@ -641,22 +667,24 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                 </select>
               </div>
 
-              <div className="col-12">
-                <label className="form-label small fw-semibold text-secondary mb-1">Vessel</label>
-                <select
-                  className="form-select form-select-sm bg-white text-dark border-secondary"
-                  value={vesselFilter}
-                  onChange={(e) => setVesselFilter(e.target.value)}
-                >
-                  <option value="ALL">All Vessels</option>
-                  <option value="UNASSIGNED">Unassigned</option>
-                  {vessels.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} ({v.flagState})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!scopedToVessel && (
+                <div className="col-12">
+                  <label className="form-label small fw-semibold text-secondary mb-1">Vessel</label>
+                  <select
+                    className="form-select form-select-sm bg-white text-dark border-secondary"
+                    value={vesselFilter}
+                    onChange={(e) => setVesselFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Vessels</option>
+                    <option value="UNASSIGNED">Unassigned</option>
+                    {vessels.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} ({v.flagState})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           ) : (
             <div className="row g-3">

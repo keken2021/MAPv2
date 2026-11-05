@@ -29,6 +29,7 @@ import { calculateAssuranceSetReadiness, calculateVesselReadiness, isVesselAssur
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { InspectionDrawer } from '../components/drawers/InspectionDrawer';
 import { AddCrewModal } from '../components/modals/AddCrewModal';
+import { CrewTable } from '../components/tables/CrewTable';
 import { CapaItem } from '../types/capa';
 import { getVesselStockPhoto, CURATED_VESSEL_PHOTOS } from '../utils/vesselImageHelpers';
 import { VesselImageCropModal } from '../components/modals/VesselImageCropModal';
@@ -2479,299 +2480,68 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </div>
             )}
           </div>
-      {isAdmin && isOwned && (
-        <div className="card map-card-custom">
-          {/* Table Header Controls Row matching standard CrewTable.tsx layout */}
-          <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-            {/* Left Side: Search Box & Filter Dropdowns */}
-            <div className="d-flex flex-wrap align-items-center gap-2">
-              <input
-                type="text"
-                className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search crew..."
-                value={crewSearch}
-                onChange={(e) => setCrewSearch(e.target.value)}
-                style={{ width: '250px' }}
-              />
-
-              <select
-                className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={crewRankFilter}
-                onChange={(e) => setCrewRankFilter(e.target.value)}
-                style={{ width: '150px' }}
-              >
-                <option value="All">All Ranks</option>
-                {crewRanks.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={crewComplianceFilter}
-                onChange={(e) => setCrewComplianceFilter(e.target.value)}
-                style={{ width: '170px' }}
-              >
-                <option value="All">All Statuses</option>
-                <option value="Fully Compliant">Compliant</option>
-                <option value="Expiring < 60 Days">Expiring Soon</option>
-                <option value="Document Deficient">Non-Compliant</option>
-              </select>
-
-              <select
-                className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={crewSortField}
-                onChange={(e) => setCrewSortField(e.target.value as any)}
-                style={{ width: '170px' }}
-              >
-                <option value="fullName">Sort: Name</option>
-                <option value="id">Sort: Crew ID</option>
-                <option value="nationality">Sort: Nationality</option>
-                <option value="assignmentStatus">Sort: Assignment</option>
-                <option value="overallComplianceScore">Sort: Readiness</option>
-                <option value="complianceStatus">Sort: Compliance</option>
-              </select>
-
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark"
-                onClick={() => setCrewSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-                title={`Sort direction: ${crewSortDirection === 'asc' ? 'Ascending' : 'Descending'}`}
-              >
-                {crewSortDirection === 'asc' ? '↑ Asc' : '↓ Desc'}
-              </button>
+      {isAdmin && isOwned && vessel && (
+        <>
+          {isAssignExistingOpen && (
+            <div className="card map-card-custom mb-3">
+              <div className="p-3 bg-light d-flex flex-wrap align-items-center gap-3">
+                <div className="fw-semibold text-dark small">Assign Crew:</div>
+                <select
+                  className="form-select form-select-sm bg-white text-dark border-secondary"
+                  style={{ width: '320px' }}
+                  value={selectedCrewToAssign}
+                  onChange={(e) => setSelectedCrewToAssign(e.target.value)}
+                >
+                  <option value="">Select crew</option>
+                  {crew
+                    .filter((c) => c.currentVesselId !== vessel.id)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.fullName} ({c.rank} · {c.nationality}) {c.currentVesselName ? `[Currently: ${c.currentVesselName}]` : '[Unassigned]'}
+                      </option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-success fw-semibold"
+                  disabled={!selectedCrewToAssign}
+                  onClick={() => {
+                    assignCrewToVessel(selectedCrewToAssign, vessel.id);
+                    const member = crew.find((c) => c.id === selectedCrewToAssign);
+                    setToastMessage(`Assigned ${member?.fullName || selectedCrewToAssign} to ${vessel.name}`);
+                    setSelectedCrewToAssign('');
+                    setIsAssignExistingOpen(false);
+                  }}
+                >
+                  Confirm Assign
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => setIsAssignExistingOpen(false)}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-
-            {/* Right Side: Action Triggers */}
-            <div className="d-flex align-items-center gap-2 ms-auto">
+          )}
+          <CrewTable
+            vesselId={vessel.id}
+            onSelectCrew={(selectedCrew) => setCurrentHashView('crew', selectedCrew.id)}
+            onRegisterCrew={() => setIsAddCrewModalOpen(true)}
+            primaryActions={
               <button
                 type="button"
                 className="btn btn-sm btn-outline-primary fw-semibold"
-                onClick={() => setIsAssignExistingOpen(!isAssignExistingOpen)}
+                onClick={() => setIsAssignExistingOpen((open) => !open)}
               >
                 Assign Crew
               </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-primary fw-semibold"
-                onClick={() => setIsAddCrewModalOpen(true)}
-              >
-                Add Crew
-              </button>
-            </div>
-          </div>
-
-          {/* Inline Assign Existing Seafarer Toolbar */}
-          {isAssignExistingOpen && (
-            <div className="p-3 bg-light border-bottom d-flex flex-wrap align-items-center gap-3">
-              <div className="fw-semibold text-dark small">Assign Crew:</div>
-              <select
-                className="form-select form-select-sm bg-white text-dark border-secondary"
-                style={{ width: '320px' }}
-                value={selectedCrewToAssign}
-                onChange={(e) => setSelectedCrewToAssign(e.target.value)}
-              >
-                <option value="">Select crew</option>
-                {crew
-                  .filter((c) => c.currentVesselId !== vessel.id)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.fullName} ({c.rank} · {c.nationality}) {c.currentVesselName ? `[Currently: ${c.currentVesselName}]` : '[Unassigned]'}
-                    </option>
-                  ))}
-              </select>
-              <button
-                type="button"
-                className="btn btn-sm btn-success fw-semibold"
-                disabled={!selectedCrewToAssign}
-                onClick={() => {
-                  if (selectedCrewToAssign) {
-                    assignCrewToVessel(selectedCrewToAssign, vessel.id);
-                    setToastMessage(`Successfully assigned seafarer to ${vessel.name}`);
-                    setSelectedCrewToAssign('');
-                    setIsAssignExistingOpen(false);
-                  }
-                }}
-              >
-                Assign to Vessel
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                onClick={() => setIsAssignExistingOpen(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-
-          {/* Master Assigned Crew Data Table */}
-          <div className="table-responsive">
-            <table className="table map-table-custom align-middle mb-0">
-              <thead>
-                <tr>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (crewSortField === 'id') setCrewSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setCrewSortField('id'); setCrewSortDirection('asc'); }
-                    }}
-                  >
-                    Crew ID {renderSortIndicator(crewSortField, 'id', crewSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (crewSortField === 'fullName') {
-                        setCrewSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      } else {
-                        setCrewSortField('fullName');
-                        setCrewSortDirection('asc');
-                      }
-                    }}
-                  >
-                    Name {renderSortIndicator(crewSortField, 'fullName', crewSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (crewSortField === 'nationality') setCrewSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setCrewSortField('nationality'); setCrewSortDirection('asc'); }
-                    }}
-                  >
-                    Nationality {renderSortIndicator(crewSortField, 'nationality', crewSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (crewSortField === 'assignmentStatus') setCrewSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setCrewSortField('assignmentStatus'); setCrewSortDirection('asc'); }
-                    }}
-                  >
-                    Assignment {renderSortIndicator(crewSortField, 'assignmentStatus', crewSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (crewSortField === 'overallComplianceScore') {
-                        setCrewSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      } else {
-                        setCrewSortField('overallComplianceScore');
-                        setCrewSortDirection('asc');
-                      }
-                    }}
-                  >
-                    Readiness {renderSortIndicator(crewSortField, 'overallComplianceScore', crewSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (crewSortField === 'complianceStatus') {
-                        setCrewSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      } else {
-                        setCrewSortField('complianceStatus');
-                        setCrewSortDirection('asc');
-                      }
-                    }}
-                  >
-                    Compliance {renderSortIndicator(crewSortField, 'complianceStatus', crewSortDirection)}
-                  </th>
-                  <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCrew.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-4 text-muted">
-                      {linkedCrew.length === 0
-                        ? 'No crew members currently registered for this vessel.'
-                        : 'No crew members match the search and filter criteria.'}
-                    </td>
-                  </tr>
-                ) : (
-                  crewPagination.pageItems.map((c) => (
-                    <tr key={c.id}>
-                      <td className="font-mono-code small text-dark fw-semibold">{c.id}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn btn-link p-0 text-primary text-start fw-semibold text-decoration-underline border-0 bg-transparent align-baseline"
-                          onClick={() => setCurrentHashView('crew', c.id)}
-                          title={`View ${c.fullName}`}
-                        >
-                          {c.fullName}
-                        </button>
-                        <div className="small text-secondary">{c.rank}</div>
-                      </td>
-                      <td>
-                        <div className="small fw-semibold">{c.nationality}</div>
-                        <div className="font-mono-code text-muted" style={{ fontSize: '0.75rem' }}>{c.seamansBookNo}</div>
-                      </td>
-                      <td>
-                        <span className={`badge ${c.currentVesselId === vessel.id ? 'bg-success text-white' : 'bg-secondary text-white'}`}>
-                          {c.currentVesselId === vessel.id ? 'Current Assignment' : 'Historical Assignment'}
-                        </span>
-                      </td>
-                      <td className="font-mono-code fw-semibold">{c.overallComplianceScore}%</td>
-                      <td>
-                        <span className={`badge ${c.complianceStatus === 'Fully Compliant' ? 'bg-success text-white' : c.complianceStatus === 'Expiring < 60 Days' ? 'bg-warning text-dark' : 'bg-danger text-white'}`}>
-                          {getStatusDisplayLabel(c.complianceStatus)}
-                        </span>
-                      </td>
-                      <td className="text-end">
-                        <div className="d-flex align-items-center justify-content-end gap-1.5">
-                          {c.currentVesselId === vessel.id ? (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-0"
-                              style={{ width: '32px', height: '32px' }}
-                              onClick={() => {
-                                assignCrewToVessel(c.id, undefined);
-                                setToastMessage(`Unassigned ${c.fullName} from ${vessel.name}`);
-                              }}
-                              title={`Unassign ${c.fullName} from ${vessel.name}`}
-                              aria-label={`Unassign ${c.fullName}`}
-                            >
-                              <UserMinus size={16} />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-success d-inline-flex align-items-center justify-content-center p-0"
-                              style={{ width: '32px', height: '32px' }}
-                              onClick={() => {
-                                assignCrewToVessel(c.id, vessel.id);
-                                setToastMessage(`Reassigned ${c.fullName} to ${vessel.name}`);
-                              }}
-                              title={`Assign ${c.fullName} to ${vessel.name}`}
-                              aria-label={`Assign ${c.fullName}`}
-                            >
-                              <UserPlus size={16} />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                            style={{ width: '32px', height: '32px' }}
-                            onClick={() => setCurrentHashView('crew', c.id)}
-                            title={`View ${c.fullName}`}
-                            aria-label={`View ${c.fullName}`}
-                          >
-                            <Eye size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <TablePagination {...crewPagination.controls} />
-        </div>
+            }
+          />
+        </>
       )}
+
         </>
       )}
 
