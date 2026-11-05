@@ -7,23 +7,14 @@
 import { StatusBadge } from '../common/StatusBadge';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  X,
   FileCheck,
   Ship,
   Wrench,
   Users,
   Building2,
-  CheckCircle2,
-  AlertCircle,
-  AlertTriangle,
-  Clock,
-  ExternalLink,
-  ShieldCheck,
-  Calendar,
-  Layers,
-  ChevronRight,
   Plus,
 } from 'lucide-react';
+import { Modal } from './Modal';
 import { useMapStore } from '../../store/useMapStore';
 import { AssuranceRequirement, AssuranceSet } from '../../types/assurance';
 import { Project, ProjectAssetType } from '../../types/project';
@@ -197,50 +188,44 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
   };
 
   return (
-    <div
-      className="modal fade show d-block"
-      tabIndex={-1}
-      role="dialog"
-      aria-modal="true"
-      style={{ backgroundColor: 'rgba(11, 27, 43, 0.65)', backdropFilter: 'blur(3px)', zIndex: 1060 }}
-    >
-      <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div className="modal-content border-0 shadow-lg" style={{ borderRadius: '8px', overflow: 'hidden' }}>
-          {/* Modal Header */}
-          <div
-            className="modal-header text-white px-4 py-3 align-items-center"
-            style={{ backgroundColor: '#0B1B2B' }}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Preview Assurance Set"
+      meta={
+        <span>
+          <span className="badge bg-secondary font-mono-code me-2" style={{ fontSize: '0.75rem' }}>
+            {assuranceSet.id}
+          </span>
+          Review before attaching to {project.name}.
+        </span>
+      }
+      size="xl"
+      dismissible={!isSubmitting}
+      bodyClassName="p-4"
+      footer={
+        <>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary px-3"
+            onClick={onClose}
+            disabled={isSubmitting}
           >
-            <div className="d-flex align-items-center gap-2 flex-grow-1">
-              <div
-                className="d-inline-flex align-items-center justify-content-center bg-white bg-opacity-10 rounded p-2"
-                style={{ width: '36px', height: '36px' }}
-              >
-                <Layers size={20} className="text-white" />
-              </div>
-              <div>
-                <h5 className="modal-title h6 fw-bold mb-0 text-white d-flex align-items-center gap-2">
-                  Preview Assurance Set
-                  <span className="badge bg-light text-dark font-mono-code" style={{ fontSize: '0.75rem' }}>
-                    {assuranceSet.id}
-                  </span>
-                </h5>
-                <div className="small text-white-50" style={{ fontSize: '0.8rem' }}>
-                  Review before attaching to {project.name}.
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn-close btn-close-white"
-              aria-label="Close"
-              onClick={onClose}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {/* Modal Body */}
-          <div className="modal-body p-4" style={{ backgroundColor: '#F8FAFC' }}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary px-4 fw-semibold d-inline-flex align-items-center gap-2"
+            onClick={handleConfirm}
+            disabled={isSubmitting || !roleInProject.trim()}
+          >
+            <Plus size={16} />
+            Attach Assurance Set
+          </button>
+        </>
+      }
+    >
+      <div>
             {/* Top Info Banner / Metadata Card */}
             <div className="card map-card-custom p-3 mb-3 bg-white">
               <div className="row g-3 align-items-center">
@@ -618,33 +603,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Modal Footer */}
-          <div
-            className="modal-footer d-flex justify-content-between align-items-center px-4 py-3 bg-white"
-            style={{ borderTop: '1px solid #E2E8F0' }}
-          >
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary px-3"
-              onClick={onClose}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-primary px-4 fw-semibold d-inline-flex align-items-center gap-2"
-              onClick={handleConfirm}
-              disabled={isSubmitting || !roleInProject.trim()}
-            >
-              <Plus size={16} />
-              Attach Assurance Set
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 };

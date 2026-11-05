@@ -1,9 +1,3 @@
-/*
-  file summary: modal for Client/Vessel Admin to request a colleague create an assurance set for a project.
-  responsibilities: recipient picker, optional multi-select suggested scope, optional message, dispatches in-app notification.
-  role in system: opened from ProjectDetailView.
-*/
-
 import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { Project, ProjectAssetType } from '../../types/project';
@@ -13,6 +7,7 @@ import {
 } from '../../utils/projectHelpers';
 import { getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { ScopeChecklist } from '../common/ScopeChecklist';
+import { Modal } from './Modal';
 
 const SCOPE_OPTIONS: ProjectAssetType[] = ['Vessel', 'Equipment', 'Crew'];
 
@@ -67,8 +62,6 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
     );
   };
 
-  if (!isOpen) return null;
-
   const handleSubmit = () => {
     if (!recipientUserId) {
       setError('Select a recipient.');
@@ -101,95 +94,84 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
   };
 
   return (
-    <div
-      className="modal show d-block map-modal-backdrop"
-      tabIndex={-1}
-      role="dialog"
-      style={{ zIndex: 1060 }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Request Assurance Set"
+      size="md"
+      footer={
+        <>
+          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={handleSubmit}
+            disabled={!recipientUserId}
+          >
+            Send Request
+          </button>
+        </>
+      }
     >
-      <div className="modal-dialog modal-dialog-centered" role="document">
-        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-header">
-            <h5 className="modal-title fw-bold">Request Assurance Set</h5>
-            <button type="button" className="btn-close" onClick={onClose} aria-label="Close" />
+      <p className="text-muted small mb-2">
+        Ask an organization invited to <strong>{project.name}</strong> to create an assurance set for <strong>{senderOrg}</strong>.
+      </p>
+      <div className="mb-3 p-2 bg-light rounded border small" data-testid="requesting-party-banner">
+        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party</div>
+        <div className="fw-semibold text-dark">{senderOrg}</div>
+      </div>
+      {error && <div className="alert alert-danger py-2 small">{error}</div>}
+      <div className="mb-3">
+        <label className="form-label small fw-semibold">
+          Recipient <span className="text-danger">*</span>
+        </label>
+        <select
+          className="form-select form-select-sm"
+          value={recipientUserId}
+          onChange={(e) => setRecipientUserId(e.target.value)}
+        >
+          <option value="">Select recipient</option>
+          {recipients.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name} — {u.organization} — Responding party
+            </option>
+          ))}
+        </select>
+        {recipients.length === 0 && (
+          <div className="text-muted small mt-1">
+            No one in your organization can create assurance sets.
           </div>
-          <div className="modal-body">
-            <p className="text-muted small mb-2">
-              Ask an organization invited to <strong>{project.name}</strong> to create an assurance set for <strong>{senderOrg}</strong>.
-            </p>
-            <div className="mb-3 p-2 bg-light rounded border small" data-testid="requesting-party-banner">
-              <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party</div>
-              <div className="fw-semibold text-dark">{senderOrg}</div>
-            </div>
-            {error && <div className="alert alert-danger py-2 small">{error}</div>}
-            <div className="mb-3">
-              <label className="form-label small fw-semibold">
-                Recipient <span className="text-danger">*</span>
-              </label>
-              <select
-                className="form-select form-select-sm"
-                value={recipientUserId}
-                onChange={(e) => setRecipientUserId(e.target.value)}
-              >
-                <option value="">Select recipient</option>
-                {recipients.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} — {u.organization} — Responding party
-                  </option>
-                ))}
-              </select>
-              {recipients.length === 0 && (
-                <div className="text-muted small mt-1">
-                  No one in your organization can create assurance sets.
-                </div>
-              )}
-            </div>
-            <div className="mb-3">
-              <label className="form-label small fw-semibold" id="request-suggested-scope-label">
-                Scope (optional)
-              </label>
-              <ScopeChecklist
-                id="request-suggested-scope"
-                labelId="request-suggested-scope-label"
-                className="form-select-sm"
-                options={SCOPE_OPTIONS}
-                selected={selectedScopes}
-                onToggle={toggleScope}
-                emptyLabel="No preference"
-              />
-              <div className="text-muted small mt-1">
-                Choose one or more, or leave as no preference.
-              </div>
-            </div>
-            <div className="mb-0">
-              <label className="form-label small fw-semibold">Message (optional)</label>
-              <textarea
-                className="form-control form-control-sm"
-                rows={3}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="e.g. Please create a vessel assurance set for the platform supply charter."
-              />
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={handleSubmit}
-              disabled={!recipientUserId}
-            >
-              Send Request
-            </button>
-          </div>
+        )}
+      </div>
+      <div className="mb-3">
+        <label className="form-label small fw-semibold" id="request-suggested-scope-label">
+          Scope (optional)
+        </label>
+        <ScopeChecklist
+          id="request-suggested-scope"
+          labelId="request-suggested-scope-label"
+          className="form-select-sm"
+          options={SCOPE_OPTIONS}
+          selected={selectedScopes}
+          onToggle={toggleScope}
+          emptyLabel="No preference"
+        />
+        <div className="text-muted small mt-1">
+          Choose one or more, or leave as no preference.
         </div>
       </div>
-    </div>
+      <div className="mb-0">
+        <label className="form-label small fw-semibold">Message (optional)</label>
+        <textarea
+          className="form-control form-control-sm"
+          rows={3}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="e.g. Please create a vessel assurance set for the platform supply charter."
+        />
+      </div>
+    </Modal>
   );
 };

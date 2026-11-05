@@ -1,10 +1,4 @@
-/*
-  file summary: modal showing the full detail of one notification.
-  responsibilities: presents the subject, status, message, sender, the linked project and the record or user the notification concerns, with the notification's action as the primary button.
-  role in system: opened from NotificationsView when a row is selected.
-*/
-
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { NOTIFICATION_STATUS_META } from '../../store/notificationMockData';
 import { AppNotification } from '../../types/notification';
@@ -16,6 +10,7 @@ import {
 } from '../../utils/notificationHelpers';
 import { getProjectClientOrganization } from '../../utils/projectHelpers';
 import { formatUserRoles } from '../../utils/userRoleHelpers';
+import { Modal } from './Modal';
 
 interface NotificationDetailModalProps {
   /** notification to show; the modal is closed when this is null */
@@ -37,14 +32,8 @@ interface DetailGroup {
   fields: DetailField[];
 }
 
-const TITLE_ID = 'notification-detail-title';
 const REASON_ID = 'notification-detail-action-reason';
 
-/**
-  what: renders the notification detail modal; inputs are the selected notification, its resolved row action, and close and run handlers.
-  how: resolves the project, sender, assignee, assurance set and document from the store, groups them into details and project, and closes on escape, backdrop click or either close control; focus moves to the close button on open and returns to the opener on close.
-  with what file: src/components/modals/NotificationDetailModal.tsx rendered by NotificationsView.tsx; uses notificationHelpers.ts and notificationMockData.ts.
-*/
 export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = ({
   notification,
   action,
@@ -52,23 +41,6 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
   onRunAction,
 }) => {
   const { projects, users, assuranceSets, documents } = useMapStore();
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const isOpen = Boolean(notification);
-
-  /* move focus into the dialog, restore it to the opener afterwards, and close on escape */
-  useEffect(() => {
-    if (!isOpen) return;
-    const opener = document.activeElement as HTMLElement | null;
-    closeButtonRef.current?.focus();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      if (opener && opener.isConnected) opener.focus();
-    };
-  }, [isOpen, onClose]);
 
   if (!notification) return null;
 
@@ -158,91 +130,72 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
     });
   }
 
-  return (
-    <div
-      className="modal show d-block map-modal-backdrop"
-      tabIndex={-1}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={TITLE_ID}
-      style={{ zIndex: 1060 }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable map-notif-modal-dialog" role="document">
-        <div className="modal-content map-notif-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-header align-items-start gap-3">
-            <div className="flex-grow-1" style={{ minWidth: 0 }}>
-              <h3 id={TITLE_ID} className="map-notif-modal-title mb-1">
-                {notification.subject}
-              </h3>
-              <div className="map-notif-modal-meta">
-                <span
-                  className="badge rounded-pill map-notif-status"
-                  style={{ backgroundColor: statusMeta.background, color: statusMeta.text }}
-                >
-                  {statusMeta.label}
-                </span>
-                <span className="font-mono-code map-notif-numeric">
-                  {formatMaritimeDateTime(notification.createdAt)}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn-close flex-shrink-0"
-              onClick={onClose}
-              aria-label="Close"
-              ref={closeButtonRef}
-            />
-          </div>
-
-          <div className="modal-body map-notif-modal-body">
-            {notification.message && <p className="map-notif-modal-message">{notification.message}</p>}
-            {groups.map((group) => (
-              <section key={group.title} className="map-notif-modal-group">
-                <h4 className="map-notif-modal-group-title">{group.title}</h4>
-                <dl className="map-notif-detail mb-0">
-                  {group.fields.map((field) => (
-                    <div key={field.label}>
-                      <dt>{field.label}</dt>
-                      <dd>
-                        {field.value}
-                        {field.note && <div className="map-notif-detail-note">{field.note}</div>}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ))}
-          </div>
-
-          <div className="modal-footer justify-content-between">
-            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>
-              Close
-            </button>
-            {action && (
-              <div className="d-flex align-items-center gap-3">
-                {action.disabledReason && (
-                  <span id={REASON_ID} className="small text-muted">
-                    {action.disabledReason}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={() => onRunAction(notification)}
-                  disabled={Boolean(action.disabledReason)}
-                  aria-describedby={action.disabledReason ? REASON_ID : undefined}
-                >
-                  {action.label}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+  const metaNode = (
+    <div className="d-flex align-items-center gap-2">
+      <span
+        className="badge rounded-pill map-notif-status"
+        style={{ backgroundColor: statusMeta.background, color: statusMeta.text }}
+      >
+        {statusMeta.label}
+      </span>
+      <span className="font-mono-code map-notif-numeric">
+        {formatMaritimeDateTime(notification.createdAt)}
+      </span>
     </div>
+  );
+
+  const footerNode = (
+    <div className="d-flex justify-content-between align-items-center w-100">
+      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose} data-testid="notification-close">
+        Close
+      </button>
+      {action && (
+        <div className="d-flex align-items-center gap-3">
+          {action.disabledReason && (
+            <span id={REASON_ID} className="small text-muted">
+              {action.disabledReason}
+            </span>
+          )}
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={() => onRunAction(notification)}
+            disabled={Boolean(action.disabledReason)}
+            aria-describedby={action.disabledReason ? REASON_ID : undefined}
+          >
+            {action.label}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={notification.subject}
+      meta={metaNode}
+      size="lg"
+      footer={footerNode}
+    >
+      {notification.message && <p className="map-notif-modal-message">{notification.message}</p>}
+      {groups.map((group) => (
+        <section key={group.title} className="map-notif-modal-group">
+          <h4 className="map-notif-modal-group-title">{group.title}</h4>
+          <dl className="map-notif-detail mb-0">
+            {group.fields.map((field) => (
+              <div key={field.label}>
+                <dt>{field.label}</dt>
+                <dd>
+                  {field.value}
+                  {field.note && <div className="map-notif-detail-note">{field.note}</div>}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
+    </Modal>
   );
 };

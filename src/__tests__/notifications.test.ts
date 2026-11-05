@@ -498,7 +498,7 @@ describe('store: workflow notifications', () => {
       type: 'stakeholder_assigned',
       assignedRole: 'Inspector',
       assuranceSetId: target.id,
-      subject: `You are invited to create an assurance set for this particular ${target.title}`,
+      subject: `You are assigned to inspect ${target.title}`,
       senderName: 'K. Osei',
     });
   });
