@@ -18,7 +18,7 @@ import {
 import { isMarketplaceItemAvailableOnDate } from '../utils/marketplaceHelpers';
 import { getCharterAssuranceSetsForAsset } from '../utils/projectHelpers';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { addObject, clickNext, objectItemSelect, objectRowIds, removeObjectRow } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectItemSelect, objectRowIds, pickReviewerRoles, removeObjectRow } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -92,7 +92,7 @@ describe('multi-crew assurance sets', () => {
   });
 
   it('picks crew members on the Objects tab and blocks only a member already contracted', () => {
-    useMapStore.setState({ isAuthenticated: true, activePersona: 'Administrator' });
+    useMapStore.setState({ isAuthenticated: true, activePersona: 'Administrator', activeDemoOrganization: 'Chevron Australia Pty Ltd' });
     const { container } = render(<CreateAssuranceSetView />);
 
     /* Demo-friendly non-conflicting default dates */
@@ -142,6 +142,16 @@ describe('multi-crew assurance sets', () => {
   it('renders each selected crew as a distinct individual table row in the review step', () => {
     useMapStore.setState({ isAuthenticated: true, activePersona: 'Administrator' });
     const { container } = render(<CreateAssuranceSetView />);
+    pickReviewerRoles(container);
+    const input = container.querySelector('#grid-add-organization') as HTMLInputElement | null;
+    if (input) {
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: 'Marine Assurance Authority' } });
+      const option = container.querySelector('#grid-add-organization-listbox [data-item-id="Marine Assurance Authority"]');
+      if (option) fireEvent.click(option);
+      const maaApprover = screen.queryByRole('checkbox', { name: 'Approver: Marine Assurance Authority' }) as HTMLInputElement | null;
+      if (maaApprover) fireEvent.click(maaApprover);
+    }
     clickNext();
     removeObjectRow(container, objectRowIds(container)[0]);
     addObject(container, 'person', 'CREW-101');

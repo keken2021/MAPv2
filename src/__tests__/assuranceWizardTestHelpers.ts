@@ -42,15 +42,25 @@ export const pickReviewerRoles = (container: HTMLElement, thirdParty = 'Bureau V
     const option = container.querySelector(`#grid-add-organization-listbox [data-item-id="${thirdParty}"]`);
     if (option) fireEvent.click(option);
   }
-  const verifierBoxes = screen.queryAllByRole('checkbox', { name: /^Verifier: / }) as HTMLInputElement[];
-  const enabledVerifier = verifierBoxes.find((b) => !b.disabled && !b.checked);
-  if (enabledVerifier) fireEvent.click(enabledVerifier);
+  const thirdPartyVerifier = screen.queryByRole('checkbox', { name: `Verifier: ${thirdParty}` }) as HTMLInputElement | null;
+  if (thirdPartyVerifier && !thirdPartyVerifier.disabled && !thirdPartyVerifier.checked) {
+    fireEvent.click(thirdPartyVerifier);
+  } else {
+    const verifierBoxes = screen.queryAllByRole('checkbox', { name: /^Verifier: / }) as HTMLInputElement[];
+    const enabledVerifier = verifierBoxes.find((b) => !b.disabled && !b.checked);
+    if (enabledVerifier) fireEvent.click(enabledVerifier);
+  }
 
   const approverBoxes = screen.queryAllByRole('checkbox', { name: /^Approver: / }) as HTMLInputElement[];
   const enabledApprover = approverBoxes.find((b) => !b.disabled && !b.checked);
   if (enabledApprover) fireEvent.click(enabledApprover);
 
-  const inspectorBoxes = screen.queryAllByRole('checkbox', { name: /^Inspector: / }) as HTMLInputElement[];
-  const enabledInspector = inspectorBoxes.find((b) => !b.disabled && !b.checked);
-  if (enabledInspector) fireEvent.click(enabledInspector);
+  const thirdPartyInspector = screen.queryByRole('checkbox', { name: `Inspector: ${thirdParty}` }) as HTMLInputElement | null;
+  if (thirdPartyInspector && !thirdPartyInspector.disabled && !thirdPartyInspector.checked) {
+    fireEvent.click(thirdPartyInspector);
+  } else {
+    const inspectorBoxes = screen.queryAllByRole('checkbox', { name: /^Inspector: / }) as HTMLInputElement[];
+    const enabledInspector = inspectorBoxes.find((b) => !b.disabled && !b.checked);
+    if (enabledInspector) fireEvent.click(enabledInspector);
+  }
 };

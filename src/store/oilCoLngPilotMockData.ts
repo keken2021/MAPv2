@@ -1004,7 +1004,17 @@ function pilotVessel(
     technicalManager: overrides.registeredOwner,
     docNumber: "DOC-DNV-2025-14",
     contact247: "+61 8 9100 2200 (24/7 Ops)",
-    statutoryCertificates: [],
+    statutoryCertificates: [
+      {
+        id: `MAP-VES-2026-STAT-${overrides.id || 'PILOT'}`,
+        name: 'Certificate of Class',
+        certificateNumber: 'DNV-STAT-2026-PILOT',
+        issuingBody: 'DNV',
+        issueDate: '2026-01-15',
+        expiryDate: '2029-01-14',
+        status: 'Valid',
+      },
+    ],
     hmInsurer: "NorthStandard",
     piClubName: "Gard P&I",
     policyNumber: "PI-LNG-2026-014",

@@ -6,7 +6,7 @@
 
 import { Vessel } from '../types/vessel';
 import { AssuranceSet, AssuranceTemplate } from '../types/assurance';
-import { isAssuranceSetScopeDisabled } from '../utils/assuranceTemplates';
+import { isAssuranceSetScopeDisabled, INPEX_TASK_SECTIONS, inpexSectionTasks } from '../utils/assuranceTemplates';
 import { MasterDocument } from '../types/document';
 import { AuditTrailEvent, AuditTrailEventDraft, withStructuredAuditTarget } from '../types/audit';
 import {
@@ -97,7 +97,7 @@ export const MOCK_VESSELS: Vessel[] = [
     bwtsSpec: 'Alfa Laval PureBallast 3.2 (USCG Approved)',
     owCalibrationDate: '2026-01-10',
     masterCertificateUploadCount: 14,
-    clientHistory: [
+    clientHistory: [
       {
         id: 'CH-003',
         clientOrganization: 'Chevron Australia Pty Ltd',
@@ -169,7 +169,7 @@ export const MOCK_VESSELS: Vessel[] = [
     bwtsSpec: 'Wärtsilä Aquarius UV',
     owCalibrationDate: '2025-11-20',
     masterCertificateUploadCount: 12,
-    clientHistory: [
+    clientHistory: [
       {
         id: 'CH-011',
         clientOrganization: 'BHP Petroleum',
@@ -251,7 +251,7 @@ export const MOCK_VESSELS: Vessel[] = [
     bwtsSpec: 'Desmi Ocean Guard Compact Clean',
     owCalibrationDate: '2025-08-14',
     masterCertificateUploadCount: 10,
-    clientHistory: [
+    clientHistory: [
       {
         id: 'CH-021',
         clientOrganization: 'Santos Ltd',
@@ -331,7 +331,7 @@ export const MOCK_VESSELS: Vessel[] = [
     bwtsSpec: 'Alfa Laval PureBallast 3.2',
     owCalibrationDate: '2026-02-15',
     masterCertificateUploadCount: 16,
-    clientHistory: [
+    clientHistory: [
     ],
   },
   {
@@ -393,7 +393,7 @@ export const MOCK_VESSELS: Vessel[] = [
     bwtsSpec: 'Wärtsilä Aquarius UV',
     owCalibrationDate: '2026-01-20',
     masterCertificateUploadCount: 14,
-    clientHistory: [
+    clientHistory: [
     ],
   },
   {
@@ -455,7 +455,7 @@ export const MOCK_VESSELS: Vessel[] = [
     bwtsSpec: 'Desmi Ocean Guard',
     owCalibrationDate: '2025-10-10',
     masterCertificateUploadCount: 11,
-    clientHistory: [
+    clientHistory: [
     ],
   },
   {
@@ -517,7 +517,7 @@ export const MOCK_VESSELS: Vessel[] = [
     bwtsSpec: 'Alfa Laval PureBallast',
     owCalibrationDate: '2025-12-05',
     masterCertificateUploadCount: 9,
-    clientHistory: [
+    clientHistory: [
     ],
   },
   {
@@ -599,7 +599,7 @@ export const MOCK_VESSELS: Vessel[] = [
         notes: 'Full statutory compliance delivered on schedule.',
       },
     ],
-  },
+  },
   {
     id: 'VESSEL-011',
     name: 'MV Southern Basin Pioneer',
@@ -744,7 +744,7 @@ export const MOCK_VESSELS: Vessel[] = [
   ...OIL_CO_PILOT_VESSELS,
 ];
 
-const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
+const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
   {
     id: 'AS-2026-001',
     title: 'Chevron Gorgon Charter Vetting',
@@ -824,7 +824,212 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     ],
     stakeholders: undefined,
     assignedStakeholders: undefined,
-  },
+  },
+  {
+    id: 'AS-2026-002',
+    title: 'Shell Prelude Annual Audit',
+    vesselId: 'VESSEL-002',
+    vesselName: 'MV Coral Titan',
+    imoNumber: '9284714',
+    initiatorOrg: 'Northwind Marine Pty Ltd',
+    initiatorRole: 'Vessel Provider Admin',
+    charterer: 'Shell Australia Pty Ltd',
+    clientOrg: 'Shell Australia Pty Ltd',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    charterWindowStart: '2026-10-15',
+    complianceDeadline: '2026-10-15',
+    charterWindowEnd: '2027-04-15',
+    stage: 'Verification',
+    readinessScore: 40,
+    mandatoryInspectionRequired: false,
+    inspectionCompleted: false,
+    assignedSubmitter: 'J. Vance (Northwind Marine Pty Ltd)',
+    assignedVerifier: 'S. Girard (Bureau Veritas Inspectorate)',
+    assignedApprover: 'I. Castellan (Shell Australia Pty Ltd)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'third_party'],
+    requirements: [
+      {
+        id: 'REQ-201',
+        category: 'Statutory Certificate',
+        title: 'Certificate of Class',
+        isMandatory: true,
+        isFulfilled: false,
+        ocrConfidence: 97,
+        documentId: 'MAP-VES-2026-STAT-00005',
+        verifierStatus: 'Pending',
+        linkedDocumentId: '',
+      },
+    ],
+    stakeholders: undefined,
+    assignedStakeholders: undefined,
+  },
+  {
+    id: 'AS-2026-006',
+    title: 'Santos Carnarvon Basin ERRV Charter',
+    vesselId: 'VESSEL-006',
+    vesselName: 'MV Kimberley Guardian',
+    imoNumber: '9823106',
+    initiatorOrg: 'Northwind Marine Pty Ltd',
+    initiatorRole: 'Vessel Provider Admin',
+    charterer: 'Santos Ltd',
+    clientOrg: 'Santos Ltd',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    charterWindowStart: '2026-11-15',
+    complianceDeadline: '2026-11-15',
+    charterWindowEnd: '2027-05-15',
+    stage: 'Verification',
+    readinessScore: 40,
+    mandatoryInspectionRequired: true,
+    inspectionCompleted: false,
+    assignedSubmitter: 'J. Vance (Northwind Marine Pty Ltd)',
+    assignedVerifier: 'S. Girard (Bureau Veritas Inspectorate)',
+    assignedInspector: 'G. Harrison (Marine Inspection Bureau)',
+    assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
+    requirements: [
+      {
+        id: 'REQ-601',
+        category: 'Statutory Certificate',
+        title: 'Certificate of Class',
+        isMandatory: true,
+        isFulfilled: false,
+        ocrConfidence: 94,
+        documentId: 'MAP-VES-2026-STAT-00021',
+        verifierStatus: 'Pending',
+        linkedDocumentId: '',
+      },
+    ],
+    stakeholders: undefined,
+    assignedStakeholders: undefined,
+    createdByPersona: '',
+  },
+  {
+    id: 'AS-2026-028',
+    title: 'MV Northwind Resolute - INPEX Ichthys Platform Support',
+    assuranceType: 'Vessel',
+    subtypes: ['Vessel'],
+    vesselId: 'VESSEL-012',
+    vesselName: 'MV Northwind Resolute',
+    imoNumber: '9871232',
+    initiatorOrg: 'Northwind Marine Pty Ltd',
+    initiatorRole: 'Vessel Provider Admin',
+    charterer: 'Inpex Operations Australia',
+    clientOrg: 'Inpex Operations Australia',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    charterWindowStart: '2026-11-30',
+    complianceDeadline: '2026-11-30',
+    charterWindowEnd: '2027-05-31',
+    stage: 'Verification',
+    readinessScore: 40,
+    mandatoryInspectionRequired: false,
+    inspectionCompleted: false,
+    assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+    assignedVerifier: 'S. Girard (Bureau Veritas Inspectorate)',
+    assignedApprover: 'G. Hallworth (Inpex Operations Australia)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'third_party'],
+    requirements: [
+      {
+        id: 'REQ-2026-028-1',
+        category: 'Statutory Certificate',
+        title: 'Certificate of Class',
+        isMandatory: true,
+        isFulfilled: false,
+        ocrConfidence: 98,
+        documentId: 'MAP-VES-2026-STAT-00020',
+        verifierStatus: 'Pending',
+        linkedDocumentId: '',
+      },
+    ],
+  },
+  {
+    id: 'AS-2026-029',
+    title: 'MV Northwind Resolute - Chevron Gorgon Deck Cargo Logistics',
+    assuranceType: 'Vessel',
+    subtypes: ['Vessel'],
+    vesselId: 'VESSEL-012',
+    vesselName: 'MV Northwind Resolute',
+    imoNumber: '9871232',
+    initiatorOrg: 'Northwind Marine Pty Ltd',
+    initiatorRole: 'Vessel Provider Admin',
+    charterer: 'Chevron Australia Pty Ltd',
+    clientOrg: 'Chevron Australia Pty Ltd',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    charterWindowStart: '2026-12-15',
+    complianceDeadline: '2026-12-15',
+    charterWindowEnd: '2027-06-15',
+    stage: 'Verification',
+    readinessScore: 40,
+    mandatoryInspectionRequired: false,
+    inspectionCompleted: false,
+    assignedSubmitter: 'J. Vance (Northwind Marine Pty Ltd)',
+    assignedVerifier: 'S. Girard (Bureau Veritas Inspectorate)',
+    assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['third_party', 'issuing_authority'],
+    requirements: [
+      {
+        id: 'REQ-2026-029-1',
+        category: 'Statutory Certificate',
+        title: 'International Oil Pollution Prevention (IOPP)',
+        isMandatory: true,
+        isFulfilled: false,
+        ocrConfidence: 96,
+        documentId: 'MAP-VES-2026-STAT-00022',
+        verifierStatus: 'Pending',
+        linkedDocumentId: '',
+      },
+    ],
+  },
+  {
+    id: 'AS-2026-003',
+    title: 'Inpex Ichthys Inspection',
+    assuranceType: 'Vessel',
+    subtypes: ['Vessel'],
+    vesselId: 'VESSEL-003',
+    vesselName: 'MV Tasman Pioneer',
+    imoNumber: '9648104',
+    initiatorOrg: 'Inpex Operations Australia',
+    initiatorRole: 'C Admin · Client Created',
+    charterer: 'Inpex Operations Australia',
+    clientOrg: 'Inpex Operations Australia',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    charterWindowStart: '2026-12-01',
+    complianceDeadline: '2026-12-01',
+    charterWindowEnd: '2027-06-01',
+    projectId: 'MAP-PROJ-2026-MARINE-016',
+    projectName: 'Ichthys Field Maintenance & Offloading Support',
+    stage: 'Initiated',
+    readinessScore: 10,
+    mandatoryInspectionRequired: true,
+    inspectionCompleted: false,
+    assignedSubmitter: 'J. Vance (Northwind Marine Pty Ltd)',
+    assignedVerifier: 'K. Tanabe (Inpex Operations Australia)',
+    assignedInspector: 'Capt. Robert Shaw (Meridian Marine Surveyors)',
+    assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'issuing_authority'],
+    requirements: [
+      {
+        id: 'REQ-301',
+        category: 'Statutory Certificate',
+        title: 'Certificate of Registry',
+        isMandatory: true,
+        isFulfilled: false,
+        ocrConfidence: 0,
+        verifierStatus: 'Pending',
+        linkedDocumentId: '',
+        sectionId: 'sec-registry',
+      },
+      ...inpexSectionTasks(),
+    ],
+    sections: INPEX_TASK_SECTIONS,
+    stakeholders: undefined,
+    assignedStakeholders: undefined,
+    createdByPersona: 'C Admin',
+  },
   {
     id: 'AS-2026-010',
     title: 'MV Kimberley Guardian Pre-Deployment Vetting',
@@ -877,7 +1082,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         notes: 'Document version superseded by new 2026 standard.',
       },
     ],
-  },
+  },
   {
     id: 'AS-EQP-005-01',
     title: 'Liebherr RL-K 4200 Heavy Crane Assurance',
@@ -922,7 +1127,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         verifierStatus: 'Verified',
       },
     ],
-  },
+  },
   {
     id: 'AS-2026-023',
     title: 'MV Meridian Pioneer — Subsea Cable Lay Assurance',
@@ -971,8 +1176,116 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
         verifierStatus: 'Verified',
       },
     ],
-  },
+  },
   /* dedicated crew assurance set for Chevron Gorgon Master Vetting (seeded under ADR 0004, preserved alongside multi-object sets under ADR 0029) */
+  {
+    id: 'AS-2026-004',
+    title: 'Woodside Scarborough Subsea Charter',
+    assuranceType: 'Vessel',
+    subtypes: ['Vessel'],
+    scopeType: 'Barge',
+    visibility: 'organization',
+    templateSource: 'organization',
+    projectId: 'MAP-PROJ-2026-MARINE-015',
+    projectName: 'Browse Basin Annual Assurance Campaign',
+    vesselId: 'VESSEL-004',
+    vesselName: 'MV Southern Cross',
+    imoNumber: '9438107',
+    initiatorOrg: 'Woodside Energy Ltd',
+    initiatorRole: 'C Admin · Client Created',
+    charterer: 'Woodside Energy Ltd',
+    clientOrg: 'Woodside Energy Ltd',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    charterWindowStart: '2026-10-01',
+    complianceDeadline: '2026-10-01',
+    charterWindowEnd: '2027-10-01',
+    stage: 'Approved',
+    clientWorkflowStage: 'approved',
+    approverDecision: 'Approved',
+    readinessScore: 100,
+    mandatoryInspectionRequired: true,
+    inspectionCompleted: true,
+    assignedSubmitter: 'E. Rostova (Northwind Marine Pty Ltd)',
+    assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+    assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
+    assignedApprover: 'F. Abernathy (Woodside Energy Ltd)',
+    reviewMode: 'mixed',
+    reviewChannels: ['internal', 'third_party'],
+    requirements: [
+      {
+        id: 'REQ-401',
+        category: 'Statutory Certificate',
+        title: 'Certificate of Class',
+        isMandatory: true,
+        isFulfilled: true,
+        ocrConfidence: 99,
+        documentId: 'MAP-VES-2026-STAT-00007',
+        verifierStatus: 'Verified',
+        notes: 'DNV class notation verified for subsea ROV operations.',
+        linkedDocumentId: ''
+      },
+      {
+        id: 'REQ-402',
+        category: 'Statutory Certificate',
+        title: 'Cargo Ship Safety Construction',
+        isMandatory: true,
+        isFulfilled: true,
+        ocrConfidence: 98,
+        documentId: 'MAP-VES-2026-STAT-00008',
+        verifierStatus: 'Verified',
+        notes: 'Safety construction certificate valid through 2028.',
+        linkedDocumentId: ''
+      },
+    ],
+    stakeholders: undefined,
+    assignedStakeholders: undefined,
+    createdByPersona: ''
+  },
+  {
+    id: 'AS-CRW-102-01',
+    title: 'Chief Eng. Marcus Sterling — Technical Compliance Vetting',
+    assuranceType: 'Crew',
+    subtypes: ['Crew'],
+    projectId: 'MAP-PROJ-2026-MARINE-014',
+    projectName: 'Prelude FLNG Specialized Crew Provision',
+    crewId: 'CREW-102',
+    crewName: 'Chief Eng. Marcus Sterling',
+    /* a crew set may cover several crew members (ADR 0023) */
+    crewIds: ['CREW-102', 'CREW-103'],
+    crewNames: ['Chief Eng. Marcus Sterling', 'Chief Off. Sarah Jenkins'],
+    vesselId: 'VESSEL-002',
+    vesselName: 'MV Coral Titan',
+    imoNumber: '9284714',
+    initiatorOrg: 'Northwind Marine Pty Ltd',
+    initiatorRole: 'Service Provider Admin',
+    charterer: 'Shell Australia Pty Ltd',
+    clientOrg: 'Shell Australia Pty Ltd',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    charterWindowStart: '2026-10-01',
+    complianceDeadline: '2026-10-01',
+    charterWindowEnd: '2027-10-01',
+    stage: 'Approval',
+    readinessScore: 70,
+    mandatoryInspectionRequired: false,
+    inspectionCompleted: false,
+    assignedSubmitter: 'J. Vance (Northwind Marine Pty Ltd)',
+    assignedVerifier: 'T. Marlowe (Shell Australia Pty Ltd)',
+    assignedApprover: 'I. Castellan (Shell Australia Pty Ltd)',
+    reviewMode: 'internal',
+    reviewChannels: ['internal'],
+    requirements: [
+      {
+        id: 'REQ-CRW-102-1',
+        category: 'Crew Credential',
+        title: 'Chief Engineer Unlimited CoC (STCW III/2)',
+        isMandatory: true,
+        isFulfilled: true,
+        ocrConfidence: 99,
+        documentId: 'MAP-CRW-2026-STCW-00206',
+        verifierStatus: 'Verified',
+      },
+    ],
+  },
   {
     id: 'AS-CRW-101-01',
     title: 'Capt. Alexander Wright — Chevron Gorgon Master Vetting',
@@ -1024,7 +1337,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     ],
     stakeholders: undefined,
     assignedStakeholders: undefined,
-  },
+  },
 ];
 
 /* demo sets seeded into the store; sets filed under a switched-off scope (Activity for now) stay defined above but are left out */
@@ -1102,7 +1415,7 @@ export const MOCK_ASSURANCE_TEMPLATES: AssuranceTemplate[] = [
         verifierStatus: 'Pending',
       },
     ],
-  },
+  },
   {
     id: 'AST-2026-003',
     title: 'Offshore Master / Captain Vetting Standard Template',
@@ -4364,7 +4677,7 @@ export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = ([
     action: 'Registered Unique Vessel Record',
     targetAsset: 'MV Pacific Endeavour (IMO 9123453)',
     justificationNotes: 'Initial vessel registration across all 11 Information categories.',
-  },
+  },
   {
     id: 'AUD-90483',
     timestampUtc: '2026-09-19T10:05:44Z',
@@ -4419,7 +4732,7 @@ export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = ([
     action: 'Submitted Vessel Technical Dossier',
     targetAsset: 'AS-2026-023 (MV Meridian Commander)',
     justificationNotes: 'Uploaded DP2 cable lay statutory certification and ISM manuals.',
-  },
+  },
   {
     id: 'AUD-90488',
     timestampUtc: '2026-09-19T16:20:00Z',
@@ -4429,7 +4742,7 @@ export const MOCK_AUDIT_TRAIL: AuditTrailEvent[] = ([
     action: 'Configured Project Assurance Gate',
     targetAsset: 'MAP-PROJ-2026-MARINE-007 (Gorgon Stage 2 Subsea Campaign)',
     justificationNotes: 'Set mandatory verifier and approver sign-off thresholds.',
-  },
+  },
   ...OIL_CO_PILOT_AUDIT,
 ] satisfies AuditTrailEventDraft[]).map(withStructuredAuditTarget);
 
@@ -4514,7 +4827,7 @@ export const MOCK_USERS: import('../types/user').UserProfile[] = [
     id: 'USR-202',
     name: 'A. Fontaine',
     email: 'a.fontaine@bureauveritas.com',
-    roles: ['Verifier'],
+    roles: ['Administrator', 'Verifier'],
     userType: 'Third-Party',
     organization: 'Bureau Veritas Inspectorate',
     departmentOrScope: 'Statutory Verification & Audit',
@@ -4651,7 +4964,7 @@ export const MOCK_USERS: import('../types/user').UserProfile[] = [
     departmentOrScope: 'Marine Assurance Approvals',
     status: 'Active',
     lastActive: '2026-09-18 22:15 UTC',
-  },
+  },
   {
     id: 'USR-105',
     name: 'D. Vance',
@@ -4673,7 +4986,7 @@ export const MOCK_USERS: import('../types/user').UserProfile[] = [
     departmentOrScope: 'Vessel Technical Documentation Submissions',
     status: 'Active',
     lastActive: '2026-09-19 14:45 UTC',
-  },
+  },
   {
     id: 'USR-108',
     name: 'A. Al-Hassan',
@@ -4684,7 +4997,7 @@ export const MOCK_USERS: import('../types/user').UserProfile[] = [
     departmentOrScope: 'Security Personnel & Operations Management',
     status: 'Active',
     lastActive: '2026-09-20 02:15 UTC',
-  },
+  },
   {
     id: 'USR-220',
     name: 'D. Rahimi',
@@ -4706,7 +5019,7 @@ export const MOCK_USERS: import('../types/user').UserProfile[] = [
     departmentOrScope: 'Marine Asset Chartering & Governance',
     status: 'Active',
     lastActive: '2026-09-20 07:15 UTC',
-  },
+  },
   {
     id: 'USR-225',
     name: 'M. O\'Connor',

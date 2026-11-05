@@ -428,7 +428,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     // External organization vessels
     const externalVessels = MOCK_VESSELS.filter((v) => !isVesselOwnedByAdmin(v));
     expect(externalVessels.length).toBe(5);
-    expect(externalVessels.map((v) => v.id)).toEqual(['VESSEL-008', 'VESSEL-009', 'VESSEL-010', 'VESSEL-011', 'VESSEL-014']);
+    expect(externalVessels.map((v) => v.id)).toEqual(['VESSEL-008', 'VESSEL-011', 'VESSEL-014', 'VES-OILCO-KESTREL-INTEGRATOR', 'VES-OILCO-BUNKER-BARGE']);
     externalVessels.forEach((v) => {
       expect(isVesselOwnedByAdmin(v)).toBe(false);
     });
@@ -437,7 +437,7 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
   it('excludes the vessel admin organization from vessels that can be assigned to a new assurance set', () => {
     const charterable = filterVesselAdminAvailableToCharter(MOCK_VESSELS);
 
-    expect(charterable.map((v) => v.id)).toEqual(['VESSEL-008', 'VESSEL-009', 'VESSEL-010', 'VESSEL-011', 'VESSEL-014']);
+    expect(charterable.map((v) => v.id)).toEqual(['VESSEL-008', 'VESSEL-011', 'VESSEL-014', 'VES-OILCO-KESTREL-INTEGRATOR', 'VES-OILCO-BUNKER-BARGE']);
     charterable.forEach((v) => {
       expect(isVesselOwnedByAdmin(v)).toBe(false);
       expect(v.status).not.toBe('Under Charter');

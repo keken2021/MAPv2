@@ -14,7 +14,7 @@ import {
 
 describe('demoSessionHelpers', () => {
   it('lists active organizations from mock users (pending users excluded)', () => {
-    expect(getOrganizationsFromUsers(MOCK_USERS)).toHaveLength(34);
+    expect(getOrganizationsFromUsers(MOCK_USERS)).toHaveLength(21);
   });
 
   it('builds one switcher option per organization, in the same order, with its initials and counts', () => {
@@ -31,9 +31,9 @@ describe('demoSessionHelpers', () => {
       );
     });
 
-    const pacific = options.find((o) => o.organization === 'Pacific Ocean Logistics Pty Ltd');
-    expect(pacific?.initials).toBe('PO');
-    expect(pacific?.roleCount).toBe(2);
+    const gulf = options.find((o) => o.organization === 'Gulf Security Services Pty Ltd');
+    expect(gulf?.initials).toBe('GS');
+    expect(gulf?.roleCount).toBe(2);
   });
 
   it('filters switcher options by name without regard to case', () => {
@@ -55,8 +55,8 @@ describe('demoSessionHelpers', () => {
     expect(formatOrganizationSwitcherMeta({ userCount: 3, roleCount: 0 })).toBe('No roles available');
   });
 
-  it('offers only administrator and submitter for Pacific Ocean Logistics', () => {
-    const org = 'Pacific Ocean Logistics Pty Ltd';
+  it('offers only administrator and submitter for Gulf Security Services', () => {
+    const org = 'Gulf Security Services Pty Ltd';
     expect(getPersonasForOrganization(MOCK_USERS, org)).toEqual(['Administrator', 'Submitter']);
     expect(getPersonaOptionsForOrganization(MOCK_USERS, org)).toEqual([
       { role: 'Administrator', label: 'Vessel Admin' },
@@ -73,14 +73,14 @@ describe('demoSessionHelpers', () => {
     ]);
   });
 
-  it('picks M. Thorne as Pacific Ocean submitter', () => {
+  it('picks D. Rahimi as Gulf Security submitter', () => {
     const user = pickSessionUserForOrgPersona(
       MOCK_USERS,
-      'Pacific Ocean Logistics Pty Ltd',
+      'Gulf Security Services Pty Ltd',
       'Submitter',
     );
-    expect(user?.id).toBe('USR-110');
-    expect(user?.name).toBe('M. Thorne');
+    expect(user?.id).toBe('USR-220');
+    expect(user?.name).toBe('D. Rahimi');
   });
 
   it('keeps preferred persona when switching org if that role exists', () => {
@@ -89,7 +89,7 @@ describe('demoSessionHelpers', () => {
   });
 
   it('falls back to first persona when preferred role is missing in org', () => {
-    const org = 'Pacific Ocean Logistics Pty Ltd';
+    const org = 'Gulf Security Services Pty Ltd';
     expect(resolveDefaultPersonaForOrganization(MOCK_USERS, org, 'Verifier')).toBe(
       'Administrator',
     );

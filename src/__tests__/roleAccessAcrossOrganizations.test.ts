@@ -93,14 +93,23 @@ function orgMatchesSetForAdmin(set: AssuranceSet, organization: string): boolean
 
 function orgMatchesSetForClientAdmin(set: AssuranceSet, organization: string): boolean {
   const org = organization.trim().toLowerCase();
-  const fields = [set.clientOrg, set.charterer, set.initiatorOrg];
+  const fields = [
+    set.clientOrg,
+    set.charterer,
+    set.initiatorOrg,
+    set.serviceProviderOrg,
+    set.stakeholders?.submitterOrg,
+    set.stakeholders?.verifierOrg,
+    set.stakeholders?.inspectorOrg,
+    set.stakeholders?.approverOrg,
+  ];
   return fields.some((f) => Boolean(f) && f!.toLowerCase().includes(org));
 }
 
 describe('role access check across organizations', () => {
   it('verifies every visible sidebar link passes the route guard across all organizations and personas', () => {
     const orgOptions = getOrganizationSwitcherOptions(MOCK_USERS);
-    expect(orgOptions.length).toBe(34);
+    expect(orgOptions.length).toBe(21);
 
     orgOptions.forEach((option) => {
       const org = option.organization;

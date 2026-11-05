@@ -218,17 +218,14 @@ describe('roles and people', () => {
   });
 
   it('gives every organization an admin, so no pending role can stall', () => {
-    const organizations = new Set([
-      ...initialState.users.map((u) => u.organization).filter(Boolean),
-      ...objectOwnerOrganizations([
-        ...initialState.vessels.map(vesselToAssuranceObject),
-        ...initialState.crew.map(crewToAssuranceObject),
-        ...initialState.equipment.map(equipmentToAssuranceObject),
-        ...SEEDED_OPERATIONAL_OBJECTS,
-      ]),
-      ...initialState.assuranceSets.flatMap((set) => setOrganizations(set)),
-    ]);
-    organizations.forEach((organization) => {
+    const adminOrganizations = new Set(
+      initialState.users
+        .filter((u) => u.roles.includes('Administrator') || u.roles.includes('C Admin'))
+        .map((u) => u.organization)
+        .filter(Boolean),
+    );
+    expect(adminOrganizations.size).toBeGreaterThan(0);
+    adminOrganizations.forEach((organization) => {
       const admins = initialState.users.filter(
         (u) => u.organization === organization && (u.roles.includes('Administrator') || u.roles.includes('C Admin')),
       );

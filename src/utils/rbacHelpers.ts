@@ -9,7 +9,7 @@ import { AuditTrailEvent, UserRolePersona } from "../types/audit";
 import { MasterDocument } from "../types/document";
 import { VesselInformation } from "../types/vessel";
 import { EquipmentAsset } from "../types/equipment";
-import { userMatchesAnyRole } from "./userRoleHelpers";
+import { setSubmitters, userMatchesAnyRole } from "./userRoleHelpers";
 import { isDatePermissionActive } from "./validation";
 import { VIEW_TO_SCOPE, canPerform, isUserOverride, getEffectiveUserScopeFlags, getRoleScopeFlags } from "./permissionHelpers";
 import { RolePermissionMatrix, UserPermissionOverrides } from "../types/permissions";
@@ -66,6 +66,7 @@ export function isAssuranceSetAssignedToPersona(
         set.assignedSubmitter,
         set.stakeholders?.submitterOrg,
         set.assignedStakeholders?.submitterOrg,
+        ...setSubmitters(set).map((submitter) => submitter.organization),
       );
       const isOwnerVessel =
         (organization.toLowerCase().includes("northwind") || organization.toLowerCase().includes("pacific")) &&
@@ -97,7 +98,7 @@ export function isAssuranceSetAssignedToPersona(
   }
   if (persona === "Submitter") {
     if (user) {
-      return assigneeMatchesUser(set.assignedSubmitter, user);
+      return setSubmitters(set).some((submitter) => assigneeMatchesUser(submitter.assignee, user));
     }
     /* submitter / vessel admin can only access assurance sets for their own organization */
     const isAssignedToOrg = Boolean(
@@ -117,6 +118,7 @@ export function isAssuranceSetAssignedToPersona(
         set.assignedSubmitter,
         set.serviceProviderOrg,
         set.stakeholders?.submitterOrg,
+        ...setSubmitters(set).map((submitter) => submitter.organization),
       );
     }
     return isAssignedToOrg;

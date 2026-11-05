@@ -7,7 +7,7 @@ import { PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 
 describe('session workspace queues', () => {
-  it('shows Meridian inspector N. Technical 9 sets instead of every inspector set', () => {
+  it('shows Meridian inspector N. Technical 5 sets instead of every inspector set', () => {
     const sets = [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS];
     const orgWide = sets.filter((set) =>
       isAssuranceSetAssignedToPersona(set, 'Inspector', 'Meridian Marine Surveyors'),
@@ -22,8 +22,8 @@ describe('session workspace queues', () => {
         }) &&
         Boolean(set.assignedInspector?.includes('N. Technical')),
     );
-    expect(orgWide.length).toBe(16);
-    expect(named.length).toBe(9);
+    expect(orgWide.length).toBe(8);
+    expect(named.length).toBe(5);
 
     useMapStore.setState({
       activePersona: 'Inspector',

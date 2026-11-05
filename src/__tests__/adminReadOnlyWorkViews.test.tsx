@@ -135,7 +135,7 @@ describe('administrator read-only verification and inspection screens', () => {
 
       render(<InspectorWorkspaceView />);
       expect(screen.getByText("Read-only view of your organization's inspection work")).toBeTruthy();
-      expect(screen.getByText(/AS-ORG · AS-ORG/)).toBeTruthy();
+      expect(screen.getByText((_, el) => el?.tagName.toLowerCase() === 'span' && el?.textContent === 'AS-ORG · AS-ORG')).toBeTruthy();
       expect(screen.queryByText(/AS-OTHER/)).toBeNull();
 
       const table = screen.getByRole('table');

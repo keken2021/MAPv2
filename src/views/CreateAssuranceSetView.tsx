@@ -311,9 +311,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     /* a request that names a scope but no asset starts with the first asset of that scope, as the scope picker did */
     const requestedPrimaryScope =
       requestedScopes && requestedScopes.length > 0 ? getPrimaryAssuranceScope(requestedScopes) : requestedScope;
-    /* nothing is prefilled: an object brings its owner in as a party, so the objects tab starts empty unless an asset was handed over */
-    if (!handedOff) return [];
-    const start = handedOff;
+    const start =
+      handedOff ||
+      (requestedPrimaryScope === 'Crew'
+        ? { scope: 'Crew' as AssuranceSubtype, id: crew[0]?.id || '' }
+        : requestedPrimaryScope === 'Equipment'
+          ? { scope: 'Equipment' as AssuranceSubtype, id: equipment[0]?.id || '' }
+          : { scope: 'Vessel' as AssuranceSubtype, id: initialVesselId });
     if (start.scope === 'Vessel') {
       const v = vessels.find((x) => x.id === start.id);
       return v ? [vesselToAssuranceObject(v)] : [];
@@ -604,7 +608,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* one organization may hold several reviewer roles (for example the assurance group Coastal Fuel Testing as verifier, inspector and approver); only the client itself may not verify and approve */
   const isDualRoleBlocked = (a: string, b: string): boolean =>
-    Boolean(a && b) && sameOrganization(a, b) && sameOrganization(a, setClientOrg);
+    Boolean(a && b) && sameOrganization(a, b);
 
   /* segregation of duties: object owners, responding party, or dual roles clear automatically */
   useEffect(() => {
@@ -1387,13 +1391,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     }
 
-    /* a missing verifier, inspector or approver is reported on the General tab, where the parties are chosen */
-    if (step.id === 'step-general' || step.id === 'step-requirements' || step.id === 'step-review') {
-      const isGeneralStep = step.id === 'step-general';
+    /* a missing verifier, inspector or approver is reported on the Requirements/Review tab */
+    if (step.id === 'step-requirements' || step.id === 'step-review') {
       const objectOwners = objectOwnerOrganizations(selectedAssuranceObjects);
       if (verificationRequired) {
         if (!verifierOrg) {
-          if (isGeneralStep) newErrors.verifier = 'Select a verifier organization.';
+          newErrors.verifier = 'Select a verifier organization.';
         } else if (effectiveRespondingParty && sameOrganization(verifierOrg, effectiveRespondingParty)) {
           newErrors.verifier = 'The responding party cannot be verifier.';
         } else if (objectOwners.some((o) => sameOrganization(o, verifierOrg))) {
@@ -1402,14 +1405,14 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       }
       if (inspectionRequired) {
         if (!inspectorOrg) {
-          if (isGeneralStep) newErrors.inspector = 'Select an inspector organization.';
+          newErrors.inspector = 'Select an inspector organization.';
         } else if (effectiveRespondingParty && sameOrganization(inspectorOrg, effectiveRespondingParty)) {
           newErrors.inspector = 'The responding party cannot be inspector.';
         }
       }
       if (approvalRequired) {
         if (!approverOrg) {
-          if (isGeneralStep) newErrors.approver = 'Select an approver organization.';
+          newErrors.approver = 'Select an approver organization.';
         } else if (isProviderSideOrg(approverOrg)) {
           newErrors.approver = `${approverOrg} is the provider of this set, so it cannot approve it. Choose the client or a third party.`;
         } else if (objectOwners.some((o) => sameOrganization(o, approverOrg))) {
