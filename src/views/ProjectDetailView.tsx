@@ -4,6 +4,7 @@ import { ListToolbar } from "../components/common/ListToolbar";
 import { CountTab, CountTabs } from "../components/common/CountTabs";
 import { ActiveFilterChips, FilterChip } from "../components/common/ActiveFilterChips";
 import { DetailHeader } from "../components/common/DetailHeader";
+import { Tabs } from "../components/common/Tabs";
 import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { useMapStore } from "../store/useMapStore";
 import { ProjectAssetType } from "../types/project";
@@ -278,25 +279,20 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         }
       />
 
-      <ul className="nav nav-tabs">
-        {(["details", "assurance", "roster", "tasks"] as const).map((tab) => (
-          <li className="nav-item" key={tab}>
-            <button
-              type="button"
-              className={`nav-link ${activeTab === tab ? "active fw-semibold" : ""}`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab === "details"
-                ? "Details"
-                : tab === "roster"
-                  ? "Objects"
-                  : tab === "tasks"
-                    ? "Tasks"
-                    : "Assurance Sets"}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <Tabs
+        variant="section"
+        aria-label="Project detail tabs"
+        active={activeTab}
+        onChange={(key) =>
+          setActiveTab(key as "details" | "assurance" | "roster" | "tasks")
+        }
+        tabs={[
+          { key: "details", label: "Details" },
+          { key: "assurance", label: "Assurance Sets" },
+          { key: "roster", label: "Objects" },
+          { key: "tasks", label: "Tasks" },
+        ]}
+      />
 
       {activeTab === "details" && (
         <div className="d-flex flex-column gap-3">

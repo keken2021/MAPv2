@@ -40,7 +40,7 @@ describe('ProjectDetailView UI Declutter', () => {
       <ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Details' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Details' }));
 
     // Project type and risk profile appear as plain text in the Details tab
     expect(screen.getByText('Charter / Voyage')).toBeInTheDocument();

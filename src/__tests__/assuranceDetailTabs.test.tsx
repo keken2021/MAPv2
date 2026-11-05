@@ -114,10 +114,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     const tasksTab = screen.getByRole('tab', { name: /^tasks$/i });
     expect(tasksTab.getAttribute('aria-selected')).toBe('true');
 
-    // Task sections card is present
-    expect(screen.getByText(/task sections/i)).toBeDefined();
-
-    // Shared Tasks table is present
+    // Tasks pane + shared Tasks table are present
+    expect(screen.getByTestId('assurance-detail-tasks-tab-pane')).toBeInTheDocument();
     const tasksTableTab = screen.getByTestId('project-tasks-tab');
     expect(tasksTableTab).toBeInTheDocument();
 

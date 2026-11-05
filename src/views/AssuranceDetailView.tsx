@@ -80,6 +80,7 @@ import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { getValidityInContractPeriod } from '../utils/expiryPolicy';
 import { EmptyState } from '../components/common/EmptyState';
+import { Tabs } from '../components/common/Tabs';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { AuditEventTarget, AuditTrailEvent, formatAuditTarget, auditEventMatchesSearch } from '../types/audit';
@@ -2380,64 +2381,21 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       )}
 
       {/* Top Row: Campaign Summary Information Card + Compact Stage Pipeline */}
-      {/* Assurance Set Detail Tabs */}
-      <ul className="nav nav-tabs border-bottom mb-3" role="tablist">
-        <li className="nav-item" role="presentation">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'details'}
-            className={`nav-link ${activeTab === 'details' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => handleTabChange('details')}
-          >
-            Details
-          </button>
-        </li>
-        <li className="nav-item" role="presentation">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'objects'}
-            className={`nav-link ${activeTab === 'objects' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => handleTabChange('objects')}
-          >
-            Objects
-          </button>
-        </li>
-        <li className="nav-item" role="presentation">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'requirements'}
-            className={`nav-link ${activeTab === 'requirements' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => handleTabChange('requirements')}
-          >
-            Requirements
-          </button>
-        </li>
-        <li className="nav-item" role="presentation">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'tasks'}
-            className={`nav-link ${activeTab === 'tasks' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => handleTabChange('tasks')}
-          >
-            Tasks
-          </button>
-        </li>
-        <li className="nav-item" role="presentation">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'audit'}
-            className={`nav-link ${activeTab === 'audit' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => handleTabChange('audit')}
-          >
-            Audit Trail
-          </button>
-        </li>
-      </ul>
+      {/* Assurance Set Detail Tabs — ?tab= URL sync stays in handleTabChange */}
+      <Tabs
+        variant="section"
+        className="mb-3"
+        aria-label="Assurance set detail tabs"
+        active={activeTab}
+        onChange={(key) => handleTabChange(key as AssuranceDetailTab)}
+        tabs={[
+          { key: 'details', label: 'Details' },
+          { key: 'objects', label: 'Objects' },
+          { key: 'requirements', label: 'Requirements' },
+          { key: 'tasks', label: 'Tasks' },
+          { key: 'audit', label: 'Audit Trail' },
+        ]}
+      />
 
       {/* Tab: Details */}
       {activeTab === 'details' && (
