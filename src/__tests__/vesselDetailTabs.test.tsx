@@ -1,18 +1,21 @@
 /*
-  file summary: asserts vessel detail tab labels and counts per role (audit 5318).
-  responsibilities: owning-organization Administrator sees 7 tabs; other personas see 6.
-  role in system: covers VesselDetailView tablist after Overview…History rename and Past charters gate.
+  file summary: asserts vessel detail tab labels and counts per role (audit 5318 / Task 5451).
+  responsibilities: owning-organization Administrator sees Audit + Past charters; shared Tabs section variant.
+  role in system: covers VesselDetailView tablist after section Tabs migration.
 */
 
 import React from 'react';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselDetailView } from '../views/VesselDetailView';
 
+function tablist() {
+  return screen.getByRole('tablist', { name: /vessel detail tabs/i });
+}
+
 function tabLabels(): string[] {
-  const tablist = screen.getByRole('tablist', { name: /vessel detail tabs/i });
-  return within(tablist)
+  return within(tablist())
     .getAllByRole('tab')
     .map((tab) => (tab.textContent || '').replace(/\s*\(\d+\)\s*$/, '').trim());
 }
@@ -26,33 +29,42 @@ describe('vessel detail tabs', () => {
     });
   });
 
-  it('shows 7 tabs for the Administrator of the owning organization', () => {
+  it('shows section tabs with aria-selected and count spans for the owning Administrator', () => {
     render(<VesselDetailView vesselId="VESSEL-001" />);
     const labels = tabLabels();
-    expect(labels).toHaveLength(7);
     expect(labels[0]).toBe('Overview');
-    expect(labels.some((label) => label.startsWith('Documents'))).toBe(true);
-    expect(labels.some((label) => label.startsWith('Assurance'))).toBe(true);
-    expect(labels.some((label) => label.startsWith('Inspections'))).toBe(true);
-    expect(labels.some((label) => label.startsWith('Crew and Equipment'))).toBe(true);
-    expect(labels).toContain('History and Audit Trail');
-    expect(labels.some((label) => label.startsWith('Past charters'))).toBe(true);
+    expect(labels).toContain('Documents');
+    expect(labels).toContain('Assurance');
+    expect(labels).toContain('Inspections');
+    expect(labels).toContain('Crew and Equipment');
+    expect(labels).toContain('History');
+    expect(labels).toContain('Audit');
+    expect(labels).toContain('Past charters');
+
+    const overview = within(tablist()).getByRole('tab', { name: /^Overview$/i });
+    expect(overview).toHaveAttribute('aria-selected', 'true');
+
+    const documents = within(tablist()).getByRole('tab', { name: /Documents/i });
+    expect(documents.querySelector('.map-tabs-section-count')).toBeTruthy();
+    expect(documents.textContent).toMatch(/Documents\s*\(\d+\)/);
+
+    fireEvent.click(within(tablist()).getByRole('tab', { name: /^History$/i }));
+    expect(within(tablist()).getByRole('tab', { name: /^History$/i })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(overview).toHaveAttribute('aria-selected', 'false');
   });
 
-  it('shows 6 tabs for anyone else', () => {
+  it('hides Audit and Past charters for other personas', () => {
     useMapStore.setState({
       activePersona: 'Verifier',
       activeDemoOrganization: 'Bureau Veritas Inspectorate',
     });
     render(<VesselDetailView vesselId="VESSEL-001" />);
     const labels = tabLabels();
-    expect(labels).toHaveLength(6);
-    expect(labels[0]).toBe('Overview');
-    expect(labels.some((label) => label.startsWith('Documents'))).toBe(true);
-    expect(labels.some((label) => label.startsWith('Assurance'))).toBe(true);
-    expect(labels.some((label) => label.startsWith('Inspections'))).toBe(true);
-    expect(labels.some((label) => label.startsWith('Crew and Equipment'))).toBe(true);
-    expect(labels).toContain('History and Audit Trail');
+    expect(labels).toContain('History');
+    expect(labels).not.toContain('Audit');
     expect(labels.some((label) => label.startsWith('Past charters'))).toBe(false);
   });
 });

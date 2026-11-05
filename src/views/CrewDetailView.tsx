@@ -25,6 +25,7 @@ import { AssuranceObjectType } from '../types/assurance';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { EmptyState } from '../components/common/EmptyState';
+import { Tabs } from '../components/common/Tabs';
 import { formatMaritimeDate } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CrewDocumentUploadModal } from '../components/modals/CrewDocumentUploadModal';
@@ -382,66 +383,34 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         onExportPdf={handleExportPdf}
       />
 
-      <ul className="nav nav-tabs border-bottom" role="tablist" aria-label="Crew detail tabs">
-        <li className="nav-item">
-          <button
-            type="button"
-            role="tab"
-            className={`nav-link ${activeTab === 'overview' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview
-          </button>
-        </li>
-        {showDocumentsTab && (
-          <li className="nav-item">
-            <button
-              type="button"
-              role="tab"
-              className={`nav-link ${activeTab === 'documents' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('documents')}
-            >
-              Documents ({documentCount})
-            </button>
-          </li>
-        )}
-        {showAssuranceTab && (
-          <li className="nav-item">
-            <button
-              type="button"
-              role="tab"
-              className={`nav-link ${activeTab === 'assurance' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('assurance')}
-            >
-              Assurance ({linkedAssuranceSets.length})
-            </button>
-          </li>
-        )}
-        {showAssignmentsTab && (
-          <li className="nav-item">
-            <button
-              type="button"
-              role="tab"
-              className={`nav-link ${activeTab === 'assignments' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('assignments')}
-            >
-              Assignments ({assignmentCount})
-            </button>
-          </li>
-        )}
-        {showAuditTab && (
-          <li className="nav-item">
-            <button
-              type="button"
-              role="tab"
-              className={`nav-link ${activeTab === 'audit' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('audit')}
-            >
-              Audit Trail ({linkedAudits.length})
-            </button>
-          </li>
-        )}
-      </ul>
+      <Tabs
+        variant="section"
+        aria-label="Crew detail tabs"
+        active={activeTab}
+        onChange={(key) => setActiveTab(key as CrewDetailTab)}
+        tabs={[
+          { key: 'overview', label: 'Overview' },
+          { key: 'documents', label: 'Documents', count: documentCount, hidden: !showDocumentsTab },
+          {
+            key: 'assurance',
+            label: 'Assurance',
+            count: linkedAssuranceSets.length,
+            hidden: !showAssuranceTab,
+          },
+          {
+            key: 'assignments',
+            label: 'Assignments',
+            count: assignmentCount,
+            hidden: !showAssignmentsTab,
+          },
+          {
+            key: 'audit',
+            label: 'Audit Trail',
+            count: linkedAudits.length,
+            hidden: !showAuditTab,
+          },
+        ]}
+      />
 
       {/* Overview — photo and particulars. Identity and status stay in the header. */}
       {activeTab === 'overview' && (

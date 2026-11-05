@@ -39,6 +39,7 @@ import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { EmptyState } from '../components/common/EmptyState';
+import { Tabs } from '../components/common/Tabs';
 import { getVesselAssetStatus } from '../types/asset';
 import { getPhysicalInspectionsForAssuranceSets } from '../store/inspectionMockData';
 import { VesselActivityTab } from '../components/vessels/VesselActivityTab';
@@ -836,93 +837,32 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         onAvailabilityChange={(value) => updateVesselAvailability(vessel.id, value)}
       />
 
-      {/* Sub-Tabs Navigation — Overview…History for all; Audit Trail for owning-organization Administrator */}
-      <ul className="nav nav-tabs border-bottom" role="tablist" aria-label="Vessel detail tabs">
-        <li className="nav-item">
-          <button
-            type="button"
-            role="tab"
-            className={`nav-link ${activeTab === 'overview' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            type="button"
-            role="tab"
-            className={`nav-link ${activeTab === 'vault' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('vault')}
-          >
-            Documents ({allVaultCerts.length})
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            type="button"
-            role="tab"
-            className={`nav-link ${activeTab === 'assurance' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('assurance')}
-          >
-            Assurance ({linkedSets.length})
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            type="button"
-            role="tab"
-            className={`nav-link ${activeTab === 'inspections' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('inspections')}
-          >
-            Inspections ({physicalInspections.length})
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            type="button"
-            role="tab"
-            className={`nav-link ${activeTab === 'crew' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('crew')}
-          >
-            Crew and Equipment ({linkedCrew.length + linkedEquipment.length})
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            type="button"
-            role="tab"
-            className={`nav-link ${activeTab === 'history' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('history')}
-          >
-            History
-          </button>
-        </li>
-        {isAdmin && isOwned && (
-          <li className="nav-item">
-            <button
-              type="button"
-              role="tab"
-              className={`nav-link ${activeTab === 'audit' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('audit')}
-            >
-              Audit
-            </button>
-          </li>
-        )}
-        {isAdmin && isOwned && (
-          <li className="nav-item">
-            <button
-              type="button"
-              role="tab"
-              className={`nav-link ${activeTab === 'clients' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('clients')}
-            >
-              Past charters ({vessel.clientHistory?.length ?? 0})
-            </button>
-          </li>
-        )}
-      </ul>
+      {/* Sub-Tabs Navigation — Overview…History for all; Audit / Past charters for owning-organization Administrator */}
+      <Tabs
+        variant="section"
+        aria-label="Vessel detail tabs"
+        active={activeTab}
+        onChange={(key) => setActiveTab(key as typeof activeTab)}
+        tabs={[
+          { key: 'overview', label: 'Overview' },
+          { key: 'vault', label: 'Documents', count: allVaultCerts.length },
+          { key: 'assurance', label: 'Assurance', count: linkedSets.length },
+          { key: 'inspections', label: 'Inspections', count: physicalInspections.length },
+          {
+            key: 'crew',
+            label: 'Crew and Equipment',
+            count: linkedCrew.length + linkedEquipment.length,
+          },
+          { key: 'history', label: 'History' },
+          { key: 'audit', label: 'Audit', hidden: !(isAdmin && isOwned) },
+          {
+            key: 'clients',
+            label: 'Past charters',
+            count: vessel.clientHistory?.length ?? 0,
+            hidden: !(isAdmin && isOwned),
+          },
+        ]}
+      />
 
       {/* Tab 1: Overview datasheet */}
       {activeTab === 'overview' && (

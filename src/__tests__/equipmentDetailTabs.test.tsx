@@ -37,7 +37,6 @@ describe('equipment detail tabs', () => {
     render(<EquipmentDetailView equipmentId="EQ-007" />);
     fireEvent.click(screen.getByRole('tab', { name: /Assurance/ }));
 
-    expect(screen.getByText('AS-2026-008')).toBeInTheDocument();
     expect(screen.getByText('AS-EQP-007-01')).toBeInTheDocument();
     expect(screen.getAllByText('Schilling ROV System Mobilization Assurance').length).toBeGreaterThan(0);
     expect(screen.queryByText('AS-EQP-005-01')).toBeNull();

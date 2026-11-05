@@ -9,6 +9,7 @@ import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { EmptyState } from '../components/common/EmptyState';
+import { Tabs } from '../components/common/Tabs';
 import { getProjectOrganizationForPersona, isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
 import { getEquipmentAssetStatus, EquipmentAsset } from '../types/equipment';
 import { useMapStore } from '../store/useMapStore';
@@ -202,42 +203,27 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         onAvailabilityChange={(value) => updateEquipmentAvailability(item.id, value)}
       />
 
-      <ul className="nav nav-tabs border-bottom" role="tablist" aria-label="Equipment detail tabs">
-        <li className="nav-item">
-          <button
-            type="button"
-            role="tab"
-            className={`nav-link ${activeTab === 'overview' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview
-          </button>
-        </li>
-        {showDocumentsTab && (
-          <li className="nav-item">
-            <button
-              type="button"
-              role="tab"
-              className={`nav-link ${activeTab === 'documents' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('documents')}
-            >
-              Documents ({equipmentDocs.length})
-            </button>
-          </li>
-        )}
-        {showAssuranceTab && (
-          <li className="nav-item">
-            <button
-              type="button"
-              role="tab"
-              className={`nav-link ${activeTab === 'assurance' ? 'active fw-bold text-primary' : 'text-secondary'}`}
-              onClick={() => setActiveTab('assurance')}
-            >
-              Assurance ({linkedSets.length})
-            </button>
-          </li>
-        )}
-      </ul>
+      <Tabs
+        variant="section"
+        aria-label="Equipment detail tabs"
+        active={activeTab}
+        onChange={(key) => setActiveTab(key as EquipmentDetailTab)}
+        tabs={[
+          { key: 'overview', label: 'Overview' },
+          {
+            key: 'documents',
+            label: 'Documents',
+            count: equipmentDocs.length,
+            hidden: !showDocumentsTab,
+          },
+          {
+            key: 'assurance',
+            label: 'Assurance',
+            count: linkedSets.length,
+            hidden: !showAssuranceTab,
+          },
+        ]}
+      />
 
       {/* Overview — photo and particulars only */}
       {activeTab === 'overview' && (
