@@ -52,7 +52,6 @@ import {
   SUBTYPE_CATEGORIES,
   StandardSubtypeDocument,
   SubtypeTemplate,
-  EXISTING_ACTIVITIES,
   THREE_PILLARS_CONFIG,
   ASSURANCE_SCOPE_OPTIONS,
   orderAssuranceScopes,
@@ -376,7 +375,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const e = equipment.find((x) => x.id === id);
     replaceCoveredObjects('equipment', e ? [equipmentToAssuranceObject(e)] : []);
   };
-  const [selectedActivityId, setSelectedActivityId] = useState<string>(() => EXISTING_ACTIVITIES[0]?.id || '');
   const [templatePrivacy, setTemplatePrivacy] = useState<'organization' | 'public'>('organization');
   const [showCancelPrompt, setShowCancelPrompt] = useState<boolean>(false);
   const charterer = setClientOrg;
@@ -1473,21 +1471,18 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     .map((id) => crew.find((c) => c.id === id))
     .filter((c): c is CrewMember => Boolean(c));
   const selectedEquipment = equipment.find((e) => e.id === selectedEquipmentId) || equipment[0];
-  const selectedActivity = EXISTING_ACTIVITIES.find((a) => a.id === selectedActivityId) || EXISTING_ACTIVITIES[0];
 
   /* display name of the asset picked for a scope */
   const getScopeAssetName = (scope: AssuranceSubtype): string =>
     scope === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
       scope === 'Crew' ? (selectedCrewMembers.map((c) => c.fullName).join(', ') || 'Crew') :
-        scope === 'Equipment' ? (selectedEquipment?.name || 'Equipment') :
-          (selectedActivity?.name || 'Activity');
+        (selectedEquipment?.name || 'Equipment');
 
   /* asset name with its identifying detail, as shown on the review tab */
   const getScopeAssetSummary = (scope: AssuranceSubtype): string =>
     scope === 'Vessel' ? `${getScopeAssetName(scope)} (IMO: ${selectedVessel?.imoNumber || 'N/A'})` :
       scope === 'Crew' ? (selectedCrewMembers.map((c) => `${c.fullName} (${c.rank})`).join(', ') || 'Crew') :
-        scope === 'Equipment' ? `${getScopeAssetName(scope)} (Tag: ${selectedEquipment?.equipmentIdentifier || 'N/A'})` :
-          `${getScopeAssetName(scope)} (${selectedActivity?.category || 'N/A'})`;
+        `${getScopeAssetName(scope)} (Tag: ${selectedEquipment?.equipmentIdentifier || 'N/A'})`;
 
   /* providers submit: each object owner submits for its own objects, the service provider submits for the rest */
   const providers = setProviders(selectedAssuranceObjects, setClientOrg, serviceProviderOrg);
@@ -1730,8 +1725,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const effectiveAssetName =
       assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
         assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew') :
-          assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment') :
-            (selectedActivity?.name || 'Activity');
+          (selectedEquipment?.name || 'Equipment');
 
     const effectiveImo =
       assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123453') : (selectedVessel?.imoNumber || 'N/A');
@@ -2049,8 +2043,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const effectiveAssetName =
       assuranceType === 'Vessel' ? (selectedVessel?.name || 'Vessel') :
         assuranceType === 'Crew' ? (selectedCrew?.fullName || 'Crew') :
-          assuranceType === 'Equipment' ? (selectedEquipment?.name || 'Equipment') :
-            (selectedActivity?.name || 'Activity');
+          (selectedEquipment?.name || 'Equipment');
 
     const effectiveImo =
       assuranceType === 'Vessel' ? (selectedVessel?.imoNumber || '9123453') : (selectedVessel?.imoNumber || 'N/A');
