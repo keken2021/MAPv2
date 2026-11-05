@@ -1,9 +1,15 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { DashboardView } from '../views/DashboardView';
 import { DocumentLibraryView } from '../views/DocumentLibraryView';
+
+const tileLabels = () =>
+  screen
+    .getAllByRole('button')
+    .filter((b) => /View →$/.test(b.textContent?.trim() || ''))
+    .map((b) => (b.textContent || '').replace(/^\d+/, '').replace(/View →$/, '').trim());
 
 describe('Dashboard KPI tilesSuite', () => {
   beforeEach(() => {
@@ -13,7 +19,8 @@ describe('Dashboard KPI tilesSuite', () => {
     delete (window as any).__MAP_DOC_TAB_PRESELECT;
     useMapStore.setState({
       activePersona: 'Administrator',
-      activeDemoOrganization: 'Oceanic Marine Services',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: undefined,
       isAuthenticated: true,
       currentHashView: 'dashboard',
     });
@@ -23,214 +30,25 @@ describe('Dashboard KPI tilesSuite', () => {
     vi.useRealTimers();
   });
 
-  describe('Administrator dashboard', () => {
-    it('renders focusable tiles with accessible names that navigate to filtered views', () => {
-      const setCurrentHashView = vi.fn();
-      useMapStore.setState({ setCurrentHashView });
+  it('preselects expiring soon tab when DocumentLibraryView opens from expiring tile', () => {
+    sessionStorage.setItem('map_doc_tab_preselect', 'Expiring < 6 Mos');
+    render(<DocumentLibraryView />);
 
-      render(<DashboardView />);
-
-      const vesselsBtn = screen.getByRole('button', { name: /vessels in your fleet/i });
-      expect(vesselsBtn).toBeInTheDocument();
-      fireEvent.click(vesselsBtn);
-      expect(setCurrentHashView).toHaveBeenCalledWith('vessels');
-
-      const assuranceBtn = screen.getByRole('button', { name: /in progress assurance sets/i });
-      expect(assuranceBtn).toBeInTheDocument();
-      fireEvent.click(assuranceBtn);
-      expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets');
-
-      const expiringBtn = screen.getByRole('button', { name: /documents expiring soon/i });
-      expect(expiringBtn).toBeInTheDocument();
-      fireEvent.click(expiringBtn);
-      expect(setCurrentHashView).toHaveBeenCalledWith('documents');
-      expect(sessionStorage.getItem('map_doc_tab_preselect')).toBe('Expiring < 6 Mos');
-    });
-
-    it('preselects expiring soon tab when DocumentLibraryView opens from expiring tile', () => {
-      sessionStorage.setItem('map_doc_tab_preselect', 'Expiring < 6 Mos');
-      render(<DocumentLibraryView />);
-
-      const expiringTab = screen.getByRole('tab', { name: /expiring soon/i });
-      expect(expiringTab).toHaveAttribute('aria-selected', 'true');
-    });
-
-    it('renders Tasks card in place of Needs action, and counts agree with Documents tab', () => {
-      const setCurrentHashView = vi.fn();
-      useMapStore.setState({
-        activePersona: 'Administrator',
-        activeDemoOrganization: 'Northwind Marine Pty Ltd',
-        setCurrentHashView,
-      });
-
-      const { unmount } = render(<DashboardView />);
-
-      // Tasks card exists in place of Needs action
-      expect(screen.getByTestId('project-tasks-tab')).toBeInTheDocument();
-      expect(screen.getByText('Tasks')).toBeInTheDocument();
-
-      // Check CountTabs: All, Pending, On-going, Done
-      expect(screen.getByRole('tab', { name: /all/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /pending/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /on-going/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /done/i })).toBeInTheDocument();
-
-      // Verify no obsolete copy remains anywhere on the dashboard
-      expect(screen.queryByText(/needs action/i)).toBeNull();
-      expect(screen.queryByText(/action required/i)).toBeNull();
-      expect(screen.queryByText(/awaiting upload/i)).toBeNull();
-
-      // Verify Vessels table is removed from Administrator dashboard
-      expect(screen.queryByRole('table', { name: /^vessels$/i })).toBeNull();
-      expect(screen.queryByText('Operating Status')).toBeNull();
-      expect(screen.queryByText('Class Society')).toBeNull();
-
-      // Expiring soon tile on dashboard shows 2
-      const expiringBtn = screen.getByRole('button', { name: /documents expiring soon/i });
-      expect(expiringBtn).toHaveTextContent('2');
-
-      // Unmount and render DocumentLibraryView to verify Expiring Soon tab count agrees
-      unmount();
-
-      render(<DocumentLibraryView />);
-      const expiringTab = screen.getByRole('tab', { name: /expiring soon/i });
-      expect(expiringTab).toHaveTextContent('2');
-    });
+    const expiringTab = screen.getByRole('tab', { name: /expiring soon/i });
+    expect(expiringTab).toHaveAttribute('aria-selected', 'true');
   });
 
-  describe('Submitter dashboard', () => {
-    beforeEach(() => {
-      useMapStore.setState({
-        activePersona: 'Submitter',
-        activeDemoOrganization: 'Northwind Marine Pty Ltd',
-        activeSessionUserId: undefined,
-      });
-    });
-
-    it('replaces verified tile with due this week and has accessible focusable buttons', () => {
-      render(<DashboardView />);
-
-      expect(screen.queryByText('Verified documents')).toBeNull();
-      expect(screen.getByText('Due this week')).toBeInTheDocument();
-      expect(screen.getByText('Sets with a requirement due in 7 days')).toBeInTheDocument();
-
-      const tasksBtn = screen.getByRole('button', { name: /tasks/i });
-      expect(tasksBtn).toBeInTheDocument();
-      expect(tasksBtn).toHaveClass('map-kpi-clickable');
-
-      const returnedBtn = screen.getByRole('button', { name: /documents returned for correction/i });
-      expect(returnedBtn).toBeInTheDocument();
-
-      const dueThisWeekBtn = screen.getByRole('button', { name: /assurance sets due this week/i });
-      expect(dueThisWeekBtn).toBeInTheDocument();
-    });
-
-    it('switches between assurance sets table and tasks table on tile clicks', () => {
-      render(<DashboardView />);
-
-      expect(screen.getByText(/Showing 1-10 of \d+/)).toBeInTheDocument();
-
-      const tasksBtn = screen.getByRole('button', { name: /tasks/i });
-      fireEvent.click(tasksBtn);
-      expect(screen.getByTestId('project-tasks-tab')).toBeInTheDocument();
-
-      const returnedBtn = screen.getByRole('button', { name: /documents returned for correction/i });
-      fireEvent.click(returnedBtn);
-      expect(screen.getByText('Filter: Returned for correction')).toBeInTheDocument();
-
-      const dueThisWeekBtn = screen.getByRole('button', { name: /assurance sets due this week/i });
-      fireEvent.click(dueThisWeekBtn);
-      expect(screen.getByText('Filter: Due this week')).toBeInTheDocument();
-
-      const allSetsBtn = screen.getByRole('button', { name: /assigned assurance sets/i });
-      fireEvent.click(allSetsBtn);
-      expect(screen.queryByText('Filter: Due this week')).toBeNull();
-      expect(screen.getByText(/Showing 1-10 of \d+/)).toBeInTheDocument();
-    });
+  it('shows the Administrator tiles in the shared frame, with no tables', () => {
+    render(<DashboardView />);
+    expect(tileLabels()).toEqual(['Sets needing people', 'Overdue', 'Due this week', 'Open findings']);
+    expect(screen.getByText('Needs your action')).toBeInTheDocument();
+    expect(screen.queryAllByRole('table')).toHaveLength(0);
   });
 
-  describe('Administrator as client (C Admin) dashboard', () => {
-    beforeEach(() => {
-      useMapStore.setState({
-        activePersona: 'C Admin',
-        activeDemoOrganization: 'Woodside Energy Ltd',
-      });
-    });
-
-    it('filters C Admin assurance sets table on in progress and approved tile clicks', () => {
-      render(<DashboardView />);
-
-      const inProgressBtn = screen.getByRole('button', { name: /in progress assurance sets/i });
-      fireEvent.click(inProgressBtn);
-      expect(screen.getByText('Filter: In progress')).toBeInTheDocument();
-
-      const approvedBtn = screen.getByRole('button', { name: /approved assurance sets/i });
-      fireEvent.click(approvedBtn);
-      expect(screen.getByText('Filter: Approved')).toBeInTheDocument();
-
-      const allSetsBtn = screen.getByRole('button', { name: /open \d+ assurance sets/i });
-      fireEvent.click(allSetsBtn);
-      expect(screen.queryByText('Filter: Approved')).toBeNull();
-    });
-
-    it('filters client assurance sets table by People, Plant and Process pills while keeping tiles unchanged', () => {
-      const mockSetPeople = {
-        id: 'AS-TEST-PEOPLE',
-        title: 'Crew Competency Campaign',
-        initiatorOrg: 'Woodside Energy Ltd',
-        stage: 'Draft',
-        tags: ['People' as const],
-        requirements: [{ category: 'People' }],
-      };
-      const mockSetPlant = {
-        id: 'AS-TEST-PLANT',
-        title: 'Hull Inspection Campaign',
-        initiatorOrg: 'Woodside Energy Ltd',
-        stage: 'Draft',
-        tags: ['Plant' as const],
-        requirements: [{ category: 'Plant' }],
-      };
-
-      useMapStore.setState({
-        assuranceSets: [mockSetPeople, mockSetPlant] as any,
-      });
-
-      render(<DashboardView />);
-
-      const allBtn = screen.getByRole('button', { name: 'All' });
-      const peopleBtn = screen.getByRole('button', { name: 'People' });
-      const plantBtn = screen.getByRole('button', { name: 'Plant' });
-      const processBtn = screen.getByRole('button', { name: 'Process' });
-
-      // Initially both sets are visible
-      expect(screen.getByText('Crew Competency Campaign')).toBeInTheDocument();
-      expect(screen.getByText('Hull Inspection Campaign')).toBeInTheDocument();
-
-      const setsTile = screen.getByRole('button', { name: /open 2 assurance sets/i });
-      expect(setsTile).toBeInTheDocument();
-
-      // Click People pill -> only people set is visible
-      fireEvent.click(peopleBtn);
-      expect(screen.getByText('Crew Competency Campaign')).toBeInTheDocument();
-      expect(screen.queryByText('Hull Inspection Campaign')).toBeNull();
-      // Tile still shows 2
-      expect(screen.getByRole('button', { name: /open 2 assurance sets/i })).toBeInTheDocument();
-
-      // Click Plant pill -> only plant set is visible
-      fireEvent.click(plantBtn);
-      expect(screen.queryByText('Crew Competency Campaign')).toBeNull();
-      expect(screen.getByText('Hull Inspection Campaign')).toBeInTheDocument();
-
-      // Click Process pill -> empty state
-      fireEvent.click(processBtn);
-      expect(screen.queryByText('Crew Competency Campaign')).toBeNull();
-      expect(screen.queryByText('Hull Inspection Campaign')).toBeNull();
-      expect(screen.getByText('No assurance sets tagged Process found.')).toBeInTheDocument();
-
-      // Click All pill -> restores both sets
-      fireEvent.click(allBtn);
-      expect(screen.getByText('Crew Competency Campaign')).toBeInTheDocument();
-      expect(screen.getByText('Hull Inspection Campaign')).toBeInTheDocument();
-    });
+  it('shows the Submitter tiles in the shared frame, with no tables', () => {
+    useMapStore.setState({ activePersona: 'Submitter' });
+    render(<DashboardView />);
+    expect(tileLabels()).toEqual(['Returned', 'Missing', 'Expiring in 30 days', 'Open findings']);
+    expect(screen.queryAllByRole('table')).toHaveLength(0);
   });
 });
