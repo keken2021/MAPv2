@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { SearchInput } from './SearchInput';
 
 export interface SearchableSelectItem {
   id: string;
@@ -158,34 +159,32 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   return (
     <div ref={containerRef} className={`position-relative ${className}`}>
-      <div className="input-group input-group-sm">
-        <span className="input-group-text bg-white border-secondary-subtle text-secondary">
-          <Search className="w-3.5 h-3.5" aria-hidden="true" />
-        </span>
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="text"
-          role="combobox"
-          className="form-control bg-white text-dark border-secondary-subtle"
-          aria-label={ariaLabel || placeholder}
-          aria-expanded={isOpen}
-          aria-haspopup="listbox"
-          aria-autocomplete="list"
-          aria-controls={listboxId}
-          aria-activedescendant={activeDescendant}
-          placeholder={placeholder}
-          autoComplete="off"
-          value={query}
-          disabled={disabled}
-          onFocus={() => setIsOpen(true)}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            if (!isOpen) setIsOpen(true);
-          }}
-          onKeyDown={handleKeyDown}
-        />
-      </div>
+      <SearchInput
+        ref={inputRef}
+        id={inputId}
+        role="combobox"
+        className="form-control bg-white text-dark border-secondary-subtle"
+        aria-label={ariaLabel || placeholder}
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-activedescendant={activeDescendant}
+        placeholder={placeholder}
+        autoComplete="off"
+        value={query}
+        disabled={disabled}
+        onFocus={() => setIsOpen(true)}
+        onChange={(val) => {
+          setQuery(val);
+          if (!isOpen) setIsOpen(true);
+        }}
+        onClear={() => {
+          setQuery('');
+          setIsOpen(false);
+        }}
+        onKeyDown={handleKeyDown}
+      />
 
       {isOpen && (
         <div
@@ -212,7 +211,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   className={`dropdown-item d-flex align-items-center justify-content-between px-3 py-2 ${
                     item.disabled
                       ? 'disabled text-muted'
-                      : `cursor-pointer ${isHighlighted ? 'active bg-primary text-white' : 'text-dark'}`
+                      : `cursor-pointer ${isHighlighted ? 'bg-primary-subtle text-dark' : 'text-dark'}`
                   }`}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   onClick={() => handleSelectOption(item)}
@@ -220,10 +219,8 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                   <span className="fw-medium small">{item.label}</span>
                   {item.hint && (
                     <span
-                      className={`small ms-2 ${
-                        isHighlighted ? 'text-white-50' : 'text-muted'
-                      }`}
-                      style={{ fontSize: '0.75rem' }}
+                      className="text-muted ms-auto"
+                      style={{ fontSize: '12px' }}
                     >
                       {item.hint}
                     </span>
@@ -240,7 +237,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
               aria-selected={highlightedIndex === filteredItems.length}
               className={`dropdown-item d-flex align-items-center gap-2 px-3 py-2 border-top border-light-subtle cursor-pointer ${
                 highlightedIndex === filteredItems.length
-                  ? 'active bg-primary text-white'
+                  ? 'bg-primary-subtle text-primary'
                   : 'text-primary'
               }`}
               onMouseEnter={() => setHighlightedIndex(filteredItems.length)}

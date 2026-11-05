@@ -2477,8 +2477,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <SearchableSelect
                 id={`search-docs-${subtype}`}
                 items={availableSearchItems}
-                placeholder={`Search ${subtype.toLowerCase()} documents to add...`}
-                aria-label={`Search ${subtype.toLowerCase()} documents`}
+                placeholder="Search documents..."
+                aria-label="Search documents"
                 onSelect={(item) => handleAddCatalogueDoc(item.id)}
                 onCreate={(customTitle) => handleCreateCustomDoc(subtype, customTitle)}
                 createLabel={(text) => `Add '${text}' as a custom document`}
@@ -3233,7 +3233,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   <SearchableSelect
                     id="grid-add-organization"
                     aria-label="Add party"
-                    placeholder="Add party"
+                    placeholder="Search parties..."
                     emptyLabel="No matching parties"
                     items={organizationOptions}
                     onSelect={(item) => handleAddOrganization(item.id)}
@@ -3472,8 +3472,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         key={`${newObjectType}-${selectedVendorOrg || 'free'}`}
                         id="grid-add-object-item"
                         aria-label="Object to add"
-                        placeholder={selectedVendorOrg ? `Search ${selectedVendorOrg} ${newObjectType} to add` : `Search every ${newObjectType} to add`}
-                        emptyLabel={selectedVendorOrg ? `No ${newObjectType} found for ${selectedVendorOrg}.` : "None from the listed organizations. Search to find others."}
+                        placeholder={
+                          newObjectType === 'vessel'
+                            ? 'Search vessels...'
+                            : newObjectType === 'person'
+                              ? 'Search crew...'
+                              : newObjectType === 'equipment'
+                                ? 'Search equipment...'
+                                : 'Search activities...'
+                        }
+                        emptyLabel={selectedVendorOrg ? `No ${newObjectType === 'person' ? 'crew' : newObjectType === 'activity' ? 'activities' : `${newObjectType}s`} found for ${selectedVendorOrg}.` : "None from the listed organizations. Search to find others."}
                         items={listedObjectItems}
                         searchOnlyItems={otherObjectItems}
                         onSelect={(item) => handleAddObject(item.id)}

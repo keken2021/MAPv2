@@ -152,4 +152,47 @@ describe('SearchableSelect component', () => {
 
     expect(onCreate).toHaveBeenCalledWith('Unique Requirement');
   });
+
+  it('renders clear (x) button when text is entered and clears on click', () => {
+    render(
+      <SearchableSelect
+        items={sampleItems}
+        onSelect={vi.fn()}
+        placeholder="Search vessels..."
+      />
+    );
+
+    const input = screen.getByRole('combobox', { name: 'Search vessels...' });
+    expect(screen.queryByRole('button', { name: 'Clear search' })).not.toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: 'Safety' } });
+    expect(input).toHaveValue('Safety');
+
+    const clearBtn = screen.getByRole('button', { name: 'Clear search' });
+    expect(clearBtn).toBeInTheDocument();
+
+    fireEvent.click(clearBtn);
+    expect(input).toHaveValue('');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('renders highlighted item with light primary tint and right-aligned hint in 12px text', () => {
+    const { container } = render(
+      <SearchableSelect
+        items={sampleItems}
+        onSelect={vi.fn()}
+      />
+    );
+
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+
+    const firstOption = container.querySelector('[role="option"]');
+    expect(firstOption).toHaveClass('bg-primary-subtle');
+    expect(firstOption).not.toHaveClass('bg-primary');
+
+    const hint = firstOption?.querySelector('.text-muted.ms-auto');
+    expect(hint).toBeInTheDocument();
+    expect(hint).toHaveStyle({ fontSize: '12px' });
+  });
 });
