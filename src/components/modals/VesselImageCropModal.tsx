@@ -1,9 +1,3 @@
-/* 
-  file summary: interactive vessel image cropping and framing modal.
-  responsibilities: provides a 100% width Instagram-grade image cropper strictly matching the 16:9 image container/gallery of the vessel detail page with smooth grab-panning, boundary clamping, zoom, 3x3 rule-of-thirds grid, rotation, flip, and pixel-perfect high-DPI canvas output.
-  role in system: consumed by VesselModal and VesselDetailView photo management flows.
-*/
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   CropTransform,
@@ -22,6 +16,7 @@ import {
   Plus,
   ZoomIn,
 } from 'lucide-react';
+import { Modal } from './Modal';
 import './VesselImageCropModal.css';
 
 export interface VesselImageCropModalProps {
@@ -31,6 +26,7 @@ export interface VesselImageCropModalProps {
   assetName?: string;
   title?: string;
   initialPreset?: string;
+  zIndex?: number;
   onSave: (croppedDataUrl: string) => void;
   onClose: () => void;
 }
@@ -42,6 +38,7 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
   assetName,
   title,
   initialPreset = '16:9',
+  zIndex,
   onSave,
   onClose,
 }) => {
@@ -67,7 +64,6 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
   const loadedImageRef = useRef<HTMLImageElement | null>(null);
   const interactionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Helper to trigger interaction state that auto-hides toolbars during pan/movement
   const notifyMovement = useCallback(() => {
     setIsInteracting(true);
     if (interactionTimeoutRef.current) {
@@ -78,7 +74,6 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     }, 450);
   }, []);
 
-  // Measure and track container width/height dynamically based on aspect ratio
   useEffect(() => {
     if (!isOpen) return;
     const updateSize = () => {
@@ -96,7 +91,6 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     return () => ro.disconnect();
   }, [isOpen, isSquare]);
 
-  // Reset or initialize state when opening or when image changes
   useEffect(() => {
     if (isOpen && imageSrc) {
       setZoom(1.0);
@@ -110,13 +104,10 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
           loadedImageRef.current = img;
           setImgNaturalSize({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height });
         })
-        .catch(() => {
-          // ignore load error in unmounted state
-        });
+        .catch(() => {});
     }
   }, [isOpen, imageSrc, containerBoxSize.width, containerBoxSize.height]);
 
-  // Zoom handler with boundary re-clamping based on container dimensions
   const handleZoomChange = (newZoom: number) => {
     notifyMovement();
     const clampedZoom = Math.min(3.5, Math.max(1.0, parseFloat(newZoom.toFixed(2))));
@@ -134,7 +125,6 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     );
   };
 
-  // Mouse drag handlers for panning with strict image boundary clamping and movement auto-hide
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     isDraggingRef.current = true;
@@ -222,14 +212,12 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     }, 250);
   };
 
-  // Wheel zoom
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     const delta = e.deltaY < 0 ? 0.08 : -0.08;
     handleZoomChange(zoom + delta);
   };
 
-  // Quick reset to center fit
   const handleReset = () => {
     setZoom(1.0);
     setPan({ x: 0, y: 0 });
@@ -237,7 +225,6 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     setFlipH(false);
   };
 
-  // Rotate 90 deg clockwise with boundary re-clamping
   const handleRotate = () => {
     const nextRotate = (rotate + 90) % 360;
     setRotate(nextRotate);
@@ -254,12 +241,10 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     );
   };
 
-  // Flip horizontal
   const handleFlipHorizontal = () => {
     setFlipH((prev) => !prev);
   };
 
-  // Apply and export cropped image matching preset container
   const handleApply = async () => {
     if (!loadedImageRef.current) return;
     setIsProcessing(true);
@@ -288,247 +273,207 @@ export const VesselImageCropModal: React.FC<VesselImageCropModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="modal fade show d-block crop-modal-backdrop"
-      tabIndex={-1}
-      role="dialog"
-      aria-modal="true"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={displayTitle}
+      meta={displaySubtitle}
+      size="lg"
+      dismissible={false}
+      bodyClassName="p-3"
+      zIndex={zIndex}
+      footer={
+        <>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary px-3"
+            onClick={onClose}
+            disabled={isProcessing}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm"
+            onClick={handleApply}
+            disabled={isProcessing}
+            data-testid="crop-save"
+          >
+            {isProcessing ? (
+              <>
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
+                <span>Processing...</span>
+              </>
+            ) : (
+              <span>Save</span>
+            )}
+          </button>
+        </>
+      }
     >
-      <div className="modal-dialog modal-lg modal-dialog-centered" role="document">
-        <div className="modal-content border-0 shadow-lg rounded-3 overflow-hidden crop-modal-content">
-          {/* Header */}
-          <div className="modal-header crop-modal-header px-4 py-3 border-0 d-flex align-items-center justify-content-between">
-            <div className="d-flex align-items-center gap-2.5">
-              <div>
-                <h5 className="modal-title fs-6 fw-bold mb-0 crop-modal-title d-flex align-items-center gap-2">
-                  {displayTitle}
-                </h5>
-                <span className="crop-modal-subtitle font-mono-code">
-                  {displaySubtitle}
+      <div className="card border shadow-2xs rounded-3 overflow-hidden bg-white w-100">
+        {/* Viewport Stage Container */}
+        <div className="crop-stage-container w-100 p-0 bg-dark overflow-hidden d-flex justify-content-center">
+          <div
+            ref={containerRef}
+            className="crop-viewport position-relative overflow-hidden w-100"
+            style={{
+              aspectRatio: isSquare ? '1 / 1' : '16 / 9',
+              maxWidth: isSquare ? '420px' : '100%',
+              cursor: isDraggingRef.current ? 'grabbing' : 'grab',
+              margin: '0 auto',
+            }}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onWheel={handleWheel}
+            onDragStart={(e) => e.preventDefault()}
+          >
+            {imageSrc && (() => {
+              const boxW = containerBoxSize.width || (isSquare ? 420 : 800);
+              const boxH = containerBoxSize.height || (isSquare ? boxW : (boxW * 9) / 16);
+              const baseSize = getBaseImageDisplaySize(
+                imgNaturalSize.width,
+                imgNaturalSize.height,
+                boxW,
+                boxH,
+              );
+              const isRotated90or270 = Math.abs(rotate) % 180 !== 0;
+              const rotScale = isRotated90or270
+                ? Math.max(boxW / baseSize.height, boxH / baseSize.width)
+                : 1.0;
+              const finalScale = zoom * rotScale;
+
+              return (
+                <img
+                  src={imageSrc}
+                  alt="Crop Target"
+                  draggable={false}
+                  className="crop-target-img"
+                  style={{
+                    width: `${baseSize.width}px`,
+                    height: `${baseSize.height}px`,
+                    transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${finalScale}) rotate(${rotate}deg) ${flipH ? 'scaleX(-1)' : ''
+                      }`,
+                    transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
+                  }}
+                />
+              );
+            })()}
+
+            {showGrid && (
+              <div className={`crop-grid-overlay ${isInteracting ? 'is-active' : ''}`}>
+                <div className="w-100 h-100 position-relative">
+                  <div className="crop-grid-line-v1" />
+                  <div className="crop-grid-line-v2" />
+                  <div className="crop-grid-line-h1" />
+                  <div className="crop-grid-line-h2" />
+                </div>
+              </div>
+            )}
+
+            <div
+              className={`crop-corner-controls position-absolute bottom-0 start-0 m-2.5 d-flex align-items-center gap-1.5 z-3 ${isInteracting ? 'is-faded' : ''
+                }`}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
+              <div className="crop-insta-btn">
+                <ZoomIn size={14} strokeWidth={2} />
+                <span className="font-mono-code fw-bold ms-1" style={{ fontSize: '0.68rem' }}>
+                  {initialPreset} · {zoom.toFixed(1)}x
                 </span>
               </div>
             </div>
 
-            <div className="d-flex align-items-center">
+            <div
+              className={`crop-corner-controls position-absolute bottom-0 end-0 m-2.5 d-flex align-items-center gap-1.5 z-3 ${isInteracting ? 'is-faded' : ''
+                }`}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+            >
               <button
                 type="button"
-                className="crop-modal-close-btn rounded-circle"
-                aria-label="Close"
-                onClick={onClose}
-                title="Close"
+                className={`crop-insta-btn ${showGrid ? 'active' : ''}`}
+                onClick={() => setShowGrid(!showGrid)}
+                title={showGrid ? 'Hide 3x3 Grid' : 'Show 3x3 Grid'}
               >
-                <X size={16} strokeWidth={2} />
+                <Grid3x3 size={15} strokeWidth={2} />
+              </button>
+
+              <button
+                type="button"
+                className="crop-insta-btn"
+                onClick={handleRotate}
+                title="Rotate"
+              >
+                <RotateCw size={15} strokeWidth={2} />
+              </button>
+
+              <button
+                type="button"
+                className={`crop-insta-btn ${flipH ? 'active' : ''}`}
+                onClick={handleFlipHorizontal}
+                title="Flip"
+              >
+                <FlipHorizontal size={15} strokeWidth={2} />
+              </button>
+
+              <button
+                type="button"
+                className="crop-insta-btn"
+                onClick={handleReset}
+                title="Reset"
+              >
+                <RefreshCw size={15} strokeWidth={2} />
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Body: Framing View */}
-          <div className="modal-body p-3 crop-modal-body">
-            <div className="card border shadow-2xs rounded-3 overflow-hidden bg-white w-100">
-              {/* Viewport Stage Container */}
-              <div className="crop-stage-container w-100 p-0 bg-dark overflow-hidden d-flex justify-content-center">
-                <div
-                  ref={containerRef}
-                  className="crop-viewport position-relative overflow-hidden w-100"
-                  style={{
-                    aspectRatio: isSquare ? '1 / 1' : '16 / 9',
-                    maxWidth: isSquare ? '420px' : '100%',
-                    cursor: isDraggingRef.current ? 'grabbing' : 'grab',
-                    margin: '0 auto',
-                  }}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                  onTouchStart={handleTouchStart}
-                  onTouchMove={handleTouchMove}
-                  onTouchEnd={handleTouchEnd}
-                  onWheel={handleWheel}
-                  onDragStart={(e) => e.preventDefault()}
-                >
-                  {/* Transformed Image covering 100% of the viewport */}
-                  {imageSrc && (() => {
-                    const boxW = containerBoxSize.width || (isSquare ? 420 : 800);
-                    const boxH = containerBoxSize.height || (isSquare ? boxW : (boxW * 9) / 16);
-                    const baseSize = getBaseImageDisplaySize(
-                      imgNaturalSize.width,
-                      imgNaturalSize.height,
-                      boxW,
-                      boxH,
-                    );
-                    const isRotated90or270 = Math.abs(rotate) % 180 !== 0;
-                    const rotScale = isRotated90or270
-                      ? Math.max(boxW / baseSize.height, boxH / baseSize.width)
-                      : 1.0;
-                    const finalScale = zoom * rotScale;
-
-                    return (
-                      <img
-                        src={imageSrc}
-                        alt="Crop Target"
-                        draggable={false}
-                        className="crop-target-img"
-                        style={{
-                          width: `${baseSize.width}px`,
-                          height: `${baseSize.height}px`,
-                          transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${finalScale}) rotate(${rotate}deg) ${flipH ? 'scaleX(-1)' : ''
-                            }`,
-                          transition: isDraggingRef.current ? 'none' : 'transform 0.08s ease-out',
-                        }}
-                      />
-                    );
-                  })()}
-
-                  {/* Instagram-style 3x3 Rule-of-Thirds Grid Overlay */}
-                  {showGrid && (
-                    <div
-                      className={`crop-grid-overlay ${isInteracting ? 'is-active' : ''}`}
-                    >
-                      <div className="w-100 h-100 position-relative">
-                        <div className="crop-grid-line-v1" />
-                        <div className="crop-grid-line-v2" />
-                        <div className="crop-grid-line-h1" />
-                        <div className="crop-grid-line-h2" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Bottom-Left Instagram Floating Tools (Zoom indicator) */}
-                  <div
-                    className={`crop-corner-controls position-absolute bottom-0 start-0 m-2.5 d-flex align-items-center gap-1.5 z-3 ${isInteracting ? 'is-faded' : ''
-                      }`}
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
-                  >
-                    <div className="crop-insta-btn">
-                      <ZoomIn size={14} strokeWidth={2} />
-                      <span className="font-mono-code fw-bold ms-1" style={{ fontSize: '0.68rem' }}>
-                        {initialPreset} · {zoom.toFixed(1)}x
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Bottom-Right Instagram Floating Tools (Rotate, Flip, Reset, Grid) */}
-                  <div
-                    className={`crop-corner-controls position-absolute bottom-0 end-0 m-2.5 d-flex align-items-center gap-1.5 z-3 ${isInteracting ? 'is-faded' : ''
-                      }`}
-                    onClick={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onTouchStart={(e) => e.stopPropagation()}
-                  >
-                    {/* Grid Toggle Button */}
-                    <button
-                      type="button"
-                      className={`crop-insta-btn ${showGrid ? 'active' : ''}`}
-                      onClick={() => setShowGrid(!showGrid)}
-                      title={showGrid ? 'Hide 3x3 Grid' : 'Show 3x3 Grid'}
-                    >
-                      <Grid3x3 size={15} strokeWidth={2} />
-                    </button>
-
-                    {/* Rotate 90 deg Clockwise Button */}
-                    <button
-                      type="button"
-                      className="crop-insta-btn"
-                      onClick={handleRotate}
-                      title="Rotate"
-                    >
-                      <RotateCw size={15} strokeWidth={2} />
-                    </button>
-
-                    {/* Flip Horizontal Button */}
-                    <button
-                      type="button"
-                      className={`crop-insta-btn ${flipH ? 'active' : ''}`}
-                      onClick={handleFlipHorizontal}
-                      title="Flip"
-                    >
-                      <FlipHorizontal size={15} strokeWidth={2} />
-                    </button>
-
-                    {/* Reset Button */}
-                    <button
-                      type="button"
-                      className="crop-insta-btn"
-                      onClick={handleReset}
-                      title="Reset"
-                    >
-                      <RefreshCw size={15} strokeWidth={2} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Card Footer Zoom Bar taking 100% width */}
-              <div className="card-footer bg-white p-3 border-top w-100">
-                <div className="d-flex align-items-center gap-3 w-100 crop-zoom-container">
-                  <span className="crop-zoom-label fw-semibold text-nowrap">Zoom:</span>
-                  <button
-                    type="button"
-                    className="w-7 h-7 rounded border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-colors shadow-2xs cursor-pointer shrink-0"
-                    onClick={() => handleZoomChange(zoom - 0.1)}
-                    title="Zoom out"
-                  >
-                    <Minus className="w-3.5 h-3.5 text-slate-700" />
-                  </button>
-                  <input
-                    type="range"
-                    className="form-range flex-grow-1 w-100"
-                    min="1"
-                    max="3.5"
-                    step="0.05"
-                    value={zoom}
-                    onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
-                  />
-                  <button
-                    type="button"
-                    className="w-7 h-7 rounded border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-colors shadow-2xs cursor-pointer shrink-0"
-                    onClick={() => handleZoomChange(zoom + 0.1)}
-                    title="Zoom in"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-slate-700" />
-                  </button>
-                  <span className="crop-zoom-value font-mono-code small fw-bold text-nowrap">
-                    {zoom.toFixed(2)}x
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="modal-footer crop-modal-footer d-flex align-items-center justify-content-between px-4 py-3">
+        {/* Zoom Bar */}
+        <div className="card-footer bg-white p-3 border-top w-100">
+          <div className="d-flex align-items-center gap-3 w-100 crop-zoom-container">
+            <span className="crop-zoom-label fw-semibold text-nowrap">Zoom:</span>
             <button
               type="button"
-              className="btn btn-sm btn-outline-secondary px-3"
-              onClick={onClose}
-              disabled={isProcessing}
+              className="w-7 h-7 rounded border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-colors shadow-2xs cursor-pointer shrink-0"
+              onClick={() => handleZoomChange(zoom - 0.1)}
+              title="Zoom out"
             >
-              Cancel
+              <Minus className="w-3.5 h-3.5 text-slate-700" />
             </button>
+            <input
+              type="range"
+              className="form-range flex-grow-1 w-100"
+              min="1"
+              max="3.5"
+              step="0.05"
+              value={zoom}
+              onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+            />
             <button
               type="button"
-              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 px-3 fw-semibold shadow-sm"
-              onClick={handleApply}
-              disabled={isProcessing}
+              className="w-7 h-7 rounded border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center transition-colors shadow-2xs cursor-pointer shrink-0"
+              onClick={() => handleZoomChange(zoom + 0.1)}
+              title="Zoom in"
             >
-              {isProcessing ? (
-                <>
-                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <span>Save</span>
-              )}
+              <Plus className="w-3.5 h-3.5 text-slate-700" />
             </button>
+            <span className="crop-zoom-value font-mono-code small fw-bold text-nowrap">
+              {zoom.toFixed(2)}x
+            </span>
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
