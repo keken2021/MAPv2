@@ -28,7 +28,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/dashboard/` : role dashboard components (`SharedDashboardFrame.tsx` shared frame)
 - `src/components/modals/` : modals (centered)
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
-- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, DetailHeader, SearchableSelect, EmptyState, DueCell, ApproverDecisionBar)
+- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, SearchInput, DetailHeader, SearchableSelect, EmptyState, DueCell, ApproverDecisionBar)
 - `src/components/layout/` : sidebar, header, notification panel, organization switcher
 - `src/utils/headerNavigation.tsx` : reusable header back navigation helper, hook (`useHeaderBackNavigation`), and back button component (`HeaderBackButton`) preserving contextual return to originating entities (e.g. Assurance Set from CAPA open findings)
 - `src/store/useMapStore.ts` : the single app store
@@ -117,6 +117,7 @@ Root: `C:\mapFiles\MAPv2`
 ## Unit tests named in the Task lists
 - `src/__tests__/` : all prototype tests. Run a subset with `npx vitest run src/__tests__/<file>`
 - Unit tests for UI declutter shared pieces: `src/__tests__/sharedPieces.test.tsx` (CountTabs, StatusBadge, ListToolbar, DetailHeader)
+- Unit tests for SearchInput: `src/__tests__/searchInput.test.tsx` (typing, clear button, aria-label, leading icon, pass-through props, ref forwarding)
 - Unit tests for UI declutter Approver Dashboard: `src/__tests__/approverDashboardDeclutter.test.tsx` (CountTabs, Due column, 1 badge/action per row, detail view cleanup)
 - Unit tests for UI declutter Submitter Dashboard: `src/__tests__/dashboardSubmitterSession.test.tsx` (per-person filtering with useSessionUser, 13 sets for M. Chen)
 - Unit tests for shared dashboard frame: `src/__tests__/sharedDashboardFrame.test.tsx` (role dashboard shared frame layout, KPI tiles, responsive stacking below 900px, empty action state, zero raw Tailwind palette colors, outer card removal, system spacing)

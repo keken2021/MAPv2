@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Download, ChevronDown, FileSpreadsheet, FileText, X } from 'lucide-react';
+import { Download, ChevronDown, FileSpreadsheet, FileText } from 'lucide-react';
+import { SearchInput } from './SearchInput';
 import { FilterButton } from './FilterButton';
 
 export interface ListToolbarProps {
@@ -56,42 +57,13 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
     >
       <div className="d-flex flex-wrap align-items-center gap-2 flex-grow-1">
         {/* Search input with leading icon */}
-        <div
-          className="position-relative flex-grow-1"
-          style={{ maxWidth: '360px', minWidth: '220px' }}
-        >
-          <Search
-            size={16}
-            aria-hidden="true"
-            className="position-absolute top-50 translate-middle-y text-muted"
-            style={{ left: '12px', pointerEvents: 'none' }}
-          />
-          <input
-            type="text"
-            className="form-control form-control-sm map-list-toolbar-search-input"
-            style={{
-              paddingLeft: '36px',
-              paddingRight: searchValue ? '32px' : '12px',
-              height: '36px',
-              fontSize: '0.875rem',
-            }}
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            aria-label={searchPlaceholder}
-          />
-          {searchValue && (
-            <button
-              type="button"
-              className="btn btn-link btn-sm position-absolute top-50 translate-middle-y text-muted p-0"
-              style={{ right: '10px', textDecoration: 'none' }}
-              onClick={() => onSearchChange('')}
-              aria-label="Clear search"
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
-          )}
-        </div>
+        <SearchInput
+          value={searchValue}
+          onChange={onSearchChange}
+          placeholder={searchPlaceholder}
+          wrapperClassName="flex-grow-1"
+          wrapperStyle={{ maxWidth: '360px', minWidth: '220px' }}
+        />
 
         {/* Filter button */}
         {onFilterClick && (
