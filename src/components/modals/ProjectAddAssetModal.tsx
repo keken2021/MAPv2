@@ -17,12 +17,10 @@ import {
   FileCheck,
   Building2,
   MapPin,
-  Search,
   ArrowLeft,
   Plus,
   Eye,
   Sparkles,
-  Layers,
 } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { Project, ProjectAssetLink, ProjectAssetType } from '../../types/project';
@@ -31,10 +29,7 @@ import { AssuranceRequirementCategory, AssuranceSet } from '../../types/assuranc
 import { VesselInformation } from '../../types/vessel';
 import { CrewMember } from '../../types/crew';
 import { EquipmentAsset } from '../../types/equipment';
-import {
-  getLinkableProjectAssets,
-  PROJECT_ASSET_LINK_HINT,
-} from '../../utils/projectHelpers';
+import { getLinkableProjectAssets } from '../../utils/projectHelpers';
 import { normalizeText, matchesVesselRequirement } from '../../utils/documentMatchingHelpers';
 import {
   calculateCrewComplianceScore,
@@ -44,6 +39,7 @@ import {
 import { formatReadinessScore, getStatusDisplayLabel } from '../../utils/formatters';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
+import { ProjectAssetPicker } from '../common/ProjectAssetPicker';
 
 export interface VaultCertificateDisplay {
   id: string;
@@ -305,32 +301,14 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
     setSelectedAssuranceSetId(selectedAsset.eligibleAssuranceSets[0]?.id || '');
   }, [selectedAsset]);
 
-  // Filtered by Category and Search
-  const filteredAssets = useMemo(() => {
-    return candidateAssets.filter((item) => {
-      if (categoryFilter !== 'All' && item.assetType !== categoryFilter) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = item.assetName.toLowerCase().includes(q);
-        const matchesId = item.assetId.toLowerCase().includes(q);
-        const matchesOrg = item.providerOrganization.toLowerCase().includes(q);
-        const matchesSubtype = item.subtypeOrRole.toLowerCase().includes(q);
-        return matchesName || matchesId || matchesOrg || matchesSubtype;
-      }
-      return true;
-    });
-  }, [candidateAssets, categoryFilter, searchQuery]);
-
-  // Counts for Category Tabs
-  const counts = useMemo(() => {
-    const total = candidateAssets.length;
-    const vesselCount = candidateAssets.filter((a) => a.assetType === 'Vessel').length;
-    const equipmentCount = candidateAssets.filter((a) => a.assetType === 'Equipment').length;
-    const crewCount = candidateAssets.filter((a) => a.assetType === 'Crew').length;
-    return { total, vesselCount, equipmentCount, crewCount };
-  }, [candidateAssets]);
+  const pickerAssets = useMemo(
+    () =>
+      candidateAssets.map((asset) => ({
+        ...asset,
+        searchExtra: `${asset.subtypeOrRole} ${asset.operationalStatus} ${asset.location}`,
+      })),
+    [candidateAssets],
+  );
 
   // 3. Document Vault for Selected Asset — store and asset records only
   const vaultDocuments = useMemo<VaultCertificateDisplay[]>(() => {
@@ -612,187 +590,86 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
 
             {/* VIEW A: ASSET SELECTION CATALOG */}
             {!selectedAsset ? (
-              <div className="d-flex flex-column gap-3">
-                {/* Search & Category Filter Header */}
-                <div className="card p-3 border shadow-sm bg-white" style={{ borderColor: '#E2E8F0' }}>
-                  <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
-                    {/* Category Filter Pills (Mono & Counter Standard) */}
-                    <div className="d-flex flex-wrap align-items-center gap-1.5">
-                      {(
-                        [
-                          { key: 'All', label: `All (${counts.total})` },
-                          { key: 'Vessel', label: `Vessels (${counts.vesselCount})` },
-                          { key: 'Equipment', label: `Equipment (${counts.equipmentCount})` },
-                          { key: 'Crew', label: `Crew (${counts.crewCount})` },
-                        ] as const
-                      ).map((cat) => (
-                        <button
-                          key={cat.key}
-                          type="button"
-                          className="btn btn-sm rounded-pill font-mono-code px-3 py-1.5 transition-all"
-                          style={{
-                            fontSize: '0.8rem',
-                            backgroundColor: categoryFilter === cat.key ? '#0B1B2B' : 'transparent',
-                            color: categoryFilter === cat.key ? '#FFFFFF' : '#64748B',
-                            border: categoryFilter === cat.key ? '1px solid #0B1B2B' : '1px solid #E2E8F0',
-                            fontWeight: categoryFilter === cat.key ? 600 : 400,
-                          }}
-                          onClick={() => setCategoryFilter(cat.key)}
-                        >
-                          {cat.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Search Field */}
-                    <div className="position-relative" style={{ minWidth: '240px' }}>
-                      <Search
-                        size={15}
-                        className="position-absolute text-muted"
-                        style={{ left: '12px', top: '50%', transform: 'translateY(-50%)' }}
-                      />
-                      <input
-                        type="text"
-                        className="form-control form-control-sm ps-5 pe-3"
-                        placeholder="Search assets..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        style={{ borderRadius: '6px', fontSize: '0.85rem' }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Candidate Asset Cards List */}
-                <div style={{ maxHeight: '420px', overflowY: 'auto' }} className="d-flex flex-column gap-2.5 pe-1">
-                  {filteredAssets.length === 0 ? (
-                    <div className="card p-5 text-center bg-white border" style={{ borderColor: '#E2E8F0' }}>
-                      <Layers size={36} className="text-muted mx-auto mb-2 opacity-50" />
-                      <h6 className="fw-semibold text-dark mb-1">No Assets Available</h6>
-                      <p className="text-muted small mb-1">
-                        Only chartered or rented assets with an assurance set that is not in a project appear here.
-                      </p>
-                      <p className="text-muted small mb-0 fst-italic">{PROJECT_ASSET_LINK_HINT}</p>
-                    </div>
-                  ) : (
-                    filteredAssets.map((asset) => (
-                      <div
-                        key={`${asset.assetType}-${asset.assetId}`}
-                        className="card p-3 border shadow-sm bg-white transition-all hover-border-primary"
-                        style={{ borderRadius: '8px', borderColor: '#E2E8F0' }}
+              <ProjectAssetPicker
+                assets={pickerAssets}
+                typeFilter={categoryFilter}
+                onTypeFilterChange={setCategoryFilter}
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                variant="card"
+                maxHeight={420}
+                emptyTitle="No Assets Available"
+                emptyHint="Only chartered or rented assets with an assurance set that is not in a project appear here."
+                showAssuranceSetSelect={false}
+                renderAssetMeta={(asset) => (
+                  <>
+                    <div className="text-muted small mt-1 text-truncate">{asset.subtypeOrRole}</div>
+                    <div className="d-flex align-items-center gap-2 mt-1 flex-wrap small">
+                      <span className="d-inline-flex align-items-center gap-1 text-muted">
+                        <Building2 size={13} />
+                        <strong className="text-dark fw-semibold">{asset.providerOrganization}</strong>
+                      </span>
+                      <span className="text-muted">·</span>
+                      <span
+                        className="badge rounded-pill px-2 py-0.5"
+                        style={{
+                          fontSize: '0.7rem',
+                          backgroundColor:
+                            asset.operationalStatus === 'In Operations' ||
+                            asset.operationalStatus === 'Available' ||
+                            asset.operationalStatus === 'Fully Compliant'
+                              ? '#ECFDF5'
+                              : '#FEF3C7',
+                          color:
+                            asset.operationalStatus === 'In Operations' ||
+                            asset.operationalStatus === 'Available' ||
+                            asset.operationalStatus === 'Fully Compliant'
+                              ? '#059669'
+                              : '#D97706',
+                          border: '1px solid rgba(0,0,0,0.05)',
+                        }}
                       >
-                        <div className="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
-                          {/* Asset Info */}
-                          <div className="d-flex align-items-start gap-3 min-w-0">
-                            <div
-                              className="d-flex align-items-center justify-content-center rounded-2 p-2 flex-shrink-0"
-                              style={{
-                                backgroundColor:
-                                  asset.assetType === 'Vessel'
-                                    ? 'rgba(11, 27, 43, 0.08)'
-                                    : asset.assetType === 'Equipment'
-                                    ? 'rgba(245, 158, 11, 0.12)'
-                                    : 'rgba(14, 165, 233, 0.12)',
-                                width: '42px',
-                                height: '42px',
-                              }}
-                            >
-                              {getCategoryIcon(asset.assetType)}
-                            </div>
-
-                            <div className="d-flex flex-column min-w-0">
-                              <div className="d-flex align-items-center gap-2 flex-wrap">
-                                <span className="fw-bold text-dark font-mono-code" style={{ fontSize: '0.95rem' }}>
-                                  {asset.assetId}
-                                </span>
-                                <h6 className="fw-bold text-dark mb-0 text-truncate" style={{ fontSize: '0.95rem' }}>
-                                  {asset.assetName}
-                                </h6>
-                                <span
-                                  className="badge rounded-pill font-mono-code px-2 py-0.5"
-                                  style={{
-                                    fontSize: '0.7rem',
-                                    backgroundColor: 'rgba(11, 27, 43, 0.08)',
-                                    color: '#0B1B2B',
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {asset.assetType}
-                                </span>
-                              </div>
-
-                              <div className="text-muted small mt-1 text-truncate">
-                                {asset.subtypeOrRole}
-                              </div>
-
-                              <div className="d-flex align-items-center gap-2 mt-1 flex-wrap small">
-                                <span className="d-inline-flex align-items-center gap-1 text-muted">
-                                  <Building2 size={13} />
-                                  <strong className="text-dark fw-semibold">{asset.providerOrganization}</strong>
-                                </span>
-                                <span className="text-muted">·</span>
-                                <span
-                                  className="badge rounded-pill px-2 py-0.5"
-                                  style={{
-                                    fontSize: '0.7rem',
-                                    backgroundColor:
-                                      asset.operationalStatus === 'In Operations' || asset.operationalStatus === 'Available' || asset.operationalStatus === 'Fully Compliant'
-                                        ? '#ECFDF5'
-                                        : '#FEF3C7',
-                                    color:
-                                      asset.operationalStatus === 'In Operations' || asset.operationalStatus === 'Available' || asset.operationalStatus === 'Fully Compliant'
-                                        ? '#059669'
-                                        : '#D97706',
-                                    border: '1px solid rgba(0,0,0,0.05)',
-                                  }}
-                                >
-                                  {asset.operationalStatus}
-                                </span>
-                                <span className="text-muted">·</span>
-                                <span className="font-mono-code text-primary fw-semibold" style={{ fontSize: '0.75rem' }}>
-                                  {asset.complianceScore === null
-                                    ? formatReadinessScore(null)
-                                    : `${formatReadinessScore(asset.complianceScore)} Verified`}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="d-flex align-items-center gap-2 flex-shrink-0 justify-content-end">
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-medium"
-                              style={{ fontSize: '0.82rem', borderRadius: '6px' }}
-                              onClick={() => setSelectedAsset(asset)}
-                              title="Check documents against requirements"
-                            >
-                              <Eye size={15} />
-                              <span>Check</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-medium"
-                              style={{
-                                fontSize: '0.82rem',
-                                borderRadius: '6px',
-                                backgroundColor: '#0B1B2B',
-                                borderColor: '#0B1B2B',
-                              }}
-                              onClick={() => setSelectedAsset(asset)}
-                              title="Select asset"
-                            >
-                              <Plus size={15} />
-                              <span>Select</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+                        {asset.operationalStatus}
+                      </span>
+                      <span className="text-muted">·</span>
+                      <span className="font-mono-code text-primary fw-semibold" style={{ fontSize: '0.75rem' }}>
+                        {asset.complianceScore === null
+                          ? formatReadinessScore(null)
+                          : `${formatReadinessScore(asset.complianceScore)} Verified`}
+                      </span>
+                    </div>
+                  </>
+                )}
+                renderActions={(asset) => (
+                  <div className="d-flex align-items-center gap-2 flex-shrink-0 justify-content-end">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-medium"
+                      style={{ fontSize: '0.82rem', borderRadius: '6px' }}
+                      onClick={() => setSelectedAsset(asset)}
+                      title="Check documents against requirements"
+                    >
+                      <Eye size={15} />
+                      <span>Check</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 px-3 py-1.5 fw-medium"
+                      style={{
+                        fontSize: '0.82rem',
+                        borderRadius: '6px',
+                        backgroundColor: '#0B1B2B',
+                        borderColor: '#0B1B2B',
+                      }}
+                      onClick={() => setSelectedAsset(asset)}
+                      title="Select asset"
+                    >
+                      <Plus size={15} />
+                      <span>Select</span>
+                    </button>
+                  </div>
+                )}
+              />
             ) : (
               /* VIEW B: INSPECTION & ASSURANCE MATCH COMPARISON (EXACT MATCH TO USER SCREENSHOT) */
               <div className="d-flex flex-column gap-3">
@@ -1286,7 +1163,7 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                   Cancel
                 </button>
                 <div className="text-muted small">
-                  {filteredAssets.length} assets
+                  {pickerAssets.length} assets
                 </div>
               </>
             )}

@@ -26,11 +26,11 @@ import {
   getLinkableProjectAssets,
   getProjectOrganizationForPersona,
   LinkableProjectAsset,
-  PROJECT_ASSET_LINK_HINT,
   projectTypeRequiresRiskProfile,
   projectTypeRequiresRoute,
   projectTypeShowsServiceFields,
 } from "../utils/projectHelpers";
+import { ProjectAssetPicker } from "../components/common/ProjectAssetPicker";
 import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import { getAssuranceSetCrewNames } from "../utils/assuranceTemplates";
 
@@ -192,14 +192,6 @@ export const CreateProjectView: React.FC = () => {
       return next;
     });
   }, [linkableAssets]);
-
-  const filteredAvailable = useMemo(() => {
-    return linkableAssets.filter((a) => {
-      if (assetTypeFilter !== "All" && a.assetType !== assetTypeFilter)
-        return false;
-      return true;
-    });
-  }, [linkableAssets, assetTypeFilter]);
 
   const validateStep1 = (): boolean => {
     if (!name.trim()) {
@@ -924,94 +916,21 @@ export const CreateProjectView: React.FC = () => {
                 <h6 className="fw-bold small text-uppercase text-secondary">
                   Available Assets
                 </h6>
-                <div className="d-flex flex-wrap gap-2 mb-2">
-                  {(["All", "Vessel", "Crew", "Equipment"] as const).map(
-                    (t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        className={`btn btn-sm ${assetTypeFilter === t ? "btn-primary" : "btn-outline-secondary"}`}
-                        onClick={() => setAssetTypeFilter(t)}
-                      >
-                        {t}
-                      </button>
-                    ),
-                  )}
-                </div>
-                <div
-                  className="border rounded"
-                  style={{ maxHeight: "320px", overflowY: "auto" }}
-                >
-                  {filteredAvailable.length === 0 ? (
-                    <div className="p-3 text-muted small text-center">
-                      <p className="mb-1">No assets available.</p>
-                      <p className="mb-0 fst-italic">{PROJECT_ASSET_LINK_HINT}</p>
-                    </div>
-                  ) : (
-                    filteredAvailable.map((a) => {
-                      const assetKey = `${a.assetType}:${a.assetId}`;
-                      const selectedSetId =
-                        pickAssuranceSetByKey[assetKey] ||
-                        a.eligibleAssuranceSets[0]?.id ||
-                        "";
-                      return (
-                        <div
-                          key={assetKey}
-                          className="d-flex align-items-center justify-content-between gap-2 p-2 border-bottom small"
-                        >
-                          <div className="flex-grow-1 min-w-0">
-                            <div className="fw-semibold d-flex align-items-center gap-1 flex-wrap">
-                              {a.assetName}
-                              <span
-                                className="badge bg-warning text-dark"
-                                style={{ fontSize: "0.6rem" }}
-                              >
-                                External
-                              </span>
-                            </div>
-                            <div className="text-muted">
-                              {a.assetType} · {a.providerOrganization}
-                            </div>
-                            {a.eligibleAssuranceSets.length > 1 ? (
-                              <select
-                                className="form-select form-select-sm mt-1 font-mono-code"
-                                style={{ fontSize: "0.7rem", maxWidth: "280px" }}
-                                value={selectedSetId}
-                                onChange={(e) =>
-                                  setPickAssuranceSetByKey((prev) => ({
-                                    ...prev,
-                                    [assetKey]: e.target.value,
-                                  }))
-                                }
-                              >
-                                {a.eligibleAssuranceSets.map((s) => (
-                                  <option key={s.id} value={s.id}>
-                                    {s.id} — {s.title}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <div
-                                className="font-mono-code text-primary"
-                                style={{ fontSize: "0.7rem" }}
-                              >
-                                {selectedSetId}
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary flex-shrink-0"
-                            disabled={!selectedSetId}
-                            onClick={() => handleAddAsset(a)}
-                          >
-                            Add
-                          </button>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                <ProjectAssetPicker
+                  assets={linkableAssets}
+                  typeFilter={assetTypeFilter}
+                  onTypeFilterChange={setAssetTypeFilter}
+                  showCounts={false}
+                  showExternalBadge
+                  assuranceSetByKey={pickAssuranceSetByKey}
+                  onAssuranceSetChange={(assetKey, setId) =>
+                    setPickAssuranceSetByKey((prev) => ({
+                      ...prev,
+                      [assetKey]: setId,
+                    }))
+                  }
+                  onAdd={(asset) => handleAddAsset(asset)}
+                />
               </div>
               
               <div className="col-md-6">
