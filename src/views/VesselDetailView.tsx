@@ -23,7 +23,7 @@ import {
   getSessionUserForPersona,
   pickSessionUserForOrgPersona,
 } from '../utils/userRoleHelpers';
-import { filterAuditTrailForPersona, filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, filterVesselsForPersona, getBackButtonInfo, getClientAdminOrganization, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
+import { filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, filterVesselsForPersona, getBackButtonInfo, getClientAdminOrganization, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
@@ -32,6 +32,8 @@ import { AddCrewModal } from '../components/modals/AddCrewModal';
 import { CrewTable } from '../components/tables/CrewTable';
 import { DocumentTable } from '../components/tables/DocumentTable';
 import { AssuranceTable } from '../components/tables/AssuranceTable';
+import { AuditTrailTable } from '../components/tables/AuditTrailTable';
+import { CapaTable } from '../components/tables/CapaTable';
 import { CapaItem } from '../types/capa';
 import { getVesselStockPhoto, CURATED_VESSEL_PHOTOS } from '../utils/vesselImageHelpers';
 import { VesselImageCropModal } from '../components/modals/VesselImageCropModal';
@@ -103,7 +105,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     users,
     assuranceSets,
     documents,
-    auditEvents,
     vesselStatusHistory,
   } = useMapStore();
 
@@ -207,11 +208,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   >('effectiveFrom');
   const [statusHistorySortDirection, setStatusHistorySortDirection] = useState<'asc' | 'desc'>('desc');
 
-  /* audit trail search, filter, and sorting states */
-  const [auditSearch, setAuditSearch] = useState('');
-  const [auditActionFilter, setAuditActionFilter] = useState('ALL');
-  const [auditSortField, setAuditSortField] = useState<'timestampUtc' | 'action' | 'userId' | 'organization' | 'justificationNotes'>('timestampUtc');
-  const [auditSortDirection, setAuditSortDirection] = useState<'asc' | 'desc'>('desc');
 
   /* Physical Inspections search, filter, sorting, and detail modal states */
   const [inspectionSearch, setInspectionSearch] = useState('');
@@ -224,9 +220,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [modalChecklistSortDirection, setModalChecklistSortDirection] = useState<'asc' | 'desc'>('asc');
   const [modalCapaSortField, setModalCapaSortField] = useState<'id' | 'title' | 'owner' | 'dueDate' | 'status'>('id');
   const [modalCapaSortDirection, setModalCapaSortDirection] = useState<'asc' | 'desc'>('asc');
-
-  /* Audit Log detail modal state */
-  const [selectedAuditForDetail, setSelectedAuditForDetail] = useState<any | null>(null);
 
   const renderSortIndicator = (currentField: string, field: string, direction: 'asc' | 'desc') => {
     if (currentField !== field) return <span className="text-muted ms-1 small opacity-50">↕</span>;
@@ -373,13 +366,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   );
   const currentUserId = sessionUser?.id || activeSessionUserId;
 
-  const visibleAuditEvents = filterAuditTrailForPersona(
-    auditEvents,
-    activePersona,
-    assuranceSets,
-    vessels,
-    currentUserId,
-  );
 
   // Linked assurance sets, documents, crew, and audit items for this vessel
   const linkedSets = vessel ? assuranceSets.filter((s) => s.vesselId === vessel.id) : [];
@@ -444,11 +430,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       });
   }, [linkedCrew, crewSearch, crewRankFilter, crewComplianceFilter, crewSortField, crewSortDirection]);
 
-  const linkedAudits = vessel
-    ? visibleAuditEvents.filter(
-      (a) => a.targetAsset.includes(vessel.imoNumber) || a.targetAsset.includes(vessel.name)
-    )
-    : [];
 
   const linkedStatusHistory = useMemo(
     () => (vessel ? vesselStatusHistory.filter((entry) => entry.vesselId === vessel.id) : []),
@@ -673,34 +654,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       });
   }, [vessel, clientSearch, clientOutcomeFilter, clientSortField, clientSortDirection, isCAdmin, clientOrg]);
 
-  const auditActions = useMemo(() => {
-    return Array.from(new Set(linkedAudits.map((a) => a.action))).sort();
-  }, [linkedAudits]);
-
-  const filteredAudits = useMemo(() => {
-    return linkedAudits
-      .filter((a) => {
-        const matchesSearch =
-          !auditSearch ||
-          a.action.toLowerCase().includes(auditSearch.toLowerCase()) ||
-          a.userId.toLowerCase().includes(auditSearch.toLowerCase()) ||
-          a.organization.toLowerCase().includes(auditSearch.toLowerCase()) ||
-          (a.justificationNotes && a.justificationNotes.toLowerCase().includes(auditSearch.toLowerCase()));
-
-        const matchesAction = auditActionFilter === 'ALL' || a.action === auditActionFilter;
-
-        return matchesSearch && matchesAction;
-      })
-      .sort((a, b) => {
-        let comp = 0;
-        if (auditSortField === 'timestampUtc') comp = new Date(a.timestampUtc).getTime() - new Date(b.timestampUtc).getTime();
-        else if (auditSortField === 'action') comp = a.action.localeCompare(b.action);
-        else if (auditSortField === 'userId') comp = a.userId.localeCompare(b.userId);
-        else if (auditSortField === 'organization') comp = (a.organization || '').localeCompare(b.organization || '');
-        else if (auditSortField === 'justificationNotes') comp = (a.justificationNotes || '').localeCompare(b.justificationNotes || '');
-        return auditSortDirection === 'asc' ? comp : -comp;
-      });
-  }, [linkedAudits, auditSearch, auditActionFilter, auditSortField, auditSortDirection]);
 
   /* one Management row per distinct organization across owner / ISM / ship manager fields */
   const managementOrganizations = useMemo(() => {
@@ -788,7 +741,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const statusHistoryPagination = usePagination(filteredStatusHistory, [statusHistorySearch, statusHistoryDimensionFilter, statusHistoryCurrentOnly, statusHistorySortField, statusHistorySortDirection]);
   const clientPagination = usePagination(filteredClientHistory, [clientSearch, clientOutcomeFilter, clientSortField, clientSortDirection]);
   const crewPagination = usePagination(filteredCrew, [crewSearch, crewRankFilter, crewComplianceFilter, crewSortField, crewSortDirection]);
-  const auditPagination = usePagination(filteredAudits, [auditSearch, auditActionFilter, auditSortField, auditSortDirection]);
   const inspectionPagination = usePagination(filteredInspections, [inspectionSearch, inspectionStatusFilter, inspectionSortField, inspectionSortDirection]);
   const modalChecklistPagination = usePagination(sortedModalChecklists, [selectedInspectionForDetail?.id, modalChecklistSortField, modalChecklistSortDirection]);
   const modalCapaPagination = usePagination(sortedModalCapas, [selectedInspectionForDetail?.id, modalCapaSortField, modalCapaSortDirection]);
@@ -2131,156 +2083,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       )}
 
       {/* Audit Trail — under History and Audit Trail for owning-organization Administrator */}
-      {activeTab === 'history' && isAdmin && isOwned && (
-        <div className="card map-card-custom mt-3">
-          <div className="card-header fw-bold bg-white">Audit Trail ({linkedAudits.length})</div>
-          {/* Table Controls Header */}
-          <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-            <div className="d-flex flex-wrap align-items-center gap-2">
-              <input
-                type="text"
-                className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search audit trail..."
-                value={auditSearch}
-                onChange={(e) => setAuditSearch(e.target.value)}
-                style={{ width: '250px' }}
-              />
-
-              <select
-                className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={auditActionFilter}
-                onChange={(e) => setAuditActionFilter(e.target.value)}
-                style={{ width: '180px' }}
-              >
-                <option value="ALL">All Actions</option>
-                {auditActions.map((act) => (
-                  <option key={act} value={act}>
-                    {act}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={auditSortField}
-                onChange={(e) => setAuditSortField(e.target.value as any)}
-                style={{ width: '170px' }}
-              >
-                <option value="timestampUtc">Sort: Timestamp</option>
-                <option value="action">Sort: Action</option>
-                <option value="userId">Sort: User</option>
-                <option value="organization">Sort: Organization</option>
-                <option value="justificationNotes">Sort: Notes</option>
-              </select>
-
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark"
-                onClick={() => setAuditSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'))}
-                title={`Sort direction: ${auditSortDirection === 'asc' ? 'Ascending' : 'Descending'}`}
-              >
-                {auditSortDirection === 'asc' ? '↑ Asc' : '↓ Desc'}
-              </button>
-            </div>
-          </div>
-
-          <div className="table-responsive">
-            <table className="table map-table-custom align-middle mb-0">
-              <thead>
-                <tr>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (auditSortField === 'timestampUtc') setAuditSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setAuditSortField('timestampUtc'); setAuditSortDirection('desc'); }
-                    }}
-                  >
-                    Timestamp (UTC) {renderSortIndicator(auditSortField, 'timestampUtc', auditSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (auditSortField === 'action') setAuditSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setAuditSortField('action'); setAuditSortDirection('asc'); }
-                    }}
-                  >
-                    Action {renderSortIndicator(auditSortField, 'action', auditSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (auditSortField === 'userId') setAuditSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setAuditSortField('userId'); setAuditSortDirection('asc'); }
-                    }}
-                  >
-                    User {renderSortIndicator(auditSortField, 'userId', auditSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (auditSortField === 'organization') setAuditSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setAuditSortField('organization'); setAuditSortDirection('asc'); }
-                    }}
-                  >
-                    Organization {renderSortIndicator(auditSortField, 'organization', auditSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (auditSortField === 'justificationNotes') setAuditSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setAuditSortField('justificationNotes'); setAuditSortDirection('asc'); }
-                    }}
-                  >
-                    Notes {renderSortIndicator(auditSortField, 'justificationNotes', auditSortDirection)}
-                  </th>
-                  <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAudits.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-4 text-muted">
-                      No audit entries found.
-                    </td>
-                  </tr>
-                ) : (
-                  auditPagination.pageItems.map((event) => (
-                    <tr key={event.id}>
-                      <td className="font-mono-code small text-muted" style={{ fontSize: '0.75rem' }}>
-                        {new Date(event.timestampUtc).toLocaleString()}
-                      </td>
-                      <td>
-                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code">
-                          {event.action}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="fw-semibold text-dark small">{event.userId}</div>
-                        <span className="badge bg-light text-secondary border" style={{ fontSize: '0.7rem' }}>
-                          {getRoleDisplayLabel(event.userRole)}
-                        </span>
-                      </td>
-                      <td className="small text-secondary">{event.organization}</td>
-                      <td className="small text-dark font-mono-code">{event.justificationNotes}</td>
-                      <td className="text-end">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                          style={{ width: '32px', height: '32px' }}
-                          onClick={() => setSelectedAuditForDetail(event)}
-                          title="View"
-                          aria-label="View"
-                        >
-                          <Eye size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <TablePagination {...auditPagination.controls} />
+      {activeTab === 'history' && isAdmin && isOwned && vessel && (
+        <div className="mt-3">
+          <AuditTrailTable vesselId={vessel.id} />
         </div>
       )}
 
@@ -2459,6 +2264,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               </div>
               <TablePagination {...inspectionPagination.controls} />
             </div>
+
+            {/* Section 2: CAPA Tracker — shared CAPA table scoped to vessel */}
+            <CapaTable vesselId={vessel?.id} />
           </div>
         )
       }
@@ -2808,104 +2616,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
           </div>
         )
       }
-
-      {/* Audit Log Table Detail Page Modal */}
-      {
-        selectedAuditForDetail && (
-          <div
-            className="modal show d-block map-modal-backdrop"
-            tabIndex={-1}
-            style={{ zIndex: 1060 }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setSelectedAuditForDetail(null);
-            }}
-          >
-            <div className="modal-dialog modal-lg modal-dialog-centered">
-              <div className="modal-content bg-white text-dark border shadow-lg">
-                {/* Header */}
-                <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                  <div>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="badge bg-primary text-white font-mono-code">{selectedAuditForDetail.id}</span>
-                      <h5 className="modal-title fw-bold text-dark m-0">
-                        Audit Event
-                      </h5>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => setSelectedAuditForDetail(null)}
-                    aria-label="Close"
-                  />
-                </div>
-
-                {/* Body */}
-                <div className="modal-body p-4">
-                  <div className="row g-3 mb-3">
-                    <div className="col-md-6">
-                      <div className="p-3 bg-light border rounded">
-                        <span className="text-secondary small d-block">Timestamp (UTC):</span>
-                        <strong className="font-mono-code text-dark d-block mt-0.5">
-                          {new Date(selectedAuditForDetail.timestampUtc).toUTCString()}
-                        </strong>
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <div className="p-3 bg-light border rounded">
-                        <span className="text-secondary small d-block">Action:</span>
-                        <span className="badge bg-primary text-white font-mono-code mt-1" style={{ fontSize: '0.85rem' }}>
-                          {selectedAuditForDetail.action}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <div className="p-3 bg-light border rounded">
-                        <span className="text-secondary small d-block">User:</span>
-                        <strong className="text-dark d-block mt-0.5">{selectedAuditForDetail.userId}</strong>
-                        <span className="badge bg-secondary text-white font-mono-code mt-1">{getRoleDisplayLabel(selectedAuditForDetail.userRole)}</span>
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <div className="p-3 bg-light border rounded">
-                        <span className="text-secondary small d-block">Organization:</span>
-                        <strong className="text-dark d-block mt-0.5">{selectedAuditForDetail.organization}</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-light border rounded mb-3">
-                    <span className="text-secondary small d-block fw-semibold mb-1">Asset:</span>
-                    <div className="font-mono-code text-primary fw-bold">{selectedAuditForDetail.targetAsset}</div>
-                  </div>
-
-                  <div className="p-3 bg-light border rounded mb-3">
-                    <span className="text-secondary small d-block fw-semibold mb-1">Notes:</span>
-                    <div className="font-mono-code bg-white p-2.5 border rounded text-dark small" style={{ lineHeight: '1.4' }}>
-                      {selectedAuditForDetail.justificationNotes || 'No additional notes recorded for this action.'}
-                    </div>
-                  </div>
-
-                  <div className="p-2.5 bg-success-subtle border border-success-subtle rounded d-flex align-items-center justify-content-between font-mono-code small text-success">
-                    <span>Integrity check</span>
-                    <span className="fw-bold">VERIFIED</span>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="modal-footer border-top bg-light">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-secondary"
-                    onClick={() => setSelectedAuditForDetail(null)}
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
       {/* Live Interactive Inspection Drawer Workspace */}
       {showInspectionDrawer && vessel && (
