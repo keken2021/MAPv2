@@ -749,7 +749,7 @@ const ss03Evidence = buildEvidence(
   "LNGC Northwind Aurora",
   "9694414",
   HARBOURLINE_SUBMITTER,
-  "Activity",
+  "Vessel",
 );
 
 export const OIL_CO_PILOT_DOCUMENTS: MasterDocument[] = [
@@ -1359,8 +1359,14 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
         ownerOrganization: NORTHWIND_ORG,
         identifier: "IMO: 9694414",
       },
-      OIL_CO_PILOT_ASSURANCE_OBJECTS[2],
-      OIL_CO_PILOT_ASSURANCE_OBJECTS[3],
+      {
+        id: "MAP-ACT-2026-LNG-001",
+        type: "activity",
+        name: "Harbourline LNG export terminal loading",
+        ownerOrganization: HARBOURLINE_ORG,
+        identifier: "ACT-LNG-LOAD-01",
+        description: "Terminal cargo transfer and loading arm connection operations",
+      },
     ],
     parties: [
       { organization: OIL_CO_ORG, group: "Client" },

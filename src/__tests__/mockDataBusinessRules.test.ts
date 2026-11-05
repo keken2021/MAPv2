@@ -201,7 +201,9 @@ describe('Seeded projects and marketplace offerings respect asset ownership', ()
         expect(vessel || crew || equipment, `${project.id} ${link.id} asset ${link.assetId}`).toBeDefined();
         const linkedSet = ALL_SETS.find((s) => s.id === link.assuranceSetId);
         expect(linkedSet, `${project.id} ${link.id} set ${link.assuranceSetId}`).toBeDefined();
-        {
+        if (linkedSet?.assuranceObjects?.some((o) => o.type === 'activity')) {
+          expect(isOrganizationMatch(link.providerOrganization, linkedSet.serviceProviderOrg ?? '')).toBe(true);
+        } else {
           expect(
             isAssetOwnedByOrganization(link.assetType, link.providerOrganization, vessel, crew, equipment),
             `${project.id} ${link.id} provider owns ${link.assetId}`,
@@ -265,5 +267,9 @@ describe('Seeded actors are real users acting in a role they hold', () => {
         expect(allowed.some((r) => userHasRole(recipient, r)), `${notification.id} assigned role`).toBe(true);
       }
     });
+  });
+
+  it('checks no seed set has the Activity scope', () => {
+    expect(ALL_SETS.some((s) => (s as any).assuranceType === 'Activity')).toBe(false);
   });
 });
