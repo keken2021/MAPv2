@@ -11,6 +11,7 @@ import {
   StatusTone,
 } from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
+import { ExportMenu } from '../components/common/ExportMenu';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { EmptyState } from '../components/common/EmptyState';
@@ -308,6 +309,29 @@ describe('ListToolbar', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Add Vessel' })).toBeInTheDocument();
+  });
+});
+
+describe('ExportMenu', () => {
+  it('offers CSV and PDF choices and calls the matching handlers', () => {
+    const handleExportCsv = vi.fn();
+    const handleExportPdf = vi.fn();
+    render(
+      <ExportMenu onExportCsv={handleExportCsv} onExportPdf={handleExportPdf} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Export options/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^CSV$/i }));
+    expect(handleExportCsv).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: /Export options/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^PDF$/i }));
+    expect(handleExportPdf).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders nothing when neither export handler is provided', () => {
+    const { container } = render(<ExportMenu />);
+    expect(container).toBeEmptyDOMElement();
   });
 });
 

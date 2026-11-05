@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Download, ChevronDown, FileSpreadsheet, FileText } from 'lucide-react';
+import React from 'react';
 import { SearchInput } from './SearchInput';
 import { FilterButton } from './FilterButton';
+import { ExportMenu } from './ExportMenu';
 
 export interface ListToolbarProps {
   searchValue: string;
@@ -32,31 +32,11 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
   children,
   className = '',
 }) => {
-  const [isExportOpen, setIsExportOpen] = useState(false);
-  const exportRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
-        setIsExportOpen(false);
-      }
-    };
-    if (isExportOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isExportOpen]);
-
-  const hasExport = Boolean(onExportCsv || onExportPdf);
-
   return (
     <div
       className={`map-list-toolbar d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 bg-white border-bottom ${className}`}
     >
       <div className="d-flex flex-wrap align-items-center gap-2 flex-grow-1">
-        {/* Search input with leading icon */}
         <SearchInput
           value={searchValue}
           onChange={onSearchChange}
@@ -65,7 +45,6 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
           wrapperStyle={{ maxWidth: '360px', minWidth: '220px' }}
         />
 
-        {/* Filter button */}
         {onFilterClick && (
           <FilterButton
             onClick={onFilterClick}
@@ -74,68 +53,16 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
           />
         )}
 
-        {/* Export dropdown */}
-        {hasExport && (
-          <div className="position-relative" ref={exportRef}>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5 px-3 py-1.5 bg-white text-dark"
-              style={{ height: '36px' }}
-              disabled={exportDisabled}
-              onClick={() => setIsExportOpen(!isExportOpen)}
-              aria-expanded={isExportOpen}
-              aria-haspopup="true"
-              aria-label="Export options"
-            >
-              <Download size={15} className="text-secondary" />
-              <span className="fw-medium">Export</span>
-              <ChevronDown size={14} className="text-muted ms-0.5" />
-            </button>
+        <ExportMenu
+          onExportCsv={onExportCsv}
+          onExportPdf={onExportPdf}
+          disabled={exportDisabled}
+          ariaLabel="Export options"
+        />
 
-            {isExportOpen && (
-              <div
-                className="dropdown-menu show shadow-sm position-absolute mt-1 end-0"
-                style={{ zIndex: 1050, minWidth: '150px' }}
-                role="menu"
-              >
-                {onExportCsv && (
-                  <button
-                    type="button"
-                    className="dropdown-item d-flex align-items-center gap-2 py-2"
-                    onClick={() => {
-                      setIsExportOpen(false);
-                      onExportCsv();
-                    }}
-                    role="menuitem"
-                  >
-                    <FileSpreadsheet size={15} className="text-success" />
-                    <span>CSV</span>
-                  </button>
-                )}
-                {onExportPdf && (
-                  <button
-                    type="button"
-                    className="dropdown-item d-flex align-items-center gap-2 py-2"
-                    onClick={() => {
-                      setIsExportOpen(false);
-                      onExportPdf();
-                    }}
-                    role="menuitem"
-                  >
-                    <FileText size={15} className="text-danger" />
-                    <span>PDF</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Optional additional controls */}
         {children}
       </div>
 
-      {/* Primary Action Slot */}
       {primaryAction && (
         <div className="d-flex align-items-center gap-2">
           {primaryAction}
@@ -144,4 +71,3 @@ export const ListToolbar: React.FC<ListToolbarProps> = ({
     </div>
   );
 };
-

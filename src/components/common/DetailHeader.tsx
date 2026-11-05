@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, Download, ChevronDown, FileSpreadsheet, FileText, X } from 'lucide-react';
+import React from 'react';
+import { ChevronLeft, X } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
+import { ExportMenu } from './ExportMenu';
 
 export interface DetailMetaItem {
   label?: string;
@@ -37,24 +38,6 @@ export const DetailHeader: React.FC<DetailHeaderProps> = ({
   closeLabel = 'Close',
   className = '',
 }) => {
-  const [isExportOpen, setIsExportOpen] = useState(false);
-  const exportRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (exportRef.current && !exportRef.current.contains(event.target as Node)) {
-        setIsExportOpen(false);
-      }
-    };
-    if (isExportOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isExportOpen]);
-
-  const hasExport = Boolean(onExportCsv || onExportPdf);
   const formattedMeta = metaItems
     ?.map((item) => (typeof item === 'string' ? item : item.label ? `${item.label}: ${item.value}` : item.value))
     .filter(Boolean);
@@ -103,61 +86,13 @@ export const DetailHeader: React.FC<DetailHeaderProps> = ({
           {mainAction && <div className="detail-header-action-main">{mainAction}</div>}
 
           {/* 2. Export */}
-          {hasExport && (
-            <div className="position-relative detail-header-action-export" ref={exportRef}>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1.5 px-3 py-1.5 bg-white text-dark"
-                style={{ height: '36px' }}
-                disabled={exportDisabled}
-                onClick={() => setIsExportOpen(!isExportOpen)}
-                aria-expanded={isExportOpen}
-                aria-haspopup="true"
-                aria-label="Export record"
-              >
-                <Download size={15} className="text-secondary" />
-                <span className="fw-medium">Export</span>
-                <ChevronDown size={14} className="text-muted ms-0.5" />
-              </button>
-
-              {isExportOpen && (
-                <div
-                  className="dropdown-menu show shadow-sm position-absolute mt-1 end-0"
-                  style={{ zIndex: 1050, minWidth: '150px' }}
-                  role="menu"
-                >
-                  {onExportCsv && (
-                    <button
-                      type="button"
-                      className="dropdown-item d-flex align-items-center gap-2 py-2"
-                      onClick={() => {
-                        setIsExportOpen(false);
-                        onExportCsv();
-                      }}
-                      role="menuitem"
-                    >
-                      <FileSpreadsheet size={15} className="text-success" />
-                      <span>CSV</span>
-                    </button>
-                  )}
-                  {onExportPdf && (
-                    <button
-                      type="button"
-                      className="dropdown-item d-flex align-items-center gap-2 py-2"
-                      onClick={() => {
-                        setIsExportOpen(false);
-                        onExportPdf();
-                      }}
-                      role="menuitem"
-                    >
-                      <FileText size={15} className="text-danger" />
-                      <span>PDF</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          <ExportMenu
+            className="detail-header-action-export"
+            onExportCsv={onExportCsv}
+            onExportPdf={onExportPdf}
+            disabled={exportDisabled}
+            ariaLabel="Export record"
+          />
 
           {/* 3. Close */}
           {onClose && (
