@@ -13,6 +13,7 @@ import { FilterModal } from '../components/common/FilterModal';
 import { CountTabs } from '../components/common/CountTabs';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { EmptyState } from '../components/common/EmptyState';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { filterEquipmentForPersona } from '../utils/rbacHelpers';
@@ -264,8 +265,8 @@ export const EquipmentView: React.FC = () => {
               <tbody>
                 {filteredEquipment.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center text-muted py-4">
-                      No equipment found.
+                    <td colSpan={7} className="p-0">
+                      <EmptyState title="No equipment found" />
                     </td>
                   </tr>
                 )}

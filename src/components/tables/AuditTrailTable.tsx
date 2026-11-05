@@ -22,6 +22,7 @@ import { ListToolbar } from '../common/ListToolbar';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
+import { EmptyState } from '../common/EmptyState';
 
 function displayAuditValue(value: string): string {
   if (!/^\d{4}-\d{2}-\d{2}/.test(value)) return value;
@@ -274,8 +275,8 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ vesselId }) =>
             <tbody>
               {eventsPagination.pageItems.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-4 text-secondary small">
-                    No audit entries found.
+                  <td colSpan={6} className="p-0">
+                    <EmptyState title="No audit entries found" />
                   </td>
                 </tr>
               ) : (

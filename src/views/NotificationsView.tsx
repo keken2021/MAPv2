@@ -17,6 +17,7 @@ import { FilterModal } from '../components/common/FilterModal';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { CountTabs } from '../components/common/CountTabs';
 import { ListToolbar } from '../components/common/ListToolbar';
+import { EmptyState } from '../components/common/EmptyState';
 import { NotificationDetailModal } from '../components/modals/NotificationDetailModal';
 import { formatMaritimeDateTime } from '../utils/formatters';
 import {
@@ -190,21 +191,15 @@ export const NotificationsView: React.FC = () => {
             <tbody>
               {visibleItems.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMN_COUNT} className="text-center py-5">
-                    <Inbox size={32} className="text-muted mb-2" aria-hidden="true" />
+                  <td colSpan={COLUMN_COUNT} className="p-0">
                     {hasRefinement && tabItems.length > 0 ? (
-                      <>
-                        <div className="text-muted mb-2">No notifications found.</div>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-secondary"
-                          onClick={handleClearRefinement}
-                        >
-                          Clear Search
-                        </button>
-                      </>
+                      <EmptyState
+                        icon={Inbox}
+                        title="No notifications found"
+                        action={{ label: 'Clear Search', onClick: handleClearRefinement }}
+                      />
                     ) : (
-                      <div className="text-muted">{activeTabMeta.emptyText}</div>
+                      <EmptyState icon={Inbox} title={activeTabMeta.emptyText} />
                     )}
                   </td>
                 </tr>

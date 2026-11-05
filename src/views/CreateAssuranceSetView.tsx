@@ -2762,7 +2762,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
                     {/* the project is assigned by the invitation or the project page; otherwise it can be chosen */}
                     <div className="col-12 col-md-6">
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-linked-project">
+                      <label
+                        className="form-label text-secondary small fw-semibold"
+                        htmlFor={isProjectLocked ? 'grid-linked-project-locked' : 'grid-linked-project'}
+                      >
                         Project{' '}
                         {isProjectLocked ? null : (
                           <span className="text-secondary fw-normal fs-7">(Optional)</span>
@@ -2770,7 +2773,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       </label>
                       {isProjectLocked ? (
                         <input
-                          id="grid-linked-project"
+                          id="grid-linked-project-locked"
                           className="form-control bg-light text-dark border-secondary-subtle"
                           value={
                             selectedProject

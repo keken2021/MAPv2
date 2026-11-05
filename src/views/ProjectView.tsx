@@ -11,6 +11,7 @@ import { FilterModal } from '../components/common/FilterModal';
 import { CountTabs } from '../components/common/CountTabs';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { EmptyState } from '../components/common/EmptyState';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { useMapStore } from '../store/useMapStore';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
@@ -173,8 +174,8 @@ export const ProjectView: React.FC = () => {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-4 text-muted">
-                    No projects found.
+                  <td colSpan={7} className="p-0">
+                    <EmptyState title="No projects found" />
                   </td>
                 </tr>
               ) : (

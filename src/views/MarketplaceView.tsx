@@ -20,6 +20,7 @@ import { FilterModal } from '../components/common/FilterModal';
 import { CountTabs } from '../components/common/CountTabs';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { EmptyState } from '../components/common/EmptyState';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { usePagination } from '../utils/usePagination';
@@ -322,17 +323,11 @@ export const MarketplaceView: React.FC = () => {
         {viewMode === 'grid' ? (
           <div className="p-4" style={{ backgroundColor: '#F8FAFC' }}>
             {filteredItems.length === 0 ? (
-              <div
-                className="text-center py-5 bg-white rounded-2 border"
-                style={{ borderColor: '#E2E8F0' }}
-              >
-                <div className="fw-semibold text-dark mb-1" style={{ fontSize: '1rem', color: '#0B1B2B' }}>
-                  No offerings found
-                </div>
-                <div className="text-muted small" style={{ fontSize: '0.82rem' }}>
-                  Try a different search or filter.
-                </div>
-              </div>
+              <EmptyState
+                title="No offerings found"
+                description="Try a different search or filter."
+                className="bg-white rounded-2 border"
+              />
             ) : (
               <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
                 {filteredItems.map((item) => (
@@ -375,8 +370,8 @@ export const MarketplaceView: React.FC = () => {
               <tbody>
                 {filteredItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center text-muted py-5" style={{ fontSize: '0.85rem' }}>
-                      No offerings found.
+                    <td colSpan={7} className="p-0">
+                      <EmptyState title="No offerings found" />
                     </td>
                   </tr>
                 ) : (

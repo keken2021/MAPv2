@@ -31,6 +31,7 @@ import {
   projectTypeShowsServiceFields,
 } from "../utils/projectHelpers";
 import { ProjectAssetPicker } from "../components/common/ProjectAssetPicker";
+import { EmptyState } from "../components/common/EmptyState";
 import { calculateAssuranceSetReadiness } from "../utils/readinessHelpers";
 import { getAssuranceSetCrewNames } from "../utils/assuranceTemplates";
 
@@ -942,9 +943,7 @@ export const CreateProjectView: React.FC = () => {
                   style={{ maxHeight: "360px", overflowY: "auto" }}
                 >
                   {assuranceSetCards.length === 0 ? (
-                    <div className="p-4 border rounded text-center text-muted small">
-                      No assurance sets selected.
-                    </div>
+                    <EmptyState title="No assurance sets selected" className="border rounded" />
                   ) : (
                     assuranceSetCards.map(({ set, assets }) => (
                       <div key={set.id} className="border rounded p-3">

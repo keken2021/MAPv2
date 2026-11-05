@@ -12,6 +12,7 @@ import { FilterModal } from '../common/FilterModal';
 import { CountTabs } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
 import { StatusBadge } from '../common/StatusBadge';
+import { EmptyState } from '../common/EmptyState';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { EditUserModal } from '../modals/EditUserModal';
@@ -257,8 +258,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
           <tbody>
             {sortedUsers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-4 text-muted">
-                  No users found.
+                <td colSpan={6} className="p-0">
+                  <EmptyState title="No users found" />
                 </td>
               </tr>
             ) : (

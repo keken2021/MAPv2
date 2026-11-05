@@ -12,6 +12,7 @@ import { FilterModal } from '../common/FilterModal';
 import { CountTabs } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
 import { StatusBadge } from '../common/StatusBadge';
+import { EmptyState } from '../common/EmptyState';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { getStatusDisplayLabel } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
@@ -498,8 +499,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
             <tbody>
               {sortedCrew.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-4 text-muted">
-                    No crew found.
+                  <td colSpan={6} className="p-0">
+                    <EmptyState title="No crew found" />
                   </td>
                 </tr>
               ) : (
@@ -580,8 +581,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
             <tbody>
               {sortedGroups.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-4 text-muted">
-                    No crew groups found.
+                  <td colSpan={5} className="p-0">
+                    <EmptyState title="No crew groups found" />
                   </td>
                 </tr>
               ) : (
