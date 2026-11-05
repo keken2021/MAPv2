@@ -28,13 +28,13 @@ import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilter
 import { usePagination } from '../utils/usePagination';
 import { Paginated, TablePagination } from '../components/common/TablePagination';
 import { EmptyState } from '../components/common/EmptyState';
+import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
 
 export type ApproverTabKey = 'needs-decision' | 'overdue' | 'approved' | 'returned' | 'all';
 
 export const ApproverDashboardView: React.FC = () => {
   const {
     assuranceSets,
-    setApproverDecision,
     denyRequirementByApprover,
     activePersona,
     vessels,
@@ -215,23 +215,6 @@ export const ApproverDashboardView: React.FC = () => {
 
   const isInspectionBlocked = Boolean(isInspectionRequired && selectedSet && !selectedSet.inspectionCompleted);
   const isApprovalBlocked = unfulfilledMandatory.length > 0 || isInspectionBlocked;
-
-  const handleDecision = (decision: 'Approved' | 'Returned for Correction' | 'Rejected') => {
-    if (!selectedSet) return;
-
-    if (decision === 'Approved' && isApprovalBlocked) {
-      if (isInspectionBlocked) {
-        setFeedbackMessage('Cannot approve: the mandatory inspection is not complete.');
-      } else {
-        setFeedbackMessage('Cannot approve: some mandatory requirements are not verified or have expired.');
-      }
-      return;
-    }
-
-    setApproverDecision(selectedSet.id, decision, approverNotes || `Executive Decision: ${decision}`);
-    setFeedbackMessage(`Assurance Set ${selectedSet.id} updated to ${decision}.`);
-    setApproverNotes('');
-  };
 
   const isNeedsDecision = (s: AssuranceSet) => {
     if (s.stage === 'Approved' || s.stage === 'Certified' || s.stage === 'Cancelled') return false;
@@ -635,57 +618,19 @@ export const ApproverDashboardView: React.FC = () => {
                   <div className="alert alert-info py-2 small mb-3">{feedbackMessage}</div>
                 )}
 
-                <div className="mb-3">
-                  <label className="form-label text-secondary small fw-semibold" htmlFor="approver-notes">
-                    Notes:
-                  </label>
-                  <textarea
-                    id="approver-notes"
-                    className="form-control form-control-sm bg-white text-dark border-secondary"
-                    rows={3}
-                    placeholder={
-                      canCertifyAssuranceSet
-                        ? isAlreadyApproved
-                          ? 'Approved. Notes are locked.'
-                          : 'Add notes for your decision'
-                        : 'Read-only'
-                    }
-                    value={approverNotes}
-                    onChange={(e) => setApproverNotes(e.target.value)}
-                    disabled={!canCertifyAssuranceSet || isAlreadyApproved}
-                  />
-                </div>
-
                 {canCertifyAssuranceSet && (
                   isAlreadyApproved ? (
                     <div className="alert alert-success py-2.5 px-3 small font-mono-code fw-semibold mb-0">
                       This assurance set is already approved.
                     </div>
                   ) : (
-                    <div className="d-flex flex-column gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-success text-white py-2 fw-semibold"
-                        onClick={() => handleDecision('Approved')}
-                        disabled={isApprovalBlocked}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-warning text-dark py-2 fw-semibold"
-                        onClick={() => handleDecision('Returned for Correction')}
-                      >
-                        Return for Correction
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-danger text-white py-2 fw-semibold"
-                        onClick={() => handleDecision('Rejected')}
-                      >
-                        Reject
-                      </button>
-                    </div>
+                    <ApproverDecisionBar
+                      assuranceSet={selectedSet}
+                      openFindingsCount={getAssuranceSetOpenFindingsCount(selectedSet, capaItems)}
+                      onDecisionSubmitted={(decision) => {
+                        setFeedbackMessage(`Assurance Set ${selectedSet.id} updated to ${decision}.`);
+                      }}
+                    />
                   )
                 )}
               </div>
