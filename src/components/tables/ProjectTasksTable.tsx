@@ -4,11 +4,12 @@
   role in system: shared Tasks table component used on ProjectDetailView, DashboardView, and AssuranceDetailView.
 */
 
-import React, { useId, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTab, CountTabs } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
+import { TablePagination } from '../common/TablePagination';
 import { useMapStore } from '../../store/useMapStore';
 import type { AssuranceObject, AssuranceRequirement, AssuranceSet } from '../../types/assurance';
 import type { MasterDocument } from '../../types/document';
@@ -404,8 +405,6 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     setInternalSortDirection(nextDirection);
     onSortChange?.(field, nextDirection);
   };
-
-  const pageSizeSelectId = useId();
 
   const viewerOrg = activeDemoOrganization || sessionUser?.organization || '';
 
@@ -815,58 +814,20 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
         </table>
       </div>
 
-      {sortedRows.length > 0 && (
-        <nav className="map-table-pagination" aria-label="Table pagination">
-          <div className="map-table-pagination-range" aria-live="polite">
-            Showing {pagination.rangeStart}-{pagination.rangeEnd} of {pagination.total}
-          </div>
-          <div className="map-table-pagination-controls">
-            <label className="map-table-pagination-size" htmlFor={pageSizeSelectId}>
-              Rows per page
-            </label>
-            <select
-              id={pageSizeSelectId}
-              className="form-select form-select-sm map-table-pagination-select"
-              value={pageSize}
-              onChange={(e) => {
-                const nextSize = Number(e.target.value);
-                setInternalPageSize(nextSize);
-                onPageSizeChange?.(nextSize);
-                setPage(1);
-              }}
-            >
-              {[10, 20, 25, 50].map((sz) => (
-                <option key={sz} value={sz}>
-                  {sz}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="map-table-pagination-btn"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={pagination.page <= 1}
-              title="Previous page"
-              aria-label="Previous page"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="map-table-pagination-page">
-              Page {pagination.page} of {pagination.totalPages}
-            </span>
-            <button
-              type="button"
-              className="map-table-pagination-btn"
-              onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-              disabled={pagination.page >= pagination.totalPages}
-              title="Next page"
-              aria-label="Next page"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-        </nav>
-      )}
+      <TablePagination
+        page={pagination.page}
+        totalPages={pagination.totalPages}
+        total={pagination.total}
+        rangeStart={pagination.rangeStart}
+        rangeEnd={pagination.rangeEnd}
+        pageSize={pageSize}
+        onPageChange={(nextPage) => setPage(nextPage)}
+        onPageSizeChange={(nextSize) => {
+          setInternalPageSize(nextSize);
+          onPageSizeChange?.(nextSize);
+          setPage(1);
+        }}
+      />
     </div>
   );
 };
