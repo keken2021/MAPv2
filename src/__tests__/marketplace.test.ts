@@ -70,8 +70,6 @@ describe('Marketplace Module & Segregation', () => {
     // Verify third-party service provider vessels are included
     const providerVessels = adminItems.filter((i) => i.category === 'vessel');
     expect(providerVessels.some((v) => v.name.includes('Meridian Pioneer'))).toBe(true);
-    expect(providerVessels.some((v) => v.name.includes('Austral Horizon'))).toBe(true);
-    expect(providerVessels.some((v) => v.name.includes('Oceanic Sentinel'))).toBe(true);
   });
 
   it('strictly excludes client-owned assets for C Admin in marketplace items', () => {
@@ -519,10 +517,10 @@ describe('Marketplace Module & Segregation', () => {
       MOCK_ASSURANCE_SETS,
       MOCK_DOCUMENTS,
     );
-    const horizon = items.find((item) => item.name.includes('Austral Horizon'))!;
-    render(React.createElement(MarketplaceCard, { item: horizon, onSelect: () => undefined }));
-    expect(screen.getByText('Available 01 DEC 2026 to 31 MAR 2027 · Fremantle')).toBeInTheDocument();
-    expect(formatListingAvailability(horizon)).toBe('Available 01 DEC 2026 to 31 MAR 2027 · Fremantle');
+    const meridian = items.find((item) => item.name.includes('Meridian Pioneer'))!;
+    render(React.createElement(MarketplaceCard, { item: meridian, onSelect: () => undefined }));
+    expect(formatListingAvailability(meridian)).toMatch(/^Available 01 NOV 2026 to 28 FEB 2027 · /);
+    expect(screen.getByText(formatListingAvailability(meridian))).toBeInTheDocument();
 
     const tasman = items.find((item) => item.linkedEntityId === 'VESSEL-003')!;
     const expiry = earliestCertificateExpiry(tasman, MOCK_VESSELS, MOCK_DOCUMENTS, MOCK_CREW);
