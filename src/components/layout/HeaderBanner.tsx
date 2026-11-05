@@ -105,6 +105,19 @@ export const HeaderBanner: React.FC = () => {
         }
         return { breadcrumb: 'CREW', title: 'Crew Directory' };
       }
+      case 'crew-groups':
+        return { breadcrumb: 'CREW GROUPS', title: 'Crew Groups' };
+      case 'crew-group': {
+        if (currentEntityId) {
+          return {
+            breadcrumb: 'CREW GROUP',
+            title: 'Crew Group',
+          };
+        }
+        return { breadcrumb: 'CREW GROUPS', title: 'Crew Groups' };
+      }
+      case 'organization-profile':
+        return { breadcrumb: 'ORGANIZATION PROFILE', title: 'Organization Profile' };
       case 'users':
         return { breadcrumb: 'USERS', title: 'User Management' };
       case 'roles-permissions':

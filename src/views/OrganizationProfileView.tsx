@@ -14,7 +14,7 @@ import {
   ORGANIZATION_FIELD_NOT_RECORDED,
   displayOrganizationField,
 } from '../types/organization';
-import { Building, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 
 const EMPTY_FORM: OrganizationProfilePatch = {
   email: '',
@@ -127,10 +127,6 @@ export const OrganizationProfileView: React.FC = () => {
     <div className="d-flex flex-column gap-4">
       <div className="d-flex flex-wrap align-items-start justify-content-between gap-3">
         <div>
-          <div className="d-flex align-items-center gap-2 mb-1">
-            <Building className="text-primary" size={20} />
-            <h2 className="h5 mb-0 fw-bold text-dark">Organization profile</h2>
-          </div>
           <p className="text-secondary small mb-0">
             Contact details for{' '}
             <span className="fw-semibold text-dark">{organizationName || 'the active organization'}</span>

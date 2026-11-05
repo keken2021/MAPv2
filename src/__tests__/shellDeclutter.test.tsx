@@ -185,6 +185,8 @@ describe('Shell header and sidebar declutter suite', () => {
       { view: 'approver', expectedTitle: 'Approvals' },
       { view: 'capa', expectedTitle: 'CAPA' },
       { view: 'dashboard', expectedTitle: 'Dashboard' },
+      { view: 'organization-profile', expectedTitle: 'Organization Profile' },
+      { view: 'crew-groups', expectedTitle: 'Crew Groups' },
     ];
 
     listViews.forEach(({ view, expectedTitle }) => {
