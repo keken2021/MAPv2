@@ -21,6 +21,7 @@ import {
 import { useMapStore } from '../store/useMapStore';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { Tabs } from '../components/common/Tabs';
 import { formatMaritimeDate } from '../utils/formatters';
 
 interface CrewGroupDetailViewProps {
@@ -153,34 +154,16 @@ export const CrewGroupDetailView: React.FC<CrewGroupDetailViewProps> = ({ groupI
       {/* Tabs Row */}
       <div className="card map-card-custom">
         <div className="border-bottom px-3 pt-2">
-          <ul className="nav nav-tabs border-0" role="tablist">
-            <li className="nav-item" role="presentation">
-              <button
-                type="button"
-                className={`nav-link font-mono-code fw-semibold py-2.5 px-3.5 ${
-                  activeTab === 'details' ? 'active text-primary border-bottom border-primary border-2' : 'text-secondary'
-                }`}
-                role="tab"
-                aria-selected={activeTab === 'details'}
-                onClick={() => setActiveTab('details')}
-              >
-                Details and specializations
-              </button>
-            </li>
-            <li className="nav-item" role="presentation">
-              <button
-                type="button"
-                className={`nav-link font-mono-code fw-semibold py-2.5 px-3.5 ${
-                  activeTab === 'roster' ? 'active text-primary border-bottom border-primary border-2' : 'text-secondary'
-                }`}
-                role="tab"
-                aria-selected={activeTab === 'roster'}
-                onClick={() => setActiveTab('roster')}
-              >
-                Roster ({group.memberIds.length})
-              </button>
-            </li>
-          </ul>
+          <Tabs
+            variant="section"
+            aria-label="Crew group detail tabs"
+            active={activeTab}
+            onChange={(key) => setActiveTab(key as 'details' | 'roster')}
+            tabs={[
+              { key: 'details', label: 'Details and specializations' },
+              { key: 'roster', label: 'Roster', count: group.memberIds.length },
+            ]}
+          />
         </div>
 
         {/* Tab 1: Details and specializations */}

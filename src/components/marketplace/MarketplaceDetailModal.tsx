@@ -26,6 +26,7 @@ import {
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument } from '../../types/document';
 import { UniversalDocumentPreviewModal } from '../modals/UniversalDocumentPreviewModal';
+import { Tabs } from '../common/Tabs';
 import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 import { exportToPdf } from '../../utils/exportHelpers';
@@ -499,80 +500,19 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
             </div>
 
             {/* Nav Tabs Navigation Bar */}
-            <div
-              className="px-4 pt-2.5 border-bottom bg-white"
-              style={{ borderBottomColor: '#E2E8F0' }}
-            >
-              <ul className="nav nav-tabs border-0 gap-2">
-                <li className="nav-item">
-                  <button
-                    type="button"
-                    className={`nav-link border-0 px-3.5 py-2.5 small fw-medium ${activeTab === 'specs'
-                      ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                      : 'text-secondary'
-                      }`}
-                    style={{
-                      fontSize: '0.84rem',
-                      color: activeTab === 'specs' ? '#0B1B2B' : '#64748B',
-                      borderBottomColor: activeTab === 'specs' ? '#0B1B2B' : 'transparent',
-                    }}
-                    onClick={() => setActiveTab('specs')}
-                  >
-                    Specifications
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    type="button"
-                    className={`nav-link border-0 px-3.5 py-2.5 small fw-medium ${activeTab === 'capabilities'
-                      ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                      : 'text-secondary'
-                      }`}
-                    style={{
-                      fontSize: '0.84rem',
-                      color: activeTab === 'capabilities' ? '#0B1B2B' : '#64748B',
-                      borderBottomColor: activeTab === 'capabilities' ? '#0B1B2B' : 'transparent',
-                    }}
-                    onClick={() => setActiveTab('capabilities')}
-                  >
-                    Capabilities
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    type="button"
-                    className={`nav-link border-0 px-3.5 py-2.5 small fw-medium ${activeTab === 'compliance'
-                      ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                      : 'text-secondary'
-                      }`}
-                    style={{
-                      fontSize: '0.84rem',
-                      color: activeTab === 'compliance' ? '#0B1B2B' : '#64748B',
-                      borderBottomColor: activeTab === 'compliance' ? '#0B1B2B' : 'transparent',
-                    }}
-                    onClick={() => setActiveTab('compliance')}
-                  >
-                    Compliance
-                  </button>
-                </li>
-                <li className="nav-item">
-                  <button
-                    type="button"
-                    className={`nav-link border-0 px-3.5 py-2.5 small fw-medium ${activeTab === 'provider'
-                      ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                      : 'text-secondary'
-                      }`}
-                    style={{
-                      fontSize: '0.84rem',
-                      color: activeTab === 'provider' ? '#0B1B2B' : '#64748B',
-                      borderBottomColor: activeTab === 'provider' ? '#0B1B2B' : 'transparent',
-                    }}
-                    onClick={() => setActiveTab('provider')}
-                  >
-                    {getProviderLabel(item.category)}
-                  </button>
-                </li>
-              </ul>
+            <div className="px-4 pt-2.5 border-bottom bg-white">
+              <Tabs
+                variant="section"
+                aria-label="Marketplace offering tabs"
+                active={activeTab}
+                onChange={(key) => setActiveTab(key as typeof activeTab)}
+                tabs={[
+                  { key: 'specs', label: 'Specifications' },
+                  { key: 'capabilities', label: 'Capabilities' },
+                  { key: 'compliance', label: 'Compliance' },
+                  { key: 'provider', label: getProviderLabel(item.category) },
+                ]}
+              />
             </div>
 
             {/* Tab Contents Area */}

@@ -38,6 +38,7 @@ import {
 } from '../../utils/readinessHelpers';
 import { formatReadinessScore, getStatusDisplayLabel } from '../../utils/formatters';
 import { usePagination } from '../../utils/usePagination';
+import { Tabs } from '../common/Tabs';
 import { TablePagination } from '../common/TablePagination';
 import { ProjectAssetPicker } from '../common/ProjectAssetPicker';
 
@@ -851,63 +852,27 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
                     className="d-flex align-items-center justify-content-between px-3.5 pt-2.5 border-bottom"
                     style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}
                   >
-                    <ul className="nav nav-tabs border-0 gap-2">
-                      <li className="nav-item">
-                        <button
-                          type="button"
-                          className={`nav-link border-0 px-3 py-2 small fw-semibold ${activeTab === 'comparison'
-                            ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                            : 'text-secondary'
-                            }`}
-                          style={{
-                            fontSize: '0.84rem',
-                            color: activeTab === 'comparison' ? '#0B1B2B' : '#64748B',
-                            borderBottomColor: activeTab === 'comparison' ? '#0B1B2B' : 'transparent',
-                          }}
-                          onClick={() => setActiveTab('comparison')}
-                        >
-                          <span className="d-flex align-items-center gap-1.5">
-                            <Sparkles size={14} className="text-primary" />
-                            <span>Requirement Match</span>
-                            <span
-                              className="badge rounded-pill ms-1 font-mono-code"
-                              style={{
-                                backgroundColor: matchSummary.percentage >= 80 ? '#DCFCE7' : '#FEF3C7',
-                                color: matchSummary.percentage >= 80 ? '#15803D' : '#D97706',
-                                fontSize: '0.7rem',
-                                fontWeight: 600,
-                              }}
-                            >
-                              {matchSummary.percentage}% Match
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-
-                      <li className="nav-item">
-                        <button
-                          type="button"
-                          className={`nav-link border-0 px-3 py-2 small fw-semibold ${activeTab === 'vault'
-                            ? 'active border-bottom border-primary border-3 fw-bold text-primary'
-                            : 'text-secondary'
-                            }`}
-                          style={{
-                            fontSize: '0.84rem',
-                            color: activeTab === 'vault' ? '#0B1B2B' : '#64748B',
-                            borderBottomColor: activeTab === 'vault' ? '#0B1B2B' : 'transparent',
-                          }}
-                          onClick={() => setActiveTab('vault')}
-                        >
-                          <span className="d-flex align-items-center gap-1.5">
-                            <FileCheck size={14} />
-                            <span>Documents</span>
-                            <span className="badge bg-secondary text-white rounded-pill ms-1 font-mono-code" style={{ fontSize: '0.7rem' }}>
-                              {vaultDocuments.length}
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    </ul>
+                    <Tabs
+                      variant="section"
+                      aria-label="Asset match and documents tabs"
+                      active={activeTab}
+                      onChange={(key) => setActiveTab(key as typeof activeTab)}
+                      tabs={[
+                        {
+                          key: 'comparison',
+                          label: 'Requirement Match',
+                          icon: Sparkles,
+                          count: matchSummary.percentage,
+                          tone: matchSummary.percentage >= 80 ? 'default' : 'warn',
+                        },
+                        {
+                          key: 'vault',
+                          label: 'Documents',
+                          icon: FileCheck,
+                          count: vaultDocuments.length,
+                        },
+                      ]}
+                    />
                   </div>
 
                   {/* Tab Content 1: Comparison Matrix */}
