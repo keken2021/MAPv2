@@ -62,7 +62,7 @@ describe('project asset picker', () => {
     expect(filterProjectPickerAssets(sampleAssets, 'All', 'beta').map((a) => a.assetId)).toEqual(['C-1']);
   });
 
-  it('renders type filters and rows for compact variant', () => {
+  it('renders CountTabs, ListToolbar search, and rows for compact variant', () => {
     const onAdd = vi.fn();
     render(
       <ProjectAssetPicker
@@ -73,7 +73,9 @@ describe('project asset picker', () => {
     );
 
     expect(screen.getByTestId('project-asset-picker')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Vessel' }));
+    expect(screen.getByPlaceholderText('Search assets...')).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: /asset type filter/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: /^vessels/i }));
     expect(screen.getAllByTestId('project-asset-picker-row')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     expect(onAdd).toHaveBeenCalledWith('V-1', 'AS-1');
@@ -102,13 +104,16 @@ describe('project asset picker call sites', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next: Choose Assurance Set' }));
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
     expect(screen.getByTestId('project-asset-picker')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Vessel' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^all/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^vessels/i })).toBeInTheDocument();
   });
 
-  it('shows the shared picker in ProjectAddAssetModal catalog', () => {
+  it('shows search and tab counts in ProjectAddAssetModal catalog', () => {
     render(<ProjectAddAssetModal isOpen project={sampleProject} onClose={() => undefined} />);
     expect(screen.getByTestId('project-asset-picker')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Search assets...')).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: /asset type filter/i })).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Search assets...'), { target: { value: 'zzz-no-match' } });
+    expect(screen.queryByTestId('project-asset-picker-row')).toBeNull();
   });
 });

@@ -8,7 +8,8 @@ import React, { useMemo, useState, type ReactNode } from 'react';
 import { Layers } from 'lucide-react';
 import type { LinkableProjectAsset } from '../../utils/projectHelpers';
 import { PROJECT_ASSET_LINK_HINT } from '../../utils/projectHelpers';
-import { SearchInput } from './SearchInput';
+import { CountTabs } from './CountTabs';
+import { ListToolbar } from './ListToolbar';
 
 export type ProjectAssetTypeFilter = 'All' | 'Vessel' | 'Crew' | 'Equipment';
 
@@ -118,11 +119,11 @@ export function ProjectAssetPicker<T extends ProjectAssetPickerAsset = ProjectAs
     [assets, typeFilter, searchQuery],
   );
 
-  const filterOptions: { key: ProjectAssetTypeFilter; label: string }[] = [
-    { key: 'All', label: showCounts ? `All (${counts.All})` : 'All' },
-    { key: 'Vessel', label: showCounts ? `Vessels (${counts.Vessel})` : 'Vessel' },
-    { key: 'Crew', label: showCounts ? `Crew (${counts.Crew})` : 'Crew' },
-    { key: 'Equipment', label: showCounts ? `Equipment (${counts.Equipment})` : 'Equipment' },
+  const typeTabs = [
+    { key: 'All', label: 'All', count: showCounts ? counts.All : undefined },
+    { key: 'Vessel', label: 'Vessels', count: showCounts ? counts.Vessel : undefined },
+    { key: 'Crew', label: 'Crew', count: showCounts ? counts.Crew : undefined },
+    { key: 'Equipment', label: 'Equipment', count: showCounts ? counts.Equipment : undefined },
   ];
 
   const resolveSetId = (asset: T): string => {
@@ -135,49 +136,20 @@ export function ProjectAssetPicker<T extends ProjectAssetPickerAsset = ProjectAs
       className={`project-asset-picker d-flex flex-column gap-2 ${className}`.trim()}
       data-testid="project-asset-picker"
     >
-      <div
-        className={`d-flex flex-column ${variant === 'card' ? 'flex-md-row align-items-md-center justify-content-between gap-3 card p-3 border shadow-sm bg-white' : 'gap-2'}`}
-        style={variant === 'card' ? { borderColor: '#E2E8F0' } : undefined}
-      >
-        <div className="d-flex flex-wrap align-items-center gap-1.5" role="group" aria-label="Asset type filter">
-          {filterOptions.map((opt) => {
-            const active = typeFilter === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                className={
-                  variant === 'card'
-                    ? 'btn btn-sm rounded-pill font-mono-code px-3 py-1.5'
-                    : `btn btn-sm ${active ? 'btn-primary' : 'btn-outline-secondary'}`
-                }
-                style={
-                  variant === 'card'
-                    ? {
-                        fontSize: '0.8rem',
-                        backgroundColor: active ? '#0B1B2B' : 'transparent',
-                        color: active ? '#FFFFFF' : '#64748B',
-                        border: active ? '1px solid #0B1B2B' : '1px solid #E2E8F0',
-                        fontWeight: active ? 600 : 400,
-                      }
-                    : undefined
-                }
-                aria-pressed={active}
-                onClick={() => setTypeFilter(opt.key)}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+      <div className={variant === 'card' ? 'card border shadow-sm bg-white overflow-hidden' : 'border rounded overflow-hidden'}>
+        <div className="px-3 pt-3">
+          <CountTabs
+            tabs={typeTabs}
+            active={typeFilter}
+            onChange={(key) => setTypeFilter(key as ProjectAssetTypeFilter)}
+            aria-label="Asset type filter"
+          />
         </div>
-
         {showSearch && (
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search assets..."
-            aria-label="Search assets"
-            wrapperStyle={{ minWidth: variant === 'card' ? 240 : undefined }}
+          <ListToolbar
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search assets..."
           />
         )}
       </div>
