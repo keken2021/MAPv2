@@ -30,6 +30,7 @@ import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDr
 import { InspectionDrawer } from '../components/drawers/InspectionDrawer';
 import { AddCrewModal } from '../components/modals/AddCrewModal';
 import { CrewTable } from '../components/tables/CrewTable';
+import { DocumentTable } from '../components/tables/DocumentTable';
 import { CapaItem } from '../types/capa';
 import { getVesselStockPhoto, CURATED_VESSEL_PHOTOS } from '../utils/vesselImageHelpers';
 import { VesselImageCropModal } from '../components/modals/VesselImageCropModal';
@@ -1649,195 +1650,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
       {/* Tab 2: Pre-Assurance Document Vault (BR-5) */}
       {activeTab === 'vault' && (
-        <div className="card map-card-custom">
-          {/* Table Header Controls Row */}
-          <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-            <div className="d-flex flex-wrap align-items-center gap-2">
-              <input
-                type="text"
-                className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search documents..."
-                value={vaultSearch}
-                onChange={(e) => setVaultSearch(e.target.value)}
-                style={{ width: '250px' }}
-              />
-
-              <select
-                className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={vaultStatusFilter}
-                onChange={(e) => setVaultStatusFilter(e.target.value)}
-                style={{ width: '160px' }}
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="Valid">Valid</option>
-                <option value="Expiring">Expiring Soon</option>
-                <option value="EXPIRED">Expired</option>
-                <option value="Verified">Verified</option>
-              </select>
-
-            </div>
-
-            {canUploadDocs && (
-              <button
-                type="button"
-                className="btn btn-sm btn-primary ms-auto"
-                onClick={() => setIsUploadModalOpen(true)}
-              >
-                Upload Document
-              </button>
-            )}
-          </div>
-
-          <div className="table-responsive">
-            <table className="table map-table-custom align-middle mb-0">
-              <thead>
-                <tr>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (vaultSortField === 'number') setVaultSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setVaultSortField('number'); setVaultSortDirection('asc'); }
-                    }}
-                  >
-                    Certificate No. {renderSortIndicator(vaultSortField, 'number', vaultSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (vaultSortField === 'name') setVaultSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setVaultSortField('name'); setVaultSortDirection('asc'); }
-                    }}
-                  >
-                    Title {renderSortIndicator(vaultSortField, 'name', vaultSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (vaultSortField === 'issuingBody') setVaultSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setVaultSortField('issuingBody'); setVaultSortDirection('asc'); }
-                    }}
-                  >
-                    Issuing Authority {renderSortIndicator(vaultSortField, 'issuingBody', vaultSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (vaultSortField === 'expiryDate') setVaultSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setVaultSortField('expiryDate'); setVaultSortDirection('asc'); }
-                    }}
-                  >
-                    Expiry Date {renderSortIndicator(vaultSortField, 'expiryDate', vaultSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (vaultSortField === 'ocr') setVaultSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setVaultSortField('ocr'); setVaultSortDirection('asc'); }
-                    }}
-                  >
-                    OCR Confidence {renderSortIndicator(vaultSortField, 'ocr', vaultSortDirection)}
-                  </th>
-                  <th
-                    style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                    onClick={() => {
-                      if (vaultSortField === 'status') setVaultSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                      else { setVaultSortField('status'); setVaultSortDirection('asc'); }
-                    }}
-                  >
-                    Status {renderSortIndicator(vaultSortField, 'status', vaultSortDirection)}
-                  </th>
-                  <th className="text-end" style={{ whiteSpace: 'nowrap' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredVaultCerts.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-4 text-muted">
-                      No documents found.
-                    </td>
-                  </tr>
-                ) : (
-                  vaultPagination.pageItems.map((cert) => {
-                    let badgeClass = 'bg-success text-white';
-                    if (cert.status === 'EXPIRED') badgeClass = 'bg-danger text-white';
-                    else if (cert.status === 'No document on file') badgeClass = 'bg-secondary text-white';
-                    else if (String(cert.status).includes('Expiring')) badgeClass = 'bg-warning text-dark';
-                    else if (cert.status === 'Verified') badgeClass = 'bg-info text-dark';
-
-                    const openCert = () => {
-                      if (!cert.hasDocument) {
-                        setToastMessage('No document on file for this certificate.');
-                        setTimeout(() => setToastMessage(null), 3000);
-                        return;
-                      }
-                      setSelectedVaultCertForModal(cert);
-                    };
-
-                    return (
-                      <tr
-                        key={cert.id}
-                        style={{ cursor: cert.hasDocument ? 'pointer' : 'default' }}
-                        onClick={openCert}
-                      >
-                        <td className="font-mono-code fw-semibold text-primary">{cert.number}</td>
-                        <td className="fw-semibold text-dark">
-                          {cert.hasDocument ? (
-                            <button
-                              type="button"
-                              className="btn btn-link p-0 text-primary text-start fw-semibold text-decoration-underline border-0 bg-transparent align-baseline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openCert();
-                              }}
-                            >
-                              {cert.name}
-                            </button>
-                          ) : (
-                            <span>{cert.name}</span>
-                          )}
-                        </td>
-                        <td>{cert.issuingBody}</td>
-                        <td className="font-mono-code small">
-                          {cert.issueDate ? `${formatMaritimeDate(cert.issueDate)} → ` : ''}
-                          {cert.expiryDate ? formatMaritimeDate(cert.expiryDate) : '—'}
-                        </td>
-                        <td>
-                          {cert.ocr === '—' ? (
-                            <span className="text-muted small">—</span>
-                          ) : (
-                            <span className="map-ocr-badge">{cert.ocr}</span>
-                          )}
-                        </td>
-                        <td>
-                          <span className={`badge ${badgeClass}`}>{cert.status}</span>
-                        </td>
-                        <td className="text-end">
-                          {cert.hasDocument ? (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                              style={{ width: '32px', height: '32px' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openCert();
-                              }}
-                              title="View"
-                              aria-label="View"
-                            >
-                              <Eye size={16} />
-                            </button>
-                          ) : (
-                            <span className="text-muted small">No document on file</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-          <TablePagination {...vaultPagination.controls} />
+        <div data-testid="vessel-scoped-document-table">
+          <DocumentTable
+            documents={visibleObjectDocuments}
+            onSelectDocument={(doc) => setCurrentHashView('documents', doc.id)}
+            onUploadDocument={canUploadDocs ? () => setIsUploadModalOpen(true) : undefined}
+          />
         </div>
       )}
 
