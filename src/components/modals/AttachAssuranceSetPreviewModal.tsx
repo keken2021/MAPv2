@@ -4,6 +4,7 @@
   role in system: invoked when selecting or attaching a standalone assurance set in ProjectDetailView or CreateProjectView.
 */
 
+import { StatusBadge } from '../common/StatusBadge';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   X,
@@ -470,25 +471,13 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                               {/* Column 5: Status */}
                               <td style={{ padding: '10px 16px' }}>
                                 {isVerified ? (
-                                  <span className="badge bg-success d-inline-flex align-items-center gap-1">
-                                    <CheckCircle2 size={12} />
-                                    Verified
-                                  </span>
+                                  <StatusBadge value="Verified" />
                                 ) : req.verifierStatus === 'Correction Requested' ? (
-                                  <span className="badge bg-warning text-dark d-inline-flex align-items-center gap-1">
-                                    <AlertTriangle size={12} />
-                                    Returned for Correction
-                                  </span>
+                                  <StatusBadge value="Returned for Correction" />
                                 ) : req.verifierStatus === 'Rejected' ? (
-                                  <span className="badge bg-danger d-inline-flex align-items-center gap-1">
-                                    <AlertCircle size={12} />
-                                    Rejected
-                                  </span>
+                                  <StatusBadge value="Rejected" />
                                 ) : (
-                                  <span className="badge bg-secondary d-inline-flex align-items-center gap-1">
-                                    <Clock size={12} />
-                                    Pending Review
-                                  </span>
+                                  <StatusBadge value="Pending Review" tone="neutral" />
                                 )}
                               </td>
                             </tr>
@@ -523,7 +512,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
                         <span className="text-muted">Stage:</span>
-                        <span className="badge bg-info text-dark">{assuranceSet.stage}</span>
+                        <StatusBadge value={assuranceSet.stage} />
                       </div>
                       <div className="d-flex justify-content-between border-bottom pb-1">
                         <span className="text-muted">Decision:</span>

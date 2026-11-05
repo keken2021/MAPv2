@@ -23,6 +23,7 @@ import { useMapStore } from '../store/useMapStore';
 import { STCWDocumentItem, CrewVesselAssignment, CrewMember } from '../types/crew';
 import { AssuranceObjectType } from '../types/assurance';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { StatusBadge } from '../components/common/StatusBadge';
 import { formatMaritimeDate } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CrewDocumentUploadModal } from '../components/modals/CrewDocumentUploadModal';
@@ -338,13 +339,9 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   };
 
   const renderStatusBadge = (status: STCWDocumentItem['verificationStatus']) => {
-    switch (status) {
-      case 'Verified': return <span className="badge bg-success text-white">Verified</span>;
-      case 'Expiring': return <span className="badge bg-warning text-dark">Expiring Soon</span>;
-      case 'Expired': return <span className="badge bg-danger text-white">Expired</span>;
-      case 'Pending':
-      default: return <span className="badge bg-secondary text-white">Pending Audit</span>;
-    }
+    if (status === 'Expiring') return <StatusBadge value="Expiring Soon" />;
+    if (status === 'Pending') return <StatusBadge value="Pending Audit" tone="neutral" />;
+    return <StatusBadge value={status} />;
   };
 
   return (
@@ -750,9 +747,9 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                     </td>
                     <td>
                       {asg.isCurrent ? (
-                        <span className="badge bg-success text-white">On Board</span>
+                        <StatusBadge value="On Board" tone="success" />
                       ) : (
-                        <span className="badge bg-light text-dark border">Completed</span>
+                        <StatusBadge value="Completed" />
                       )}
                     </td>
                     <td className="text-end">
@@ -1103,7 +1100,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
                       <td className="font-mono-code small">{set.id}</td>
                       <td>{set.title}</td>
                       <td>
-                        <span className="badge bg-light text-dark border">{set.stage}</span>
+                        <StatusBadge value={set.stage} />
                       </td>
                       <td className="small">{set.initiatorOrg}</td>
                       <td className="text-end">

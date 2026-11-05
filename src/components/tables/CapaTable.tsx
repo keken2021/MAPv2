@@ -17,6 +17,7 @@ import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTabs } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
 import { EmptyState } from '../common/EmptyState';
+import { StatusBadge } from '../common/StatusBadge';
 import { DueCell } from '../common/DueCell';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
@@ -271,19 +272,6 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
     });
   };
 
-  const getStatusBadgeClass = (status: CapaStatus) => {
-    switch (status) {
-      case 'Verified & Closed':
-        return 'bg-success text-white';
-      case 'Under Re-Inspection':
-        return 'bg-warning text-dark';
-      case 'Rectification Required':
-        return 'bg-danger text-white';
-      case 'Open':
-      default:
-        return 'bg-secondary text-white';
-    }
-  };
 
   const capasPagination = usePagination(sortedCapas, [activeTab, searchQuery, sortField, sortOrder]);
 
@@ -357,9 +345,7 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
                     <DueCell date={capa.dueDate} status={capa.status} />
                   </td>
                   <td>
-                    <span className={`badge ${getStatusBadgeClass(capa.status)}`}>
-                      {getStatusDisplayLabel(capa.status)}
-                    </span>
+                    <StatusBadge value={capa.status} />
                   </td>
                   <td className="text-end">
                     <button

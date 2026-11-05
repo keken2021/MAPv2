@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { StatusBadge } from '../components/common/StatusBadge';
 import { getProjectOrganizationForPersona, isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
 import { getEquipmentAssetStatus, EquipmentAsset } from '../types/equipment';
 import { useMapStore } from '../store/useMapStore';
@@ -415,7 +416,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                       <td className="small">{doc.issuingAuthority}</td>
                       <td className="font-mono-code small">{formatMaritimeDate(doc.expiryDate)}</td>
                       <td>
-                        <span className="badge bg-light text-dark border">{doc.verificationStatus}</span>
+                        <StatusBadge value={doc.verificationStatus} />
                       </td>
                       <td className="text-end">
                         <button
@@ -482,7 +483,7 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                       <td className="font-mono-code small">{set.id}</td>
                       <td>{set.title}</td>
                       <td>
-                        <span className="badge bg-light text-dark border">{set.stage}</span>
+                        <StatusBadge value={set.stage} />
                       </td>
                       <td className="small">{set.initiatorOrg}</td>
                       <td className="text-end">

@@ -7,6 +7,7 @@
 import React from 'react';
 import { AssetStatusFields, AVAILABILITY_STATUS_OPTIONS, AvailabilityStatus } from '../../types/asset';
 import { formatMaritimeDate } from '../../utils/formatters';
+import { StatusBadge } from '../common/StatusBadge';
 
 interface AssetStatusCardProps {
   assetType: 'Vessel' | 'Equipment';
@@ -24,24 +25,6 @@ export const AssetStatusCard: React.FC<AssetStatusCardProps> = ({
   onAvailabilityChange,
   registrationFact,
 }) => {
-  const statusBadgeClass = (value: string): string => {
-    const lower = value.toLowerCase();
-    if (lower.includes('compliant') && !lower.includes('non') && !lower.includes('partial')) {
-      return 'bg-success text-white';
-    }
-    if (lower.includes('partial') || lower.includes('progress')) return 'bg-warning text-dark';
-    if (lower.includes('non') || lower.includes('unavailable') || lower.includes('expired')) {
-      return 'bg-danger text-white';
-    }
-    if (lower.includes('available') || lower.includes('in class') || lower.includes('registered')) {
-      return 'bg-success text-white';
-    }
-    if (lower.includes('charter') || lower.includes('maintenance') || lower.includes('pending')) {
-      return 'bg-warning text-dark';
-    }
-    return 'bg-secondary text-white';
-  };
-
   const fields: {
     label: string;
     value: string;
@@ -104,7 +87,7 @@ export const AssetStatusCard: React.FC<AssetStatusCardProps> = ({
                   ))}
                 </select>
               ) : (
-                <span className={`badge ${statusBadgeClass(field.value)} mb-1`}>{field.value}</span>
+                <StatusBadge value={field.value} className="mb-1" />
               )}
               <div className="text-muted" style={{ fontSize: '0.7rem' }}>
                 Updated {formatMaritimeDate(field.updatedAt)}

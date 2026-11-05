@@ -18,6 +18,7 @@ import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
+import { StatusBadge } from '../common/StatusBadge';
 
 type SortField =
   | 'title'
@@ -145,16 +146,6 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
     return 0;
   });
 
-  const getComplianceBadgeClass = (state: ComplianceState) => {
-    switch (state) {
-      case 'Valid': return 'bg-success text-white';
-      case 'Expiring < 6 Mos': return 'bg-warning text-dark';
-      case 'Mismatch/Exception': return 'bg-danger text-white';
-      case 'Expired': return 'bg-danger text-white';
-      default: return 'bg-secondary text-white';
-    }
-  };
-
   const handleExportCsv = () => {
     const exportData = sortedDocs.map((d) => ({
       Title: d.title,
@@ -270,9 +261,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                   <DueCell date={doc.expiryDate} isExpiry />
                 </td>
                 <td>
-                  <span className={`badge ${getComplianceBadgeClass(doc.complianceState)}`}>
-                    {getStatusDisplayLabel(doc.complianceState)}
-                  </span>
+                  <StatusBadge value={doc.complianceState} />
                 </td>
                 <td className="text-end">
                   <button
