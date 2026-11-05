@@ -27,8 +27,9 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
 - `src/components/dashboard/` : role dashboard components (`SharedDashboardFrame.tsx` shared frame)
 - `src/components/modals/` : modals (centered); `Modal.tsx` is the shared shell, `ConfirmDialog.tsx` is the shared confirmation dialog
+- `src/components/wizards/` : multi-step wizards; `Wizard.tsx` is the shared numbered stepper shell
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
-- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, SearchInput, Modal, ConfirmDialog, DetailHeader, SearchableSelect, EmptyState, DueCell, ApproverDecisionBar)
+- `src/components/common/` : shared controls (filters, pagination, readiness gauge, pipeline stepper, CountTabs, StatusBadge, ListToolbar, SearchInput, Modal, ConfirmDialog, Wizard, DetailHeader, SearchableSelect, EmptyState, DueCell, ApproverDecisionBar)
 - `src/components/layout/` : sidebar, header, notification panel, organization switcher
 - `src/utils/headerNavigation.tsx` : reusable header back navigation helper, hook (`useHeaderBackNavigation`), and back button component (`HeaderBackButton`) preserving contextual return to originating entities (e.g. Assurance Set from CAPA open findings)
 - `src/store/useMapStore.ts` : the single app store
@@ -120,6 +121,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for SearchInput: `src/__tests__/searchInput.test.tsx` (typing, clear button, aria-label, leading icon, pass-through props, ref forwarding)
 - Unit tests for Modal: `src/__tests__/modal.test.tsx` (sizes sm/md/lg/xl, Escape key, backdrop click, dismissible flag, focus return, aria-labelledby)
 - Unit tests for ConfirmDialog: `src/__tests__/confirmDialog.test.tsx` (default tone, danger tone, reason requirement, cancel, submit)
+- Unit tests for Wizard: `src/__tests__/wizard.test.tsx` (numbered stepper, Next check blocking, canJumpTo rules, Back, Submit, Save Draft)
 - Unit tests for UI declutter Approver Dashboard: `src/__tests__/approverDashboardDeclutter.test.tsx` (CountTabs, Due column, 1 badge/action per row, detail view cleanup)
 - Unit tests for UI declutter Submitter Dashboard: `src/__tests__/dashboardSubmitterSession.test.tsx` (per-person filtering with useSessionUser, 13 sets for M. Chen)
 - Unit tests for shared dashboard frame: `src/__tests__/sharedDashboardFrame.test.tsx` (role dashboard shared frame layout, KPI tiles, responsive stacking below 900px, empty action state, zero raw Tailwind palette colors, outer card removal, system spacing)
