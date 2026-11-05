@@ -4,13 +4,15 @@
   role in system: invoked from fleet master view (FleetRegistryView.tsx) when clicking "+ Register Vessel".
 */
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { VesselInformation, ClassificationSociety } from '../../types/vessel';
 import { MasterDocument } from '../../types/document';
 import { isDuplicateVessel, validateImoNumber } from '../../utils/validation';
 import { CURATED_VESSEL_PHOTOS } from '../../utils/vesselImageHelpers';
 import { VesselImageCropModal } from './VesselImageCropModal';
+import { Modal } from './Modal';
+import { Wizard, WizardStep } from '../wizards/Wizard';
 import { formatDocumentId } from '../../utils/formatters';
 import { STAGE_READINESS_WEIGHTS } from '../../utils/readinessHelpers';
 import { Upload, Image, Crop, FileText, Check, X } from 'lucide-react';
@@ -216,6 +218,95 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
     }
     return true;
   };
+
+  const stepIdToNumber: Record<string, number> = {
+    identification: 1,
+    construction: 2,
+    safety: 3,
+    certificates: 4,
+  };
+  const stepNumberToId: Record<number, string> = {
+    1: 'identification',
+    2: 'construction',
+    3: 'safety',
+    4: 'certificates',
+  };
+  const currentStepId = stepNumberToId[currentStep] || 'identification';
+
+  const checkStep1 = (): Record<string, string> | null => {
+    if (!name.trim()) {
+      setErrorMessage('Vessel Name is mandatory.');
+      return { name: 'Vessel Name is mandatory.' };
+    }
+    if (!validateImoNumber(imoNumber)) {
+      setErrorMessage('IMO Number must be exactly 7 digits with a valid check digit (e.g. 9123453).');
+      return { imo: 'IMO Number must be exactly 7 digits with a valid check digit (e.g. 9123453).' };
+    }
+    if (!officialRegNumber.trim()) {
+      setErrorMessage('Official Registration Number is mandatory.');
+      return { officialRegNumber: 'Official Registration Number is mandatory.' };
+    }
+    const dupCheck = isDuplicateVessel(imoNumber, officialRegNumber, vessels);
+    if (dupCheck.isDuplicate) {
+      const msg = dupCheck.reason || 'A vessel with this IMO or Official Registration Number is already registered.';
+      setErrorMessage(msg);
+      return { duplicate: msg };
+    }
+    setErrorMessage('');
+    return null;
+  };
+
+  const checkStep2 = (): Record<string, string> | null => {
+    if (!registeredOwner.trim()) {
+      setErrorMessage('Registered Owner Name is required.');
+      return { registeredOwner: 'Registered Owner Name is required.' };
+    }
+    setErrorMessage('');
+    return null;
+  };
+
+  const wizardSteps = useMemo<WizardStep[]>(
+    () => [
+      {
+        id: 'identification',
+        label: 'Identification & Class',
+        check: checkStep1,
+      },
+      {
+        id: 'construction',
+        label: 'Construction & Ownership',
+        check: checkStep2,
+      },
+      {
+        id: 'safety',
+        label: 'Safety, Crew & Insurance',
+      },
+      {
+        id: 'certificates',
+        label: 'Statutory Certs & Uploads',
+      },
+    ],
+    [name, imoNumber, officialRegNumber, vessels, registeredOwner],
+  );
+
+  const canJumpTo = useCallback(
+    (targetStepId: string): boolean => {
+      const targetStepNum = stepIdToNumber[targetStepId] || 1;
+      if (targetStepNum <= currentStep) return true;
+      const step1Valid = Boolean(
+        name.trim() &&
+        validateImoNumber(imoNumber) &&
+        officialRegNumber.trim() &&
+        !isDuplicateVessel(imoNumber, officialRegNumber, vessels).isDuplicate,
+      );
+      if (!step1Valid) return false;
+      if (targetStepNum === 2) return true;
+      const step2Valid = Boolean(registeredOwner.trim());
+      if (!step2Valid) return false;
+      return true;
+    },
+    [currentStep, name, imoNumber, officialRegNumber, vessels, registeredOwner],
+  );
 
   const handleNext = () => {
     if (validateCurrentStep()) {
@@ -764,85 +855,43 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   };
 
   return (
-    <div
-      className="modal show d-block map-modal-backdrop"
-      tabIndex={-1}
-      style={{ zIndex: 1050 }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="modal-dialog modal-xl modal-dialog-centered">
-        <div className="modal-content bg-white text-dark border shadow-lg">
-          {/* hidden native file input for AI extraction */}
-          <input
-            type="file"
-            ref={aiFileInputRef}
-            className="d-none"
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleStageVesselFileForVerification(file, currentStep);
-            }}
-          />
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        size="xl"
+        title="Add Vessel"
+        meta="Complete each section to add the vessel."
+      >
+        {/* hidden native file input for AI extraction */}
+        <input
+          type="file"
+          ref={aiFileInputRef}
+          className="d-none"
+          accept=".pdf,.jpg,.jpeg,.png"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleStageVesselFileForVerification(file, currentStep);
+          }}
+        />
 
-          {/* Header */}
-          <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-            <div>
-              <h5 className="modal-title fw-bold text-dark m-0">
-                Add Vessel
-              </h5>
-              <div className="text-secondary small">
-                Complete each section to add the vessel.
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
-              onClick={onClose}
-              aria-label="Close"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          {/* Step Progress Bar */}
-          <div className="bg-light px-4 py-2 border-bottom">
-            <div className="d-flex justify-between small text-secondary fw-semibold">
-              <span className={currentStep === 1 ? 'text-primary fw-bold' : ''}>
-                1. Identification & Class (Cat 1-2)
-              </span>
-              <span className={currentStep === 2 ? 'text-primary fw-bold' : ''}>
-                2. Construction & Ownership (Cat 3-6)
-              </span>
-              <span className={currentStep === 3 ? 'text-primary fw-bold' : ''}>
-                3. Safety, Crew & Insurance (Cat 8-10)
-              </span>
-              <span className={currentStep === 4 ? 'text-primary fw-bold' : ''}>
-                4. Statutory Certs & Uploads (Cat 7 & 11)
-              </span>
-            </div>
-            <div className="progress mt-2" style={{ height: '5px' }}>
-              <div
-                className="progress-bar bg-primary"
-                role="progressbar"
-                style={{ width: `${(currentStep / 4) * 100}%` }}
-              />
-            </div>
-          </div>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (currentStep === 4) {
-                handleSubmit(e);
-              }
-            }}
-          >
-            <div className="modal-body p-4 overflow-y-auto" style={{ maxHeight: '68vh' }}>
-              {errorMessage && (
-                <div className="alert alert-danger py-2 small mb-3">{errorMessage}</div>
-              )}
+        <Wizard
+          layout="modal"
+          steps={wizardSteps}
+          currentStepId={currentStepId}
+          onStepChange={(stepId) => {
+            setErrorMessage('');
+            setCurrentStep(stepIdToNumber[stepId] || 1);
+          }}
+          canJumpTo={canJumpTo}
+          onCancel={onClose}
+          onSubmit={() => handleSubmit()}
+          submitLabel="Add Vessel"
+          nextLabel="Next"
+          backLabel="Back"
+          errorMessage={errorMessage}
+        >
+          <div className="overflow-y-auto pe-1" style={{ maxHeight: '64vh' }}>
 
               {/* STEP 1: Identification & Classification */}
               {currentStep === 1 && (
@@ -1602,40 +1651,9 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Modal Actions */}
-            <div className="modal-footer border-top bg-light d-flex justify-between">
-              <div>
-                <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>
-                  Cancel
-                </button>
-              </div>
-
-              <div className="d-flex gap-2">
-                {currentStep > 1 && (
-                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handlePrevious}>
-                    Back
-                  </button>
-                )}
-                {currentStep < 4 ? (
-                  <button type="button" className="btn btn-sm btn-primary" onClick={handleNext}>
-                    Next
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-success"
-                    onClick={() => handleSubmit()}
-                  >
-                    Add Vessel
-                  </button>
-                )}
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
+          </div>
+        </Wizard>
+      </Modal>
 
       {/* Universal Document Preview & AI Verification Gate Popup Modal */}
       {pendingVerificationState && (
@@ -1775,6 +1793,6 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
           onClose={() => setIsCropModalOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 };
