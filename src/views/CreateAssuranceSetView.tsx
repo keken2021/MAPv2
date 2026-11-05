@@ -1453,13 +1453,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setErrorMessage('');
     const newErrors = getStepErrors(currentStep);
     setFieldErrors(newErrors);
-    const topError =
-      newErrors.requestingParty ||
-      newErrors.respondingParty ||
-      '';
-    if (topError) {
-      setErrorMessage(topError);
-    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -3067,16 +3060,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <span className="badge bg-light text-dark border">Pre-filled from request</span>
                     </div>
                   )}
-                  {fieldErrors.requestingParty && (
-                    <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-requesting-party">
-                      {fieldErrors.requestingParty}
-                    </div>
-                  )}
-                  {fieldErrors.respondingParty && (
-                    <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-responding-party">
-                      {fieldErrors.respondingParty}
-                    </div>
-                  )}
                   {/* Verification & Governance Stages */}
                   <div className="p-3 bg-light border rounded-3 mb-3" data-testid="card-governance-stages">
                     <div className="mb-2">
@@ -3526,11 +3509,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           onSelect={(item) => handleAddObject(item.id)}
                         />
                       </div>
-                      {newObjectType === 'vessel' && (
-                        <div className="col-12 text-secondary small" style={{ fontSize: '0.78rem' }}>
-                          Your own vessels are not listed. You become the client of the vessel you select.
-                        </div>
-                      )}
+                     
                       {newObjectType === 'person' && crewGroups.length > 0 && (
                         <div className="col-12 d-flex align-items-center gap-2 pt-2">
                           <span className="text-secondary small fw-medium">Or pick an entire group:</span>
