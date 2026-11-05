@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CountTabs, CountTab } from '../components/common/CountTabs';
+import { Tabs, type TabItem } from '../components/common/Tabs';
 import {
   StatusBadge,
   getStatusTone,
@@ -203,6 +204,45 @@ describe('CountTabs', () => {
     const activeBtn = screen.getByRole('tab', { name: /Needs Decision/i });
     expect(activeBtn).toHaveClass('is-active');
     expect(activeBtn).toHaveAttribute('aria-selected', 'true');
+  });
+});
+
+describe('Tabs', () => {
+  const baseTabs: TabItem[] = [
+    { key: 'overview', label: 'Overview', count: 3 },
+    { key: 'risks', label: 'Risks', count: 2, tone: 'warn' },
+    { key: 'hidden', label: 'Hidden', hidden: true },
+    { key: 'history', label: 'History' },
+  ];
+
+  it('section variant marks active with underline class and role=tab', () => {
+    render(
+      <Tabs tabs={baseTabs} active="overview" onChange={vi.fn()} variant="section" />,
+    );
+    const active = screen.getByRole('tab', { name: /Overview/i });
+    expect(active).toHaveClass('is-active');
+    expect(active).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('tab', { name: /Hidden/i })).toBeNull();
+  });
+
+  it('filter variant shows counts and warn tone', () => {
+    const { container } = render(
+      <Tabs tabs={baseTabs} active="overview" onChange={vi.fn()} variant="filter" />,
+    );
+    expect(screen.getByText('(3)')).toBeInTheDocument();
+    expect(container.querySelector('.map-count-tab-warn')?.textContent).toBe('(2)');
+  });
+
+  it('toggle variant uses aria-pressed instead of aria-selected', () => {
+    const onChange = vi.fn();
+    render(
+      <Tabs tabs={baseTabs} active="history" onChange={onChange} variant="toggle" />,
+    );
+    const pressed = screen.getByRole('button', { name: /History/i });
+    expect(pressed).toHaveAttribute('aria-pressed', 'true');
+    expect(pressed).not.toHaveAttribute('aria-selected');
+    fireEvent.click(screen.getByRole('button', { name: /Risks/i }));
+    expect(onChange).toHaveBeenCalledWith('risks');
   });
 });
 

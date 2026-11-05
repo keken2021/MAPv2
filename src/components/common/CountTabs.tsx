@@ -1,4 +1,5 @@
 import React from 'react';
+import { Tabs, type TabItem } from './Tabs';
 
 export interface CountTab {
   key: string;
@@ -22,38 +23,21 @@ export const CountTabs: React.FC<CountTabsProps> = ({
   className = '',
   'aria-label': ariaLabel = 'Category tabs',
 }) => {
-  return (
-    <div
-      className={`map-count-tabs d-flex flex-wrap align-items-center gap-2 ${className}`}
-      role="tablist"
-      aria-label={ariaLabel}
-    >
-      {tabs.map((tab) => {
-        const isActive = active === tab.key;
-        const hasCount = typeof tab.count === 'number';
-        const isWarn = tab.tone === 'warn';
+  const filterTabs: TabItem[] = tabs.map((tab) => ({
+    key: tab.key,
+    label: tab.label,
+    count: tab.count,
+    tone: tab.tone,
+  }));
 
-        return (
-          <button
-            key={tab.key}
-            type="button"
-            role="tab"
-            aria-selected={isActive}
-            className={`map-count-tab btn btn-sm font-mono-code ${isActive ? 'is-active' : ''}`}
-            onClick={() => onChange(tab.key)}
-          >
-            <span className="map-count-tab-label">{tab.label}</span>
-            {hasCount && (
-              <span
-                className={`map-count-tab-count ms-1 ${isWarn ? 'is-warn map-count-tab-warn' : ''}`}
-              >
-                ({tab.count})
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </div>
+  return (
+    <Tabs
+      tabs={filterTabs}
+      active={active}
+      onChange={onChange}
+      variant="filter"
+      className={className}
+      aria-label={ariaLabel}
+    />
   );
 };
-

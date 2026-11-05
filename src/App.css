@@ -1830,6 +1830,73 @@ div.map-autofill-animate {
   color: #fbbf24 !important;
 }
 
+/* Tabs: section underline + toggle group (filter reuses .map-count-tab) */
+.map-tabs--section {
+  gap: 0;
+  border-bottom: 1px solid var(--map-border-color);
+  padding: 0;
+}
+
+.map-tabs-section-tab {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--map-text-muted);
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 10px 14px;
+  box-shadow: none;
+}
+
+.map-tabs-section-tab:hover {
+  color: var(--map-text-primary);
+  background: transparent;
+}
+
+.map-tabs-section-tab.is-active {
+  color: var(--map-primary-blue);
+}
+
+.map-tabs-section-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background-color: var(--map-primary-blue);
+}
+
+.map-tabs-section-count {
+  font-weight: 500;
+  color: var(--map-text-muted);
+}
+
+.map-tabs-section-tab.is-active .map-tabs-section-count {
+  color: var(--map-primary-blue);
+}
+
+.map-tabs-toggle-group {
+  border: 1px solid var(--map-border-color);
+  border-radius: 9999px;
+  padding: 2px;
+  gap: 2px;
+  background-color: var(--map-bg-card);
+}
+
+.map-tabs-toggle-group .map-count-tab {
+  margin: 0;
+}
+
+.map-tabs--sm .map-count-tab,
+.map-tabs--sm .map-tabs-section-tab {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+}
+
 /* StatusBadge: 4 semantic tones */
 .map-status-badge {
   display: inline-flex;
