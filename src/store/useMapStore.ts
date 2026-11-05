@@ -135,6 +135,8 @@ import {
   isNotificationActionedOnOpen,
   resolveNotificationRecipient,
   seedTargetDateNotices,
+  seedAssignmentNotices,
+  assignmentNoticeContent,
 } from "../utils/notificationHelpers";
 import {
   buildDraftAssetLinkFromAssuranceSet,
@@ -1101,9 +1103,11 @@ function notifyAssignedStakeholders(
 
   assignments.forEach(({ role, label }) => {
     if (!remember(label)) return;
+    const content = assignmentNoticeContent(role, assuranceSet.title, "assigned");
     notifyAssuranceSetUser(get, assuranceSet, label, {
       type: "stakeholder_assigned",
-      subject: assuranceInvitationSubject(assuranceSet.title),
+      subject: content.subject,
+      message: content.message,
       assignedRole: role,
     });
   });
@@ -1125,9 +1129,15 @@ function notifyAssignedStakeholders(
       )
       .forEach((user) => {
         notifiedUserIds.add(user.id);
+        const content = assignmentNoticeContent(
+          role,
+          assuranceSet.title,
+          label === PENDING_ASSIGNMENT ? "choose-person" : "follow",
+        );
         notifyAssuranceSetUser(get, assuranceSet, `${user.name} (${user.organization})`, {
           type: "stakeholder_assigned",
-          subject: assuranceInvitationSubject(assuranceSet.title),
+          subject: content.subject,
+          message: content.message,
           assignedRole: role,
         });
       });
@@ -1152,9 +1162,11 @@ function notifyAssignedStakeholders(
     )
     .forEach((user) => {
       notifiedUserIds.add(user.id);
+      const content = assignmentNoticeContent("C Admin", assuranceSet.title, "created");
       notifyAssuranceSetUser(get, assuranceSet, `${user.name} (${user.organization})`, {
         type: "stakeholder_assigned",
-        subject: assuranceInvitationSubject(assuranceSet.title),
+        subject: content.subject,
+        message: content.message,
         assignedRole: "C Admin",
       });
     });
@@ -1319,8 +1331,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   setPendingAssuranceRequestNotificationId: (id) =>
     set({ pendingAssuranceRequestNotificationId: id }),
 
-  notifications: seedTargetDateNotices(
-    MOCK_NOTIFICATIONS,
+  notifications: seedAssignmentNotices(
+    seedTargetDateNotices(
+      MOCK_NOTIFICATIONS,
+      [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS],
+      MOCK_USERS,
+      new Date().toISOString().slice(0, 10),
+    ),
     [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS],
     MOCK_USERS,
     new Date().toISOString().slice(0, 10),
@@ -3015,9 +3032,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       },
       justificationNotes: `Assigned ${role.toLowerCase()} ${assigneeName} to assurance campaign ${setId}`,
     });
+    const assignedContent = assignmentNoticeContent(role, assuranceSet.title, "assigned");
     notifyAssuranceSetUser(get, assuranceSet, assigneeName, {
       type: "stakeholder_assigned",
-      subject: assuranceInvitationSubject(assuranceSet.title),
+      subject: assignedContent.subject,
+      message: assignedContent.message,
       assignedRole: role,
     });
     return { success: true };

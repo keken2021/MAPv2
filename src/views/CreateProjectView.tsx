@@ -7,6 +7,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Trash2, Eye } from "lucide-react";
 import { useMapStore } from "../store/useMapStore";
+import { MOCK_ORGANIZATION_PROFILES } from "../store/organizationMockData";
 import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
 import { AssuranceSet } from "../types/assurance";
 import {
@@ -107,6 +108,14 @@ export const CreateProjectView: React.FC = () => {
     setOtherPartyName("");
     setOtherPartyNote("");
   };
+  /* organizations offered in the party dropdowns: the known organization profiles and every organization that has users */
+  const organizationOptions = useMemo(() => {
+    const names = new Set<string>();
+    MOCK_ORGANIZATION_PROFILES.forEach((p) => p.name && names.add(p.name));
+    users.forEach((u) => u.organization && names.add(u.organization));
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [users]);
+  const [showCommercialTerms, setShowCommercialTerms] = useState(false);
   const [projectValue, setProjectValue] = useState("");
   const [currency, setCurrency] = useState<(typeof PROJECT_CURRENCIES)[number]>("AUD");
   const [multiYearStart, setMultiYearStart] = useState("");
@@ -530,42 +539,52 @@ export const CreateProjectView: React.FC = () => {
             </div>
             <div className="col-md-4">
               <label className="form-label small fw-semibold">Head contractor</label>
-              <input
-                className="form-control form-control-sm"
+              <select
+                className="form-select form-select-sm"
                 value={headContractor}
                 onChange={(e) => setHeadContractor(e.target.value)}
-                placeholder="Organization contracted by the client"
-              />
+                aria-label="Head contractor"
+              >
+                <option value="">Select an organization</option>
+                {organizationOptions.map((org) => (
+                  <option key={org} value={org}>{org}</option>
+                ))}
+              </select>
             </div>
             <div className="col-md-4">
               <label className="form-label small fw-semibold">Vendor</label>
-              <input
-                className="form-control form-control-sm"
+              <select
+                className="form-select form-select-sm"
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value)}
-                placeholder="Organization that supplies what is checked"
-              />
+                aria-label="Vendor"
+              >
+                <option value="">Select an organization</option>
+                {organizationOptions.map((org) => (
+                  <option key={org} value={org}>{org}</option>
+                ))}
+              </select>
             </div>
             <div className="col-12">
               <label className="form-label small fw-semibold">Other parties</label>
               <div className="d-flex flex-wrap gap-2 align-items-start">
-                <input
-                  className="form-control form-control-sm"
+                <select
+                  className="form-select form-select-sm"
                   style={{ maxWidth: "22rem" }}
                   value={otherPartyName}
                   onChange={(e) => {
                     setOtherPartyName(e.target.value);
                     setOtherPartyNote("");
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addOtherParty();
-                    }
-                  }}
-                  placeholder="Another vendor or an external reviewer"
                   aria-label="Other party name"
-                />
+                >
+                  <option value="">Select an organization</option>
+                  {organizationOptions
+                    .filter((org) => ![requestingOrganization, headContractor, vendor, ...otherParties.map((p) => p.organization)].includes(org))
+                    .map((org) => (
+                      <option key={org} value={org}>{org}</option>
+                    ))}
+                </select>
                 <select
                   className="form-select form-select-sm"
                   style={{ maxWidth: "9rem" }}
@@ -603,6 +622,22 @@ export const CreateProjectView: React.FC = () => {
               )}
               <div className="form-text">Optional. Add as many as the contract has.</div>
             </div>
+            <div className="col-12">
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2"
+                aria-expanded={showCommercialTerms}
+                aria-controls="commercial-terms-fields"
+                data-testid="toggle-commercial-terms"
+                onClick={() => setShowCommercialTerms((open) => !open)}
+              >
+                <span>{showCommercialTerms ? "Hide" : "Show"} commercial terms</span>
+                <span className="text-secondary">(optional)</span>
+              </button>
+            </div>
+            {showCommercialTerms && (
+              <div className="col-12" id="commercial-terms-fields" data-testid="commercial-terms-fields">
+                <div className="row g-3">
             <div className="col-md-4">
               <label className="form-label small fw-semibold">Project value</label>
               <input
@@ -662,6 +697,10 @@ export const CreateProjectView: React.FC = () => {
                 Not confirmed. Entering a date here does not apply it to the project's sets.
               </div>
             </div>
+
+                </div>
+              </div>
+            )}
 
             <div className="col-12">
               <label className="form-label small fw-semibold">

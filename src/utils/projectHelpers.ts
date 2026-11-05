@@ -851,7 +851,10 @@ export function getAssuranceSetRequestRecipients(
   const seen = new Set<string>();
   const recipients: UserProfile[] = [];
   [senderOrganization, ...invitedOrganizations].forEach((organization) => {
-    getAssuranceSetCreatorsInOrganization(users, organization).forEach((user) => {
+    /* only a client admin of the organization can create a set for another party */
+    getAssuranceSetCreatorsInOrganization(users, organization)
+      .filter((user) => user.roles.some((role) => role === 'C Admin'))
+      .forEach((user) => {
       if (user.id === senderUserId || seen.has(user.id)) return;
       seen.add(user.id);
       recipients.push(user);

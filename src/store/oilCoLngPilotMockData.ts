@@ -967,6 +967,17 @@ export const OIL_CO_PILOT_USERS: UserProfile[] = [
     status: "Active",
     lastActive: "2026-10-13 06:00 UTC",
   },
+  {
+    id: "USR-248",
+    name: "P. Hartley",
+    email: "p.hartley@xymarine.example",
+    roles: ["C Admin"],
+    userType: "Third-Party",
+    organization: XY_MARINE_ORG,
+    departmentOrScope: "Organization admin, follows the sets XY Marine Assurance reviews",
+    status: "Active",
+    lastActive: "2026-10-13 06:00 UTC",
+  },
 ];
 
 function pilotVessel(

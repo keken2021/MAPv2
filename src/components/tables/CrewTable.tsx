@@ -423,7 +423,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
               Groups
             </button>
           </div>
-        )}
+     )}
 
         {/* CountTabs for Active Mode */}
         {directoryMode === 'individuals' ? (

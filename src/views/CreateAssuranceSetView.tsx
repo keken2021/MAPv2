@@ -562,7 +562,36 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     requestContext?.respondingParty ||
     effectiveVendorOrg;
 
+  /* objects of the selected provider (the Responding party), shown as suggestions before the user searches */
+  const recommendedProviderOrg =
+    selectedVendorOrg ||
+    Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
+    requestContext?.respondingParty ||
+    '';
+  const recommendedObjects = useMemo<AssuranceObject[]>(() => {
+    if (!recommendedProviderOrg) return [];
+    const pool: AssuranceObject[] = [
+      ...vesselChoices.map(vesselToAssuranceObject),
+      ...crew.map(crewToAssuranceObject),
+      ...equipment.map(equipmentToAssuranceObject),
+      ...storeAssuranceObjects.filter((o) => o.type === 'activity'),
+    ];
+    const unique = Array.from(new Map(pool.map((o) => [o.id, o])).values());
+    return unique
+      .filter((o) => sameOrganization(o.ownerOrganization, recommendedProviderOrg))
+      .filter((o) => !selectedAssuranceObjects.some((picked) => picked.id === o.id))
+      .slice(0, 8);
+  }, [recommendedProviderOrg, vesselChoices, crew, equipment, storeAssuranceObjects, selectedAssuranceObjects, orgPartyRoles, requestContext]);
+
   const [addedOwners, setAddedOwners] = useState<string[]>([]);
+
+  /* a short message that says why a date moved on its own because of another date */
+  const [dateNotice, setDateNotice] = useState('');
+  useEffect(() => {
+    if (!dateNotice) return undefined;
+    const timer = window.setTimeout(() => setDateNotice(''), 9000);
+    return () => window.clearTimeout(timer);
+  }, [dateNotice]);
 
   /* every object, whether picked, bundled, templated or restored, puts its owner on the list */
   useEffect(() => {
@@ -2230,7 +2259,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     });
     setStartDate(next.start);
     setEndDate(next.end);
-    setComplianceDeadline((current) => (!current || current > next.start ? next.start : current));
+    setComplianceDeadline((current) => {
+      const adjusted = !current || current > next.start ? next.start : current;
+      if (current && adjusted !== current) {
+        setDateNotice(`Compliance Deadline moved to ${adjusted} because the contract period now starts on ${next.start}.`);
+      }
+      return adjusted;
+    });
     setFieldErrors((prev) => {
       const u = { ...prev };
       delete u.startDate;
@@ -2713,6 +2748,21 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
         {/* Wizard Main Content Body */}
         <div className="card-body p-4">
+          {dateNotice && (
+            <div
+              className="toast show position-fixed top-0 end-0 m-3 border-0 shadow"
+              style={{ zIndex: 2000, maxWidth: '380px' }}
+              role="status"
+              aria-live="polite"
+              data-testid="date-change-notice"
+            >
+              <div className="toast-header">
+                <strong className="me-auto small">Date adjusted</strong>
+                <button type="button" className="btn-close" aria-label="Dismiss" onClick={() => setDateNotice('')} />
+              </div>
+              <div className="toast-body small">{dateNotice}</div>
+            </div>
+          )}
           {errorMessage && (
             <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="wizard-error-message">
               {errorMessage}
@@ -2824,6 +2874,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         onChange={(e) => {
                           const nextStart = e.target.value;
                           setStartDate(nextStart);
+                          const notices: string[] = [];
+                          if (nextStart && complianceDeadline && complianceDeadline > nextStart) {
+                            notices.push(`Compliance Deadline moved to ${nextStart} because it must be on or before the Contract Period Start.`);
+                          }
+                          if (nextStart && endDate && endDate < nextStart) {
+                            setEndDate(nextStart);
+                            notices.push(`Contract Period End moved to ${nextStart} because it cannot be before the Contract Period Start.`);
+                          }
+                          if (notices.length > 0) setDateNotice(notices.join(' '));
                           setComplianceDeadline((current) => (!current || (nextStart && current > nextStart) ? nextStart : current));
                           setFieldErrors((prev) => {
                             const u = { ...prev };
@@ -2853,7 +2912,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.endDate ? ' is-invalid border-danger' : ''}`}
                         value={endDate}
                         onChange={(e) => {
-                          setEndDate(e.target.value);
+                          const nextEnd = e.target.value;
+                          if (nextEnd && startDate && nextEnd < startDate) {
+                            setEndDate(startDate);
+                            setDateNotice(`Contract Period End reset to ${startDate} because it cannot be before the Contract Period Start.`);
+                          } else {
+                            setEndDate(nextEnd);
+                          }
                           setFieldErrors((prev) => {
                             const u = { ...prev };
                             delete u.endDate;
@@ -2880,7 +2945,13 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         value={complianceDeadline}
                         max={startDate || undefined}
                         onChange={(e) => {
-                          setComplianceDeadline(e.target.value);
+                          const nextDeadline = e.target.value;
+                          if (nextDeadline && startDate && nextDeadline > startDate) {
+                            setComplianceDeadline(startDate);
+                            setDateNotice(`Compliance Deadline reset to ${startDate} because it must be on or before the Contract Period Start.`);
+                          } else {
+                            setComplianceDeadline(nextDeadline);
+                          }
                           setFieldErrors((prev) => {
                             const u = { ...prev };
                             delete u.complianceDeadline;
@@ -2901,7 +2972,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
 
                     {/* People / Plant / Process Tags (BRD V4.2 BR-15, Gap G3) */}
-                    <div className="col-12">
+                    {/* <div className="col-12">
                       <label className="form-label text-secondary small fw-semibold d-block mb-1">
                         Pillars <span className="text-secondary fw-normal fs-7">(Optional)</span>
                       </label>
@@ -2933,87 +3004,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           );
                         })}
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Template Privacy & Access Scope Card */}
-              <div className="card border shadow-2xs rounded-3 bg-white">
-                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <div>
-                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      2. Template Privacy &amp; Distribution Scope
-                    </h5>
-                    <div className="text-muted small">
-                      Choose who can reuse this assurance set as a template.
-                    </div>
-                  </div>
-                  <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.7rem' }}>
-                    {templatePrivacy === 'public' ? 'Public Template' : 'Organization Only'}
-                  </span>
-                </div>
-                <div className="card-body p-4">
-                  <div className="row g-3">
-                    {/* Organization Only Option */}
-                    <div className="col-12 col-md-6">
-                      <label
-                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'organization'
-                          ? 'border-primary bg-primary-subtle shadow-2xs'
-                          : 'bg-white hover-bg-light'
-                          }`}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <div className="d-flex align-items-start gap-3">
-                          <input
-                            type="radio"
-                            name="create-view-template-privacy"
-                            value="organization"
-                            checked={templatePrivacy === 'organization'}
-                            onChange={() => setTemplatePrivacy('organization')}
-                            className="form-check-input mt-1 cursor-pointer"
-                          />
-                          <div>
-                            <div className="d-flex align-items-center gap-2">
-                              <strong className="text-dark small">Organization Only</strong>
-                            </div>
-                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-                              Only your organization can use this template.
-                            </p>
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-
-                    {/* Public Template Option */}
-                    <div className="col-12 col-md-6">
-                      <label
-                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'public'
-                          ? 'border-primary bg-primary-subtle shadow-2xs'
-                          : 'bg-white hover-bg-light'
-                          }`}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <div className="d-flex align-items-start gap-3">
-                          <input
-                            type="radio"
-                            name="create-view-template-privacy"
-                            value="public"
-                            checked={templatePrivacy === 'public'}
-                            onChange={() => setTemplatePrivacy('public')}
-                            className="form-check-input mt-1 cursor-pointer"
-                          />
-                          <div>
-                            <div className="d-flex align-items-center gap-2">
-                              <strong className="text-dark small">Public</strong>
-                            </div>
-                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
-                              Any organization on the platform can use this template.
-                            </p>
-                          </div>
-                        </div>
-                      </label>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               </div>
@@ -3023,7 +3014,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <div className="card border shadow-2xs rounded-3 bg-white" data-testid="card-involved-organizations">
                 <div className="card-header bg-light border-bottom px-4 py-3">
                   <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    3. Parties
+                    2. Parties
                   </h5>
                   <div className="text-muted small">
                     List every party in this set, configure verification and governance stages, and assign reviewer roles.
@@ -3451,6 +3442,37 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           })}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+
+                  {/* Suggested objects of the selected provider */}
+                  {recommendedObjects.length > 0 && (
+                    <div className="mt-3 pt-3 border-top" data-testid="recommended-objects">
+                      <div className="small fw-semibold text-secondary mb-2">
+                        Suggested from {recommendedProviderOrg}
+                      </div>
+                      <div className="d-flex flex-wrap gap-2">
+                        {recommendedObjects.map((obj) => (
+                          <button
+                            key={obj.id}
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2"
+                            data-testid={`recommended-object-${obj.id}`}
+                            onClick={() => {
+                              setSelectedAssuranceObjects((prev) => (prev.some((o) => o.id === obj.id) ? prev : [...prev, obj]));
+                              setFieldErrors((prev) => {
+                                const u = { ...prev };
+                                delete u.objects;
+                                return u;
+                              });
+                            }}
+                          >
+                            <span className="badge bg-light text-dark border text-capitalize">{obj.type}</span>
+                            <span>{obj.name}</span>
+                            <span className="text-muted">+ Add</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -3997,6 +4019,85 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           {
             currentStepData.id === 'step-review' && (
               <div className="d-flex flex-column gap-4">
+              {/* Template Privacy & Access Scope Card */}
+              <div className="card border shadow-2xs rounded-3 bg-white">
+                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div>
+                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                      Template Privacy &amp; Distribution Scope
+                    </h5>
+                    <div className="text-muted small">
+                      Choose who can reuse this assurance set as a template.
+                    </div>
+                  </div>
+                  <span className="badge bg-light text-dark border font-mono-code" style={{ fontSize: '0.7rem' }}>
+                    {templatePrivacy === 'public' ? 'Public Template' : 'Organization Only'}
+                  </span>
+                </div>
+                <div className="card-body p-4">
+                  <div className="row g-3">
+                    {/* Organization Only Option */}
+                    <div className="col-12 col-md-6">
+                      <label
+                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'organization'
+                          ? 'border-primary bg-primary-subtle shadow-2xs'
+                          : 'bg-white hover-bg-light'
+                          }`}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="d-flex align-items-start gap-3">
+                          <input
+                            type="radio"
+                            name="create-view-template-privacy"
+                            value="organization"
+                            checked={templatePrivacy === 'organization'}
+                            onChange={() => setTemplatePrivacy('organization')}
+                            className="form-check-input mt-1 cursor-pointer"
+                          />
+                          <div>
+                            <div className="d-flex align-items-center gap-2">
+                              <strong className="text-dark small">Organization Only</strong>
+                            </div>
+                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
+                              Only your organization can use this template.
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Public Template Option */}
+                    <div className="col-12 col-md-6">
+                      <label
+                        className={`d-block p-3 border rounded-3 cursor-pointer h-100 transition-all ${templatePrivacy === 'public'
+                          ? 'border-primary bg-primary-subtle shadow-2xs'
+                          : 'bg-white hover-bg-light'
+                          }`}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="d-flex align-items-start gap-3">
+                          <input
+                            type="radio"
+                            name="create-view-template-privacy"
+                            value="public"
+                            checked={templatePrivacy === 'public'}
+                            onChange={() => setTemplatePrivacy('public')}
+                            className="form-check-input mt-1 cursor-pointer"
+                          />
+                          <div>
+                            <div className="d-flex align-items-center gap-2">
+                              <strong className="text-dark small">Public</strong>
+                            </div>
+                            <p className="text-secondary small m-0 mt-1" style={{ fontSize: '0.8rem', lineHeight: '1.4' }}>
+                              Any organization on the platform can use this template.
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
                 <div className="card border shadow-2xs rounded-3 bg-white">
                   <div className="card-header bg-light border-bottom px-4 py-3">
                     <h5 className="fw-bold text-slate-900 m-0 fs-6">

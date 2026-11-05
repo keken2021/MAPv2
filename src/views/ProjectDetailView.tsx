@@ -19,7 +19,7 @@ import {
   getStandaloneAssuranceSetsForAttach,
 } from "../utils/projectHelpers";
 import { ContractChainRole } from "../types/project";
-import { isAssuranceSetAssignedToPersona } from "../utils/rbacHelpers";
+import { isAssuranceSetAssignedToPersona, orgFieldMatches } from "../utils/rbacHelpers";
 import { getDemoSessionContext, getSessionUserForPersona } from "../utils/userRoleHelpers";
 import { summarizeTaskSections } from "../utils/readinessHelpers";
 import TaskSectionCards from "../components/common/TaskSectionCards";
@@ -130,8 +130,17 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     });
   }, [project, assetFilter, objectSearchTerm, assuranceSets]);
 
+  /* only the client admin of the project owner can add assets or create and request sets;
+     a third party assigned as verifier, inspector or approver only views the project */
+  const viewingOrganization = activeDemoOrganization || sessionUser?.organization || "";
+  const projectOwnerOrganization =
+    project?.ownerOrganization || project?.requestingOrganization || project?.charterer || "";
+  const isProjectOwnerOrganization =
+    !viewingOrganization ||
+    !projectOwnerOrganization ||
+    orgFieldMatches(projectOwnerOrganization, viewingOrganization);
   const canManage =
-    activePersona === "Administrator" || activePersona === "C Admin";
+    (activePersona === "Administrator" || activePersona === "C Admin") && isProjectOwnerOrganization;
   const isReadOnly = !canManage;
 
   const standaloneSetsForAttach = useMemo(

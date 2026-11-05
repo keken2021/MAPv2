@@ -24,7 +24,8 @@ import {
 } from '../store/notificationMockData';
 import { getProjectClientOrganization } from './projectHelpers';
 import { orgFieldMatches } from './rbacHelpers';
-import { findUserByAssigneeLabel } from './userRoleHelpers';
+import { PENDING_ASSIGNMENT, StakeholderRole, findUserByAssigneeLabel, getStakeholderRoleOrganization, setSubmitters } from './userRoleHelpers';
+import { UserRolePersona } from '../types/audit';
 import { isTaskOpen } from './readinessHelpers';
 
 /**
@@ -34,6 +35,110 @@ import { isTaskOpen } from './readinessHelpers';
 */
 export function assuranceInvitationSubject(title: string): string {
   return `You are invited to create an assurance set for this particular ${title.trim()}`;
+}
+
+/**
+  what: subject and message for a stakeholder assignment, worded for the role the recipient was given.
+  how: a person assigned to a role is told what to do next; an organization admin is told to choose a person or to follow the set; the client admin is told the set was created.
+  with what file: src/utils/notificationHelpers.ts used by useMapStore.ts and seedAssignmentNotices.
+*/
+export function assignmentNoticeContent(
+  role: UserRolePersona | string,
+  title: string,
+  kind: 'assigned' | 'choose-person' | 'follow' | 'created' = 'assigned',
+): { subject: string; message: string } {
+  const name = title.trim();
+  if (kind === 'created') {
+    return {
+      subject: `The assurance set ${name} was created for your organization`,
+      message: 'Open the set to follow its stage and readiness.',
+    };
+  }
+  if (kind === 'choose-person') {
+    const article = role === 'Inspector' || role === 'Approver' ? 'an' : 'a';
+    return {
+      subject: `Choose ${article} ${String(role).toLowerCase()} for ${name}`,
+      message: `Your organization is the ${String(role).toLowerCase()} on this set. Open the set and assign a person from your organization.`,
+    };
+  }
+  if (kind === 'follow') {
+    return {
+      subject: `Your organization is the ${String(role).toLowerCase()} on ${name}`,
+      message: 'Open the set to follow its progress and see who in your organization is assigned.',
+    };
+  }
+  switch (role) {
+    case 'Submitter':
+      return { subject: `You are assigned to upload the documents for ${name}`, message: 'Upload each requirement so the set can move to verification.' };
+    case 'Verifier':
+      return { subject: `You are assigned to verify the documents for ${name}`, message: 'Review each uploaded document and verify or return it.' };
+    case 'Inspector':
+      return { subject: `You are assigned to inspect ${name}`, message: 'Complete the inspection and submit the outcome once documents are verified.' };
+    case 'Approver':
+      return { subject: `You are assigned to approve ${name}`, message: 'Approve or reject the set once verification and inspection are complete.' };
+    default:
+      return { subject: `You are assigned to ${name}`, message: 'Open the set to see your part.' };
+  }
+}
+
+/**
+  what: assignment notices for sets that already exist in the mock data, so every assigned person sees one.
+  how: for each non-draft set it notifies the submitters, verifier, inspector and approver, and the admins of the organization behind a role left pending; skips a person who already has an assignment notice on that set for that role.
+  with what file: src/utils/notificationHelpers.ts used by useMapStore.ts on initialization.
+*/
+export function seedAssignmentNotices(
+  existing: AppNotification[],
+  sets: AssuranceSet[],
+  users: UserProfile[],
+  today: string,
+): AppNotification[] {
+  const all = [...existing];
+  const push = (set: AssuranceSet, recipient: UserProfile, role: UserRolePersona, kind: 'assigned' | 'choose-person' | 'follow') => {
+    const duplicate = all.some(
+      (n) => n.type === 'stakeholder_assigned' && n.assuranceSetId === set.id && n.recipientUserId === recipient.id && n.assignedRole === role,
+    );
+    if (duplicate) return;
+    const content = assignmentNoticeContent(role, set.title, kind);
+    all.unshift({
+      id: generateNotificationId(all, 'stakeholder_assigned'),
+      type: 'stakeholder_assigned',
+      subject: content.subject,
+      message: content.message,
+      recipientUserId: recipient.id,
+      senderName: 'MAP System',
+      assuranceSetId: set.id,
+      vesselName: set.vesselName || undefined,
+      assignedRole: role,
+      status: 'unread',
+      createdAt: `${today}T08:00:00.000Z`,
+    });
+  };
+  sets.forEach((set) => {
+    if (set.visibility === 'draft') return;
+    const assignments: { role: UserRolePersona; label?: string; organization?: string }[] = [
+      ...setSubmitters(set).map((s) => ({ role: 'Submitter' as UserRolePersona, label: s.assignee, organization: s.organization })),
+      { role: 'Verifier', label: set.assignedVerifier },
+      { role: 'Inspector', label: set.mandatoryInspectionRequired ? set.assignedInspector : undefined },
+      { role: 'Approver', label: set.assignedApprover },
+    ];
+    assignments.forEach(({ role, label, organization }) => {
+      const person = label && label !== PENDING_ASSIGNMENT ? findUserByAssigneeLabel(users, label) : undefined;
+      if (person) push(set, person, role, 'assigned');
+      /* a role with no label (for example no inspection required) has nobody to tell */
+      if (!person && !label && role !== 'Submitter') return;
+      const org = (organization || getStakeholderRoleOrganization(set, role as StakeholderRole))?.trim().toLowerCase();
+      if (!org) return;
+      users
+        .filter(
+          (u) =>
+            u.status === 'Active' &&
+            (u.roles.includes('Administrator') || u.roles.includes('C Admin')) &&
+            u.organization?.trim().toLowerCase() === org,
+        )
+        .forEach((admin) => push(set, admin, role, person ? 'follow' : 'choose-person'));
+    });
+  });
+  return all;
 }
 
 /**
