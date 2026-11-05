@@ -46,16 +46,14 @@ export const TYPE_OPTIONS: { key: 'all' | AssuranceObjectType; label: string }[]
   { key: 'vessel', label: 'Vessel' },
   { key: 'person', label: 'Person' },
   { key: 'equipment', label: 'Equipment' },
-  { key: 'procedure', label: 'Procedure' },
-  { key: 'method', label: 'Method' },
+  { key: 'activity', label: 'Activity' },
 ];
 
 const TYPE_LABEL: Record<string, string> = {
   vessel: 'Vessel',
   person: 'Person',
   equipment: 'Equipment',
-  procedure: 'Procedure',
-  method: 'Method',
+  activity: 'Activity',
 };
 
 const VERIFICATION_STATUSES: ObjectVerificationStatus[] = [

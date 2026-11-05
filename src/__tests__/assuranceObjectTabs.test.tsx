@@ -13,7 +13,7 @@ describe('AssuranceObjectsView type filter', () => {
     });
   });
 
-  it('renders exactly the 6 options: All, Vessel, Person, Equipment, Procedure, Method and no tabs', () => {
+  it('renders exactly the 5 options: All, Vessel, Person, Equipment, Activity and no tabs', () => {
     render(<AssuranceObjectsView />);
 
     expect(screen.queryByRole('tab')).toBeNull();
@@ -27,16 +27,17 @@ describe('AssuranceObjectsView type filter', () => {
       'Vessel',
       'Person',
       'Equipment',
-      'Procedure',
-      'Method',
+      'Activity',
     ]);
   });
 
-  it('does not render dropped options (Organizations, Documents)', () => {
+  it('does not render dropped options (Organizations, Documents, Procedure, Method)', () => {
     render(<AssuranceObjectsView />);
 
     const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
     expect(within(typeSelect).queryByRole('option', { name: /Organizations/i })).toBeNull();
     expect(within(typeSelect).queryByRole('option', { name: /Documents/i })).toBeNull();
+    expect(within(typeSelect).queryByRole('option', { name: /Procedures?/i })).toBeNull();
+    expect(within(typeSelect).queryByRole('option', { name: /Methods?/i })).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 /*
   file summary: detail drawer for an assurance object that has no page of its own.
   responsibilities: shows owner, description, the viewer's own client verifications, person assignments, and the sets that use the object.
-  role in system: opened from organization, person, procedure, document and method rows on AssuranceObjectsView.
+  role in system: opened from organization, person, activity, document rows on AssuranceObjectsView.
 */
 
 import React from 'react';
@@ -16,14 +16,13 @@ import { ObjectVerificationBadge } from '../common/ObjectVerificationBadge';
 import { StatusBadge } from '../common/StatusBadge';
 import { Drawer } from './Drawer';
 
-const DRAWER_TYPES = ['organization', 'person', 'procedure', 'document', 'method'] as const;
+const DRAWER_TYPES = ['organization', 'person', 'activity', 'document'] as const;
 
 const TYPE_LABEL: Record<(typeof DRAWER_TYPES)[number], string> = {
   organization: 'Organization',
   person: 'Person',
-  procedure: 'Procedure',
+  activity: 'Activity',
   document: 'Document',
-  method: 'Method',
 };
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];

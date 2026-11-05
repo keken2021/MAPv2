@@ -42,8 +42,7 @@ const ASSETS_CHILD_KEYS = [
   "vessels",
   "equipment",
   "crew",
-  "procedures",
-  "methods",
+  "activities",
 ];
 const SETTINGS_KEYS = ["users", "organization-profile", "roles-permissions"];
 
@@ -180,12 +179,8 @@ export const AppSidebar: React.FC = () => {
           label: "Crew Directory",
         },
         {
-          key: "procedures",
-          label: "Procedures",
-        },
-        {
-          key: "methods",
-          label: "Methods",
+          key: "activities",
+          label: "Activities",
         },
       ],
     },
@@ -246,8 +241,7 @@ export const AppSidebar: React.FC = () => {
   const isLeafItemVisible = (item: NavItem): boolean => {
     if (
       item.key === "objects" ||
-      item.key === "procedures" ||
-      item.key === "methods"
+      item.key === "activities"
     ) {
       return canOpenObjectsList(activePersona);
     }
@@ -298,16 +292,10 @@ export const AppSidebar: React.FC = () => {
     if (item.key === "objects") {
       return currentHashView === "objects" && !currentEntityId;
     }
-    if (item.key === "procedures") {
+    if (item.key === "activities") {
       return (
-        currentHashView === "procedures" ||
-        (currentHashView === "objects" && currentEntityId === "procedure")
-      );
-    }
-    if (item.key === "methods") {
-      return (
-        currentHashView === "methods" ||
-        (currentHashView === "objects" && currentEntityId === "method")
+        currentHashView === "activities" ||
+        (currentHashView === "objects" && currentEntityId === "activity")
       );
     }
     if (item.key === "assurance-sets") {
@@ -419,10 +407,8 @@ export const AppSidebar: React.FC = () => {
         {renderNavButton(item, {
           isActive: isItemActive(item),
           onClick: () => {
-            if (item.key === "procedures") {
-              setCurrentHashView("objects", "procedure");
-            } else if (item.key === "methods") {
-              setCurrentHashView("objects", "method");
+            if (item.key === "activities") {
+              setCurrentHashView("objects", "activity");
             } else {
               setCurrentHashView(item.key);
             }

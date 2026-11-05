@@ -19,7 +19,7 @@ describe('Assurance objects sidebar and settings suite', () => {
     });
   });
 
-  it('lists exactly the 6 items under Assurance Objects matching the object type options', () => {
+  it('lists exactly the 5 items under Assurance Objects matching the object type options', () => {
     const { unmount: unmountView } = render(<AssuranceObjectsView />);
     const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
     const optionElements = within(typeSelect).getAllByRole('option');
@@ -29,8 +29,7 @@ describe('Assurance objects sidebar and settings suite', () => {
       'Vessel',
       'Person',
       'Equipment',
-      'Procedure',
-      'Method',
+      'Activity',
     ]);
     unmountView();
 
@@ -41,23 +40,20 @@ describe('Assurance objects sidebar and settings suite', () => {
     const vesselsBtn = screen.getByRole('button', { name: /Vessels/i });
     const equipmentBtn = screen.getByRole('button', { name: /Equipment/i });
     const crewBtn = screen.getByRole('button', { name: /Crew Directory/i });
-    const proceduresBtn = screen.getByRole('button', { name: /Procedures/i });
-    const methodsBtn = screen.getByRole('button', { name: /Methods/i });
+    const activitiesBtn = screen.getByRole('button', { name: /Activities/i });
 
     expect(objectsBtn).toBeInTheDocument();
     expect(vesselsBtn).toBeInTheDocument();
     expect(equipmentBtn).toBeInTheDocument();
     expect(crewBtn).toBeInTheDocument();
-    expect(proceduresBtn).toBeInTheDocument();
-    expect(methodsBtn).toBeInTheDocument();
+    expect(activitiesBtn).toBeInTheDocument();
 
     const expectedOptionBySidebarLabel: Record<string, string> = {
       'All Objects': 'All',
       Vessels: 'Vessel',
       Equipment: 'Equipment',
       'Crew Directory': 'Person',
-      Procedures: 'Procedure',
-      Methods: 'Method',
+      Activities: 'Activity',
     };
 
     Object.entries(expectedOptionBySidebarLabel).forEach(([, optName]) => {
@@ -65,32 +61,21 @@ describe('Assurance objects sidebar and settings suite', () => {
     });
   });
 
-  it('opens Assurance Objects with Procedures selected when clicking Procedures', () => {
+  it('opens Assurance Objects with Activities selected when clicking Activities', () => {
     render(<AppSidebar />);
 
-    const proceduresBtn = screen.getByRole('button', { name: /Procedures/i });
-    fireEvent.click(proceduresBtn);
+    const activitiesBtn = screen.getByRole('button', { name: /Activities/i });
+    fireEvent.click(activitiesBtn);
 
     const state = useMapStore.getState();
     expect(state.currentHashView).toBe('objects');
-    expect(state.currentEntityId).toBe('procedure');
-  });
-
-  it('opens Assurance Objects with Methods selected when clicking Methods', () => {
-    render(<AppSidebar />);
-
-    const methodsBtn = screen.getByRole('button', { name: /Methods/i });
-    fireEvent.click(methodsBtn);
-
-    const state = useMapStore.getState();
-    expect(state.currentHashView).toBe('objects');
-    expect(state.currentEntityId).toBe('method');
+    expect(state.currentEntityId).toBe('activity');
   });
 
   it('opens Assurance Objects all view when clicking All Objects', () => {
     useMapStore.setState({
       currentHashView: 'objects',
-      currentEntityId: 'procedure',
+      currentEntityId: 'activity',
     });
 
     render(<AppSidebar />);

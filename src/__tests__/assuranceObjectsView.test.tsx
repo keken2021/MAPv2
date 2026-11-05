@@ -63,13 +63,13 @@ describe('assurance objects list', () => {
     const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
     expect(typeSelect).toBeTruthy();
 
-    ['All', 'Vessel', 'Person', 'Equipment', 'Procedure', 'Method'].forEach((label) => {
+    ['All', 'Vessel', 'Person', 'Equipment', 'Activity'].forEach((label) => {
       expect(within(typeSelect).getByRole('option', { name: new RegExp(label) })).toBeTruthy();
     });
 
     expect(within(typeSelect).getByRole('option', { name: `All (${rows.length})` })).toBeTruthy();
     expect(within(typeSelect).getByRole('option', { name: `Vessel (${rows.filter((row) => row.type === 'vessel').length})` })).toBeTruthy();
-    expect(within(typeSelect).getByRole('option', { name: `Procedure (${rows.filter((row) => row.type === 'procedure').length})` })).toBeTruthy();
+    expect(within(typeSelect).getByRole('option', { name: `Activity (${rows.filter((row) => row.type === 'activity').length})` })).toBeTruthy();
     expect(rows.length).toBeGreaterThan(0);
   });
 
