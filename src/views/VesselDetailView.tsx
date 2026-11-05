@@ -38,6 +38,7 @@ import { VesselImageCropModal } from '../components/modals/VesselImageCropModal'
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { EmptyState } from '../components/common/EmptyState';
 import { getVesselAssetStatus } from '../types/asset';
 import { getPhysicalInspectionsForAssuranceSets } from '../store/inspectionMockData';
 import { VesselActivityTab } from '../components/vessels/VesselActivityTab';
@@ -1484,7 +1485,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   );
                 })}
                 {managementOrganizations.length === 0 && (
-                  <div className="list-group-item text-muted small py-3">No management organizations recorded.</div>
+                  <EmptyState title="No management organizations recorded" className="list-group-item" />
                 )}
               </div>
             </div>
@@ -1599,7 +1600,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
           <div className="card-body p-0">
             {filteredClientHistory.length === 0 ? (
-              <div className="p-4 text-center text-muted">No client history found.</div>
+              <EmptyState title="No client history found" />
             ) : (
               <div className="table-responsive">
                 <table className="table map-table-custom align-middle mb-0">
@@ -1703,7 +1704,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               <span>Equipment ({linkedEquipment.length})</span>
             </div>
             {linkedEquipment.length === 0 ? (
-              <div className="p-4 text-center text-muted">No equipment linked to this vessel.</div>
+              <EmptyState title="No equipment linked to this vessel" />
             ) : (
               <div className="list-group list-group-flush">
                 {linkedEquipment.map((item) => (
@@ -1893,8 +1894,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   <tbody>
                     {filteredInspections.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="text-center py-4 text-muted">
-                          No inspections recorded.
+                        <td colSpan={6} className="p-0">
+                          <EmptyState title="No inspections recorded" />
                         </td>
                       </tr>
                     ) : (
@@ -2233,8 +2234,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                         <tbody>
                           {sortedModalCapas.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="text-center py-3 text-muted small">
-                                No CAPAs yet.
+                              <td colSpan={6} className="p-0">
+                                <EmptyState title="No CAPAs yet" />
                               </td>
                             </tr>
                           ) : (

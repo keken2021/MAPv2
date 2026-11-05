@@ -24,6 +24,7 @@ import { STCWDocumentItem, CrewVesselAssignment, CrewMember } from '../types/cre
 import { AssuranceObjectType } from '../types/assurance';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { EmptyState } from '../components/common/EmptyState';
 import { formatMaritimeDate } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { CrewDocumentUploadModal } from '../components/modals/CrewDocumentUploadModal';
@@ -725,8 +726,8 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
             <tbody>
               {sortedAssignments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-4 text-muted">
-                    No assignments yet.
+                  <td colSpan={6} className="p-0">
+                    <EmptyState title="No assignments yet" />
                   </td>
                 </tr>
               ) : (
@@ -986,8 +987,8 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
             <tbody>
               {sortedLayer2Docs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-4 text-muted">
-                    No endorsements yet.
+                  <td colSpan={6} className="p-0">
+                    <EmptyState title="No endorsements yet" />
                   </td>
                 </tr>
               ) : (
@@ -1090,8 +1091,8 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               <tbody>
                 {linkedAssuranceSets.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center text-muted py-4">
-                      No assurance sets linked to this crew member.
+                    <td colSpan={5} className="p-0">
+                      <EmptyState title="No assurance sets linked to this crew member" />
                     </td>
                   </tr>
                 ) : (
@@ -1139,8 +1140,8 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
               <tbody>
                 {linkedAudits.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center text-muted py-4">
-                      No audit events for this crew member.
+                    <td colSpan={5} className="p-0">
+                      <EmptyState title="No audit events for this crew member" />
                     </td>
                   </tr>
                 ) : (

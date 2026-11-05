@@ -8,6 +8,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { EmptyState } from '../components/common/EmptyState';
 import { getProjectOrganizationForPersona, isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
 import { getEquipmentAssetStatus, EquipmentAsset } from '../types/equipment';
 import { useMapStore } from '../store/useMapStore';
@@ -404,8 +405,8 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
               <tbody>
                 {equipmentDocs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center text-muted py-4">
-                      No document on file.
+                    <td colSpan={6} className="p-0">
+                      <EmptyState title="No document on file" />
                     </td>
                   </tr>
                 ) : (
@@ -473,8 +474,8 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
               <tbody>
                 {linkedSets.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center text-muted py-4">
-                      No assurance sets for this equipment.
+                    <td colSpan={5} className="p-0">
+                      <EmptyState title="No assurance sets for this equipment" />
                     </td>
                   </tr>
                 ) : (

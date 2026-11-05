@@ -30,14 +30,15 @@ describe('vessel detail inspections and certificates', () => {
     expect(screen.getByText('INSP-2026-001')).toBeInTheDocument();
     expect(screen.getByText('AS-2026-001')).toBeInTheDocument();
     expect(screen.getAllByText('N. Technical (Meridian Marine Surveyors)').length).toBeGreaterThan(0);
-    expect(screen.queryByText('No inspections recorded.')).toBeNull();
+    expect(screen.queryByText('No inspections recorded')).toBeNull();
   });
 
   it('shows no inspections when the vessel has none recorded', () => {
     render(<VesselDetailView vesselId="VESSEL-012" />);
     fireEvent.click(screen.getByRole('tab', { name: /inspections/i }));
 
-    expect(screen.getByText('No inspections recorded.')).toBeInTheDocument();
+    expect(screen.getByText('No inspections recorded')).toBeInTheDocument();
+    expect(screen.getAllByTestId('empty-state').length).toBeGreaterThan(0);
     expect(screen.queryByText(/^INSP-/)).toBeNull();
   });
 
@@ -57,15 +58,11 @@ describe('vessel detail inspections and certificates', () => {
     expect(rows[0].client).toBe('Override Client Pty Ltd');
   });
 
-  it('shows No document on file for statutory certificates without a library document', () => {
-    useMapStore.setState({
-      activePersona: 'C Admin',
-      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
-    });
-    render(<VesselDetailView vesselId="VESSEL-010" />);
+  it('opens the Documents tab via the shared DocumentTable shell', () => {
+    render(<VesselDetailView vesselId="VESSEL-001" />);
     fireEvent.click(screen.getByRole('tab', { name: /documents/i }));
 
-    expect(screen.getByText('ABS-STAT-8819')).toBeInTheDocument();
-    expect(screen.getAllByText('No document on file').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('vessel-scoped-document-table')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Fullscreen PDF' })).toBeNull();
   });
 });
