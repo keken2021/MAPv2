@@ -169,7 +169,7 @@ interface ObjectRow {
   object: AssuranceObject;
   verificationStatus: string;
   usedIn: number;
-  detailView: 'vessels' | 'crew' | 'equipment' | null;
+  detailView: 'vessels' | 'crew' | 'equipment' | 'activities' | null;
 }
 
 export const AssuranceObjectsView: React.FC = () => {
@@ -238,7 +238,9 @@ export const AssuranceObjectsView: React.FC = () => {
               ? 'equipment'
               : object.type === 'person' && crewIds.has(object.id)
                 ? 'crew'
-                : null;
+                : object.type === 'activity'
+                  ? 'activities'
+                  : null;
         return {
           object,
           verificationStatus: verification?.status || '',

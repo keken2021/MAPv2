@@ -1042,7 +1042,9 @@ export function isViewAccessibleToPersona(
       view === "dashboard" ||
       view === "audit" ||
       view === "marketplace" ||
-      view === "notifications"
+      view === "notifications" ||
+      view === "objects" ||
+      view === "activities"
     )
       return true;
 
