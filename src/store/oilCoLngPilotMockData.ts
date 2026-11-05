@@ -20,8 +20,7 @@ import { Project } from "../types/project";
 import { UserProfile } from "../types/user";
 import { Vessel } from "../types/vessel";
 import {
-  SEEDED_METHOD_OBJECTS,
-  SEEDED_PROCEDURE_OBJECTS,
+  SEEDED_ACTIVITY_OBJECTS,
 } from "./assuranceObjectMockData";
 
 function seededObject<T extends { id: string }>(objects: T[], id: string): T {
@@ -245,7 +244,7 @@ function buildEvidence(
 export const OIL_CO_PILOT_ASSURANCE_OBJECTS: AssuranceObject[] = [
   {
     id: "OBJ-PROC-LNG-AURORA-01",
-    type: "procedure",
+    type: "activity",
     name: "LNGC Northwind Aurora Cargo Handling & Boil-Off Gas Management Procedure",
     ownerOrganization: NORTHWIND_ORG,
     identifier: "SOP-NW-LNGC-2026",
@@ -254,7 +253,7 @@ export const OIL_CO_PILOT_ASSURANCE_OBJECTS: AssuranceObject[] = [
   },
   {
     id: "OBJ-METH-SIMOPS-AURORA",
-    type: "method",
+    type: "activity",
     name: "Aurora Field Simultaneous Operations (SIMOPS) Methodology",
     ownerOrganization: OIL_CO_ORG,
     identifier: "MOP-SIMOPS-017",
@@ -263,7 +262,7 @@ export const OIL_CO_PILOT_ASSURANCE_OBJECTS: AssuranceObject[] = [
   },
   {
     id: "OBJ-PROC-HARBOUR-ESD",
-    type: "procedure",
+    type: "activity",
     name: "Harbourline Terminal Emergency Shutdown (ESD) & Mooring Protocol",
     ownerOrganization: HARBOURLINE_ORG,
     identifier: "SOP-HT-ESD-02",
@@ -272,7 +271,7 @@ export const OIL_CO_PILOT_ASSURANCE_OBJECTS: AssuranceObject[] = [
   },
   {
     id: "OBJ-METH-BERTH-01",
-    type: "method",
+    type: "activity",
     name: "Harbourline Berth 2 Approach & Tandem Tug Assistance Methodology",
     ownerOrganization: HARBOURLINE_ORG,
     identifier: "MOP-BERTH-02",
@@ -1199,9 +1198,9 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
       },
       OIL_CO_PILOT_ASSURANCE_OBJECTS[0],
       OIL_CO_PILOT_ASSURANCE_OBJECTS[1],
-      seededObject(SEEDED_PROCEDURE_OBJECTS, "OBJ-PROC-SIMOPS-01"),
-      seededObject(SEEDED_PROCEDURE_OBJECTS, "OBJ-PROC-HELI-01"),
-      seededObject(SEEDED_METHOD_OBJECTS, "OBJ-METH-ROUTE-01"),
+      seededObject(SEEDED_ACTIVITY_OBJECTS, "OBJ-PROC-SIMOPS-01"),
+      seededObject(SEEDED_ACTIVITY_OBJECTS, "OBJ-PROC-HELI-01"),
+      seededObject(SEEDED_ACTIVITY_OBJECTS, "OBJ-METH-ROUTE-01"),
     ],
     parties: [
       { organization: OIL_CO_ORG, group: "Client" },

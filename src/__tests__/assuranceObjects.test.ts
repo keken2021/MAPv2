@@ -4,10 +4,7 @@ import { MOCK_USERS } from '../store/mockData';
 import { MOCK_CREW } from '../store/crewMockData';
 import {
   SEEDED_OPERATIONAL_OBJECTS,
-  SEEDED_ORGANIZATION_OBJECTS,
-  SEEDED_PROCEDURE_OBJECTS,
-  SEEDED_DOCUMENT_OBJECTS,
-  SEEDED_METHOD_OBJECTS,
+  SEEDED_ACTIVITY_OBJECTS,
   SEEDED_STANDALONE_PERSONS,
   objectVerifications,
 } from '../store/assuranceObjectMockData';
@@ -32,22 +29,21 @@ describe('assurance object mock data', () => {
     });
   });
 
-  it('gives every new organization and person an owner that is a known organization', () => {
+  it('gives every new person an owner that is a known organization', () => {
     const known = new Set(getOrganizationsFromUsers(MOCK_USERS));
-    expect(SEEDED_ORGANIZATION_OBJECTS.length).toBeGreaterThanOrEqual(6);
     expect(SEEDED_STANDALONE_PERSONS.length).toBeGreaterThanOrEqual(4);
     const owners = new Set<string>();
-    [...SEEDED_ORGANIZATION_OBJECTS, ...SEEDED_STANDALONE_PERSONS].forEach((object) => {
+    SEEDED_STANDALONE_PERSONS.forEach((object) => {
       expect(object.identifier).toBeTruthy();
       expect(object.description).toBeTruthy();
       expect(known.has(object.ownerOrganization)).toBe(true);
       owners.add(object.ownerOrganization);
     });
-    expect(owners.size).toBeGreaterThanOrEqual(4);
+    expect(owners.size).toBeGreaterThanOrEqual(2);
   });
 
   it('uses every verification status and both channels, once per client', () => {
-    const added = [...SEEDED_ORGANIZATION_OBJECTS, ...SEEDED_STANDALONE_PERSONS];
+    const added = [...SEEDED_ACTIVITY_OBJECTS, ...SEEDED_STANDALONE_PERSONS];
     const statuses = new Set<string>();
     const channels = new Set<string>();
     added.forEach((object) => {
@@ -99,7 +95,7 @@ describe('assurance object mock data', () => {
     sets.forEach((set) => {
       const objects = set.assuranceObjects ?? [];
       const objectIds = new Set(objects.map((object) => object.id));
-      expect(new Set(objects.map((object) => object.type)).size).toBeGreaterThanOrEqual(3);
+      expect(new Set(objects.map((object) => object.type)).size).toBeGreaterThanOrEqual(2);
       objects.forEach((object) => {
         types.add(object.type);
         expect(storeIds.has(object.id), object.id).toBe(true);
@@ -110,18 +106,20 @@ describe('assurance object mock data', () => {
         expect(objectIds.has(requirement.targetObjectId!), `${set.id} ${requirement.id}`).toBe(true);
       });
     });
-    ['vessel', 'person', 'equipment', 'procedure', 'method', 'document', 'organization'].forEach((type) => {
+    ['vessel', 'person', 'equipment', 'activity'].forEach((type) => {
       expect(types.has(type), type).toBe(true);
     });
 
-    expect(SEEDED_PROCEDURE_OBJECTS.length).toBeGreaterThanOrEqual(5);
-    expect(SEEDED_DOCUMENT_OBJECTS.length).toBeGreaterThanOrEqual(4);
-    expect(SEEDED_METHOD_OBJECTS.length).toBeGreaterThanOrEqual(4);
-    [...SEEDED_PROCEDURE_OBJECTS, ...SEEDED_DOCUMENT_OBJECTS, ...SEEDED_METHOD_OBJECTS].forEach((object) => {
+    expect(SEEDED_ACTIVITY_OBJECTS.length).toBeGreaterThanOrEqual(9);
+    SEEDED_ACTIVITY_OBJECTS.forEach((object) => {
+      expect(object.type).toBe('activity');
       expect(object.ownerOrganization).toBeTruthy();
       expect(object.identifier).toBeTruthy();
       expect(object.description).toBeTruthy();
       expect(objectVerifications(object).length).toBeGreaterThanOrEqual(1);
     });
+
+    const allObjects = useMapStore.getState().assuranceObjects;
+    expect(allObjects.some((o) => o.type === 'procedure' || o.type === 'method')).toBe(false);
   });
 });

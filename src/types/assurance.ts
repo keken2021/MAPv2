@@ -29,13 +29,12 @@ export type AssuranceScopeType = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 export type AssuranceSubtype = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
 export type ThreePillarsCategory = 'People' | 'Plant' | 'Process';
 
-/** canonical assurance object types under BRD V4.2 change 3, ADR 0029, and ADR 0034 */
+/** canonical assurance object types under BRD V4.2 change 3, ADR 0029, ADR 0034, and ADR 0036 */
 export type AssuranceObjectType =
   | 'vessel'
   | 'person'
   | 'equipment'
-  | 'procedure'
-  | 'method'
+  | 'activity'
   | (string & {});
 
 /** how far an assurance object has been checked (BRD V4.2 §4.3). A later status replaces the earlier one. */

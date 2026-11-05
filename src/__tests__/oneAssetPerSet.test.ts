@@ -81,15 +81,15 @@ describe('assurance object model (ADR 0029, reversing ADR 0004)', () => {
       name: 'Northwind Supplier',
       ownerOrganization: 'Northwind Marine Ltd',
     };
-    const procObj: AssuranceObject = {
-      id: 'PROC-01',
-      type: 'procedure',
+    const actObj1: AssuranceObject = {
+      id: 'ACT-01',
+      type: 'activity',
       name: 'Dynamic Positioning Emergency Disconnect',
       ownerOrganization: 'Chevron Australia',
     };
-    const methodObj: AssuranceObject = {
-      id: 'METH-01',
-      type: 'method',
+    const actObj2: AssuranceObject = {
+      id: 'ACT-02',
+      type: 'activity',
       name: 'Offshore Offloading Method Statement',
       ownerOrganization: 'Woodside Energy',
     };
@@ -97,17 +97,17 @@ describe('assurance object model (ADR 0029, reversing ADR 0004)', () => {
     const mixedSet: AssuranceSet = {
       ...ALL_SETS[0],
       id: 'AS-MIXED-01',
-      assuranceObjects: [vesselObj, procObj, methodObj],
+      assuranceObjects: [vesselObj, actObj1, actObj2],
     };
 
     const objects = getAssuranceSetObjects(mixedSet);
     expect(objects).toHaveLength(3);
     expect(objects[0]).toEqual(vesselObj);
-    expect(objects[1]).toEqual(procObj);
-    expect(objects[2]).toEqual(methodObj);
+    expect(objects[1]).toEqual(actObj1);
+    expect(objects[2]).toEqual(actObj2);
   });
 
-  it('supports Peter\'s port-entry example bundling the 5 ADR 0029 types: vessel, person, equipment, procedure, method', () => {
+  it('supports Peter\'s port-entry example bundling the 4 ADR 0036 types: vessel, person, equipment, activity', () => {
     const portEntryObjects: AssuranceObject[] = [
       vesselToAssuranceObject({
         id: 'VESSEL-001',
@@ -142,7 +142,9 @@ describe('assurance object model (ADR 0029, reversing ADR 0004)', () => {
     const objects = getAssuranceSetObjects(portEntrySet);
     expect(objects.length).toBe(5);
     const types = objects.map((o) => o.type);
-    expect(types).toEqual(['vessel', 'person', 'equipment', 'procedure', 'method']);
+    expect(types).toEqual(['vessel', 'person', 'equipment', 'activity', 'activity']);
+    expect(types).not.toContain('procedure');
+    expect(types).not.toContain('method');
     expect(types).not.toContain('document');
     expect(types).not.toContain('organization');
 

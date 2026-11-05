@@ -9,8 +9,7 @@ import { AssuranceActivity, AssuranceProject, AssuranceSet } from '../types/assu
 import { Project } from '../types/project';
 import { OIL_CO_PILOT_ASSURANCE_SETS, OIL_CO_PILOT_PROJECT } from './oilCoLngPilotMockData';
 import {
-  SEEDED_METHOD_OBJECTS,
-  SEEDED_PROCEDURE_OBJECTS,
+  SEEDED_ACTIVITY_OBJECTS,
   SEEDED_STANDALONE_PERSONS,
 } from './assuranceObjectMockData';
 
@@ -91,7 +90,7 @@ function catalogProjectToSeed(project: AssuranceProject): Project {
 function seededObject(objects: { id: string }[], id: string) {
   const found = objects.find((object) => object.id === id);
   if (!found) throw new Error(`Missing seeded assurance object ${id}`);
-  return found as (typeof SEEDED_PROCEDURE_OBJECTS)[number];
+  return found as (typeof SEEDED_ACTIVITY_OBJECTS)[number];
 }
 
 export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
@@ -145,8 +144,8 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
         identifier: 'FFE-PE-001',
         description: 'Fire-Fighting Equipment (FFE)',
       },
-      seededObject(SEEDED_PROCEDURE_OBJECTS, 'OBJ-PROC-CRANE-01'),
-      seededObject(SEEDED_METHOD_OBJECTS, 'OBJ-METH-DP-01'),
+      seededObject(SEEDED_ACTIVITY_OBJECTS, 'OBJ-PROC-CRANE-01'),
+      seededObject(SEEDED_ACTIVITY_OBJECTS, 'OBJ-METH-DP-01'),
     ],
     requirements: [
       {
@@ -216,10 +215,10 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
         ownerOrganization: 'Northwind Marine Pty Ltd',
         identifier: 'IMO: 9123453',
       },
-      seededObject(SEEDED_PROCEDURE_OBJECTS, 'OBJ-PROC-PORT-01'),
-      seededObject(SEEDED_PROCEDURE_OBJECTS, 'OBJ-PROC-EMERG-01'),
-      seededObject(SEEDED_METHOD_OBJECTS, 'OBJ-METH-LIFT-01'),
-      seededObject(SEEDED_METHOD_OBJECTS, 'OBJ-METH-TOW-01'),
+      seededObject(SEEDED_ACTIVITY_OBJECTS, 'OBJ-PROC-PORT-01'),
+      seededObject(SEEDED_ACTIVITY_OBJECTS, 'OBJ-PROC-EMERG-01'),
+      seededObject(SEEDED_ACTIVITY_OBJECTS, 'OBJ-METH-LIFT-01'),
+      seededObject(SEEDED_ACTIVITY_OBJECTS, 'OBJ-METH-TOW-01'),
     ],
     requirements: [
       {

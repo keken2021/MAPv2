@@ -77,11 +77,11 @@ export function objectVerifications(object: AssuranceObject): ObjectVerification
   return raw as ObjectVerification[];
 }
 
-/** procedures and methods retained from the original port-entry seed bundle */
+/** activities retained from the original port-entry seed bundle */
 const ORIGINAL_OPERATIONAL_OBJECTS: AssuranceObject[] = [
   withChecks({
     id: 'OBJ-PROC-PORT-01',
-    type: 'procedure',
+    type: 'activity',
     name: 'Port Entry & Berthing Procedure',
     ownerOrganization: 'Fremantle Port Authority',
     identifier: 'SOP-PORT-2026',
@@ -89,7 +89,7 @@ const ORIGINAL_OPERATIONAL_OBJECTS: AssuranceObject[] = [
   }, 20),
   withChecks({
     id: 'OBJ-METH-TOW-01',
-    type: 'method',
+    type: 'activity',
     name: 'Mooring & Towage Method Statement (MOP)',
     ownerOrganization: 'Tidewater Marine',
     identifier: 'MOP-TOW-004',
@@ -97,12 +97,12 @@ const ORIGINAL_OPERATIONAL_OBJECTS: AssuranceObject[] = [
   }, 21),
 ];
 
-/** procedures a set can cover besides the vessel, crew, and equipment */
-export const SEEDED_PROCEDURE_OBJECTS: AssuranceObject[] = [
+/** activities a set can cover besides the vessel, crew, and equipment (ADR 0036 replaces procedures and methods) */
+export const SEEDED_ACTIVITY_OBJECTS: AssuranceObject[] = [
   ORIGINAL_OPERATIONAL_OBJECTS[0],
   withChecks({
     id: 'OBJ-PROC-EMERG-01',
-    type: 'procedure',
+    type: 'activity',
     name: 'Emergency Response Procedure',
     ownerOrganization: 'Northwind Marine Pty Ltd',
     identifier: 'SOP-ERP-2026',
@@ -110,7 +110,7 @@ export const SEEDED_PROCEDURE_OBJECTS: AssuranceObject[] = [
   }, 10),
   withChecks({
     id: 'OBJ-PROC-SIMOPS-01',
-    type: 'procedure',
+    type: 'activity',
     name: 'Simultaneous Operations Procedure',
     ownerOrganization: 'Chevron Australia Pty Ltd',
     identifier: 'SOP-SIMOPS-2026',
@@ -118,7 +118,7 @@ export const SEEDED_PROCEDURE_OBJECTS: AssuranceObject[] = [
   }, 11),
   withChecks({
     id: 'OBJ-PROC-CRANE-01',
-    type: 'procedure',
+    type: 'activity',
     name: 'Crane Lift Procedure',
     ownerOrganization: 'Oil Company',
     identifier: 'SOP-LIFT-014',
@@ -126,23 +126,16 @@ export const SEEDED_PROCEDURE_OBJECTS: AssuranceObject[] = [
   }, 12),
   withChecks({
     id: 'OBJ-PROC-HELI-01',
-    type: 'procedure',
+    type: 'activity',
     name: 'Helideck Operations Procedure',
     ownerOrganization: 'DNV Maritime Inspection',
     identifier: 'SOP-HELI-009',
     description: 'Helideck approach, landing, and refuelling procedure',
   }, 13),
-];
-
-/** document object type dropped (ADR 0029 / C02); empty export kept for existing imports */
-export const SEEDED_DOCUMENT_OBJECTS: AssuranceObject[] = [];
-
-/** methods a set can cover: how a job is done, separate from the procedure */
-export const SEEDED_METHOD_OBJECTS: AssuranceObject[] = [
   ORIGINAL_OPERATIONAL_OBJECTS[1],
   withChecks({
     id: 'OBJ-METH-LIFT-01',
-    type: 'method',
+    type: 'activity',
     name: 'Lift Plan',
     ownerOrganization: 'Southern Basin Energy Pty Ltd',
     identifier: 'MOP-LIFT-221',
@@ -150,7 +143,7 @@ export const SEEDED_METHOD_OBJECTS: AssuranceObject[] = [
   }, 17),
   withChecks({
     id: 'OBJ-METH-DP-01',
-    type: 'method',
+    type: 'activity',
     name: 'DP Trials Method',
     ownerOrganization: 'Northwind Marine Pty Ltd',
     identifier: 'MOP-DP-TRIAL-06',
@@ -158,13 +151,16 @@ export const SEEDED_METHOD_OBJECTS: AssuranceObject[] = [
   }, 18),
   withChecks({
     id: 'OBJ-METH-ROUTE-01',
-    type: 'method',
+    type: 'activity',
     name: 'Tow Route Assessment',
     ownerOrganization: 'Chevron Australia Pty Ltd',
     identifier: 'MOP-TOW-ROUTE-03',
     description: 'Route, weather window, and tug power assessment for an ocean tow',
   }, 19),
 ];
+
+/** document object type dropped (ADR 0029 / C02); empty export kept for existing imports */
+export const SEEDED_DOCUMENT_OBJECTS: AssuranceObject[] = [];
 
 /** organization object type dropped (ADR 0029 / C02); empty export kept for existing imports */
 export const SEEDED_ORGANIZATION_OBJECTS: AssuranceObject[] = [];
@@ -272,7 +268,8 @@ export const SEEDED_STANDALONE_PERSONS: AssuranceObject[] = [
 
 export const SEEDED_OPERATIONAL_OBJECTS: AssuranceObject[] = [
   ...ORIGINAL_OPERATIONAL_OBJECTS,
-  ...SEEDED_PROCEDURE_OBJECTS.slice(1),
-  ...SEEDED_METHOD_OBJECTS.slice(1),
+  ...SEEDED_ACTIVITY_OBJECTS.filter(
+    (o) => !ORIGINAL_OPERATIONAL_OBJECTS.some((orig) => orig.id === o.id)
+  ),
   ...SEEDED_STANDALONE_PERSONS,
 ];

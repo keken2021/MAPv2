@@ -137,32 +137,36 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
     });
   });
 
-  describe('Scenario 6: Non-asset assurance objects (procedures and methods)', () => {
-    it('creates procedure and method objects and binds them to sets and tasks', () => {
+  describe('Scenario 6: Non-asset assurance objects (activities)', () => {
+    it('creates activity objects and binds them to sets and tasks', () => {
       expect(OIL_CO_PILOT_ASSURANCE_OBJECTS.length).toBeGreaterThanOrEqual(4);
 
-      const procedure = OIL_CO_PILOT_ASSURANCE_OBJECTS.find((o) => o.type === 'procedure');
-      expect(procedure).toBeDefined();
-      expect(procedure?.name).toBeTruthy();
-      expect(procedure?.ownerOrganization).toBeTruthy();
+      const activityObj1 = OIL_CO_PILOT_ASSURANCE_OBJECTS.find((o) => o.id === 'OBJ-PROC-LNG-AURORA-01');
+      expect(activityObj1).toBeDefined();
+      expect(activityObj1?.type).toBe('activity');
+      expect(activityObj1?.name).toBeTruthy();
+      expect(activityObj1?.ownerOrganization).toBeTruthy();
 
-      const method = OIL_CO_PILOT_ASSURANCE_OBJECTS.find((o) => o.type === 'method');
-      expect(method).toBeDefined();
-      expect(method?.name).toBeTruthy();
-      expect(method?.ownerOrganization).toBeTruthy();
+      const activityObj2 = OIL_CO_PILOT_ASSURANCE_OBJECTS.find((o) => o.id === 'OBJ-METH-SIMOPS-AURORA');
+      expect(activityObj2).toBeDefined();
+      expect(activityObj2?.type).toBe('activity');
+      expect(activityObj2?.name).toBeTruthy();
+      expect(activityObj2?.ownerOrganization).toBeTruthy();
 
-      // SS-01 holds mixed object types (vessel, procedure, method)
+      // SS-01 holds mixed object types (vessel, activity)
       const ss01Objects = getAssuranceSetObjects(ss01!);
       const ss01Types = new Set(ss01Objects.map((o) => o.type));
       expect(ss01Types.has('vessel')).toBe(true);
-      expect(ss01Types.has('procedure')).toBe(true);
-      expect(ss01Types.has('method')).toBe(true);
+      expect(ss01Types.has('activity')).toBe(true);
+      expect(ss01Types.has('procedure')).toBe(false);
+      expect(ss01Types.has('method')).toBe(false);
 
-      // SS-03 holds activity with procedure and method objects
+      // SS-03 holds activity objects
       const ss03Objects = getAssuranceSetObjects(ss03!);
       const ss03Types = new Set(ss03Objects.map((o) => o.type));
-      expect(ss03Types.has('procedure')).toBe(true);
-      expect(ss03Types.has('method')).toBe(true);
+      expect(ss03Types.has('activity')).toBe(true);
+      expect(ss03Types.has('procedure')).toBe(false);
+      expect(ss03Types.has('method')).toBe(false);
 
       // Requirements point to non-asset object target IDs
       const portReq = ss01?.requirements.find((r) => r.id === 'REQ-SS01-19');
