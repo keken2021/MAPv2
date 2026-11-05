@@ -168,6 +168,19 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     expect(screen.getByText('Dupont Verification Campaign')).toBeInTheDocument();
   });
 
+  it('filters AssuranceTable rows to the given vesselId', () => {
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: undefined,
+      assuranceSets: [setA, setB],
+    });
+
+    render(<AssuranceTable onSelectSet={() => {}} defaultTab="organization" vesselId="VESSEL-001" />);
+    expect(screen.getByText('Fontaine Inspection Campaign')).toBeInTheDocument();
+    expect(screen.queryByText('Dupont Verification Campaign')).toBeNull();
+  });
+
   it('renders only vessels from their own sets for Submitter', () => {
     // Submitter M. Chen
     useMapStore.setState({

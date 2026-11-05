@@ -50,6 +50,8 @@ interface AssuranceTableProps {
   onSelectSet: (set: AssuranceSet) => void;
   onInitiateSet?: () => void;
   defaultTab?: AssuranceViewTab;
+  /** When set, lists only assurance sets for this vessel. */
+  vesselId?: string;
 }
 
 /**
@@ -57,7 +59,12 @@ interface AssuranceTableProps {
   how: filters assuranceSets array by active persona role assignment, tab view mode, and search parameters, then sorts by sortField.
   with what file: src/components/tables/AssuranceTable.tsx loaded by AssuranceSetsView.tsx.
 */
-export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onInitiateSet, defaultTab = 'organization' }) => {
+export const AssuranceTable: React.FC<AssuranceTableProps> = ({
+  onSelectSet,
+  onInitiateSet,
+  defaultTab = 'organization',
+  vesselId,
+}) => {
   const {
     assuranceSets,
     assuranceTemplates = [],
@@ -108,6 +115,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({ onSelectSet, onI
 
   const accessibleSets = assuranceSets.filter(
     (s) =>
+      (!vesselId || s.vesselId === vesselId) &&
       isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser) &&
       !(isReadOnly && s.visibility === 'draft'),
   );

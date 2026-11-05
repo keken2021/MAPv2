@@ -25,12 +25,13 @@ import {
 } from '../utils/userRoleHelpers';
 import { filterAuditTrailForPersona, filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, filterVesselsForPersona, getBackButtonInfo, getClientAdminOrganization, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
-import { calculateAssuranceSetReadiness, calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
+import { calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { InspectionDrawer } from '../components/drawers/InspectionDrawer';
 import { AddCrewModal } from '../components/modals/AddCrewModal';
 import { CrewTable } from '../components/tables/CrewTable';
 import { DocumentTable } from '../components/tables/DocumentTable';
+import { AssuranceTable } from '../components/tables/AssuranceTable';
 import { CapaItem } from '../types/capa';
 import { getVesselStockPhoto, CURATED_VESSEL_PHOTOS } from '../utils/vesselImageHelpers';
 import { VesselImageCropModal } from '../components/modals/VesselImageCropModal';
@@ -63,7 +64,6 @@ import {
   Save,
   Check,
   Eye,
-  FolderOpen,
   UserMinus,
   UserPlus,
 } from 'lucide-react';
@@ -191,13 +191,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [vaultStatusFilter, setVaultStatusFilter] = useState('ALL');
   const [vaultSortField, setVaultSortField] = useState<'name' | 'number' | 'issuingBody' | 'expiryDate' | 'ocr' | 'status'>('name');
   const [vaultSortDirection, setVaultSortDirection] = useState<'asc' | 'desc'>('asc');
-
-  /* assurance sets search, filter, and sorting states */
-  const [assuranceSearch, setAssuranceSearch] = useState('');
-  const [assuranceStageFilter, setAssuranceStageFilter] = useState('ALL');
-  const [assuranceSortField, setAssuranceSortField] = useState<'id' | 'title' | 'initiatorOrg' | 'charterWindow' | 'stage' | 'readinessScore'>('id');
-  const [assuranceSortDirection, setAssuranceSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [selectedAssuranceSetId, setSelectedAssuranceSetId] = useState('');
 
   /* client history search, filter, and sorting states */
   const [clientSearch, setClientSearch] = useState('');
@@ -397,15 +390,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const visibleObjectDocuments = vessel
     ? filterDocumentsVisibleToOrganization(linkedDocs, assuranceSets, activeDemoOrganization)
     : [];
-
-  useEffect(() => {
-    if (linkedSets.length > 0 && !selectedAssuranceSetId) {
-      setSelectedAssuranceSetId(linkedSets[0].id);
-    }
-    if (linkedSets.length === 0) {
-      setSelectedAssuranceSetId('');
-    }
-  }, [linkedSets, selectedAssuranceSetId]);
 
   const handleCreateAssuranceForVessel = (templateSetId?: string) => {
     if (!vessel || !canCreateAssuranceForThisVessel) return;
@@ -654,31 +638,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       });
   }, [allVaultCerts, vaultSearch, vaultStatusFilter, vaultSortField, vaultSortDirection]);
 
-  const filteredAssuranceSets = useMemo(() => {
-    return linkedSets
-      .filter((s) => {
-        const matchesSearch =
-          !assuranceSearch ||
-          s.id.toLowerCase().includes(assuranceSearch.toLowerCase()) ||
-          s.title.toLowerCase().includes(assuranceSearch.toLowerCase()) ||
-          s.initiatorOrg.toLowerCase().includes(assuranceSearch.toLowerCase());
-
-        const matchesStage = assuranceStageFilter === 'ALL' || s.stage === assuranceStageFilter;
-
-        return matchesSearch && matchesStage;
-      })
-      .sort((a, b) => {
-        let comp = 0;
-        if (assuranceSortField === 'id') comp = a.id.localeCompare(b.id);
-        else if (assuranceSortField === 'title') comp = a.title.localeCompare(b.title);
-        else if (assuranceSortField === 'initiatorOrg') comp = (a.initiatorOrg || '').localeCompare(b.initiatorOrg || '');
-        else if (assuranceSortField === 'charterWindow') comp = (a.charterWindowStart || '').localeCompare(b.charterWindowStart || '');
-        else if (assuranceSortField === 'stage') comp = a.stage.localeCompare(b.stage);
-        else if (assuranceSortField === 'readinessScore') comp = calculateAssuranceSetReadiness(a) - calculateAssuranceSetReadiness(b);
-        return assuranceSortDirection === 'asc' ? comp : -comp;
-      });
-  }, [linkedSets, assuranceSearch, assuranceStageFilter, assuranceSortField, assuranceSortDirection]);
-
   const filteredClientHistory = useMemo(() => {
     if (!vessel || !vessel.clientHistory) return [];
     return vessel.clientHistory
@@ -826,7 +785,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   }, [linkedCapas, modalCapaSortField, modalCapaSortDirection]);
 
   const vaultPagination = usePagination(filteredVaultCerts, [vaultSearch, vaultStatusFilter, vaultSortField, vaultSortDirection]);
-  const assurancePagination = usePagination(filteredAssuranceSets, [assuranceSearch, assuranceStageFilter, assuranceSortField, assuranceSortDirection]);
   const statusHistoryPagination = usePagination(filteredStatusHistory, [statusHistorySearch, statusHistoryDimensionFilter, statusHistoryCurrentOnly, statusHistorySortField, statusHistorySortDirection]);
   const clientPagination = usePagination(filteredClientHistory, [clientSearch, clientOutcomeFilter, clientSortField, clientSortDirection]);
   const crewPagination = usePagination(filteredCrew, [crewSearch, crewRankFilter, crewComplianceFilter, crewSortField, crewSortDirection]);
@@ -1661,208 +1619,17 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
       {/* Tab 3: Assurance Sets */}
       {activeTab === 'assurance' && (
-        <div className="card map-card-custom">
-          {/* Table Controls Header */}
-          <div className="card-header d-flex flex-wrap align-items-center justify-between gap-3 p-3">
-            <div className="d-flex flex-wrap align-items-center gap-2">
-              {linkedSets.length > 0 && (
-                <>
-                  <select
-                    className="form-select form-select-sm bg-white text-dark border-secondary"
-                    value={selectedAssuranceSetId}
-                    onChange={(e) => setSelectedAssuranceSetId(e.target.value)}
-                    style={{ width: '280px' }}
-                  >
-                    {linkedSets.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.id} — {s.title}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary"
-                    disabled={!selectedAssuranceSetId}
-                    onClick={() => selectedAssuranceSetId && setCurrentHashView('assurance-sets', selectedAssuranceSetId)}
-                  >
-                    View Assurance Set
-                  </button>
-                  {canCreateAssuranceForThisVessel && (
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary"
-                      disabled={!selectedAssuranceSetId}
-                      onClick={() => selectedAssuranceSetId && handleCreateAssuranceForVessel(selectedAssuranceSetId)}
-                    >
-                      Copy as Template
-                    </button>
-                  )}
-                </>
-              )}
-
-              <input
-                type="text"
-                className="form-control form-control-sm bg-white text-dark border-secondary"
-                placeholder="Search assurance sets..."
-                value={assuranceSearch}
-                onChange={(e) => setAssuranceSearch(e.target.value)}
-                style={{ width: '250px' }}
-              />
-
-              <select
-                className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={assuranceStageFilter}
-                onChange={(e) => setAssuranceStageFilter(e.target.value)}
-                style={{ width: '170px' }}
-              >
-                <option value="ALL">All Stages</option>
-                <option value="Drafting">Drafting</option>
-                <option value="Data Gathering">Data Gathering</option>
-                <option value="Physical Inspection">Inspection</option>
-                <option value="Desktop Assessment">Desktop Assessment</option>
-                <option value="Verification">Verification</option>
-                <option value="Assurance Granted">Assurance Granted</option>
-              </select>
-
-              <select
-                className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={assuranceSortField}
-                onChange={(e) => setAssuranceSortField(e.target.value as any)}
-                style={{ width: '170px' }}
-              >
-                <option value="id">Sort: Set ID</option>
-                <option value="title">Sort: Title</option>
-                <option value="initiatorOrg">Sort: Created By</option>
-                <option value="charterWindow">Sort: Charter Period</option>
-                <option value="stage">Sort: Stage</option>
-                <option value="readinessScore">Sort: Readiness</option>
-              </select>
-
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary text-dark"
-                onClick={() => setAssuranceSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'))}
-                title={`Sort direction: ${assuranceSortDirection === 'asc' ? 'Ascending' : 'Descending'}`}
-              >
-                {assuranceSortDirection === 'asc' ? '↑ Asc' : '↓ Desc'}
-              </button>
-            </div>
-
-            {/* charter is offered only for vessels from other organizations that are free to charter */}
-            {canCreateAssuranceForThisVessel && (
-              <button
-                type="button"
-                className="btn btn-sm btn-primary fw-semibold"
-                onClick={() => handleCreateAssuranceForVessel()}
-              >
-                Create Assurance Set
-              </button>
-            )}
-          </div>
-
-          <div className="card-body p-0">
-            {filteredAssuranceSets.length === 0 ? (
-              <div className="p-4 text-center text-muted">
-                {linkedSets.length === 0 ? (
-                  canCreateAssuranceForThisVessel
-                    ? 'No assurance sets linked to this vessel yet. Use Charter Vessel above to start one.'
-                    : 'No assurance sets linked to this vessel yet.'
-                ) : (
-                  'No assurance sets match the search and filter criteria.'
-                )}
-              </div>
-            ) : (
-              <div className="table-responsive">
-                <table className="table map-table-custom align-middle mb-0">
-                  <thead>
-                    <tr>
-                      <th
-                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                        onClick={() => {
-                          if (assuranceSortField === 'id') setAssuranceSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                          else { setAssuranceSortField('id'); setAssuranceSortDirection('asc'); }
-                        }}
-                      >
-                        Set ID {renderSortIndicator(assuranceSortField, 'id', assuranceSortDirection)}
-                      </th>
-                      <th
-                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                        onClick={() => {
-                          if (assuranceSortField === 'initiatorOrg') setAssuranceSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                          else { setAssuranceSortField('initiatorOrg'); setAssuranceSortDirection('asc'); }
-                        }}
-                      >
-                        Created By {renderSortIndicator(assuranceSortField, 'initiatorOrg', assuranceSortDirection)}
-                      </th>
-                      <th
-                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                        onClick={() => {
-                          if (assuranceSortField === 'charterWindow') setAssuranceSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                          else { setAssuranceSortField('charterWindow'); setAssuranceSortDirection('asc'); }
-                        }}
-                      >
-                        Contract Period {renderSortIndicator(assuranceSortField, 'charterWindow', assuranceSortDirection)}
-                      </th>
-                      <th
-                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                        onClick={() => {
-                          if (assuranceSortField === 'stage') setAssuranceSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                          else { setAssuranceSortField('stage'); setAssuranceSortDirection('asc'); }
-                        }}
-                      >
-                        Stage {renderSortIndicator(assuranceSortField, 'stage', assuranceSortDirection)}
-                      </th>
-                      <th
-                        style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                        onClick={() => {
-                          if (assuranceSortField === 'readinessScore') setAssuranceSortDirection((p) => (p === 'asc' ? 'desc' : 'asc'));
-                          else { setAssuranceSortField('readinessScore'); setAssuranceSortDirection('asc'); }
-                        }}
-                      >
-                        Readiness {renderSortIndicator(assuranceSortField, 'readinessScore', assuranceSortDirection)}
-                      </th>
-                      <th className="text-end">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {assurancePagination.pageItems.map((s) => (
-                      <tr key={s.id}>
-                        <td>
-                          <div className="fw-semibold font-mono-code text-primary">{s.id}</div>
-
-                        </td>
-                        <td className="small">
-                          <div>{s.initiatorOrg}</div>
-                        </td>
-                        <td className="font-mono-code small">
-                          {s.charterWindowStart} &rarr; {s.charterWindowEnd}
-                        </td>
-                        <td>
-                          <span className="badge bg-secondary">{s.stage}</span>
-                        </td>
-                        <td>
-                          <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />
-                        </td>
-                        <td className="text-end">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                            style={{ width: '32px', height: '32px' }}
-                            onClick={() => setCurrentHashView('assurance-sets', s.id)}
-                            title="View"
-                            aria-label="View"
-                          >
-                            <FolderOpen size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <TablePagination {...assurancePagination.controls} />
-          </div>
+        <div data-testid="vessel-scoped-assurance-table">
+          <AssuranceTable
+            vesselId={vessel?.id}
+            defaultTab="organization"
+            onSelectSet={(set) => setCurrentHashView('assurance-sets', set.id)}
+            onInitiateSet={
+              canCreateAssuranceForThisVessel
+                ? () => handleCreateAssuranceForVessel()
+                : undefined
+            }
+          />
         </div>
       )}
 
