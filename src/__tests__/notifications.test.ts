@@ -96,8 +96,12 @@ describe('inbox filters', () => {
   });
 
   it('generates the next id in sequence for the type category', () => {
+    const highest = MOCK_NOTIFICATIONS.reduce((max, n) => {
+      const seq = Number(n.id.split('-').pop());
+      return Number.isFinite(seq) && seq > max ? seq : max;
+    }, 0);
     expect(generateNotificationId(MOCK_NOTIFICATIONS, 'capa_reinspection')).toBe(
-      `MAP-NTF-${new Date().getFullYear()}-CAPA-${String(MOCK_NOTIFICATIONS.length + 1).padStart(5, '0')}`,
+      `MAP-NTF-${new Date().getFullYear()}-CAPA-${String(highest + 1).padStart(5, '0')}`,
     );
   });
 
@@ -127,7 +131,7 @@ describe('row actions', () => {
     expect(getNotificationAction(byId('MAP-NTF-2026-ASRQ-00009'), ctx)).toMatchObject({
       label: 'Open Set',
       view: 'assurance-sets',
-      entityId: 'AS-01-V008',
+      entityId: 'AS-2026-001',
       disabledReason: undefined,
     });
   });
@@ -136,7 +140,7 @@ describe('row actions', () => {
     expect(getNotificationAction(byId('MAP-NTF-2026-ASGN-00004'), ctx)).toMatchObject({
       label: 'Review Documents',
       view: 'assurance-sets',
-      entityId: 'AS-SBE-010-V001',
+      entityId: 'AS-2026-010',
     });
     expect(getNotificationAction(byId('MAP-NTF-2026-ASGN-00008'), ctx)).toMatchObject({
       label: 'Upload Documents',
@@ -443,10 +447,12 @@ describe('store: workflow notifications', () => {
       .notifications.filter((n) => n.assuranceSetId === 'AS-NTF-TEST-002' && n.type === 'stakeholder_assigned');
     expect(created.map((n) => [n.recipientUserId, n.assignedRole]).sort()).toEqual([
       ['USR-102', 'Submitter'],
+      ['USR-104', 'Submitter'],
       ['USR-202', 'Verifier'],
       ['USR-203', 'Inspector'],
       ['USR-204', 'Approver'],
       ['USR-221', 'C Admin'],
+      ['USR-235', 'Submitter'],
     ]);
     expect(created.every((n) => n.type === 'stakeholder_assigned' && n.senderUserId === 'USR-101')).toBe(true);
   });

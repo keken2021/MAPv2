@@ -257,6 +257,7 @@ describe('Target Dates and Date Permission Validation', () => {
       'C Admin',
       'Chevron Australia Pty Ltd',
       clientUser,
+      referenceNow,
     );
     expect(authorizedActions.canChangeDates).toBe(true);
 
@@ -265,6 +266,7 @@ describe('Target Dates and Date Permission Validation', () => {
       'C Admin',
       'Chevron Australia Pty Ltd',
       otherClientUser,
+      referenceNow,
     );
     expect(unauthorizedActions.canChangeDates).toBe(false);
   });

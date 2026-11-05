@@ -271,6 +271,7 @@ export function getAssuranceSetRoleActions(
   persona: UserRolePersona,
   organization?: string,
   user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
+  now: Date = new Date(),
 ): AssuranceSetRoleActions {
   const isAssigned = isAssuranceSetAssignedToPersona(set, persona, organization, user);
 
@@ -281,10 +282,15 @@ export function getAssuranceSetRoleActions(
   const canUpload = (persona === "Administrator" || persona === "Submitter") && isAssigned;
 
   /* the client admin verifies the documents the provider uploads on a set the client admin created */
+  const isClientOrg =
+    !organization ||
+    pilotPartyMatches(organization, set.clientOrg, set.charterer, set.initiatorOrg);
+
   const isClientVerifier =
     persona === "C Admin" &&
     isAssuranceSetCreatedByCAdmin(set) &&
-    isAssigned;
+    isAssigned &&
+    isClientOrg;
 
   /* verifier verifies on assigned sets; service providers (Administrator, Submitter) never verify */
   const canVerify = isClientVerifier || (persona === "Verifier" && isAssigned);
@@ -296,7 +302,7 @@ export function getAssuranceSetRoleActions(
   const canApprove = persona === "Approver" && isAssigned;
 
   /* short-term permission given to named client users to change dates (BRD V4.2 change 6) */
-  const canChangeDates = canUserChangeAssuranceDates(user ?? undefined, set, persona);
+  const canChangeDates = canUserChangeAssuranceDates(user ?? undefined, set, persona, now);
 
   return {
     canManage,

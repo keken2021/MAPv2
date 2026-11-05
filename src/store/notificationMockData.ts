@@ -133,8 +133,20 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     actionedAt: '2026-10-02T06:00:00.000Z',
     assuranceSetId: 'AS-01-V001',
   },
+  {
+    id: 'MAP-NTF-2026-ASGN-00004',
+    type: 'stakeholder_assigned',
+    subject: 'Assigned as Verifier: MV Kimberley Guardian — ERRV Charter Vetting',
+    recipientUserId: 'USR-201',
+    senderUserId: 'USR-101',
+    senderName: 'K. Osei',
+    status: 'unread',
+    createdAt: '2026-10-08T23:50:00.000Z',
+    assuranceSetId: 'AS-2026-010',
+    assignedRole: 'Verifier',
+  },
 
-  /* s. basin - client admin */
+  /* s. basin - client admin */
   {
     id: 'MAP-NTF-2026-ASGN-00005',
     type: 'stakeholder_assigned',
@@ -147,7 +159,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     readAt: '2026-10-05T04:30:00.000Z',
     assuranceSetId: 'AS-SBE-012-V001',
     assignedRole: 'Verifier',
-  },
+  },
 
   /* m. chen - submitter */
   {
@@ -177,9 +189,59 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     assuranceSetId: 'AS-2026-001',
     documentId: 'MAP-VES-2026-STAT-00001',
     vesselName: 'MV Pacific Endeavour',
-  },
+  },
+  {
+    id: 'MAP-NTF-2026-ASGN-00008',
+    type: 'stakeholder_assigned',
+    subject: 'Assigned as Submitter: Southern Basin Platform Support Charter',
+    recipientUserId: 'USR-102',
+    senderUserId: 'USR-201',
+    senderName: 'S. Basin',
+    projectId: 'MAP-PROJ-2026-MARINE-009',
+    projectName: 'Southern Basin Platform Support Charter',
+    status: 'read',
+    createdAt: '2026-10-04T02:45:00.000Z',
+    readAt: '2026-10-04T03:20:00.000Z',
+    assuranceSetId: 'AS-2026-005',
+    assignedRole: 'Submitter',
+  },
+  {
+    id: 'MAP-NTF-2026-ASRQ-00009',
+    type: 'assurance_set_request',
+    subject: 'Assurance set creation requested',
+    message: 'Create the vessel set for the hull cleaning contractor engagement.',
+    recipientUserId: 'USR-102',
+    senderUserId: 'USR-101',
+    senderName: 'K. Osei',
+    projectId: 'MAP-PROJ-2026-MARINE-008',
+    projectName: 'Pacific Endeavour — Hull Fouling Removal',
+    status: 'actioned',
+    createdAt: '2026-09-28T04:00:00.000Z',
+    readAt: '2026-09-28T04:35:00.000Z',
+    actionedAt: '2026-09-28T05:10:00.000Z',
+    request: {
+      assigneeUserId: 'USR-102',
+      assigneeName: 'M. Chen',
+      clientOrganization: 'Northwind Marine Pty Ltd',
+      suggestedScope: 'Vessel',
+      createdAssuranceSetId: 'AS-2026-001',
+    },
+  },
 
-  /* a. fontaine - verifier */
+  /* a. fontaine - verifier */
+  {
+    id: 'MAP-NTF-2026-VERF-00011',
+    type: 'review_requested',
+    subject: 'Review requested: Schilling ROV System Mobilization Assurance',
+    message: 'Mobilization dossier uploaded and ready for statutory review.',
+    recipientUserId: 'USR-202',
+    senderUserId: 'USR-101',
+    senderName: 'K. Osei',
+    status: 'read',
+    createdAt: '2026-10-05T12:15:00.000Z',
+    readAt: '2026-10-05T13:00:00.000Z',
+    assuranceSetId: 'AS-2026-008',
+  },
   {
     id: 'MAP-NTF-2026-VERF-00012',
     type: 'review_requested',
@@ -207,7 +269,22 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     createdAt: '2026-10-08T08:20:00.000Z',
     capaId: 'CAPA-120',
     vesselName: 'MV Pacific Endeavour',
-  },
+  },
+  {
+    id: 'MAP-NTF-2026-ASGN-00014',
+    type: 'stakeholder_assigned',
+    subject: 'Assigned as Inspector: Southern Basin Platform Support Charter',
+    recipientUserId: 'USR-203',
+    senderUserId: 'USR-201',
+    senderName: 'S. Basin',
+    projectId: 'MAP-PROJ-2026-MARINE-009',
+    projectName: 'Southern Basin Platform Support Charter',
+    status: 'unread',
+    createdAt: '2026-10-07T00:40:00.000Z',
+    assuranceSetId: 'AS-2026-005',
+    vesselName: 'MV Atlantic Ocean',
+    assignedRole: 'Inspector',
+  },
   {
     id: 'MAP-NTF-2026-CAPA-00015',
     type: 'capa_reinspection',
@@ -234,7 +311,21 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     status: 'unread',
     createdAt: '2026-10-08T14:35:00.000Z',
     assuranceSetId: 'AS-2026-001',
-  },
+  },
+  {
+    id: 'MAP-NTF-2026-ASGN-00018',
+    type: 'stakeholder_assigned',
+    subject: 'Assigned as Approver: Inpex Ichthys Inspection',
+    recipientUserId: 'USR-204',
+    senderUserId: 'USR-201',
+    senderName: 'S. Basin',
+    status: 'actioned',
+    createdAt: '2026-09-27T09:00:00.000Z',
+    readAt: '2026-09-27T09:30:00.000Z',
+    actionedAt: '2026-09-27T09:30:00.000Z',
+    assuranceSetId: 'AS-2026-003',
+    assignedRole: 'Approver',
+  },
 
   /* d. vance & c. sterling - meridian marine services */
   {
@@ -262,15 +353,15 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     assignedRole: 'Submitter',
   },
 
-  /* t. jenkins & m. thorne - pacific ocean logistics */
+  /* t. jenkins & m. thorne - pacific ocean logistics */
 
-  /* c. henderson - chevron client admin */
+  /* c. henderson - chevron client admin */
 
-  /* a. vandermeer - shell client admin */
+  /* a. vandermeer - shell client admin */
 
-  /* e. sterling - woodside client admin */
+  /* e. sterling - woodside client admin */
 
-  /* t. nakata - inpex client admin */
+  /* t. nakata - inpex client admin */
 
   /* m. o'connor & h. lindholm - third-party inspectors */
   {
@@ -284,7 +375,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     createdAt: '2026-10-09T05:00:00.000Z',
     assuranceSetId: 'AS-2026-023',
     assignedRole: 'Inspector',
-  },
+  },
 
   /* m. thornton - southern basin approver */
   {

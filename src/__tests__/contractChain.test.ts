@@ -82,6 +82,7 @@ describe('contract chain and organization groups', () => {
       [OIL_CO_ORG, 'Client'],
       [NORTHWIND_ORG, 'Vendor'],
       [XY_MARINE_ORG, 'Third party'],
+      ['NOPSEMA', 'Third party'],
     ]);
   });
 });

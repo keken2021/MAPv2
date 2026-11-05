@@ -56,7 +56,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     classStatusUpdatedAt: NOW,
     complianceStatus: 'Compliant',
     complianceUpdatedAt: NOW,
-  },
+  },
   {
     id: 'EQ-003',
     name: 'Free-Fall Lifeboat #1',
@@ -66,7 +66,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     model: 'FF 6.5',
     parentVesselId: 'VESSEL-001',
     owningOrganization: 'Meridian Marine Services Pty Ltd',
-    complianceReadinessScore: 70,
+    complianceReadinessScore: null,
     imageUrl: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80',
     photos: [
       'https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&w=1000&q=80',
@@ -176,7 +176,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     classStatusUpdatedAt: NOW,
     complianceStatus: 'Compliant',
     complianceUpdatedAt: NOW,
-  },
+  },
   {
     id: 'EQ-010',
     name: 'Survitec Decompression Chamber Spread',

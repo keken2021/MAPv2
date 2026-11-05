@@ -67,7 +67,7 @@ export const EXISTING_ACTIVITIES: AssuranceActivity[] = [
 ];
 
 /** lightweight project catalog entries (primary assets + default template) */
-export const EXISTING_PROJECTS: AssuranceProject[] = [
+export const EXISTING_PROJECTS: AssuranceProject[] = [
 ];
 
 function catalogProjectToSeed(project: AssuranceProject): Project {
@@ -93,7 +93,7 @@ function seededObject(objects: { id: string }[], id: string) {
   return found as (typeof SEEDED_ACTIVITY_OBJECTS)[number];
 }
 
-export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
+export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
   {
     id: 'AS-SBE-012-V001',
     title: 'MV Atlantic Ocean — Platform Alpha Supply Vetting',
@@ -360,7 +360,7 @@ export const PROJECT_SEED_ASSURANCE_SETS: AssuranceSet[] = [
       },
     ],
     createdByPersona: 'Administrator',
-  },
+  },
   {
     id: 'AS-SBE-012-C001',
     title: 'Gulf Security Team — Platform Escort Vetting',
@@ -496,7 +496,7 @@ export const MOCK_PROJECTS: Project[] = [
         addedByPersona: 'Administrator',
       },
     ],
-  },
+  },
   {
     id: 'MAP-PROJ-2026-MARINE-012',
     onHireDate: '2026-10-01',
@@ -586,6 +586,146 @@ export const MOCK_PROJECTS: Project[] = [
         addedByPersona: 'C Admin',
       },
     ],
-  },
+  },
+  {
+    id: 'MAP-PROJ-2026-MARINE-009',
+    onHireDate: '2026-09-15',
+    name: 'Southern Basin Platform Support Charter',
+    projectType: 'Charter / Voyage',
+    requestingOrganization: 'Southern Basin Energy Pty Ltd',
+    clientOperator: 'Southern Basin Energy Pty Ltd',
+    ownerOrganization: 'Southern Basin Energy Pty Ltd',
+    location: 'Carnarvon Basin — Offshore Platform Alpha',
+    description:
+      'Client-managed charter composition for platform supply vessel support operations with nested vessel assurance sub-set.',
+    charterer: 'Southern Basin Energy Pty Ltd',
+    charterWindowStart: '2026-09-15',
+    charterWindowEnd: '2027-09-15',
+    status: 'Assurance In Progress',
+    operatorOrganization: 'Southern Basin Energy Pty Ltd',
+    readinessScore: 70,
+    assetLinks: [
+      {
+        id: 'PAL-004',
+        projectId: 'MAP-PROJ-2026-MARINE-009',
+        assetType: 'Vessel',
+        assetId: 'VESSEL-005',
+        assetName: 'MV Atlantic Ocean',
+        providerOrganization: 'Northwind Marine Pty Ltd',
+        assuranceSetId: 'AS-2026-005',
+        roleInProject: 'Platform supply vessel',
+        addedAt: '2026-09-10T08:00:00Z',
+        addedByPersona: 'C Admin',
+      },
+    ],
+  },
+  {
+    id: 'MAP-PROJ-2026-MARINE-016',
+    name: 'Ichthys Field Maintenance & Offloading Support',
+    projectType: 'Charter / Voyage',
+    requestingOrganization: 'Inpex Operations Australia',
+    clientOperator: 'Inpex Operations Australia',
+    ownerOrganization: 'Inpex Operations Australia',
+    location: 'Browse Basin — Ichthys Explorer CPF',
+    description: 'Field logistics and offloading support charter.',
+    charterer: 'Inpex Operations Australia',
+    riskProfile: 'Standard',
+    workLocationType: 'Offshore',
+    charterWindowStart: '2026-12-01',
+    charterWindowEnd: '2027-12-01',
+    status: 'Assurance In Progress',
+    operatorOrganization: 'Inpex Operations Australia',
+    readinessScore: 40,
+    assetLinks: [
+      {
+        id: 'PAL-016A',
+        projectId: 'MAP-PROJ-2026-MARINE-016',
+        assetType: 'Vessel',
+        assetId: 'VESSEL-005',
+        assetName: 'MV Atlantic Ocean',
+        providerOrganization: 'Northwind Marine Pty Ltd',
+        assuranceSetId: 'AS-2026-027',
+        roleInProject: 'Offloading Support Vessel',
+        addedAt: '2026-10-09T04:00:00Z',
+        addedByPersona: 'C Admin',
+      },
+      {
+        id: 'PAL-016B',
+        projectId: 'MAP-PROJ-2026-MARINE-016',
+        assetType: 'Vessel',
+        assetId: 'VESSEL-003',
+        assetName: 'MV Tasman Pioneer',
+        providerOrganization: 'Northwind Marine Pty Ltd',
+        assuranceSetId: 'AS-2026-003',
+        roleInProject: 'Ichthys field PSV support',
+        addedAt: '2026-10-09T04:05:00Z',
+        addedByPersona: 'C Admin',
+      },
+    ],
+  },
+  {
+    id: 'MAP-PROJ-2026-MARINE-014',
+    name: 'Prelude FLNG Specialized Crew Provision',
+    projectType: 'Crew Provision',
+    requestingOrganization: 'Shell Australia Pty Ltd',
+    clientOperator: 'Shell Australia Pty Ltd',
+    ownerOrganization: 'Shell Australia Pty Ltd',
+    location: 'Browse Basin — Prelude FLNG Facility',
+    description: 'Certified saturation diving and dynamic positioning specialist crew deployment for annual turret maintenance.',
+    charterer: 'Shell Australia Pty Ltd',
+    riskProfile: 'Elevated',
+    workLocationType: 'Mixed',
+    charterWindowStart: '2027-01-15',
+    charterWindowEnd: '2027-07-15',
+    status: 'Draft',
+    operatorOrganization: 'Shell Australia Pty Ltd',
+    readinessScore: 70,
+    assetLinks: [
+      {
+        id: 'PAL-014A',
+        projectId: 'MAP-PROJ-2026-MARINE-014',
+        assetType: 'Crew',
+        assetId: 'CREW-102',
+        assetName: 'Chief Eng. Marcus Sterling',
+        providerOrganization: 'Northwind Marine Pty Ltd',
+        assuranceSetId: 'AS-CRW-102-01',
+        roleInProject: 'Chief Engineer / Technical Lead',
+        addedAt: '2026-10-05T09:00:00Z',
+        addedByPersona: 'C Admin',
+      },
+    ],
+  },
+  {
+    id: 'MAP-PROJ-2026-MARINE-015',
+    name: 'Browse Basin Annual Assurance Campaign',
+    projectType: 'Assurance Campaign',
+    requestingOrganization: 'Woodside Energy Ltd',
+    clientOperator: 'Woodside Energy Ltd',
+    ownerOrganization: 'Woodside Energy Ltd',
+    location: 'Browse Basin — Torosa & Brecknock Fields',
+    description: 'Comprehensive multi-vessel statutory compliance verification and environmental safety campaign.',
+    charterer: 'Woodside Energy Ltd',
+    riskProfile: 'Standard',
+    workLocationType: 'Shoreside',
+    charterWindowStart: '2025-06-01',
+    charterWindowEnd: '2026-05-31',
+    status: 'Closed',
+    operatorOrganization: 'Woodside Energy Ltd',
+    readinessScore: 100,
+    assetLinks: [
+      {
+        id: 'PAL-015A',
+        projectId: 'MAP-PROJ-2026-MARINE-015',
+        assetType: 'Vessel',
+        assetId: 'VESSEL-004',
+        assetName: 'MV Southern Cross',
+        providerOrganization: 'Northwind Marine Pty Ltd',
+        assuranceSetId: 'AS-2026-004',
+        roleInProject: 'Subsea support vessel',
+        addedAt: '2025-05-20T08:00:00Z',
+        addedByPersona: 'C Admin',
+      },
+    ],
+  },
   OIL_CO_PILOT_PROJECT,
 ];

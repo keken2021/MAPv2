@@ -3742,6 +3742,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                               <div className="fw-semibold text-dark">
                                                 {req.title}
                                                 {renderRowStatusBadge(req, docView, canViewDoc, true, groupTasks.length)}
+                                                {docView?.isLocked && renderVersionBadge(req, docView, canViewDoc)}
                                               </div>
                                               {renderTaskPlacement(req)}
                                             </div>
@@ -3915,6 +3916,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                       {partyName}
                                                     </span>
                                                     {renderRowStatusBadge(partyTask, partyDocView, canViewPartyDoc, false, 0)}
+                                                    {partyDocView?.isLocked && renderVersionBadge(partyTask, partyDocView, canViewPartyDoc)}
                                                   </div>
                                                 </div>
                                               </td>
@@ -4057,6 +4059,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                               <div className="fw-semibold text-dark">
                                                 {req.title}
                                                 {renderRowStatusBadge(req, docView, canViewDoc, false, 0)}
+                                                {docView?.isLocked && renderVersionBadge(req, docView, canViewDoc)}
                                               </div>
                                             </div>
                                           </div>
