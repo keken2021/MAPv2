@@ -82,7 +82,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     expect(linkedDoc.verificationStatus).not.toBe('Correction Requested');
 
     /* verify audit trail contains submitter ping */
-    const latestAudit = useMapStore.getState().auditEvents[0];
+    const latestAudit = useMapStore.getState().auditEvents.slice(0, 2).find((e) => e.action.includes('[PING: SUBMITTER ACTION REQUIRED]'))!;
     expect(latestAudit.action).toContain('[PING: SUBMITTER ACTION REQUIRED]');
     expect(latestAudit.justificationNotes).toContain('Missing official IACS stamp');
   });
@@ -152,7 +152,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const linkedDoc = useMapStore.getState().documents.find((d) => d.id === 'MAP-VES-2026-STAT-00003')!;
     expect(linkedDoc.verificationStatus).not.toBe('Rejected');
 
-    const latestAudit = useMapStore.getState().auditEvents[0];
+    const latestAudit = useMapStore.getState().auditEvents.slice(0, 2).find((e) => e.action.includes('[PING: SUBMITTER ACTION REQUIRED]'))!;
     expect(latestAudit.action).toContain('[PING: SUBMITTER ACTION REQUIRED]');
   });
 

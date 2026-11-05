@@ -687,6 +687,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(() => initialTab || parseTabFromUrl());
   const [showBackToTasks, setShowBackToTasks] = useState<boolean>(false);
+  /* the Tasks pane mounts on first visit and then stays mounted, so its search, filters and page survive tab changes */
+  const [tasksPaneMounted, setTasksPaneMounted] = useState<boolean>(activeTab === 'tasks');
+  useEffect(() => {
+    if (activeTab === 'tasks') setTasksPaneMounted(true);
+  }, [activeTab]);
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(() => new Set());
   const [expandedReqIds, setExpandedReqIds] = useState<Set<string>>(() => new Set());
   const [isEmptySectionsExpanded, setIsEmptySectionsExpanded] = useState<boolean>(false);
@@ -4362,22 +4367,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       )}
 
       {/* Tab: Tasks */}
+      {tasksPaneMounted && (
       <div
         style={{ display: activeTab === 'tasks' ? 'flex' : 'none' }}
         className="flex-column gap-3"
         data-testid="assurance-detail-tasks-tab-pane"
       >
-        {/* {sectionSummaries.length > 0 && (
-          <div className="card map-card-custom">
-            <div className="card-header d-flex align-items-center gap-2 p-3 bg-white">
-              <span className="fw-bold text-dark">Task sections</span>
-            </div>
-            <div className="card-body border-top">
-              <div className="small text-secondary mb-2">Open tasks and certificates in each section. Sections with three or more tasks still open are highlighted.</div>
-              <TaskSectionCards set={taskSectionsSet} />
-            </div>
-          </div>
-        )} */}
         <ProjectTasksTable
           sets={assuranceSet ? [assuranceSet] : []}
           scope={{ type: 'set', id: assuranceSet?.id || '' }}
@@ -4391,6 +4386,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
           }}
         />
       </div>
+      )}
 
       {/* Bottom Row: Requirements Register Table taking full 100% width across two columns */}
 
