@@ -453,16 +453,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       case 'equipment':
         list = equipment.map(equipmentToAssuranceObject);
         break;
-      case 'procedure':
+      case 'activity':
         list = [
-          ...storeAssuranceObjects.filter((o) => o.type === 'procedure'),
-          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'procedure'),
-        ];
-        break;
-      case 'method':
-        list = [
-          ...storeAssuranceObjects.filter((o) => o.type === 'method'),
-          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'method'),
+          ...storeAssuranceObjects.filter((o) => o.type === 'activity'),
+          ...SEEDED_OPERATIONAL_OBJECTS.filter((o) => o.type === 'activity'),
         ];
         break;
       default:
@@ -1651,8 +1645,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           toSentenceCase(getSectionTitle(scope, scope === 'Crew' ? 'Crew directory documents' : `${scope} documents`)),
         ])
       ),
-      'sec-procedure': toSentenceCase(getSectionTitle('procedure', 'Procedures')),
-      'sec-method': toSentenceCase(getSectionTitle('method', 'Methods')),
+      'sec-activity': toSentenceCase(getSectionTitle('activity', 'Activities')),
       ...Object.fromEntries(
         activeCustomSections.map((sec) => [
           sec.id,
@@ -2142,8 +2135,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               toSentenceCase(getSectionTitle(scope, scope === 'Crew' ? 'Crew directory documents' : `${scope} documents`)),
             ])
           ),
-          'sec-procedure': toSentenceCase(getSectionTitle('procedure', 'Procedures')),
-          'sec-method': toSentenceCase(getSectionTitle('method', 'Methods')),
+          'sec-activity': toSentenceCase(getSectionTitle('activity', 'Activities')),
           ...Object.fromEntries(
             activeCustomSections.map((sec) => [
               sec.id,
@@ -3309,7 +3301,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       Covered Assurance Objects ({selectedAssuranceObjects.length})
                     </h5>
                     <div className="text-muted small mt-0.5">
-                      Add every vessel, crew member, piece of equipment, procedure, or method this set covers.
+                      Add every vessel, crew member, piece of equipment, or activity this set covers.
                     </div>
                   </div>
                   <div className="d-flex align-items-center gap-2">
@@ -3418,8 +3410,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                     <span className={`badge ${obj.type === 'vessel' ? 'bg-primary text-white' :
                                       obj.type === 'person' ? 'bg-success text-white' :
                                         obj.type === 'equipment' ? 'bg-warning text-dark' :
-                                          obj.type === 'procedure' ? 'bg-info text-dark' :
-                                            obj.type === 'method' ? 'bg-secondary text-white' : 'bg-light text-dark border'
+                                          obj.type === 'activity' ? 'bg-info text-dark' : 'bg-light text-dark border'
                                       } text-capitalize font-mono-code`}>
                                       {obj.type}
                                     </span>
@@ -3489,8 +3480,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         <option value="vessel">Vessel</option>
                         <option value="person">Person / Crew</option>
                         <option value="equipment">Equipment</option>
-                        <option value="procedure">Procedure</option>
-                        <option value="method">Method</option>
+                        <option value="activity">Activity</option>
                       </select>
                     </div>
                     <div className="col-12 col-md-9">
@@ -3565,8 +3555,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                                       <span className={`badge ${obj.type === 'vessel' ? 'bg-primary text-white' :
                                         obj.type === 'person' ? 'bg-success text-white' :
                                           obj.type === 'equipment' ? 'bg-warning text-dark' :
-                                            obj.type === 'procedure' ? 'bg-info text-dark' :
-                                              obj.type === 'method' ? 'bg-secondary text-white' : 'bg-light text-dark border'
+                                            obj.type === 'activity' ? 'bg-info text-dark' : 'bg-light text-dark border'
                                         } text-capitalize font-mono-code`}>
                                         {obj.type}
                                       </span>
@@ -3636,8 +3625,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           <option value="vessel">Vessel</option>
                           <option value="person">Person / Crew</option>
                           <option value="equipment">Equipment</option>
-                          <option value="procedure">Procedure</option>
-                          <option value="method">Method</option>
+                          <option value="activity">Activity</option>
                         </select>
                       </div>
                       <div className="col-12 col-md-9">
@@ -3711,10 +3699,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               {renderGeneralDocumentsSection()}
 
               {/* Sections per object type with sub-type accordions */}
-              {selectedScopes.length === 0 && selectedAssuranceObjects.filter((o) => o.type === 'procedure' || o.type === 'method').length === 0 ? (
+              {selectedScopes.length === 0 && selectedAssuranceObjects.filter((o) => o.type === 'activity').length === 0 ? (
                 <div className="card border shadow-2xs rounded-3 bg-white">
                   <div className="card-body p-4 text-secondary small">
-                    No standard documents for these objects. Vessels, crew members and equipment bring their required documents here; documents for procedures, methods, documents and organizations are not available yet.
+                    No standard documents for these objects. Vessels, crew members and equipment bring their required documents here; documents for activities, documents and organizations are not available yet.
                   </div>
                 </div>
               ) : (
@@ -3805,41 +3793,22 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       </section>
                     );
                   })}
-                  {selectedAssuranceObjects.filter((o) => o.type === 'procedure').length > 0 && (
+                  {selectedAssuranceObjects.filter((o) => o.type === 'activity').length > 0 && (
                     <section
-                      key="procedure"
+                      key="activity"
                       className="d-flex flex-column gap-3"
-                      aria-labelledby="requirements-heading-procedure"
-                      data-testid="section-object-procedure"
+                      aria-labelledby="requirements-heading-activity"
+                      data-testid="section-object-activity"
                     >
                       <h4
-                        id="requirements-heading-procedure"
-                        className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
-                      >
-                        <FileCheck className="w-5 h-5 text-primary" aria-hidden="true" />
-                        Procedures
-                      </h4>
-                      <div className="card border shadow-2xs rounded-3 bg-white p-4 text-secondary small">
-                        Standard operational procedures and checklists attach automatically on initiation.
-                      </div>
-                    </section>
-                  )}
-                  {selectedAssuranceObjects.filter((o) => o.type === 'method').length > 0 && (
-                    <section
-                      key="method"
-                      className="d-flex flex-column gap-3"
-                      aria-labelledby="requirements-heading-method"
-                      data-testid="section-object-method"
-                    >
-                      <h4
-                        id="requirements-heading-method"
+                        id="requirements-heading-activity"
                         className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
                       >
                         <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
-                        Methods
+                        Activities
                       </h4>
                       <div className="card border shadow-2xs rounded-3 bg-white p-4 text-secondary small">
-                        Standard method statements and towage analyses attach automatically on initiation.
+                        Standard operational procedures, checklists and method statements attach automatically on initiation.
                       </div>
                     </section>
                   )}
