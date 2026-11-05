@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
 import { AssuranceDetailView } from '../views/AssuranceDetailView';
@@ -256,6 +256,52 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
       expect(screen.getAllByText(NORTHWIND_ORG).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Requesting party/i).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Responding party/i).length).toBeGreaterThan(0);
+      unmountDetail();
+    });
+  });
+
+  describe('Scenario 9: Activities section replaces Procedures and Methods in AssuranceDetailView (Task 5401)', () => {
+    it('shows one Activities section on set detail and no Procedures or Methods sections', () => {
+      const testSetId = 'AS-ACTIVITY-DETAIL-TEST';
+      const createdSet = {
+        ...ss01!,
+        id: testSetId,
+        title: 'Aurora Activity Detail Test Set',
+        assuranceObjects: [
+          {
+            id: 'OBJ-ACT-TEST-01',
+            type: 'activity' as const,
+            name: 'Cargo Transfer Loading Procedure',
+            ownerOrganization: 'Northwind Marine Pty Ltd',
+          },
+        ],
+        sections: [
+          { id: 'sec-general', name: 'General documents', order: 0 },
+          { id: 'sec-activity', name: 'Activities', order: 40 },
+        ],
+        requirements: [
+          {
+            id: 'REQ-ACT-01',
+            title: 'Approved Cargo Transfer Checklist',
+            sectionId: 'sec-activity',
+            subtype: 'Activity' as any,
+            category: 'Standard Documents',
+            status: 'Compliant' as const,
+            isMandatory: true,
+            isFulfilled: true,
+            ocrConfidence: 95,
+            verifierStatus: 'Verified' as const,
+          },
+        ],
+      };
+      useMapStore.setState({ assuranceSets: [createdSet as any, ...useMapStore.getState().assuranceSets] });
+
+      const { unmount: unmountDetail } = render(React.createElement(AssuranceDetailView, { setId: testSetId }));
+      const reqTab = screen.getByRole('tab', { name: 'Requirements' });
+      fireEvent.click(reqTab);
+      expect(screen.getAllByText('Activities').length).toBeGreaterThan(0);
+      expect(screen.queryByText('Procedures')).toBeNull();
+      expect(screen.queryByText('Methods')).toBeNull();
       unmountDetail();
     });
   });

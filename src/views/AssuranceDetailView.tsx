@@ -91,7 +91,7 @@ interface RequirementSectionInfo {
   sectionOrder: number;
   isGeneral: boolean;
   isCustom: boolean;
-  scope?: AssuranceSubtype | 'procedure' | 'method';
+  scope?: AssuranceSubtype | 'activity';
 }
 
 function getRequirementSectionInfo(
@@ -137,16 +137,14 @@ function getRequirementSectionInfo(
     }
   }
 
-  let scope: AssuranceSubtype | 'procedure' | 'method' = 'Vessel';
+  let scope: AssuranceSubtype | 'activity' = 'Vessel';
   if (req.subtype) {
     scope = req.subtype;
   } else if (req.sectionId?.startsWith('sec-')) {
     const slug = req.sectionId.replace('sec-', '').toLowerCase();
     if (slug === 'crew') scope = 'Crew';
     else if (slug === 'equipment') scope = 'Equipment';
-    else if (slug === 'activity') scope = 'Activity';
-    else if (slug === 'procedure') scope = 'procedure';
-    else if (slug === 'method') scope = 'method';
+    else if (slug === 'activity' || slug === 'procedure' || slug === 'method') scope = 'activity';
     else if (slug === 'vessel') scope = 'Vessel';
   } else {
     const cat = req.category || '';
@@ -154,12 +152,8 @@ function getRequirementSectionInfo(
       scope = 'Crew';
     } else if (/equipment|lifting|crane|fmea/i.test(cat)) {
       scope = 'Equipment';
-    } else if (/operational|risk|simops|mooring|emergency/i.test(cat)) {
-      scope = 'Activity';
-    } else if (/procedure/i.test(cat)) {
-      scope = 'procedure';
-    } else if (/method/i.test(cat)) {
-      scope = 'method';
+    } else if (/operational|risk|simops|mooring|emergency|procedure|method/i.test(cat)) {
+      scope = 'activity';
     } else {
       scope = 'Vessel';
     }
@@ -181,11 +175,7 @@ function getRequirementSectionInfo(
         ? 'Crew directory documents'
         : scope === 'Equipment'
           ? 'Equipment documents'
-          : scope === 'Activity'
-            ? 'Activity documents'
-            : scope === 'procedure'
-              ? 'Procedures'
-              : 'Methods';
+          : 'Activities';
 
   const defaultOrder =
     scope === 'Vessel'
@@ -194,11 +184,7 @@ function getRequirementSectionInfo(
         ? 20
         : scope === 'Equipment'
           ? 30
-          : scope === 'Activity'
-            ? 40
-            : scope === 'procedure'
-              ? 50
-              : 60;
+          : 40;
 
   return {
     sectionId: secId,
@@ -214,7 +200,7 @@ function getRequirementSubtype(
   req: AssuranceRequirement,
   secInfo: RequirementSectionInfo,
 ): string {
-  if (secInfo.isGeneral || secInfo.isCustom || secInfo.scope === 'procedure' || secInfo.scope === 'method') {
+  if (secInfo.isGeneral || secInfo.isCustom || secInfo.scope === 'activity' || (secInfo.scope as any) === 'Activity') {
     return '';
   }
   return req.category || 'Standard Documents';
@@ -375,9 +361,8 @@ const OBJECT_TYPE_LABELS: Record<string, string> = {
   vessel: 'Vessel',
   person: 'Crew',
   equipment: 'Equipment',
-  procedure: 'Procedure',
+  activity: 'Activity',
   document: 'Document',
-  method: 'Method',
   organization: 'Organization',
 };
 
@@ -1001,18 +986,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       linkedScopes.add('Equipment');
     }
     if (
-      setObjects.some((o) => o.type === 'procedure') ||
-      assuranceSet.subtypes?.some((s) => s.toLowerCase() === 'procedure') ||
-      assuranceSet.requirements?.some((r) => r.subtype?.toLowerCase() === 'procedure')
+      setObjects.some((o) => o.type === 'activity') ||
+      assuranceSet.subtypes?.some((s) => s.toLowerCase() === 'activity') ||
+      assuranceSet.requirements?.some((r) => r.subtype?.toLowerCase() === 'activity')
     ) {
-      linkedScopes.add('Procedure');
-    }
-    if (
-      setObjects.some((o) => o.type === 'method') ||
-      assuranceSet.subtypes?.some((s) => s.toLowerCase() === 'method') ||
-      assuranceSet.requirements?.some((r) => r.subtype?.toLowerCase() === 'method')
-    ) {
-      linkedScopes.add('Method');
+      linkedScopes.add('Activity');
     }
 
     (assuranceSet.sections || []).forEach((sec) => {
@@ -1020,8 +998,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       if (id === 'sec-vessel' || id === 'vessel') linkedScopes.add('Vessel');
       else if (id === 'sec-crew' || id === 'crew') linkedScopes.add('Crew');
       else if (id === 'sec-equipment' || id === 'equipment') linkedScopes.add('Equipment');
-      else if (id === 'sec-procedure' || id === 'procedure') linkedScopes.add('Procedure');
-      else if (id === 'sec-method' || id === 'method') linkedScopes.add('Method');
+      else if (id === 'sec-activity' || id === 'activity' || id === 'sec-procedure' || id === 'procedure' || id === 'sec-method' || id === 'method') linkedScopes.add('Activity');
     });
 
     const objectSectionList: TaskSection[] = [];
@@ -1029,16 +1006,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       Vessel: 10,
       Crew: 20,
       Equipment: 30,
-      Procedure: 40,
-      Method: 50,
+      Activity: 40,
     };
 
-    ['Vessel', 'Crew', 'Equipment', 'Procedure', 'Method'].forEach((scope) => {
+    ['Vessel', 'Crew', 'Equipment', 'Activity'].forEach((scope) => {
       if (!linkedScopes.has(scope)) return;
       const slug = scope.toLowerCase();
       const secId = `sec-${slug}`;
       const declared = assuranceSet.sections?.find((s) => s.id === secId || s.id === slug || s.name.toLowerCase().includes(slug));
-      const defaultName = scope === 'Crew' ? 'Crew directory documents' : scope === 'Procedure' ? 'Procedures' : scope === 'Method' ? 'Methods' : `${scope} documents`;
+      const defaultName = scope === 'Crew' ? 'Crew directory documents' : scope === 'Activity' ? 'Activities' : `${scope} documents`;
       objectSectionList.push({
         id: secId,
         name: toSentenceCase(declared?.name || defaultName),
@@ -1142,7 +1118,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
           sectionTitle: sec.name,
           sectionOrder: sec.order,
           isGeneral: sec.id === 'sec-general',
-          isCustom: !['sec-general', 'sec-vessel', 'sec-crew', 'sec-equipment', 'sec-procedure', 'sec-method'].includes(sec.id),
+          isCustom: !['sec-general', 'sec-vessel', 'sec-crew', 'sec-equipment', 'sec-activity', 'sec-procedure', 'sec-method'].includes(sec.id),
         },
         requirements: [],
       });
@@ -1170,7 +1146,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     const seenGroupKeys = new Set<string>();
 
     for (const sec of sortedSections) {
-      if (sec.info.isGeneral || sec.info.isCustom || sec.info.scope === 'procedure' || sec.info.scope === 'method') {
+      if (sec.info.isGeneral || sec.info.isCustom || sec.info.scope === 'activity' || (sec.info.scope as any) === 'Activity') {
         const sortedSecReqs = [...sec.requirements].sort(sortFn);
         for (const req of sortedSecReqs) {
           const groupKey = getRequirementGroupKey(req);
