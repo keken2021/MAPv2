@@ -33,6 +33,7 @@ import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrph
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
+import { AttachAssuranceSetPreviewModal } from '../components/modals/AttachAssuranceSetPreviewModal';
 import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
 import {
   canAssignStakeholderRole,
@@ -525,6 +526,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   } = useMapStore();
   const [stakeholderError, setStakeholderError] = useState<string | null>(null);
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false);
+  const [isAttachPreviewOpen, setIsAttachPreviewOpen] = useState(false);
   const [isEditingCharterWindow, setIsEditingCharterWindow] = useState(false);
   const [charterStartDraft, setCharterStartDraft] = useState('');
   const [charterEndDraft, setCharterEndDraft] = useState('');
@@ -2029,19 +2031,45 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   const closeAddToProject = () => {
     setIsAddToProjectOpen(false);
+    setIsAttachPreviewOpen(false);
     setTargetProjectId('');
     setAddToProjectError(null);
   };
 
-  const handleAddToProject = () => {
-    const result = attachAssuranceSetToProject(assuranceSet.id, targetProjectId);
+  const handleAddToProjectContinue = () => {
+    if (!targetProjectId) return;
+    setAddToProjectError(null);
+    setIsAddToProjectOpen(false);
+    setIsAttachPreviewOpen(true);
+  };
+
+  const attachTargetProject = projects.find((p) => p.id === targetProjectId) ?? null;
+
+  const handleAttachPreviewConfirm = (
+    _roleInProject: string,
+    charterWindowStart: string,
+    charterWindowEnd: string,
+  ) => {
+    if (!attachTargetProject) return;
+    updateAssuranceSet({
+      ...assuranceSet,
+      charterWindowStart,
+      charterWindowEnd,
+      projectId: attachTargetProject.id,
+      projectName: attachTargetProject.name,
+      charterer: attachTargetProject.clientOperator || attachTargetProject.requestingOrganization,
+    });
+    const result = attachAssuranceSetToProject(assuranceSet.id, attachTargetProject.id);
     if (!result.success) {
       setAddToProjectError(result.message || 'The assurance set could not be added to the project.');
+      setIsAttachPreviewOpen(false);
+      setIsAddToProjectOpen(true);
       return;
     }
-    const projectName = projects.find((p) => p.id === targetProjectId)?.name || targetProjectId;
     closeAddToProject();
-    setProjectToast(`Added to project ${projectName}.`);
+    setProjectToast(
+      `Added to project ${attachTargetProject.name} with Contract Period (${charterWindowStart} to ${charterWindowEnd}).`,
+    );
     setTimeout(() => setProjectToast(null), 3500);
   };
   const canUpload = roleActions.canUpload;
@@ -4720,15 +4748,23 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                   type="button"
                   className="btn btn-sm btn-primary"
                   disabled={!targetProjectId}
-                  onClick={handleAddToProject}
+                  onClick={handleAddToProjectContinue}
                 >
-                  Add to Project
+                  Continue
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <AttachAssuranceSetPreviewModal
+        isOpen={isAttachPreviewOpen && Boolean(attachTargetProject)}
+        onClose={closeAddToProject}
+        assuranceSet={assuranceSet}
+        project={attachTargetProject || { name: '' }}
+        onConfirm={handleAttachPreviewConfirm}
+      />
 
       {shortCertificateConfirm && (
         <>
