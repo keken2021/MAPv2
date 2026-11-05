@@ -5,7 +5,7 @@
 */
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Users, UserMinus, RotateCcw, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search, Download } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, ChevronDown, ChevronRight, Users, UserMinus, RotateCcw, FolderOpen, FileCheck, FileText, Lock, RefreshCw, Upload, Pencil, Calendar, Key, ShieldCheck, Plus, Trash2, Eye, Search } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
@@ -80,6 +80,7 @@ import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
 import { getValidityInContractPeriod } from '../utils/expiryPolicy';
 import { EmptyState } from '../components/common/EmptyState';
+import { ListToolbar } from '../components/common/ListToolbar';
 import { AuditEventTarget, AuditTrailEvent, formatAuditTarget, auditEventMatchesSearch } from '../types/audit';
 import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 
@@ -3041,35 +3042,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       {/* Tab: Objects */}
       {activeTab === 'objects' && (
         <div className="card map-card-custom">
-          <div className="p-3 border-bottom">
-            <div className="row g-2 align-items-center">
-              <div className="col-12 col-md-5">
-                <div className="input-group">
-                  <span className="input-group-text bg-white border-end-0 text-muted">
-                    <Search size={15} />
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control border-start-0 ps-0 bg-white text-dark"
-                    placeholder="Search objects..."
-                    value={objectSearch}
-                    onChange={(e) => setObjectSearch(e.target.value)}
-                    aria-label="Search objects"
-                  />
-                  {objectSearch && (
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary border-start-0"
-                      onClick={() => setObjectSearch('')}
-                      aria-label="Clear search"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <ListToolbar
+            searchValue={objectSearch}
+            onSearchChange={setObjectSearch}
+            searchPlaceholder="Search objects..."
+            className="border-bottom"
+          />
 
           <div className="table-responsive">
             <table className="table map-table-custom align-middle mb-0" data-testid="assurance-objects-table">
@@ -4476,37 +4454,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       {/* Tab: Audit Trail */}
       {activeTab === 'audit' && (
         <div className="card map-card-custom p-4">
-          <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3 mb-3">
-            <div>
-              <h5 className="fw-bold text-dark mb-1">Audit Trail</h5>
-              <div className="small text-secondary">
-                Immutable ledger of changes to this assurance set, its tasks, and target dates.
-              </div>
+          <div className="mb-3">
+            <h5 className="fw-bold text-dark mb-1">Audit Trail</h5>
+            <div className="small text-secondary">
+              Immutable ledger of changes to this assurance set, its tasks, and target dates.
             </div>
-            {setAuditEvents.length > 0 && (
-              <div className="d-flex align-items-center gap-2">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                  onClick={handleAuditExportCsv}
-                  title="Export audit trail to CSV"
-                  aria-label="Export CSV"
-                >
-                  <Download size={14} />
-                  <span>CSV</span>
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                  onClick={handleAuditExportPdf}
-                  title="Export audit trail to PDF"
-                  aria-label="Export PDF"
-                >
-                  <Download size={14} />
-                  <span>PDF</span>
-                </button>
-              </div>
-            )}
           </div>
           {setAuditEvents.length === 0 ? (
             <EmptyState
@@ -4515,79 +4467,35 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             />
           ) : (
             <>
-              {/* Card Header Toolbar */}
-              <div className="p-3 bg-light border rounded mb-3">
-                <div className="row g-2 align-items-center">
-                  <div className="col-12 col-md-5">
-                    <div className="input-group input-group-sm">
-                      <span className="input-group-text bg-white border-end-0 text-muted">
-                        <Search size={14} />
-                      </span>
-                      <input
-                        type="text"
-                        className="form-control border-start-0 ps-0 bg-white text-dark"
-                        placeholder="Search audit trail..."
-                        value={auditSearchTerm}
-                        onChange={(e) => setAuditSearchTerm(e.target.value)}
-                        aria-label="Search audit trail"
-                      />
-                      {auditSearchTerm && (
-                        <button
-                          type="button"
-                          className="btn btn-outline-secondary border-start-0"
-                          onClick={() => setAuditSearchTerm('')}
-                          aria-label="Clear search"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-4">
-                    <div className="d-flex align-items-center gap-2">
-                      <label htmlFor="audit-category-select" className="small text-secondary text-nowrap mb-0">
-                        Category:
-                      </label>
-                      <select
-                        id="audit-category-select"
-                        className="form-select form-select-sm bg-white text-dark border-secondary"
-                        value={auditCategoryFilter}
-                        onChange={(e) => setAuditCategoryFilter(e.target.value as AuditMovementCategory)}
-                        aria-label="Filter by category"
-                      >
-                        <option value="all">All categories</option>
-                        <option value="stage_workflow">Stage &amp; Workflow</option>
-                        <option value="docs_reqs">Documents &amp; Requirements</option>
-                        <option value="stakeholders_parties">Stakeholders &amp; Parties</option>
-                        <option value="tasks_findings">Tasks &amp; Findings</option>
-                        <option value="dates_scope">Dates &amp; Scope</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="col-12 col-md-3 d-flex justify-content-md-end gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                      onClick={handleAuditExportCsv}
-                      title="Export audit trail to CSV"
-                      aria-label="Export CSV"
-                    >
-                      <Download size={14} />
-                      <span>CSV</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
-                      onClick={handleAuditExportPdf}
-                      title="Export audit trail to PDF"
-                      aria-label="Export PDF"
-                    >
-                      <Download size={14} />
-                      <span>PDF</span>
-                    </button>
-                  </div>
+              <ListToolbar
+                searchValue={auditSearchTerm}
+                onSearchChange={setAuditSearchTerm}
+                searchPlaceholder="Search audit trail..."
+                onExportCsv={handleAuditExportCsv}
+                onExportPdf={handleAuditExportPdf}
+                className="border rounded mb-3 px-0"
+              >
+                <div className="d-flex align-items-center gap-2">
+                  <label htmlFor="audit-category-select" className="small text-secondary text-nowrap mb-0">
+                    Category:
+                  </label>
+                  <select
+                    id="audit-category-select"
+                    className="form-select form-select-sm bg-white text-dark border-secondary"
+                    style={{ minWidth: '180px' }}
+                    value={auditCategoryFilter}
+                    onChange={(e) => setAuditCategoryFilter(e.target.value as AuditMovementCategory)}
+                    aria-label="Filter by category"
+                  >
+                    <option value="all">All categories</option>
+                    <option value="stage_workflow">Stage &amp; Workflow</option>
+                    <option value="docs_reqs">Documents &amp; Requirements</option>
+                    <option value="stakeholders_parties">Stakeholders &amp; Parties</option>
+                    <option value="tasks_findings">Tasks &amp; Findings</option>
+                    <option value="dates_scope">Dates &amp; Scope</option>
+                  </select>
                 </div>
-              </div>
+              </ListToolbar>
 
               <div className="table-responsive">
                 <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.8rem' }}>

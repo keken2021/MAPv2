@@ -692,8 +692,14 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     render(<AssuranceDetailView setId={testSetId} />);
     fireEvent.click(screen.getByRole('tab', { name: /audit trail/i }));
 
-    const csvBtn = screen.getAllByRole('button', { name: /^export csv$/i })[0];
-    fireEvent.click(csvBtn);
+    // Audit tab keeps a single Export control (CSV/PDF live in the menu)
+    const exportButtons = screen.getAllByRole('button', { name: /^export options$/i });
+    expect(exportButtons).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /^export csv$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^export pdf$/i })).toBeNull();
+
+    fireEvent.click(exportButtons[0]);
+    fireEvent.click(screen.getByRole('menuitem', { name: /^csv$/i }));
     expect(logExportSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         screen: 'Assurance set detail - Audit',
@@ -702,8 +708,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       }),
     );
 
-    const pdfBtn = screen.getAllByRole('button', { name: /^export pdf$/i })[0];
-    fireEvent.click(pdfBtn);
+    fireEvent.click(screen.getByRole('button', { name: /^export options$/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /^pdf$/i }));
     expect(logExportSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         screen: 'Assurance set detail - Audit',
