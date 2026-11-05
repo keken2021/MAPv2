@@ -90,7 +90,7 @@ describe('Assurance set parties - Role ticks start empty and reviewer segregatio
     expect(responderInspector.title).toBe('The responding party cannot be inspector.');
 
     expect(responderApprover.disabled).toBe(true);
-    expect(responderApprover.title).toBe('The responding party cannot be approver.');
+    expect(responderApprover.title).toBe('The provider cannot approve its own set. Choose the client or a third party.');
   });
 
   it('segregation of duties: an object owner cannot verify or approve its own objects', () => {

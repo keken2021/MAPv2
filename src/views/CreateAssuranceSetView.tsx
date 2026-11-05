@@ -5,6 +5,7 @@
 */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { PartyRoleErrors } from '../components/wizards/PartyRoleErrors';
 import { useMapStore } from '../store/useMapStore';
 import {
   AssuranceSet,
@@ -3028,6 +3029,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <span className="badge bg-light text-dark border">Pre-filled from request</span>
                     </div>
                   )}
+                  <PartyRoleErrors requestingParty={fieldErrors.requestingParty} respondingParty={fieldErrors.respondingParty} />
                   {/* Verification & Governance Stages */}
                   <div className="p-3 bg-light border rounded-3 mb-3" data-testid="card-governance-stages">
                     <div className="mb-2">
