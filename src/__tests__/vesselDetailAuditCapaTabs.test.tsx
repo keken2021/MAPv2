@@ -60,7 +60,7 @@ describe('vessel detail audit and capa tabs', () => {
     }
   });
 
-  it('lists only the vessel audit events through AuditTrailTable on History', () => {
+  it('lists only the vessel audit events through AuditTrailTable on Audit', () => {
     const vessel =
       MOCK_VESSELS.find((v) =>
         MOCK_AUDIT_TRAIL.some(
@@ -79,7 +79,7 @@ describe('vessel detail audit and capa tabs', () => {
     );
 
     render(<VesselDetailView vesselId={vessel.id} />);
-    fireEvent.click(screen.getByRole('tab', { name: /history/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /^audit$/i }));
 
     const table = screen.getByTestId('vessel-scoped-audit-table');
     expect(table).toBeInTheDocument();
@@ -89,7 +89,6 @@ describe('vessel detail audit and capa tabs', () => {
       expect(within(table).getByText(linked[0].action)).toBeInTheDocument();
     }
     if (other && linked.length > 0 && !linked.some((e) => e.id === other.id)) {
-      // Other vessel's unique action should not appear when distinct
       const otherOnlyAction = !linked.some((e) => e.action === other.action);
       if (otherOnlyAction) {
         expect(within(table).queryByText(other.action)).toBeNull();
