@@ -14,7 +14,7 @@ import {
 } from '../types/vessel';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
-import { formatMaritimeDate, getDaysUntilExpiry, getStatusDisplayLabel } from '../utils/formatters';
+import { formatMaritimeDate, getDaysUntilExpiry } from '../utils/formatters';
 import {
   getDemoSessionContext,
   getRoleDisplayLabel,

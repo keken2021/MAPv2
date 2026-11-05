@@ -81,6 +81,7 @@ import { TablePagination } from '../components/common/TablePagination';
 import { getValidityInContractPeriod } from '../utils/expiryPolicy';
 import { EmptyState } from '../components/common/EmptyState';
 import { ListToolbar } from '../components/common/ListToolbar';
+import { StatusBadge } from '../components/common/StatusBadge';
 import { AuditEventTarget, AuditTrailEvent, formatAuditTarget, auditEventMatchesSearch } from '../types/audit';
 import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
 
@@ -2109,25 +2110,21 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   const renderRequirementStatus = (req: AssuranceRequirement, canViewDoc: boolean = true) => {
     if (!canViewDoc || (!req.documentId && !req.linkedDocumentId)) {
-      return (
-        <span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
-          Awaiting Upload
-        </span>
-      );
+      return <StatusBadge value="Awaiting Upload" tone="neutral" />;
     }
     const isSetApproved = assuranceSet.stage === 'Approved' || assuranceSet.approverDecision === 'Approved';
 
     if (req.verifierStatus === 'Verified') {
       if (isSetApproved) {
-        return <span className="badge bg-success text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Approved</span>;
+        return <StatusBadge value="Approved" />;
       }
-      return <span className="badge bg-info text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Verified</span>;
+      return <StatusBadge value="Verified" />;
     }
     if (req.verifierStatus === 'Correction Requested') {
-      return <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Returned for Correction</span>;
+      return <StatusBadge value="Returned for Correction" />;
     }
     if (req.verifierStatus === 'Rejected') {
-      return <span className="badge bg-danger text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>Rejected</span>;
+      return <StatusBadge value="Rejected" />;
     }
     const isInspectionDoc =
       (req.category as string).toLowerCase().includes('inspection') ||
@@ -2136,14 +2133,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       req.title.toLowerCase().includes('audit');
 
     if (isInspectionDoc) {
-      return <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>To Inspect</span>;
+      return <StatusBadge value="To Inspect" tone="warning" />;
     }
 
-    return (
-      <span className="badge bg-primary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }}>
-        Submitted
-      </span>
-    );
+    return <StatusBadge value="Submitted" tone="neutral" />;
   };
 
   const closeUploadModal = () => {
@@ -2192,24 +2185,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     if (req.exemption) {
       return (
         <span
-          className="badge bg-warning text-dark ms-1.5"
-          style={{ fontSize: '0.65rem' }}
+          className="ms-1.5"
           data-testid={`badge-exempted-${req.id}`}
           title={`Exempted by ${req.exemption.grantedBy}: ${req.exemption.reason} (New date: ${formatMaritimeDate(req.exemption.newDate)})`}
         >
-          Exempted ({formatMaritimeDate(req.exemption.newDate)})
+          <StatusBadge value={`Exempted (${formatMaritimeDate(req.exemption.newDate)})`} tone="warning" />
         </span>
       );
     }
     if (isShared && sharedCount > 1) {
       return (
-        <span
-          className="badge bg-secondary-subtle text-secondary border ms-1.5"
-          style={{ fontSize: '0.65rem' }}
-          data-testid="badge-shared-requirement"
-          title="Requirement shared across multiple parties"
-        >
-          Shared ({sharedCount} parties)
+        <span className="ms-1.5" data-testid="badge-shared-requirement" title="Requirement shared across multiple parties">
+          <StatusBadge value={`Shared (${sharedCount} parties)`} tone="neutral" />
         </span>
       );
     }
@@ -2217,12 +2204,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       const validity = getValidityInContractPeriod(docView.doc.expiryDate, assuranceSet);
       if (validity.state === 'lapsed') {
         return (
-          <span
-            className="badge border bg-danger-subtle text-danger-emphasis border-danger-subtle ms-1.5"
-            style={{ fontSize: '0.65rem' }}
-            data-testid={`badge-lapsed-${req.id}`}
-          >
-            Lapsed
+          <span className="ms-1.5" data-testid={`badge-lapsed-${req.id}`}>
+            <StatusBadge value="Lapsed" tone="danger" />
           </span>
         );
       }
@@ -2237,13 +2220,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     if (validity.state === 'unknown') return <span className="text-muted small">—</span>;
     const tone =
       validity.state === 'valid_through_period'
-        ? 'bg-success-subtle text-success-emphasis border-success-subtle'
+        ? 'success'
         : validity.state === 'lapsed'
-          ? 'bg-danger-subtle text-danger-emphasis border-danger-subtle'
-          : 'bg-warning-subtle text-warning-emphasis border-warning-subtle';
+          ? 'danger'
+          : 'warning';
     return (
-      <span className={`badge border ${tone}`} data-testid={`badge-validity-${req.id}`}>
-        {validity.label}
+      <span data-testid={`badge-validity-${req.id}`}>
+        <StatusBadge value={validity.label} tone={tone} />
       </span>
     );
   };
@@ -3833,21 +3816,21 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                             const doneCount = groupTasks.filter((t) => t.isFulfilled || t.verifierStatus === 'Verified' || (assuranceSet.verificationRequired === false && Boolean(t.documentId || t.linkedDocumentId))).length;
                                             if (allDone) {
                                               return (
-                                                <span className="badge bg-success text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
-                                                  Verified
+                                                <span data-testid="shared-req-status">
+                                                  <StatusBadge value="Verified" />
                                                 </span>
                                               );
                                             }
                                             if (doneCount > 0) {
                                               return (
-                                                <span className="badge bg-warning text-dark px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
-                                                  In Progress ({doneCount}/{groupTasks.length})
+                                                <span data-testid="shared-req-status">
+                                                  <StatusBadge value={`In Progress (${doneCount}/${groupTasks.length})`} tone="warning" />
                                                 </span>
                                               );
                                             }
                                             return (
-                                              <span className="badge bg-secondary text-white px-2.5 py-1.5" style={{ fontSize: '0.75rem' }} data-testid="shared-req-status">
-                                                Pending
+                                              <span data-testid="shared-req-status">
+                                                <StatusBadge value="Pending" />
                                               </span>
                                             );
                                           })()}
@@ -5089,9 +5072,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                   {formatMaritimeDate(req.targetDate || req.exemption?.newDate || assuranceSet.targetDate || assuranceSet.complianceDeadline || '')}
                                 </td>
                                 <td>
-                                  <span className={`badge ${req.isFulfilled ? 'bg-success' : 'bg-secondary'}`}>
-                                    {req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending')}
-                                  </span>
+                                  <StatusBadge
+                                    value={req.verifierStatus || (req.isFulfilled ? 'Approved' : 'Pending')}
+                                  />
                                 </td>
                               </tr>
                             );
