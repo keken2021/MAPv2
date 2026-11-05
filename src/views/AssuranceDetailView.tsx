@@ -2457,6 +2457,31 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       {/* Tab: Details */}
       {activeTab === 'details' && (
         <div className="d-flex flex-column gap-4">
+          {/* Top Section: Stage & Readiness, shown above the assurance set details */}
+          <div className="card map-card-custom p-4">
+            {/* Stage Pipeline Stepper */}
+            <div className="mb-4">
+              <div className="text-uppercase fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                Stage
+              </div>
+              <PipelineStepper
+                currentStage={assuranceSet.stage}
+                readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
+                assuranceSet={assuranceSet}
+                orientation="horizontal"
+                className="border-0 p-0 mb-0 bg-transparent flex-wrap gap-3"
+              />
+            </div>
+
+            {/* Readiness Index */}
+            <div className="pt-3 border-top">
+              <div className="text-secondary text-uppercase fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
+                Readiness
+              </div>
+              <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
+            </div>
+          </div>
+
           <div className="row g-4 align-items-stretch">
           {/* Left: Assurance Set Information & Stakeholder Role Assignments Card */}
           <div className="col-12 col-lg-8 col-md-7 w-100">
@@ -3009,30 +3034,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
           </div>
         </div>
 
-          {/* Bottom Section: Stage & Readiness */}
-          <div className="card map-card-custom p-4">
-            {/* Stage Pipeline Stepper */}
-            <div className="mb-4">
-              <div className="text-uppercase fw-bold text-secondary mb-3" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                Stage
-              </div>
-              <PipelineStepper
-                currentStage={assuranceSet.stage}
-                readinessScore={calculateAssuranceSetReadiness(assuranceSet)}
-                assuranceSet={assuranceSet}
-                orientation="horizontal"
-                className="border-0 p-0 mb-0 bg-transparent flex-wrap gap-3"
-              />
-            </div>
-
-            {/* Readiness Index */}
-            <div className="pt-3 border-top">
-              <div className="text-secondary text-uppercase fw-bold mb-2" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
-                Readiness
-              </div>
-              <ReadinessGauge score={calculateAssuranceSetReadiness(assuranceSet)} size="md" />
-            </div>
-          </div>
         </div>
       )}
 
@@ -4443,7 +4444,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         className="flex-column gap-3"
         data-testid="assurance-detail-tasks-tab-pane"
       >
-        {sectionSummaries.length > 0 && (
+        {/* {sectionSummaries.length > 0 && (
           <div className="card map-card-custom">
             <div className="card-header d-flex align-items-center gap-2 p-3 bg-white">
               <span className="fw-bold text-dark">Task sections</span>
@@ -4453,7 +4454,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
               <TaskSectionCards set={taskSectionsSet} />
             </div>
           </div>
-        )}
+        )} */}
         <ProjectTasksTable
           sets={assuranceSet ? [assuranceSet] : []}
           scope={{ type: 'set', id: assuranceSet?.id || '' }}

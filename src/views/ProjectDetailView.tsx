@@ -637,53 +637,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {activeTab === "assurance" && (
         <div className="d-flex flex-column gap-3">
-          {projectAssuranceSets.some((set) => (set.sections?.length ?? 0) > 0) && (
-            <div className="card map-card-custom">
-              <div className="card-header border-bottom p-3">
-                <div className="fw-bold text-dark">Task Sections</div>
-                <div className="small text-secondary">
-                  Open a set to see its sections. A heavy section has three or more tasks still open.
-                </div>
-              </div>
-              <div className="list-group list-group-flush">
-                {projectAssuranceSets
-                  .filter((set) => (set.sections?.length ?? 0) > 0)
-                  .map((set) => {
-                    const sections = summarizeTaskSections(set);
-                    const open = openSectionSetId === set.id;
-                    const heavyCount = sections.filter((section) => section.heavy).length;
-                    return (
-                      <div key={set.id} className="list-group-item p-0">
-                        <button
-                          type="button"
-                          className="btn btn-link text-decoration-none text-dark w-100 d-flex align-items-center gap-2 p-3 text-start"
-                          aria-expanded={open}
-                          onClick={() => setOpenSectionSetId(open ? null : set.id)}
-                        >
-                          <ChevronDown
-                            size={16}
-                            className="flex-shrink-0"
-                            style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
-                          />
-                          <span className="font-mono-code text-primary">{set.id}</span>
-                          <span className="fw-semibold">{set.title}</span>
-                          <span className="small text-secondary">
-                            {sections.length} {sections.length === 1 ? "section" : "sections"}
-                            {" · "}
-                            {heavyCount} heavy
-                          </span>
-                        </button>
-                        {open && (
-                          <div className="px-3 pb-3">
-                            <TaskSectionCards set={set} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
+         
           <div className="card map-card-custom">
             <ProjectAssuranceStatusTable
               sets={projectAssuranceSets}

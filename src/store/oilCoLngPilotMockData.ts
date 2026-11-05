@@ -1147,6 +1147,27 @@ export const OIL_CO_PILOT_VESSELS: Vessel[] = [
     }),
     ownerOrg: KESTREL_ORG,
   } as Vessel,
+  // Demo bunker barge owned by Oil Company so SS-04 (Bunkering / Fuel Supply) has Oil Company as the owner and provider of its object.
+  {
+    ...pilotVessel({
+      id: "VES-OILCO-BUNKER-BARGE",
+      name: "BB Oilco Bunker Barge 01",
+      imoNumber: "9876139",
+      officialRegNumber: "BB-OC-2026",
+      mmsiNumber: "503812240",
+      callSign: "VJQ7740",
+      status: "Standby",
+      registeredOwner: OIL_CO_ORG,
+      ismCompany: OIL_CO_ORG,
+      technicalManager: OIL_CO_ORG,
+      vesselType: "Offshore Support Vessel (OSV)",
+      vesselSubtype: "Bunker barge",
+      intendedUse: "Fuel bunkering for the Oil Company LNG development",
+      masterName: "Capt. J. Moreno",
+      complianceReadinessScore: 100,
+    }),
+    ownerOrg: OIL_CO_ORG,
+  } as Vessel,
 ];
 
 export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
