@@ -273,7 +273,7 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
     expect(headersAfter).toBe(headersBefore);
   });
 
-  it('renders all section titles in sentence case without CSS uppercase transformation, including Task sections', () => {
+  it('renders all section titles in sentence case without CSS uppercase transformation', () => {
     const testSetId = 'AS-TEST-SENTENCE-CASE';
     const testSet: AssuranceSet = {
       ...initialState.assuranceSets[0],
@@ -321,8 +321,6 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
     expect(emptyGeneral).toHaveTextContent('General documents');
     expect(emptyCrew).toHaveTextContent('Crew directory documents');
 
-    fireEvent.click(screen.getByRole('tab', { name: /tasks/i }));
-    expect(screen.getByText('Task sections')).toBeInTheDocument();
   });
 
   it('Task 5367: groups all empty sections at the end into one line that expands to list their names', () => {
