@@ -4,11 +4,12 @@
   role in system: rendered when hash route is #/project/new.
  */
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Trash2, Eye } from "lucide-react";
 import { useMapStore } from "../store/useMapStore";
 import { MOCK_ORGANIZATION_PROFILES } from "../store/organizationMockData";
 import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
+import { Wizard, WizardStep } from "../components/wizards/Wizard";
 import { AssuranceSet } from "../types/assurance";
 import {
   PROJECT_CURRENCIES,
@@ -409,48 +410,141 @@ export const CreateProjectView: React.FC = () => {
     }
   };
 
-  const stepLabels = ["Details", "Assurance Sets", "Assets"];
+  const stepIdToNumber: Record<string, 1 | 2 | 3> = {
+    details: 1,
+    'assurance-sets': 2,
+    assets: 3,
+  };
+  const stepNumberToId: Record<number, string> = {
+    1: 'details',
+    2: 'assurance-sets',
+    3: 'assets',
+  };
+  const currentStepId = stepNumberToId[step] || 'details';
+
+  const wizardSteps = useMemo<WizardStep[]>(
+    () => [
+      {
+        id: 'details',
+        label: 'Details',
+        check: (): Record<string, string> | null => {
+          if (!name.trim()) {
+            setError('Project name is required.');
+            return { name: 'Project name is required.' };
+          }
+          if (!requestingOrganization.trim()) {
+            setError('Requesting organization is required.');
+            return { requestingOrganization: 'Requesting organization is required.' };
+          }
+          if (!location.trim()) {
+            setError('Location / site is required.');
+            return { location: 'Location / site is required.' };
+          }
+          if (!projectWindowStart || !projectWindowEnd) {
+            setError('Project window start and end dates are required.');
+            return { dates: 'Project window start and end dates are required.' };
+          }
+          setError('');
+          return null;
+        },
+      },
+      {
+        id: 'assurance-sets',
+        label: 'Assurance Sets',
+        check: (): Record<string, string> | null => {
+          if (selectedAssuranceSetIds.length === 0) {
+            setDraftLinks([]);
+            setError('');
+            return null;
+          }
+          const { links, unresolvedSetIds } = buildDraftAssetLinksFromAssuranceSets(
+            selectedAssuranceSetIds,
+            assuranceSets,
+            vessels,
+            crew,
+            equipment,
+          );
+          if (unresolvedSetIds.length > 0) {
+            const msg = `Could not resolve assets for: ${unresolvedSetIds.join(', ')}.`;
+            setError(msg);
+            return { assets: msg };
+          }
+          setDraftLinks(links);
+          setError('');
+          return null;
+        },
+      },
+      {
+        id: 'assets',
+        label: 'Assets',
+        check: (): Record<string, string> | null => {
+          const missingAssurance = draftLinks.filter((l) => !l.assuranceSetId);
+          if (missingAssurance.length > 0) {
+            setError('Every external asset requires an assurance set.');
+            return { assurance: 'Every external asset requires an assurance set.' };
+          }
+          setError('');
+          return null;
+        },
+      },
+    ],
+    [
+      name,
+      requestingOrganization,
+      location,
+      projectWindowStart,
+      projectWindowEnd,
+      selectedAssuranceSetIds,
+      assuranceSets,
+      vessels,
+      crew,
+      equipment,
+      draftLinks,
+    ],
+  );
+
+  const canJumpTo = useCallback(
+    (targetStepId: string): boolean => {
+      if (targetStepId === 'details') return true;
+      const isStep1Valid = Boolean(
+        name.trim() &&
+        requestingOrganization.trim() &&
+        location.trim() &&
+        projectWindowStart &&
+        projectWindowEnd,
+      );
+      if (targetStepId === 'assurance-sets') {
+        return step > 2 || isStep1Valid;
+      }
+      if (targetStepId === 'assets') {
+        return step > 3;
+      }
+      return false;
+    },
+    [step, name, requestingOrganization, location, projectWindowStart, projectWindowEnd],
+  );
+
+  const nextLabel = step === 1 ? 'Next: Choose Assurance Set' : 'Next: Compose Assets';
+  const onSkip = step === 2 ? () => proceedToStep3(true) : step === 3 ? handleSave : undefined;
 
   return (
     <div className="d-flex flex-column gap-3">
-      <div className="card border shadow-sm rounded-3 bg-white overflow-hidden">
-        <div className="bg-light px-4 py-3 border-bottom">
-          <div className="d-flex align-items-center justify-content-between flex-nowrap overflow-x-auto text-nowrap gap-2">
-            {stepLabels.map((label, idx) => {
-              const stepNum = idx + 1;
-              const isCurrent = step === stepNum;
-              const isPast = step > stepNum;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  className={`btn btn-link p-0 text-decoration-none d-inline-flex align-items-center gap-2 text-nowrap ${
-                    isCurrent ? 'text-primary fw-bold' : isPast ? 'text-dark fw-semibold' : 'text-muted'
-                  }`}
-                  style={{ fontSize: '0.8125rem' }}
-                  onClick={() => {
-                    if (stepNum === 1) setStep(1);
-                    else if (stepNum === 2 && (isPast || validateStep1())) setStep(2);
-                    else if (stepNum === 3 && isPast) setStep(3);
-                  }}
-                >
-                  <span
-                    className={`d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0 ${
-                      isCurrent ? 'bg-primary text-white' : isPast ? 'bg-success text-white' : 'bg-white text-secondary border'
-                    }`}
-                    style={{ width: '22px', height: '22px', fontSize: '0.725rem', fontWeight: 700 }}
-                  >
-                    {stepNum}
-                  </span>
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="card map-card-custom p-4">
+      <Wizard
+        steps={wizardSteps}
+        currentStepId={currentStepId}
+        onStepChange={(id) => {
+          setError('');
+          setStep(stepIdToNumber[id] || 1);
+        }}
+        canJumpTo={canJumpTo}
+        showProgressBar={false}
+        nextLabel={nextLabel}
+        onSkip={onSkip}
+        skipLabel="Skip"
+        onSubmit={handleSave}
+        submitLabel="Create Project"
+        errorMessage={error}
+      >
         <h2 className="h4 fw-bold text-dark mb-1">Create Project</h2>
         <p className="text-muted small mb-4">
           Enter the project details. Assurance sets and assets are optional.
@@ -804,18 +898,6 @@ export const CreateProjectView: React.FC = () => {
                 {error}
               </div>
             )}
-
-            <div className="col-12 d-flex justify-content-end">
-              <button
-                type="button"
-                className="btn btn-sm btn-primary fw-semibold"
-                onClick={() => {
-                  if (validateStep1()) setStep(2);
-                }}
-              >
-                Next: Choose Assurance Set
-              </button>
-            </div>
           </div>
         )}
 
@@ -914,32 +996,6 @@ export const CreateProjectView: React.FC = () => {
             {error && (
               <div className="alert alert-danger py-2 small">{error}</div>
             )}
-
-            <div className="d-flex justify-content-between">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                onClick={() => setStep(1)}
-              >
-                Back
-              </button>
-              <div className="d-flex gap-2">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => proceedToStep3(true)}
-                >
-                  Skip
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary fw-semibold"
-                  onClick={() => proceedToStep3(false)}
-                >
-                  Next: Compose Assets
-                </button>
-              </div>
-            </div>
           </>
         )}
 
@@ -1057,35 +1113,9 @@ export const CreateProjectView: React.FC = () => {
             {error && (
               <div className="alert alert-danger py-2 small">{error}</div>
             )}
-
-            <div className="d-flex justify-content-between">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary"
-                onClick={() => setStep(2)}
-              >
-                Back
-              </button>
-              <div className="d-flex gap-2">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={handleSave}
-                >
-                  Skip
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary fw-semibold"
-                  onClick={handleSave}
-                >
-                  Create Project
-                </button>
-              </div>
-            </div>
           </>
         )}
-      </div>
+      </Wizard>
 
       <AttachAssuranceSetPreviewModal
         isOpen={Boolean(previewSet)}

@@ -15,6 +15,8 @@ export interface WizardProps {
   cancelLabel?: string;
   onSaveDraft?: () => void;
   saveDraftLabel?: string;
+  onSkip?: () => void;
+  skipLabel?: string;
   onSubmit: () => void;
   submitLabel?: string;
   nextLabel?: string;
@@ -41,6 +43,8 @@ export const Wizard: React.FC<WizardProps> = ({
   cancelLabel,
   onSaveDraft,
   saveDraftLabel,
+  onSkip,
+  skipLabel,
   onSubmit,
   submitLabel,
   nextLabel,
@@ -290,6 +294,18 @@ export const Wizard: React.FC<WizardProps> = ({
               data-testid="wizard-back"
             >
               {backLabel || 'Back'}
+            </button>
+          )}
+
+          {onSkip && (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              onClick={onSkip}
+              disabled={isSubmitting}
+              data-testid="wizard-skip"
+            >
+              {skipLabel || 'Skip'}
             </button>
           )}
 
