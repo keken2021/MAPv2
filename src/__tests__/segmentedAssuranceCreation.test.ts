@@ -47,19 +47,16 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     expect(getAssuranceSetScopes({})).toEqual(['Vessel']);
   });
 
-  it('keeps the activity scope switched off: not offered, no tab, and no seeded activity set', () => {
-    expect(DISABLED_ASSURANCE_SCOPES).toEqual(['Activity']);
+  it('keeps the activity scope retired: not offered, no tab, and no seeded activity set', () => {
+    expect(DISABLED_ASSURANCE_SCOPES).toEqual([]);
     expect(ASSURANCE_SCOPE_OPTIONS).not.toContain('Activity');
-    expect(orderAssuranceScopes(['Activity', 'Crew'])).toEqual(['Crew']);
-    expect(getPrimaryAssuranceScope(['Activity'])).toBe('Vessel');
+    expect(orderAssuranceScopes(['Crew'])).toEqual(['Crew']);
+    expect(getPrimaryAssuranceScope(['Crew'])).toBe('Crew');
 
-    /* a saved set still reports its real scopes, so an activity set never counts as a vessel contract */
-    expect(getAssuranceSetScopes({ assuranceType: 'Activity', subtypes: ['Activity'] })).toEqual(['Activity']);
-    expect(isAssuranceSetScopeDisabled({ assuranceType: 'Activity' })).toBe(true);
     expect(isAssuranceSetScopeDisabled({ assuranceType: 'Vessel' })).toBe(false);
     expect(isAssuranceSetScopeDisabled({})).toBe(false);
 
-    expect(MOCK_ASSURANCE_SETS.some((s) => s.assuranceType === 'Activity')).toBe(false);
+    expect(MOCK_ASSURANCE_SETS.some((s) => (s as any).assuranceType === 'Activity')).toBe(false);
     expect(useMapStore.getState().assuranceSets.some((s) => s.id === 'AS-ACT-2026-SURF-01')).toBe(false);
   });
 
@@ -71,7 +68,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
   });
 
   it('provides all 4 standard operational subtypes with complete descriptions', () => {
-    const subtypes: AssuranceSubtype[] = ['Vessel', 'Crew', 'Activity', 'Equipment'];
+    const subtypes: AssuranceSubtype[] = ['Vessel', 'Crew', 'Equipment'];
 
     subtypes.forEach((subtype) => {
       const docList = SUBTYPE_STANDARD_DOCS[subtype];
@@ -94,7 +91,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     const projectRequirements: AssuranceRequirement[] = [];
     let reqIndex = 0;
 
-    const subtypes: AssuranceSubtype[] = ['Vessel', 'Crew', 'Activity', 'Equipment'];
+    const subtypes: AssuranceSubtype[] = ['Vessel', 'Crew', 'Equipment'];
     subtypes.forEach((subtype) => {
       const defaultDocs = SUBTYPE_STANDARD_DOCS[subtype].filter((d) => d.defaultEnabled);
       defaultDocs.forEach((d) => {
@@ -142,7 +139,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       id: uniqueId,
       title: 'Northwind - Scarborough Subsea Engineering Campaign',
       assuranceType: 'Vessel',
-      subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+      subtypes: ['Vessel', 'Crew', 'Equipment'],
       vesselId: 'VESSEL-001',
       vesselName: 'MV Pacific Endeavour',
       imoNumber: '9123453',
@@ -255,10 +252,6 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       expect(SUBTYPE_CATEGORIES.Crew).not.toContain('Statutory Certificate');
       expect(SUBTYPE_CATEGORIES.Crew).not.toContain('Lifting Appliance Register (ILO 152)');
 
-      expect(SUBTYPE_CATEGORIES.Activity).toContain('Operational Plan');
-      expect(SUBTYPE_CATEGORIES.Activity).toContain('Method Statement (MOP)');
-      expect(SUBTYPE_CATEGORIES.Activity).not.toContain('Crew Credential');
-
       expect(SUBTYPE_CATEGORIES.Equipment).toContain('Equipment Register');
       expect(SUBTYPE_CATEGORIES.Equipment).toContain('Lifting Appliance Register (ILO 152)');
       expect(SUBTYPE_CATEGORIES.Equipment).toContain('DP FMEA Proving Trial');
@@ -353,7 +346,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       id: draftId,
       title: 'Woodside - Unfinished Scarborough Vetting Draft',
       assuranceType: 'Vessel',
-      subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+      subtypes: ['Vessel', 'Crew', 'Equipment'],
       visibility: 'draft',
       templateSource: 'organization',
       vesselId: 'VESSEL-001',
@@ -422,7 +415,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       assuranceType: 'Vessel',
       projectId: 'MAP-PROJ-2026-OFFSHORE-001',
       projectName: 'Gorgon Stage 2 & Jansz-Io Compression',
-      subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+      subtypes: ['Vessel', 'Crew', 'Equipment'],
       visibility: 'draft',
       templateSource: 'organization',
       vesselId: 'VESSEL-001',
@@ -451,9 +444,9 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     // User resumes setup of the existing draft, changes scope to 'Activity' with specialized requirements, and saves draft upon exit
     const updatedDraftState: AssuranceSet = {
       ...initialDraft,
-      title: 'Northwind - Modified In-Progress Activity Draft Campaign',
-      assuranceType: 'Activity',
-      subtypes: ['Activity'],
+      title: 'Northwind - Modified In-Progress Equipment Draft Campaign',
+      assuranceType: 'Equipment',
+      subtypes: ['Equipment'],
       requirements: [
         {
           id: `${draftId}-REQ-ACT-001`,
@@ -478,9 +471,9 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     // The draft must be updated with the new state
     const persistedDraft = afterSaveSets.find((s) => s.id === draftId);
     expect(persistedDraft).toBeDefined();
-    expect(persistedDraft?.title).toBe('Northwind - Modified In-Progress Activity Draft Campaign');
-    expect(persistedDraft?.assuranceType).toBe('Activity');
-    expect(persistedDraft?.subtypes).toEqual(['Activity']);
+    expect(persistedDraft?.title).toBe('Northwind - Modified In-Progress Equipment Draft Campaign');
+    expect(persistedDraft?.assuranceType).toBe('Equipment');
+    expect(persistedDraft?.subtypes).toEqual(['Equipment']);
     expect(persistedDraft?.requirements.length).toBe(1);
     expect(persistedDraft?.requirements[0].title).toBe('Specialized Subsea Trenching Method Statement');
     expect(persistedDraft?.visibility).toBe('draft');
@@ -509,7 +502,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
       assuranceType: 'Vessel',
       projectId: 'MAP-PROJ-2026-OFFSHORE-001',
       projectName: 'Gorgon Stage 2 & Jansz-Io Compression',
-      subtypes: ['Vessel', 'Crew', 'Activity', 'Equipment'],
+      subtypes: ['Vessel', 'Crew', 'Equipment'],
       vesselId: 'VESSEL-001',
       vesselName: 'MV Pacific Endeavour',
       imoNumber: '9123453',
@@ -624,41 +617,7 @@ describe('Segmented Assurance Set Creation Workflow', () => {
     expect(retrievedEqSet?.equipmentId).toBe('EQ-101');
     expect(retrievedEqSet?.equipmentName).toBe('Work-Class ROV System (WROV-01)');
 
-    // 3. Activity scope assurance set
-    const actSetId = generateUniqueAssuranceSetId(useMapStore.getState().assuranceSets);
-    const actSet: AssuranceSet = {
-      id: actSetId,
-      title: 'Chevron - Deepwater SURF Installation Campaign Assurance',
-      assuranceType: 'Activity',
-      activityId: 'MAP-ACT-2026-SURF-001',
-      activityName: 'Deepwater SURF & Subsea Tie-In Installation',
-      subtypes: ['Activity'],
-      vesselId: 'VESSEL-001',
-      vesselName: 'Deepwater SURF & Subsea Tie-In Installation',
-      imoNumber: 'N/A',
-      initiatorOrg: 'Chevron Australia Pty Ltd',
-      initiatorRole: 'C Admin · Client Created',
-      charterer: 'Chevron Australia Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
-      stage: 'Initiated',
-      readinessScore: 10,
-      mandatoryInspectionRequired: true,
-      inspectionCompleted: false,
-      requirements: [],
-      stakeholders: undefined,
-      assignedStakeholders: undefined,
-      createdByPersona: '',
-    };
-    store.addAssuranceSet(actSet);
-
-    const retrievedActSet = useMapStore.getState().assuranceSets.find((s) => s.id === actSetId);
-    expect(retrievedActSet).toBeDefined();
-    expect(retrievedActSet?.assuranceType).toBe('Activity');
-    expect(retrievedActSet?.activityId).toBe('MAP-ACT-2026-SURF-001');
-    expect(retrievedActSet?.activityName).toBe('Deepwater SURF & Subsea Tie-In Installation');
-  });
+      });
 });
 
 

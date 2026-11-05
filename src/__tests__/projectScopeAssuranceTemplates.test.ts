@@ -62,7 +62,6 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
   it('should ensure each project scope template recommends documents across all 4 operational subtypes', () => {
     const vesselDocIds = new Set(SUBTYPE_STANDARD_DOCS.Vessel.map((d) => d.id));
     const crewDocIds = new Set(SUBTYPE_STANDARD_DOCS.Crew.map((d) => d.id));
-    const actDocIds = new Set(SUBTYPE_STANDARD_DOCS.Activity.map((d) => d.id));
     const eqDocIds = new Set(SUBTYPE_STANDARD_DOCS.Equipment.map((d) => d.id));
 
     projectTemplates.forEach((template: SubtypeTemplate) => {
@@ -70,12 +69,10 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
 
       const hasVesselDoc = recIds.some((id) => vesselDocIds.has(id));
       const hasCrewDoc = recIds.some((id) => crewDocIds.has(id));
-      const hasActDoc = recIds.some((id) => actDocIds.has(id));
       const hasEqDoc = recIds.some((id) => eqDocIds.has(id));
 
       expect(hasVesselDoc, `Template ${template.id} missing Vessel documents`).toBe(true);
       expect(hasCrewDoc, `Template ${template.id} missing Crew documents`).toBe(true);
-      expect(hasActDoc, `Template ${template.id} missing Activity documents`).toBe(true);
       expect(hasEqDoc, `Template ${template.id} missing Equipment documents`).toBe(true);
     });
   });
@@ -159,22 +156,6 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
       }
     });
 
-    // Add Activity requirements
-    SUBTYPE_STANDARD_DOCS.Activity.forEach((doc, idx) => {
-      if (template.recommendedDocIds.includes(doc.id)) {
-        rawRequirements.push({
-          id: `req-act-${idx}`,
-          title: doc.title,
-          category: doc.category,
-          subtype: 'Activity',
-          isMandatory: doc.isMandatory,
-          isFulfilled: false,
-          ocrConfidence: 0,
-          verifierStatus: 'Pending',
-        });
-      }
-    });
-
     // Add Equipment requirements
     SUBTYPE_STANDARD_DOCS.Equipment.forEach((doc, idx) => {
       if (template.recommendedDocIds.includes(doc.id)) {
@@ -200,7 +181,6 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
       equipment: MOCK_EQUIPMENT,
       selectedEquipmentId: targetEquipment.id,
       selectedVesselId: targetVessel.id,
-      selectedActivityId: targetProject.primaryActivityId,
     });
 
     // Verify Vessel docs attached
@@ -210,10 +190,6 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     // Verify Crew docs attached
     const crewAttached = attached.filter((r) => r.subtype === 'Crew' && Boolean(r.documentId || r.linkedDocumentId));
     expect(crewAttached.length).toBeGreaterThan(0);
-
-    // Verify Activity docs attached
-    const actAttached = attached.filter((r) => r.subtype === 'Activity' && Boolean(r.documentId || r.linkedDocumentId));
-    expect(actAttached.length).toBeGreaterThan(0);
 
     // Verify Equipment docs attached
     const eqAttached = attached.filter((r) => r.subtype === 'Equipment' && Boolean(r.documentId || r.linkedDocumentId));
@@ -263,22 +239,22 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     expect(THREE_PILLARS_CONFIG.People.title).toContain('People');
     expect(THREE_PILLARS_CONFIG.People.subtypes).toEqual(['Crew']);
     expect(THREE_PILLARS_CONFIG.Process.title).toContain('Process');
-    expect(THREE_PILLARS_CONFIG.Process.subtypes).toEqual(['Activity']);
+    expect(THREE_PILLARS_CONFIG.Process.subtypes).toEqual([]);
   });
 
   it('should support dynamic physical asset customization (adding/removing equipment or vessel sections) in project assurance set', () => {
     // 1. Full default physical assets
     const defaultPhysicals: ('Vessel' | 'Equipment')[] = ['Vessel', 'Equipment'];
     const computeActiveSubtypes = (physicals: ('Vessel' | 'Equipment')[]) => {
-      const list = [...physicals, 'Crew', 'Activity'];
+      const list = [...physicals, 'Crew'];
       return list;
     };
 
-    expect(computeActiveSubtypes(defaultPhysicals)).toEqual(['Vessel', 'Equipment', 'Crew', 'Activity']);
+    expect(computeActiveSubtypes(defaultPhysicals)).toEqual(['Vessel', 'Equipment', 'Crew']);
 
     // 2. Remove equipment physical asset section
     const withoutEquipment = defaultPhysicals.filter((p) => p !== 'Equipment');
-    expect(computeActiveSubtypes(withoutEquipment)).toEqual(['Vessel', 'Crew', 'Activity']);
+    expect(computeActiveSubtypes(withoutEquipment)).toEqual(['Vessel', 'Crew']);
 
     // Build requirements when Equipment section is removed
     const reqsWithoutEquipment: AssuranceRequirement[] = [];
@@ -300,15 +276,14 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     expect(reqsWithoutEquipment.some((r) => r.subtype === 'Equipment')).toBe(false);
     expect(reqsWithoutEquipment.some((r) => r.subtype === 'Vessel')).toBe(true);
     expect(reqsWithoutEquipment.some((r) => r.subtype === 'Crew')).toBe(true);
-    expect(reqsWithoutEquipment.some((r) => r.subtype === 'Activity')).toBe(true);
 
     // 3. Remove vessel physical asset section
     const withoutVessel = defaultPhysicals.filter((p) => p !== 'Vessel');
-    expect(computeActiveSubtypes(withoutVessel)).toEqual(['Equipment', 'Crew', 'Activity']);
+    expect(computeActiveSubtypes(withoutVessel)).toEqual(['Equipment', 'Crew']);
 
     // 4. Re-add equipment section
     const reAddedEquipment = [...withoutEquipment, 'Equipment' as const];
-    expect(computeActiveSubtypes(reAddedEquipment)).toEqual(['Vessel', 'Equipment', 'Crew', 'Activity']);
+    expect(computeActiveSubtypes(reAddedEquipment)).toEqual(['Vessel', 'Equipment', 'Crew']);
   });
 
   it('should maintain baseline unattached requirements at creation for all scopes, deferring asset nomination to Project / Roster Management', () => {

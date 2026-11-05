@@ -314,7 +314,7 @@ describe('Marketplace Module & Segregation', () => {
 
     /* the set names a vessel only because every set carries a vessel id; its scopes do not include Vessel */
     const activityAndEquipment = [
-      { ...period, id: 'AS-NO-VESSEL', vesselId: 'VESSEL-EXT', equipmentId: 'EQ-EXT', assuranceType: 'Activity', subtypes: ['Activity', 'Equipment'] },
+      { ...period, id: 'AS-NO-VESSEL', vesselId: 'VESSEL-EXT', equipmentId: 'EQ-EXT', assuranceType: 'Equipment', subtypes: ['Equipment'] },
     ] as unknown as AssuranceSet[];
     expect(isMarketplaceItemAvailableOnDate(vessel, '2026-11-15', activityAndEquipment)).toBe(true);
     expect(isMarketplaceItemAvailableOnDate(winch, '2026-11-15', activityAndEquipment)).toBe(false);

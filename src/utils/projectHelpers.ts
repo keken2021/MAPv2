@@ -633,7 +633,6 @@ export function getEligibleAssuranceSetsForAsset(
     if (assetType === 'Vessel') return set.vesselId === assetId;
     if (assetType === 'Crew') return getAssuranceSetCrewIds(set).includes(assetId);
     if (assetType === 'Equipment') return set.equipmentId === assetId;
-    if (assetType === 'Activity') return set.activityId === assetId;
     return false;
   });
 

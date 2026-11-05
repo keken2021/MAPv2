@@ -9,10 +9,10 @@ import { CrewVesselAssignment } from '../types/crew';
 import { VesselPersonLink } from '../types/vessel';
 
 /* every scope the data model knows, in display order */
-const ALL_ASSURANCE_SCOPES: AssuranceSubtype[] = ['Vessel', 'Crew', 'Activity', 'Equipment'];
+const ALL_ASSURANCE_SCOPES: AssuranceSubtype[] = ['Vessel', 'Crew', 'Equipment'];
 
 /* scopes switched off for now: not offered, not shown as tabs, and their demo sets are not seeded; empty this list to bring them back */
-export const DISABLED_ASSURANCE_SCOPES: AssuranceSubtype[] = ['Activity'];
+export const DISABLED_ASSURANCE_SCOPES: AssuranceSubtype[] = [];
 
 /* scopes a set can be created or filtered with, in the order they are offered and shown as wizard tabs */
 export const ASSURANCE_SCOPE_OPTIONS: AssuranceSubtype[] = ALL_ASSURANCE_SCOPES.filter(
@@ -358,8 +358,6 @@ export function toSingleAssetSet<T extends AssuranceSet>(set: T): T {
     crewNames: scope === 'Crew' && set.crewIds && set.crewIds.length > 0 ? set.crewNames : undefined,
     equipmentId: scope === 'Equipment' ? set.equipmentId : undefined,
     equipmentName: scope === 'Equipment' ? set.equipmentName : undefined,
-    activityId: scope === 'Activity' ? set.activityId : undefined,
-    activityName: scope === 'Activity' ? set.activityName : undefined,
     requirements: (set.requirements || []).filter((r) => !r.subtype || r.subtype === scope),
   };
 }
@@ -446,7 +444,7 @@ export const THREE_PILLARS_CONFIG: Record<
   Process: {
     title: 'Process (Operational & HSE Plans)',
     description: 'Project-wide HSE management, Field Method Statements (MOP), HAZID/HAZOP risk mitigations, SIMOPS protocols, and insurance.',
-    subtypes: ['Activity'],
+    subtypes: [],
     iconName: 'Activity',
   },
 };
@@ -624,15 +622,6 @@ export const SUBTYPE_CATEGORIES: Record<AssuranceSubtype, AssuranceRequirementCa
     'Offshore Safety Induction (BOSIET)',
     'Specialized Training Endorsement',
     'Crew Custom Requirement',
-  ],
-  Activity: [
-    'Operational Plan',
-    'Method Statement (MOP)',
-    'Risk Assessment (HAZID/HAZOP)',
-    'Mooring & Towage Analysis',
-    'Emergency Contingency Protocol',
-    'SIMOPS Agreement',
-    'Activity Custom Requirement',
   ],
   Equipment: [
     'Equipment Register',
@@ -874,53 +863,6 @@ export const SUBTYPE_STANDARD_DOCS: Record<AssuranceSubtype, StandardSubtypeDocu
       isMandatory: false,
     },
   ],
-  Activity: [
-    {
-      id: 'act-mop-method',
-      subtype: 'Activity',
-      title: 'Marine Operations Plan & Method Statement (MOP)',
-      category: 'Operational Plan',
-      description: 'Comprehensive engineering method statement detailing transit routing, dynamic positioning station keeping, subsea operations, and weather criteria.',
-      defaultEnabled: true,
-      isMandatory: true,
-    },
-    {
-      id: 'act-hazid-hazop',
-      subtype: 'Activity',
-      title: 'Activity Risk Assessment & HAZID/HAZOP Register',
-      category: 'Operational Plan',
-      description: 'Detailed hazard identification register, task risk assessments, mitigation barriers, and stop-work authority protocols for scheduled activity.',
-      defaultEnabled: true,
-      isMandatory: true,
-    },
-    {
-      id: 'act-mooring-analysis',
-      subtype: 'Activity',
-      title: 'Dynamic Mooring & Towage Feasibility Analysis',
-      category: 'Operational Plan',
-      description: 'Naval architectural tension calculations, catenary analysis, and bollard pull verification for anchoring, positioning, or tandem towing.',
-      defaultEnabled: true,
-      isMandatory: true,
-    },
-    {
-      id: 'act-emergency-response',
-      subtype: 'Activity',
-      title: 'Field Emergency Response & Oil Spill Contingency Plan',
-      category: 'Operational Plan',
-      description: 'Tier 1/2 response readiness protocols, offshore medical evacuation routes, communication channels, and oil spill containment readiness.',
-      defaultEnabled: true,
-      isMandatory: true,
-    },
-    {
-      id: 'act-simops-matrix',
-      subtype: 'Activity',
-      title: 'Simultaneous Operations (SIMOPS) Protocol',
-      category: 'Operational Plan',
-      description: 'Coordinated operational matrix governing concurrent multi-vessel and platform activities, safety zones, and shared radio frequencies.',
-      defaultEnabled: false,
-      isMandatory: false,
-    },
-  ],
   Equipment: [
     {
       id: 'eq-lifting-register',
@@ -1056,14 +998,6 @@ export const SUBTYPE_TEMPLATES: SubtypeTemplate[] = [
     source: 'public',
     description: 'Deck and engine officer competency, emergency survival training and medical fitness. Illustrative, not the issuer\'s list: confirm against the client\'s own requirements.',
     recommendedDocIds: ['crew-stcw-coc', 'crew-eng1-medical', 'crew-bosiet-training', 'crew-dp-logbook'],
-  },
-  {
-    id: 'tmpl-pub-imca-activity',
-    subtype: 'Activity',
-    name: 'Marine Operations Baseline (illustrative)',
-    source: 'public',
-    description: 'Method statement, risk assessment, station keeping and contingency plans. Illustrative, not the issuer\'s list: confirm against the client\'s own requirements.',
-    recommendedDocIds: ['act-mop-method', 'act-hazid-hazop', 'act-mooring-analysis', 'act-emergency-response'],
   },
   {
     id: 'tmpl-pub-dnv-equipment',

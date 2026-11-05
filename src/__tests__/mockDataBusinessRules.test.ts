@@ -201,9 +201,7 @@ describe('Seeded projects and marketplace offerings respect asset ownership', ()
         expect(vessel || crew || equipment, `${project.id} ${link.id} asset ${link.assetId}`).toBeDefined();
         const linkedSet = ALL_SETS.find((s) => s.id === link.assuranceSetId);
         expect(linkedSet, `${project.id} ${link.id} set ${link.assuranceSetId}`).toBeDefined();
-        if (linkedSet?.assuranceType === 'Activity') {
-          expect(isOrganizationMatch(link.providerOrganization, linkedSet.serviceProviderOrg ?? '')).toBe(true);
-        } else {
+        {
           expect(
             isAssetOwnedByOrganization(link.assetType, link.providerOrganization, vessel, crew, equipment),
             `${project.id} ${link.id} provider owns ${link.assetId}`,

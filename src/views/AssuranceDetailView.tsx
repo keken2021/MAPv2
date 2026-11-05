@@ -1642,9 +1642,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         entityId: assuranceSet.equipmentId,
       };
     }
-    if (assuranceSet.assuranceType === 'Activity') {
-      return { typeLabel: 'Activity', name: assuranceSet.activityName || assuranceSet.vesselName };
-    }
     const targetVessel = vessels.find(
       (v) => v.id === assuranceSet.vesselId || v.name.toLowerCase() === assuranceSet.vesselName.toLowerCase(),
     );

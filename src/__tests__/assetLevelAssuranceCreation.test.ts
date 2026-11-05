@@ -194,40 +194,7 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
     expect(set.internalDeployment).toBe(true);
   });
 
-  it('creates a focused Activity Assurance Set with activityId', () => {
-    const activity = EXISTING_ACTIVITIES[0];
-    expect(activity).toBeDefined();
 
-    const set: AssuranceSet = {
-      id: 'MAP-ACT-2026-SURF-TEST01',
-      title: `Northwind Marine - ${activity.name} Safety Passport`,
-      assuranceType: 'Activity',
-      activityId: activity.id,
-      activityName: activity.name,
-      vesselName: activity.name,
-      imoNumber: 'N/A',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
-      serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      charterer: 'Northwind Marine Pty Ltd',
-      charterWindowStart: '2026-11-01',
-      complianceDeadline: '2026-11-01',
-      charterWindowEnd: '2027-11-01',
-      stage: 'Initiated',
-      readinessScore: 10,
-      subtypes: ['Activity'],
-      visibility: 'organization',
-      internalDeployment: true,
-      requirements: [],
-      vesselId: '',
-      initiatorRole: 'C Admin · Client Created',
-      mandatoryInspectionRequired: false,
-      inspectionCompleted: false
-    };
-
-    expect(set.activityId).toBe(activity.id);
-    expect(set.activityName).toBe(activity.name);
-    expect(set.internalDeployment).toBe(true);
-  });
 
   it('allows provider staff to act as verifiers/approvers during internal deployment self-assurance without conflict block', () => {
     const store = useMapStore.getState();

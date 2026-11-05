@@ -28,12 +28,10 @@ describe('Generic Public Assurance Template', () => {
 
     const vesselIds = new Set(SUBTYPE_STANDARD_DOCS.Vessel.map((d) => d.id));
     const crewIds = new Set(SUBTYPE_STANDARD_DOCS.Crew.map((d) => d.id));
-    const activityIds = new Set(SUBTYPE_STANDARD_DOCS.Activity.map((d) => d.id));
     const equipmentIds = new Set(SUBTYPE_STANDARD_DOCS.Equipment.map((d) => d.id));
 
     expect(recIds.some((id) => vesselIds.has(id))).toBe(true);
     expect(recIds.some((id) => crewIds.has(id))).toBe(true);
-    expect(recIds.some((id) => activityIds.has(id))).toBe(true);
     expect(recIds.some((id) => equipmentIds.has(id))).toBe(true);
   });
 

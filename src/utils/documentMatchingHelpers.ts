@@ -21,7 +21,6 @@ export interface AssetMatchingContext {
   equipment?: EquipmentAsset[];
   selectedEquipmentId?: string;
   selectedVesselId?: string;
-  selectedActivityId?: string;
   targetSubtype?: AssuranceSubtype;
 }
 
@@ -541,23 +540,6 @@ export function findMatchingDocumentForRequirement(
           };
         }
       }
-    }
-  }
-
-  // -------------------------------------------------------------
-  // 4. ACTIVITY SUBTYPE MATCHING
-  // -------------------------------------------------------------
-  if (subtype === 'Activity') {
-    const actDocs = context.documents.filter((d) => matchesActivityRequirement(req.title, d.title));
-    for (const doc of actDocs) {
-      return {
-        documentId: doc.id,
-        linkedDocumentId: doc.id,
-        documentTitle: doc.title,
-        documentVersion: doc.currentVersion || 'v1.0',
-        ocrConfidence: doc.ocrConfidence || 95,
-        matchedFrom: 'vault_document',
-      };
     }
   }
 

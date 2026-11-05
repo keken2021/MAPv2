@@ -1101,7 +1101,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             setSelectedCrewGroups(JSON.parse(JSON.stringify(target.crewGroups)));
           }
           if (target.projectId && !lockedProjectId) setSelectedProjectId(target.projectId);
-          if (target.activityId) setSelectedActivityId(target.activityId);
           if (target.templateSource === 'public' || target.visibility === 'draft') {
             setTemplatePrivacy('public');
           } else {
@@ -1702,7 +1701,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       equipment,
       selectedEquipmentId,
       selectedVesselId: vesselId,
-      selectedActivityId,
       targetSubtype: assuranceType,
     });
 
@@ -1765,13 +1763,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       crewNames: selectedScopes.includes('Crew') ? selectedCrewMembers.map((c) => c.fullName) : undefined,
       equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
       equipmentName: selectedScopes.includes('Equipment') ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
-      activityId: selectedScopes.includes('Activity') ? selectedActivityId : undefined,
-      activityName: selectedScopes.includes('Activity') ? (selectedActivity?.name || selectedActivityId) : undefined,
       subtypes: activeSubtypes,
       subtypeStakeholders: {
         Vessel: subtypeStakeholder,
         Crew: subtypeStakeholder,
-        Activity: subtypeStakeholder,
         Equipment: subtypeStakeholder,
       },
       visibility: 'organization',
@@ -2025,7 +2020,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       equipment,
       selectedEquipmentId,
       selectedVesselId: vesselId,
-      selectedActivityId,
       targetSubtype: assuranceType,
     });
 
@@ -2073,13 +2067,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       crewNames: selectedScopes.includes('Crew') ? selectedCrewMembers.map((c) => c.fullName) : undefined,
       equipmentId: selectedScopes.includes('Equipment') ? selectedEquipmentId : undefined,
       equipmentName: selectedScopes.includes('Equipment') ? (selectedEquipment?.name || selectedEquipmentId) : undefined,
-      activityId: selectedScopes.includes('Activity') ? selectedActivityId : undefined,
-      activityName: selectedScopes.includes('Activity') ? (selectedActivity?.name || selectedActivityId) : undefined,
       subtypes: activeSubtypes,
       subtypeStakeholders: {
         Vessel: subtypeStakeholder,
         Crew: subtypeStakeholder,
-        Activity: subtypeStakeholder,
         Equipment: subtypeStakeholder,
       },
       visibility: 'draft',

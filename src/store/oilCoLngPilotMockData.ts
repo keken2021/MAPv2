@@ -201,9 +201,7 @@ function buildEvidence(
     const subtype =
       scope === "Vessel" && row.pillar === "Plant"
         ? "Vessel"
-        : scope === "Activity" && row.pillar === "Process"
-          ? "Activity"
-          : undefined;
+        : undefined;
     const category =
       row.pillar === "People"
         ? "Crew Credential"
@@ -1338,15 +1336,13 @@ export const OIL_CO_PILOT_ASSURANCE_SETS: AssuranceSet[] = [
   {
     id: OIL_CO_SS03_ID,
     title: "Terminal / Loading Operations",
-    assuranceType: "Activity",
-    subtypes: ["Activity"],
+    assuranceType: "Vessel",
+    subtypes: ["Vessel"],
     projectId: OIL_CO_LNG_PROJECT_ID,
     projectName: "Oil Company LNG Field Development",
-    activityId: "MAP-ACT-2026-LNG-001",
-    activityName: "Harbourline LNG export terminal loading",
     vesselId: OIL_CO_AURORA_ID,
     vesselName: "LNGC Northwind Aurora",
-    imoNumber: "9694414",
+        imoNumber: "9694414",
     visibility: "organization",
     initiatorOrg: OIL_CO_ORG,
     initiatorRole: "C Admin · Client Created",

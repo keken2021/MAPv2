@@ -14,8 +14,8 @@ describe('Mock State Engine Triggers in useMapStore', () => {
     const testSet: AssuranceSet = {
       id: testSetId,
       title: 'Engine Trigger Test Set',
-      assuranceType: 'Activity',
-      activityId: 'ACT-CUSTOM-999',
+      assuranceType: 'Equipment',
+      equipmentId: 'EQ-CUSTOM-999',
       initiatorOrg: 'Northwind Marine Pty Ltd',
       clientOrg: 'Southern Basin Energy',
       stage: 'Initiated',
@@ -25,7 +25,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       requirements: [
         {
           id: 'REQ-1',
-          category: 'Activity Custom Requirement',
+          category: 'Equipment Custom Requirement',
           title: 'ZZZ-NonMatching-Requirement-Alpha-001',
           isMandatory: true,
           isFulfilled: false,
@@ -34,7 +34,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
         },
         {
           id: 'REQ-2',
-          category: 'Activity Custom Requirement',
+          category: 'Equipment Custom Requirement',
           title: 'ZZZ-NonMatching-Requirement-Beta-002',
           isMandatory: true,
           isFulfilled: false,
@@ -85,8 +85,8 @@ describe('Mock State Engine Triggers in useMapStore', () => {
     const childSet1: AssuranceSet = {
       id: childSet1Id,
       title: 'Child Vessel Set',
-      assuranceType: 'Activity',
-      activityId: 'ACT-01',
+      assuranceType: 'Equipment',
+      equipmentId: 'EQ-01',
       initiatorOrg: 'Northwind Marine Pty Ltd',
       stage: 'Approved',
       approverDecision: 'Approved',
@@ -94,7 +94,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       requirements: [
         {
           id: 'REQ-C1',
-          category: 'Activity Custom Requirement',
+          category: 'Equipment Custom Requirement',
           title: 'Activity Permit 01',
           isMandatory: true,
           isFulfilled: true,
@@ -116,15 +116,15 @@ describe('Mock State Engine Triggers in useMapStore', () => {
     const childSet2: AssuranceSet = {
       id: childSet2Id,
       title: 'Child Crew Set',
-      assuranceType: 'Activity',
-      activityId: 'ACT-02',
+      assuranceType: 'Equipment',
+      equipmentId: 'EQ-02',
       initiatorOrg: 'Northwind Marine Pty Ltd',
       stage: 'Verification',
       readinessScore: 40,
       requirements: [
         {
           id: 'REQ-C2A',
-          category: 'Activity Custom Requirement',
+          category: 'Equipment Custom Requirement',
           title: 'Activity Permit 02A',
           isMandatory: true,
           isFulfilled: true,
@@ -133,7 +133,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
         },
         {
           id: 'REQ-C2B',
-          category: 'Activity Custom Requirement',
+          category: 'Equipment Custom Requirement',
           title: 'Activity Permit 02B',
           isMandatory: true,
           isFulfilled: false,

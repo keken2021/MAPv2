@@ -2229,7 +2229,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         equipment: state.equipment,
         selectedEquipmentId: newSet.equipmentId,
         selectedVesselId: newSet.vesselId,
-        selectedActivityId: newSet.activityId,
         targetSubtype: newSet.assuranceType,
       },
     );
@@ -2304,7 +2303,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         equipment: state.equipment,
         selectedEquipmentId: updatedSet.equipmentId,
         selectedVesselId: updatedSet.vesselId,
-        selectedActivityId: updatedSet.activityId,
         targetSubtype: updatedSet.assuranceType,
       },
     );

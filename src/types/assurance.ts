@@ -25,8 +25,8 @@ export type InitiatingRoleType =
   | 'Vessel Provider Admin'
   | 'Service Provider Admin';
 
-export type AssuranceScopeType = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
-export type AssuranceSubtype = 'Vessel' | 'Crew' | 'Activity' | 'Equipment';
+export type AssuranceScopeType = 'Vessel' | 'Crew' | 'Equipment';
+export type AssuranceSubtype = 'Vessel' | 'Crew' | 'Equipment';
 export type ThreePillarsCategory = 'People' | 'Plant' | 'Process';
 
 /** canonical assurance object types under BRD V4.2 change 3, ADR 0029, ADR 0034, and ADR 0036 */
@@ -367,8 +367,6 @@ export interface AssuranceSet {
   crewNames?: string[];
   equipmentId?: string;
   equipmentName?: string;
-  activityId?: string;
-  activityName?: string;
   subtypes?: AssuranceSubtype[];
   visibility?: 'public' | 'organization' | 'draft';
   templateSource?: 'public' | 'organization' | 'custom' | 'none';

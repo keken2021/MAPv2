@@ -129,19 +129,12 @@ describe('contract period overlap', () => {
       equipmentId: 'EQ-001',
       equipmentName: '150T Traction Winch',
     });
-    const activitySet = makeSet({ id: 'AS-ACT', assuranceType: 'Activity', subtypes: ['Activity'], activityId: 'ACT-1' });
     expect(
       findOverlappingAssuranceSets(
         { scope: 'Equipment', equipmentId: 'EQ-001', start: '2027-01-01', end: '2027-06-01' },
         [equipmentSet],
       ).map((c) => c.assetName),
     ).toEqual(['150T Traction Winch']);
-    expect(
-      findOverlappingAssuranceSets(
-        { scope: 'Activity', start: '2027-01-01', end: '2027-06-01' },
-        [activitySet],
-      ),
-    ).toEqual([]);
   });
 
   it('words the field error with the first conflict and a count of the rest', () => {

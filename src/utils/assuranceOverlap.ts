@@ -32,7 +32,7 @@ export function contractPeriodsOverlap(aStart: string, aEnd: string, bStart: str
 
 /**
   what: saved sets whose contract period overlaps the candidate's on the same asset.
-  how: skips drafts and the candidate itself; a vessel matches only between two Vessel-scope sets (every set carries a host vessel), crew sets match on any shared crew member, equipment on the equipment id; Activity sets are not checked. Approved and Certified sets still count, since their contract still holds the asset.
+  how: skips drafts and the candidate itself; a vessel matches only between two Vessel-scope sets (every set carries a host vessel), crew sets match on any shared crew member, equipment on the equipment id. Approved and Certified sets still count, since their contract still holds the asset.
   with what file: src/utils/assuranceOverlap.ts used by CreateAssuranceSetView.tsx and AssuranceDetailView.tsx.
 */
 export function findOverlappingAssuranceSets(
@@ -40,7 +40,7 @@ export function findOverlappingAssuranceSets(
   sets: AssuranceSet[],
 ): ContractPeriodConflict[] {
   const { scope, start, end } = candidate;
-  if (!start || !end || start >= end || scope === 'Activity') return [];
+  if (!start || !end || start >= end) return [];
 
   const conflicts: ContractPeriodConflict[] = [];
   sets.forEach((set) => {
@@ -86,7 +86,7 @@ export function getAssetPeriodConflicts(
   sets: AssuranceSet[],
   excludeId?: string,
 ): ContractPeriodConflict[] {
-  if (!assetId || !start || !end || scope === 'Activity') return [];
+  if (!assetId || !start || !end) return [];
   return findOverlappingAssuranceSets(
     {
       id: excludeId,
@@ -130,7 +130,7 @@ export function getDefaultNonConflictingContractPeriod(
     if (set.id === candidate?.id) return false;
     if (set.visibility === 'draft') return false;
     if (!set.charterWindowStart || !set.charterWindowEnd) return false;
-    if (candidate?.scope && candidate.scope !== 'Activity' && getAssuranceSetScopes(set)[0] !== candidate.scope) {
+    if (candidate?.scope && getAssuranceSetScopes(set)[0] !== candidate.scope) {
       return false;
     }
     if (candidate?.scope === 'Vessel' && candidate.vesselId && set.vesselId !== candidate.vesselId) {
