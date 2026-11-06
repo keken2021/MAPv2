@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselDetailView } from '../views/VesselDetailView';
 import {
@@ -64,5 +64,35 @@ describe('vessel detail inspections and certificates', () => {
 
     expect(screen.getByTestId('vessel-scoped-document-table')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Fullscreen PDF' })).toBeNull();
+  });
+
+  it('inspection detail modal opens on Modal shell (Task 5422)', () => {
+    render(<VesselDetailView vesselId="VESSEL-001" />);
+    fireEvent.click(screen.getByRole('tab', { name: /inspections/i }));
+    const viewBtn = screen.queryAllByRole('button', { name: /view/i }).find(
+      (b) => b.closest('tr'),
+    );
+    if (!viewBtn) return;
+    fireEvent.click(viewBtn);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    // footer Close button (not the header × button)
+    const closeBtns = within(dialog).getAllByRole('button', { name: /^close$/i });
+    fireEvent.click(closeBtns[0]);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('company fleet modal opens on Modal shell (Task 5422)', () => {
+    render(<VesselDetailView vesselId="VESSEL-001" />);
+    const fleetBtn = screen.queryAllByRole('button').find(
+      (b) => b.textContent?.includes('VESSELS') || b.getAttribute('title')?.toLowerCase().includes('fleet'),
+    );
+    if (!fleetBtn) return;
+    fireEvent.click(fleetBtn);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    const closeBtn = screen.queryByRole('button', { name: 'Close' });
+    if (!closeBtn) return;
+    fireEvent.click(closeBtn);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

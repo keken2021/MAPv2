@@ -26,6 +26,7 @@ import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { InspectionDrawer } from '../components/drawers/InspectionDrawer';
+import { Modal } from '../components/modals/Modal';
 import { AddCrewModal } from '../components/modals/AddCrewModal';
 import { CrewTable } from '../components/tables/CrewTable';
 import { DocumentTable } from '../components/tables/DocumentTable';
@@ -1937,41 +1938,42 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       }
 
       {/* Physical Inspection Table Detail Page Modal */}
-      {
-        selectedInspectionForDetail && (
-          <div
-            className="modal show d-block map-modal-backdrop"
-            tabIndex={-1}
-            style={{ zIndex: 1060 }}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) setSelectedInspectionForDetail(null);
-            }}
-          >
-            <div className="modal-dialog modal-xl modal-dialog-centered">
-              <div className="modal-content bg-white text-dark border shadow-lg">
-                {/* Header */}
-                <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                  <div>
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="badge bg-primary text-white font-mono-code">{selectedInspectionForDetail.id}</span>
-                      <h5 className="modal-title fw-bold text-dark m-0">
-                        {selectedInspectionForDetail.title}
-                      </h5>
-                    </div>
-                    <div className="text-secondary small mt-0.5">
-                      Inspection — {vessel.name} (IMO {vessel.imoNumber})
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => setSelectedInspectionForDetail(null)}
-                    aria-label="Close"
-                  />
-                </div>
-
-                {/* Body */}
-                <div className="modal-body p-4 overflow-y-auto" style={{ maxHeight: '72vh' }}>
+      <Modal
+        isOpen={Boolean(selectedInspectionForDetail)}
+        onClose={() => setSelectedInspectionForDetail(null)}
+        title={selectedInspectionForDetail ? (
+          <span className="d-flex align-items-center gap-2">
+            <span className="badge bg-primary text-white font-mono-code">{selectedInspectionForDetail.id}</span>
+            {selectedInspectionForDetail.title}
+          </span>
+        ) : ''}
+        meta={selectedInspectionForDetail ? `Inspection — ${vessel.name} (IMO ${vessel.imoNumber})` : undefined}
+        size="xl"
+        bodyClassName="p-4"
+        footer={selectedInspectionForDetail ? (
+          <>
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => setSelectedInspectionForDetail(null)}
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1.5"
+              onClick={() => {
+                setSelectedInspectionForDetail(null);
+                setShowInspectionDrawer(true);
+              }}
+            >
+              View Details
+            </button>
+          </>
+        ) : undefined}
+      >
+        {selectedInspectionForDetail && (
+          <div style={{ maxHeight: '72vh', overflowY: 'auto' }}>
                   {/* Key Metadata Cards */}
                   <div className="row g-3 mb-4">
                     <div className="col-md-3">
@@ -2228,33 +2230,9 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Footer */}
-                <div className="modal-footer border-top bg-light d-flex justify-between">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-secondary"
-                    onClick={() => setSelectedInspectionForDetail(null)}
-                  >
-                    Close
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1.5"
-                    onClick={() => {
-                      setSelectedInspectionForDetail(null);
-                      setShowInspectionDrawer(true);
-                    }}
-                  >
-                    View Details
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
+        </div>
+        )}
+      </Modal>
 
       {/* Live Interactive Inspection Drawer Workspace */}
       {showInspectionDrawer && vessel && (
@@ -2280,121 +2258,104 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       )}
 
       {/* Company Fleet Registry Modal */}
-      {selectedCompanyForFleetModal && (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1060 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedCompanyForFleetModal(null);
-          }}
-        >
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content bg-white text-dark border shadow-lg">
-              <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                <div>
-                  <div className="d-flex align-items-center gap-2">
-                    <span className="badge bg-primary text-white font-mono-code">VESSELS</span>
-                    <h5 className="modal-title fw-bold text-dark m-0">{selectedCompanyForFleetModal}</h5>
-                  </div>
-                  <div className="text-secondary small mt-0.5">
-                    Other vessels managed by this organization
-                  </div>
-                  {(() => {
-                    const fleetContact = organizationContactFields(selectedCompanyForFleetModal);
-                    return (
-                      <div className="small text-secondary mt-2" style={{ fontSize: '0.75rem' }}>
-                        <div>Email · {fleetContact.email}</div>
-                        <div>Phone · {fleetContact.phone}</div>
-                        <div>Website · {fleetContact.website}</div>
-                        <div>Address · {fleetContact.address}</div>
-                      </div>
+      <Modal
+        isOpen={Boolean(selectedCompanyForFleetModal)}
+        onClose={() => setSelectedCompanyForFleetModal(null)}
+        title={selectedCompanyForFleetModal ? (
+          <span className="d-flex align-items-center gap-2">
+            <span className="badge bg-primary text-white font-mono-code">VESSELS</span>
+            {selectedCompanyForFleetModal}
+          </span>
+        ) : ''}
+        meta={selectedCompanyForFleetModal ? (() => {
+          const fleetContact = organizationContactFields(selectedCompanyForFleetModal);
+          return (
+            <span className="d-flex flex-column gap-0">
+              <span>Other vessels managed by this organization</span>
+              <span className="small text-secondary" style={{ fontSize: '0.75rem' }}>
+                Email · {fleetContact.email} · Phone · {fleetContact.phone}
+              </span>
+            </span>
+          );
+        })() : undefined}
+        size="lg"
+        bodyClassName="p-4"
+        footer={
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary"
+            onClick={() => setSelectedCompanyForFleetModal(null)}
+          >
+            Close
+          </button>
+        }
+      >
+        {selectedCompanyForFleetModal && (
+          <>
+            <div className="table-responsive border rounded">
+              <table className="table map-table-custom align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>IMO Number</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Flag State</th>
+                    <th>Date of effect</th>
+                    <th>Operating Status</th>
+                    <th>Readiness</th>
+                    <th className="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {companyFleetPagination.pageItems.map((v) => {
+                    const effectRaw = getManagerDateOfEffectForOrganization(
+                      v.id,
+                      selectedCompanyForFleetModal,
+                      v,
                     );
-                  })()}
-                </div>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setSelectedCompanyForFleetModal(null)}
-                  aria-label="Close"
-                />
-              </div>
-              <div className="modal-body p-4">
-                <div className="table-responsive border rounded">
-                  <table className="table map-table-custom align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>IMO Number</th>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Flag State</th>
-                        <th>Date of effect</th>
-                        <th>Operating Status</th>
-                        <th>Readiness</th>
-                        <th className="text-end">Actions</th>
+                    const effectDisplay = effectRaw.trim()
+                      ? formatMaritimeDate(effectRaw)
+                      : ORGANIZATION_FIELD_NOT_RECORDED;
+                    return (
+                      <tr key={v.id}>
+                        <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
+                        <td className="fw-semibold text-dark">{v.name}</td>
+                        <td className="small">{v.vesselSubtype || v.vesselType}</td>
+                        <td>{v.flagState}</td>
+                        <td className={effectDisplay === ORGANIZATION_FIELD_NOT_RECORDED ? 'text-muted small' : 'font-mono-code small'}>
+                          {effectDisplay}
+                        </td>
+                        <td>
+                          <StatusBadge value={v.status} />
+                        </td>
+                        <td>
+                          <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
+                        </td>
+                        <td className="text-end">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
+                            onClick={() => {
+                              setSelectedCompanyForFleetModal(null);
+                              setCurrentHashView('vessels', v.id);
+                            }}
+                            title="View"
+                            aria-label="View"
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {companyFleetPagination.pageItems.map((v) => {
-                        const effectRaw = getManagerDateOfEffectForOrganization(
-                          v.id,
-                          selectedCompanyForFleetModal,
-                          v,
-                        );
-                        const effectDisplay = effectRaw.trim()
-                          ? formatMaritimeDate(effectRaw)
-                          : ORGANIZATION_FIELD_NOT_RECORDED;
-                        return (
-                          <tr key={v.id}>
-                            <td className="font-mono-code fw-semibold text-primary">{v.imoNumber}</td>
-                            <td className="fw-semibold text-dark">{v.name}</td>
-                            <td className="small">{v.vesselSubtype || v.vesselType}</td>
-                            <td>{v.flagState}</td>
-                            <td className={effectDisplay === ORGANIZATION_FIELD_NOT_RECORDED ? 'text-muted small' : 'font-mono-code small'}>
-                              {effectDisplay}
-                            </td>
-                            <td>
-                              <StatusBadge value={v.status} />
-                            </td>
-                            <td>
-                              <ReadinessGauge score={calculateVesselReadiness(v, assuranceSets, documents)} size="sm" />
-                            </td>
-                            <td className="text-end">
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                style={{ width: '32px', height: '32px' }}
-                                onClick={() => {
-                                  setSelectedCompanyForFleetModal(null);
-                                  setCurrentHashView('vessels', v.id);
-                                }}
-                                title="View"
-                                aria-label="View"
-                              >
-                                <Eye size={16} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <TablePagination {...companyFleetPagination.controls} />
-              </div>
-              <div className="modal-footer border-top bg-light">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setSelectedCompanyForFleetModal(null)}
-                >
-                  Close
-                </button>
-              </div>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          </div>
-        </div>
-      )}
+            <TablePagination {...companyFleetPagination.controls} />
+          </>
+        )}
+      </Modal>
 
       {/* Document preview — only for vault rows that have a real Document Library record */}
       {selectedVaultCertForModal?.hasDocument && (() => {
