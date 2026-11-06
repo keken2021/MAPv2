@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { CrewTable } from '../components/tables/CrewTable';
 import { AddCrewModal } from '../components/modals/AddCrewModal';
-import { CrewDocumentUploadModal } from '../components/modals/CrewDocumentUploadModal';
+import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { CrewMember, STCWLayer } from '../types/crew';
 
 /**
@@ -50,8 +50,9 @@ export const CrewView: React.FC = () => {
 
       {/* STCW Document / Certificate Upload Modal for Selected Crew Member */}
       {uploadingDocCrew && (
-        <CrewDocumentUploadModal
+        <DocumentUploadModal
           isOpen={!!uploadingDocCrew}
+          kind="crew"
           crewId={uploadingDocCrew.id}
           crewName={uploadingDocCrew.fullName}
           initialLayer={uploadingDocLayer}

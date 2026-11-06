@@ -1,12 +1,13 @@
-/* 
-  file summary: master document upload & replacement modal form for submitting statutory certificates in light theme with AI information extraction.
-  responsibilities: captures document title and entity type, supports file uploading with simulated AI OCR metadata extraction (certificate number, issuing authority, expiry date), and dispatches store actions.
-  role in system: invoked from DocumentLibraryView, DocumentReviewDrawer, and AssuranceDetailView for document creation and submitter revision re-uploads.
+/*
+  file summary: unified document upload & replacement modal for general statutory certificates and crew STCW certificates.
+  responsibilities: captures document title and entity type, supports file uploading with simulated AI OCR metadata extraction, and dispatches store actions; crew kind adds STCW fields.
+  role in system: invoked from DocumentLibraryView, DocumentReviewDrawer, AssuranceDetailView, CrewView and CrewDetailView.
 */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
+import { STCWDocumentItem, STCWLayer } from '../../types/crew';
 import { formatDocumentId } from '../../utils/formatters';
 import { formatFileSize } from '../../utils/imageCropHelpers';
 import type { InspectionReportEvidence, InspectionReportSource } from '../../types/assurance';
@@ -18,13 +19,18 @@ import {
 } from '../../utils/inspectionEvidence';
 import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { getComplianceStateForExpiry, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
-import { Upload, Check, AlertCircle, X, FileText, Eye } from 'lucide-react';
+import { Upload, Check, AlertCircle, X, FileText } from 'lucide-react';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  existingDocument?: MasterDocument | null;
+  kind?: 'document' | 'crew';
+  /* crew kind */
+  crewId?: string;
+  crewName?: string;
+  existingDocument?: MasterDocument | STCWDocumentItem | null;
+  initialLayer?: STCWLayer;
   onUploadComplete?: () => void;
   /** When uploading from an assurance set requirement row (demo mock link). */
   assuranceSetId?: string;
@@ -36,15 +42,14 @@ interface DocumentUploadModalProps {
   modalTitle?: string;
 }
 
-/**
-  what: renders document upload / re-upload modal with file picker and simulated AI metadata extraction.
-  how: pre-populates metadata if existingDocument is passed, simulates AI extraction upon file attach for new uploads, and populates extracted certificate attributes automatically into the form.
-  with what file: src/components/modals/DocumentUploadModal.tsx loaded by DocumentLibraryView.tsx and DocumentReviewDrawer.tsx.
-*/
 export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   isOpen,
   onClose,
+  kind = 'document',
+  crewId,
+  crewName,
   existingDocument,
+  initialLayer,
   onUploadComplete,
   assuranceSetId,
   requirementId,
@@ -53,12 +58,24 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   defaultVesselId,
   modalTitle,
 }) => {
-  const { vessels, documents, notifications, addDocument, uploadDocumentForRequirement, addDocumentVersion, activePersona, users, activeDemoOrganization, activeSessionUserId } =
+  const { vessels, documents, notifications, addDocument, uploadDocumentForRequirement, addDocumentVersion, addCrewDocument, updateCrewDocument, activePersona, users, activeDemoOrganization, activeSessionUserId } =
     useMapStore();
+  const isCrew = kind === 'crew';
   /* the version is recorded against the signed-in user, not a placeholder name */
   const sessionUser = getSessionUserForPersona(activePersona, users, getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* crew kind STCW fields */
+  const [layer, setLayer] = useState<STCWLayer>(initialLayer || 'Layer 1 - Universal Core');
+  const [stcwRegulation, setStcwRegulation] = useState('STCW Reg VI/1');
+  const [flagState, setFlagState] = useState('Australia');
+  const [issuingState, setIssuingState] = useState('');
+  const [endorsingState, setEndorsingState] = useState('');
+  const [dpLoggedDays, setDpLoggedDays] = useState('');
+  const [issueDate, setIssueDate] = useState('2026-01-01');
+  const [verificationStatus, setVerificationStatus] = useState<STCWDocumentItem['verificationStatus']>('Pending');
+  const [extractionKey, setExtractionKey] = useState(0);
 
   const [title, setTitle] = useState('');
   const [entityType, setEntityType] = useState<DocumentEntityType>('Vessel Certificate');
@@ -72,7 +89,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [inspectionValidityMonths, setInspectionValidityMonths] = useState<number>(INSPECTION_VALIDITY_MONTHS);
   const [inspectorAccreditation, setInspectorAccreditation] = useState('');
   const [fileName, setFileName] = useState('');
-  const [fileSizeBytes, setFileSizeBytes] = useState<number>(existingDocument?.versions?.[0]?.fileSizeBytes || 2100000);
+  const masterDocExisting = !isCrew ? (existingDocument as MasterDocument | null | undefined) : null;
+  const crewDocExisting = isCrew ? (existingDocument as STCWDocumentItem | null | undefined) : null;
+  const [fileSizeBytes, setFileSizeBytes] = useState<number>(masterDocExisting?.versions?.[0]?.fileSizeBytes || crewDocExisting?.fileSizeBytes || 2100000);
   const [changeSummary, setChangeSummary] = useState('');
 
   /* tracks which right-column form field ids are playing the ocr autofill shimmer */
@@ -165,37 +184,62 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setErrorMessage('');
       if (existingDocument) {
         setTitle(existingDocument.title);
-        setEntityType(existingDocument.entityType);
-        setVesselId(existingDocument.vesselId);
         setCertificateNo(existingDocument.certificateNo);
         setIssuingAuthority(existingDocument.issuingAuthority);
         setExpiryDate(existingDocument.expiryDate);
-        setFileName(
-          existingDocument.versions?.[0]?.fileName ||
-          `${existingDocument.title.replace(/\s+/g, '_')}_Rev.pdf`
-        );
-        setChangeSummary('New version uploaded by submitter.');
         setIsAiExtracted(true);
-        setAiOcrConfidence(existingDocument.ocrConfidence || 98.5);
+        if (isCrew) {
+          const crewDoc = existingDocument as STCWDocumentItem;
+          setLayer(crewDoc.layer);
+          setStcwRegulation(crewDoc.stcwRegulation);
+          setFlagState(crewDoc.flagState || 'Australia');
+          setIssuingState(crewDoc.issuingState || '');
+          setEndorsingState(crewDoc.endorsingState || '');
+          setDpLoggedDays(crewDoc.dpLoggedDays !== undefined ? String(crewDoc.dpLoggedDays) : '');
+          setIssueDate(crewDoc.issueDate);
+          setVerificationStatus('Pending');
+          setEntityType('Crew Certificate');
+          setFileName(crewDoc.fileName || `${crewDoc.title.toLowerCase().replace(/\s+/g, '_')}_v2.pdf`);
+          setChangeSummary('Replacement STCW certificate scan uploaded by submitter.');
+          setAiOcrConfidence(98.5);
+        } else {
+          const doc = existingDocument as MasterDocument;
+          setEntityType(doc.entityType);
+          setVesselId(doc.vesselId);
+          setFileName(doc.versions?.[0]?.fileName || `${doc.title.replace(/\s+/g, '_')}_Rev.pdf`);
+          setChangeSummary('New version uploaded by submitter.');
+          setAiOcrConfidence(doc.ocrConfidence || 98.5);
+        }
       } else {
-        setTitle(requirementTitle || '');
-        setEntityType('Vessel Certificate');
+        setTitle(isCrew ? '' : (requirementTitle || ''));
+        setEntityType(isCrew ? 'Crew Certificate' : 'Vessel Certificate');
         setVesselId(defaultVesselId || '');
         setCertificateNo('');
-        setIssuingAuthority('');
-        setExpiryDate('');
-        setInspectionSource('');
-        setInspectionReportDate('');
-        setInspectionValidityMonths(
-          getDefaultInspectionValidityMonths(vessels.find((v) => v.id === (defaultVesselId || ''))?.yearBuilt),
-        );
-        setInspectorAccreditation('');
-        setFileName('');
-        setChangeSummary(
-          requirementTitle ? `Initial upload for assurance requirement: ${requirementTitle}.` : '',
-        );
+        setIssuingAuthority(isCrew ? 'Australian Maritime Safety Authority (AMSA)' : '');
+        setExpiryDate(isCrew ? '2031-01-01' : '');
         setIsAiExtracted(false);
         setAiOcrConfidence(99.2);
+        if (isCrew) {
+          setLayer(initialLayer || 'Layer 1 - Universal Core');
+          setStcwRegulation('STCW Reg VI/1');
+          setFlagState('Australia');
+          setIssuingState('');
+          setEndorsingState('');
+          setDpLoggedDays('');
+          setIssueDate('2026-01-01');
+          setVerificationStatus('Pending');
+          setFileName('');
+          setChangeSummary('');
+        } else {
+          setInspectionSource('');
+          setInspectionReportDate('');
+          setInspectionValidityMonths(
+            getDefaultInspectionValidityMonths(vessels.find((v) => v.id === (defaultVesselId || ''))?.yearBuilt),
+          );
+          setInspectorAccreditation('');
+          setFileName('');
+          setChangeSummary(requirementTitle ? `Initial upload for assurance requirement: ${requirementTitle}.` : '');
+        }
       }
       setIsExtractingAi(false);
       setIsUploading(false);
@@ -205,7 +249,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setIsPendingVerification(false);
       setRevealedFields({ certNo: false, authority: false, expiry: false, summary: false });
     }
-  }, [isOpen, existingDocument, vessels, requirementTitle, defaultVesselId]);
+  }, [isOpen, existingDocument, isCrew, vessels, requirementTitle, defaultVesselId, initialLayer]);
 
   if (!isOpen) return null;
 
@@ -275,7 +319,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     setRevealedFields({ certNo: false, authority: false, expiry: false, summary: false });
 
     const selectedVesselObj = vessels.find((v) => v.id === vesselId);
-    const authority = selectedVesselObj?.classificationSociety
+    const authority = isCrew
+      ? 'Australian Maritime Safety Authority (AMSA)'
+      : selectedVesselObj?.classificationSociety
       ? `${selectedVesselObj.classificationSociety} Classification Society`
       : 'DNV Classification Society';
 
@@ -284,11 +330,14 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setIsExtractingAi(false);
       setIsAiExtracted(true);
       setIsNewExtractionAnimate(true);
+      setExtractionKey((prev) => prev + 1);
       setAiOcrConfidence(99.2);
 
       /* stagger 1: certificate number — the demo extraction fills a mock number the user can edit, so the upload can finish */
       setTimeout(() => {
-        const mockCertNo = `DEMO-${selectedName.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase() || 'DOC'}-${String(Math.abs(Array.from(selectedName).reduce((sum, ch) => sum * 31 + ch.charCodeAt(0), 7)) % 100000).padStart(5, '0')}`;
+        const mockCertNo = isCrew
+          ? `AMSA-STCW-2026-${Math.floor(1000 + Math.random() * 9000)}`
+          : `DEMO-${selectedName.replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase() || 'DOC'}-${String(Math.abs(Array.from(selectedName).reduce((sum, ch) => sum * 31 + ch.charCodeAt(0), 7)) % 100000).padStart(5, '0')}`;
         setCertificateNo((prev) => (prev.trim() ? prev : mockCertNo));
         setRevealedFields((prev) => ({ ...prev, certNo: true }));
         setAnimatingFields((prev) => new Set(prev).add('doc-cert-no'));
@@ -344,8 +393,51 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     e.preventDefault();
     setHasAttemptedSubmit(true);
     if (!canUpload || !title.trim()) return;
+
+    if (isCrew) {
+      const finalCertNo = certificateNo.trim() || `AMSA-STCW-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+      const finalAuthority = issuingAuthority.trim() || 'Australian Maritime Safety Authority (AMSA)';
+      const finalExpiry = expiryDate || '2031-01-01';
+
+      setIsUploading(true);
+      setUploadProgress(15);
+      setStatusMessage('Reading STCW document byte stream and preparing secure payload...');
+      setTimeout(() => { setUploadProgress(45); setStatusMessage('Uploading document...'); }, 350);
+      setTimeout(() => { setUploadProgress(80); setStatusMessage('Verifying AI extracted attributes and validating AMSA / Flag authority...'); }, 750);
+      setTimeout(() => { setUploadProgress(100); setStatusMessage('Upload complete! Updating crew compliance log...'); }, 1150);
+      setTimeout(() => {
+        const crewDoc = existingDocument as STCWDocumentItem | null | undefined;
+        const docToSave: STCWDocumentItem = {
+          id: crewDoc ? crewDoc.id : (selectedUnassignedDocId || formatDocumentId('CRW', 2026, 'STCW')),
+          title: title.trim(),
+          layer,
+          stcwRegulation: stcwRegulation.trim() || 'STCW Convention Standard',
+          certificateNo: finalCertNo,
+          issuingAuthority: finalAuthority,
+          flagState: flagState.trim() || 'Australia',
+          issuingState: issuingState.trim() || undefined,
+          endorsingState: endorsingState.trim() || undefined,
+          dpLoggedDays: dpLoggedDays.trim() ? Number(dpLoggedDays) : undefined,
+          issueDate,
+          expiryDate: finalExpiry,
+          verificationStatus,
+          fileName: (fileName.trim() || `${title.toLowerCase().replace(/\s+/g, '_')}.pdf`),
+          fileSizeBytes,
+        };
+        if (crewDoc) {
+          updateCrewDocument(crewId!, docToSave);
+        } else {
+          addCrewDocument(crewId!, docToSave);
+        }
+        setIsUploading(false);
+        if (onUploadComplete) onUploadComplete();
+        onClose();
+      }, 1500);
+      return;
+    }
+
     /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
-    if (existingDocument && getDocumentReuploadBlockReason(existingDocument, notifications)) return;
+    if (existingDocument && getDocumentReuploadBlockReason(existingDocument as MasterDocument, notifications)) return;
 
     /* a new document needs its certificate no. and expiry entered; nothing is made up for it (gap review E7) */
     if (!existingDocument && (!certificateNo.trim() || !expiryDate)) return;
@@ -359,9 +451,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           inspectorAccreditation: inspectorAccreditation.trim() || undefined,
         }
         : undefined;
-    const finalCertNo = certificateNo.trim() || existingDocument?.certificateNo || '';
-    const finalAuthority = issuingAuthority.trim() || existingDocument?.issuingAuthority || '';
-    const finalExpiry = expiryDate || existingDocument?.expiryDate || '';
+    const finalCertNo = certificateNo.trim() || (existingDocument as MasterDocument)?.certificateNo || '';
+    const finalAuthority = issuingAuthority.trim() || (existingDocument as MasterDocument)?.issuingAuthority || '';
+    const finalExpiry = expiryDate || (existingDocument as MasterDocument)?.expiryDate || '';
 
     /* start simulated upload sequence */
     setIsUploading(true);
@@ -385,17 +477,17 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
     setTimeout(() => {
       const finalFileName = fileName.trim() || `${title.replace(/\s+/g, '_')}_document.pdf`;
+      const masterDoc = existingDocument as MasterDocument | null | undefined;
 
-      if (existingDocument) {
-        const nextVerLabel = `v1.${existingDocument.versions.length}`;
+      if (masterDoc) {
+        const nextVerLabel = `v1.${masterDoc.versions.length}`;
         addDocumentVersion(
-          existingDocument.id,
+          masterDoc.id,
           nextVerLabel,
           finalFileName,
           fileSizeBytes,
           changeSummary.trim() || 'New version uploaded.',
           finalExpiry,
-          /* opened from a requirement: only that requirement goes back to review */
           assuranceSetId && requirementId ? { assuranceSetId, requirementId } : undefined,
         );
       } else {
@@ -432,7 +524,6 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 certificateNumber: finalCertNo,
                 certType: 'Statutory Certificate',
                 issuingBody: finalAuthority,
-                /* not read from the scan; left empty, not invented */
                 issueDate: '',
                 expiryDate: finalExpiry,
                 vesselName: targetVesselObj?.name || '',
@@ -444,7 +535,6 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 status: getComplianceStateForExpiry(finalExpiry),
               }
               : undefined,
-          /* no check has run on a new upload */
           validationRules: {
             charterBufferPassed: false,
             assetMatch100Percent: false,
@@ -481,14 +571,14 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     id: existingDocument?.id || 'DOC-UPLOAD-PREVIEW',
     title: title || existingDocument?.title || fileName || 'International Oil Pollution Prevention (IOPP)',
     entityType,
-    vesselId: vesselId || existingDocument?.vesselId || 'AUSP1VSR619',
+    vesselId: vesselId || masterDocExisting?.vesselId || 'AUSP1VSR619',
     certificateNo: certificateNo || existingDocument?.certificateNo || '',
     issuingAuthority: issuingAuthority || existingDocument?.issuingAuthority || '',
     expiryDate: expiryDate || existingDocument?.expiryDate || '',
     ocrConfidence: Math.round(aiOcrConfidence),
-    complianceState: existingDocument?.complianceState || 'Valid',
-    currentVersion: existingDocument?.currentVersion || 'v1.0',
-    versions: existingDocument?.versions || [
+    complianceState: masterDocExisting?.complianceState || 'Valid',
+    currentVersion: masterDocExisting?.currentVersion || 'v1.0',
+    versions: masterDocExisting?.versions || [
       {
         versionLabel: 'v1.0',
         uploadedAt: new Date().toISOString(),
@@ -498,7 +588,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         changeSummary: changeSummary || 'Uploaded statutory certificate',
       },
     ],
-    vesselAttributes: existingDocument?.vesselAttributes || {
+    vesselAttributes: masterDocExisting?.vesselAttributes || {
       title: title || 'International Oil Pollution Prevention (IOPP)',
       certificateNumber: certificateNo || '',
       certType: 'Statutory Pollution Prevention Certificate',
@@ -513,14 +603,14 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       ocrConfidence: Math.round(aiOcrConfidence),
       status: 'Valid',
     },
-    validationRules: existingDocument?.validationRules || {
+    validationRules: masterDocExisting?.validationRules || {
       charterBufferPassed: false,
       assetMatch100Percent: false,
       iacsAuthorityValid: false,
       overallValid: false,
       rulesNotChecked: true,
     },
-    verificationStatus: existingDocument?.verificationStatus || 'Pending',
+    verificationStatus: masterDocExisting?.verificationStatus || 'Pending',
   };
 
   return (
@@ -544,17 +634,26 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           />
 
           <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3 position-relative">
-            <h5 className="modal-title fw-bold text-slate-900 m-0">
-              {modalTitle
-                ? modalTitle
-                : existingDocument
-                  ? `Upload New Version — ${existingDocument.title}`
-                  : requirementTitle
-                    ? `Upload Document — ${requirementTitle}`
-                    : assuranceSetId
-                      ? 'Upload Document'
-                      : 'Upload Preassurance Document'}
-            </h5>
+            <div>
+              <h5 className="modal-title fw-bold text-slate-900 m-0">
+                {modalTitle
+                  ? modalTitle
+                  : existingDocument
+                    ? `Upload New Version — ${existingDocument.title}`
+                    : isCrew
+                      ? `Upload Document — ${crewName}`
+                      : requirementTitle
+                        ? `Upload Document — ${requirementTitle}`
+                        : assuranceSetId
+                          ? 'Upload Document'
+                          : 'Upload Preassurance Document'}
+              </h5>
+              {isCrew && crewName && (
+                <div className="text-secondary small font-mono-code">
+                  Crew: <strong>{crewName}</strong> ({crewId})
+                </div>
+              )}
+            </div>
             <button
               type="button"
               className="btn-close ms-auto"
@@ -606,7 +705,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                               {title || existingDocument?.title || 'International Oil Pollution Prevention (IOPP)'}
                             </h5>
                             <div className="font-mono-code text-muted small" style={{ fontSize: '0.75rem' }}>
-                              {(fileName || existingDocument?.versions?.[0]?.fileName || 'iopp-annex1-scan.jpg')} · {formatFileSize(fileSizeBytes)} · 1 page
+                              {(fileName || masterDocExisting?.versions?.[0]?.fileName || crewDocExisting?.fileName || 'iopp-annex1-scan.jpg')} · {formatFileSize(fileSizeBytes)} · 1 page
                             </div>
                           </div>
 
@@ -964,69 +1063,78 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       </div>
                     </div>
                   )}
-                  {/* Option A: Upload from Document Library (if not replacing existing doc revision) */}
-                  {!existingDocument && (
-                    <div className="p-2.5 bg-light border rounded-3 d-flex flex-column gap-2 mb-1">
-                      <div className="d-flex flex-column">
-                        <label className="form-label text-secondary small fw-semibold mb-1 text-truncate" htmlFor="lib-doc-select">
-                          Select from Document Library
-                        </label>
-                        <select
-                          id="lib-doc-select"
-                          className={`form-select form-select-sm bg-white text-dark border-secondary w-100 font-mono-code ${selectedUnassignedDocId ? 'border-primary shadow-2xs' : ''}`}
-                          style={{ height: '36px', fontSize: '0.8125rem' }}
-                          value={selectedUnassignedDocId}
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleSelectUnassignedDoc(e.target.value);
-                              setUploadOption('unassigned_doc');
-                            } else {
-                              setSelectedUnassignedDocId('');
-                              setUploadOption('new_file');
-                            }
-                          }}
-                          disabled={isExtractingAi || isUploading}
-                        >
-                          <option value="">
-                            {unassignedDocuments.length > 0
-                              ? `-- Select from ${unassignedDocuments.length} Available Document${unassignedDocuments.length > 1 ? 's' : ''} --`
-                              : '-- No library documents available --'}
-                          </option>
-                          {unassignedDocuments.map((doc) => (
-                            <option key={doc.id} value={doc.id}>
-                              {doc.title} ({doc.certificateNo || doc.id})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {selectedUnassignedDocId && (
-                        <div className="d-flex align-items-center justify-content-between p-2 bg-white border border-success rounded small font-mono-code">
-                          <div className="d-flex align-items-center gap-2 text-truncate">
-                            <span className="badge bg-success text-white flex-shrink-0">Document</span>
-                            <span className="fw-bold text-dark text-truncate">{selectedUnassignedDocId}</span>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-link p-0 text-danger small text-decoration-none ms-2"
-                            onClick={() => {
-                              setSelectedUnassignedDocId('');
-                              setFileName('');
-                              if (!requirementTitle) setTitle('');
-                              setCertificateNo('');
-                              setIssuingAuthority('');
-                              setIsAiExtracted(false);
-                              setIsExtractingAi(false);
-                              setIsPendingVerification(false);
-                              setUploadOption('new_file');
+                  {/* Option A: Upload from Document Library */}
+                  {!existingDocument && (() => {
+                    const libDocs = isCrew
+                      ? documents.filter((d) => {
+                          if (d.entityType !== 'Crew Certificate') return false;
+                          const vId = d.vesselId?.trim().toUpperCase();
+                          return !vId || vId === '' || vId === 'UNASSIGNED' || vId === 'UNLINKED' || vId.startsWith('VESSEL-PENDING');
+                        })
+                      : unassignedDocuments;
+                    return (
+                      <div className="p-2.5 bg-light border rounded-3 d-flex flex-column gap-2 mb-1">
+                        <div className="d-flex flex-column">
+                          <label className="form-label text-secondary small fw-semibold mb-1 text-truncate" htmlFor="lib-doc-select">
+                            {isCrew ? 'Fill from Document Library' : 'Select from Document Library'}
+                          </label>
+                          <select
+                            id="lib-doc-select"
+                            className={`form-select form-select-sm bg-white text-dark border-secondary w-100 font-mono-code ${selectedUnassignedDocId ? 'border-primary shadow-2xs' : ''}`}
+                            style={{ height: '36px', fontSize: '0.8125rem' }}
+                            value={selectedUnassignedDocId}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                handleSelectUnassignedDoc(e.target.value);
+                                setUploadOption('unassigned_doc');
+                              } else {
+                                setSelectedUnassignedDocId('');
+                                setUploadOption('new_file');
+                              }
                             }}
+                            disabled={isExtractingAi || isUploading}
                           >
-                            Clear Selection
-                          </button>
+                            <option value="">
+                              {libDocs.length > 0
+                                ? `-- Select from ${libDocs.length} Available Document${libDocs.length > 1 ? 's' : ''} --`
+                                : isCrew ? '-- No unassigned crew certificates --' : '-- No library documents available --'}
+                            </option>
+                            {libDocs.map((doc) => (
+                              <option key={doc.id} value={doc.id}>
+                                {doc.title} ({doc.certificateNo || doc.id})
+                              </option>
+                            ))}
+                          </select>
                         </div>
-                      )}
-                    </div>
-                  )}
+
+                        {selectedUnassignedDocId && (
+                          <div className="d-flex align-items-center justify-content-between p-2 bg-white border border-success rounded small font-mono-code">
+                            <div className="d-flex align-items-center gap-2 text-truncate">
+                              <span className="badge bg-success text-white flex-shrink-0">Document</span>
+                              <span className="fw-bold text-dark text-truncate">{selectedUnassignedDocId}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-link p-0 text-danger small text-decoration-none ms-2"
+                              onClick={() => {
+                                setSelectedUnassignedDocId('');
+                                setFileName('');
+                                if (!requirementTitle) setTitle('');
+                                setCertificateNo('');
+                                setIssuingAuthority('');
+                                setIsAiExtracted(false);
+                                setIsExtractingAi(false);
+                                setIsPendingVerification(false);
+                                setUploadOption('new_file');
+                              }}
+                            >
+                              Clear Selection
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Option B: Drag/Drop or Click */}
                   <div className="w-100 d-flex flex-column">
@@ -1079,6 +1187,129 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {/* STCW fields — crew kind only */}
+                  {isCrew && (
+                    <>
+                      <div className="row g-2">
+                        <div className="col-md-5">
+                          <label className="form-label text-secondary small fw-semibold" htmlFor="stcw-reg">
+                            STCW Regulation
+                          </label>
+                          <input
+                            id="stcw-reg"
+                            type="text"
+                            className="form-control form-control-sm bg-white text-dark border-secondary font-mono-code"
+                            placeholder="STCW Reg II/2"
+                            value={stcwRegulation}
+                            onChange={(e) => setStcwRegulation(e.target.value)}
+                            disabled={isUploading || isExtractingAi}
+                          />
+                        </div>
+                        <div className="col-md-7">
+                          <label className="form-label text-secondary small fw-semibold" htmlFor="cert-no-crew">
+                            Certificate No. <span className="text-danger">*</span>
+                          </label>
+                          <input
+                            id="cert-no-crew"
+                            type="text"
+                            className="form-control form-control-sm bg-white text-dark border-secondary font-mono-code"
+                            placeholder="e.g. CoC-II-2-0041"
+                            value={certificateNo}
+                            onChange={(e) => setCertificateNo(e.target.value)}
+                            disabled={isUploading || isExtractingAi}
+                          />
+                        </div>
+                      </div>
+                      <div className="row g-2">
+                        <div className="col-md-6">
+                          <label className="form-label text-secondary small fw-semibold" htmlFor="issuing-auth-crew">
+                            Issuing Authority <span className="text-danger">*</span>
+                          </label>
+                          <input
+                            id="issuing-auth-crew"
+                            type="text"
+                            className="form-control form-control-sm bg-white text-dark border-secondary"
+                            placeholder="AMSA Australia"
+                            value={issuingAuthority}
+                            onChange={(e) => setIssuingAuthority(e.target.value)}
+                            disabled={isUploading || isExtractingAi}
+                          />
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label text-secondary small fw-semibold" htmlFor="flag-state">
+                            Flag State
+                          </label>
+                          <input
+                            id="flag-state"
+                            type="text"
+                            className="form-control form-control-sm bg-white text-dark border-secondary"
+                            placeholder="e.g. Australia / Liberia"
+                            value={flagState}
+                            onChange={(e) => setFlagState(e.target.value)}
+                            disabled={isUploading || isExtractingAi}
+                          />
+                        </div>
+                        <div className="col-md-4">
+                          <label className="form-label text-secondary small fw-semibold" htmlFor="issuing-state">
+                            Issuing State
+                          </label>
+                          <input
+                            id="issuing-state"
+                            type="text"
+                            className="form-control form-control-sm bg-white text-dark border-secondary"
+                            placeholder="e.g. Philippines"
+                            value={issuingState}
+                            onChange={(e) => setIssuingState(e.target.value)}
+                            disabled={isUploading || isExtractingAi}
+                          />
+                        </div>
+                        <div className="col-md-4">
+                          <label className="form-label text-secondary small fw-semibold" htmlFor="endorsing-state">
+                            Endorsing State
+                          </label>
+                          <input
+                            id="endorsing-state"
+                            type="text"
+                            className="form-control form-control-sm bg-white text-dark border-secondary"
+                            placeholder="e.g. Australia (CoR)"
+                            value={endorsingState}
+                            onChange={(e) => setEndorsingState(e.target.value)}
+                            disabled={isUploading || isExtractingAi}
+                          />
+                        </div>
+                        <div className="col-md-4">
+                          <label className="form-label text-secondary small fw-semibold" htmlFor="dp-days">
+                            DP Logged Days
+                          </label>
+                          <input
+                            id="dp-days"
+                            type="number"
+                            min={0}
+                            className="form-control form-control-sm bg-white text-dark border-secondary"
+                            placeholder="DP certificates only"
+                            value={dpLoggedDays}
+                            onChange={(e) => setDpLoggedDays(e.target.value)}
+                            disabled={isUploading || isExtractingAi}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="expiry-date-crew">
+                          Expiry Date <span className="text-danger">*</span>
+                        </label>
+                        <input
+                          id="expiry-date-crew"
+                          type="date"
+                          className="form-control form-control-sm bg-white text-dark border-secondary font-mono-code"
+                          value={expiryDate}
+                          onChange={(e) => setExpiryDate(e.target.value)}
+                          disabled={isUploading || isExtractingAi}
+                          required
+                        />
+                      </div>
+                    </>
+                  )}
 
                   {/* reason for revision / change summary field - only rendered when uploading a revision to an existing document */}
                   {existingDocument && (
@@ -1139,9 +1370,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     Uploading...
                   </>
                 ) : existingDocument ? (
-                  'Upload New Version'
+                  isCrew ? 'Submit Replacement Revision' : 'Upload New Version'
                 ) : (
-                  ' Upload Document'
+                  isCrew ? 'Upload Certificate' : 'Upload Document'
                 )}
               </button>
             </div>

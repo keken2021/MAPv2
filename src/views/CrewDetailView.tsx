@@ -28,7 +28,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { Tabs } from '../components/common/Tabs';
 import { formatMaritimeDate } from '../utils/formatters';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
-import { CrewDocumentUploadModal } from '../components/modals/CrewDocumentUploadModal';
+import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { CrewDocumentViewerModal } from '../components/modals/CrewDocumentViewerModal';
 import { getProjectOrganizationForPersona, isCrewOwnedByOrganization } from '../utils/projectHelpers';
 import { ImageCropModal } from '../components/modals/VesselImageCropModal';
@@ -1141,8 +1141,9 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
       />
 
       {/* STCW Document Upload / Reupload / Renewal Modal */}
-      <CrewDocumentUploadModal
+      <DocumentUploadModal
         isOpen={isUploadModalOpen}
+        kind="crew"
         crewId={crewMember.id}
         crewName={crewMember.fullName}
         existingDocument={editingDoc}
