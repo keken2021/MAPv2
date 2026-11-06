@@ -15,6 +15,8 @@ export interface ConfirmDialogProps {
   initialReason?: string;
   isSubmitting?: boolean;
   dismissible?: boolean;
+  confirmTestId?: string;
+  reasonTestId?: string;
   onConfirm: (reason?: string) => void;
   onCancel: () => void;
   zIndex?: number;
@@ -32,6 +34,8 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   initialReason = '',
   isSubmitting = false,
   dismissible = true,
+  confirmTestId = 'confirm-dialog-confirm',
+  reasonTestId = 'confirm-dialog-reason',
   onConfirm,
   onCancel,
   zIndex,
@@ -71,7 +75,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         className={`btn btn-sm ${tone === 'danger' ? 'btn-danger text-white' : 'btn-primary'}`}
         onClick={handleConfirm}
         disabled={isConfirmDisabled}
-        data-testid="confirm-dialog-confirm"
+        data-testid={confirmTestId}
       >
         {isSubmitting ? 'Please wait...' : confirmLabel}
       </button>
@@ -118,7 +122,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
               value={reason}
               disabled={isSubmitting}
               onChange={(e) => setReason(e.target.value)}
-              data-testid="confirm-dialog-reason"
+              data-testid={reasonTestId}
             />
           </div>
         )}

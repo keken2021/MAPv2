@@ -101,6 +101,7 @@ import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Buildin
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
 import { Wizard, WizardStep } from '../components/wizards/Wizard';
+import { PartyRoleErrors } from '../components/wizards/PartyRoleErrors';
 import { Modal } from '../components/modals/Modal';
 
 interface SpecializedDoc {
@@ -3026,7 +3027,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <div className="card border shadow-2xs rounded-3 bg-white" data-testid="card-involved-organizations">
                 <div className="card-header bg-light border-bottom px-4 py-3">
                   <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    2. Parties
+                    3. Parties
                   </h5>
                   <div className="text-muted small">
                     List every party in this set, configure verification and governance stages, and assign reviewer roles.
@@ -3041,6 +3042,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <span className="badge bg-light text-dark border">Pre-filled from request</span>
                     </div>
                   )}
+                  <PartyRoleErrors
+                    requestingParty={fieldErrors.requestingParty}
+                    respondingParty={fieldErrors.respondingParty}
+                  />
                   {/* Verification & Governance Stages */}
                   <div className="p-3 bg-light border rounded-3 mb-3" data-testid="card-governance-stages">
                     <div className="mb-2">

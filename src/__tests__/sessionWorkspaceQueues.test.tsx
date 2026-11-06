@@ -22,8 +22,8 @@ describe('session workspace queues', () => {
         }) &&
         Boolean(set.assignedInspector?.includes('N. Technical')),
     );
-    expect(orgWide.length).toBe(8);
-    expect(named.length).toBe(5);
+    expect(orgWide.length).toBe(11);
+    expect(named.length).toBe(7);
 
     useMapStore.setState({
       activePersona: 'Inspector',

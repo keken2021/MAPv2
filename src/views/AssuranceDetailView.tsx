@@ -5161,6 +5161,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         tone="danger"
         reasonLabel="Reason for Exclusion"
         reasonPlaceholder="Enter required operational or medical justification..."
+        confirmTestId="confirm-exclude-btn"
+        reasonTestId="exclude-reason-input"
         onConfirm={handleConfirmExclude}
         onCancel={closeExcludeModal}
       />
