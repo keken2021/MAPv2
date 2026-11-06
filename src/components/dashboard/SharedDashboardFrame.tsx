@@ -41,12 +41,6 @@ export const SharedDashboardFrame: React.FC<SharedDashboardFrameProps> = ({ conf
       data-testid="shared-dashboard-frame"
       className={`map-dashboard-frame ${className}`}
     >
-      {/* Role Title and Subtitle */}
-      <div className="map-dashboard-header">
-        <h4 className="map-dashboard-header-title">{config.roleTitle}</h4>
-        {config.subtitle && <p className="map-dashboard-header-subtitle">{config.subtitle}</p>}
-      </div>
-
       {/* 4-Tile KPI Strip */}
       <div
         data-testid="kpi-strip"

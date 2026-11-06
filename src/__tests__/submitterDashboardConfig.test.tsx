@@ -199,8 +199,7 @@ describe('Submitter dashboard config (Task 5386)', () => {
 
     render(<SharedDashboardFrame config={config} />);
 
-    expect(screen.getByText('Submitter')).toBeInTheDocument();
-    expect(screen.getByText('1 assigned assurance sets')).toBeInTheDocument();
+    expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
 
     // Check tags
     expect(screen.getAllByText('Returned').length).toBeGreaterThan(0);

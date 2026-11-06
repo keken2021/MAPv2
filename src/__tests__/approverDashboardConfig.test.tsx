@@ -196,8 +196,7 @@ describe('Approver dashboard config (Task 5389)', () => {
 
     render(<SharedDashboardFrame config={config} />);
 
-    expect(screen.getByText('Approver')).toBeInTheDocument();
-    expect(screen.getByText('Decisions waiting')).toBeInTheDocument();
+    expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
 
     // Verify readiness bars are rendered
     const readinessBars = screen.getAllByTestId('readiness-bar');

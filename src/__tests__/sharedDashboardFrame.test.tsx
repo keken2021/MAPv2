@@ -53,9 +53,6 @@ describe('SharedDashboardFrame', () => {
     const config = createSampleConfig();
     render(<SharedDashboardFrame config={config} />);
 
-    expect(screen.getByText('Administrator as client')).toBeInTheDocument();
-    expect(screen.getByText('Northwind Shipping · 3 projects')).toBeInTheDocument();
-
     expect(screen.getByText('Sets needing people')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
 

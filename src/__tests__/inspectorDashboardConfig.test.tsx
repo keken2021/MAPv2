@@ -206,8 +206,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
 
     render(<SharedDashboardFrame config={config} />);
 
-    expect(screen.getByText('Inspector')).toBeInTheDocument();
-    expect(screen.getByText('Your inspections')).toBeInTheDocument();
+    expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
 
     const finishBtn = screen.getByRole('button', { name: 'Finish report' });
     const scheduleBtn = screen.getByRole('button', { name: 'Schedule' });

@@ -190,8 +190,6 @@ describe('Administrator as client dashboard config', () => {
 
     render(<SharedDashboardFrame config={config} />);
 
-    // Check title and subtitle
-    expect(screen.getByText('Administrator as client')).toBeInTheDocument();
     expect(screen.getByText('Sets needing people')).toBeInTheDocument();
     expect(screen.getByText('Overdue')).toBeInTheDocument();
     expect(screen.getByText('Due this week')).toBeInTheDocument();

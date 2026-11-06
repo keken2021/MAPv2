@@ -219,8 +219,7 @@ describe('Verifier dashboard config (Task 5387)', () => {
 
     render(<SharedDashboardFrame config={config} />);
 
-    expect(screen.getByText('Verifier')).toBeInTheDocument();
-    expect(screen.getByText('Verification queue')).toBeInTheDocument();
+    expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
 
     // Action button
     const verifyBtn = screen.getByRole('button', { name: 'Verify' });

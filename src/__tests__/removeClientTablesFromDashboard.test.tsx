@@ -22,7 +22,6 @@ describe('Remove client tables from dashboard (Task 5385)', () => {
     render(<DashboardView />);
 
     // Shared dashboard frame is rendered
-    expect(screen.getByText('Administrator as client')).toBeInTheDocument();
     expect(screen.getByText('Sets needing people')).toBeInTheDocument();
 
     // No tables are rendered on the dashboard
@@ -39,9 +38,6 @@ describe('Remove client tables from dashboard (Task 5385)', () => {
   it('renders shared dashboard frame with no tables on C Admin dashboard', () => {
     useMapStore.setState({ activePersona: 'C Admin' });
     render(<DashboardView />);
-
-    // Shared dashboard frame is rendered
-    expect(screen.getByText('Administrator as client')).toBeInTheDocument();
 
     // No tables are rendered
     expect(screen.queryAllByRole('table')).toHaveLength(0);

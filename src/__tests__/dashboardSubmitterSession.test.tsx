@@ -14,9 +14,9 @@ describe('Submitter Dashboard per-person filtering', () => {
     });
   });
 
-  it('shows 13 sets instead of 22 for Northwind Submitter M. Chen', () => {
+  it('renders dashboard for Northwind Submitter without org-wide subtitle', () => {
     render(<DashboardView />);
-    expect(screen.getByText('13 assigned assurance sets')).toBeInTheDocument();
+    expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
     expect(screen.queryByText('22 assigned assurance sets')).toBeNull();
   });
 

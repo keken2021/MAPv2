@@ -19,7 +19,6 @@ describe('Role dashboards routing to SharedDashboardFrame (Task 5390)', () => {
     render(<DashboardView />);
 
     expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 4, name: /administrator as client/i })).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-needing_people')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-overdue')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-due_this_week')).toBeInTheDocument();
@@ -31,7 +30,6 @@ describe('Role dashboards routing to SharedDashboardFrame (Task 5390)', () => {
     render(<DashboardView />);
 
     expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 4, name: /submitter/i })).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-returned')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-missing')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-expiring')).toBeInTheDocument();
@@ -43,7 +41,6 @@ describe('Role dashboards routing to SharedDashboardFrame (Task 5390)', () => {
     render(<DashboardView />);
 
     expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 4, name: /verifier/i })).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-escalated')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-due_this_week')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-resubmitted')).toBeInTheDocument();
@@ -55,7 +52,6 @@ describe('Role dashboards routing to SharedDashboardFrame (Task 5390)', () => {
     render(<DashboardView />);
 
     expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 4, name: /inspector/i })).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-reports_overdue')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-reinspections')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-next_7_days')).toBeInTheDocument();
@@ -67,7 +63,6 @@ describe('Role dashboards routing to SharedDashboardFrame (Task 5390)', () => {
     render(<DashboardView />);
 
     expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 4, name: /approver/i })).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-ready_to_decide')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-with_open_findings')).toBeInTheDocument();
     expect(screen.getByTestId('kpi-tile-waiting_over_5')).toBeInTheDocument();
