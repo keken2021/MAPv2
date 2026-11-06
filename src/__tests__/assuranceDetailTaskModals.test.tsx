@@ -191,6 +191,38 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('Target Date Grants modal opens on Modal shell (Task 5421)', () => {
+    useMapStore.setState({ ...useMapStore.getState(), activePersona: 'V Admin' });
+    render(<AssuranceDetailView setId={setIdWithSections} />);
+    const btn = screen.queryByRole('button', { name: /target date grants/i });
+    if (!btn) return; // button only shown for sets with grants; skip if absent
+    fireEvent.click(btn);
+    expect(screen.getByRole('heading', { name: 'Target Date Grants' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  });
+
+  it('Revise Completion Date modal opens on Modal shell (Task 5421)', () => {
+    useMapStore.setState({ ...useMapStore.getState(), activePersona: 'C Admin' });
+    render(<AssuranceDetailView setId={setIdWithSections} />);
+    const btn = screen.queryByRole('button', { name: /revise completion date/i });
+    if (!btn) return;
+    fireEvent.click(btn);
+    expect(screen.getByRole('heading', { name: 'Revise Completion Date' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('heading', { name: 'Revise Completion Date' })).not.toBeInTheDocument();
+  });
+
+  it('Exempt Tasks modal opens on Modal shell (Task 5421)', () => {
+    useMapStore.setState({ ...useMapStore.getState(), activePersona: 'C Admin' });
+    render(<AssuranceDetailView setId={setIdWithSections} />);
+    const btn = screen.queryByRole('button', { name: /exempt tasks/i });
+    if (!btn) return;
+    fireEvent.click(btn);
+    expect(screen.getByRole('heading', { name: 'Exempt Tasks from Completion Date' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('heading', { name: 'Exempt Tasks from Completion Date' })).not.toBeInTheDocument();
+  });
+
   it('allows clearing both section and predecessor when editing', () => {
     render(<AssuranceDetailView setId={setIdWithSections} />);
 

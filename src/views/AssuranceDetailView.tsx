@@ -67,6 +67,7 @@ import {
 import { useSessionUser } from '../utils/useSessionUser';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
 import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
+import { Modal } from '../components/modals/Modal';
 import { ConfirmDialog } from '../components/modals/ConfirmDialog';
 import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetObjects, getAssuranceSetScopes, SUBTYPE_CATEGORIES } from '../utils/assuranceTemplates';
 import { findOverlappingAssuranceSets, formatOverlapError } from '../utils/assuranceOverlap';
@@ -4711,235 +4712,221 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       )}
 
       {/* Target Date Permissions Modal */}
-      {isDatePermissionsModalOpen && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="date-permissions-title">
-            <div className="modal-dialog modal-dialog-centered modal-lg">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <div>
-                    <h5 className="modal-title fs-6 fw-bold" id="date-permissions-title">Target Date Grants</h5>
-                    <div className="text-muted small">Short-term permissions granted to named client users to change target dates (BRD V4.2 change 6).</div>
-                  </div>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsDatePermissionsModalOpen(false)} />
-                </div>
-                <div className="modal-body d-flex flex-column gap-3">
-                  <div>
-                    <h6 className="fw-bold text-dark small mb-2">Active & Recent Grants</h6>
-                    {(!assuranceSet.datePermissionGrants || assuranceSet.datePermissionGrants.length === 0) ? (
-                      <div className="alert alert-light border small text-muted mb-0">
-                        No named client users have date modification grants on this set.
-                      </div>
-                    ) : (
-                      <div className="table-responsive">
-                        <table className="table table-sm table-bordered align-middle mb-0" style={{ fontSize: '0.78rem' }}>
-                          <thead className="table-light">
-                            <tr>
-                              <th>Client User</th>
-                              <th>Granted By</th>
-                              <th>Granted At</th>
-                              <th>Expires At</th>
-                              <th>Status</th>
-                              {activePersona === 'C Admin' && <th className="text-end">Action</th>}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {assuranceSet.datePermissionGrants.map((grant) => {
-                              const active = isDatePermissionActive(grant);
-                              return (
-                                <tr key={grant.id}>
-                                  <td className="fw-semibold text-dark">{grant.userName}</td>
-                                  <td>{grant.grantedBy}</td>
-                                  <td>{formatMaritimeDate(grant.grantedAt)}</td>
-                                  <td>{new Date(grant.expiresAt).toLocaleString()}</td>
-                                  <td>
-                                    {active ? (
-                                      <span className="badge bg-success-subtle text-success border border-success-subtle">
-                                        Active
-                                      </span>
-                                    ) : (
-                                      <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                                        Expired
-                                      </span>
-                                    )}
-                                  </td>
-                                  {activePersona === 'C Admin' && (
-                                    <td className="text-end">
-                                      {active && (
-                                        <button
-                                          type="button"
-                                          className="btn btn-sm btn-link text-danger p-0"
-                                          style={{ fontSize: '0.72rem' }}
-                                          onClick={() => handleRevokePermission(grant.id)}
-                                        >
-                                          Revoke
-                                        </button>
-                                      )}
-                                    </td>
-                                  )}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
+      <Modal
+        isOpen={isDatePermissionsModalOpen}
+        onClose={() => setIsDatePermissionsModalOpen(false)}
+        title="Target Date Grants"
+        meta="Short-term permissions granted to named client users to change target dates (BRD V4.2 change 6)."
+        size="lg"
+        footer={
+          <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsDatePermissionsModalOpen(false)}>
+            Close
+          </button>
+        }
+      >
+        <div className="d-flex flex-column gap-3">
+          <div>
+            <h6 className="fw-bold text-dark small mb-2">Active & Recent Grants</h6>
+            {(!assuranceSet.datePermissionGrants || assuranceSet.datePermissionGrants.length === 0) ? (
+              <div className="alert alert-light border small text-muted mb-0">
+                No named client users have date modification grants on this set.
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table table-sm table-bordered align-middle mb-0" style={{ fontSize: '0.78rem' }}>
+                  <thead className="table-light">
+                    <tr>
+                      <th>Client User</th>
+                      <th>Granted By</th>
+                      <th>Granted At</th>
+                      <th>Expires At</th>
+                      <th>Status</th>
+                      {activePersona === 'C Admin' && <th className="text-end">Action</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assuranceSet.datePermissionGrants.map((grant) => {
+                      const active = isDatePermissionActive(grant);
+                      return (
+                        <tr key={grant.id}>
+                          <td className="fw-semibold text-dark">{grant.userName}</td>
+                          <td>{grant.grantedBy}</td>
+                          <td>{formatMaritimeDate(grant.grantedAt)}</td>
+                          <td>{new Date(grant.expiresAt).toLocaleString()}</td>
+                          <td>
+                            {active ? (
+                              <span className="badge bg-success-subtle text-success border border-success-subtle">
+                                Active
+                              </span>
+                            ) : (
+                              <span className="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                Expired
+                              </span>
+                            )}
+                          </td>
+                          {activePersona === 'C Admin' && (
+                            <td className="text-end">
+                              {active && (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-link text-danger p-0"
+                                  style={{ fontSize: '0.72rem' }}
+                                  onClick={() => handleRevokePermission(grant.id)}
+                                >
+                                  Revoke
+                                </button>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
-                  {activePersona === 'C Admin' && (
-                    <div className="card bg-light-subtle border p-3 rounded-2">
-                      <h6 className="fw-bold text-dark small mb-2">Grant Short-Term Date Access</h6>
-                      <div className="row g-2">
-                        <div className="col-12 col-md-5">
-                          <label className="form-label text-secondary small mb-1">Select Client User</label>
-                          <select
-                            className="form-select form-select-sm bg-white"
-                            value={selectedGranteeId}
-                            onChange={(e) => setSelectedGranteeId(e.target.value)}
-                          >
-                            <option value="">Choose client user...</option>
-                            {users
-                              .filter((u) => isClientUser(u, assuranceSet, activePersona))
-                              .map((u) => (
-                                <option key={u.id} value={u.id}>
-                                  {u.name} ({u.organization})
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-                        <div className="col-12 col-md-3">
-                          <label className="form-label text-secondary small mb-1">Duration</label>
-                          <select
-                            className="form-select form-select-sm bg-white"
-                            value={grantDurationHours}
-                            onChange={(e) => setGrantDurationHours(e.target.value)}
-                          >
-                            <option value="1">1 Hour</option>
-                            <option value="2">2 Hours</option>
-                            <option value="8">8 Hours</option>
-                            <option value="24">24 Hours</option>
-                            <option value="48">48 Hours</option>
-                            <option value="168">7 Days</option>
-                          </select>
-                        </div>
-                        <div className="col-12 col-md-4">
-                          <label className="form-label text-secondary small mb-1">Reason (optional)</label>
-                          <input
-                            type="text"
-                            className="form-control form-control-sm bg-white"
-                            placeholder="e.g. Schedule audit window"
-                            value={grantReasonDraft}
-                            onChange={(e) => setGrantReasonDraft(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-2 text-end">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-primary"
-                          disabled={!selectedGranteeId}
-                          onClick={handleGrantPermission}
-                        >
-                          Grant Permission
-                        </button>
-                      </div>
-                    </div>
-                  )}
+          {activePersona === 'C Admin' && (
+            <div className="card bg-light-subtle border p-3 rounded-2">
+              <h6 className="fw-bold text-dark small mb-2">Grant Short-Term Date Access</h6>
+              <div className="row g-2">
+                <div className="col-12 col-md-5">
+                  <label className="form-label text-secondary small mb-1">Select Client User</label>
+                  <select
+                    className="form-select form-select-sm bg-white"
+                    value={selectedGranteeId}
+                    onChange={(e) => setSelectedGranteeId(e.target.value)}
+                  >
+                    <option value="">Choose client user...</option>
+                    {users
+                      .filter((u) => isClientUser(u, assuranceSet, activePersona))
+                      .map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.organization})
+                        </option>
+                      ))}
+                  </select>
                 </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsDatePermissionsModalOpen(false)}>
-                    Close
-                  </button>
+                <div className="col-12 col-md-3">
+                  <label className="form-label text-secondary small mb-1">Duration</label>
+                  <select
+                    className="form-select form-select-sm bg-white"
+                    value={grantDurationHours}
+                    onChange={(e) => setGrantDurationHours(e.target.value)}
+                  >
+                    <option value="1">1 Hour</option>
+                    <option value="2">2 Hours</option>
+                    <option value="8">8 Hours</option>
+                    <option value="24">24 Hours</option>
+                    <option value="48">48 Hours</option>
+                    <option value="168">7 Days</option>
+                  </select>
+                </div>
+                <div className="col-12 col-md-4">
+                  <label className="form-label text-secondary small mb-1">Reason (optional)</label>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm bg-white"
+                    placeholder="e.g. Schedule audit window"
+                    value={grantReasonDraft}
+                    onChange={(e) => setGrantReasonDraft(e.target.value)}
+                  />
                 </div>
               </div>
+              <div className="mt-2 text-end">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  disabled={!selectedGranteeId}
+                  onClick={handleGrantPermission}
+                >
+                  Grant Permission
+                </button>
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          )}
+        </div>
+      </Modal>
 
       {/* Overdue Outcome Modal: Revise Completion Date */}
-      {isReviseDeadlineModalOpen && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="revise-deadline-title">
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <div>
-                    <h5 className="modal-title fs-6 fw-bold" id="revise-deadline-title">Revise Completion Date</h5>
-                    <div className="text-muted small">Update the target completion date for this overdue assurance set.</div>
-                  </div>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsReviseDeadlineModalOpen(false)} />
-                </div>
-                <div className="modal-body d-flex flex-column gap-3">
-                  <div>
-                    <label className="form-label text-secondary small mb-1">Current Deadline</label>
-                    <div className="fw-bold text-dark">
-                      {formatMaritimeDate(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small mb-1" htmlFor="revised-deadline-input">
-                      New Completion Date <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      id="revised-deadline-input"
-                      type="date"
-                      className="form-control form-control-sm"
-                      value={revisedDateDraft}
-                      onChange={(e) => {
-                        setRevisedDateDraft(e.target.value);
-                        setRevisedDateError(null);
-                      }}
-                    />
-                    {revisedDateError && (
-                      <div className="invalid-feedback d-block small">{revisedDateError}</div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small mb-1" htmlFor="revised-deadline-reason">
-                      Reason for Revision <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <textarea
-                      id="revised-deadline-reason"
-                      rows={2}
-                      className="form-control form-control-sm"
-                      placeholder="e.g. Supplier delay in certification endorsement..."
-                      value={revisedDateReason}
-                      onChange={(e) => setRevisedDateReason(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsReviseDeadlineModalOpen(false)}>
-                    Cancel
-                  </button>
-                  <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveRevisedDeadline}>
-                    Save Revised Date
-                  </button>
-                </div>
-              </div>
+      <Modal
+        isOpen={isReviseDeadlineModalOpen}
+        onClose={() => setIsReviseDeadlineModalOpen(false)}
+        title="Revise Completion Date"
+        meta="Update the target completion date for this overdue assurance set."
+        size="sm"
+        footer={
+          <>
+            <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsReviseDeadlineModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveRevisedDeadline}>
+              Save Revised Date
+            </button>
+          </>
+        }
+      >
+        <div className="d-flex flex-column gap-3">
+          <div>
+            <label className="form-label text-secondary small mb-1">Current Deadline</label>
+            <div className="fw-bold text-dark">
+              {formatMaritimeDate(assuranceSet.revisedCompletionDate || assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}
             </div>
           </div>
-        </>
-      )}
+          <div>
+            <label className="form-label text-secondary small mb-1" htmlFor="revised-deadline-input">
+              New Completion Date <span className="text-danger">*</span>
+            </label>
+            <input
+              id="revised-deadline-input"
+              type="date"
+              className="form-control form-control-sm"
+              value={revisedDateDraft}
+              onChange={(e) => {
+                setRevisedDateDraft(e.target.value);
+                setRevisedDateError(null);
+              }}
+            />
+            {revisedDateError && (
+              <div className="invalid-feedback d-block small">{revisedDateError}</div>
+            )}
+          </div>
+          <div>
+            <label className="form-label text-secondary small mb-1" htmlFor="revised-deadline-reason">
+              Reason for Revision <span className="text-muted fw-normal">(optional)</span>
+            </label>
+            <textarea
+              id="revised-deadline-reason"
+              rows={2}
+              className="form-control form-control-sm"
+              placeholder="e.g. Supplier delay in certification endorsement..."
+              value={revisedDateReason}
+              onChange={(e) => setRevisedDateReason(e.target.value)}
+            />
+          </div>
+        </div>
+      </Modal>
 
       {/* Overdue Outcome Modal: Exempt Tasks */}
-      {isExemptTasksModalOpen && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="exempt-tasks-title">
-            <div className="modal-dialog modal-dialog-centered modal-lg">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <div>
-                    <h5 className="modal-title fs-6 fw-bold" id="exempt-tasks-title">Exempt Tasks from Completion Date</h5>
-                    <div className="text-muted small">Grant individual deadline extensions for specific tasks so the set can proceed.</div>
-                  </div>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsExemptTasksModalOpen(false)} />
-                </div>
-                <div className="modal-body d-flex flex-column gap-3">
+      <Modal
+        isOpen={isExemptTasksModalOpen}
+        onClose={() => setIsExemptTasksModalOpen(false)}
+        title="Exempt Tasks from Completion Date"
+        meta="Grant individual deadline extensions for specific tasks so the set can proceed."
+        size="lg"
+        footer={
+          <>
+            <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsExemptTasksModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn-sm btn-primary" onClick={handleGrantExemptions}>
+              Grant Exemption ({selectedExemptTaskIds.length})
+            </button>
+          </>
+        }
+      >
+        <div className="d-flex flex-column gap-3">
                   <div>
                     <div className="d-flex align-items-center justify-content-between mb-2">
                       <label className="form-label text-secondary small mb-0 fw-bold">Select Tasks to Exempt</label>
@@ -5063,23 +5050,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     />
                   </div>
 
-                  {exemptionError && (
-                    <div className="alert alert-danger py-1.5 px-3 mb-0 small">{exemptionError}</div>
-                  )}
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsExemptTasksModalOpen(false)}>
-                    Cancel
-                  </button>
-                  <button type="button" className="btn btn-sm btn-primary" onClick={handleGrantExemptions}>
-                    Grant Exemption ({selectedExemptTaskIds.length})
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+          {exemptionError && (
+            <div className="alert alert-danger py-1.5 px-3 mb-0 small">{exemptionError}</div>
+          )}
+        </div>
+      </Modal>
 
       {/* Overdue Outcome Modal: Partial Closure */}
       <ConfirmDialog
