@@ -1,6 +1,7 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { RolesAndPermissionsView } from '../views/RolesAndPermissionsView';
 import { AddCrewModal } from '../components/modals/AddCrewModal';
 import { EquipmentModal } from '../components/modals/EquipmentModal';
 import { VesselImageCropModal } from '../components/modals/VesselImageCropModal';
@@ -287,6 +288,51 @@ describe('DocumentCertificatePreview fullscreen on Modal shell (Task 5418)', () 
     fireEvent.click(screen.getByRole('button', { name: 'Fullscreen' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('heading', { name: `PDF Review — ${document.title}` })).toBeNull();
+  });
+});
+
+describe('RolesAndPermissionsView — Reset to Default on ConfirmDialog (Task 5419)', () => {
+  it('shows the ConfirmDialog when Reset to Default is clicked', () => {
+    useMapStore.setState({ ...useMapStore.getState(), activePersona: 'Administrator' });
+    render(<RolesAndPermissionsView />);
+
+    const resetBtn = screen.getByRole('button', { name: /reset to default/i });
+    fireEvent.click(resetBtn);
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Reset to Default' })).toBeInTheDocument();
+  });
+
+  it('calls resetRolePermissionsToBrd when Reset is confirmed', () => {
+    const resetFn = vi.fn();
+    useMapStore.setState({
+      ...useMapStore.getState(),
+      activePersona: 'Administrator',
+      resetRolePermissionsToBrd: resetFn,
+    });
+    render(<RolesAndPermissionsView />);
+
+    fireEvent.click(screen.getByRole('button', { name: /reset to default/i }));
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    expect(resetFn).toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('closes without resetting when Cancel is clicked', () => {
+    const resetFn = vi.fn();
+    useMapStore.setState({
+      ...useMapStore.getState(),
+      activePersona: 'Administrator',
+      resetRolePermissionsToBrd: resetFn,
+    });
+    render(<RolesAndPermissionsView />);
+
+    fireEvent.click(screen.getByRole('button', { name: /reset to default/i }));
+    fireEvent.click(screen.getByTestId('confirm-dialog-cancel'));
+
+    expect(resetFn).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
 

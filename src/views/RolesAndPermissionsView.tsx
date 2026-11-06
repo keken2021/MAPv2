@@ -29,6 +29,8 @@ import { formatUserRoles, getRoleDisplayLabel } from '../utils/userRoleHelpers';
 import { filterUsersForPersona } from '../utils/rbacHelpers';
 import { UserProfile } from '../types/user';
 import { SearchableSelect } from '../components/common/SearchableSelect';
+import { Modal } from '../components/modals/Modal';
+import { ConfirmDialog } from '../components/modals/ConfirmDialog';
 
 type SettingsTab = 'role-defaults' | 'user-permissions';
 
@@ -76,6 +78,7 @@ export const RolesAndPermissionsView: React.FC = () => {
   const [showAddRole, setShowAddRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const selectedUser = useMemo(
     () => visibleUsers.find((u) => u.id === selectedUserId) ?? visibleUsers[0],
@@ -272,16 +275,7 @@ export const RolesAndPermissionsView: React.FC = () => {
             <button
               type="button"
               className="btn btn-outline-secondary btn-sm"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    'Reset all roles to their defaults? Custom roles, scopes, categories, and user overrides will be removed.',
-                  )
-                ) {
-                  resetRolePermissionsToBrd();
-                  setSaveMessage('Reset to defaults.');
-                }
-              }}
+              onClick={() => setShowResetConfirm(true)}
             >
               Reset to Default
             </button>
@@ -448,43 +442,57 @@ export const RolesAndPermissionsView: React.FC = () => {
         </div>
       )}
 
-      {showAddRole && (
-        <div className="modal d-block" style={{ background: 'rgba(15,23,42,0.45)' }} role="dialog">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Create Role</h5>
-                <button type="button" className="btn-close" aria-label="Close" onClick={() => setShowAddRole(false)} />
-              </div>
-              <div className="modal-body">
-                <label className="form-label" htmlFor="new-role-name">
-                  Role Name
-                </label>
-                <input
-                  id="new-role-name"
-                  className="form-control"
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  placeholder="e.g. Fleet Coordinator"
-                />
-                <div className="form-text">
-                  Assign the role to users in User
-                  Management after you save rights.
-                </div>
-                {formError && <div className="text-danger small mt-2">{formError}</div>}
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-outline-secondary" onClick={() => setShowAddRole(false)}>
-                  Cancel
-                </button>
-                <button type="button" className="btn btn-primary" onClick={handleAddRole}>
-                  Create Role
-                </button>
-              </div>
-            </div>
+      <Modal
+        isOpen={showAddRole}
+        onClose={() => { setShowAddRole(false); setNewRoleName(''); setFormError(null); }}
+        title="Create Role"
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => { setShowAddRole(false); setNewRoleName(''); setFormError(null); }}
+            >
+              Cancel
+            </button>
+            <button type="button" className="btn btn-primary" onClick={handleAddRole}>
+              Create Role
+            </button>
+          </>
+        }
+      >
+        <div>
+          <label className="form-label" htmlFor="new-role-name">
+            Role Name
+          </label>
+          <input
+            id="new-role-name"
+            className="form-control"
+            value={newRoleName}
+            onChange={(e) => setNewRoleName(e.target.value)}
+            placeholder="e.g. Fleet Coordinator"
+          />
+          <div className="form-text">
+            Assign the role to users in User Management after you save rights.
           </div>
+          {formError && <div className="text-danger small mt-2">{formError}</div>}
         </div>
-      )}
+      </Modal>
+
+      <ConfirmDialog
+        isOpen={showResetConfirm}
+        title="Reset to Default"
+        message="Reset all roles to their defaults? Custom roles, scopes, categories, and user overrides will be removed."
+        confirmLabel="Reset"
+        tone="danger"
+        onConfirm={() => {
+          resetRolePermissionsToBrd();
+          setSaveMessage('Reset to defaults.');
+          setShowResetConfirm(false);
+        }}
+        onCancel={() => setShowResetConfirm(false)}
+      />
     </div>
   );
 };

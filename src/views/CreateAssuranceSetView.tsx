@@ -101,6 +101,7 @@ import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Buildin
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
 import { Wizard, WizardStep } from '../components/wizards/Wizard';
+import { Modal } from '../components/modals/Modal';
 
 interface SpecializedDoc {
   id: string;
@@ -4493,68 +4494,55 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       </Wizard>
 
       {/* Cancel / Exit Confirmation Modal with Save Draft Option */}
-      {showCancelPrompt && (
-        <div
-          className="modal fade show d-block"
-          tabIndex={-1}
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1055 }}
-        >
-          <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '480px' }}>
-            <div className="modal-content shadow-lg border-0 rounded-3">
-              <div className="modal-header border-bottom px-4 py-3 bg-light">
-                <h5 className="modal-title fw-bold text-dark fs-6">
-                  Unsaved Changes
-                </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowCancelPrompt(false)}
-                  aria-label="Close"
-                />
-              </div>
-              <div className="modal-body px-4 py-4">
-                <p className="text-secondary small mb-3" style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>
-                  {editingDraftId
-                    ? 'Save your changes to this draft, or discard them?'
-                    : 'Save this assurance set as a draft, or discard it?'}
-                </p>
-                <div className="p-3 bg-light rounded-3 border small">
-                  <div className="fw-semibold text-dark">{title || 'Untitled'}</div>
-                  <div className="text-muted mt-0.5">
-                    Objects: {selectedAssuranceObjects.length} &nbsp;|&nbsp; Assets:{' '}
-                    {selectedScopes.map(getScopeAssetName).join(', ') || 'None'}
-                  </div>
-                </div>
-              </div>
-              <div className="modal-footer border-top bg-light px-4 py-3 d-flex align-items-center justify-content-between">
-                <button
-                  type="button"
-                  className="btn btn-outline-danger btn-sm px-3"
-                  onClick={handleConfirmExitWithoutSaving}
-                >
-                  Discard
-                </button>
-                <div className="d-flex align-items-center gap-2">
-                  <button
-                    type="button"
-                    className="btn btn-light border btn-sm px-3"
-                    onClick={() => setShowCancelPrompt(false)}
-                  >
-                    Keep Editing
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm px-3.5 text-white fw-semibold"
-                    onClick={handleSaveDraft}
-                  >
-                    {editingDraftId ? 'Save Draft' : 'Save as Draft'}
-                  </button>
-                </div>
-              </div>
+      <Modal
+        isOpen={showCancelPrompt}
+        onClose={() => setShowCancelPrompt(false)}
+        title="Unsaved Changes"
+        size="sm"
+        dismissible={false}
+        footer={
+          <div className="d-flex justify-content-between w-100">
+            <button
+              type="button"
+              className="btn btn-outline-danger btn-sm px-3"
+              onClick={handleConfirmExitWithoutSaving}
+            >
+              Discard
+            </button>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-light border btn-sm px-3"
+                onClick={() => setShowCancelPrompt(false)}
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm px-3.5 text-white fw-semibold"
+                onClick={handleSaveDraft}
+              >
+                {editingDraftId ? 'Save Draft' : 'Save as Draft'}
+              </button>
+            </div>
+          </div>
+        }
+      >
+        <div>
+          <p className="text-secondary small mb-3" style={{ fontSize: '0.875rem', lineHeight: '1.5' }}>
+            {editingDraftId
+              ? 'Save your changes to this draft, or discard them?'
+              : 'Save this assurance set as a draft, or discard it?'}
+          </p>
+          <div className="p-3 bg-light rounded-3 border small">
+            <div className="fw-semibold text-dark">{title || 'Untitled'}</div>
+            <div className="text-muted mt-0.5">
+              Objects: {selectedAssuranceObjects.length} &nbsp;|&nbsp; Assets:{' '}
+              {selectedScopes.map(getScopeAssetName).join(', ') || 'None'}
             </div>
           </div>
         </div>
-      )}
+      </Modal>
     </div >
   );
 };

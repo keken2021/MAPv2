@@ -64,7 +64,6 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
       justificationNotes: `Updated CAPA ${capa.id} status to ${reInspectStatus}. Notes: ${reInspectNotes || 'Endorsed'}`,
     });
 
-    alert(`Saved Re-Inspection status (${reInspectStatus}) for ${capa.id}.`);
     onClose();
   };
 
