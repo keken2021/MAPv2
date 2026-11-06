@@ -192,7 +192,7 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
   });
 
   it('Target Date Grants modal opens on Modal shell (Task 5421)', () => {
-    useMapStore.setState({ ...useMapStore.getState(), activePersona: 'V Admin' });
+    useMapStore.setState({ ...useMapStore.getState(), activePersona: 'Verifier' });
     render(<AssuranceDetailView setId={setIdWithSections} />);
     const btn = screen.queryByRole('button', { name: /target date grants/i });
     if (!btn) return; // button only shown for sets with grants; skip if absent

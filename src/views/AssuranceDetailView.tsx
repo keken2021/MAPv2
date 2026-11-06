@@ -34,6 +34,7 @@ import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AttachAssuranceSetPreviewModal } from '../components/modals/AttachAssuranceSetPreviewModal';
+import { AssuranceTaskModal } from '../components/modals/AssuranceTaskModal';
 import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
 import {
   canAssignStakeholderRole,
@@ -4645,71 +4646,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       />
 
       {/* Edit Task Target Date Modal */}
-      {editingTaskDate && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="edit-task-date-title">
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title fs-6 fw-bold" id="edit-task-date-title">Edit Task Target Date</h5>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setEditingTaskDate(null)} />
-                </div>
-                <div className="modal-body">
-                  <div className="mb-3">
-                    <label className="form-label text-secondary small fw-semibold">Task</label>
-                    <div className="fw-semibold text-dark">{editingTaskDate.title}</div>
-                    <div className="text-muted small">ID: {editingTaskDate.reqId}</div>
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="task-target-date-input">
-                      Target Date <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      id="task-target-date-input"
-                      type="date"
-                      className={`form-control bg-white text-dark${taskDateError ? ' is-invalid border-danger' : ''}`}
-                      value={taskDateDraft}
-                      max={assuranceSet.targetDate || assuranceSet.complianceDeadline || undefined}
-                      onChange={(e) => {
-                        setTaskDateDraft(e.target.value);
-                        setTaskDateError(null);
-                      }}
-                    />
-                    <div className="form-text">
-                      Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.targetDate || assuranceSet.complianceDeadline)}).
-                    </div>
-                    {taskDateError && (
-                      <div className="invalid-feedback d-block small mt-1">{taskDateError}</div>
-                    )}
-                  </div>
-                  <div className="mb-2">
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="task-date-reason-input">
-                      Reason for Change <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <input
-                      id="task-date-reason-input"
-                      type="text"
-                      className="form-control bg-white text-dark"
-                      placeholder="e.g. Schedule adjustment"
-                      value={taskDateReasonDraft}
-                      onChange={(e) => setTaskDateReasonDraft(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setEditingTaskDate(null)}>
-                    Cancel
-                  </button>
-                  <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveTaskTargetDate}>
-                    Save Target Date
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <AssuranceTaskModal
+        mode="date"
+        isOpen={!!editingTaskDate}
+        onClose={() => setEditingTaskDate(null)}
+        assuranceSet={assuranceSet}
+        editingTaskDate={editingTaskDate ?? { reqId: '', title: '', currentDate: '' }}
+        dateDraft={taskDateDraft}
+        dateReasonDraft={taskDateReasonDraft}
+        dateError={taskDateError}
+        onDateDraftChange={(val) => { setTaskDateDraft(val); setTaskDateError(null); }}
+        onDateReasonChange={setTaskDateReasonDraft}
+        onSave={handleSaveTaskTargetDate}
+      />
 
       {/* Target Date Permissions Modal */}
       <Modal
@@ -5149,303 +5098,30 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       />
 
       {/* Add Task Modal */}
-      {isAddTaskModalOpen && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal fade show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="add-task-title">
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title fs-6 fw-bold text-dark" id="add-task-title">Add Task</h5>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsAddTaskModalOpen(false)} />
-                </div>
-                <div className="modal-body d-flex flex-column gap-3">
-                  {newTaskError && (
-                    <div className="alert alert-danger py-2 mb-0 small">{newTaskError}</div>
-                  )}
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-title-input">
-                      Title <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      id="add-task-title-input"
-                      type="text"
-                      className="form-control form-control-sm bg-white text-dark"
-                      placeholder="e.g. Field mooring arrangement"
-                      value={newTaskDraft.title}
-                      onChange={(e) => {
-                        setNewTaskDraft({ ...newTaskDraft, title: e.target.value });
-                        setNewTaskError(null);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-category">
-                      Category <span className="text-danger">*</span>
-                    </label>
-                    <select
-                      id="add-task-category"
-                      className="form-select form-select-sm bg-white text-dark"
-                      value={newTaskDraft.category}
-                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, category: e.target.value })}
-                    >
-                      <option value="Statutory Certificate">Statutory Certificate</option>
-                      <option value="Class Notation Certificate">Class Notation Certificate</option>
-                      <option value="Flag Administration Registry">Flag Administration Registry</option>
-                      <option value="Environmental Certificate">Environmental Certificate</option>
-                      <option value="Safety & Lifesaving Equipment">Safety & Lifesaving Equipment</option>
-                      <option value="Crew Credential">Crew Credential</option>
-                      <option value="Operational Plan">Operational Plan</option>
-                      <option value="Inspection Report">Inspection Report</option>
-                      <option value="Equipment Register">Equipment Register</option>
-                      <option value="Custom Requirement">Custom Requirement</option>
-                    </select>
-                  </div>
-                  {assuranceSet.sections && assuranceSet.sections.length > 0 && (
-                    <div>
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-section">
-                        Section <span className="text-muted fw-normal">(optional)</span>
-                      </label>
-                      <select
-                        id="add-task-section"
-                        className="form-select form-select-sm bg-white text-dark"
-                        value={newTaskDraft.sectionId}
-                        onChange={(e) => setNewTaskDraft({ ...newTaskDraft, sectionId: e.target.value })}
-                      >
-                        <option value="">No section</option>
-                        {assuranceSet.sections.filter((sec) => Boolean(sec.name?.trim())).map((sec) => (
-                          <option key={sec.id} value={sec.id}>
-                            {toSentenceCase(sec.name)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-predecessor">
-                      Predecessor <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <select
-                      id="add-task-predecessor"
-                      className="form-select form-select-sm bg-white text-dark"
-                      value={newTaskDraft.predecessorId}
-                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, predecessorId: e.target.value })}
-                    >
-                      <option value="">No predecessor</option>
-                      {assuranceSet.requirements.map((req) => (
-                        <option key={req.id} value={req.id}>
-                          {req.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-target-date">
-                      Target Date <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <input
-                      id="add-task-target-date"
-                      type="date"
-                      className="form-control form-control-sm bg-white text-dark"
-                      max={assuranceSet.targetDate || assuranceSet.complianceDeadline || undefined}
-                      value={newTaskDraft.targetDate}
-                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, targetDate: e.target.value })}
-                    />
-                    <div className="form-text" style={{ fontSize: '0.72rem' }}>
-                      Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.targetDate || assuranceSet.complianceDeadline)}).
-                    </div>
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="add-task-description">
-                      Description <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <textarea
-                      id="add-task-description"
-                      rows={2}
-                      className="form-control form-control-sm bg-white text-dark"
-                      placeholder="Notes or instructions for this task..."
-                      value={newTaskDraft.description}
-                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, description: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-check">
-                    <input
-                      id="add-task-mandatory"
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={newTaskDraft.isMandatory}
-                      onChange={(e) => setNewTaskDraft({ ...newTaskDraft, isMandatory: e.target.checked })}
-                    />
-                    <label className="form-check-label text-secondary small" htmlFor="add-task-mandatory">
-                      Mandatory requirement
-                    </label>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setIsAddTaskModalOpen(false)}>
-                    Cancel
-                  </button>
-                  <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveNewTask}>
-                    Add Task
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <AssuranceTaskModal
+        mode="add"
+        isOpen={isAddTaskModalOpen}
+        onClose={() => setIsAddTaskModalOpen(false)}
+        assuranceSet={assuranceSet}
+        draft={newTaskDraft}
+        onDraftChange={setNewTaskDraft}
+        onSave={handleSaveNewTask}
+        error={newTaskError}
+      />
 
       {/* Edit Task Modal */}
       {editingTask && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal fade show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="edit-task-title">
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <div>
-                    <h5 className="modal-title fs-6 fw-bold text-dark" id="edit-task-title">Edit Task</h5>
-                    <div className="text-muted small">ID: {editingTask.id}</div>
-                  </div>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setEditingTask(null)} />
-                </div>
-                <div className="modal-body d-flex flex-column gap-3">
-                  {editTaskError && (
-                    <div className="alert alert-danger py-2 mb-0 small">{editTaskError}</div>
-                  )}
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-title-input">
-                      Title <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      id="edit-task-title-input"
-                      type="text"
-                      className="form-control form-control-sm bg-white text-dark"
-                      value={editTaskDraft.title}
-                      onChange={(e) => {
-                        setEditTaskDraft({ ...editTaskDraft, title: e.target.value });
-                        setEditTaskError(null);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-category">
-                      Category <span className="text-danger">*</span>
-                    </label>
-                    <select
-                      id="edit-task-category"
-                      className="form-select form-select-sm bg-white text-dark"
-                      value={editTaskDraft.category}
-                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, category: e.target.value })}
-                    >
-                      <option value="Statutory Certificate">Statutory Certificate</option>
-                      <option value="Class Notation Certificate">Class Notation Certificate</option>
-                      <option value="Flag Administration Registry">Flag Administration Registry</option>
-                      <option value="Environmental Certificate">Environmental Certificate</option>
-                      <option value="Safety & Lifesaving Equipment">Safety & Lifesaving Equipment</option>
-                      <option value="Crew Credential">Crew Credential</option>
-                      <option value="Operational Plan">Operational Plan</option>
-                      <option value="Inspection Report">Inspection Report</option>
-                      <option value="Equipment Register">Equipment Register</option>
-                      <option value="Custom Requirement">Custom Requirement</option>
-                      {!['Statutory Certificate', 'Class Notation Certificate', 'Flag Administration Registry', 'Environmental Certificate', 'Safety & Lifesaving Equipment', 'Crew Credential', 'Operational Plan', 'Inspection Report', 'Equipment Register', 'Custom Requirement'].includes(editTaskDraft.category) && (
-                        <option value={editTaskDraft.category}>{editTaskDraft.category}</option>
-                      )}
-                    </select>
-                  </div>
-                  {assuranceSet.sections && assuranceSet.sections.length > 0 && (
-                    <div>
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-section">
-                        Section <span className="text-muted fw-normal">(optional)</span>
-                      </label>
-                      <select
-                        id="edit-task-section"
-                        className="form-select form-select-sm bg-white text-dark"
-                        value={editTaskDraft.sectionId}
-                        onChange={(e) => setEditTaskDraft({ ...editTaskDraft, sectionId: e.target.value })}
-                      >
-                        <option value="">No section</option>
-                        {assuranceSet.sections.filter((sec) => Boolean(sec.name?.trim())).map((sec) => (
-                          <option key={sec.id} value={sec.id}>
-                            {toSentenceCase(sec.name)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-predecessor">
-                      Predecessor <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <select
-                      id="edit-task-predecessor"
-                      className="form-select form-select-sm bg-white text-dark"
-                      value={editTaskDraft.predecessorId}
-                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, predecessorId: e.target.value })}
-                    >
-                      <option value="">No predecessor</option>
-                      {assuranceSet.requirements
-                        .filter((req) => req.id !== editingTask.id)
-                        .map((req) => (
-                          <option key={req.id} value={req.id}>
-                            {req.title}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-target-date">
-                      Target Date <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <input
-                      id="edit-task-target-date"
-                      type="date"
-                      className="form-control form-control-sm bg-white text-dark"
-                      max={assuranceSet.targetDate || assuranceSet.complianceDeadline || undefined}
-                      value={editTaskDraft.targetDate}
-                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, targetDate: e.target.value })}
-                    />
-                    <div className="form-text" style={{ fontSize: '0.72rem' }}>
-                      Must fall on or before the set target date ({formatMaritimeDate(assuranceSet.targetDate || assuranceSet.complianceDeadline)}).
-                    </div>
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="edit-task-description">
-                      Description <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <textarea
-                      id="edit-task-description"
-                      rows={2}
-                      className="form-control form-control-sm bg-white text-dark"
-                      value={editTaskDraft.description}
-                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, description: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-check">
-                    <input
-                      id="edit-task-mandatory"
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={editTaskDraft.isMandatory}
-                      onChange={(e) => setEditTaskDraft({ ...editTaskDraft, isMandatory: e.target.checked })}
-                    />
-                    <label className="form-check-label text-secondary small" htmlFor="edit-task-mandatory">
-                      Mandatory requirement
-                    </label>
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setEditingTask(null)}>
-                    Cancel
-                  </button>
-                  <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveEditTask}>
-                    Save Changes
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
+        <AssuranceTaskModal
+          mode="edit"
+          isOpen={!!editingTask}
+          onClose={() => setEditingTask(null)}
+          assuranceSet={assuranceSet}
+          editingTask={editingTask}
+          draft={editTaskDraft}
+          onDraftChange={setEditTaskDraft}
+          onSave={handleSaveEditTask}
+          error={editTaskError}
+        />
       )}
 
       {/* Remove Task Confirmation Modal */}
