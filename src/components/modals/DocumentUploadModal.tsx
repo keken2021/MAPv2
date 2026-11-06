@@ -21,6 +21,7 @@ import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/use
 import { getComplianceStateForExpiry, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Upload, Check, AlertCircle, X, FileText } from 'lucide-react';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
+import { UniversalDocumentPreviewModal } from './UniversalDocumentPreviewModal';
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -1380,76 +1381,23 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         </div>
       </div>
 
-      {/* Document File Preview & Verification Gate Popup Modal */}
-      {isPendingVerification && (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1070 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsPendingVerification(false);
-          }}
-        >
-          <div className="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div className="modal-content bg-white text-dark border shadow-lg">
-              {/* Header */}
-              <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                <div className="d-flex align-items-center gap-2">
-                  <div>
-                    <h5 className="modal-title fw-bold text-dark m-0">
-                      Document Preview (PDF Form)
-                    </h5>
-                    <div className="text-secondary small mt-0.5">
-                      Check document scan layout before reading and metadata extraction.
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
-                  onClick={() => setIsPendingVerification(false)}
-                  aria-label="Close"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="modal-body p-4">
-                <div className="bg-light border rounded p-3 mb-3">
-                  <div className="d-flex align-items-center justify-content-between mb-2">
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="badge bg-danger text-white font-mono-code" style={{ fontSize: '0.7rem' }}>PDF SCAN</span>
-                      <span className="fw-bold text-dark font-mono-code">{fileName}</span>
-                    </div>
-                    <span className="badge bg-success text-white font-mono-code" style={{ fontSize: '0.7rem' }}>CLEAR &amp; VALIDATED</span>
-                  </div>
-
-                  <DocumentCertificatePreview document={previewDoc} height="520px" />
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="modal-footer border-top bg-light d-flex justify-content-between">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setIsPendingVerification(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-success fw-bold px-3 d-inline-flex align-items-center gap-1.5"
-                  onClick={handleConfirmVerifyAndExtract}
-                >
-                  Read Document
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <UniversalDocumentPreviewModal
+        isOpen={isPendingVerification}
+        document={previewDoc}
+        onClose={() => setIsPendingVerification(false)}
+        title="Document Preview (PDF Form)"
+        subtitle="Check document scan layout before reading and metadata extraction."
+        zIndex={1070}
+        extraAction={
+          <button
+            type="button"
+            className="btn btn-sm btn-success fw-bold px-3 d-inline-flex align-items-center gap-1.5"
+            onClick={handleConfirmVerifyAndExtract}
+          >
+            Read Document
+          </button>
+        }
+      />
     </div>
   );
 };

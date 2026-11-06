@@ -15,7 +15,8 @@ import { Modal } from './Modal';
 import { Wizard, WizardStep } from '../wizards/Wizard';
 import { formatDocumentId } from '../../utils/formatters';
 import { STAGE_READINESS_WEIGHTS } from '../../utils/readinessHelpers';
-import { Upload, Image, Crop, FileText, Check, X } from 'lucide-react';
+import { Upload, Image, Crop, X } from 'lucide-react';
+import { UniversalDocumentPreviewModal } from './UniversalDocumentPreviewModal';
 
 interface VesselModalProps {
   isOpen: boolean;
@@ -854,6 +855,24 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
     );
   };
 
+  const pendingPreviewDoc: MasterDocument | null = pendingVerificationState
+    ? {
+        id: 'VES-REG-PREVIEW',
+        title: pendingVerificationState.fileName.replace(/\.[^.]+$/, '').replace(/_/g, ' '),
+        entityType: 'Vessel Certificate',
+        vesselId: '',
+        certificateNo: '',
+        issuingAuthority: '',
+        expiryDate: '',
+        ocrConfidence: 95,
+        complianceState: 'Valid',
+        currentVersion: 'v1.0',
+        versions: [{ versionLabel: 'v1.0', uploadedAt: new Date().toISOString(), uploadedBy: activePersona, fileSizeBytes: 640000, fileName: pendingVerificationState.fileName, changeSummary: 'Uploaded during vessel registration' }],
+        validationRules: { charterBufferPassed: false, assetMatch100Percent: false, iacsAuthorityValid: false, overallValid: false, rulesNotChecked: true },
+        verificationStatus: 'Pending',
+      }
+    : null;
+
   return (
     <>
       <Modal
@@ -1655,113 +1674,23 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
         </Wizard>
       </Modal>
 
-      {/* Universal Document Preview & AI Verification Gate Popup Modal */}
-      {pendingVerificationState && (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1070 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setPendingVerificationState(null);
-          }}
-        >
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content bg-white text-dark border shadow-lg">
-              {/* Header */}
-              <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                <div className="d-flex align-items-center gap-2">
-                  <div className="p-2 rounded bg-primary-subtle text-primary">
-                    <FileText className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h5 className="modal-title fw-bold text-dark m-0">
-                      Check Document
-                    </h5>
-                    <div className="text-secondary small mt-0.5">
-                      Check the scan is clear before reading it.
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-icon border-0 bg-transparent text-secondary p-1"
-                  onClick={() => setPendingVerificationState(null)}
-                  aria-label="Close"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="modal-body p-4">
-                <div className="bg-light border rounded p-3 mb-3">
-                  <div className="d-flex align-items-center justify-content-between mb-2">
-                    <div className="d-flex align-items-center gap-2">
-                      <span className="badge bg-danger text-white font-mono-code" style={{ fontSize: '0.7rem' }}>PDF SCAN</span>
-                      <span className="fw-bold text-dark font-mono-code">{pendingVerificationState.fileName}</span>
-                    </div>
-                    <span className="badge bg-success text-white font-mono-code" style={{ fontSize: '0.7rem' }}>CLEAR</span>
-                  </div>
-
-                  {/* Document Scan Wireframe Graphic */}
-                  <div className="bg-white p-3 border rounded font-mono-code text-start" style={{ fontSize: '0.775rem', lineHeight: '1.5' }}>
-                    <div className="text-uppercase fw-bold text-primary border-bottom pb-1 mb-2 d-flex justify-content-between">
-                      <span>MARITIME STATUTORY CERTIFICATE SCAN</span>
-                      <span className="text-muted">PAGE 1 OF 1</span>
-                    </div>
-
-                    <div className="text-secondary mt-1">FIELDS: Vessel Name, IMO Number, Flag State, Class Society, Year Built, GT/DWT</div>
-
-                    {/* OCR Criteria with universal staggered animation */}
-                    <div className="d-flex flex-column gap-2 mt-2.5 p-2 bg-light rounded border font-sans">
-                      <div className="map-criteria-item-1 d-flex align-items-center gap-2 small" style={{ fontSize: '0.725rem', color: '#475569' }}>
-                        <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
-                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                        </span>
-                        <span className="ps-0.5 text-dark fw-medium">Resolution 240 DPI</span>
-                      </div>
-                      <div className="map-criteria-item-2 d-flex align-items-center gap-2 small" style={{ fontSize: '0.725rem', color: '#475569' }}>
-                        <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
-                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                        </span>
-                        <span className="ps-0.5 text-dark fw-medium">Full page captured</span>
-                      </div>
-                      <div className="map-criteria-item-3 d-flex align-items-center gap-2 small" style={{ fontSize: '0.725rem', color: '#475569' }}>
-                        <span className="d-flex align-items-center justify-content-center rounded text-white fw-bold bg-success flex-shrink-0" style={{ width: '18px', height: '18px' }}>
-                          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-                        </span>
-                        <span className="ps-0.5 text-dark fw-medium">Signature or stamp present</span>
-                      </div>
-                    </div>
-
-                    <div className="p-2 bg-light border rounded mt-2 text-muted text-center" style={{ fontSize: '0.725rem' }}>
-                      [ High resolution scan ready for automated AI OCR parsing &amp; form auto-population for Stage {pendingVerificationState.stepNumber} ]
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="modal-footer border-top bg-light d-flex justify-between">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setPendingVerificationState(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-success fw-bold px-3 d-inline-flex align-items-center gap-1.5"
-                  onClick={handleConfirmVesselFileVerification}
-                >
-                  Read Document
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <UniversalDocumentPreviewModal
+        isOpen={!!pendingVerificationState}
+        document={pendingPreviewDoc}
+        onClose={() => setPendingVerificationState(null)}
+        title="Check Document"
+        subtitle="Check the scan is clear before reading it."
+        zIndex={1070}
+        extraAction={
+          <button
+            type="button"
+            className="btn btn-sm btn-success fw-bold px-3 d-inline-flex align-items-center gap-1.5"
+            onClick={handleConfirmVesselFileVerification}
+          >
+            Read Document
+          </button>
+        }
+      />
 
       {/* Interactive Universal Vessel Image Crop & Sizing Modal */}
       {isCropModalOpen && cropModalImageSrc && (
