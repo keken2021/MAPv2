@@ -159,6 +159,38 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
     expect(edited.predecessorId).toBe('REQ-TASK-002');
   });
 
+  it('Remove task opens ConfirmDialog and removes on confirm (Task 5420)', () => {
+    render(<AssuranceDetailView setId={setIdWithSections} />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    const taskRow = screen.getByText('Emergency Disconnect Protocol').closest('tr')!;
+    const removeBtn = within(taskRow).getByRole('button', { name: /remove task/i });
+    fireEvent.click(removeBtn);
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Remove Task' })).toBeInTheDocument();
+    expect(within(dialog).getByText(/Emergency Disconnect Protocol/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === setIdWithSections)!;
+    expect(updatedSet.requirements.find((r) => r.id === 'REQ-TASK-001')).toBeUndefined();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('Remove task cancel keeps the task (Task 5420)', () => {
+    render(<AssuranceDetailView setId={setIdWithSections} />);
+    fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
+
+    const taskRow = screen.getByText('Emergency Disconnect Protocol').closest('tr')!;
+    fireEvent.click(within(taskRow).getByRole('button', { name: /remove task/i }));
+    fireEvent.click(screen.getByTestId('confirm-dialog-cancel'));
+
+    const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === setIdWithSections)!;
+    expect(updatedSet.requirements.find((r) => r.id === 'REQ-TASK-001')).toBeDefined();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('allows clearing both section and predecessor when editing', () => {
     render(<AssuranceDetailView setId={setIdWithSections} />);
 

@@ -67,7 +67,7 @@ import {
 import { useSessionUser } from '../utils/useSessionUser';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
 import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
-import { useOverlayBehavior } from '../utils/useOverlayBehavior';
+import { ConfirmDialog } from '../components/modals/ConfirmDialog';
 import { getAssuranceSetAssets, getAssuranceSetCrewIds, getAssuranceSetObjects, getAssuranceSetScopes, SUBTYPE_CATEGORIES } from '../utils/assuranceTemplates';
 import { findOverlappingAssuranceSets, formatOverlapError } from '../utils/assuranceOverlap';
 import {
@@ -594,7 +594,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   const [taskToDelete, setTaskToDelete] = useState<AssuranceRequirement | null>(null);
   const [shortCertificateConfirm, setShortCertificateConfirm] = useState<MasterDocument[] | null>(null);
-  const confirmDialogRef = useRef<HTMLDivElement>(null);
   const [targetProjectId, setTargetProjectId] = useState('');
   const [addToProjectError, setAddToProjectError] = useState<string | null>(null);
   const [projectToast, setProjectToast] = useState<string | null>(null);
@@ -655,9 +654,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   type ReqSortField = 'title' | 'targetDate' | 'targetObject' | 'status' | 'version';
-  useOverlayBehavior(confirmDialogRef, () => setShortCertificateConfirm(null), {
-    active: shortCertificateConfirm !== null,
-  });
 
   const [reqSortField, setReqSortField] = useState<ReqSortField>('title');
   const [reqSortDirection, setReqSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -721,29 +717,19 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const [excludingMember, setExcludingMember] = useState<{ memberId: string; memberName: string; groupId: string } | null>(null);
-  const [excludeReason, setExcludeReason] = useState('');
-  const [excludeError, setExcludeError] = useState('');
 
   const openExcludeModal = (memberId: string, memberName: string, groupId: string) => {
     setExcludingMember({ memberId, memberName, groupId });
-    setExcludeReason('');
-    setExcludeError('');
   };
 
   const closeExcludeModal = () => {
     setExcludingMember(null);
-    setExcludeReason('');
-    setExcludeError('');
   };
 
-  const handleConfirmExclude = () => {
+  const handleConfirmExclude = (reason?: string) => {
     if (!excludingMember) return;
-    if (!excludeReason.trim()) {
-      setExcludeError('Reason for exclusion is required.');
-      return;
-    }
     const actor = sessionUser?.name || activePersona;
-    excludeGroupMember(assuranceSet.id, excludingMember.memberId, excludeReason.trim(), actor);
+    excludeGroupMember(assuranceSet.id, excludingMember.memberId, reason ?? '', actor);
     closeExcludeModal();
   };
 
@@ -4614,40 +4600,29 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         onConfirm={handleAttachPreviewConfirm}
       />
 
-      {shortCertificateConfirm && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="short-certificate-title">
-            <div className="modal-dialog modal-dialog-centered" ref={confirmDialogRef} tabIndex={-1}>
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title" id="short-certificate-title">Certificates expire before the contract ends</h5>
-                </div>
-                <div className="modal-body">
-                  <p className="mb-2">
-                    These certificates expire before {formatMaritimeDate(charterEndDraft)}. Saving still updates the contract period. Re-upload each one so it covers the contract.
-                  </p>
-                  <ul className="mb-0">
-                    {shortCertificateConfirm.map((doc) => (
-                      <li key={doc.id}>
-                        {doc.title} — expires {formatMaritimeDate(doc.expiryDate)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-outline-secondary" onClick={() => setShortCertificateConfirm(null)}>
-                    Cancel
-                  </button>
-                  <button type="button" className="btn btn-primary" onClick={commitCharterWindow}>
-                    Save contract period
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <ConfirmDialog
+        isOpen={shortCertificateConfirm !== null}
+        title="Certificates expire before the contract ends"
+        message={
+          shortCertificateConfirm && (
+            <>
+              <p className="mb-2">
+                These certificates expire before {formatMaritimeDate(charterEndDraft)}. Saving still updates the contract period. Re-upload each one so it covers the contract.
+              </p>
+              <ul className="mb-0">
+                {shortCertificateConfirm.map((doc) => (
+                  <li key={doc.id}>
+                    {doc.title} — expires {formatMaritimeDate(doc.expiryDate)}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )
+        }
+        confirmLabel="Save contract period"
+        onConfirm={commitCharterWindow}
+        onCancel={() => setShortCertificateConfirm(null)}
+      />
 
       {/* Version History Drawer for Submitter / Admin Reupload */}
       <VersionHistoryDrawer
@@ -5107,127 +5082,96 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       )}
 
       {/* Overdue Outcome Modal: Partial Closure */}
-      {isPartialCloseModalOpen && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="partial-close-title">
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <div>
-                    <h5 className="modal-title fs-6 fw-bold" id="partial-close-title">Confirm Partial Closure</h5>
-                    <div className="text-muted small">Partially approve this assurance set while leaving exempted tasks open.</div>
-                  </div>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsPartialCloseModalOpen(false)} />
-                </div>
-                <div className="modal-body d-flex flex-column gap-3">
-                  <div className="alert alert-warning py-2 mb-0 small">
-                    <strong>Partial Closure Policy:</strong> The set will be moved to Approved status with partial closure mode. Every mandatory task must be Verified or exempted first. Exempted tasks remain open with their extended dates.
-                  </div>
-                  {partialCloseError && (
-                    <div className="alert alert-danger py-2 mb-0 small" role="alert">
-                      {partialCloseError}
-                    </div>
-                  )}
-                  <div className="d-flex flex-column gap-1 small">
-                    <div>
-                      <span className="text-muted">Total tasks:</span>{' '}
-                      <span className="fw-semibold text-dark">{assuranceSet.requirements.length}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted">Exempted tasks (will remain open):</span>{' '}
-                      <span className="fw-semibold text-warning">
-                        {assuranceSet.requirements.filter((r) => r.exemption).length}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted">Open required (block close):</span>{' '}
-                      <span className="fw-semibold text-danger">
-                        {assuranceSet.requirements.filter(
-                          (r) => r.isMandatory && !r.exemption && r.verifierStatus !== 'Verified',
-                        ).length}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted">Completed / fulfilled tasks:</span>{' '}
-                      <span className="fw-semibold text-success">
-                        {assuranceSet.requirements.filter((r) => r.isFulfilled).length}
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small mb-1" htmlFor="partial-close-notes">
-                      Closure Notes <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <textarea
-                      id="partial-close-notes"
-                      rows={2}
-                      className="form-control form-control-sm"
-                      placeholder="e.g. Approved with partial closure under management exemption..."
-                      value={partialCloseNotes}
-                      onChange={(e) => setPartialCloseNotes(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsPartialCloseModalOpen(false)}>
-                    Cancel
-                  </button>
-                  <button type="button" className="btn btn-sm btn-warning text-dark fw-semibold" onClick={handleConfirmPartialClose}>
-                    Partially Close Set
-                  </button>
-                </div>
+      <ConfirmDialog
+        isOpen={isPartialCloseModalOpen}
+        title="Confirm Partial Closure"
+        message={
+          <div className="d-flex flex-column gap-3">
+            <div className="alert alert-warning py-2 mb-0 small">
+              <strong>Partial Closure Policy:</strong> The set will be moved to Approved status with partial closure mode. Every mandatory task must be Verified or exempted first. Exempted tasks remain open with their extended dates.
+            </div>
+            {partialCloseError && (
+              <div className="alert alert-danger py-2 mb-0 small" role="alert">
+                {partialCloseError}
+              </div>
+            )}
+            <div className="d-flex flex-column gap-1 small">
+              <div>
+                <span className="text-muted">Total tasks:</span>{' '}
+                <span className="fw-semibold text-dark">{assuranceSet.requirements.length}</span>
+              </div>
+              <div>
+                <span className="text-muted">Exempted tasks (will remain open):</span>{' '}
+                <span className="fw-semibold text-warning">
+                  {assuranceSet.requirements.filter((r) => r.exemption).length}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted">Open required (block close):</span>{' '}
+                <span className="fw-semibold text-danger">
+                  {assuranceSet.requirements.filter(
+                    (r) => r.isMandatory && !r.exemption && r.verifierStatus !== 'Verified',
+                  ).length}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted">Completed / fulfilled tasks:</span>{' '}
+                <span className="fw-semibold text-success">
+                  {assuranceSet.requirements.filter((r) => r.isFulfilled).length}
+                </span>
               </div>
             </div>
+            <div>
+              <label className="form-label text-secondary small mb-1" htmlFor="partial-close-notes">
+                Closure Notes <span className="text-muted fw-normal">(optional)</span>
+              </label>
+              <textarea
+                id="partial-close-notes"
+                rows={2}
+                className="form-control form-control-sm"
+                placeholder="e.g. Approved with partial closure under management exemption..."
+                value={partialCloseNotes}
+                onChange={(e) => setPartialCloseNotes(e.target.value)}
+              />
+            </div>
           </div>
-        </>
-      )}
+        }
+        confirmLabel="Partially Close Set"
+        cancelLabel="Cancel"
+        onConfirm={handleConfirmPartialClose}
+        onCancel={() => { setIsPartialCloseModalOpen(false); setPartialCloseNotes(''); setPartialCloseError(null); }}
+      />
 
       {/* Overdue Outcome Modal: Cancel Set */}
-      {isCancelModalOpen && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="cancel-set-title">
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <div>
-                    <h5 className="modal-title fs-6 fw-bold text-danger" id="cancel-set-title">Cancel Assurance Set</h5>
-                    <div className="text-muted small">Move this assurance set to Cancelled status.</div>
-                  </div>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setIsCancelModalOpen(false)} />
-                </div>
-                <div className="modal-body d-flex flex-column gap-3">
-                  <div className="alert alert-danger py-2 mb-0 small">
-                    <strong>Permanent Action:</strong> Cancelling moves this set to <strong>Cancelled</strong> status. There is no action to restart or re-initiate this set.
-                  </div>
-                  <div>
-                    <label className="form-label text-secondary small mb-1" htmlFor="cancel-reason">
-                      Cancellation Reason <span className="text-muted fw-normal">(optional)</span>
-                    </label>
-                    <textarea
-                      id="cancel-reason"
-                      rows={2}
-                      className="form-control form-control-sm"
-                      placeholder="e.g. Vessel replacement nominated by charterer; campaign discontinued..."
-                      value={cancellationReasonDraft}
-                      onChange={(e) => setCancellationReasonDraft(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsCancelModalOpen(false)}>
-                    Keep Set
-                  </button>
-                  <button type="button" className="btn btn-sm btn-danger text-white fw-semibold" onClick={handleConfirmCancel}>
-                    Cancel Set
-                  </button>
-                </div>
-              </div>
+      <ConfirmDialog
+        isOpen={isCancelModalOpen}
+        title="Cancel Assurance Set"
+        message={
+          <div className="d-flex flex-column gap-3">
+            <div className="alert alert-danger py-2 mb-0 small">
+              <strong>Permanent Action:</strong> Cancelling moves this set to <strong>Cancelled</strong> status. There is no action to restart or re-initiate this set.
+            </div>
+            <div>
+              <label className="form-label text-secondary small mb-1" htmlFor="cancel-reason">
+                Cancellation Reason <span className="text-muted fw-normal">(optional)</span>
+              </label>
+              <textarea
+                id="cancel-reason"
+                rows={2}
+                className="form-control form-control-sm"
+                placeholder="e.g. Vessel replacement nominated by charterer; campaign discontinued..."
+                value={cancellationReasonDraft}
+                onChange={(e) => setCancellationReasonDraft(e.target.value)}
+              />
             </div>
           </div>
-        </>
-      )}
+        }
+        confirmLabel="Cancel Set"
+        cancelLabel="Keep Set"
+        tone="danger"
+        onConfirm={handleConfirmCancel}
+        onCancel={() => { setIsCancelModalOpen(false); setCancellationReasonDraft(''); }}
+      />
 
       {/* Add Task Modal */}
       {isAddTaskModalOpen && (
@@ -5530,100 +5474,45 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       )}
 
       {/* Remove Task Confirmation Modal */}
-      {taskToDelete && (
-        <>
-          <div className="modal-backdrop fade show" />
-          <div className="modal fade show d-block" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="remove-task-title">
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title fs-6 fw-bold text-danger" id="remove-task-title">Remove Task</h5>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={() => setTaskToDelete(null)} />
-                </div>
-                <div className="modal-body">
-                  <p className="mb-0 text-dark small">
-                    Are you sure you want to remove <strong>{taskToDelete.title}</strong> from this assurance set?
-                  </p>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setTaskToDelete(null)}>
-                    Cancel
-                  </button>
-                  <button type="button" className="btn btn-sm btn-danger text-white" onClick={handleConfirmDeleteTask}>
-                    Remove Task
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <ConfirmDialog
+        isOpen={taskToDelete !== null}
+        title="Remove Task"
+        message={
+          taskToDelete && (
+            <p className="mb-0 text-dark small">
+              Are you sure you want to remove <strong>{taskToDelete.title}</strong> from this assurance set?
+            </p>
+          )
+        }
+        confirmLabel="Remove Task"
+        tone="danger"
+        onConfirm={handleConfirmDeleteTask}
+        onCancel={() => setTaskToDelete(null)}
+      />
 
-      {excludingMember && (
-        <>
-          <div className="modal-backdrop fade show" style={{ zIndex: 1050 }} />
-          <div
-            className="modal fade show d-block"
-            tabIndex={-1}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="exclude-member-modal-title"
-            style={{ zIndex: 1055 }}
-          >
-            <div className="modal-dialog modal-dialog-centered">
-              <div className="modal-content shadow border-0">
-                <div className="modal-header border-bottom">
-                  <h5 className="modal-title fs-6 fw-bold text-danger d-flex align-items-center gap-2" id="exclude-member-modal-title">
-                    <UserMinus size={18} />
-                    Exclude Seafarer from Set
-                  </h5>
-                  <button type="button" className="btn-close" aria-label="Close" onClick={closeExcludeModal} />
-                </div>
-                <div className="modal-body">
-                  <p className="text-secondary small mb-3">
-                    You are excluding <strong className="text-dark">{excludingMember.memberName}</strong> from this assurance set.
-                    The master crew group in the directory will remain unchanged.
-                  </p>
-                  <div className="mb-2">
-                    <label htmlFor="exclude-member-reason-input" className="form-label small fw-semibold text-dark">
-                      Reason for Exclusion <span className="text-danger">*</span>
-                    </label>
-                    <textarea
-                      id="exclude-member-reason-input"
-                      className={`form-control form-control-sm ${excludeError ? 'is-invalid' : ''}`}
-                      rows={3}
-                      placeholder="Enter required operational or medical justification..."
-                      value={excludeReason}
-                      onChange={(e) => {
-                        setExcludeReason(e.target.value);
-                        if (e.target.value.trim()) setExcludeError('');
-                      }}
-                      data-testid="exclude-reason-input"
-                    />
-                    {excludeError && (
-                      <div className="invalid-feedback d-block mt-1">{excludeError}</div>
-                    )}
-                  </div>
-                </div>
-                <div className="modal-footer bg-light py-2">
-                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={closeExcludeModal}>
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-danger text-white"
-                    onClick={handleConfirmExclude}
-                    disabled={!excludeReason.trim()}
-                    data-testid="confirm-exclude-btn"
-                  >
-                    Confirm Exclusion
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <ConfirmDialog
+        isOpen={excludingMember !== null}
+        title={
+          <span className="d-flex align-items-center gap-2">
+            <UserMinus size={18} />
+            Exclude Seafarer from Set
+          </span>
+        }
+        message={
+          excludingMember && (
+            <p className="text-secondary small mb-0">
+              You are excluding <strong className="text-dark">{excludingMember.memberName}</strong> from this assurance set.
+              The master crew group in the directory will remain unchanged.
+            </p>
+          )
+        }
+        confirmLabel="Confirm Exclusion"
+        tone="danger"
+        reasonLabel="Reason for Exclusion"
+        reasonPlaceholder="Enter required operational or medical justification..."
+        onConfirm={handleConfirmExclude}
+        onCancel={closeExcludeModal}
+      />
     </div>
   );
 };
