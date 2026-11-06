@@ -36,6 +36,7 @@ import { CapaTable } from '../components/tables/CapaTable';
 import { CapaItem } from '../types/capa';
 import { getVesselStockPhoto, CURATED_VESSEL_PHOTOS } from '../utils/vesselImageHelpers';
 import { VesselImageCropModal } from '../components/modals/VesselImageCropModal';
+import { AssetPhotosModal } from '../components/modals/AssetPhotosModal';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
 import { StatusBadge } from '../components/common/StatusBadge';
@@ -2403,42 +2404,14 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
       {/* ========================================================================= */}
       {/* Vessel Profile Image Manager Modal (Add, Update, or Delete Photo) */}
       {/* ========================================================================= */}
-      {showPhotoUploadModal && canManagePhotos && (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1060 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowPhotoUploadModal(false);
-          }}
-        >
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content bg-white text-dark border shadow-lg">
-              {/* Header */}
-              <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                <div className="d-flex align-items-center gap-2">
-                  <div className="p-2 bg-primary-subtle text-primary rounded-3">
-                    <Image className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
-                      Manage Photos
-                    </h5>
-                    <div className="text-secondary small font-mono-code">
-                      {vessel.name} (IMO {vessel.imoNumber}) · {vessel.vesselSubtype || vessel.vesselType}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowPhotoUploadModal(false)}
-                  aria-label="Close"
-                />
-              </div>
-
-              {/* Body */}
-              <div className="modal-body p-4">
+      <AssetPhotosModal
+        isOpen={showPhotoUploadModal && canManagePhotos}
+        onClose={() => setShowPhotoUploadModal(false)}
+        view="manage"
+        title="Manage Photos"
+        subtitle={`${vessel.name} (IMO ${vessel.imoNumber}) · ${vessel.vesselSubtype || vessel.vesselType}`}
+        icon={<Image className="w-4.5 h-4.5" />}
+      >
                 {/* 1. Live Cover Preview */}
                 <div className="mb-4">
                   <div className="d-flex align-items-center justify-content-between mb-2">
@@ -2618,7 +2591,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </div>
                   </div>
                 </div>
-              </div>
 
               {/* Footer with Save, Delete / Reset, and Cancel actions */}
               <div className="modal-footer border-top bg-light d-flex align-items-center justify-content-between p-3">
@@ -2679,50 +2651,29 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </AssetPhotosModal>
 
       {/* ========================================================================= */}
       {/* Separate Dedicated Modal / Popup: Add Photo Options */}
       {/* ========================================================================= */}
-      {showAddPhotoModal && canManagePhotos && (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1065 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowAddPhotoModal(false);
-          }}
-        >
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content bg-white text-dark border shadow-lg">
-              {/* Header */}
-              <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                <div className="d-flex align-items-center gap-2">
-                  <div className="p-2 bg-primary-subtle text-primary rounded-3">
-                    <Camera className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
-                      Add Photo
-                    </h5>
-                    <div className="text-secondary small font-mono-code">
-                      {vessel.name} · Choose upload, curated stock, or image link
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowAddPhotoModal(false)}
-                  aria-label="Close"
-                />
-              </div>
-
-              {/* Body */}
-              <div className="modal-body p-4">
+      <AssetPhotosModal
+        isOpen={showAddPhotoModal && canManagePhotos}
+        onClose={() => setShowAddPhotoModal(false)}
+        view="add"
+        title="Add Photo"
+        subtitle={`${vessel.name} · Choose upload, curated stock, or image link`}
+        icon={<Camera className="w-4.5 h-4.5" />}
+        zIndex={1065}
+        footer={
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary"
+            onClick={() => setShowAddPhotoModal(false)}
+          >
+            Close
+          </button>
+        }
+      >
                 {/* Option A: Upload & Crop */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
                   <div className="d-flex align-items-center justify-content-between mb-2">
@@ -2849,22 +2800,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     </button>
                   </div>
                 </div>
-              </div>
 
-              {/* Footer */}
-              <div className="modal-footer border-top bg-light d-flex justify-content-end p-3">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setShowAddPhotoModal(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </AssetPhotosModal>
 
       {/* Interactive Universal Vessel Image Crop & Sizing Modal */}
       {isCropModalOpen && cropModalImageSrc && (

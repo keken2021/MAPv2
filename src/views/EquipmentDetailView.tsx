@@ -20,6 +20,7 @@ import {
   getEquipmentStockPhoto,
 } from '../utils/vesselImageHelpers';
 import { ImageCropModal } from '../components/modals/VesselImageCropModal';
+import { AssetPhotosModal } from '../components/modals/AssetPhotosModal';
 import {
   Camera,
   Crop,
@@ -494,47 +495,16 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
       {/* ========================================================================= */}
       {/* Equipment Photo Upload & Gallery Manager Modal                            */}
       {/* ========================================================================= */}
-      {showPhotoUploadModal && canManagePhotos && (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1060 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowPhotoUploadModal(false);
-          }}
-        >
-          <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-            <div className="modal-content bg-white text-dark border shadow-lg overflow-hidden">
-              {/* Header */}
-              <div
-                className="modal-header d-flex align-items-center justify-content-between px-4 py-3"
-                style={{ backgroundColor: '#0B1B2B', color: '#FFFFFF' }}
-              >
-                <div className="d-flex align-items-center gap-2">
-                  <div className="p-2 bg-primary-subtle text-primary rounded-3">
-                    <Camera className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <h5 className="modal-title fw-bold text-white m-0" style={{ fontSize: '1.05rem' }}>
-                      Manage Photos
-                    </h5>
-                    <div className="small font-mono-code" style={{ color: '#94A3B8' }}>
-                      {item.name} · {item.category}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-sm text-white p-2 border-0 bg-transparent opacity-75 hover-opacity-100"
-                  onClick={() => setShowPhotoUploadModal(false)}
-                  aria-label="Close"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Body */}
-              <div className="modal-body p-4" style={{ backgroundColor: '#F8FAFC' }}>
+      <AssetPhotosModal
+        isOpen={showPhotoUploadModal && canManagePhotos}
+        onClose={() => setShowPhotoUploadModal(false)}
+        view="manage"
+        title="Manage Photos"
+        subtitle={`${item.name} · ${item.category}`}
+        icon={<Camera className="w-4.5 h-4.5" />}
+        headerVariant="dark"
+        scrollable
+      >
                 <div className="card border p-3 shadow-2xs mb-3 bg-white rounded-3">
                   <div className="d-flex align-items-center justify-content-between mb-3">
                     <div>
@@ -650,7 +620,6 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                     })}
                   </div>
                 </div>
-              </div>
 
               {/* Footer */}
               <div className="modal-footer border-top bg-white d-flex align-items-center justify-content-between p-3">
@@ -711,48 +680,29 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </AssetPhotosModal>
 
       {/* ========================================================================= */}
       {/* Add Photo Options Modal                                                  */}
       {/* ========================================================================= */}
-      {showAddPhotoModal && canManagePhotos && (
-        <div
-          className="modal show d-block map-modal-backdrop"
-          tabIndex={-1}
-          style={{ zIndex: 1065 }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShowAddPhotoModal(false);
-          }}
-        >
-          <div className="modal-dialog modal-lg modal-dialog-centered">
-            <div className="modal-content bg-white text-dark border shadow-lg">
-              <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3">
-                <div className="d-flex align-items-center gap-2">
-                  <div className="p-2 bg-primary-subtle text-primary rounded-3">
-                    <Camera className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <h5 className="modal-title fw-bold text-dark m-0" style={{ fontSize: '1.05rem' }}>
-                      Add Photo
-                    </h5>
-                    <div className="text-secondary small font-mono-code">
-                      {item.name} · Choose upload, curated stock, or image link
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowAddPhotoModal(false)}
-                  aria-label="Close"
-                />
-              </div>
-
-              <div className="modal-body p-4">
+      <AssetPhotosModal
+        isOpen={showAddPhotoModal && canManagePhotos}
+        onClose={() => setShowAddPhotoModal(false)}
+        view="add"
+        title="Add Photo"
+        subtitle={`${item.name} · Choose upload, curated stock, or image link`}
+        icon={<Camera className="w-4.5 h-4.5" />}
+        zIndex={1065}
+        footer={
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary"
+            onClick={() => setShowAddPhotoModal(false)}
+          >
+            Close
+          </button>
+        }
+      >
                 {/* Option A: Upload & Crop */}
                 <div className="p-3 bg-light border rounded shadow-2xs mb-3">
                   <div className="d-flex align-items-center justify-content-between mb-2">
@@ -879,21 +829,8 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                     </button>
                   </div>
                 </div>
-              </div>
 
-              <div className="modal-footer border-top bg-light d-flex justify-content-end p-3">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-secondary"
-                  onClick={() => setShowAddPhotoModal(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </AssetPhotosModal>
 
       {/* Interactive Universal Equipment Image Crop Modal */}
       {isCropModalOpen && cropModalImageSrc && (
