@@ -2,7 +2,6 @@ import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { InspectionChecklistView } from '../views/InspectionChecklistView';
-import { InspectionDrawer } from '../components/drawers/InspectionDrawer';
 import { useMapStore } from '../store/useMapStore';
 import * as exportHelpers from '../utils/exportHelpers';
 
@@ -123,48 +122,40 @@ describe('Inspection Checklist & Drawer - Read Set and Seeded Records (Task 5310
     expect(pdfSummaryRow[1]).not.toContain('Berth 4, Fremantle');
   });
 
-  it('InspectionDrawer reads set id, seeded location, date, and store CAPAs without literal AS-2041', () => {
-    const handleClose = vi.fn();
-
+  it('InspectionChecklistView reads set id, seeded location, date, and store CAPAs without literal AS-2041', () => {
     // 1. Render for AS-2026-001
     const { unmount } = render(
-      <InspectionDrawer
+      <InspectionChecklistView
         vesselName="MV Pacific Endeavour"
         setId="AS-2026-001"
-        onClose={handleClose}
       />
     );
 
-    const drawerMeta1 = screen.getByText(/AS-2026-001/);
-    expect(drawerMeta1).toBeInTheDocument();
-    expect(drawerMeta1.textContent).toContain('MV Pacific Endeavour');
-    expect(drawerMeta1.textContent).toContain('Dampier Port Facility, WA');
-    expect(drawerMeta1.textContent).toContain('14 Oct 2026');
-    expect(drawerMeta1.textContent).not.toContain('AS-2041');
-    expect(drawerMeta1.textContent).not.toContain('Berth 4, Fremantle');
+    expect(screen.getByText('AS-2026-001')).toBeInTheDocument();
+    expect(screen.getByText('Dampier Port Facility, WA')).toBeInTheDocument();
+    expect(screen.getByText('14 Oct 2026')).toBeInTheDocument();
+    expect(screen.queryByText('AS-2041')).toBeNull();
+    expect(screen.queryByText(/Berth 4, Fremantle/)).toBeNull();
 
-    const drawerRows1 = screen.getAllByTestId('checklist-item-row');
-    expect(drawerRows1).toHaveLength(5);
+    const rows1 = screen.getAllByTestId('checklist-item-row');
+    expect(rows1).toHaveLength(5);
 
     unmount();
 
     // 2. Render for AS-2026-008
     render(
-      <InspectionDrawer
+      <InspectionChecklistView
         vesselName="MV Northern Discovery"
         setId="AS-2026-008"
-        onClose={handleClose}
       />
     );
 
-    const drawerMeta2 = screen.getByText(/AS-2026-008/);
-    expect(drawerMeta2).toBeInTheDocument();
-    expect(drawerMeta2.textContent).toContain('MV Northern Discovery');
-    expect(drawerMeta2.textContent).toContain('Henderson, WA');
-    expect(drawerMeta2.textContent).toContain('22 Oct 2026');
-    expect(drawerMeta2.textContent).not.toContain('AS-2041');
+    expect(screen.getByText('AS-2026-008')).toBeInTheDocument();
+    expect(screen.getByText('Henderson, WA')).toBeInTheDocument();
+    expect(screen.getByText('22 Oct 2026')).toBeInTheDocument();
+    expect(screen.queryByText('AS-2041')).toBeNull();
 
-    const drawerRows2 = screen.getAllByTestId('checklist-item-row');
-    expect(drawerRows2).toHaveLength(3);
+    const rows2 = screen.getAllByTestId('checklist-item-row');
+    expect(rows2).toHaveLength(3);
   });
 });

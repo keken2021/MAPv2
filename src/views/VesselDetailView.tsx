@@ -25,7 +25,6 @@ import { filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, fi
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
-import { InspectionDrawer } from '../components/drawers/InspectionDrawer';
 import { Modal } from '../components/modals/Modal';
 import { AddCrewModal } from '../components/modals/AddCrewModal';
 import { CrewTable } from '../components/tables/CrewTable';
@@ -202,7 +201,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const [inspectionSortField, setInspectionSortField] = useState<'id' | 'title' | 'assuranceSetId' | 'inspector' | 'date' | 'status'>('id');
   const [inspectionSortDirection, setInspectionSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedInspectionForDetail, setSelectedInspectionForDetail] = useState<any | null>(null);
-  const [showInspectionDrawer, setShowInspectionDrawer] = useState(false);
   const [modalChecklistSortField, setModalChecklistSortField] = useState<'id' | 'category' | 'status' | 'notes'>('id');
   const [modalChecklistSortDirection, setModalChecklistSortDirection] = useState<'asc' | 'desc'>('asc');
   const [modalCapaSortField, setModalCapaSortField] = useState<'id' | 'title' | 'owner' | 'dueDate' | 'status'>('id');
@@ -1772,7 +1770,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                     <button
                       type="button"
                       className="btn btn-sm btn-primary fw-semibold d-flex align-items-center gap-1.5"
-                      onClick={() => setShowInspectionDrawer(true)}
+                      onClick={() => vessel && setCurrentHashView('inspector', vessel.name)}
                     >
                       <Plus className="w-4 h-4" />
                       New Inspection
@@ -1965,7 +1963,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
               className="btn btn-sm btn-outline-primary fw-semibold d-flex align-items-center gap-1.5"
               onClick={() => {
                 setSelectedInspectionForDetail(null);
-                setShowInspectionDrawer(true);
+                if (vessel) setCurrentHashView('inspector', vessel.name);
               }}
             >
               View Details
@@ -2234,14 +2232,6 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         </div>
         )}
       </Modal>
-
-      {/* Live Interactive Inspection Drawer Workspace */}
-      {showInspectionDrawer && vessel && (
-        <InspectionDrawer
-          vesselName={vessel.name}
-          onClose={() => setShowInspectionDrawer(false)}
-        />
-      )}
 
       {/* Pre-Assurance Vault Upload Document Modal */}
       {isUploadModalOpen && vessel && (
