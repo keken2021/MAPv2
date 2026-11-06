@@ -5,12 +5,12 @@
 */
 
 import React, { useState, useRef } from 'react';
-import { Camera, FileText, Flag, X, Plus } from 'lucide-react';
+import { Camera, FileText, Flag, Plus, X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { getStatusDisplayLabel } from '../../utils/formatters';
 import { CapaItem, CapaStatus, CapaEvidenceItem } from '../../types/capa';
-import { useOverlayBehavior } from '../../utils/useOverlayBehavior';
 import { Drawer } from './Drawer';
+import { CameraCaptureModal } from '../modals/CameraCaptureModal';
 
 interface CapaReinspectionDrawerProps {
   capa: CapaItem;
@@ -47,12 +47,7 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
-  /* live camera modal state */
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [capturedPhotoDataUrl, setCapturedPhotoDataUrl] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   /* inspector save re-inspection endorsement */
   const handleSaveReInspection = () => {
@@ -135,42 +130,10 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
     e.target.value = '';
   };
 
-  /* open live camera video stream modal */
-  const openLiveCameraModal = async () => {
-    setCapturedPhotoDataUrl(null);
-    setIsCameraModalOpen(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      closeCameraModal();
-      handleTriggerCameraInput();
-    }
-  };
+  const openLiveCameraModal = () => setIsCameraModalOpen(true);
 
-  /* take camera snapshot from live stream */
-  const takeCameraSnapshot = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      setCapturedPhotoDataUrl(dataUrl);
-    }
-  };
-
-  /* attach snapshot captured from live stream */
-  const attachLiveSnapshot = () => {
-    if (!capturedPhotoDataUrl) return;
+  /* attach captured photo from camera modal */
+  const handleCameraCapture = (dataUrl: string) => {
     const timeStamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newEv: CapaEvidenceItem = {
       id: `EV-${Date.now().toString().slice(-4)}`,
@@ -178,27 +141,13 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
       type: 'Photo',
       fileName: `capa_photo_${Date.now().toString().slice(-4)}.jpg`,
       fileSize: '1.4 MB',
-      previewUrl: capturedPhotoDataUrl,
+      previewUrl: dataUrl,
       uploadedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
       uploadedBy: 'Inspector Marcus Vance',
     };
-
     addCapaEvidence(capa.id, newEv);
-    closeCameraModal();
-  };
-
-  const closeCameraModal = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => track.stop());
-    }
-    setCameraStream(null);
-    setCapturedPhotoDataUrl(null);
     setIsCameraModalOpen(false);
   };
-
-  /* the take photo dialog sits on top of the drawer and takes escape and tab while it is open */
-  const cameraDialogRef = useRef<HTMLDivElement | null>(null);
-  useOverlayBehavior(cameraDialogRef, closeCameraModal, { active: isCameraModalOpen });
 
   return (
     <>
@@ -462,65 +411,12 @@ export const CapaReinspectionDrawer: React.FC<CapaReinspectionDrawerProps> = ({ 
         </div>
       </Drawer>
 
-      {/* live camera dialog opened from the drawer */}
-      {isCameraModalOpen && (
-        <div className="map-modal-backdrop d-flex align-items-center justify-content-center p-3" style={{ zIndex: 1060 }}>
-          <div
-            ref={cameraDialogRef}
-            className="map-camera-modal-dialog card p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Take Photo"
-            tabIndex={-1}
-          >
-            <div className="d-flex align-items-center justify-content-between pb-2 border-bottom mb-3">
-              <h6 className="fw-bold text-dark m-0">Take Photo</h6>
-              <button type="button" className="map-drawer-close" onClick={closeCameraModal} aria-label="Close">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="d-flex flex-column align-items-center gap-3">
-              {!capturedPhotoDataUrl ? (
-                <>
-                  <video ref={videoRef} autoPlay playsInline className="map-camera-video-preview" />
-                  <canvas ref={canvasRef} className="d-none" />
-                  <div className="d-flex justify-content-center flex-wrap gap-2 w-100">
-                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={closeCameraModal}>
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => {
-                        closeCameraModal();
-                        handleTriggerCameraInput();
-                      }}
-                    >
-                      Use Camera
-                    </button>
-                    <button type="button" className="btn btn-primary btn-sm px-4" onClick={takeCameraSnapshot}>
-                      Take Photo
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <img src={capturedPhotoDataUrl} alt="Captured preview" className="map-camera-video-preview" />
-                  <div className="d-flex justify-content-center gap-2 w-100">
-                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setCapturedPhotoDataUrl(null)}>
-                      Retake
-                    </button>
-                    <button type="button" className="btn btn-success btn-sm px-4" onClick={attachLiveSnapshot}>
-                      Attach Photo
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <CameraCaptureModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        onCapture={handleCameraCapture}
+        onUseCameraInput={() => { setIsCameraModalOpen(false); handleTriggerCameraInput(); }}
+      />
     </>
   );
 };

@@ -12,6 +12,7 @@ import { getStatusDisplayLabel } from '../utils/formatters';
 import { CapaItem } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { Camera, FileText } from 'lucide-react';
+import { CameraCaptureModal } from '../components/modals/CameraCaptureModal';
 
 import {
   DEFAULT_INSPECTION_CHECKLIST_ITEMS,
@@ -162,10 +163,6 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   const [selectedCapaForDrawer, setSelectedCapaForDrawer] = useState<CapaItem | null>(null);
 
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [capturedPhotoDataUrl, setCapturedPhotoDataUrl] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [raisingCapaItemId, setRaisingCapaItemId] = useState<string | null>(null);
   const [itemCapaTitle, setItemCapaTitle] = useState('');
@@ -308,43 +305,13 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
     reader.readAsDataURL(file);
   };
 
-  /* open interactive live webcam stream modal */
-  const openLiveCameraModal = async (itemId: string) => {
+  const openLiveCameraModal = (itemId: string) => {
     setActivePhotoItemId(itemId);
-    setCapturedPhotoDataUrl(null);
     setIsCameraModalOpen(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      /* camera stream unavailable or blocked by browser permission */
-      console.warn('live camera video stream unaccessible, falling back to direct input');
-    }
   };
 
-  /* capture snapshot from live video stream */
-  const takeCameraSnapshot = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      setCapturedPhotoDataUrl(dataUrl);
-    }
-  };
-
-  /* attach captured live webcam photo */
-  const attachLiveSnapshot = () => {
-    if (!capturedPhotoDataUrl || !activePhotoItemId) return;
+  const handleCameraCapture = (dataUrl: string) => {
+    if (!activePhotoItemId) return;
     const timeStamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newEvidence: EvidenceItem = {
       id: `EV-${Date.now().toString().slice(-4)}`,
@@ -352,35 +319,19 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
       type: 'Photo',
       fileName: `realtime_photo_${Date.now().toString().slice(-4)}.jpg`,
       fileSize: '1.4 MB',
-      previewUrl: capturedPhotoDataUrl,
+      previewUrl: dataUrl,
     };
-
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== activePhotoItemId) return item;
-        return {
-          ...item,
-          evidences: [...item.evidences, newEvidence],
-        };
+        return { ...item, evidences: [...item.evidences, newEvidence] };
       })
     );
-
     logAuditEvent({
       action: 'Captured Live Camera Photo Evidence',
       targetAsset: `${vesselName} · Checklist Item ${activePhotoItemId}`,
       justificationNotes: `Attached live webcam photo for item ${activePhotoItemId}`,
     });
-
-    closeCameraModal();
-  };
-
-  /* stop video stream and close camera modal */
-  const closeCameraModal = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach((track) => track.stop());
-    }
-    setCameraStream(null);
-    setCapturedPhotoDataUrl(null);
     setIsCameraModalOpen(false);
     setActivePhotoItemId(null);
   };
@@ -1150,57 +1101,16 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
         </div>
       </div>
 
-      {/* interactive live camera snapshot modal dialog */}
-      {isCameraModalOpen && (
-        <div className="map-modal-backdrop d-flex align-items-center justify-content-center p-3">
-          <div className="map-camera-modal-dialog card p-3">
-            <div className="d-flex align-items-center justify-content-between pb-2 border-bottom mb-3">
-              <h6 className="fw-bold text-dark m-0">Take Photo</h6>
-              <button type="button" className="btn-close" onClick={closeCameraModal} aria-label="Close" />
-            </div>
-
-            <div className="d-flex flex-column align-items-center gap-3">
-              {!capturedPhotoDataUrl ? (
-                <>
-                  <video ref={videoRef} autoPlay playsInline className="map-camera-video-preview" />
-                  <canvas ref={canvasRef} className="d-none" />
-                  <div className="d-flex justify-content-center flex-wrap gap-2 w-100">
-                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={closeCameraModal}>
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => {
-                        const targetId = activePhotoItemId;
-                        closeCameraModal();
-                        if (targetId) handleTriggerCameraCapture(targetId);
-                      }}
-                    >
-                      Use Camera
-                    </button>
-                    <button type="button" className="btn btn-primary btn-sm px-4" onClick={takeCameraSnapshot}>
-                      Take Photo
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <img src={capturedPhotoDataUrl} alt="Captured preview" className="map-camera-video-preview" />
-                  <div className="d-flex justify-content-center gap-2 w-100">
-                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setCapturedPhotoDataUrl(null)}>
-                      Retake
-                    </button>
-                    <button type="button" className="btn btn-success btn-sm px-4" onClick={attachLiveSnapshot}>
-                      Attach Photo
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <CameraCaptureModal
+        isOpen={isCameraModalOpen}
+        onClose={() => { setIsCameraModalOpen(false); setActivePhotoItemId(null); }}
+        onCapture={handleCameraCapture}
+        onUseCameraInput={() => {
+          const targetId = activePhotoItemId;
+          setIsCameraModalOpen(false);
+          if (targetId) handleTriggerCameraCapture(targetId);
+        }}
+      />
 
       {/* Capa Re-Inspection Drawer inside Physical Inspection Detail page */}
       {selectedCapaForDrawer && (
