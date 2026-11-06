@@ -8,7 +8,6 @@ import React, { Suspense, useEffect, useMemo } from 'react';
 import { useMapStore } from './store/useMapStore';
 import { HeaderBanner } from './components/layout/HeaderBanner';
 import { AppSidebar } from './components/layout/AppSidebar';
-import { AuditTrailDrawer } from './components/drawers/AuditTrailDrawer';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { FleetRegistryView } from './views/FleetRegistryView';
@@ -262,8 +261,6 @@ export const App: React.FC = () => {
         <main className="map-content-area">{renderCurrentView()}</main>
       </div>
 
-      {/* global Audit Trail offcanvas drawer */}
-      <AuditTrailDrawer />
     </div>
   );
 };
