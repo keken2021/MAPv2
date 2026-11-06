@@ -15,7 +15,7 @@ import { StatusBadge } from '../common/StatusBadge';
 import { EmptyState } from '../common/EmptyState';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
-import { EditUserModal } from '../modals/EditUserModal';
+import { UserModal } from '../modals/UserModal';
 import { canPerform } from '../../utils/permissionHelpers';
 
 import { filterUsersForPersona } from '../../utils/rbacHelpers';
@@ -391,9 +391,10 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
       </FilterModal>
 
       {/* Edit User Modal */}
-      <EditUserModal
+      <UserModal
         isOpen={!!editingUser}
         onClose={() => setEditingUser(null)}
+        mode="edit"
         user={editingUser}
       />
     </div>

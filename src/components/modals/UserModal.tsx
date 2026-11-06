@@ -1,55 +1,43 @@
-/* 
-  file summary: edit user modal dialog component for updating user profile attributes and rbac role assignments.
-  responsibilities: captures updated user name, email, persona role, organization affiliation, scope, and status with validation.
-  role in system: launched by UserTable.tsx when administrator clicks the edit action button for a user row.
-*/
-
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
-import { RoleName } from '../../types/permissions';
 import { UserType, UserProfile } from '../../types/user';
+import { RoleName } from '../../types/permissions';
 import { UserRoleChecklist } from '../common/UserRoleChecklist';
 import { buildRolesFromForm, splitRolesForForm } from '../../utils/userRoleHelpers';
 
-interface EditUserModalProps {
+interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: UserProfile | null;
+  mode: 'add' | 'edit';
+  user?: UserProfile | null;
 }
 
-/**
-  what: renders modal for editing an existing organization member or third-party user profile.
-  how: pre-populates form state with target user data, validates inputs, checks email uniqueness, and dispatches updateUser to zustand store.
-  with what file: src/components/modals/EditUserModal.tsx loaded by UserTable.tsx.
-*/
-export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, user }) => {
-  const { users, updateUser, activePersona } = useMapStore();
+export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, mode, user }) => {
+  const { users, addUser, updateUser, activePersona } = useMapStore();
   const isCAdmin = activePersona === 'C Admin';
-  const defaultOrgName = isCAdmin ? 'Southern Basin Energy' : 'Northwind Marine Pty Ltd';
+  const isAdd = mode === 'add';
+  const defaultOrgName = !isAdd && isCAdmin ? 'Southern Basin Energy' : 'Northwind Marine Pty Ltd';
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [userType, setUserType] = useState<UserType>('Organization');
+  const [userType, setUserType] = useState<UserType>('Third-Party');
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
-  const [operationalRoles, setOperationalRoles] = useState<RoleName[]>(['Submitter']);
+  const [operationalRoles, setOperationalRoles] = useState<RoleName[]>(isAdd ? ['Verifier'] : ['Submitter']);
   const [organization, setOrganization] = useState('');
   const [departmentOrScope, setDepartmentOrScope] = useState('');
   const [status, setStatus] = useState<UserProfile['status']>('Active');
   const [errorMessage, setErrorMessage] = useState('');
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
-
-  /* autofill animation state for pre-filled user fields */
   const [isJustLoaded, setIsJustLoaded] = useState(false);
 
   useEffect(() => {
-    if (user && isOpen) {
+    if (!isAdd && user && isOpen) {
       setName(user.name);
       setEmail(user.email);
       setUserType(user.userType);
       const { isPlatformAdmin: admin, operationalRoles: ops } = splitRolesForForm(user.roles);
       setIsPlatformAdmin(isCAdmin ? false : admin);
-      /* C Admin is not assignable via checklist (one per org); keep other operational roles only */
       setOperationalRoles(
         ops.filter((r) => {
           if (r === 'C Admin') return false;
@@ -68,9 +56,9 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
       const timer = setTimeout(() => setIsJustLoaded(false), 750);
       return () => clearTimeout(timer);
     }
-  }, [user, isOpen, isCAdmin, defaultOrgName]);
+  }, [user, isOpen, isAdd, isCAdmin, defaultOrgName]);
 
-  if (!isOpen || !user) return null;
+  if (!isOpen || (!isAdd && !user)) return null;
 
   const isOrgMember = userType === 'Organization';
 
@@ -78,6 +66,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
     setUserType(nextType);
     if (nextType === 'Organization') {
       setOrganization(defaultOrgName);
+    } else if (isAdd) {
+      setOrganization('');
     }
   };
 
@@ -93,7 +83,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
       return;
     }
 
-    /* sanitize roles for c admin to guarantee no platform admin or submitter role leakage */
     const effectivePlatformAdmin = isCAdmin ? false : isPlatformAdmin;
     const effectiveOperationalRoles = operationalRoles.filter((r) => {
       if (r === 'C Admin') return false;
@@ -101,7 +90,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
       return true;
     });
 
-    const roles = isCAdmin && user.roles.includes('C Admin')
+    const roles = !isAdd && user && isCAdmin && user.roles.includes('C Admin')
       ? ['C Admin']
       : buildRolesFromForm(effectivePlatformAdmin, effectiveOperationalRoles);
     if (roles.length === 0) {
@@ -109,37 +98,69 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
       return;
     }
 
-    /* check duplicate email validation excluding current user being edited */
     const existingUser = users.find(
-      (u) => u.id !== user.id && u.email.toLowerCase() === email.trim().toLowerCase()
+      (u) => (!isAdd && user ? u.id !== user.id : true) && u.email.toLowerCase() === email.trim().toLowerCase(),
     );
     if (existingUser) {
       setErrorMessage(`A user with email address "${email.trim()}" already exists in the system.`);
       return;
     }
 
-    const updatedUser: UserProfile = {
-      ...user,
-      name: name.trim(),
-      email: email.trim(),
-      roles,
-      userType,
-      organization: resolvedOrg,
-      departmentOrScope: departmentOrScope.trim() || (userType === 'Organization' ? 'Internal Operations' : 'External Stakeholder Scope'),
-      status,
-    };
+    if (isAdd) {
+      const newUser: UserProfile = {
+        id: `MAP-USR-2026-USER-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
+        name: name.trim(),
+        email: email.trim(),
+        roles,
+        userType,
+        organization: resolvedOrg,
+        departmentOrScope:
+          departmentOrScope.trim() ||
+          (userType === 'Organization'
+            ? isCAdmin
+              ? 'Client Operations'
+              : 'Internal Operations'
+            : 'External Stakeholder Scope'),
+        status: userType === 'Third-Party' ? 'Pending Invitation' : 'Active',
+        lastActive: userType === 'Third-Party' ? 'Invitation Sent' : 'Just Now',
+        createdBy: activePersona,
+        invitedBy: userType === 'Third-Party' ? activePersona : undefined,
+      };
+      addUser(newUser);
+      setName('');
+      setEmail('');
+      setUserType('Third-Party');
+      setIsPlatformAdmin(false);
+      setOperationalRoles(['Verifier']);
+      setOrganization('');
+      setDepartmentOrScope('');
+      setErrorMessage('');
+    } else if (user) {
+      const updatedUser: UserProfile = {
+        ...user,
+        name: name.trim(),
+        email: email.trim(),
+        roles,
+        userType,
+        organization: resolvedOrg,
+        departmentOrScope: departmentOrScope.trim() || (userType === 'Organization' ? 'Internal Operations' : 'External Stakeholder Scope'),
+        status,
+      };
+      updateUser(updatedUser);
+    }
 
-    updateUser(updatedUser);
     onClose();
   };
+
+  const radioName = isAdd ? 'userType' : 'editUserType';
+  const idPrefix = isAdd ? 'user' : 'edit-user';
 
   return (
     <div className="map-modal-backdrop d-flex align-items-center justify-content-center p-3">
       <div className="card map-card-custom shadow-lg" style={{ width: '100%', maxWidth: '580px', zIndex: 1100 }}>
-        {/* Modal Header */}
         <div className="card-header d-flex align-items-center justify-content-between p-3 border-bottom">
           <div className="fw-bold text-dark fs-6">
-            Edit User ({user.id})
+            {isAdd ? 'Add User' : `Edit User (${user!.id})`}
           </div>
           <button
             type="button"
@@ -151,7 +172,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
           </button>
         </div>
 
-        {/* Modal Body Form */}
         <form onSubmit={handleSubmit}>
           <div className="card-body p-4 d-flex flex-column gap-3">
             {errorMessage && (
@@ -160,7 +180,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
               </div>
             )}
 
-            {/* User Type Selection */}
             <div>
               <label className="form-label small fw-semibold text-secondary mb-1">User Type <span className="text-danger">*</span></label>
               <div className="d-flex gap-3">
@@ -168,39 +187,38 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
                   <input
                     className="form-check-input"
                     type="radio"
-                    name="editUserType"
-                    id="editUserTypeOrg"
+                    name={radioName}
+                    id={`${idPrefix}TypeOrg`}
                     checked={userType === 'Organization'}
                     onChange={() => handleUserTypeChange('Organization')}
                   />
-                  <label className="form-check-input-label small text-dark fw-semibold cursor-pointer" htmlFor="editUserTypeOrg">
-                    Organization Member ({defaultOrgName})
+                  <label className="form-check-input-label small text-dark fw-semibold cursor-pointer" htmlFor={`${idPrefix}TypeOrg`}>
+                    {isAdd ? 'Organization Member' : `Organization Member (${defaultOrgName})`}
                   </label>
                 </div>
                 <div className="form-check">
                   <input
                     className="form-check-input"
                     type="radio"
-                    name="editUserType"
-                    id="editUserTypeThird"
+                    name={radioName}
+                    id={`${idPrefix}TypeThird`}
                     checked={userType === 'Third-Party'}
                     onChange={() => handleUserTypeChange('Third-Party')}
                   />
-                  <label className="form-check-input-label small text-dark fw-semibold cursor-pointer" htmlFor="editUserTypeThird">
+                  <label className="form-check-input-label small text-dark fw-semibold cursor-pointer" htmlFor={`${idPrefix}TypeThird`}>
                     Third-Party
                   </label>
                 </div>
               </div>
             </div>
 
-            {/* Full Name & Email */}
             <div className="row g-3">
               <div className="col-md-6">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-name">Full Name <span className="text-danger">*</span></label>
+                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor={`${idPrefix}-name`}>Full Name <span className="text-danger">*</span></label>
                 <input
-                  id="edit-user-name"
+                  id={`${idPrefix}-name`}
                   type="text"
-                  className={`form-control form-control-sm bg-white text-dark border-secondary${isJustLoaded ? ' map-autofill-animate' : ''} ${hasAttemptedSubmit && !name.trim() ? 'is-invalid' : ''}`}
+                  className={`form-control form-control-sm bg-white text-dark border-secondary${!isAdd && isJustLoaded ? ' map-autofill-animate' : ''} ${hasAttemptedSubmit && !name.trim() ? 'is-invalid' : ''}`}
                   placeholder="e.g. Captain H. Vance"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -209,11 +227,11 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
               </div>
 
               <div className="col-md-6">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-email">Email <span className="text-danger">*</span></label>
+                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor={`${idPrefix}-email`}>Email <span className="text-danger">*</span></label>
                 <input
-                  id="edit-user-email"
+                  id={`${idPrefix}-email`}
                   type="email"
-                  className={`form-control form-control-sm bg-white text-dark border-secondary${isJustLoaded ? ' map-autofill-animate' : ''} ${hasAttemptedSubmit && !email.trim() ? 'is-invalid' : ''}`}
+                  className={`form-control form-control-sm bg-white text-dark border-secondary${!isAdd && isJustLoaded ? ' map-autofill-animate' : ''} ${hasAttemptedSubmit && !email.trim() ? 'is-invalid' : ''}`}
                   placeholder="name@organization.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -222,7 +240,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
               </div>
             </div>
 
-            {/* Role Entitlements & Organization Name */}
             <div className="row g-3">
               <div className="col-12">
                 <UserRoleChecklist
@@ -237,53 +254,65 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
               </div>
 
               <div className="col-md-6">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-org">Organization <span className="text-danger">*</span></label>
+                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor={`${idPrefix}-org`}>
+                  Organization <span className="text-danger">*</span>
+                </label>
                 <input
-                  id="edit-user-org"
+                  id={`${idPrefix}-org`}
                   type="text"
-                  className={`form-control form-control-sm text-dark border-secondary${isJustLoaded ? ' map-autofill-animate' : ''} ${isOrgMember ? 'bg-light text-secondary' : 'bg-white'
-                    } ${hasAttemptedSubmit && !isOrgMember && !organization.trim() ? 'is-invalid' : ''}`}
+                  className={`form-control form-control-sm text-dark border-secondary${!isAdd && isJustLoaded ? ' map-autofill-animate' : ''} ${isOrgMember ? 'bg-light text-secondary' : 'bg-white'} ${hasAttemptedSubmit && !isOrgMember && !organization.trim() ? 'is-invalid' : ''}`}
                   placeholder={isOrgMember ? defaultOrgName : 'e.g. DNV / Bureau Veritas'}
                   value={isOrgMember ? defaultOrgName : organization}
                   onChange={(e) => setOrganization(e.target.value)}
                   disabled={isOrgMember}
                   required
                 />
-
               </div>
             </div>
 
-            {/* Scope & Status */}
-            <div className="row g-3">
-              <div className="col-md-7">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-scope">Department</label>
+            {!isAdd ? (
+              <div className="row g-3">
+                <div className="col-md-7">
+                  <label className="form-label small fw-semibold text-secondary mb-1" htmlFor={`${idPrefix}-scope`}>Department</label>
+                  <input
+                    id={`${idPrefix}-scope`}
+                    type="text"
+                    className={`form-control form-control-sm bg-white text-dark border-secondary${isJustLoaded ? ' map-autofill-animate' : ''}`}
+                    placeholder="e.g. Marine Compliance"
+                    value={departmentOrScope}
+                    onChange={(e) => setDepartmentOrScope(e.target.value)}
+                  />
+                </div>
+
+                <div className="col-md-5">
+                  <label className="form-label small fw-semibold text-secondary mb-1" htmlFor={`${idPrefix}-status`}>Status <span className="text-danger">*</span></label>
+                  <select
+                    id={`${idPrefix}-status`}
+                    className={`form-select form-select-sm bg-white text-dark border-secondary${isJustLoaded ? ' map-autofill-animate' : ''}`}
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value as UserProfile['status'])}
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Pending Invitation">Pending</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor={`${idPrefix}-scope`}>Department</label>
                 <input
-                  id="edit-user-scope"
+                  id={`${idPrefix}-scope`}
                   type="text"
-                  className={`form-control form-control-sm bg-white text-dark border-secondary${isJustLoaded ? ' map-autofill-animate' : ''}`}
+                  className="form-control form-control-sm bg-white text-dark border-secondary"
                   placeholder="e.g. Marine Compliance"
                   value={departmentOrScope}
                   onChange={(e) => setDepartmentOrScope(e.target.value)}
                 />
               </div>
-
-              <div className="col-md-5">
-                <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="edit-user-status">Status <span className="text-danger">*</span></label>
-                <select
-                  id="edit-user-status"
-                  className={`form-select form-select-sm bg-white text-dark border-secondary${isJustLoaded ? ' map-autofill-animate' : ''}`}
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as UserProfile['status'])}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Pending Invitation">Pending</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Modal Footer Controls */}
           <div className="card-footer d-flex align-items-center justify-content-end gap-2 p-3 border-top bg-light">
             <button
               type="button"
@@ -296,7 +325,11 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ isOpen, onClose, u
               type="submit"
               className="btn btn-sm btn-primary"
             >
-              Save
+              {isAdd
+                ? userType === 'Third-Party'
+                  ? 'Send Invitation & Add User'
+                  : 'Provision User Profile'
+                : 'Save'}
             </button>
           </div>
         </form>

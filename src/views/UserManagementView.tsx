@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { UserTable } from '../components/tables/UserTable';
-import { AddUserModal } from '../components/modals/AddUserModal';
+import { UserModal } from '../components/modals/UserModal';
 
 /**
   what: renders user management view for organization and third-party users in light theme.
@@ -19,7 +19,7 @@ export const UserManagementView: React.FC = () => {
   return (
     <div className="d-flex flex-column gap-4">
       <UserTable onAddUser={() => setIsModalOpen(true)} />
-      <AddUserModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <UserModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} mode="add" />
     </div>
   );
 };
