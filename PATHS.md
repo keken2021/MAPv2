@@ -86,6 +86,9 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/documentRecordsAndUpload.test.tsx` : tests for document upload real file size, version numbering from versions.length, certificate layout vessel/crew record lookups, DocumentReviewDrawer version meta, and CrewDocumentViewerModal record reads (Task 5311 / findings 1a-20, 1b-01, 1b-03, 1b-04, 1b-05, 1c-09)
 - `src/__tests__/organizationsInGeneral.test.tsx` : tests for organizations in general, wizard Step 1 Organizations table and role checkboxes, Step 2 unlisted object owner auto-addition, and multi-provider submitters (Task 5326)
 - `src/__tests__/assuranceWizardOneVendor.test.tsx` : tests for assurance wizard one vendor and one client per set, vendor locking from first object, filtered pickers, mixed object types from same vendor, and saved set party rules (Task 5332)
+- `src/__tests__/scenario1VesselProviderStarts.test.ts` : tests Scenario 1 from architecture diagram (Administrator registers vessel, creates project and set, segregation of duties, external party verifies and approves)
+- `src/__tests__/scenario2ClientCreates.test.ts` : tests Scenario 2 from architecture diagram (Client C Admin creates master project and multiple assurance sets SS-01, SS-02, SS-03, SS-05, independent entity integrity)
+- `src/__tests__/scenario3MultiPartyProject.test.ts` : tests Scenario 3 and Master Project roll-up from architecture diagram (other parties add sets, SS-04 role reversal, ownership isolation, 5-set aggregate progress roll-up)
 
 ## Marketplace screens
 - `src/views/MarketplaceView.tsx` : browse page (pills, view toggle, export, toolbar, filter modal, card grid, table view)
@@ -212,6 +215,8 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/work-items/ui-dedup-shared-shells-tasks.csv` : 44 Tasks (5407 to 5450) under User Story 5209 from `docs/plans/ui-dedup-shared-shells.md`, in 4 parts (wizard search, shells, merges, repeated UI), assigned to Creishen Ayuman, 0.25 or 0.5 h each (20 h)
 - `docs/work-items/tabs-consistency-tasks.csv` : 8 Tasks (5451 to 5458) under User Story 5209 from `docs/plans/tabs-consistency.md`, assigned to Creishen Ayuman, 0.25 or 0.5 h each; `tabs-consistency-5436-update.csv` widens Task 5436 by ID
 - `docs/work-items/role-views-tasks.csv` : 11 Tasks (5231 to 5241, under User Story 5209) for per-person views and the sidebar, split between Creishen Ayuman and Kurt Grava, 0.75 or 1 h each. Design: `docs/plans/per-person-views-and-sidebar.md`
+- `docs/work-items/v4-test-baseline-5-failures-task.csv` : Task under User Story 5209 to resolve the 5 test failures on v4
+- `docs/work-items/multi-party-scenarios-tests-task.csv` : Task under User Story 5207 for automated test suites covering Scenarios 1, 2, and 3 from the architecture diagram across wizard, confirm dialog, mock seed and queue, assigned to Creishen Ayuman, 0.5 h
 - `docs/azure-boards/` : everything for the Azure Boards connection and the `board-comment` and `task-branch` skills (12 files)
 - `docs/azure-boards/task-branch-skill.md` : plan and build record of the `task-branch` skill and of its Task notes (decisions 1 to 20, files, what is tested and what is not)
 - `docs/azure-boards/task-branch-skill-spec.docx` : Skill Spec for `task-branch`. Rebuild with `docs/azure-boards/task-branch-skill-spec.build.py` (needs python-docx in a venv; arguments: `docs/azure-boards/board-comment-skill-spec.docx` as style base, then the output path)
