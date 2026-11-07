@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 import { AssuranceRequirement } from '../types/assurance';
 
 const initialState = useMapStore.getState();
@@ -44,7 +44,7 @@ describe('Assurance Requirements - Remove Per-Requirement Party Picker (Task 535
   });
 
   it('does not display any responsible party checklist or party picker on Step 3 requirements', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     // Step 1 -> Step 2 -> Step 3
     clickNext();
@@ -73,7 +73,7 @@ describe('Assurance Requirements - Remove Per-Requirement Party Picker (Task 535
   });
 
   it('saves every requirement with responsibleParty set to the Responding party', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     // Step 1: fill required fields
     const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
@@ -114,7 +114,7 @@ describe('Assurance Requirements - Remove Per-Requirement Party Picker (Task 535
   });
 
   it('updates saved requirements responsibleParty when a different Responding party is selected in Step 1', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
     if (titleInput) {

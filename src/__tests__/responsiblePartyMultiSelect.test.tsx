@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 import { AssuranceRequirement } from '../types/assurance';
 
 const initialState = useMapStore.getState();
@@ -55,7 +55,7 @@ describe('Assurance Wizard Step 3 Responsible Party Declutter (Task 5355 superse
   });
 
   it('removes the party checklist from Step 3 requirements', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     // Step 1: Verify Involved Organizations card displays Step 1 chosen organizations
     const involvedCard = container.querySelector('[data-testid="card-involved-organizations"]');
@@ -76,7 +76,7 @@ describe('Assurance Wizard Step 3 Responsible Party Declutter (Task 5355 superse
   });
 
   it('saves requirements with the Responding party agreed in Step 1', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     // Step 1
     const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;

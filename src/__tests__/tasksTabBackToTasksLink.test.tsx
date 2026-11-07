@@ -69,7 +69,7 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
     expect(screen.getByText('Back to tasks')).toBeInTheDocument();
 
     // Requirements tab is active
-    const reqTab = screen.getByRole('tab', { name: 'Requirements' });
+    const reqTab = screen.getByRole('tab', { name: /^Requirements/ });
     expect(reqTab).toHaveAttribute('aria-selected', 'true');
 
     // 4. Click Back to tasks
@@ -101,7 +101,7 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
     expect(screen.queryByRole('button', { name: /Back to tasks/i })).toBeNull();
 
     // Switch to Requirements tab by hand directly
-    const reqTab = screen.getByRole('tab', { name: 'Requirements' });
+    const reqTab = screen.getByRole('tab', { name: /^Requirements/ });
     fireEvent.click(reqTab);
     expect(reqTab).toHaveAttribute('aria-selected', 'true');
 

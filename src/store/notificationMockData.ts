@@ -120,8 +120,8 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
   {
     id: 'MAP-NTF-2026-APRV-00003',
     type: 'approval_decision',
-    subject: 'Returned for correction: MV Pacific Endeavour — Vessel Charter Vetting',
-    message: 'Safety equipment certificate expires inside the charter window.',
+    subject: 'Approved: MV Pacific Endeavour — Vessel Charter Vetting',
+    message: 'All certificates were reviewed and accepted.',
     recipientUserId: 'USR-101',
     senderUserId: 'USR-204',
     senderName: 'P. Nardelli',

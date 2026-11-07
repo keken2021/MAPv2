@@ -220,9 +220,9 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     availabilityUpdatedAt: NOW,
     registrationStatus: 'Registered',
     registrationUpdatedAt: NOW,
-    classStatus: 'Overdue',
+    classStatus: 'In Class',
     classStatusUpdatedAt: NOW,
-    complianceStatus: 'Non-Compliant',
+    complianceStatus: 'Compliant',
     complianceUpdatedAt: NOW,
   },
   {
@@ -269,7 +269,7 @@ export const MOCK_EQUIPMENT: EquipmentAsset[] = [
     registrationUpdatedAt: NOW,
     classStatus: 'Uncertified',
     classStatusUpdatedAt: NOW,
-    complianceStatus: 'Non-Compliant',
+    complianceStatus: 'Compliant',
     complianceUpdatedAt: NOW,
   },
 ];

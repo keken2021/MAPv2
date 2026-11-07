@@ -2100,6 +2100,25 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const verifiedCount = assuranceSet.requirements.filter((r) => r.verifierStatus === 'Verified').length;
+  /* how many requirements this role still has to work on; shown on the Requirements tab and above the list */
+  const requirementCounts = (() => {
+    const reqs = assuranceSet.requirements;
+    const total = reqs.length;
+    const hasDoc = (r: AssuranceRequirement) => Boolean(r.documentId || r.linkedDocumentId);
+    const returned = reqs.filter((r) => r.verifierStatus === 'Correction Requested' || r.verifierStatus === 'Rejected').length;
+    const toUpload = reqs.filter((r) => !hasDoc(r) || r.verifierStatus === 'Correction Requested' || r.verifierStatus === 'Rejected').length;
+    const toVerify = reqs.filter((r) => hasDoc(r) && r.verifierStatus === 'Pending').length;
+    const verified = reqs.filter((r) => r.verifierStatus === 'Verified').length;
+    const awaitingUpload = reqs.filter((r) => !hasDoc(r)).length;
+    const open = total - verified;
+    const persona = activePersona;
+    const mine =
+      persona === 'Submitter' ? toUpload
+        : persona === 'Verifier' ? toVerify
+          : persona === 'Inspector' || persona === 'Approver' ? open
+            : 0;
+    return { total, returned, toUpload, toVerify, verified, awaitingUpload, open, mine };
+  })();
   const totalCount = assuranceSet.requirements.length;
 
   const renderRequirementStatus = (req: AssuranceRequirement, canViewDoc: boolean = true) => {
@@ -2384,7 +2403,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         tabs={[
           { key: 'details', label: 'Details' },
           { key: 'objects', label: 'Objects' },
-          { key: 'requirements', label: 'Requirements' },
+          { key: 'requirements', label: 'Requirements', count: requirementCounts.mine > 0 ? requirementCounts.mine : undefined, tone: 'warn' },
           { key: 'tasks', label: 'Tasks' },
           { key: 'audit', label: 'Audit Trail' },
         ]}
@@ -3334,6 +3353,40 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
               View stage
             </button>
           </div>
+
+          {/* how many requirements each role has to work on */}
+          {(() => {
+            const c = requirementCounts;
+            const chips: { label: string; value: string; testId: string; tone: 'primary' | 'warning' | 'success' | 'neutral' }[] = [];
+            if (isSubmitter) {
+              chips.push({ label: 'To upload', value: `${c.toUpload} of ${c.total}`, testId: 'count-to-upload', tone: c.toUpload > 0 ? 'primary' : 'success' });
+              if (c.returned > 0) chips.push({ label: 'Returned for correction', value: String(c.returned), testId: 'count-returned', tone: 'warning' });
+              chips.push({ label: 'Verified', value: `${c.verified} of ${c.total}`, testId: 'count-verified', tone: 'neutral' });
+            } else if (isVerifier) {
+              chips.push({ label: 'To verify', value: `${c.toVerify} of ${c.total}`, testId: 'count-to-verify', tone: c.toVerify > 0 ? 'primary' : 'success' });
+              chips.push({ label: 'Awaiting upload', value: String(c.awaitingUpload), testId: 'count-awaiting-upload', tone: 'neutral' });
+              chips.push({ label: 'Verified', value: `${c.verified} of ${c.total}`, testId: 'count-verified', tone: 'neutral' });
+            } else if (isApproverOrInspector) {
+              chips.push({ label: 'Verified', value: `${c.verified} of ${c.total}`, testId: 'count-verified', tone: c.open === 0 ? 'success' : 'neutral' });
+              chips.push({ label: 'Still open', value: String(c.open), testId: 'count-open', tone: c.open > 0 ? 'primary' : 'success' });
+            } else {
+              chips.push({ label: 'Total', value: String(c.total), testId: 'count-total', tone: 'neutral' });
+              chips.push({ label: 'To upload', value: String(c.toUpload), testId: 'count-to-upload', tone: 'neutral' });
+              chips.push({ label: 'To verify', value: String(c.toVerify), testId: 'count-to-verify', tone: 'neutral' });
+              chips.push({ label: 'Verified', value: String(c.verified), testId: 'count-verified', tone: 'neutral' });
+            }
+            const toneClass = { primary: 'bg-primary-subtle text-primary-emphasis border-primary-subtle', warning: 'bg-warning-subtle text-warning-emphasis border-warning-subtle', success: 'bg-success-subtle text-success-emphasis border-success-subtle', neutral: 'bg-light text-secondary border' };
+            return (
+              <div className="d-flex flex-wrap gap-2 px-1" data-testid="requirements-role-counts" aria-label="Requirements you need to work on">
+                {chips.map((chip) => (
+                  <span key={chip.testId} className={`badge fw-normal border d-inline-flex align-items-center gap-1 ${toneClass[chip.tone]}`} style={{ fontSize: '0.8rem' }} data-testid={chip.testId}>
+                    <span>{chip.label}</span>
+                    <strong>{chip.value}</strong>
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
 
           <div className="card map-card-custom">
             <div className="card-header border-bottom p-3">

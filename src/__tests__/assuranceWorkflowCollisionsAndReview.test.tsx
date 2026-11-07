@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { addObject, clickNext, objectItemSelect, objectRowIds, removeObjectRow, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectItemSelect, objectRowIds, removeObjectRow, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -20,7 +20,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
   });
 
   it('pre-populates demo-friendly, non-conflicting date defaults and placeholders', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     const startInput = container.querySelector('#grid-charter-start') as HTMLInputElement;
     const endInput = container.querySelector('#grid-charter-end') as HTMLInputElement;
 
@@ -63,7 +63,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
   };
 
   it('picks the vessel on the Objects tab and blocks only the vessel already contracted for the period', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext();
     const [bookedVesselId] = objectRowIds(container);
     expect(bookedVesselId).toBeTruthy();
@@ -94,7 +94,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
   });
 
   it("moves the dates to the booked vessel's next free period with one click", () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext();
     addConflictingSet('Vessel', objectRowIds(container)[0]);
 
@@ -107,7 +107,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
   });
 
   it('picks the equipment on the Objects tab and blocks only the equipment already contracted', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext();
     removeObjectRow(container, objectRowIds(container)[0]);
 
@@ -134,7 +134,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
   });
 
   it('renders itemized individual table rows for each selected crew member in review', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     pickReviewerRoles(container);
     clickNext();
     removeObjectRow(container, objectRowIds(container)[0]);

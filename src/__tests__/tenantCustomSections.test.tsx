@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -127,7 +127,7 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
 
   describe('Wizard Step 3: Create section, in-place edit, and add document', () => {
     it('creates a custom section in Step 3, edits title, adds document, and persists on created set', () => {
-      const { container } = render(<CreateAssuranceSetView />);
+      const { container } = renderWizardWithDefaultVessel();
 
       // Step 1: Set unique title
       const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
@@ -243,7 +243,7 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
         activeDemoOrganization: 'Chevron',
       });
 
-      const { container, unmount } = render(<CreateAssuranceSetView />);
+      const { container, unmount } = renderWizardWithDefaultVessel();
 
       clickNext(); // Step 1 -> Step 2
       clickNext(); // Step 2 -> Step 3
@@ -272,7 +272,7 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
         activeDemoOrganization: 'TotalEnergies',
       });
 
-      const { container: totalContainer } = render(<CreateAssuranceSetView />);
+      const { container: totalContainer } = renderWizardWithDefaultVessel();
 
       clickNext(); // Step 1 -> Step 2
       clickNext(); // Step 2 -> Step 3

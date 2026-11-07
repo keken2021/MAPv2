@@ -9,6 +9,7 @@ import {
   objectRowIds,
   pickReviewerRoles,
   removeObjectRow,
+  renderWizardWithDefaultVessel,
 } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
@@ -55,7 +56,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
     option.querySelectorAll('span')[1]?.textContent || '';
 
   it('first assurance object chosen sets the vendor, and object pickers of all types list only objects owned by that vendor', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext();
 
     // The initial vessel (MV Ocean Pioneer / MV Pacific Endeavour) is from Northwind Marine Pty Ltd
@@ -86,7 +87,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
   });
 
   it('allows mixed object types from the same vendor to be added to the set', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext();
 
     const initialRows = objectRowIds(container);
@@ -110,7 +111,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
   });
 
   it('removing the last object frees the vendor, allowing an object from another vendor to be chosen', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext();
 
     // Remove all initial objects
@@ -145,7 +146,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
   });
 
   it('review step and created assurance set show and name one Vendor and one Client', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     fireEvent.change(container.querySelector('#grid-campaign-title') as HTMLInputElement, {
       target: { value: 'Single Vendor and Client Set' },
     });

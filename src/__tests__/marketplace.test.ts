@@ -525,11 +525,12 @@ describe('Marketplace Module & Segregation', () => {
     const tasman = items.find((item) => item.linkedEntityId === 'VESSEL-003')!;
     const expiry = earliestCertificateExpiry(tasman, MOCK_VESSELS, MOCK_DOCUMENTS, MOCK_CREW);
     expect(expiry).toBeTruthy();
-    expect(expiry! < '2026-10-30').toBe(true);
+    /* every Tasman Pioneer certificate is current, so the earliest one runs past the availability window */
+    expect(expiry).toBe('2027-06-09');
     render(React.createElement(MarketplaceDetailModal, { item: tasman, isOpen: true, onClose: () => undefined }));
     const line = screen.getByTestId('earliest-certificate-expiry');
     expect(line.textContent).toContain('Earliest certificate expiry');
     expect(line.textContent).toContain(formatListingDate(expiry!));
-    expect(line.textContent).toMatch(/late|Expired/);
+    expect(line.textContent).not.toMatch(/late|Expired/);
   });
 });

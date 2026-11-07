@@ -4,7 +4,11 @@
   role in system: used by the wizard tests in src/__tests__.
 */
 
-import { fireEvent, screen } from '@testing-library/react';
+import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { useMapStore } from '../store/useMapStore';
+import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
+import { filterCAdminAvailableToCharter, getClientAdminOrganization } from '../utils/rbacHelpers';
 
 /* wizard helpers: the Objects tab is the only place a set's assets are picked */
 export const clickNext = () => fireEvent.click(screen.getByRole('button', { name: 'Next' }));
@@ -63,4 +67,16 @@ export const pickReviewerRoles = (container: HTMLElement, thirdParty = 'Bureau V
     const enabledInspector = inspectorBoxes.find((b) => !b.disabled && !b.checked);
     if (enabledInspector) fireEvent.click(enabledInspector);
   }
+};
+
+/* the Objects tab starts empty unless an object is handed over; these tests open the wizard from the vessel it used to preselect: the first vessel the client may charter */
+export const defaultWizardVesselId = (): string => {
+  const { vessels, assuranceSets, users, activePersona, activeDemoOrganization } = useMapStore.getState();
+  const clientOrgHint = activePersona === 'C Admin' || activePersona === 'Administrator' ? activeDemoOrganization : undefined;
+  const clientOrg = getClientAdminOrganization(users, clientOrgHint);
+  return filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg)[0]?.id || '';
+};
+export const renderWizardWithDefaultVessel = (vesselId: string = defaultWizardVesselId()) => {
+  if (vesselId) useMapStore.setState({ createAssuranceForAsset: { scope: 'Vessel', assetId: vesselId } });
+  return render(React.createElement(CreateAssuranceSetView));
 };

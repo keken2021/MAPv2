@@ -2,7 +2,8 @@ import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
-import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
+import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
+import { renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -19,11 +20,11 @@ describe('Assurance set parties - Rename to Parties, stages on top (Task 5352)',
     });
   });
 
-  it('renames card to 3. Parties with updated help text and Add party input', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+  it('renames card to 2. Parties with updated help text and Add party input', () => {
+    const { container } = renderWizardWithDefaultVessel();
 
-    // Header is "3. Parties"
-    expect(screen.getByRole('heading', { name: '3. Parties' })).toBeDefined();
+    // Header is "2. Parties"
+    expect(screen.getByRole('heading', { name: '2. Parties' })).toBeDefined();
 
     // Help text updated
     expect(
@@ -42,7 +43,7 @@ describe('Assurance set parties - Rename to Parties, stages on top (Task 5352)',
   });
 
   it('renders stages section above the parties table inside the Parties card', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     const partiesCard = container.querySelector('[data-testid="card-involved-organizations"]');
     expect(partiesCard).not.toBeNull();
@@ -62,7 +63,7 @@ describe('Assurance set parties - Rename to Parties, stages on top (Task 5352)',
   });
 
   it('switches show or hide Verifier, Inspector, and Approver columns in the table', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     const verifySwitch = container.querySelector('#wf-verify') as HTMLInputElement;
     const inspectSwitch = container.querySelector('#wf-inspect') as HTMLInputElement;

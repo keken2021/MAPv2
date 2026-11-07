@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, act } from '@testing-library/react'
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
 import { MOCK_CREW_GROUPS } from '../store/crewMockData';
-import { clickNext, objectRowIds, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { clickNext, objectRowIds, pickReviewerRoles, removeObjectRow, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -23,8 +23,10 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
   afterEach(cleanup);
 
   it('renders crew group pickers in wizard Step 2 (Objects tab)', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext();
+    /* the handed-over vessel sets the vendor; removing it frees the crew group picker for every organization */
+    removeObjectRow(container, objectRowIds(container)[0]);
 
     const headerGroupSelect = container.querySelector('#wizard-pick-crew-group') as HTMLSelectElement;
     expect(headerGroupSelect).not.toBeNull();
@@ -39,8 +41,10 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
   });
 
   it('picking a group adds all member seafarers to the objects table and displays snapshot bar', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext();
+    /* the handed-over vessel sets the vendor; removing it frees the crew group picker for every organization */
+    removeObjectRow(container, objectRowIds(container)[0]);
 
     // Select Dive Team (CG-001: CREW-101 and CREW-104)
     const headerGroupSelect = container.querySelector('#wizard-pick-crew-group') as HTMLSelectElement;
@@ -57,7 +61,7 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
   });
 
   it('copies member snapshot at creation and preserves snapshot when master roster changes', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     pickReviewerRoles(container);
 
     // Step 1: Set unique title
@@ -66,6 +70,8 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
 
     // Step 2: Objects
     clickNext();
+    /* the handed-over vessel sets the vendor; removing it frees the crew group picker for every organization */
+    removeObjectRow(container, objectRowIds(container)[0]);
 
     // Pick Survey Team (CG-002: CREW-102 and CREW-103)
     const headerGroupSelect = container.querySelector('#wizard-pick-crew-group') as HTMLSelectElement;

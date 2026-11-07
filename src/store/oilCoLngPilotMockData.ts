@@ -360,11 +360,9 @@ const ss01Rows: EvidenceRow[] = [
     title: "SOLAS safety certificates (Construction, Equipment, Radio)",
     source: "Flag State / class",
     check: "Valid; not expiring within 6 months of the charter date.",
-    state: "correction",
+    state: "pending",
     targetDate: "2026-11-12",
     targetObjectId: OIL_CO_AURORA_ID,
-    attemptNumber: 2,
-    decisionTime: "2026-10-09T06:20:00Z",
   },
   {
     id: "REQ-SS01-11",
@@ -606,7 +604,7 @@ const ss03Rows: EvidenceRow[] = [
     title: "Mooring team and emergency response team training records",
     source: HARBOURLINE_ORG,
     check: "Current; team size meets the procedure.",
-    state: "missing",
+    state: "pending",
   },
   {
     id: "REQ-SS03-03",
@@ -630,7 +628,7 @@ const ss03Rows: EvidenceRow[] = [
     title: "Emergency shutdown (ESD) system test records",
     source: HARBOURLINE_ORG,
     check: "Tested within the required interval; pass.",
-    state: "missing",
+    state: "pending",
     targetObjectId: "OBJ-PROC-HARBOUR-ESD",
   },
   {
@@ -647,7 +645,7 @@ const ss03Rows: EvidenceRow[] = [
     title: "Mooring equipment and quick-release hook test records",
     source: HARBOURLINE_ORG,
     check: "Within the test interval.",
-    state: "missing",
+    state: "pending",
   },
   {
     id: "REQ-SS03-08",
@@ -655,7 +653,7 @@ const ss03Rows: EvidenceRow[] = [
     title: "Gas detection calibration certificates",
     source: "Calibration provider",
     check: "Within the calibration date.",
-    state: "missing",
+    state: "pending",
   },
   {
     id: "REQ-SS03-09",
@@ -663,7 +661,7 @@ const ss03Rows: EvidenceRow[] = [
     title: "Jetty structural inspection report",
     source: "Engineering consultant",
     check: "Within the inspection interval; no critical findings.",
-    state: "missing",
+    state: "pending",
   },
   {
     id: "REQ-SS03-10",
@@ -681,7 +679,7 @@ const ss03Rows: EvidenceRow[] = [
     title: "Ship-shore compatibility assessment for Northwind Aurora",
     source: HARBOURLINE_ORG,
     check: "Completed and accepted for LNGC Northwind Aurora.",
-    state: "missing",
+    state: "pending",
   },
   {
     id: "REQ-SS03-12",
@@ -689,7 +687,7 @@ const ss03Rows: EvidenceRow[] = [
     title: "Ship-shore safety checklist procedure",
     source: HARBOURLINE_ORG,
     check: "Approved; aligned with industry guidance.",
-    state: "missing",
+    state: "pending",
   },
   {
     id: "REQ-SS03-13",
@@ -697,7 +695,7 @@ const ss03Rows: EvidenceRow[] = [
     title: "Port facility security plan statement of compliance",
     source: "Port Authority / designated authority",
     check: "Valid; confirmed by the issuing authority.",
-    state: "missing",
+    state: "pending",
     issuingAuthority: true,
   },
   {
@@ -706,7 +704,7 @@ const ss03Rows: EvidenceRow[] = [
     title: "Emergency response and spill response plans",
     source: HARBOURLINE_ORG,
     check: "Current; exercised within the last 12 months.",
-    state: "missing",
+    state: "pending",
   },
   {
     id: "REQ-SS03-15",
@@ -715,7 +713,7 @@ const ss03Rows: EvidenceRow[] = [
       "HSE statistics, insurance certificates and management of change procedure",
     source: `${HARBOURLINE_ORG} / insurer`,
     check: "Within thresholds; cover meets the client minimum.",
-    state: "missing",
+    state: "pending",
   },
 ];
 
@@ -1527,22 +1525,6 @@ export const OIL_CO_PILOT_AUDIT: AuditTrailEventDraft[] = [
       "Uploaded class, registry, ISM, crew list and certificates of competency for LNGC Northwind Aurora.",
   },
   {
-    id: "AUD-90512",
-    timestampUtc: "2026-10-09T06:20:00Z",
-    userId: "USR-229",
-    userRole: "Verifier",
-    organization: XY_MARINE_ORG,
-    action: "Returned SOLAS Radio Certificate",
-    targetAsset: "MAP-VES-2026-STAT-10110 (SOLAS safety certificates)",
-    documentStatusDelta: {
-      documentId: "MAP-VES-2026-STAT-10110",
-      oldStatus: "Pending Verification",
-      newStatus: "Correction Requested",
-    },
-    justificationNotes:
-      "SOLAS certificates expire inside the charter buffer and were returned for correction. The rest of the charter evidence is still with the verifier.",
-  },
-  {
     id: "AUD-90513",
     timestampUtc: "2026-10-10T04:00:00Z",
     userId: "USR-233",
@@ -1629,7 +1611,7 @@ export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
     type: "review_requested",
     subject: "Verify LNG Transport Charter",
     message:
-      "Northwind has submitted vessel, crew and ISM evidence for LNGC Northwind Aurora. SOLAS radio is already back for correction.",
+      "Northwind has submitted vessel, crew and ISM evidence for LNGC Northwind Aurora.",
     recipientUserId: "USR-229",
     senderUserId: "USR-228",
     senderName: OIL_CO_ADMIN,
@@ -1640,24 +1622,6 @@ export const OIL_CO_PILOT_NOTIFICATIONS: AppNotification[] = [
     assuranceSetId: OIL_CO_SS01_ID,
     vesselName: "LNGC Northwind Aurora",
     assignedRole: "Verifier",
-  },
-  {
-    id: "MAP-NTF-2026-VERF-00032",
-    type: "document_correction",
-    subject: "SOLAS certificates expire inside the charter buffer",
-    message:
-      "Renew or extend the SOLAS radio certificate. It expires on 1 Mar 2027, inside six months of the 15 Nov 2026 laycan.",
-    recipientUserId: "USR-102",
-    senderUserId: "USR-229",
-    senderName: XY_VERIFIER,
-    projectId: OIL_CO_LNG_PROJECT_ID,
-    projectName: "Oil Company LNG Field Development",
-    status: "unread",
-    createdAt: "2026-10-09T06:25:00.000Z",
-    assuranceSetId: OIL_CO_SS01_ID,
-    documentId: "MAP-VES-2026-STAT-10110",
-    vesselName: "LNGC Northwind Aurora",
-    assignedRole: "Submitter",
   },
   {
     id: "MAP-NTF-2026-APRV-00033",

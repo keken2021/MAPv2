@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { addObject, clickNext, objectRowIds, removeObjectRow, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectRowIds, removeObjectRow, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -31,13 +31,13 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
   });
 
   it('has no Scope dropdown field on General tab', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     expect(container.querySelector('#grid-assurance-scope')).toBeNull();
     expect(screen.queryByLabelText(/Assurance Scope/i)).toBeNull();
   });
 
   it('lists the 16 usual vessel documents without descriptions by default', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     // Step 1: General -> Step 2: Objects
     clickNext();
     // Step 2: Objects -> Step 3: Requirements
@@ -59,7 +59,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
   });
 
   it('removes a document and allows finding and re-adding it through the search', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext(); // To Objects
     clickNext(); // To Requirements
 
@@ -88,7 +88,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
   });
 
   it('saves an Optional document with isMandatory: false', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     pickReviewerRoles(container);
     // Set unique title on General tab
     const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
@@ -127,7 +127,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
   });
 
   it('adds a custom document from the search', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     pickReviewerRoles(container);
     // Set unique title on General tab
     const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
@@ -169,7 +169,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
   });
 
   it('renders exactly one Crew documents section when two crew members are added', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext(); // To Objects
     // Free vendor by removing initial vessel, then add crew members from same vendor
     objectRowIds(container).forEach((id) => removeObjectRow(container, id));
@@ -190,7 +190,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
   });
 
   it('shows empty state when all documents of a type are removed', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     pickReviewerRoles(container);
     clickNext(); // To Objects
     clickNext(); // To Requirements

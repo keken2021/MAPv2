@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -19,7 +19,7 @@ describe('Task 5353: Requirements Declutter - Compact Rows', () => {
   });
 
   const setupWizardAtRequirementsStep = () => {
-    const rendered = render(<CreateAssuranceSetView />);
+    const rendered = renderWizardWithDefaultVessel();
     pickReviewerRoles(rendered.container);
     // Step 1 -> Step 2
     clickNext();

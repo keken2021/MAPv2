@@ -369,8 +369,8 @@ export const MOCK_CREW: CrewMember[] = [
       'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?auto=format&fit=crop&w=800&q=80',
     ],
-    complianceStatus: 'Expiring < 60 Days',
-    overallComplianceScore: 83,
+    complianceStatus: 'Fully Compliant',
+    overallComplianceScore: 100,
     lastAuditedDate: '2026-09-18',
     assignments: [
       {
@@ -419,9 +419,9 @@ export const MOCK_CREW: CrewMember[] = [
         certificateNo: 'ENG1-2024-771',
         issuingAuthority: 'AMSA Authorized Practitioner',
         issueDate: '2024-11-01',
-        expiryDate: '2026-10-31',
-        verificationStatus: 'Expiring',
-        fileName: 'eng1_jenkins_expiring.pdf',
+        expiryDate: '2028-10-31',
+        verificationStatus: 'Verified',
+        fileName: 'eng1_jenkins_current.pdf',
         fileSizeBytes: 820000,
       },
       {
@@ -599,8 +599,8 @@ export const MOCK_CREW: CrewMember[] = [
       'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=800&q=80',
       'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&w=800&q=80',
     ],
-    complianceStatus: 'Document Deficient',
-    overallComplianceScore: 75,
+    complianceStatus: 'Fully Compliant',
+    overallComplianceScore: 100,
     lastAuditedDate: '2026-09-01',
     assignments: [
       {
@@ -636,9 +636,9 @@ export const MOCK_CREW: CrewMember[] = [
         certificateNo: 'BST-2021-002',
         issuingAuthority: 'AMSA Training Center',
         issueDate: '2021-08-01',
-        expiryDate: '2026-07-31', // Expired!
-        verificationStatus: 'Expired',
-        fileName: 'bst_oconnor_expired.pdf',
+        expiryDate: '2029-07-31',
+        verificationStatus: 'Verified',
+        fileName: 'bst_oconnor_current.pdf',
         fileSizeBytes: 890000,
       },
       {

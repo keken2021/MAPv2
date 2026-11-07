@@ -37,7 +37,7 @@ import {
 import { UserProfile } from '../types/user';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { AssuranceSet } from '../types/assurance';
-import { addObject, clickNext, objectItemSelect, objectPickerOptions, objectRowIds, pickReviewerRoles, removeObjectRow } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectItemSelect, objectPickerOptions, objectRowIds, pickReviewerRoles, removeObjectRow, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -388,7 +388,7 @@ describe('wizard', () => {
   };
 
   it('has no review channel and lists the client, locked, with the first object owner', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     expect(container.textContent).not.toMatch(/Review Channel|Authority Validation|Appointed 3rd Party/);
     const organizations = listed(container);
     expect(organizations[0]).toBe(CLIENT);
@@ -398,7 +398,7 @@ describe('wizard', () => {
   });
 
   it('has one role column per role, and no stakeholder dropdowns', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     addOrganization(container, THIRD_PARTY);
     expect(container.querySelector('#assign-ver')).toBeNull();
     expect(container.querySelector('#assign-app')).toBeNull();
@@ -409,7 +409,7 @@ describe('wizard', () => {
   });
 
   it('marks an object owner Submitter, and locks its verifier, inspector and approver boxes', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     const owner = listed(container)[1];
     const row = within(container.querySelector(`[data-testid="set-organization-${owner}"]`) as HTMLElement);
     expect(row.getByText(/Submitter:/)).toBeTruthy();
@@ -419,7 +419,7 @@ describe('wizard', () => {
   });
 
   it('moves a role on tick, and clears it on untick', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     addOrganization(container, THIRD_PARTY);
     addOrganization(container, 'DNV Maritime Inspection');
 
@@ -435,11 +435,12 @@ describe('wizard', () => {
     expect(roleBox('Verifier', 'DNV Maritime Inspection').checked).toBe(false);
   });
 
-  it('enforces segregation of duties between verifier and approver', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+  it('enforces segregation of duties between verifier and approver for the client only', () => {
+    const { container } = renderWizardWithDefaultVessel();
     addOrganization(container, THIRD_PARTY);
     fireEvent.click(roleBox('Verifier', THIRD_PARTY));
-    expect(roleBox('Approver', THIRD_PARTY).disabled).toBe(true);
+    /* a third party may verify and approve; only the client cannot hold both */
+    expect(roleBox('Approver', THIRD_PARTY).disabled).toBe(false);
     expect(roleBox('Inspector', THIRD_PARTY).disabled).toBe(false);
     fireEvent.click(roleBox('Inspector', THIRD_PARTY));
     expect(roleBox('Verifier', THIRD_PARTY).checked).toBe(true);
@@ -447,14 +448,14 @@ describe('wizard', () => {
   });
 
   it('hides a role column when its stage is switched off', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     fireEvent.click(container.querySelector('#wf-inspect') as HTMLInputElement);
     expect(screen.queryByRole('checkbox', { name: `Inspector: ${CLIENT}` })).toBeNull();
     expect(roleBox('Verifier', CLIENT)).toBeTruthy();
   });
 
   it('blocks removing an organization in use, and removes a free one', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     const owner = listed(container)[1];
     fireEvent.click(screen.getByRole('button', { name: `Remove ${owner}` }));
     expect(listed(container)).toContain(owner);
@@ -471,7 +472,7 @@ describe('wizard', () => {
   });
 
   it('offers only the vendor objects when a vendor is set, and finds others when freed', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     const organizations = listed(container);
     clickNext();
 
@@ -485,7 +486,7 @@ describe('wizard', () => {
   });
 
   it('adds the owner of an object found by search to the list, with a notice', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     const before = listed(container);
     clickNext();
 
@@ -508,7 +509,7 @@ describe('wizard', () => {
   });
 
   it('keeps an added object from being picked twice', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     clickNext();
     const added = objectRowIds(container)[0];
     const option = objectItemSelect(container, 'vessel').options.find((o) => o.value === added);
@@ -517,7 +518,7 @@ describe('wizard', () => {
   });
 
   it('moves a role back to the client when its organization becomes an object owner', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     const before = listed(container);
     clickNext();
     removeObjectRow(container, objectRowIds(container)[0]);
@@ -541,7 +542,7 @@ describe('wizard', () => {
   });
 
   it('stores one submitter for the vendor organization and gives each task to its owner', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     const before = listed(container);
     fireEvent.change(container.querySelector('#grid-campaign-title') as HTMLInputElement, {
       target: { value: 'One Vendor Vetting' },
@@ -560,7 +561,7 @@ describe('wizard', () => {
   });
 
   it('creates a set that names organizations and leaves the people pending', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     fireEvent.change(container.querySelector('#grid-campaign-title') as HTMLInputElement, {
       target: { value: 'Organizations In General Vetting' },
     });

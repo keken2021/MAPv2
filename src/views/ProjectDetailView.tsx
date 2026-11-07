@@ -53,6 +53,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     activeSessionUserId,
     documents,
     capaItems,
+    notifications,
+    setPendingAssuranceRequestNotificationId,
   } = useMapStore();
 
   const sessionUser = useMemo(
@@ -143,6 +145,24 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     (activePersona === "Administrator" || activePersona === "C Admin") && isProjectOwnerOrganization;
   const isReadOnly = !canManage;
 
+  /* an organization asked to create a set for this project (a Responding party) can create it, even though it does not own the project */
+  const openRequestForViewer = useMemo(
+    () =>
+      project
+        ? notifications.find(
+            (n) =>
+              n.type === "assurance_set_request" &&
+              n.projectId === project.id &&
+              n.request &&
+              !n.request.createdAssuranceSetId &&
+              (n.recipientUserId === sessionUser?.id ||
+                (viewingOrganization && orgFieldMatches(n.request.respondingParty || "", viewingOrganization))),
+          )
+        : undefined,
+    [notifications, project, sessionUser, viewingOrganization],
+  );
+  const canCreateFromRequest = !canManage && Boolean(openRequestForViewer);
+
   const standaloneSetsForAttach = useMemo(
     () =>
       project
@@ -198,6 +218,15 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const openCreateAssuranceSet = () => {
     setReturnToProjectId(project.id);
     setLockedProjectId(project.id);
+    setCurrentHashView("create-assurance-set");
+  };
+
+  /* the recipient creates the set from the request, so the wizard locks the project and the requesting party */
+  const openCreateFromRequest = () => {
+    if (!openRequestForViewer) return;
+    setReturnToProjectId(project.id);
+    setLockedProjectId(project.id);
+    setPendingAssuranceRequestNotificationId(openRequestForViewer.id);
     setCurrentHashView("create-assurance-set");
   };
 
@@ -282,6 +311,18 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
               >
                 <Send size={15} />
                 <span>Request Assurance Set</span>
+              </button>
+            </div>
+          ) : canCreateFromRequest ? (
+            <div className="d-flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5"
+                data-testid="create-set-from-request"
+                onClick={openCreateFromRequest}
+              >
+                <FolderPlus size={15} />
+                <span>Create Assurance Set</span>
               </button>
             </div>
           ) : undefined

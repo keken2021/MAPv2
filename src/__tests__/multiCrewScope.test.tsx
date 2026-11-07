@@ -18,7 +18,7 @@ import {
 import { isMarketplaceItemAvailableOnDate } from '../utils/marketplaceHelpers';
 import { getCharterAssuranceSetsForAsset } from '../utils/projectHelpers';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { addObject, clickNext, objectItemSelect, objectRowIds, pickReviewerRoles, removeObjectRow } from './assuranceWizardTestHelpers';
+import { addObject, clickNext, objectItemSelect, objectRowIds, pickReviewerRoles, removeObjectRow, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -93,7 +93,7 @@ describe('multi-crew assurance sets', () => {
 
   it('picks crew members on the Objects tab and blocks only a member already contracted', () => {
     useMapStore.setState({ isAuthenticated: true, activePersona: 'Administrator', activeDemoOrganization: 'Chevron Australia Pty Ltd' });
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     /* Demo-friendly non-conflicting default dates */
     expect((container.querySelector('#grid-charter-start') as HTMLInputElement).value).toBe('2028-01-01');
@@ -141,7 +141,7 @@ describe('multi-crew assurance sets', () => {
 
   it('renders each selected crew as a distinct individual table row in the review step', () => {
     useMapStore.setState({ isAuthenticated: true, activePersona: 'Administrator' });
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     pickReviewerRoles(container);
     const input = container.querySelector('#grid-add-organization') as HTMLInputElement | null;
     if (input) {

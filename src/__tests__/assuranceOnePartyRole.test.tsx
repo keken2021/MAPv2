@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -23,7 +23,7 @@ describe('Assurance set parties - One requesting and one responding party (Task 
   });
 
   it('prefills the set own organization as Requesting party and the vendor as Responding party', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     const clientSelect = container.querySelector(
       `#party-role-${CLIENT.replace(/[^a-zA-Z0-9_-]/g, '\\$&')}`,
@@ -40,7 +40,7 @@ describe('Assurance set parties - One requesting and one responding party (Task 
   });
 
   it('picking a party role on an organization clears that role from the organization that previously held it', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     // Add another organization to test moving the role
     const addOrgInput = container.querySelector('#grid-add-organization') as HTMLInputElement | null;
@@ -79,7 +79,7 @@ describe('Assurance set parties - One requesting and one responding party (Task 
   });
 
   it('step 3 cannot be left when Requesting or Responding party is missing', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     // Clear the Requesting party role from Client
     const clientSelect = container.querySelector(
@@ -109,7 +109,7 @@ describe('Assurance set parties - One requesting and one responding party (Task 
   });
 
   it('created assurance set and saved data never hold two Requesting or two Responding parties', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     fireEvent.change(container.querySelector('#grid-campaign-title') as HTMLInputElement, {
       target: { value: 'Exactly One Party Role Set' },

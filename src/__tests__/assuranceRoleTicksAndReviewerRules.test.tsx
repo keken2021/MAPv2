@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext } from './assuranceWizardTestHelpers';
+import { clickNext, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -45,7 +45,7 @@ describe('Assurance set parties - Role ticks start empty and reviewer segregatio
   });
 
   it('verifier, inspector and approver start unticked by default', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     addOrganization(container, THIRD_PARTY_1);
 
@@ -59,7 +59,7 @@ describe('Assurance set parties - Role ticks start empty and reviewer segregatio
   });
 
   it('unticking clears the role instead of returning it to the client', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     addOrganization(container, THIRD_PARTY_1);
 
     const verifierThirdParty = roleBox('Verifier', THIRD_PARTY_1);
@@ -77,7 +77,7 @@ describe('Assurance set parties - Role ticks start empty and reviewer segregatio
   });
 
   it('the responding party cannot be verifier, inspector or approver and shows tooltips', () => {
-    render(<CreateAssuranceSetView />);
+    renderWizardWithDefaultVessel();
 
     const responderVerifier = roleBox('Verifier', VENDOR);
     const responderInspector = roleBox('Inspector', VENDOR);
@@ -94,7 +94,7 @@ describe('Assurance set parties - Role ticks start empty and reviewer segregatio
   });
 
   it('segregation of duties: an object owner cannot verify or approve its own objects', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     // Add an object owner organization to the set
     addOrganization(container, 'Tidewater Marine');
@@ -107,39 +107,33 @@ describe('Assurance set parties - Role ticks start empty and reviewer segregatio
     expect(ownerApprover.disabled).toBe(true);
   });
 
-  it('segregation of duties: one organization cannot be both Verifier and Approver', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+  it('segregation of duties: a third party may be Verifier and Approver, only the client cannot be both', () => {
+    const { container } = renderWizardWithDefaultVessel();
     addOrganization(container, THIRD_PARTY_1);
 
     const verifierBox = roleBox('Verifier', THIRD_PARTY_1);
     const approverBox = roleBox('Approver', THIRD_PARTY_1);
-
-    // Initially both are enabled
     expect(verifierBox.disabled).toBe(false);
     expect(approverBox.disabled).toBe(false);
 
-    // Tick THIRD_PARTY_1 as Verifier
+    // A third party holds both reviewer roles
     fireEvent.click(verifierBox);
     expect(verifierBox.checked).toBe(true);
-
-    // Approver box is now disabled with tooltip
-    expect(approverBox.disabled).toBe(true);
-    expect(approverBox.title).toBe('One organization cannot be both Verifier and Approver.');
-
-    // Untick Verifier -> Approver box becomes enabled again
-    fireEvent.click(verifierBox);
-    expect(verifierBox.checked).toBe(false);
     expect(approverBox.disabled).toBe(false);
-
-    // Tick Approver -> Verifier box becomes disabled with tooltip
     fireEvent.click(approverBox);
-    expect(approverBox.checked).toBe(true);
-    expect(verifierBox.disabled).toBe(true);
-    expect(verifierBox.title).toBe('One organization cannot be both Verifier and Approver.');
+    expect(roleBox('Verifier', THIRD_PARTY_1).checked).toBe(true);
+    expect(roleBox('Approver', THIRD_PARTY_1).checked).toBe(true);
+
+    // The client verifying cannot also approve
+    fireEvent.click(roleBox('Approver', THIRD_PARTY_1));
+    fireEvent.click(roleBox('Verifier', CLIENT));
+    expect(roleBox('Verifier', CLIENT).checked).toBe(true);
+    expect(roleBox('Approver', CLIENT).disabled).toBe(true);
+    expect(roleBox('Approver', CLIENT).title).toBe('One organization cannot be both Verifier and Approver.');
   });
 
   it('each required role must be ticked before step 3 is left', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     addOrganization(container, THIRD_PARTY_1);
     addOrganization(container, THIRD_PARTY_2);
 

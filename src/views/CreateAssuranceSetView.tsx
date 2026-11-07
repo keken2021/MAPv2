@@ -97,6 +97,7 @@ import {
   withProjectVessels,
 } from '../utils/projectHelpers';
 import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
+import { MasterDocument } from '../types/document';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X, FolderPlus, Layers } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
@@ -138,6 +139,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     assuranceObjects: storeAssuranceObjects = [],
     registerAssuranceObject,
     addAssuranceSet,
+    addDocument,
     addAssuranceTemplate,
     updateAssuranceSet,
     activePersona,
@@ -310,17 +312,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       ? { scope: lockedAsset.scope, id: lockedAsset.assetId }
       : suggestedAsset
         ? { scope: suggestedAsset.assetType, id: suggestedAsset.assetId }
-        : undefined;
-    /* a request that names a scope but no asset starts with the first asset of that scope, as the scope picker did */
-    const requestedPrimaryScope =
-      requestedScopes && requestedScopes.length > 0 ? getPrimaryAssuranceScope(requestedScopes) : requestedScope;
-    const start =
-      handedOff ||
-      (requestedPrimaryScope === 'Crew'
-        ? { scope: 'Crew' as AssuranceSubtype, id: crew[0]?.id || '' }
-        : requestedPrimaryScope === 'Equipment'
-          ? { scope: 'Equipment' as AssuranceSubtype, id: equipment[0]?.id || '' }
-          : { scope: 'Vessel' as AssuranceSubtype, id: initialVesselId });
+        : lockedVessel
+          ? { scope: 'Vessel' as AssuranceSubtype, id: lockedVessel.id }
+          : undefined;
+    /* the objects tab starts empty: only an object handed over from an asset or project is preselected; the rest comes from the provider's suggestions or search */
+    if (!handedOff) return [];
+    const start = handedOff;
     if (start.scope === 'Vessel') {
       const v = vessels.find((x) => x.id === start.id);
       return v ? [vesselToAssuranceObject(v)] : [];
@@ -590,6 +587,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   /* a short message that says why a date moved on its own because of another date */
   const [dateNotice, setDateNotice] = useState('');
+  const [showAllRecommended, setShowAllRecommended] = useState(false);
   useEffect(() => {
     if (!dateNotice) return undefined;
     const timer = window.setTimeout(() => setDateNotice(''), 9000);
@@ -631,16 +629,21 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   /* the provider side (requesting provider, appointed vendor, object owners other than the client) cannot approve its own set; the client or a third party does */
+  const isRespondingPartyOrg = (organization: string): boolean =>
+    Boolean(organization) &&
+    (orgPartyRoles[organization] === 'Responding party' ||
+      (Boolean(effectiveRespondingParty) && sameOrganization(organization, effectiveRespondingParty)));
   const isProviderSideOrg = (organization: string): boolean =>
     Boolean(organization) &&
-    !sameOrganization(organization, setClientOrg) &&
-    (sameOrganization(organization, serviceProviderOrg) ||
-      sameOrganization(organization, effectiveVendorOrg) ||
-      objectOwnerOrganizations(selectedAssuranceObjects).some((owner) => sameOrganization(owner, organization)));
+    (isRespondingPartyOrg(organization) ||
+      (!sameOrganization(organization, setClientOrg) &&
+        (sameOrganization(organization, serviceProviderOrg) ||
+          sameOrganization(organization, effectiveVendorOrg) ||
+          objectOwnerOrganizations(selectedAssuranceObjects).some((owner) => sameOrganization(owner, organization)))));
 
   /* one organization may hold several reviewer roles (for example the assurance group Coastal Fuel Testing as verifier, inspector and approver); only the client itself may not verify and approve */
   const isDualRoleBlocked = (a: string, b: string): boolean =>
-    Boolean(a && b) && sameOrganization(a, b);
+    Boolean(a && b) && sameOrganization(a, b) && sameOrganization(a, setClientOrg);
 
   /* segregation of duties: object owners, responding party, or dual roles clear automatically */
   useEffect(() => {
@@ -1674,6 +1677,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     });
 
+    /* demo only: SS-04 and SS-05 start with most of their template documents already submitted and verified, so the walkthrough only needs the last few */
+    const DEMO_PREVERIFIED_TEMPLATES = ['tmpl-pub-ss04-bunkering', 'tmpl-pub-ss05-control-systems'];
+    const DEMO_OPEN_TASKS = 3;
+    const demoDocuments: MasterDocument[] = [];
+
     activeSubtypes.forEach((subtype) => {
       const standardList = SUBTYPE_STANDARD_DOCS[subtype];
       standardList.forEach((doc) => {
@@ -1701,6 +1709,41 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
       const customList = specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled);
       customList.forEach((spec) => {
+        const templateSpecs = customList.filter((d) => d.templateId && d.templateId === spec.templateId);
+        const templatePosition = templateSpecs.indexOf(spec);
+        const isPreverified =
+          Boolean(spec.templateId) &&
+          DEMO_PREVERIFIED_TEMPLATES.includes(spec.templateId as string) &&
+          templatePosition >= 0 &&
+          templatePosition < templateSpecs.length - DEMO_OPEN_TASKS;
+        const demoDocId = `DOC-DEMO-${uniqueSetId}-${templatePosition + 1}`;
+        if (isPreverified) {
+          const now = new Date().toISOString();
+          demoDocuments.push({
+            id: demoDocId,
+            title: spec.title,
+            entityType: 'Vessel Certificate',
+            vesselId: vesselId || '',
+            certificateNo: `DEMO-${templatePosition + 1}`,
+            issuingAuthority: respondingParty,
+            expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
+            ocrConfidence: 96,
+            complianceState: 'Valid',
+            currentVersion: 'v1.0',
+            versions: [
+              {
+                versionLabel: 'v1.0',
+                uploadedAt: now,
+                uploadedBy: respondingParty,
+                fileSizeBytes: 420000,
+                fileName: `${spec.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`,
+                changeSummary: 'Demo document, already submitted and verified',
+              },
+            ],
+            validationRules: { charterBufferPassed: true, assetMatch100Percent: true, iacsAuthorityValid: true, overallValid: true },
+            verificationStatus: 'Verified',
+          });
+        }
         finalRequirements.push({
           id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
           category: spec.category,
@@ -1721,6 +1764,15 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           requirementGroupId: spec.id,
           assignedVerifier: reqAssignedVerifier,
           verifierId: undefined,
+          ...(isPreverified
+            ? {
+                documentId: demoDocId,
+                documentVersion: 'v1.0',
+                isFulfilled: true,
+                ocrConfidence: 96,
+                verifierStatus: 'Verified' as const,
+              }
+            : {}),
         });
       });
     });
@@ -1960,6 +2012,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (editingDraftId) {
       updateAssuranceSet(newSet);
     } else {
+      demoDocuments.forEach((doc) => addDocument(doc));
       addAssuranceSet(newSet);
     }
 
@@ -3027,7 +3080,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
               <div className="card border shadow-2xs rounded-3 bg-white" data-testid="card-involved-organizations">
                 <div className="card-header bg-light border-bottom px-4 py-3">
                   <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    3. Parties
+                    2. Parties
                   </h5>
                   <div className="text-muted small">
                     List every party in this set, configure verification and governance stages, and assign reviewer roles.
@@ -3142,7 +3195,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             let disabled = false;
                             let title: string | undefined = undefined;
 
-                            if (role === 'approver' && isProviderSideOrg(organization)) {
+                            if (role === 'approver' && (isProviderSideOrg(organization) || isResponding)) {
                               disabled = true;
                               title = 'The provider cannot approve its own set. Choose the client or a third party.';
                             } else if (role !== 'approver' && isResponding) {
@@ -3463,35 +3516,78 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   )}
 
                   {/* Suggested objects of the selected provider */}
-                  {recommendedObjects.length > 0 && (
-                    <div className="mt-3 pt-3 border-top" data-testid="recommended-objects">
-                      <div className="small fw-semibold text-secondary mb-2">
-                        Suggested from {recommendedProviderOrg}
-                      </div>
-                      <div className="d-flex flex-wrap gap-2">
-                        {recommendedObjects.map((obj) => (
+                  {recommendedObjects.length > 0 && (() => {
+                    const visibleSuggestions = showAllRecommended ? recommendedObjects : recommendedObjects.slice(0, 4);
+                    const addSuggested = (list: AssuranceObject[]) => {
+                      setSelectedAssuranceObjects((prev) => [...prev, ...list.filter((obj) => !prev.some((o) => o.id === obj.id))]);
+                      setFieldErrors((prev) => {
+                        const u = { ...prev };
+                        delete u.objects;
+                        return u;
+                      });
+                    };
+                    const iconFor = (type: string) =>
+                      type === 'vessel' ? <Ship size={16} /> : type === 'person' ? <Users size={16} /> : type === 'equipment' ? <Wrench size={16} /> : <Activity size={16} />;
+                    return (
+                      <section className="mt-3 pt-3 border-top" aria-labelledby="recommended-objects-title" data-testid="recommended-objects">
+                        <div className="d-flex align-items-start justify-content-between gap-3 mb-2">
+                          <div>
+                            <h6 id="recommended-objects-title" className="fw-semibold text-dark small m-0">
+                              Suggested from {recommendedProviderOrg}
+                            </h6>
+                            <div className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                              Objects this provider owns. Add the ones this set covers, or search below.
+                            </div>
+                          </div>
+                          {recommendedObjects.length > 1 && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-link fw-semibold p-0 text-nowrap"
+                              data-testid="recommended-add-all"
+                              onClick={() => addSuggested(recommendedObjects)}
+                            >
+                              Add all {recommendedObjects.length}
+                            </button>
+                          )}
+                        </div>
+                        <ul className="list-group list-group-flush border rounded-3 overflow-hidden mb-0">
+                          {visibleSuggestions.map((obj) => (
+                            <li key={obj.id} className="list-group-item d-flex align-items-center gap-3 py-2 px-3" data-testid={`recommended-object-${obj.id}`}>
+                              <span className="d-inline-flex align-items-center justify-content-center rounded-2 bg-light text-secondary flex-shrink-0" style={{ width: '2rem', height: '2rem' }} aria-hidden="true">
+                                {iconFor(obj.type)}
+                              </span>
+                              <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                                <div className="fw-semibold text-dark small text-truncate">{obj.name}</div>
+                                <div className="text-secondary text-truncate" style={{ fontSize: '0.75rem' }}>
+                                  <span className="text-capitalize">{obj.type}</span>
+                                  {obj.identifier ? <> · <span className="font-mono-code">{obj.identifier}</span></> : null}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 flex-shrink-0"
+                                aria-label={`Add ${obj.name}`}
+                                onClick={() => addSuggested([obj])}
+                              >
+                                <Plus size={14} aria-hidden="true" />
+                                Add
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        {recommendedObjects.length > 4 && (
                           <button
-                            key={obj.id}
                             type="button"
-                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2"
-                            data-testid={`recommended-object-${obj.id}`}
-                            onClick={() => {
-                              setSelectedAssuranceObjects((prev) => (prev.some((o) => o.id === obj.id) ? prev : [...prev, obj]));
-                              setFieldErrors((prev) => {
-                                const u = { ...prev };
-                                delete u.objects;
-                                return u;
-                              });
-                            }}
+                            className="btn btn-sm btn-link p-0 mt-2 small"
+                            aria-expanded={showAllRecommended}
+                            onClick={() => setShowAllRecommended((open) => !open)}
                           >
-                            <span className="badge bg-light text-dark border text-capitalize">{obj.type}</span>
-                            <span>{obj.name}</span>
-                            <span className="text-muted">+ Add</span>
+                            {showAllRecommended ? 'Show fewer' : `Show ${recommendedObjects.length - 4} more`}
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        )}
+                      </section>
+                    );
+                  })()}
 
                   {/* Add Object row */}
                   <div className="row g-2 align-items-center mt-3 pt-3 border-top">

@@ -83,7 +83,7 @@ describe('Oil Co LNG Field Development pilot', () => {
     const solas = sets
       .find((set) => set.id === OIL_CO_SS01_ID)
       ?.requirements.find((req) => req.id === 'REQ-SS01-10');
-    expect(solas?.verifierStatus).toBe('Correction Requested');
+    expect(solas?.verifierStatus).toBe('Pending');
     expect(solas?.documentId).toBeTruthy();
 
     const ss01 = sets.find((set) => set.id === OIL_CO_SS01_ID);

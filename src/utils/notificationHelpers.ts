@@ -34,7 +34,7 @@ import { isTaskOpen } from './readinessHelpers';
   with what file: src/utils/notificationHelpers.ts used by useMapStore.ts.
 */
 export function assuranceInvitationSubject(title: string): string {
-  return `You are invited to create an assurance set for this particular ${title.trim()}`;
+  return `Invited to create an assurance set for this ${title.trim()}`;
 }
 
 /**
@@ -110,7 +110,7 @@ export function seedAssignmentNotices(
       vesselName: set.vesselName || undefined,
       assignedRole: role,
       status: 'unread',
-      createdAt: `${today}T08:00:00.000Z`,
+      createdAt: `${today}T00:00:00.000Z`,
     });
   };
   sets.forEach((set) => {
@@ -619,7 +619,7 @@ export function seedTargetDateNotices(
         ...draft,
         id: generateNotificationId(all, draft.type),
         status: 'unread',
-        createdAt: `${today}T08:00:00.000Z`,
+        createdAt: `${today}T00:00:00.000Z`,
       };
       all.unshift(notification);
     });

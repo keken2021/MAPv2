@@ -326,7 +326,7 @@ describe('store: assurance set request', () => {
     const request = sendRequest();
     expect(request).toMatchObject({
       type: 'assurance_set_request',
-      subject: `You are invited to create an assurance set for this particular ${chevronProject.name}`,
+      subject: `Invited to create an assurance set for this ${chevronProject.name}`,
       status: 'unread',
       recipientUserId: 'USR-102',
       senderUserId: 'USR-101',

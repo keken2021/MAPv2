@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
 import { AssuranceDetailView } from '../views/AssuranceDetailView';
-import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 import { AssuranceSet } from '../types/assurance';
 
 const initialState = useMapStore.getState();
@@ -21,7 +21,7 @@ describe('Assurance Set Parties - Requesting and Responding party only (Task 534
   });
 
   it('Create wizard step 3 rows do not display Client or Provider badges', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     // In step 1 (General), section 3 is Organizations Card
     const orgRows = container.querySelectorAll('[data-testid^="set-organization-"]');
@@ -45,7 +45,7 @@ describe('Assurance Set Parties - Requesting and Responding party only (Task 534
   });
 
   it('Create wizard objects step does not display a Vendor badge', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     // Step 1 -> Step 2: Objects
     clickNext();
 
@@ -57,7 +57,7 @@ describe('Assurance Set Parties - Requesting and Responding party only (Task 534
   });
 
   it('Create wizard review step displays Requesting party and Responding party lines without Client or Vendor labels', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
     pickReviewerRoles(container);
     clickNext(); // to Objects
     clickNext(); // to Requirements

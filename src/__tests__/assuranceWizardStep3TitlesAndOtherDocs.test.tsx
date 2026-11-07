@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
-import { clickNext, pickReviewerRoles } from './assuranceWizardTestHelpers';
+import { clickNext, pickReviewerRoles, renderWizardWithDefaultVessel } from './assuranceWizardTestHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -31,7 +31,7 @@ describe('CreateAssuranceSetView Step 3 Editable Section Titles and Add Other Do
   });
 
   it('allows client to edit section titles in place, add other document, survives Next and Back, and appears on created set', () => {
-    const { container } = render(<CreateAssuranceSetView />);
+    const { container } = renderWizardWithDefaultVessel();
 
     // Step 1: Set unique title
     const titleInput = container.querySelector('#grid-campaign-title') as HTMLInputElement;
