@@ -223,4 +223,104 @@ describe('Administrator as client dashboard config', () => {
     render(<SharedDashboardFrame config={config} />);
     expect(screen.getByText('Nothing needs you today')).toBeInTheDocument();
   });
+
+  it('computes and renders the 4 performance metric tiles from seeded pilot sets', () => {
+    const seededPilotSets: AssuranceSet[] = [
+      {
+        id: 'AS-2026-101',
+        title: 'LNG Transport Charter',
+        vesselName: 'LNGC Northwind Aurora',
+        vesselId: 'VESSEL-013',
+        stage: 'Verification',
+        assignedSubmitter: 'M. Chen',
+        assignedVerifier: 'L. Ferreira',
+        assignedInspector: 'H. Blake',
+        assignedApprover: 'S. Rahman',
+        targetDate: '2026-11-15T00:00:00Z',
+        requirements: [
+          {
+            id: 'REQ-SS01-01',
+            category: 'Statutory Certificate',
+            title: 'Certificate of Class',
+            isMandatory: true,
+            isFulfilled: true,
+            ocrConfidence: 98,
+            documentId: 'DOC-101',
+            verifierStatus: 'Verified',
+            attemptNumber: 1,
+          },
+          {
+            id: 'REQ-SS01-02',
+            category: 'Statutory Certificate',
+            title: 'Safety Equipment',
+            isMandatory: true,
+            isFulfilled: false,
+            ocrConfidence: 91,
+            documentId: 'DOC-102',
+            verifierStatus: 'Correction Requested',
+            attemptNumber: 2,
+          },
+        ],
+      } as unknown as AssuranceSet,
+      {
+        id: 'AS-2026-102',
+        title: 'Vessel Purchase (OSV)',
+        vesselName: 'OSV Meridian Endeavour',
+        vesselId: 'VESSEL-014',
+        stage: 'Approved',
+        assignedSubmitter: 'R. Sato',
+        assignedVerifier: 'P. Nguyen',
+        assignedInspector: 'H. Blake',
+        assignedApprover: 'S. Rahman',
+        targetDate: '2027-03-01T00:00:00Z',
+        sentForReviewAt: '2026-10-01T00:00:00Z',
+        lockedAt: '2026-10-09T00:00:00Z',
+        requirements: [
+          {
+            id: 'REQ-SS02-01',
+            category: 'Statutory Certificate',
+            title: 'Certificate of Class',
+            isMandatory: true,
+            isFulfilled: true,
+            ocrConfidence: 97,
+            documentId: 'DOC-101',
+            verifierStatus: 'Verified',
+            attemptNumber: 1,
+          },
+        ],
+      } as unknown as AssuranceSet,
+    ];
+
+    const config = getAdministratorClientDashboardConfig({
+      assuranceSets: seededPilotSets,
+      capaItems: mockCapaItems,
+      auditEvents: mockAuditEvents,
+      setCurrentHashView: vi.fn(),
+      now: new Date('2026-11-05T00:00:00Z'),
+    });
+
+    expect(config.performanceTiles).toHaveLength(4);
+    for (const tile of config.performanceTiles!) {
+      expect(tile.tone).toBe('neutral');
+    }
+
+    expect(config.performanceTiles!.map((t) => t.label)).toEqual([
+      'On-time completion',
+      'Resubmissions',
+      'Average review cycle time',
+      'Findings',
+    ]);
+    expect(config.performanceTiles!.find((t) => t.id === 'perf_on_time')?.value).toBe('100%');
+    expect(config.performanceTiles!.find((t) => t.id === 'perf_resubmissions')?.value).toBe(1);
+    expect(config.performanceTiles!.find((t) => t.id === 'perf_cycle_time')?.value).toBe('8d');
+    expect(config.performanceTiles!.find((t) => t.id === 'perf_findings')?.value).toBe(2);
+
+    render(<SharedDashboardFrame config={config} />);
+
+    expect(screen.getByTestId('performance-measures-strip')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-tile-perf_on_time')).toHaveTextContent('100%');
+    expect(screen.getByTestId('kpi-tile-perf_resubmissions')).toHaveTextContent('1');
+    expect(screen.getByTestId('kpi-tile-perf_cycle_time')).toHaveTextContent('8d');
+    expect(screen.getByTestId('kpi-tile-perf_findings')).toHaveTextContent('2');
+  });
 });

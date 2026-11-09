@@ -26,6 +26,11 @@ import {
   navigateToFilteredList,
 } from './dashboardTileNavigation';
 import { getRoleRecentActivity } from './recentActivityFeed';
+import {
+  averageDaysToClearance,
+  countReusedDocuments,
+  countReVerifications,
+} from './valueMetrics';
 
 /**
  * Returns missing roles for an assurance set (submitter, verifier, inspector, approver).
@@ -111,6 +116,68 @@ export function getAdministratorClientDashboardConfig({
   const dueThisWeekCount = assuranceSets.filter((s) => isSetDueThisWeek(s, now)).length;
   const openFindingsCount = capaItems.filter((c) => c.status !== 'Verified & Closed').length;
 
+  const activeSets = assuranceSets.filter((s) => s.stage !== 'Cancelled');
+  const onTimeCount = activeSets.filter((s) => !isSetOverdue(s, now)).length;
+  const onTimeCompletionPct =
+    activeSets.length > 0 ? Math.round((onTimeCount / activeSets.length) * 100) : 100;
+
+  const extraAttemptsCount = assuranceSets.reduce(
+    (sum, s) =>
+      sum +
+      (s.requirements || []).reduce(
+        (rSum, r) =>
+          rSum +
+          Math.max(
+            0,
+            (r.attemptNumber ?? (r.verifierStatus === 'Correction Requested' ? 2 : 1)) - 1,
+          ),
+        0,
+      ),
+    0,
+  );
+  const reVerificationsCount = countReVerifications(assuranceSets);
+  const reusedDocsCount = countReusedDocuments(assuranceSets);
+  const resubmissionsCount =
+    extraAttemptsCount > 0
+      ? extraAttemptsCount
+      : reVerificationsCount > 0
+        ? reVerificationsCount
+        : reusedDocsCount;
+
+  const avgCycleDays = averageDaysToClearance(assuranceSets);
+  const cycleTimeDisplay = avgCycleDays !== undefined ? `${avgCycleDays}d` : '—';
+
+  const performanceTiles: DashboardKpiTile[] = [
+    {
+      id: 'perf_on_time',
+      label: 'On-time completion',
+      value: `${onTimeCompletionPct}%`,
+      tone: 'neutral',
+      onClick: () => navigateToFilteredList('assurance-sets', 'filter', 'ALL', setCurrentHashView),
+    },
+    {
+      id: 'perf_resubmissions',
+      label: 'Resubmissions',
+      value: resubmissionsCount,
+      tone: 'neutral',
+      onClick: () => navigateToFilteredList('assurance-sets', 'filter', 'returned', setCurrentHashView),
+    },
+    {
+      id: 'perf_cycle_time',
+      label: 'Average review cycle time',
+      value: cycleTimeDisplay,
+      tone: 'neutral',
+      onClick: () => navigateToFilteredList('assurance-sets', 'filter', 'approved', setCurrentHashView),
+    },
+    {
+      id: 'perf_findings',
+      label: 'Findings',
+      value: openFindingsCount,
+      tone: 'neutral',
+      onClick: () => navigateToFilteredList('capa', 'filter', 'open_findings', setCurrentHashView),
+    },
+  ];
+
   const tiles: DashboardKpiTile[] = [
     {
       id: 'needing_people',
@@ -170,6 +237,7 @@ export function getAdministratorClientDashboardConfig({
     roleTitle: 'Administrator as client',
     subtitle: `${activeOrganization} · ${projectsCount} projects`,
     tiles,
+    performanceTiles,
     actionItems,
     activityItems,
     seeAllText: needingPeopleSets.length > 0 ? `See all ${needingPeopleSets.length}` : undefined,

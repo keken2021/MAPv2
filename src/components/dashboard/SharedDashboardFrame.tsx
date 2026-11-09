@@ -74,6 +74,38 @@ export const SharedDashboardFrame: React.FC<SharedDashboardFrameProps> = ({ conf
         ))}
       </div>
 
+      {/* Performance Measures Strip (when present on client dashboard) */}
+      {config.performanceTiles && config.performanceTiles.length > 0 && (
+        <div
+          data-testid="performance-measures-strip"
+          className="map-dashboard-tiles"
+        >
+          {config.performanceTiles.map((tile: DashboardKpiTile) => (
+            <div
+              key={tile.id}
+              data-testid={`kpi-tile-${tile.id}`}
+              onClick={tile.onClick}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  tile.onClick?.();
+                }
+              }}
+              className="map-dashboard-tile map-card-custom"
+            >
+              <div>
+                <div className={`map-dashboard-tile-value ${getTileToneClass(tile.tone)}`}>
+                  {tile.value}
+                </div>
+                <div className="map-dashboard-tile-label">{tile.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Main Row: Needs your action (about 2/3) + Recent activity (about 1/3) */}
       <div className="map-dashboard-main">
         {/* Needs your action */}
