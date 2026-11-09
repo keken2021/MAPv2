@@ -1,6 +1,6 @@
 /* 
   file summary: split-screen authentication login page component matching exact mockup design.
-  responsibilities: presents marine assurance platform value proposition and a single Login action that signs in as Administrator.
+  responsibilities: presents marine assurance platform value proposition and a credentials + mock MFA sign-in flow.
   role in system: login screen rendered when user is unauthenticated; role switching happens after login via the header.
 */
 
@@ -9,7 +9,7 @@ import { useMapStore } from '../store/useMapStore';
 
 /**
   what: renders the split-screen login page with value proposition on left and sign-in form on right.
-  how: Login button authenticates as Administrator; roles can be changed after login from the top bar.
+  how: credentials advance to a mock MFA step; any 6-digit code completes login as Administrator.
   with what file: src/views/LoginView.tsx loaded by App.tsx.
 */
 export const LoginView: React.FC = () => {
@@ -17,10 +17,27 @@ export const LoginView: React.FC = () => {
   const [username, setUsername] = useState('k.osei@northwindmarine.com');
   const [password, setPassword] = useState('••••••••••••');
   const [rememberMe, setRememberMe] = useState(false);
+  const [authStep, setAuthStep] = useState<'credentials' | 'mfa'>('credentials');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaError, setMfaError] = useState('');
+  const [pendingRole, setPendingRole] = useState<'Administrator' | 'C Admin'>('Administrator');
 
-  const handleLogin = (e: React.FormEvent, role: 'Administrator' | 'C Admin' = 'Administrator') => {
+  const handleCredentialsSubmit = (e: React.FormEvent, role: 'Administrator' | 'C Admin' = 'Administrator') => {
     e.preventDefault();
-    login(role);
+    setPendingRole(role);
+    setMfaCode('');
+    setMfaError('');
+    setAuthStep('mfa');
+  };
+
+  const handleMfaSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(mfaCode.trim())) {
+      setMfaError('Please enter a valid 6-digit verification code.');
+      return;
+    }
+    setMfaError('');
+    login(pendingRole);
   };
 
   return (
@@ -97,75 +114,129 @@ export const LoginView: React.FC = () => {
           {/* header text */}
           <div className="mb-4">
             <h2 className="fw-bold text-dark mb-1" style={{ fontSize: '2rem', color: '#0f172a' }}>
-              Sign In
+              {authStep === 'credentials' ? 'Sign In' : 'Two-Factor Authentication'}
             </h2>
             <div className="font-mono-code small" style={{ fontSize: '0.8rem', color: '#64748b' }}>
-              Access is based on your role.
+              {authStep === 'credentials'
+                ? 'Access is based on your role.'
+                : '(Prototype: any 6 digits pass)'}
             </div>
           </div>
 
-          {/* white login form card */}
-          <form
-            className="card border-0 shadow-sm p-4 p-md-5 mb-4"
-            style={{ borderRadius: '12px', backgroundColor: '#ffffff' }}
-            onSubmit={(e) => handleLogin(e, 'Administrator')}
-          >
-            <div className="mb-3">
-              <label className="form-label font-mono-code text-uppercase fw-semibold" style={{ fontSize: '0.7rem', color: '#64748b', letterSpacing: '0.05em' }}>
-                USER NAME
-              </label>
-              <input
-                type="text"
-                className="form-control font-mono-code py-2 px-3 border-secondary-subtle"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                style={{ fontSize: '0.9rem', color: '#0f172a', borderRadius: '6px' }}
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label font-mono-code text-uppercase fw-semibold" style={{ fontSize: '0.7rem', color: '#64748b', letterSpacing: '0.05em' }}>
-                PASSWORD
-              </label>
-              <input
-                type="password"
-                className="form-control font-mono-code py-2 px-3 border-secondary-subtle"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ fontSize: '0.9rem', color: '#0f172a', borderRadius: '6px' }}
-              />
-            </div>
-
-            <div className="d-flex align-items-center justify-content-between mb-4">
-              <label className="d-flex align-items-center gap-2 mb-0" style={{ cursor: 'pointer' }}>
+          {authStep === 'credentials' ? (
+            <form
+              className="card border-0 shadow-sm p-4 p-md-5 mb-4"
+              style={{ borderRadius: '12px', backgroundColor: '#ffffff' }}
+              onSubmit={(e) => handleCredentialsSubmit(e, 'Administrator')}
+            >
+              <div className="mb-3">
+                <label className="form-label font-mono-code text-uppercase fw-semibold" style={{ fontSize: '0.7rem', color: '#64748b', letterSpacing: '0.05em' }}>
+                  USER NAME
+                </label>
                 <input
-                  type="checkbox"
-                  className="form-check-input m-0"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
+                  type="text"
+                  className="form-control font-mono-code py-2 px-3 border-secondary-subtle"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  style={{ fontSize: '0.9rem', color: '#0f172a', borderRadius: '6px' }}
                 />
-                <span style={{ fontSize: '0.875rem', color: '#475569' }}>Remember me</span>
-              </label>
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label font-mono-code text-uppercase fw-semibold" style={{ fontSize: '0.7rem', color: '#64748b', letterSpacing: '0.05em' }}>
+                  PASSWORD
+                </label>
+                <input
+                  type="password"
+                  className="form-control font-mono-code py-2 px-3 border-secondary-subtle"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ fontSize: '0.9rem', color: '#0f172a', borderRadius: '6px' }}
+                />
+              </div>
+
+              <div className="d-flex align-items-center justify-content-between mb-4">
+                <label className="d-flex align-items-center gap-2 mb-0" style={{ cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    className="form-check-input m-0"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <span style={{ fontSize: '0.875rem', color: '#475569' }}>Remember me</span>
+                </label>
+                <button
+                  type="button"
+                  className="btn btn-link p-0 text-decoration-none"
+                  style={{ fontSize: '0.875rem', color: '#64748b' }}
+                >
+                  Forgot password?
+                </button>
+              </div>
+
+              <button
+                type="submit"
+                className="btn w-100 py-2 fw-semibold text-white border-0"
+                style={{ backgroundColor: 'rgb(11, 27, 43)', borderRadius: '6px', fontSize: '0.95rem' }}
+              >
+                Sign In
+              </button>
+            </form>
+          ) : (
+            <form
+              className="card border-0 shadow-sm p-4 p-md-5 mb-4"
+              style={{ borderRadius: '12px', backgroundColor: '#ffffff' }}
+              onSubmit={handleMfaSubmit}
+              data-testid="login-mfa-step"
+            >
+              <div className="mb-3">
+                <label className="form-label font-mono-code text-uppercase fw-semibold" style={{ fontSize: '0.7rem', color: '#64748b', letterSpacing: '0.05em' }}>
+                  VERIFICATION CODE
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  className="form-control font-mono-code py-2 px-3 border-secondary-subtle"
+                  value={mfaCode}
+                  onChange={(e) => {
+                    setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                    setMfaError('');
+                  }}
+                  placeholder="6-digit code"
+                  aria-label="6-digit verification code"
+                  style={{ fontSize: '0.9rem', color: '#0f172a', borderRadius: '6px', letterSpacing: '0.2em' }}
+                />
+                {mfaError && (
+                  <div className="text-danger small mt-2" data-testid="login-mfa-error">
+                    {mfaError}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                className="btn w-100 py-2 fw-semibold text-white border-0 mb-3"
+                style={{ backgroundColor: 'rgb(11, 27, 43)', borderRadius: '6px', fontSize: '0.95rem' }}
+              >
+                Verify &amp; Sign In
+              </button>
+
               <button
                 type="button"
                 className="btn btn-link p-0 text-decoration-none"
                 style={{ fontSize: '0.875rem', color: '#64748b' }}
+                onClick={() => {
+                  setAuthStep('credentials');
+                  setMfaCode('');
+                  setMfaError('');
+                }}
               >
-                Forgot password?
+                Back to Sign In
               </button>
-            </div>
-
-            <button
-              type="submit"
-              className="btn w-100 py-2 fw-semibold text-white border-0"
-              style={{ backgroundColor: 'rgb(11, 27, 43)', borderRadius: '6px', fontSize: '0.95rem' }}
-            >
-              Sign In
-            </button>
-          
-          </form>
-
-         
+            </form>
+          )}
         </div>
       </div>
     </div>
