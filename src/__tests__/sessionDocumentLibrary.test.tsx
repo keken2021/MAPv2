@@ -54,7 +54,7 @@ describe('document library per person', () => {
   const loose = document('DOC-LOOSE');
   const sets = [
     setFor('AS-MINE', 'assignedVerifier', 'A. Fontaine (Bureau Veritas Inspectorate)', 'DOC-MINE'),
-    setFor('AS-OTHER', 'assignedVerifier', 'D. Harrison (Harrison Marine Vetting Services)', 'DOC-OTHER'),
+    setFor('AS-OTHER', 'assignedVerifier', 'D. Harrison (Bureau Veritas Inspectorate)', 'DOC-OTHER'),
   ];
 
   it('keeps a verifier library to documents on sets that name them', () => {

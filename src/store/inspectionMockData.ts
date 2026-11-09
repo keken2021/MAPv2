@@ -170,14 +170,14 @@ export interface InspectionListProgress {
   checklistTotal: number;
 }
 
-/** one location and one checklist count for each inspection on the Meridian surveyor's list */
+/** one location and one checklist count for each inspection on N. Technical's list */
 export const INSPECTION_LIST_PROGRESS: InspectionListProgress[] = [
-  { assuranceSetId: 'AS-2026-001', location: 'Fremantle, WA', checklistCompleted: 30, checklistTotal: 30 },
+  { assuranceSetId: 'AS-2026-001', location: 'Fremantle, WA', checklistCompleted: 30, checklistTotal: 30 },
   { assuranceSetId: 'AS-2026-004', location: 'Dampier, WA', checklistCompleted: 30, checklistTotal: 30 },
   { assuranceSetId: 'AS-2026-005', location: 'Port Hedland, WA', checklistCompleted: 30, checklistTotal: 30 },
   { assuranceSetId: 'AS-2026-008', location: 'Henderson, WA', checklistCompleted: 12, checklistTotal: 30 },
   { assuranceSetId: 'AS-EQP-005-01', location: 'Australian Marine Complex', checklistCompleted: 30, checklistTotal: 30 },
-  { assuranceSetId: 'AS-01-V001', location: 'Fremantle Berth 2', checklistCompleted: 4, checklistTotal: 30 },
+  { assuranceSetId: 'AS-01-V001', location: 'Fremantle Berth 2', checklistCompleted: 4, checklistTotal: 30 },
   { assuranceSetId: 'AS-EQP-007-01', location: 'Gorgon field', checklistCompleted: 30, checklistTotal: 30 },
 ];
 
@@ -208,7 +208,7 @@ export const PHYSICAL_INSPECTIONS: PhysicalInspectionRecord[] = [
     id: 'INSP-2026-001',
     assuranceSetId: 'AS-2026-001',
     title: 'Visual Vessel Inspection & Safety Audit — Chevron Gorgon Charter Vetting',
-    inspector: 'N. Technical (Meridian Marine Surveyors)',
+    inspector: 'N. Technical (Bureau Veritas Inspectorate)',
     inspectorRole: 'Inspector',
     date: '14 Oct 2026',
     location: 'Dampier Port Facility, WA',
@@ -227,12 +227,12 @@ export const PHYSICAL_INSPECTIONS: PhysicalInspectionRecord[] = [
       { time: '2026-10-14 14:15 UTC', action: 'CAPA_RAISED', user: 'N. Technical', notes: 'Corrective Action CAPA-118 automatically generated.' },
       { time: '2026-10-14 16:00 UTC', action: 'INSPECTION_COMPLETED', user: 'N. Technical', notes: 'Visual inspection completed. Report signed off.' },
     ],
-  },
+  },
   {
     id: 'INSP-2026-008',
     assuranceSetId: 'AS-2026-008',
     title: 'Visual Vessel Inspection & Safety Audit — Schilling ROV System Mobilization Assurance',
-    inspector: 'N. Technical (Meridian Marine Surveyors)',
+    inspector: 'N. Technical (Bureau Veritas Inspectorate)',
     inspectorRole: 'Inspector',
     date: '22 Oct 2026',
     location: 'Henderson, WA',

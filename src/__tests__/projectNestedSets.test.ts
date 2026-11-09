@@ -135,13 +135,13 @@ describe('nested project assurance sets (Req 3–4)', () => {
       ...childVesselSet,
       id: 'AS-THEIRS',
       projectId: 'PROJ-THEIRS',
-      assignedVerifier: 'D. Harrison (Harrison Marine Vetting Services)',
+      assignedVerifier: 'D. Harrison (Bureau Veritas Inspectorate)',
     } as AssuranceSet;
     const shared = {
       ...childCrewSet,
       id: 'AS-SHARED-OTHER',
       projectId: 'PROJ-SHARED',
-      assignedVerifier: 'D. Harrison (Harrison Marine Vetting Services)',
+      assignedVerifier: 'D. Harrison (Bureau Veritas Inspectorate)',
     } as AssuranceSet;
     const sharedMine = {
       ...childVesselSet,

@@ -421,18 +421,18 @@ describe('wizard', () => {
   it('moves a role on tick, and clears it on untick', () => {
     const { container } = renderWizardWithDefaultVessel();
     addOrganization(container, THIRD_PARTY);
-    addOrganization(container, 'DNV Maritime Inspection');
+    addOrganization(container, 'Marine Assurance Authority');
 
     fireEvent.click(roleBox('Verifier', THIRD_PARTY));
     expect(roleBox('Verifier', THIRD_PARTY).checked).toBe(true);
     expect(roleBox('Verifier', CLIENT).checked).toBe(false);
 
-    fireEvent.click(roleBox('Verifier', 'DNV Maritime Inspection'));
+    fireEvent.click(roleBox('Verifier', 'Marine Assurance Authority'));
     expect(roleBox('Verifier', THIRD_PARTY).checked).toBe(false);
-    expect(roleBox('Verifier', 'DNV Maritime Inspection').checked).toBe(true);
+    expect(roleBox('Verifier', 'Marine Assurance Authority').checked).toBe(true);
 
-    fireEvent.click(roleBox('Verifier', 'DNV Maritime Inspection'));
-    expect(roleBox('Verifier', 'DNV Maritime Inspection').checked).toBe(false);
+    fireEvent.click(roleBox('Verifier', 'Marine Assurance Authority'));
+    expect(roleBox('Verifier', 'Marine Assurance Authority').checked).toBe(false);
   });
 
   it('enforces segregation of duties between verifier and approver for the client only', () => {

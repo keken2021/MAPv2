@@ -7,27 +7,27 @@ import { PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 
 describe('session workspace queues', () => {
-  it('shows Meridian inspector N. Technical 5 sets instead of every inspector set', () => {
+  it('shows Bureau Veritas inspector N. Technical named sets instead of every inspector set', () => {
     const sets = [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS];
     const orgWide = sets.filter((set) =>
-      isAssuranceSetAssignedToPersona(set, 'Inspector', 'Meridian Marine Surveyors'),
+      isAssuranceSetAssignedToPersona(set, 'Inspector', 'Bureau Veritas Inspectorate'),
     );
     const named = sets.filter(
       (set) =>
-        isAssuranceSetAssignedToPersona(set, 'Inspector', 'Meridian Marine Surveyors', {
+        isAssuranceSetAssignedToPersona(set, 'Inspector', 'Bureau Veritas Inspectorate', {
           id: 'USR-203',
           name: 'N. Technical',
-          organization: 'Meridian Marine Surveyors',
+          organization: 'Bureau Veritas Inspectorate',
           roles: ['Inspector'],
         }) &&
         Boolean(set.assignedInspector?.includes('N. Technical')),
     );
-    expect(orgWide.length).toBe(11);
+    expect(orgWide.length).toBe(13);
     expect(named.length).toBe(7);
 
     useMapStore.setState({
       activePersona: 'Inspector',
-      activeDemoOrganization: 'Meridian Marine Surveyors',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
       activeSessionUserId: 'USR-203',
       assuranceSets: sets,
       vessels: MOCK_VESSELS,

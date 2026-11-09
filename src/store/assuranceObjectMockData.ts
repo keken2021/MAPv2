@@ -128,7 +128,7 @@ export const SEEDED_ACTIVITY_OBJECTS: AssuranceObject[] = [
     id: 'OBJ-PROC-HELI-01',
     type: 'activity',
     name: 'Helideck Operations Procedure',
-    ownerOrganization: 'DNV Maritime Inspection',
+    ownerOrganization: 'Bureau Veritas Inspectorate',
     identifier: 'SOP-HELI-009',
     description: 'Helideck approach, landing, and refuelling procedure',
   }, 13),
@@ -230,7 +230,7 @@ export const SEEDED_STANDALONE_PERSONS: AssuranceObject[] = [
     id: 'OBJ-PER-DPO-01',
     type: 'person',
     name: 'L. Moreau',
-    ownerOrganization: 'Meridian Marine Surveyors',
+    ownerOrganization: 'Bureau Veritas Inspectorate',
     identifier: 'DPO-NI-2208',
     description: 'Dynamic positioning operator contracted for close-quarters offtake',
     assignments: [

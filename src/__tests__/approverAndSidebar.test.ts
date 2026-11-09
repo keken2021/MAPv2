@@ -152,7 +152,7 @@ describe('approver action buttons and sidebar navigation suite', () => {
       { org: 'Northwind Marine Pty Ltd', role: 'Administrator' as const },
       { org: 'Northwind Marine Pty Ltd', role: 'Submitter' as const },
       { org: 'Bureau Veritas Inspectorate', role: 'Verifier' as const },
-      { org: 'Meridian Marine Surveyors', role: 'Inspector' as const },
+      { org: 'Bureau Veritas Inspectorate', role: 'Inspector' as const },
       { org: 'Marine Assurance Authority', role: 'Approver' as const },
       { org: 'Chevron Australia Pty Ltd', role: 'C Admin' as const },
     ];

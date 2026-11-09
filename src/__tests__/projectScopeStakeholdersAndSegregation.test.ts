@@ -39,8 +39,8 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
         Crew: {
           assignedSubmitter: 'Capt. R. Sterling (Global Maritime Crewing)',
           submitterId: 'USR-103',
-          assignedVerifier: 'E. Vance (Meridian Marine Surveyors)',
-          verifierId: 'USR-203',
+          assignedVerifier: 'D. Harrison (Bureau Veritas Inspectorate)',
+          verifierId: 'USR-205',
         },
         Activity: {
           assignedSubmitter: 'T. Kowalski (Northwind Marine Pty Ltd)',
@@ -403,7 +403,7 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
         mandatoryInspectionRequired: true,
         formalApprovalRequired: true,
         inspectionCompleted: false,
-        assignedVerifier: 'AMSA Statutory Verification Gateway (Australian Maritime Safety Authority (AMSA))',
+        assignedVerifier: 'S. Girard (Bureau Veritas Inspectorate)',
         assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
         requirements: [],
       };

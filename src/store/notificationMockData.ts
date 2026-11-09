@@ -363,12 +363,12 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
 
   /* t. nakata - inpex client admin */
 
-  /* m. o'connor & h. lindholm - third-party inspectors */
+  /* n. technical - bureau veritas inspector */
   {
     id: 'MAP-NTF-2026-ASGN-00027',
     type: 'stakeholder_assigned',
     subject: 'Assigned as Inspector: MV Meridian Pioneer — Subsea Cable Lay Assurance',
-    recipientUserId: 'USR-225',
+    recipientUserId: 'USR-203',
     senderUserId: 'USR-221',
     senderName: 'C. Henderson',
     status: 'unread',

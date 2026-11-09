@@ -414,7 +414,7 @@ describe('Map Store State Management', () => {
               stakeholders: {
                 submitterOrg: 'Pacific Ocean Shipping',
                 verifierOrg: 'Southern Basin Energy Pty Ltd',
-                inspectorOrg: 'Meridian Marine Surveyors',
+                inspectorOrg: 'Bureau Veritas Inspectorate',
                 approverOrg: 'Marine Assurance Authority',
               },
             }
@@ -436,10 +436,10 @@ describe('Map Store State Management', () => {
     expect(currentSet?.verificationRequired).toBe(true);
 
     // Test Inspector update
-    useMapStore.setState({ activeDemoOrganization: 'Meridian Marine Surveyors' });
-    store.updateAssuranceStakeholder(targetSet.id, 'Inspector', 'N. Technical (Meridian Marine Surveyors)');
+    useMapStore.setState({ activeDemoOrganization: 'Bureau Veritas Inspectorate' });
+    store.updateAssuranceStakeholder(targetSet.id, 'Inspector', 'N. Technical (Bureau Veritas Inspectorate)');
     currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
-    expect(currentSet?.assignedInspector).toBe('N. Technical (Meridian Marine Surveyors)');
+    expect(currentSet?.assignedInspector).toBe('N. Technical (Bureau Veritas Inspectorate)');
     expect(currentSet?.mandatoryInspectionRequired).toBe(true);
 
     // Test Approver update

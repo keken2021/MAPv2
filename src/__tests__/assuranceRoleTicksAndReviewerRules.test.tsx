@@ -10,7 +10,7 @@ const initialState = useMapStore.getState();
 const CLIENT = 'Chevron Australia Pty Ltd';
 const VENDOR = 'Northwind Marine Pty Ltd';
 const THIRD_PARTY_1 = 'Bureau Veritas Inspectorate';
-const THIRD_PARTY_2 = 'DNV Maritime Inspection';
+const THIRD_PARTY_2 = 'Marine Assurance Authority';
 
 const roleBox = (role: string, organization: string) =>
   screen.getByRole('checkbox', { name: `${role}: ${organization}` }) as HTMLInputElement;

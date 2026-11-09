@@ -11,7 +11,8 @@ describe('Inspections list location and checklist', () => {
   beforeEach(() => {
     useMapStore.setState({
       activePersona: 'Inspector',
-      activeDemoOrganization: 'Meridian Marine Surveyors',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-203',
       isAuthenticated: true,
     });
   });

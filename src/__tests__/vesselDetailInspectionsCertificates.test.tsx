@@ -29,7 +29,7 @@ describe('vessel detail inspections and certificates', () => {
 
     expect(screen.getByText('INSP-2026-001')).toBeInTheDocument();
     expect(screen.getByText('AS-2026-001')).toBeInTheDocument();
-    expect(screen.getAllByText('N. Technical (Meridian Marine Surveyors)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('N. Technical (Bureau Veritas Inspectorate)').length).toBeGreaterThan(0);
     expect(screen.queryByText('No inspections recorded')).toBeNull();
   });
 

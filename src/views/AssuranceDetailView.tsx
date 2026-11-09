@@ -2939,7 +2939,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                       ) : (
                         <div className="fw-bold text-dark">
                           {assuranceSet.mandatoryInspectionRequired
-                            ? stakeholderLabel('Inspector', assuranceSet.assignedInspector || 'N. Technical (Meridian Marine Surveyors)')
+                            ? stakeholderLabel('Inspector', assuranceSet.assignedInspector || 'N. Technical (Bureau Veritas Inspectorate)')
                             : (assuranceSet.assignedInspector || 'N/A (Not Required)')}
                         </div>
                       )}

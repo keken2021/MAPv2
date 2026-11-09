@@ -39,8 +39,8 @@ function charterVessel(title: string): string {
     formalApprovalRequired: true,
     inspectionCompleted: false,
     assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
-    assignedVerifier: 'D. Harrison (Harrison Marine Vetting Services)',
-    assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
+    assignedVerifier: 'D. Harrison (Bureau Veritas Inspectorate)',
+    assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
     createdByPersona: 'C Admin',
     requirements: [

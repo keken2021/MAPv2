@@ -51,7 +51,7 @@ const inspectionSet = (id: string, initiatorOrg: string): AssuranceSet =>
     stage: 'Inspection',
     mandatoryInspectionRequired: true,
     inspectionCompleted: false,
-    assignedInspector: 'N. Technical (Meridian Marine Surveyors)',
+    assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
     requirements: [],
   }) as unknown as AssuranceSet;
 
@@ -70,7 +70,7 @@ describe('administrator read-only verification and inspection screens', () => {
 
   describe('rendered screens', () => {
     const mine = inspectionSet('AS-ORG', 'Northwind Marine Pty Ltd');
-    const other = inspectionSet('AS-OTHER', 'Harrison Marine Vetting Services');
+    const other = inspectionSet('AS-OTHER', 'Bureau Veritas Inspectorate');
 
     beforeEach(() => {
       useMapStore.setState({

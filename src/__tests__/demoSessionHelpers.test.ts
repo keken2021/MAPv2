@@ -14,7 +14,7 @@ import {
 
 describe('demoSessionHelpers', () => {
   it('lists active organizations from mock users (pending users excluded)', () => {
-    expect(getOrganizationsFromUsers(MOCK_USERS)).toHaveLength(25);
+    expect(getOrganizationsFromUsers(MOCK_USERS)).toHaveLength(18);
   });
 
   it('builds one switcher option per organization, in the same order, with its initials and counts', () => {
@@ -44,8 +44,10 @@ describe('demoSessionHelpers', () => {
       'Chevron Australia Pty Ltd',
     ]);
     const meridian = filterOrganizationSwitcherOptions(options, ' meridian ');
-    expect(meridian.length).toBeGreaterThan(1);
-    expect(meridian.every((o) => o.organization.includes('Meridian'))).toBe(true);
+    expect(meridian.map((o) => o.organization)).toEqual([
+      'Meridian Marine Services Pty Ltd',
+      'Meridian Shipyards',
+    ]);
     expect(filterOrganizationSwitcherOptions(options, 'no such organization')).toEqual([]);
   });
 
