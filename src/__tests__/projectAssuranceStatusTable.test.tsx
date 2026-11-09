@@ -250,6 +250,8 @@ describe('ProjectDetailView assurance tab', () => {
   it('renders matching filter tabs (CountTabs) and ListToolbar layout on both tabs', () => {
     const { container } = render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Assurance Sets' }));
+
     // Assurance sets tab layout
     expect(container.querySelector('.card .map-count-tabs')).not.toBeNull();
     expect(container.querySelector('.card .map-list-toolbar')).not.toBeNull();

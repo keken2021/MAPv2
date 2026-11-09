@@ -30,6 +30,7 @@ import { usePagination } from "../utils/usePagination";
 import { TablePagination } from "../components/common/TablePagination";
 import { ProjectAssuranceStatusTable } from "../components/tables/ProjectAssuranceStatusTable";
 import { ProjectTasksTable } from "../components/tables/ProjectTasksTable";
+import { ProjectOverviewTab } from "../components/projects/ProjectOverviewTab";
 
 interface ProjectDetailViewProps {
   projectId: string;
@@ -67,8 +68,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     [activePersona, users, activeDemoOrganization, activeSessionUserId],
   );
 
-  const [activeTab, setActiveTab] = useState<"details" | "assurance" | "roster" | "tasks">(
-    "assurance",
+  const [activeTab, setActiveTab] = useState<"overview" | "details" | "assurance" | "roster" | "tasks">(
+    "overview",
   );
   const [assetFilter, setAssetFilter] = useState<"All" | ProjectAssetType>(
     "All",
@@ -172,7 +173,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   );
 
   useEffect(() => {
-    setActiveTab("assurance");
+    setActiveTab("overview");
   }, [projectId]);
 
   const assetsPagination = usePagination(filteredLinks, [assetFilter, objectSearchTerm]);
@@ -334,15 +335,18 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         aria-label="Project detail tabs"
         active={activeTab}
         onChange={(key) =>
-          setActiveTab(key as "details" | "assurance" | "roster" | "tasks")
+          setActiveTab(key as "overview" | "details" | "assurance" | "roster" | "tasks")
         }
         tabs={[
+          { key: "overview", label: "Overview" },
           { key: "details", label: "Details" },
           { key: "assurance", label: "Assurance Sets" },
           { key: "roster", label: "Objects" },
           { key: "tasks", label: "Tasks" },
         ]}
       />
+
+      {activeTab === "overview" && <ProjectOverviewTab project={project} sets={projectAssuranceSets} allSets={assuranceSets} documents={documents} capaItems={capaItems} canOpenSet={canOpenSet} onOpenSet={(set) => setCurrentHashView("assurance-sets", set.id)} />}
 
       {activeTab === "details" && (
         <div className="d-flex flex-column gap-3">

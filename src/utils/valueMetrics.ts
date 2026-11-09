@@ -62,3 +62,21 @@ export function averageDaysToClearance(sets: AssuranceSet[]): number | undefined
   if (durations.length === 0) return undefined;
   return Math.round(durations.reduce((sum, days) => sum + days, 0) / durations.length);
 }
+
+/**
+  what: the total submission attempts across the requirements of the given sets; input is all sets.
+  how: sums attemptNumber (or 1 when a document is attached) over every requirement that has an attempt or attached document.
+  with what file: src/utils/valueMetrics.ts used by ProjectOverviewTab.tsx.
+*/
+export function countSubmissionAttempts(sets: AssuranceSet[]): number {
+  return sets.reduce(
+    (sum, set) =>
+      sum +
+      (set.requirements ?? []).reduce((reqSum, r) => {
+        if (typeof r.attemptNumber === 'number' && r.attemptNumber > 0) return reqSum + r.attemptNumber;
+        if (r.documentId || r.linkedDocumentId) return reqSum + 1;
+        return reqSum;
+      }, 0),
+    0,
+  );
+}

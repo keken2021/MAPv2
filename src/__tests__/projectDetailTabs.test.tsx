@@ -1,5 +1,5 @@
 /*
-  file summary: asserts ProjectDetailView section Tabs switch content (Task 5452).
+  file summary: asserts ProjectDetailView section Tabs switch content.
   responsibilities: navy underline tab bar; Objects / Tasks selection.
   role in system: automated coverage for project detail tab migration.
 */
@@ -24,16 +24,16 @@ describe('project detail tabs', () => {
     render(<ProjectDetailView projectId={project.id} />);
 
     const tablist = screen.getByRole('tablist', { name: /project detail tabs/i });
-    const assurance = within(tablist).getByRole('tab', { name: /Assurance Sets/i });
-    expect(assurance).toHaveAttribute('aria-selected', 'true');
-    expect(assurance.className).not.toMatch(/nav-link/);
+    const overview = within(tablist).getByRole('tab', { name: /Overview/i });
+    expect(overview).toHaveAttribute('aria-selected', 'true');
+    expect(overview.className).not.toMatch(/nav-link/);
 
     fireEvent.click(within(tablist).getByRole('tab', { name: /^Tasks$/i }));
     expect(within(tablist).getByRole('tab', { name: /^Tasks$/i })).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    expect(assurance).toHaveAttribute('aria-selected', 'false');
+    expect(overview).toHaveAttribute('aria-selected', 'false');
   });
 });
 

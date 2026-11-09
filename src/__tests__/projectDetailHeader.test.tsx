@@ -79,6 +79,8 @@ describe('ProjectDetailView UI Declutter', () => {
       <ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />
     );
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Assurance Sets' }));
+
     // Find the Attach button
     const attachButton = screen.getByRole('button', { name: /attach/i });
     expect(attachButton).toBeInTheDocument();
@@ -88,5 +90,41 @@ describe('ProjectDetailView UI Declutter', () => {
     expect(svg).not.toBeNull();
     expect(svg?.classList.contains('lucide-link2')).toBe(true);
     expect(svg?.classList.contains('lucide-eye')).toBe(false);
+  });
+
+  it('makes Overview the default active tab, displays calculated efficiency metrics and provider summary, and switches cleanly to other tabs', () => {
+    render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-017" />);
+
+    const tablist = screen.getByRole('tablist', { name: /project detail tabs/i });
+    const tabs = within(tablist).getAllByRole('tab');
+    expect(tabs[0]).toHaveTextContent('Overview');
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true');
+
+    const overviewPanel = screen.getByTestId('project-overview-tab');
+    expect(overviewPanel).toBeInTheDocument();
+
+    const metrics = screen.getByTestId('project-efficiency-metrics');
+    expect(within(metrics).getByText('Turnaround Days')).toBeInTheDocument();
+    expect(within(metrics).getByText('Submission Attempts')).toBeInTheDocument();
+    expect(within(metrics).getByText('Reused Documents')).toBeInTheDocument();
+    expect(within(metrics).getByText('Re-verifications Avoided')).toBeInTheDocument();
+
+    const bottlenecks = screen.getByTestId('project-active-bottlenecks');
+    expect(within(bottlenecks).getByText('Active Bottlenecks')).toBeInTheDocument();
+
+    const providers = screen.getByTestId('project-participating-providers');
+    expect(within(providers).getByText('Participating Providers')).toBeInTheDocument();
+    expect(within(providers).getByText('Northwind Marine Pty Ltd')).toBeInTheDocument();
+    expect(within(providers).getByText('Meridian Shipyards')).toBeInTheDocument();
+    expect(within(providers).getByText('Harbourline Terminals')).toBeInTheDocument();
+
+    fireEvent.click(within(tablist).getByRole('tab', { name: 'Details' }));
+    expect(within(tablist).getByRole('tab', { name: 'Details' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'false');
+    expect(screen.queryByTestId('project-overview-tab')).toBeNull();
+    expect(screen.getByText('Project metadata and scope')).toBeInTheDocument();
   });
 });
