@@ -5,8 +5,11 @@
 */
 
 import React from 'react';
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { useMapStore } from '../store/useMapStore';
+import { MarketplaceView } from '../views/MarketplaceView';
+import * as exportHelpers from '../utils/exportHelpers';
 import {
   getMarketplaceItems,
   filterMarketplaceItems,
@@ -532,5 +535,60 @@ describe('Marketplace Module & Segregation', () => {
     expect(line.textContent).toContain('Earliest certificate expiry');
     expect(line.textContent).toContain(formatListingDate(expiry!));
     expect(line.textContent).not.toMatch(/late|Expired/);
+  });
+
+  it('hides rateEstimate in MarketplaceDetailModal and CSV export for non-owners while showing it to the owner', () => {
+    const northwindOffering: MarketplaceItem = {
+      ...MOCK_MARKETPLACE_ITEMS[0],
+      id: 'MKT-RATE-NW',
+      name: 'MV Atlantic Ocean',
+      providerOrg: 'Northwind Marine Pty Ltd',
+      rateEstimate: 'AUD 30,000 / day',
+    };
+
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+    });
+
+    const { unmount } = render(
+      React.createElement(MarketplaceDetailModal, {
+        item: northwindOffering,
+        isOpen: true,
+        onClose: () => undefined,
+      }),
+    );
+    expect(screen.queryByText('AUD 30,000 / day')).toBeNull();
+    unmount();
+
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+    });
+
+    const { unmount: unmountOwner } = render(
+      React.createElement(MarketplaceDetailModal, {
+        item: northwindOffering,
+        isOpen: true,
+        onClose: () => undefined,
+      }),
+    );
+    expect(screen.getByText('AUD 30,000 / day')).toBeInTheDocument();
+    unmountOwner();
+
+    const csvSpy = vi.spyOn(exportHelpers, 'exportToCsv').mockImplementation(() => undefined);
+    render(React.createElement(MarketplaceView));
+    const exportBtn = screen.getByRole('button', { name: /export/i });
+    fireEvent.click(exportBtn);
+    const csvItem = screen.getByText('CSV');
+    fireEvent.click(csvItem);
+
+    expect(csvSpy).toHaveBeenCalledTimes(1);
+    const exportedRows = csvSpy.mock.calls[0][1] as Record<string, unknown>[];
+    expect(exportedRows.length).toBeGreaterThan(0);
+    exportedRows.forEach((row) => {
+      expect(row).not.toHaveProperty('RateEstimate');
+    });
+    csvSpy.mockRestore();
   });
 });

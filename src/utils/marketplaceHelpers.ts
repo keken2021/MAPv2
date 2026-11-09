@@ -110,8 +110,20 @@ export function isItemOwnedByCurrentOrganization(
   providerOrg: string,
   activePersona: UserRolePersona,
   users: Pick<UserProfile, 'roles' | 'organization'>[] = [],
+  activeOrganization?: string,
 ): boolean {
   if (!providerOrg) return false;
+  if (activeOrganization?.trim()) {
+    const activeLower = activeOrganization.trim().toLowerCase();
+    const orgLower = providerOrg.toLowerCase();
+    if (orgLower.includes(activeLower) || activeLower.includes(orgLower)) {
+      return true;
+    }
+    const isDefaultNorthwind = activeLower.includes('northwind') || activeLower.includes('pacific');
+    if (!isDefaultNorthwind) {
+      return false;
+    }
+  }
   const orgLower = providerOrg.toLowerCase();
 
   if (activePersona === 'Administrator' || activePersona === 'Submitter') {

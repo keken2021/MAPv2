@@ -31,7 +31,12 @@ import { MarketplaceItem } from '../../types/marketplace';
 import { getOrganizationLogo } from '../../utils/vesselImageHelpers';
 import { exportToPdf } from '../../utils/exportHelpers';
 import { formatReadinessScore, getFieldDisplayLabel, getProviderLabel } from '../../utils/formatters';
-import { earliestCertificateExpiry, formatListingDate, getMarketplaceCharterLabel } from '../../utils/marketplaceHelpers';
+import {
+  earliestCertificateExpiry,
+  formatListingDate,
+  getMarketplaceCharterLabel,
+  isItemOwnedByCurrentOrganization,
+} from '../../utils/marketplaceHelpers';
 import { getDueStatus } from '../common/DueCell';
 
 interface MarketplaceDetailModalProps {
@@ -53,7 +58,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
   onCharter,
   charterDisabledReason,
 }) => {
-  const { documents, vessels, crew } = useMapStore();
+  const { documents, vessels, crew, activePersona, users, activeDemoOrganization } = useMapStore();
   const [activeTab, setActiveTab] = useState<'specs' | 'capabilities' | 'compliance' | 'provider'>('specs');
   const [inquirySent, setInquirySent] = useState(false);
   const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string>('');
@@ -69,6 +74,8 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
 
   if (!isOpen || !item) return null;
 
+  const isOwner = isItemOwnedByCurrentOrganization(item.providerOrg, activePersona, users, activeDemoOrganization);
+  const visibleRateEstimate = isOwner ? item.rateEstimate : undefined;
   const orgInfo = getOrganizationLogo(item.providerOrg);
   const earliestExpiry = earliestCertificateExpiry(item, vessels, documents, crew);
   const expiryDue = earliestExpiry ? getDueStatus(earliestExpiry, { today: new Date() }) : undefined;
@@ -101,7 +108,7 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
       ['Location / Base', item.location],
       ['Availability Status', item.availabilityStatus],
       ['Compliance Readiness', formatReadinessScore(item.complianceReadinessScore)],
-      ['Rate Estimate', item.rateEstimate || '—'],
+      ...(visibleRateEstimate ? [['Rate Estimate', visibleRateEstimate]] : []),
       ['Mobilization Time', item.mobilizationLeadTime || '—'],
       ['Charter Type', charterType || '—'],
       ...item.detailedSpecs.map((s) => [getFieldDisplayLabel(s.label), s.value]),
@@ -267,13 +274,13 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                   </div>
 
                   <div className="d-flex flex-wrap align-items-center gap-3 mt-1">
-                    {item.rateEstimate && (
+                    {visibleRateEstimate && (
                       <div
                         className="d-flex align-items-center gap-1.5 font-mono-code fw-semibold"
                         style={{ color: '#38BDF8', fontSize: '0.9rem' }}
                       >
                         <DollarSign size={16} className="flex-shrink-0" />
-                        <span>{item.rateEstimate}</span>
+                        <span>{visibleRateEstimate}</span>
                       </div>
                     )}
                     {item.mobilizationLeadTime && (
@@ -366,13 +373,13 @@ export const MarketplaceDetailModal: React.FC<MarketplaceDetailModalProps> = ({
                     </div>
 
                     <div className="d-flex align-items-center gap-3.5">
-                      {item.rateEstimate && (
+                      {visibleRateEstimate && (
                         <span
                           className="small d-flex align-items-center gap-1.5 font-mono-code fw-semibold"
                           style={{ color: '#38BDF8', fontSize: '0.85rem' }}
                         >
                           <DollarSign size={15} className="flex-shrink-0" />
-                          <span>{item.rateEstimate}</span>
+                          <span>{visibleRateEstimate}</span>
                         </span>
                       )}
                       {item.mobilizationLeadTime && (

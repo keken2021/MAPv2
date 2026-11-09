@@ -236,7 +236,6 @@ export const MarketplaceView: React.FC = () => {
       Location: item.location,
       Status: item.availabilityStatus,
       ComplianceScore: formatReadinessScore(item.complianceReadinessScore),
-      RateEstimate: item.rateEstimate || 'N/A',
       MobilizationLeadTime: item.mobilizationLeadTime || 'Standard',
     }));
     exportToCsv('Marketplace_Offerings_Registry', exportData);
