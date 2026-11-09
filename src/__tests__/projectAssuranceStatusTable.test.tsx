@@ -121,45 +121,16 @@ describe('ProjectAssuranceStatusTable', () => {
 
   it('filters by each status tab, with counts', () => {
     const { container } = renderTable();
-    const statusTabs = screen.getByLabelText('Filter by status');
 
-    expect(within(statusTabs).getByRole('tab', { name: /^All \(6\)/ })).toBeInTheDocument();
-    fireEvent.click(within(statusTabs).getByRole('tab', { name: /Needs attention \(3\)/ }));
+    expect(screen.getByRole('tab', { name: /^All \(6\)/ })).toBeInTheDocument();
+    clickTab(/Needs attention \(3\)/);
     expect(rowIds(container).sort()).toEqual(['AS-RED', 'AS-RED-READY', 'AS-SOON']);
 
-    fireEvent.click(within(statusTabs).getByRole('tab', { name: /On track \(2\)/ }));
+    clickTab(/On track \(2\)/);
     expect(rowIds(container).sort()).toEqual(['AS-OWN', 'AS-WAIT']);
 
-    fireEvent.click(within(statusTabs).getByRole('tab', { name: /Done \(1\)/ }));
+    clickTab(/Done \(1\)/);
     expect(rowIds(container)).toEqual(['AS-GO']);
-  });
-
-  it('filters project sets by People / Plant / Process pills (Task 5493)', () => {
-    const tagged = [
-      set('AS-PLANT', 'Plant Set', { tags: ['Plant'] as never }),
-      set('AS-PEOPLE', 'People Set', { tags: ['People'] as never }),
-      set('AS-PROCESS', 'Process Set', { tags: ['Process'] as never }),
-      set('AS-MIX', 'Mixed Set', { tags: ['Plant', 'People'] as never }),
-    ];
-    const { container } = render(
-      <ProjectAssuranceStatusTable
-        sets={tagged}
-        allSets={tagged}
-        documents={documents}
-        capaItems={[]}
-        canOpenSet={() => true}
-        onOpenSet={vi.fn()}
-        today={TODAY}
-      />,
-    );
-
-    const pppTabs = screen.getByLabelText('Filter by People Plant Process');
-    expect(within(pppTabs).getByRole('tab', { name: /^Plant/ })).toBeInTheDocument();
-    fireEvent.click(within(pppTabs).getByRole('tab', { name: /^Plant/ }));
-    expect(rowIds(container).sort()).toEqual(['AS-MIX', 'AS-PLANT']);
-
-    fireEvent.click(within(pppTabs).getByRole('tab', { name: /^All \(4\)/ }));
-    expect(rowIds(container)).toHaveLength(4);
   });
 
   it('omits role filter tabs so role filtering relies on header persona selection', () => {

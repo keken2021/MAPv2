@@ -21,13 +21,11 @@ import {
   getAssuranceSetStatus,
 } from '../../utils/assuranceSetStatus';
 import { getAssuranceSetObjects } from '../../utils/assuranceTemplates';
-import { assuranceSetMatchesPpp, type PppPillar } from '../../utils/projectHelpers';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
 
 type SortField = 'name' | 'stage';
 type AttentionFilter = 'all' | AssuranceSetAttention;
-type PppFilter = 'All' | PppPillar;
 
 const ATTENTION_LABELS: Record<AssuranceSetAttention, string> = {
   needs_attention: 'Needs attention',
@@ -62,7 +60,6 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
   today,
 }) => {
   const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('all');
-  const [pppFilter, setPppFilter] = useState<PppFilter>('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -80,7 +77,6 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
   type Row = (typeof rows)[number];
 
   const matchesAttention = (row: Row) => attentionFilter === 'all' || row.attention === attentionFilter;
-  const matchesPpp = (row: Row) => assuranceSetMatchesPpp(row.set, pppFilter);
 
   const matchesSearch = (row: Row) => {
     if (!searchTerm.trim()) return true;
@@ -115,21 +111,9 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
     })),
   ];
 
-  const pppTabs: CountTab[] = [
-    { key: 'All', label: 'All', count: rows.length },
-    ...(['People', 'Plant', 'Process'] as PppPillar[]).map((pillar) => ({
-      key: pillar,
-      label: pillar,
-      count: rows.filter((row) => assuranceSetMatchesPpp(row.set, pillar)).length,
-    })),
-  ];
-
   const activeChips: FilterChip[] = [
     ...(attentionFilter !== 'all'
       ? [{ id: 'attention', label: 'Status', value: ATTENTION_LABELS[attentionFilter], onRemove: () => setAttentionFilter('all') }]
-      : []),
-    ...(pppFilter !== 'All'
-      ? [{ id: 'ppp', label: 'Pillar', value: pppFilter, onRemove: () => setPppFilter('All') }]
       : []),
     ...(searchTerm.trim()
       ? [{ id: 'search', label: 'Search', value: searchTerm.trim(), onRemove: () => setSearchTerm('') }]
@@ -140,15 +124,15 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
     const direction = sortDirection === 'asc' ? 1 : -1;
 
     return rows
-      .filter((r) => matchesAttention(r) && matchesPpp(r) && matchesSearch(r))
+      .filter((r) => matchesAttention(r) && matchesSearch(r))
       .sort((a, b) => {
         if (sortField === 'name') return direction * a.set.title.localeCompare(b.set.title) || compareWorstFirst(a, b);
         if (sortField === 'stage') return direction * compareAssuranceSetStage(a.set.stage, b.set.stage) || compareWorstFirst(a, b);
         return compareWorstFirst(a, b);
       });
-  }, [rows, attentionFilter, pppFilter, searchTerm, sortField, sortDirection]);
+  }, [rows, attentionFilter, searchTerm, sortField, sortDirection]);
 
-  const pagination = usePagination(sortedRows, [attentionFilter, pppFilter, searchTerm, sortField, sortDirection]);
+  const pagination = usePagination(sortedRows, [attentionFilter, searchTerm, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -176,7 +160,7 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
     </th>
   );
 
-  const hasFilter = attentionFilter !== 'all' || pppFilter !== 'All' || Boolean(searchTerm.trim());
+  const hasFilter = attentionFilter !== 'all' || Boolean(searchTerm.trim());
 
   return (
     <>
@@ -186,14 +170,6 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
           active={attentionFilter}
           onChange={(key) => setAttentionFilter(key as AttentionFilter)}
           aria-label="Filter by status"
-        />
-      </div>
-      <div className="px-3 pt-2 border-bottom">
-        <CountTabs
-          tabs={pppTabs}
-          active={pppFilter}
-          onChange={(key) => setPppFilter(key as PppFilter)}
-          aria-label="Filter by People Plant Process"
         />
       </div>
       <ListToolbar
@@ -207,7 +183,6 @@ export const ProjectAssuranceStatusTable: React.FC<ProjectAssuranceStatusTablePr
             chips={activeChips}
             onClearAll={() => {
               setAttentionFilter('all');
-              setPppFilter('All');
               setSearchTerm('');
             }}
           />
