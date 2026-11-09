@@ -143,9 +143,14 @@ export function calculateAssuranceSetReadiness(
     return STAGE_READINESS_WEIGHTS.initiated; /* 10% */
   }
 
+  const mandatoryReqs = set.requirements.filter((r) => r.isMandatory !== false);
+  const allMandatoryUploaded = mandatoryReqs.every((r) =>
+    Boolean(r.documentId || r.linkedDocumentId || r.linkedAssuranceSetId || r.isFulfilled || r.exemption),
+  );
+
   if (
     (set.stage === 'Certified' || set.stage === 'Approved' || set.approverDecision === 'Approved') &&
-    uploadedCount === set.requirements.length
+    (uploadedCount === set.requirements.length || (mandatoryReqs.length > 0 && allMandatoryUploaded))
   ) {
     return STAGE_READINESS_WEIGHTS.approved; /* 100% */
   }
@@ -450,7 +455,7 @@ export interface TaskSectionSummary {
   with what file: src/utils/readinessHelpers.ts used by summarizeTaskSections.
 */
 export function isTaskOpen(task: AssuranceRequirement): boolean {
-  return task.verifierStatus !== 'Verified' && !task.isFulfilled;
+  return task.verifierStatus !== 'Verified' && task.verifierStatus !== 'Waived' && task.verifierStatus !== 'Not Done' && !task.isFulfilled;
 }
 
 /**

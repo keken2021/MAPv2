@@ -96,10 +96,16 @@ export function syncDocumentVersionLock<T extends AssuranceSet>(set: T, document
     const doc = findRequirementDocument(r, documents);
     if (!doc) return r;
     changed = true;
+    const snapshotStatus: RequirementVersionSnapshot['verificationStatus'] =
+      r.verifierStatus === 'Verified' ||
+      r.verifierStatus === 'Correction Requested' ||
+      r.verifierStatus === 'Rejected'
+        ? r.verifierStatus
+        : 'Pending';
     return {
       ...r,
       documentVersion: doc.currentVersion,
-      verifiedVersion: takeVersionSnapshot(doc, now, undefined, r.verifierStatus),
+      verifiedVersion: takeVersionSnapshot(doc, now, undefined, snapshotStatus),
     };
   });
   if (!changed) return set;

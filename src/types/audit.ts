@@ -14,7 +14,7 @@ export type UserRolePersona =
 
 /** which record an audit event is about: one of 10 domain entities on an assurance set */
 export type AuditEventTarget =
-  | { kind: "set"; setId: string }
+  | { kind: "set"; setId: string; requirementId?: string }
   | { kind: "stage"; setId: string; stage: string }
   | { kind: "object"; setId: string; objectId: string; objectType?: string; objectName?: string }
   | { kind: "requirement"; setId: string; requirementId: string; title?: string }

@@ -2827,8 +2827,23 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       };
     }
     const now = new Date().toISOString();
+    const closedOptionalTasks = (setTarget.requirements || []).filter(
+      (r) => !r.isMandatory && r.verifierStatus !== "Verified" && r.verifierStatus !== "Waived" && r.verifierStatus !== "Not Done",
+    );
+    const updatedRequirements = (setTarget.requirements || []).map((r) => {
+      if (!r.isMandatory && r.verifierStatus !== "Verified" && r.verifierStatus !== "Waived" && r.verifierStatus !== "Not Done") {
+        return {
+          ...r,
+          verifierStatus: "Not Done" as const,
+          isFulfilled: false,
+          notes: "Closed as not done upon set closure.",
+        };
+      }
+      return r;
+    });
     const updatedSet: AssuranceSet = {
       ...setTarget,
+      requirements: updatedRequirements,
       stage: "Approved",
       closureType: "partial",
       lockedAt: setTarget.lockedAt || now,
@@ -2837,6 +2852,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       approverNotes: notes || `Partially closed by ${actorName}. Exempted tasks remain open.`,
     };
     get().updateAssuranceSet(updatedSet);
+    for (const r of closedOptionalTasks) {
+      get().logAuditEvent({
+        action: "Task Closed - Not Done",
+        targetAsset: `${setId} / ${r.title}`,
+        target: { kind: "set", setId, requirementId: r.id },
+        justificationNotes: "Closed as not done upon set closure.",
+      });
+    }
     get().logAuditEvent({
       action: "Partial Closure",
       targetAsset: setId,
@@ -3328,6 +3351,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         ? "Correction Requested"
         : "Rejected";
     const previousSet = get().assuranceSets.find((s) => s.id === setId);
+    if (decision === "Approved" && previousSet) {
+      const openMandatory = (previousSet.requirements || []).filter(
+        (r) =>
+          r.isMandatory &&
+          !r.exemption &&
+          !r.isFulfilled &&
+          r.verifierStatus !== "Verified" &&
+          r.verifierStatus !== "Waived" &&
+          previousSet.verificationRequired !== false,
+      );
+      if (openMandatory.length > 0) {
+        return;
+      }
+    }
+    const closedOptionalTasks: AssuranceRequirement[] = [];
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -3345,7 +3383,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                   `Campaign returned to verification stage by Executive Approver.`,
               };
             })
-          : s.requirements;
+          : decision === "Approved"
+            ? s.requirements.map((r) => {
+                if (!r.isMandatory && r.verifierStatus !== "Verified" && r.verifierStatus !== "Waived" && r.verifierStatus !== "Not Done") {
+                  closedOptionalTasks.push(r);
+                  return {
+                    ...r,
+                    verifierStatus: "Not Done" as const,
+                    isFulfilled: false,
+                    notes: "Closed as not done upon set closure.",
+                  };
+                }
+                return r;
+              })
+            : s.requirements;
 
         const candidateSet: AssuranceSet = {
           ...s,
@@ -3366,6 +3417,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         projects: syncedProjects,
       };
     });
+
+    for (const r of closedOptionalTasks) {
+      get().logAuditEvent({
+        action: "Task Closed - Not Done",
+        targetAsset: `${setId} / ${r.title}`,
+        target: { kind: "set", setId, requirementId: r.id },
+        justificationNotes: "Closed as not done upon set closure.",
+      });
+    }
 
     const pingTag = isDenial ? " [PING: SUBMITTER ACTION REQUIRED]" : "";
     get().logAuditEvent({

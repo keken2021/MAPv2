@@ -7,6 +7,7 @@ import {
   getNextExpiry,
   getPartyRoles,
 } from '../utils/assuranceSetStatus';
+import { useMapStore } from '../store/useMapStore';
 import type { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 import type { CapaItem } from '../types/capa';
 import type { MasterDocument } from '../types/document';
@@ -209,5 +210,71 @@ describe('order', () => {
   it('orders stages along the pipeline', () => {
     expect(compareAssuranceSetStage('Initiated', 'Approval')).toBeLessThan(0);
     expect(compareAssuranceSetStage('Certified', 'Verification')).toBeGreaterThan(0);
+  });
+});
+
+describe('optional tasks closed as not done at set close', () => {
+  it('closes open optional tasks as Not Done and logs audit events when a set is approved or partially closed, while open mandatory tasks block closure', () => {
+    const initialSets = useMapStore.getState().assuranceSets;
+    const initialEvents = useMapStore.getState().auditEvents;
+
+    try {
+      const testSet: AssuranceSet = set({
+        id: 'AS-CLOSE-OPT-01',
+        stage: 'Approval',
+        approverDecision: undefined,
+        readinessScore: 70,
+        requirements: [
+          task({ id: 'REQ-MAND-1', title: 'Mandatory Class Cert', isMandatory: true, isFulfilled: false, verifierStatus: 'Pending' }),
+          task({ id: 'REQ-OPT-1', title: 'Optional Tug Bollard Pull Note', isMandatory: false, isFulfilled: false, verifierStatus: 'Pending' }),
+        ],
+      });
+
+      useMapStore.setState({ assuranceSets: [testSet, ...initialSets] });
+
+      /* open mandatory task blocks both partial closure and approver closure */
+      const blockedPartial = useMapStore.getState().partiallyCloseAssuranceSet('AS-CLOSE-OPT-01', 'Client Admin');
+      expect(blockedPartial.success).toBe(false);
+
+      useMapStore.getState().setApproverDecision('AS-CLOSE-OPT-01', 'Approved', 'Attempted early approval');
+      const stillOpen = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-CLOSE-OPT-01')!;
+      expect(stillOpen.approverDecision).toBeUndefined();
+      expect(stillOpen.requirements.find((r) => r.id === 'REQ-OPT-1')?.verifierStatus).toBe('Pending');
+
+      /* verify the mandatory task, leaving the optional task open */
+      useMapStore.setState({
+        assuranceSets: useMapStore.getState().assuranceSets.map((s) =>
+          s.id === 'AS-CLOSE-OPT-01'
+            ? {
+                ...s,
+                requirements: s.requirements.map((r) =>
+                  r.id === 'REQ-MAND-1' ? { ...r, verifierStatus: 'Verified', isFulfilled: true, documentId: 'DOC-1' } : r,
+                ),
+              }
+            : s,
+        ),
+      });
+
+      useMapStore.getState().setApproverDecision('AS-CLOSE-OPT-01', 'Approved', 'Approved with optional open');
+      const closedSet = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-CLOSE-OPT-01')!;
+      expect(closedSet.approverDecision).toBe('Approved');
+      expect(closedSet.stage).toBe('Approved');
+
+      const closedOpt = closedSet.requirements.find((r) => r.id === 'REQ-OPT-1')!;
+      expect(closedOpt.verifierStatus).toBe('Not Done');
+      expect(closedOpt.isFulfilled).toBe(false);
+      expect(closedOpt.notes).toBe('Closed as not done upon set closure.');
+
+      const notDoneAudit = useMapStore.getState().auditEvents.find(
+        (e) =>
+          e.action === 'Task Closed - Not Done' &&
+          e.target.kind === 'set' &&
+          e.target.setId === 'AS-CLOSE-OPT-01' &&
+          e.target.requirementId === 'REQ-OPT-1',
+      );
+      expect(notDoneAudit).toBeDefined();
+    } finally {
+      useMapStore.setState({ assuranceSets: initialSets, auditEvents: initialEvents });
+    }
   });
 });

@@ -175,7 +175,7 @@ export interface AssuranceRequirement {
   documentId?: string;
   linkedDocumentId?: string;
   documentVersion?: string;
-  verifierStatus: 'Pending' | 'Verified' | 'Correction Requested' | 'Rejected';
+  verifierStatus: 'Pending' | 'Verified' | 'Correction Requested' | 'Rejected' | 'Waived' | 'Not Done';
   verificationRoute?: 'Inspector' | 'Approver';
   notes?: string;
   isOtherDocument?: boolean;
