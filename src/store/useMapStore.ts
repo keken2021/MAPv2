@@ -3184,6 +3184,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     const updatedSet = get().assuranceSets.find((s) => s.id === setId);
+    if (isDenial && updatedSet?.assignedApprover) {
+      const requirement = updatedSet.requirements.find((r) => r.id === reqId);
+      notifyAssuranceSetUser(
+        get,
+        updatedSet,
+        updatedSet.assignedApprover,
+        {
+          type: "document_correction",
+          subject: `Task sent back for review: ${requirement?.title || reqId}`,
+          message: notes?.trim() || undefined,
+          documentId: requirement?.documentId || requirement?.linkedDocumentId,
+        },
+        { systemSent: get().activePersona === "Approver" },
+      );
+    }
     if (previousSet && updatedSet && previousSet.stage !== updatedSet.stage) {
       logStageTransitionAudit(get, updatedSet, previousSet.stage, updatedSet.stage);
     }
@@ -3286,6 +3301,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
 
     const updatedSet = get().assuranceSets.find((s) => s.id === setId);
+    if (updatedSet?.assignedApprover) {
+      const requirement = updatedSet.requirements.find((r) => r.id === reqId);
+      notifyAssuranceSetUser(
+        get,
+        updatedSet,
+        updatedSet.assignedApprover,
+        {
+          type: "document_correction",
+          subject: `Task sent back for review: ${requirement?.title || requirementTitle}`,
+          message: notes?.trim() || undefined,
+          documentId: requirement?.documentId || requirement?.linkedDocumentId,
+        },
+        { systemSent: get().activePersona === "Approver" },
+      );
+    }
     if (previousSet && updatedSet && previousSet.stage !== updatedSet.stage) {
       logStageTransitionAudit(get, updatedSet, previousSet.stage, updatedSet.stage);
     }
@@ -3857,6 +3887,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             documentId: docId,
           },
         );
+        if (s.assignedApprover) {
+          const req = s.requirements.find((r) => r.id === requirementId);
+          notifyAssuranceSetUser(
+            get,
+            s,
+            s.assignedApprover,
+            {
+              type: "document_correction",
+              subject: `Task sent back for review: ${req?.title || verifiedDoc?.title || docId}`,
+              message: notes?.trim() || undefined,
+              documentId: docId,
+            },
+            { systemSent: get().activePersona === "Approver" },
+          );
+        }
       }
 
       /* a set that has just reached the approval stage goes to its approver */

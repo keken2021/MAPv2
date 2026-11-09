@@ -555,6 +555,46 @@ describe('store: workflow notifications', () => {
     });
   });
 
+  it('notifies the approver when a task is sent back for correction or review', () => {
+    const { assuranceSets, users } = useMapStore.getState();
+    const targetSet = assuranceSets.find(
+      (s) => s.requirements.length > 0 && resolveNotificationRecipient(s.assignedApprover, users),
+    )!;
+    expect(targetSet).toBeDefined();
+    const approver = resolveNotificationRecipient(targetSet.assignedApprover, users)!;
+    const req = targetSet.requirements[0];
+
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
+    useMapStore.getState().updateRequirementStatus(targetSet.id, req.id, 'Correction Requested', 'Signature page missing.');
+
+    const approverNotice = inboxOf(approver.id).find(
+      (n) => n.type === 'document_correction' && n.assuranceSetId === targetSet.id && n.subject.startsWith('Task sent back for review'),
+    );
+    expect(approverNotice).toMatchObject({
+      type: 'document_correction',
+      assuranceSetId: targetSet.id,
+      subject: `Task sent back for review: ${req.title}`,
+      message: 'Signature page missing.',
+      senderUserId: 'USR-202',
+    });
+
+    useMapStore.setState({ notifications: [] });
+    useMapStore.getState().denyRequirementByApprover(targetSet.id, req.id, 'Correction Requested', 'Needs updated class endorsement.');
+    const denyNotice = inboxOf(approver.id).find(
+      (n) => n.type === 'document_correction' && n.assuranceSetId === targetSet.id && n.subject.startsWith('Task sent back for review'),
+    );
+    expect(denyNotice).toMatchObject({
+      type: 'document_correction',
+      assuranceSetId: targetSet.id,
+      subject: `Task sent back for review: ${req.title}`,
+      message: 'Needs updated class endorsement.',
+    });
+  });
+
   it('notifies the vessel inspector when a capa is flagged for re-inspection', () => {
     useMapStore.setState({
       activePersona: 'C Admin',
