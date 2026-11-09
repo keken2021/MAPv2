@@ -83,8 +83,17 @@ export const UniversalDocumentPreviewModal: React.FC<UniversalDocumentPreviewMod
       onClose={onClose}
       title={modalTitle}
       meta={
-        <span className="font-mono-code" style={{ fontSize: '0.75rem' }}>
+        <span className="font-mono-code d-inline-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.75rem' }}>
           {modalSubtitle}
+          {document.isHandEntered && (
+            <span
+              className="badge text-dark"
+              data-testid="hand-entered-badge"
+              style={{ backgroundColor: '#fde68a', border: '1px solid #f59e0b', fontSize: '0.7rem' }}
+            >
+              Hand-entered (Manual Fallback)
+            </span>
+          )}
         </span>
       }
       size="xl"

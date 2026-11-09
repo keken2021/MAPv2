@@ -402,6 +402,56 @@ describe('Document Records, Upload, Review and Preview (Task 5311)', () => {
     });
   });
 
+  describe('5490: Evidence upload accepts TIFF with a 25 MB limit', () => {
+    it('accepts a TIFF under 25 MB and refuses oversized or Word files', () => {
+      render(<DocumentUploadModal isOpen onClose={() => {}} />);
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      expect(input.accept).toBe('.pdf,.png,.jpg,.jpeg,.tif,.tiff');
+
+      const tiff = new File([new Uint8Array(1024)], 'class-cert.tiff', { type: 'image/tiff' });
+      fireEvent.change(input, { target: { files: [tiff] } });
+      expect(screen.queryByTestId('upload-file-error')).toBeNull();
+      expect(screen.getByText(/class-cert\.tiff/i)).toBeInTheDocument();
+
+      const oversized = new File([new Uint8Array(26 * 1024 * 1024)], 'too-big.pdf', { type: 'application/pdf' });
+      Object.defineProperty(oversized, 'size', { value: 26 * 1024 * 1024 });
+      fireEvent.change(input, { target: { files: [oversized] } });
+      expect(screen.getByTestId('upload-file-error')).toHaveTextContent(
+        'File size exceeds the maximum allowed limit of 25 MB.',
+      );
+
+      const word = new File([new Uint8Array(2048)], 'notes.docx', {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+      fireEvent.change(input, { target: { files: [word] } });
+      expect(screen.getByTestId('upload-file-error')).toHaveTextContent(
+        'Word documents (.doc, .docx) are not accepted. Please upload PDF, TIFF, or image files.',
+      );
+    });
+  });
+
+  describe('5492: Hand-entry fallback after a failed extraction', () => {
+    it('shows Retry and Enter by Hand when extraction fails, then shows the manual fallback badge', async () => {
+      vi.useFakeTimers();
+      useMapStore.setState({ activePersona: 'Administrator' });
+
+      render(<DocumentUploadModal isOpen onClose={() => {}} defaultVesselId="VESSEL-001" />);
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const failFile = new File([new Uint8Array(2048)], 'fail-scan.pdf', { type: 'application/pdf' });
+      fireEvent.change(input, { target: { files: [failFile] } });
+
+      fireEvent.click(screen.getByRole('button', { name: /Read Document/i }));
+      await act(async () => {
+        vi.advanceTimersByTime(1200);
+      });
+
+      expect(screen.getByTestId('extraction-failed-alert')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Retry Extraction/i })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: /Enter by Hand/i }));
+      expect(screen.getByTestId('hand-entered-badge')).toBeInTheDocument();
+    });
+  });
+
   describe('1c-09: CrewDocumentViewerModal reads crew member and document records', () => {
     it('reads rank, nationality, and vessel from CrewMember and file details from record', () => {
       const mockStcwDoc: STCWDocumentItem = {

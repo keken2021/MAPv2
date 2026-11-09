@@ -103,6 +103,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [isAiExtracted, setIsAiExtracted] = useState(false);
   const [isNewExtractionAnimate, setIsNewExtractionAnimate] = useState(false);
   const [aiOcrConfidence, setAiOcrConfidence] = useState(99.2);
+  const [extractionFailed, setExtractionFailed] = useState(false);
+  const [isHandEntered, setIsHandEntered] = useState(false);
 
   /* manual inline field editing state */
   const [isManualEditActive, setIsManualEditActive] = useState(false);
@@ -183,6 +185,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setIsNewExtractionAnimate(false);
       setHasAttemptedSubmit(false);
       setErrorMessage('');
+      setExtractionFailed(false);
+      setIsHandEntered(Boolean((existingDocument as MasterDocument | null | undefined)?.isHandEntered));
       if (existingDocument) {
         setTitle(existingDocument.title);
         setCertificateNo(existingDocument.certificateNo);
@@ -261,7 +265,32 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     how: sets fileName state and enables isPendingVerification preview gate.
     with what file: src/components/modals/DocumentUploadModal.tsx.
   */
+  const MAX_EVIDENCE_BYTES = 25 * 1024 * 1024;
+  const EVIDENCE_ACCEPT = '.pdf,.png,.jpg,.jpeg,.tif,.tiff';
+
+  const validateEvidenceFile = (name: string, size?: number): string | null => {
+    const lower = name.toLowerCase();
+    if (lower.endsWith('.doc') || lower.endsWith('.docx')) {
+      return 'Word documents (.doc, .docx) are not accepted. Please upload PDF, TIFF, or image files.';
+    }
+    const allowed = ['.pdf', '.png', '.jpg', '.jpeg', '.tif', '.tiff'];
+    if (!allowed.some((ext) => lower.endsWith(ext))) {
+      return 'Unsupported file type. Please upload PDF, TIFF, or image files.';
+    }
+    if (typeof size === 'number' && size > MAX_EVIDENCE_BYTES) {
+      return 'File size exceeds the maximum allowed limit of 25 MB.';
+    }
+    return null;
+  };
+
   const handleSelectFileForPreview = (selectedName: string, selectedSize?: number) => {
+    const validationError = validateEvidenceFile(selectedName, selectedSize);
+    if (validationError) {
+      setErrorMessage(validationError);
+      setIsPendingVerification(false);
+      return;
+    }
+    setErrorMessage('');
     setFileName(selectedName);
     if (typeof selectedSize === 'number') {
       setFileSizeBytes(selectedSize);
@@ -269,6 +298,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     setIsPendingVerification(true);
     setIsAiExtracted(false);
     setIsExtractingAi(false);
+    setExtractionFailed(false);
+    setIsHandEntered(false);
   };
 
   const handleConfirmVerifyAndExtract = () => {
@@ -317,6 +348,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     setFileName(selectedName);
     setIsExtractingAi(true);
     setIsAiExtracted(false);
+    setExtractionFailed(false);
     setRevealedFields({ certNo: false, authority: false, expiry: false, summary: false });
 
     const selectedVesselObj = vessels.find((v) => v.id === vesselId);
@@ -326,9 +358,18 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       ? `${selectedVesselObj.classificationSociety} Classification Society`
       : 'DNV Classification Society';
 
+    /* demo failure when the file name signals a bad scan (A55 / Task 5492) */
+    const shouldFailExtraction = /fail|corrupt|illegible/i.test(selectedName);
+
     /* step 1: complete ai scan after 1100ms then reveal fields with staggered delays */
     setTimeout(() => {
       setIsExtractingAi(false);
+      if (shouldFailExtraction) {
+        setExtractionFailed(true);
+        setIsAiExtracted(false);
+        setAiOcrConfidence(0);
+        return;
+      }
       setIsAiExtracted(true);
       setIsNewExtractionAnimate(true);
       setExtractionKey((prev) => prev + 1);
@@ -370,11 +411,30 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }, 1100);
   };
 
+  const handleRetryExtraction = () => {
+    setExtractionFailed(false);
+    setIsHandEntered(false);
+    triggerAiExtraction(fileName);
+  };
+
+  const handleEnterByHand = () => {
+    setExtractionFailed(false);
+    setIsHandEntered(true);
+    setIsAiExtracted(true);
+    setIsManualEditActive(true);
+    setAiOcrConfidence(0);
+    setRevealedFields({ certNo: true, authority: true, expiry: true, summary: true });
+    setCertificateNo('');
+    setIssuingAuthority('');
+    setExpiryDate('');
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       handleSelectFileForPreview(selectedFile.name, selectedFile.size);
     }
+    e.target.value = '';
   };
 
   const handleSampleFileClick = (sampleName: string) => {
@@ -544,6 +604,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             rulesNotChecked: true,
           },
           verificationStatus: 'Pending',
+          isHandEntered: isHandEntered || undefined,
         };
         if (selectedUnassignedDocId) {
           const chosenDoc = documents.find((d) => d.id === selectedUnassignedDocId);
@@ -566,7 +627,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   };
 
   /* extraction review is rendered only after ai ocr scan animation is completed */
-  const hasExtractedSpecs = Boolean(isAiExtracted || (existingDocument && fileName));
+  const hasExtractedSpecs = Boolean(isAiExtracted || isHandEntered || (existingDocument && fileName));
 
   const previewDoc: MasterDocument = {
     id: existingDocument?.id || 'DOC-UPLOAD-PREVIEW',
@@ -631,7 +692,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
             ref={fileInputRef}
             className="d-none"
             onChange={handleFileChange}
-            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+            accept={EVIDENCE_ACCEPT}
           />
 
           <div className="modal-header border-bottom bg-light d-flex align-items-center justify-content-between p-3 position-relative">
@@ -666,6 +727,39 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
           <form onSubmit={handleSubmit}>
             <div className="modal-body p-4">
+              {errorMessage && (
+                <div className="alert alert-danger py-2 px-3 mb-3" role="alert" data-testid="upload-file-error">
+                  {errorMessage}
+                </div>
+              )}
+
+              {extractionFailed && (
+                <div className="alert alert-warning py-3 px-3 mb-3" role="alert" data-testid="extraction-failed-alert">
+                  <div className="fw-semibold mb-1">Extraction failed</div>
+                  <div className="small mb-3">
+                    The scan could not be read with enough confidence. Retry extraction or enter the certificate details by hand.
+                  </div>
+                  <div className="d-flex flex-wrap gap-2">
+                    <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handleRetryExtraction}>
+                      Retry Extraction
+                    </button>
+                    <button type="button" className="btn btn-sm btn-primary" onClick={handleEnterByHand}>
+                      Enter by Hand
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {isHandEntered && (
+                <div
+                  className="badge text-dark mb-3 align-self-start"
+                  data-testid="hand-entered-badge"
+                  style={{ backgroundColor: '#fde68a', border: '1px solid #f59e0b', fontSize: '0.75rem' }}
+                >
+                  Hand-entered (Manual Fallback)
+                </div>
+              )}
+
               {/* Simulated Upload Progress Bar */}
               {isUploading && (
                 <div className="p-3 mb-4 bg-light border border-primary rounded shadow-2xs">
