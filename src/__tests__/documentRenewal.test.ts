@@ -265,7 +265,15 @@ describe('store: document renewal notifications', () => {
     useMapStore.getState().notifications.filter((n) => n.type === 'document_renewal' && n.assuranceSetId === setId);
 
   beforeEach(() => {
-    useMapStore.setState({ notifications: [], activePersona: 'Administrator' });
+    useMapStore.setState({
+      notifications: [],
+      activePersona: 'Administrator',
+      documents: MOCK_DOCUMENTS.map((d) => ({ ...d })),
+      assuranceSets: MOCK_ASSURANCE_SETS.map((s) => ({
+        ...s,
+        requirements: s.requirements.map((r) => ({ ...r })),
+      })),
+    });
   });
 
   it('raises each due renewal once, from the system, to the submitter of the set', () => {
@@ -287,7 +295,20 @@ describe('store: document renewal notifications', () => {
     expect(useMapStore.getState().raiseDocumentRenewalNotifications([SET_ID])).toBeGreaterThan(0);
   });
 
+  it('refuses re-upload requests on a valid document', () => {
+    const docs = useMapStore.getState().documents.map((d) =>
+      d.id === DOC_ID ? { ...d, complianceState: 'Valid' as const, expiryDate: '2029-01-01' } : d,
+    );
+    useMapStore.setState({ documents: docs });
+    expect(useMapStore.getState().requestDocumentReupload(DOC_ID, 'Please renew.')).toBe(0);
+    expect(useMapStore.getState().notifications).toHaveLength(0);
+  });
+
   it('sends a reviewer request to the submitter and leaves the document status as it is', () => {
+    const docs = useMapStore.getState().documents.map((d) =>
+      d.id === DOC_ID ? { ...d, complianceState: 'Expired' as const, expiryDate: '2026-01-01' } : d,
+    );
+    useMapStore.setState({ documents: docs });
     const before = useMapStore.getState().documents.find((d) => d.id === DOC_ID)!.verificationStatus;
     const raised = useMapStore.getState().requestDocumentReupload(DOC_ID, 'Scan is of the 2024 certificate. Upload the 2026 renewal.');
     expect(raised).toBeGreaterThan(0);
@@ -301,11 +322,19 @@ describe('store: document renewal notifications', () => {
   });
 
   it('sends nothing without a reason', () => {
+    const docs = useMapStore.getState().documents.map((d) =>
+      d.id === DOC_ID ? { ...d, complianceState: 'Expired' as const, expiryDate: '2026-01-01' } : d,
+    );
+    useMapStore.setState({ documents: docs });
     expect(useMapStore.getState().requestDocumentReupload(DOC_ID, '   ')).toBe(0);
     expect(useMapStore.getState().notifications).toHaveLength(0);
   });
 
   it('keeps the notification open when it is opened, and closes it when a new version is uploaded', () => {
+    const docs = useMapStore.getState().documents.map((d) =>
+      d.id === DOC_ID ? { ...d, complianceState: 'Mismatch/Exception' as const } : d,
+    );
+    useMapStore.setState({ documents: docs });
     useMapStore.getState().requestDocumentReupload(DOC_ID, 'Certificate is outdated.');
     const reqAfterRequest = useMapStore.getState().assuranceSets
       .find((s) => s.id === SET_ID)?.requirements

@@ -94,7 +94,6 @@ const ALL_MOCK_DATA_STATUSES = [
   'Mismatch/Exception',
   'Mismatch',
   'Suspended',
-  'Withdrawn',
   'Pending Invitation',
   'Inactive',
   'Composing',

@@ -110,6 +110,7 @@ import {
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from "./projectMockData";
 import { AppNotification, NotificationDraft, SuggestedAssuranceAsset } from "../types/notification";
 import {
+  canRequestDocumentReupload,
   findDocumentRenewalsDue,
   getComplianceStateForExpiry,
   getRenewalMessage,
@@ -1404,6 +1405,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const document = get().documents.find((d) => d.id === docId);
     const note = reason.trim();
     if (!document || !note) return 0;
+    /* A11: reviewers may request re-upload only for Exception or Expired documents */
+    if (!canRequestDocumentReupload(document)) return 0;
 
     const now = new Date().toISOString();
     set((state) => ({

@@ -11,7 +11,7 @@ import { DocumentUploadModal } from '../modals/DocumentUploadModal';
 import { Check, AlertCircle } from 'lucide-react';
 import { isUserDocumentSubmitter } from '../../utils/userRoleHelpers';
 import { isAssuranceSetCreatedByCAdmin } from '../../utils/rbacHelpers';
-import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
+import { canRequestDocumentReupload, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { Drawer } from './Drawer';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import type { VerificationMethod } from '../../types/assurance';
@@ -159,6 +159,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     (activePersona === 'Verifier' || isClientVerifier);
   /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
   const reuploadBlockReason = getDocumentReuploadBlockReason(document, notifications);
+  /* A11: Request Re-upload only for Exception or Expired documents */
+  const canRequestReupload = canRequestDocumentReupload(document);
 
   const requireComment = (message = 'Notes are required to return or reject a document.') => {
     if (!comment.trim()) {
@@ -397,7 +399,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     Upload New Version
                   </button>
                 )}
-                {!isVersionLocked && (
+                {!isVersionLocked && canRequestReupload && (
                   <button type="button" className="btn btn-outline-secondary" onClick={handleRequestReupload}>
                     Request Reupload
                   </button>
@@ -509,6 +511,16 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     <strong>{linkedReq.inspectionReport.inspectorAccreditation || 'Accreditation not recorded'}</strong>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {document.isHandEntered && (
+              <div
+                className="badge text-dark align-self-start"
+                data-testid="hand-entered-badge"
+                style={{ backgroundColor: '#fde68a', border: '1px solid #f59e0b', fontSize: '0.75rem' }}
+              >
+                Hand-entered (Manual Fallback)
               </div>
             )}
 

@@ -42,7 +42,7 @@ export interface VesselCertAttributes {
   isInterim?: boolean; // Interim certificate flag (max 5-6 mos)
   companyImoNumber?: string; // Operating company IMO number (DOC/SMC/ISSC)
   grossTonnagePrinted?: number; // Gross tonnage as printed on certificate
-  certificateStatus?: 'Valid' | 'Expiring Soon' | 'Expired' | 'Suspended' | 'Withdrawn' | 'Superseded';
+  certificateStatus?: 'Valid' | 'Expiring Soon' | 'Expired' | 'Suspended' | 'Superseded';
   checksumSha256?: string;
   attemptNumber?: number;
   decisionTime?: string; // SHA-256 digital fingerprint of certificate
@@ -89,6 +89,8 @@ export interface MasterDocument {
   validationRules: ValidationRuleStatus;
   verificationStatus: 'Pending' | 'Verified' | 'Correction Requested' | 'Rejected';
   verificationNotes?: string;
+  /** true when certificate metadata was entered by hand after a failed extraction (A55) */
+  isHandEntered?: boolean;
   fileUrl?: string;
   /* Extended IMO certificate metadata (gap review R2-G1) */
   uniqueTrackingNumber?: string;

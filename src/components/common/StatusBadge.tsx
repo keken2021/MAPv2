@@ -84,7 +84,6 @@ export const STATUS_TONE_MAP: Record<string, StatusTone> = {
   'Mismatch': 'danger',
   'Mismatch/Exception': 'danger',
   'Suspended': 'danger',
-  'Withdrawn': 'danger',
 
   // Neutral
   'Initiated': 'neutral',

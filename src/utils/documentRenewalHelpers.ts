@@ -71,6 +71,19 @@ export function isDocumentExpired(
 }
 
 /**
+  what: whether a reviewer may request a re-upload for this document (A11 / Task 5491).
+  how: true only when the document is in Exception (Mismatch/Exception) or Expired.
+  with what file: src/utils/documentRenewalHelpers.ts used by useMapStore.requestDocumentReupload and DocumentReviewDrawer.
+*/
+export function canRequestDocumentReupload(
+  document: Pick<MasterDocument, 'expiryDate' | 'complianceState'>,
+  today: Date = new Date(),
+): boolean {
+  if (document.complianceState === 'Mismatch/Exception') return true;
+  return isDocumentExpired(document, today);
+}
+
+/**
   what: compliance state a document takes from its expiry date; inputs are the expiry date and today's date.
   how: expired once the date has passed, expiring within the warning period (EXPIRY_WARNING_DAYS), otherwise valid.
   with what file: src/utils/documentRenewalHelpers.ts used by useMapStore.ts when a new version carries a new expiry date.
