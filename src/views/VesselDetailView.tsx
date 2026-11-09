@@ -231,10 +231,12 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const canEditFull = !isReadOnly && isOwned;
   const canEditStatus = canEditFull || (isSubmitter && isOwned);
   const canShowEditButton = canEditFull || canEditStatus;
-  const canUploadDocs = isAdmin || isSubmitter || isOwned;
+  /* A6: non-owners cannot upload documents or edit the vessel datasheet */
+  const canUploadDocs = isOwned && (isAdmin || isSubmitter);
   const canExport = isAdmin || isCAdmin || isOwned;
   const canManagePhotos = canEditFull;
-  const showManagementSection = isCAdmin;
+  const showManagementSection = isCAdmin && isOwned;
+  const showPublicVesselProfile = Boolean(vessel) && !isOwned;
 
   const getManagerDateOfEffect = useOrganizationProfileStore((s) => s.getManagerDateOfEffect);
   const getManagerDateOfEffectForOrganization = useOrganizationProfileStore(
@@ -269,39 +271,55 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   */
   const handleExportCsv = () => {
     if (!vessel) return;
-    const vesselDetails = [
-      { Category: 'Vessel Identification', Field: 'Vessel Name', Value: vessel.name },
-      { Category: 'Vessel Identification', Field: 'IMO Number', Value: vessel.imoNumber },
-      { Category: 'Vessel Identification', Field: 'Official Reg Number', Value: vessel.officialRegNumber },
-      { Category: 'Vessel Identification', Field: 'MMSI Number', Value: vessel.mmsiNumber },
-      { Category: 'Vessel Identification', Field: 'Call Sign', Value: vessel.callSign },
-      { Category: 'Vessel Identification', Field: 'Flag State', Value: vessel.flagState },
-      { Category: 'Vessel Identification', Field: 'Port of Registry', Value: vessel.portOfRegistry },
-      { Category: 'Classification', Field: 'Vessel Type', Value: vessel.vesselType },
-      { Category: 'Classification', Field: 'Vessel', Value: vessel.vesselSubtype },
-      { Category: 'Classification', Field: 'Class Society', Value: vessel.classificationSociety },
-      { Category: 'Classification', Field: 'Class Notation', Value: vessel.classNotation },
-      { Category: 'Classification', Field: 'Hull Type', Value: vessel.hullType },
-      { Category: 'Construction & Dimensions', Field: 'Year Built', Value: vessel.yearBuilt },
-      { Category: 'Construction & Dimensions', Field: 'Shipyard Builder', Value: vessel.shipyardBuilder },
-      { Category: 'Construction & Dimensions', Field: 'LOA (m)', Value: vessel.lengthOverallMeters },
-      { Category: 'Construction & Dimensions', Field: 'Beam (m)', Value: vessel.beamMeters },
-      { Category: 'Construction & Dimensions', Field: 'Draft (m)', Value: vessel.draftMeters },
-      { Category: 'Tonnage & Propulsion', Field: 'Gross Tonnage (GT)', Value: vessel.grossTonnageGT },
-      { Category: 'Tonnage & Propulsion', Field: 'Deadweight (DWT)', Value: vessel.deadweightTonnageDWT },
-      { Category: 'Tonnage & Propulsion', Field: 'DP Class', Value: vessel.dynamicPositioningClass },
-      { Category: 'Ownership & Management', Field: 'Registered Owner', Value: vessel.registeredOwner },
-      { Category: 'Ownership & Management', Field: 'Technical Manager', Value: vessel.technicalManager },
-      { Category: 'Ownership & Management', Field: 'DOC Number', Value: vessel.docNumber },
-      { Category: 'Ownership & Management', Field: '24/7 Ops Contact', Value: vessel.contact247 },
-      { Category: 'Insurance & Crew', Field: 'P&I Club', Value: vessel.piClubName },
-      { Category: 'Insurance & Crew', Field: 'Policy Number', Value: vessel.policyNumber },
-      { Category: 'Insurance & Crew', Field: 'Master Name', Value: vessel.masterName },
-      { Category: 'Insurance & Crew', Field: 'Safe Manning Complement', Value: vessel.safeManningComplement },
-      { Category: 'Insurance & Crew', Field: 'Lifeboat Capacity', Value: vessel.lifeboatCapacity },
-      { Category: 'Status', Field: 'Operating Status', Value: vessel.status },
-      { Category: 'Compliance', Field: 'Readiness (average of all sets)', Value: `${calculateVesselReadiness(vessel, assuranceSets, documents)}%` },
-    ];
+    /* A6: non-owners export only the eight public fields */
+    const vesselDetails = showPublicVesselProfile
+      ? [
+          { Category: 'Public Profile', Field: 'Vessel Name', Value: vessel.name },
+          { Category: 'Public Profile', Field: 'IMO Number', Value: vessel.imoNumber },
+          { Category: 'Public Profile', Field: 'Flag State', Value: vessel.flagState },
+          { Category: 'Public Profile', Field: 'Vessel Type', Value: vessel.vesselSubtype || vessel.vesselType },
+          { Category: 'Public Profile', Field: 'Classification Society', Value: vessel.classificationSociety },
+          { Category: 'Public Profile', Field: 'Year of Build', Value: vessel.yearBuilt },
+          { Category: 'Public Profile', Field: 'Registered Owner Organization', Value: vessel.registeredOwner },
+          {
+            Category: 'Public Profile',
+            Field: 'Object Verification Status',
+            Value: objectVerification?.status || 'Not assessed',
+          },
+        ]
+      : [
+          { Category: 'Vessel Identification', Field: 'Vessel Name', Value: vessel.name },
+          { Category: 'Vessel Identification', Field: 'IMO Number', Value: vessel.imoNumber },
+          { Category: 'Vessel Identification', Field: 'Official Reg Number', Value: vessel.officialRegNumber },
+          { Category: 'Vessel Identification', Field: 'MMSI Number', Value: vessel.mmsiNumber },
+          { Category: 'Vessel Identification', Field: 'Call Sign', Value: vessel.callSign },
+          { Category: 'Vessel Identification', Field: 'Flag State', Value: vessel.flagState },
+          { Category: 'Vessel Identification', Field: 'Port of Registry', Value: vessel.portOfRegistry },
+          { Category: 'Classification', Field: 'Vessel Type', Value: vessel.vesselType },
+          { Category: 'Classification', Field: 'Vessel', Value: vessel.vesselSubtype },
+          { Category: 'Classification', Field: 'Class Society', Value: vessel.classificationSociety },
+          { Category: 'Classification', Field: 'Class Notation', Value: vessel.classNotation },
+          { Category: 'Classification', Field: 'Hull Type', Value: vessel.hullType },
+          { Category: 'Construction & Dimensions', Field: 'Year Built', Value: vessel.yearBuilt },
+          { Category: 'Construction & Dimensions', Field: 'Shipyard Builder', Value: vessel.shipyardBuilder },
+          { Category: 'Construction & Dimensions', Field: 'LOA (m)', Value: vessel.lengthOverallMeters },
+          { Category: 'Construction & Dimensions', Field: 'Beam (m)', Value: vessel.beamMeters },
+          { Category: 'Construction & Dimensions', Field: 'Draft (m)', Value: vessel.draftMeters },
+          { Category: 'Tonnage & Propulsion', Field: 'Gross Tonnage (GT)', Value: vessel.grossTonnageGT },
+          { Category: 'Tonnage & Propulsion', Field: 'Deadweight (DWT)', Value: vessel.deadweightTonnageDWT },
+          { Category: 'Tonnage & Propulsion', Field: 'DP Class', Value: vessel.dynamicPositioningClass },
+          { Category: 'Ownership & Management', Field: 'Registered Owner', Value: vessel.registeredOwner },
+          { Category: 'Ownership & Management', Field: 'Technical Manager', Value: vessel.technicalManager },
+          { Category: 'Ownership & Management', Field: 'DOC Number', Value: vessel.docNumber },
+          { Category: 'Ownership & Management', Field: '24/7 Ops Contact', Value: vessel.contact247 },
+          { Category: 'Insurance & Crew', Field: 'P&I Club', Value: vessel.piClubName },
+          { Category: 'Insurance & Crew', Field: 'Policy Number', Value: vessel.policyNumber },
+          { Category: 'Insurance & Crew', Field: 'Master Name', Value: vessel.masterName },
+          { Category: 'Insurance & Crew', Field: 'Safe Manning Complement', Value: vessel.safeManningComplement },
+          { Category: 'Insurance & Crew', Field: 'Lifeboat Capacity', Value: vessel.lifeboatCapacity },
+          { Category: 'Status', Field: 'Operating Status', Value: vessel.status },
+          { Category: 'Compliance', Field: 'Readiness (average of all sets)', Value: `${calculateVesselReadiness(vessel, assuranceSets, documents)}%` },
+        ];
 
     exportToCsv(`${vessel.name.replace(/\s+/g, '_')}_Information`, vesselDetails);
   };
@@ -314,28 +332,39 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const handleExportPdf = () => {
     if (!vessel) return;
     const headers = ['Category', 'Specification Field', 'Value'];
-    const rows = [
-      ['Vessel Identification', 'Vessel Name', vessel.name],
-      ['Vessel Identification', 'IMO Number', vessel.imoNumber],
-      ['Vessel Identification', 'Official Reg Number', vessel.officialRegNumber],
-      ['Vessel Identification', 'MMSI Number', vessel.mmsiNumber],
-      ['Vessel Identification', 'Call Sign', vessel.callSign],
-      ['Vessel Identification', 'Flag State / Port', `${vessel.flagState} (${vessel.portOfRegistry})`],
-      ['Classification', 'Vessel Type / Subtype', `${vessel.vesselType} - ${vessel.vesselSubtype}`],
-      ['Classification', 'Class Society & Notation', `${vessel.classificationSociety} - ${vessel.classNotation}`],
-      ['Classification', 'Hull Type', vessel.hullType],
-      ['Construction & Dimensions', 'Year Built & Builder', `${vessel.yearBuilt} by ${vessel.shipyardBuilder}`],
-      ['Construction & Dimensions', 'LOA x Beam x Draft', `${vessel.lengthOverallMeters}m x ${vessel.beamMeters}m x ${vessel.draftMeters}m`],
-      ['Tonnage & Propulsion', 'GT / DWT / DP Class', `${vessel.grossTonnageGT} GT / ${vessel.deadweightTonnageDWT} DWT / ${vessel.dynamicPositioningClass}`],
-      ['Ownership & Management', 'Registered Owner', vessel.registeredOwner],
-      ['Ownership & Management', 'Technical Manager', vessel.technicalManager],
-      ['Ownership & Management', 'DOC Number', vessel.docNumber],
-      ['Ownership & Management', '24/7 Ops Contact', vessel.contact247],
-      ['Insurance & Crew', 'P&I Club & Policy #', `${vessel.piClubName} (#${vessel.policyNumber})`],
-      ['Insurance & Crew', 'Master & Manning', `${vessel.masterName} (${vessel.safeManningComplement} Crew / Cap: ${vessel.lifeboatCapacity})`],
-      ['Operating Status', 'Current Status', vessel.status],
-      ['Compliance', 'Readiness (average of all sets)', `${calculateVesselReadiness(vessel, assuranceSets, documents)}%`],
-    ];
+    const rows = showPublicVesselProfile
+      ? [
+          ['Public Profile', 'Vessel Name', vessel.name],
+          ['Public Profile', 'IMO Number', vessel.imoNumber],
+          ['Public Profile', 'Flag State', vessel.flagState],
+          ['Public Profile', 'Vessel Type', vessel.vesselSubtype || vessel.vesselType],
+          ['Public Profile', 'Classification Society', vessel.classificationSociety],
+          ['Public Profile', 'Year of Build', String(vessel.yearBuilt ?? '')],
+          ['Public Profile', 'Registered Owner Organization', vessel.registeredOwner],
+          ['Public Profile', 'Object Verification Status', objectVerification?.status || 'Not assessed'],
+        ]
+      : [
+          ['Vessel Identification', 'Vessel Name', vessel.name],
+          ['Vessel Identification', 'IMO Number', vessel.imoNumber],
+          ['Vessel Identification', 'Official Reg Number', vessel.officialRegNumber],
+          ['Vessel Identification', 'MMSI Number', vessel.mmsiNumber],
+          ['Vessel Identification', 'Call Sign', vessel.callSign],
+          ['Vessel Identification', 'Flag State / Port', `${vessel.flagState} (${vessel.portOfRegistry})`],
+          ['Classification', 'Vessel Type / Subtype', `${vessel.vesselType} - ${vessel.vesselSubtype}`],
+          ['Classification', 'Class Society & Notation', `${vessel.classificationSociety} - ${vessel.classNotation}`],
+          ['Classification', 'Hull Type', vessel.hullType],
+          ['Construction & Dimensions', 'Year Built & Builder', `${vessel.yearBuilt} by ${vessel.shipyardBuilder}`],
+          ['Construction & Dimensions', 'LOA x Beam x Draft', `${vessel.lengthOverallMeters}m x ${vessel.beamMeters}m x ${vessel.draftMeters}m`],
+          ['Tonnage & Propulsion', 'GT / DWT / DP Class', `${vessel.grossTonnageGT} GT / ${vessel.deadweightTonnageDWT} DWT / ${vessel.dynamicPositioningClass}`],
+          ['Ownership & Management', 'Registered Owner', vessel.registeredOwner],
+          ['Ownership & Management', 'Technical Manager', vessel.technicalManager],
+          ['Ownership & Management', 'DOC Number', vessel.docNumber],
+          ['Ownership & Management', '24/7 Ops Contact', vessel.contact247],
+          ['Insurance & Crew', 'P&I Club & Policy #', `${vessel.piClubName} (#${vessel.policyNumber})`],
+          ['Insurance & Crew', 'Master & Manning', `${vessel.masterName} (${vessel.safeManningComplement} Crew / Cap: ${vessel.lifeboatCapacity})`],
+          ['Operating Status', 'Current Status', vessel.status],
+          ['Compliance', 'Readiness (average of all sets)', `${calculateVesselReadiness(vessel, assuranceSets, documents)}%`],
+        ];
 
     exportToPdf(`${vessel.name} Datasheet`, headers, rows);
   };
@@ -936,9 +965,54 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
             {/* Section Header Divider */}
             <div className="map-section-divider">
               <FileText className="w-4 h-4" />
-              <span>Vessel Datasheet</span>
+              <span>{showPublicVesselProfile ? 'Public vessel profile' : 'Vessel Datasheet'}</span>
             </div>
 
+            {showPublicVesselProfile ? (
+              <div className="map-datasheet-card" data-testid="vessel-public-a6-profile">
+                <div className="map-datasheet-card-header is-open">
+                  <div className="map-datasheet-card-title">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Public details</span>
+                  </div>
+                </div>
+                <div className="map-datasheet-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Vessel Name</span>
+                    <span className="map-datasheet-val">{vessel.name}</span>
+                  </div>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">IMO Number</span>
+                    <span className="map-datasheet-val font-mono-code">{vessel.imoNumber}</span>
+                  </div>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Flag State</span>
+                    <span className="map-datasheet-val">{vessel.flagState}</span>
+                  </div>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Vessel Type</span>
+                    <span className="map-datasheet-val">{vessel.vesselSubtype || vessel.vesselType}</span>
+                  </div>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Classification Society</span>
+                    <span className="map-datasheet-val">{vessel.classificationSociety}</span>
+                  </div>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Year of Build</span>
+                    <span className="map-datasheet-val">{vessel.yearBuilt}</span>
+                  </div>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Registered Owner Organization</span>
+                    <span className="map-datasheet-val">{vessel.registeredOwner}</span>
+                  </div>
+                  <div className="map-datasheet-cell">
+                    <span className="map-datasheet-label">Object Verification Status</span>
+                    <span className="map-datasheet-val">{objectVerification?.status || 'Not assessed'}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Accordion 1: General Information */}
             <div className="map-datasheet-card">
               <div
@@ -1344,6 +1418,8 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
                 </div>
               )}
             </div>
+              </>
+            )}
           </div>
 
           {/* ========================================================= */}
