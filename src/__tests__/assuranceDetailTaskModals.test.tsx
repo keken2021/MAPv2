@@ -1,7 +1,8 @@
 import React from 'react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { AssuranceDetailView } from '../views/AssuranceDetailView';
+import { AssuranceTaskModal } from '../components/modals/AssuranceTaskModal';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
 
@@ -247,5 +248,87 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
     const edited = updatedSet.requirements.find((r) => r.id === 'REQ-TASK-002')!;
     expect(edited.sectionId).toBeUndefined();
     expect(edited.predecessorId).toBeUndefined();
+  });
+
+  it('requires a date change reason in AssuranceTaskModal and blocks save while empty', () => {
+    const baseSet = useMapStore.getState().assuranceSets.find((s) => s.id === setIdWithSections)!;
+    const onSave = vi.fn();
+    const onDateReasonChange = vi.fn();
+
+    const { rerender } = render(
+      <AssuranceTaskModal
+        mode="date"
+        isOpen={true}
+        onClose={() => {}}
+        assuranceSet={baseSet}
+        editingTaskDate={{ reqId: 'REQ-TASK-001', title: 'Emergency Disconnect Protocol', currentDate: '2026-11-05' }}
+        dateDraft="2026-11-08"
+        dateReasonDraft=""
+        dateError={null}
+        onDateDraftChange={() => {}}
+        onDateReasonChange={onDateReasonChange}
+        onSave={onSave}
+      />,
+    );
+
+    const reasonInput = screen.getByLabelText(/reason for change/i);
+    expect(reasonInput).toBeInTheDocument();
+    expect(screen.queryByText(/\(optional\)/i)).not.toBeInTheDocument();
+
+    const saveBtn = screen.getByRole('button', { name: /save target date/i }) as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+    expect(saveBtn.title).toMatch(/reason for changing the target date is required/i);
+
+    rerender(
+      <AssuranceTaskModal
+        mode="date"
+        isOpen={true}
+        onClose={() => {}}
+        assuranceSet={baseSet}
+        editingTaskDate={{ reqId: 'REQ-TASK-001', title: 'Emergency Disconnect Protocol', currentDate: '2026-11-05' }}
+        dateDraft="2026-11-08"
+        dateReasonDraft="Rescheduled for drydock window"
+        dateError={null}
+        onDateDraftChange={() => {}}
+        onDateReasonChange={onDateReasonChange}
+        onSave={onSave}
+      />,
+    );
+
+    expect(saveBtn.disabled).toBe(false);
+    fireEvent.click(saveBtn);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('defaults the date permission window to 14 days and blocks deadline revision save when reason is empty', () => {
+    const overdueSet: AssuranceSet = {
+      ...useMapStore.getState().assuranceSets.find((s) => s.id === setIdWithSections)!,
+      complianceDeadline: '2020-01-01',
+      targetDate: '2020-01-01',
+    };
+    useMapStore.setState({
+      ...useMapStore.getState(),
+      activePersona: 'C Admin',
+      assuranceSets: [overdueSet],
+    });
+
+    render(<AssuranceDetailView setId={setIdWithSections} />);
+    fireEvent.click(screen.getByRole('tab', { name: /details/i }));
+
+    fireEvent.click(screen.getByRole('button', { name: /grant date access/i }));
+    const permissionSelect = screen.getByLabelText(/permission window \(days\)/i) as HTMLSelectElement;
+    expect(permissionSelect.value).toBe('14');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]);
+
+    const reviseBtn = screen.queryByRole('button', { name: /revise completion date/i });
+    expect(reviseBtn).not.toBeNull();
+    fireEvent.click(reviseBtn!);
+
+    const saveRevisedBtn = screen.getByRole('button', { name: /save revised date/i }) as HTMLButtonElement;
+    expect(saveRevisedBtn.disabled).toBe(true);
+
+    const reasonInput = screen.getByLabelText(/reason for revision/i);
+    fireEvent.change(reasonInput, { target: { value: 'Charter mobilisation moved by two weeks' } });
+    expect(saveRevisedBtn.disabled).toBe(false);
   });
 });

@@ -67,6 +67,7 @@ export const AssuranceTaskModal: React.FC<AssuranceTaskModalProps> = (props) => 
 
   if (props.mode === 'date') {
     const { editingTaskDate, dateDraft, dateReasonDraft, dateError, onDateDraftChange, onDateReasonChange, onSave } = props;
+    const isReasonMissing = !dateReasonDraft.trim();
     return (
       <Modal
         isOpen={isOpen}
@@ -77,7 +78,13 @@ export const AssuranceTaskModal: React.FC<AssuranceTaskModalProps> = (props) => 
             <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="button" className="btn btn-sm btn-primary" onClick={onSave}>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              disabled={isReasonMissing}
+              title={isReasonMissing ? 'A reason for changing the target date is required.' : undefined}
+              onClick={onSave}
+            >
               Save Target Date
             </button>
           </>
@@ -110,7 +117,7 @@ export const AssuranceTaskModal: React.FC<AssuranceTaskModalProps> = (props) => 
           </div>
           <div>
             <label className="form-label text-secondary small fw-semibold" htmlFor="task-date-reason-input">
-              Reason for Change <span className="text-muted fw-normal">(optional)</span>
+              Reason for Change <span className="text-danger">*</span>
             </label>
             <input
               id="task-date-reason-input"

@@ -539,7 +539,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const [deadlineReasonDraft, setDeadlineReasonDraft] = useState('');
   const [isDatePermissionsModalOpen, setIsDatePermissionsModalOpen] = useState(false);
   const [selectedGranteeId, setSelectedGranteeId] = useState('');
-  const [grantDurationHours, setGrantDurationHours] = useState('24');
+  const [grantDurationDays, setGrantDurationDays] = useState('14');
   const [grantReasonDraft, setGrantReasonDraft] = useState('');
   // Date history moved to Audit Trail tab
   const [editingTaskDate, setEditingTaskDate] = useState<{ reqId: string; title: string; currentDate: string } | null>(null);
@@ -1863,6 +1863,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   const handleSaveTaskTargetDate = () => {
     if (!editingTaskDate) return;
+    if (!taskDateReasonDraft.trim()) {
+      setTaskDateError('A reason for changing the target date is required.');
+      return;
+    }
     const setLimit = assuranceSet.targetDate || assuranceSet.complianceDeadline || '';
     const err = validateTaskTargetDate(taskDateDraft, setLimit);
     if (err) {
@@ -1874,7 +1878,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       editingTaskDate.reqId,
       taskDateDraft,
       sessionUser?.name || 'Client Admin',
-      taskDateReasonDraft.trim() || undefined,
+      taskDateReasonDraft.trim(),
     );
     if (result.success) {
       setEditingTaskDate(null);
@@ -1888,8 +1892,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const handleGrantPermission = () => {
     const grantee = users.find((u) => u.id === selectedGranteeId);
     if (!grantee) return;
-    const hours = parseInt(grantDurationHours, 10) || 24;
-    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    const days = parseInt(grantDurationDays, 10) || 14;
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     grantDatePermission(assuranceSet.id, {
       userId: grantee.id,
       userName: grantee.name,
@@ -1899,7 +1903,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     });
     setSelectedGranteeId('');
     setGrantReasonDraft('');
-    setProjectToast(`Date change permission granted to ${grantee.name} for ${hours} hours.`);
+    setProjectToast(`Date change permission granted to ${grantee.name} for ${days} days.`);
     setTimeout(() => setProjectToast(null), 3500);
   };
 
@@ -1908,11 +1912,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       setRevisedDateError('Revised completion date is required.');
       return;
     }
+    if (!revisedDateReason.trim()) {
+      setRevisedDateError('Reason for revision is required.');
+      return;
+    }
     const result = reviseAssuranceSetDeadline(
       assuranceSet.id,
       revisedDateDraft,
       sessionUser?.name || 'Set Manager',
-      revisedDateReason.trim() || undefined,
+      revisedDateReason.trim(),
     );
     if (result.success) {
       setIsReviseDeadlineModalOpen(false);
@@ -2654,7 +2662,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                           </div>
                           <div>
                             <label className="form-label text-secondary small mb-1" htmlFor="deadline-reason">
-                              Reason for Date Change <span className="text-muted fw-normal">(optional)</span>
+                              Reason for Date Change <span className="text-danger">*</span>
                             </label>
                             <input
                               id="deadline-reason"
@@ -2666,7 +2674,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                             />
                           </div>
                           <div>
-                            <button type="button" className="btn btn-sm btn-primary" onClick={saveCharterWindow}>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-primary"
+                              disabled={!deadlineReasonDraft.trim()}
+                              title={!deadlineReasonDraft.trim() ? 'A reason for changing the date is required.' : undefined}
+                              onClick={saveCharterWindow}
+                            >
                               Save
                             </button>
                           </div>
@@ -4811,18 +4825,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                   </select>
                 </div>
                 <div className="col-12 col-md-3">
-                  <label className="form-label text-secondary small mb-1">Duration</label>
+                  <label className="form-label text-secondary small mb-1" htmlFor="grant-duration-days">Permission Window (Days)</label>
                   <select
+                    id="grant-duration-days"
                     className="form-select form-select-sm bg-white"
-                    value={grantDurationHours}
-                    onChange={(e) => setGrantDurationHours(e.target.value)}
+                    value={grantDurationDays}
+                    onChange={(e) => setGrantDurationDays(e.target.value)}
                   >
-                    <option value="1">1 Hour</option>
-                    <option value="2">2 Hours</option>
-                    <option value="8">8 Hours</option>
-                    <option value="24">24 Hours</option>
-                    <option value="48">48 Hours</option>
-                    <option value="168">7 Days</option>
+                    <option value="1">1 Day</option>
+                    <option value="3">3 Days</option>
+                    <option value="7">7 Days</option>
+                    <option value="14">14 Days</option>
+                    <option value="30">30 Days</option>
                   </select>
                 </div>
                 <div className="col-12 col-md-4">
@@ -4863,7 +4877,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             <button type="button" className="btn btn-sm btn-secondary" onClick={() => setIsReviseDeadlineModalOpen(false)}>
               Cancel
             </button>
-            <button type="button" className="btn btn-sm btn-primary" onClick={handleSaveRevisedDeadline}>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              disabled={!revisedDateReason.trim()}
+              title={!revisedDateReason.trim() ? 'A reason for revising the completion date is required.' : undefined}
+              onClick={handleSaveRevisedDeadline}
+            >
               Save Revised Date
             </button>
           </>
@@ -4896,7 +4916,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
           </div>
           <div>
             <label className="form-label text-secondary small mb-1" htmlFor="revised-deadline-reason">
-              Reason for Revision <span className="text-muted fw-normal">(optional)</span>
+              Reason for Revision <span className="text-danger">*</span>
             </label>
             <textarea
               id="revised-deadline-reason"
@@ -4904,7 +4924,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
               className="form-control form-control-sm"
               placeholder="e.g. Supplier delay in certification endorsement..."
               value={revisedDateReason}
-              onChange={(e) => setRevisedDateReason(e.target.value)}
+              onChange={(e) => {
+                setRevisedDateReason(e.target.value);
+                setRevisedDateError(null);
+              }}
             />
           </div>
         </div>
