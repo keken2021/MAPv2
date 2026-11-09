@@ -114,7 +114,7 @@ describe('Scenario 1: Vessel Provider starts', () => {
       vesselName: newVessel.name,
       imoNumber: newVessel.imoNumber,
       initiatorOrg: NORTHWIND_ORG,
-      initiatorRole: 'Administrator',
+      initiatorRole: 'Vessel Provider Admin',
       createdByPersona: 'Administrator',
       createdByName: 'K. Osei',
       clientOrg: 'Chevron Australia Pty Ltd',
@@ -155,7 +155,7 @@ describe('Scenario 1: Vessel Provider starts', () => {
       vesselName: newVessel.name,
       imoNumber: newVessel.imoNumber,
       initiatorOrg: NORTHWIND_ORG,
-      initiatorRole: 'Administrator',
+      initiatorRole: 'Vessel Provider Admin',
       clientOrg: 'Chevron Australia Pty Ltd',
       charterer: 'Chevron Australia Pty Ltd',
       serviceProviderOrg: NORTHWIND_ORG,
@@ -165,6 +165,7 @@ describe('Scenario 1: Vessel Provider starts', () => {
       reviewMode: 'third_party',
       charterWindowStart: '2026-12-01',
       complianceDeadline: '2026-12-01',
+      charterWindowEnd: '2027-05-01',
       stage: 'Verification',
       readinessScore: 50,
       mandatoryInspectionRequired: false,
@@ -192,7 +193,7 @@ describe('Scenario 1: Vessel Provider starts', () => {
       MOCK_USERS,
     );
     expect(providerConflict.ok).toBe(false);
-    expect(providerConflict.message).toContain('Service provider conflict');
+    expect(!providerConflict.ok && providerConflict.message).toContain('Service provider conflict');
 
     // And rejects provider staff when an external assurance org is designated
     const wrongOrg = validateStakeholderAssignmentForSet(
@@ -202,7 +203,7 @@ describe('Scenario 1: Vessel Provider starts', () => {
       MOCK_USERS,
     );
     expect(wrongOrg.ok).toBe(false);
-    expect(wrongOrg.message).toContain('is not in Bureau Veritas Inspectorate');
+    expect(!wrongOrg.ok && wrongOrg.message).toContain('is not in Bureau Veritas Inspectorate');
   });
 
   it('allows an external party to verify and approve the set to completion', () => {
@@ -230,6 +231,7 @@ describe('Scenario 1: Vessel Provider starts', () => {
       vesselName: newVessel.name,
       imoNumber: newVessel.imoNumber,
       initiatorOrg: NORTHWIND_ORG,
+      initiatorRole: 'Vessel Provider Admin',
       clientOrg: 'Chevron Australia Pty Ltd',
       charterer: 'Chevron Australia Pty Ltd',
       serviceProviderOrg: NORTHWIND_ORG,
@@ -239,6 +241,7 @@ describe('Scenario 1: Vessel Provider starts', () => {
       reviewMode: 'third_party',
       charterWindowStart: '2026-12-01',
       complianceDeadline: '2026-12-01',
+      charterWindowEnd: '2027-05-01',
       stage: 'Verification',
       readinessScore: 60,
       mandatoryInspectionRequired: false,
@@ -260,7 +263,7 @@ describe('Scenario 1: Vessel Provider starts', () => {
     const verifiedSet: AssuranceSet = {
       ...set,
       requirements: verifiedRequirements,
-      stage: 'Under Approver Review',
+      stage: 'Approval',
       readinessScore: 90,
     };
     useMapStore.getState().updateAssuranceSet(verifiedSet);
