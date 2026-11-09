@@ -202,4 +202,15 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     expect(screen.queryByText('MV Northwind Alpha')).toBeNull();
     expect(screen.getByText('MV Northwind Beta')).toBeInTheDocument();
   });
+
+  it('keeps Own / Chartered tabs and removes Export from the vessel registry toolbar (Task 5486 export-only)', () => {
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+    });
+    render(<VesselTable onSelectVessel={() => {}} />);
+    expect(screen.getByRole('tab', { name: /Own/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Chartered/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Export/i })).toBeNull();
+  });
 });

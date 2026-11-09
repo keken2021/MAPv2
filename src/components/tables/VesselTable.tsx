@@ -14,7 +14,6 @@ import { CountTabs } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
 import { StatusBadge } from '../common/StatusBadge';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
-import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import {
   getVesselStockPhoto,
   getVesselListingContact,
@@ -224,39 +223,6 @@ export const VesselTable: React.FC<VesselTableProps> = ({
     return 0;
   });
 
-  const handleExportCsv = () => {
-    const exportData = sortedVessels.map((v) => ({
-      VesselName: v.name,
-      VesselType: v.vesselType,
-      VesselSubtype: v.vesselSubtype,
-      Organization: v.registeredOwner,
-      ImoNumber: v.imoNumber,
-      OfficialRegNumber: v.officialRegNumber,
-      MmsiNumber: v.mmsiNumber,
-      CallSign: v.callSign,
-      FlagState: v.flagState,
-      ClassSociety: v.classificationSociety,
-      Status: v.status,
-      ReadinessScore: `${calculateVesselReadiness(v, assuranceSets, documents)}%`,
-    }));
-    exportToCsv('Master_Fleet_Registry', exportData);
-  };
-
-  const handleExportPdf = () => {
-    const headers = ['Name', 'Type', 'Organization', 'IMO Number', 'Flag State', 'Class Society', 'Operating Status', 'Readiness'];
-    const rows = sortedVessels.map((v) => [
-      v.name,
-      v.vesselSubtype || v.vesselType,
-      v.registeredOwner,
-      v.imoNumber,
-      v.flagState,
-      v.classificationSociety,
-      v.status,
-      `${calculateVesselReadiness(v, assuranceSets, documents)}%`,
-    ]);
-    exportToPdf('Master Fleet Registry', headers, rows);
-  };
-
   const activeFilterCount =
     (flagFilter !== 'ALL' ? 1 : 0) +
     (classFilter !== 'ALL' ? 1 : 0) +
@@ -302,8 +268,6 @@ export const VesselTable: React.FC<VesselTableProps> = ({
         searchPlaceholder="Search vessels..."
         onFilterClick={() => setIsFilterModalOpen(true)}
         activeFilterCount={activeFilterCount}
-        onExportCsv={handleExportCsv}
-        onExportPdf={handleExportPdf}
         primaryAction={
           canRegister && onRegisterVessel ? (
             <button type="button" className="btn btn-sm btn-primary" onClick={onRegisterVessel}>
