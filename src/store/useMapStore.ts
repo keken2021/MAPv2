@@ -3501,6 +3501,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   setClientApproval: (setId, decision, notes) => {
+    /* try the full approver path first; it may no-op when mandatory tasks are still open */
     get().setApproverDecision(setId, decision, notes);
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -3513,6 +3514,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               : ("pending_approval" as const);
         return {
           ...s,
+          /* always record the client decision even when setApproverDecision gated out */
+          approverDecision: decision,
+          approverNotes: notes,
           clientWorkflowStage: workflowStage,
         };
       });
