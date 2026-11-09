@@ -362,6 +362,92 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(screen.queryByText('Updated compliance deadline')).toBeNull();
   });
 
+  it('allows Approver to see every audit record of a set while Submitter sees only their own', () => {
+    const state = useMapStore.getState();
+    const testSetId = 'AS-TEST-APPROVER-ALL-AUDIT';
+
+    const testSet: AssuranceSet = {
+      ...state.assuranceSets[0],
+      id: testSetId,
+      title: 'Approver Audit Set',
+      serviceProviderOrg: 'Northwind Marine Pty Ltd',
+      clientOrg: 'Southern Basin Energy Pty Ltd',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
+      stage: 'Approval',
+      targetDateHistory: [],
+    };
+
+    const adminEvent: AuditTrailEvent = {
+      id: 'EV-APP-ADMIN-01',
+      timestampUtc: '2026-10-22T08:00:00Z',
+      userId: 'USR-101',
+      userRole: 'Administrator',
+      organization: 'Northwind Marine Pty Ltd',
+      action: 'Updated compliance deadline',
+      targetAsset: `${testSetId}`,
+      target: { kind: 'set', setId: testSetId },
+      fieldDelta: { fieldName: 'Deadline', oldValue: '2026-11-01', newValue: '2026-11-15' },
+    };
+
+    const submitterEvent: AuditTrailEvent = {
+      id: 'EV-APP-SUBMITTER-01',
+      timestampUtc: '2026-10-23T09:00:00Z',
+      userId: 'USR-102',
+      userRole: 'Submitter',
+      organization: 'Northwind Marine Pty Ltd',
+      action: 'Uploaded Document',
+      targetAsset: `${testSetId}`,
+      target: { kind: 'set', setId: testSetId },
+      fieldDelta: { fieldName: 'Status', oldValue: 'Pending', newValue: 'Uploaded' },
+    };
+
+    const verifierEvent: AuditTrailEvent = {
+      id: 'EV-APP-VERIFIER-01',
+      timestampUtc: '2026-10-24T10:00:00Z',
+      userId: 'USR-103',
+      userRole: 'Verifier',
+      organization: 'Bureau Veritas Inspectorate',
+      action: 'Verified Document',
+      targetAsset: `${testSetId}`,
+      target: { kind: 'set', setId: testSetId },
+      fieldDelta: { fieldName: 'Status', oldValue: 'Pending', newValue: 'Verified' },
+    };
+
+    useMapStore.setState({
+      assuranceSets: [testSet, ...state.assuranceSets.filter((s) => s.id !== testSetId)],
+      auditEvents: [adminEvent, submitterEvent, verifierEvent],
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-105',
+    });
+
+    const { unmount } = render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /audit trail/i }));
+
+    expect(screen.getByText('Updated compliance deadline')).toBeDefined();
+    expect(screen.getByText('Uploaded Document')).toBeDefined();
+    expect(screen.getByText('Verified Document')).toBeDefined();
+    unmount();
+
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
+
+    render(<AssuranceDetailView setId={testSetId} />);
+    fireEvent.click(screen.getByRole('tab', { name: /audit trail/i }));
+
+    expect(screen.getByText('Uploaded Document')).toBeDefined();
+    expect(screen.queryByText('Updated compliance deadline')).toBeNull();
+    expect(screen.queryByText('Verified Document')).toBeNull();
+
+    useMapStore.setState({
+      assuranceSets: state.assuranceSets,
+      auditEvents: state.auditEvents,
+    });
+  });
+
   it('keeps page header and cancelled banner above the tabs regardless of active tab', () => {
     const state = useMapStore.getState();
     const cancelledSetId = 'AS-TEST-CANCELLED-TABS';

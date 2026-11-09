@@ -790,15 +790,19 @@ export function filterUsersForPersona(
 }
 
 /**
-  what: filters audit trail event logs to return only the user's activities.
-  how: returns events where ev.userId matches the user's id (session user ID or persona fallback).
-  with what file: src/utils/rbacHelpers.ts consumed by AuditTrailView, AuditTrailDrawer, and VesselDetailView.
+  what: filters audit trail event logs to return all events for Approver, or only the user's activities for Provider Lead, Submitter and Verifier.
+  how: returns all events when persona is Approver, otherwise returns events where ev.userId matches the user's id (session user ID or persona fallback).
+  with what file: src/utils/rbacHelpers.ts consumed by AuditTrailView, AuditTrailDrawer, AssuranceDetailView, and VesselDetailView.
 */
 export function filterAuditTrailForUser(
   events: AuditTrailEvent[],
   userId?: string,
   persona?: UserRolePersona,
 ): AuditTrailEvent[] {
+  if (persona === "Approver") {
+    return events;
+  }
+
   const effectiveUserId = userId || (persona ? MOCK_PERSONA_SESSION_USER_IDS[persona] : undefined);
   if (!effectiveUserId && !persona) return [];
 

@@ -1375,7 +1375,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       deduplicated.push(ev);
     }
 
-    if (isClientViewer) {
+    if (isClientViewer || activePersona === 'Approver') {
       return deduplicated;
     }
 
