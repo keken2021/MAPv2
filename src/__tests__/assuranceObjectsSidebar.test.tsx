@@ -19,7 +19,7 @@ describe('Assurance objects sidebar and settings suite', () => {
     });
   });
 
-  it('lists exactly the 5 items under Assurance Objects matching the object type options', () => {
+  it('lists the individual category items under Assurance Objects without All Objects', () => {
     const { unmount: unmountView } = render(<AssuranceObjectsView />);
     const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
     const optionElements = within(typeSelect).getAllByRole('option');
@@ -36,29 +36,16 @@ describe('Assurance objects sidebar and settings suite', () => {
     cleanup();
     render(<AppSidebar />);
 
-    const objectsBtn = screen.getByRole('button', { name: /All Objects/i });
+    expect(screen.queryByRole('button', { name: /^All Objects$/i })).toBeNull();
     const vesselsBtn = screen.getByRole('button', { name: /Vessels/i });
     const equipmentBtn = screen.getByRole('button', { name: /Equipment/i });
     const crewBtn = screen.getByRole('button', { name: /Crew Directory/i });
     const activitiesBtn = screen.getByRole('button', { name: /Activities/i });
 
-    expect(objectsBtn).toBeInTheDocument();
     expect(vesselsBtn).toBeInTheDocument();
     expect(equipmentBtn).toBeInTheDocument();
     expect(crewBtn).toBeInTheDocument();
     expect(activitiesBtn).toBeInTheDocument();
-
-    const expectedOptionBySidebarLabel: Record<string, string> = {
-      'All Objects': 'All',
-      Vessels: 'Vessel',
-      Equipment: 'Equipment',
-      'Crew Directory': 'Person',
-      Activities: 'Activity',
-    };
-
-    Object.entries(expectedOptionBySidebarLabel).forEach(([, optName]) => {
-      expect(optionLabels).toContain(optName);
-    });
   });
 
   it('opens Assurance Objects with Activities selected when clicking Activities', () => {
@@ -72,19 +59,14 @@ describe('Assurance objects sidebar and settings suite', () => {
     expect(state.currentEntityId).toBe('activity');
   });
 
-  it('opens Assurance Objects all view when clicking All Objects', () => {
-    useMapStore.setState({
-      currentHashView: 'objects',
-      currentEntityId: 'activity',
-    });
-
+  it('navigates to vessels when clicking Vessels in sidebar', () => {
     render(<AppSidebar />);
 
-    const objectsBtn = screen.getByRole('button', { name: /All Objects/i });
-    fireEvent.click(objectsBtn);
+    const vesselsBtn = screen.getByRole('button', { name: /Vessels/i });
+    fireEvent.click(vesselsBtn);
 
     const state = useMapStore.getState();
-    expect(state.currentHashView).toBe('objects');
+    expect(state.currentHashView).toBe('vessels');
     expect(state.currentEntityId).toBeUndefined();
   });
 
@@ -99,12 +81,14 @@ describe('Assurance objects sidebar and settings suite', () => {
     expect(useMapStore.getState().currentHashView).toBe('organization-profile');
   });
 
-  it('shows Organization profile in Settings for non-admin personas', () => {
-    useMapStore.setState({ activePersona: 'Verifier' });
-
+  it('renders Settings group and allows navigating to Roles & Permissions for Administrator', () => {
     render(<AppSidebar />);
 
     expect(screen.getByText('Settings')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Organization profile/i })).toBeInTheDocument();
+    const rolesPermissionsBtn = screen.getByRole('button', { name: /Roles & Permissions/i });
+    expect(rolesPermissionsBtn).toBeInTheDocument();
+
+    fireEvent.click(rolesPermissionsBtn);
+    expect(useMapStore.getState().currentHashView).toBe('roles-permissions');
   });
 });

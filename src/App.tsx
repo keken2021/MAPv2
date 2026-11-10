@@ -163,7 +163,13 @@ export const App: React.FC = () => {
     pendingAssuranceRequestNotificationId,
   ]);
 
-  /* a request only grants wizard access while the wizard is open; leaving it ends the grant */
+  useEffect(() => {
+    if (currentHashView === 'objects' && currentEntityId !== 'activity') {
+      setCurrentHashView('vessels');
+    }
+  }, [currentHashView, currentEntityId, setCurrentHashView]);
+
+    /* a request only grants wizard access while the wizard is open; leaving it ends the grant */
   useEffect(() => {
     if (currentHashView !== 'create-assurance-set' && pendingAssuranceRequestNotificationId) {
       setPendingAssuranceRequestNotificationId(undefined);
@@ -187,7 +193,10 @@ export const App: React.FC = () => {
 
     switch (currentHashView) {
       case 'objects':
-        return <AssuranceObjectsView />;
+        if (currentEntityId === 'activity') {
+          return <AssuranceObjectsView />;
+        }
+        return <FleetRegistryView />;
       case 'activities':
         return currentEntityId ? <ActivityDetailView activityId={currentEntityId} /> : <AssuranceObjectsView />;
       case 'vessels':

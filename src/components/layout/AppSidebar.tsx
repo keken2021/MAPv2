@@ -163,10 +163,6 @@ export const AppSidebar: React.FC = () => {
       isGroup: true,
       children: [
         {
-          key: "objects",
-          label: "All Objects",
-        },
-        {
           key: "vessels",
           label: "Vessels",
         },
@@ -239,10 +235,7 @@ export const AppSidebar: React.FC = () => {
   }, [currentHashView]);
 
   const isLeafItemVisible = (item: NavItem): boolean => {
-    if (
-      item.key === "objects" ||
-      item.key === "activities"
-    ) {
+    if (item.key === "activities") {
       return canOpenObjectsList(activePersona);
     }
 
@@ -289,9 +282,6 @@ export const AppSidebar: React.FC = () => {
   };
 
   const isItemActive = (item: NavItem): boolean => {
-    if (item.key === "objects") {
-      return currentHashView === "objects" && !currentEntityId;
-    }
     if (item.key === "activities") {
       return (
         currentHashView === "activities" ||
