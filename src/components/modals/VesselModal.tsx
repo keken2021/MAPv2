@@ -181,8 +181,6 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
   }, [isOpen, activePersona]);
 
 
-  if (!isOpen) return null;
-
   const validateStepOneIdentifiers = () => {
     if (!name.trim()) {
       setErrorMessage('Vessel Name is mandatory.');
@@ -872,6 +870,8 @@ export const VesselModal: React.FC<VesselModalProps> = ({ isOpen, onClose, onReg
         verificationStatus: 'Pending',
       }
     : null;
+
+  if (!isOpen) return null;
 
   return (
     <>
