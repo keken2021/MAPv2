@@ -77,7 +77,6 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/tables/ProjectAssuranceStatusTable.tsx` : status-first assurance set table on project detail; tests `src/__tests__/projectAssuranceStatusTable.test.tsx`
 - `src/components/tables/ProjectTasksTable.tsx` : read-only tasks roll-up table on project detail; tests `src/__tests__/projectTasksTable.test.tsx` (Task 5329)
 - `src/components/projects/ProjectOverviewTab.tsx` : Overview tab on project detail showing Overall Project Readiness (gauge and Object, Assurance Set, Provider counts), delivery efficiency metrics, Active Bottlenecks, and Participating Providers summary table (Task 5498); tests `src/__tests__/projectDetailHeader.test.tsx`
-- `src/components/wizards/PilotTemplateSelector.tsx` : Step 1 starting template selector in the assurance set wizard offering the 5 standard pilot templates SS-01 through SS-05 (Task 5497); tests `src/__tests__/assuranceWizardObjects.test.tsx`
 - `.autopilot/.task-notes/5483-prototype-demo-relevant-alignment-items/` : Task notes (`plan.md`, `plan.docx`, `changes.md`, `next-steps.md`) for Sprint 3 demo-relevant alignment Tasks 5484, 5487, 5488, 5489, 5494, 5495, 5497, and 5498
 - `src/views/AssuranceObjectsView.tsx` : assurance objects catalog view with 6 target tabs (All, Vessels, Crew Directory, Equipment, Procedures, Methods); tests `src/__tests__/assuranceObjectTabs.test.tsx`
 - `src/__tests__/assuranceWizardObjects.test.tsx` : tests for assurance set wizard object type picker (5 target types) and port-entry bundle objects (Task 5300)

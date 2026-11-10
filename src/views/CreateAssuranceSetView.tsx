@@ -103,7 +103,6 @@ import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
 import { SearchableSelect, SearchableSelectItem } from '../components/common/SearchableSelect';
 import { Wizard, WizardStep } from '../components/wizards/Wizard';
 import { PartyRoleErrors } from '../components/wizards/PartyRoleErrors';
-import { PilotTemplateSelector } from '../components/wizards/PilotTemplateSelector';
 import { Modal } from '../components/modals/Modal';
 
 interface SpecializedDoc {
@@ -1251,36 +1250,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (tmpl) triggerAutofillAnimation([`subtype-docs-container-${subtype}`]);
   };
 
-  const handleSelectPilotTemplate = (templateId: string) => {
-    setSelectedGlobalTemplateId(templateId);
-    const tmpl = templateId ? SUBTYPE_TEMPLATES.find((t) => t.id === templateId) : undefined;
-    if (!tmpl) {
-      setSelectedSubtypeTemplates({ Vessel: '', Crew: '', Activity: '', Equipment: '' });
-      return;
-    }
-
-    const targetScope: AssuranceSubtype = tmpl.subtype === 'All' ? 'Vessel' : tmpl.subtype;
-    setTitle(`${titleOrg} - ${tmpl.name}`);
-
-    if (canTemplateReplaceObjects && !selectedScopes.includes(targetScope)) {
-      const preferredId =
-        targetScope === 'Vessel'
-          ? vesselChoices[0]?.id || vessels[0]?.id
-          : targetScope === 'Crew'
-            ? crew[0]?.id
-            : equipment[0]?.id;
-      const templateObjects = getTemplateObjects(targetScope, preferredId);
-      if (templateObjects.length > 0) {
-        setSelectedAssuranceObjects((prev) => [...prev, ...templateObjects]);
-      } else if (targetScope === 'Vessel' && vessels[0]) {
-        setSelectedAssuranceObjects((prev) => [...prev, vesselToAssuranceObject(vessels[0])]);
-      }
-    }
-
-    handleSelectSubtypeTemplate(targetScope, tmpl.id);
-    triggerAutofillAnimation(['grid-campaign-title', `subtype-docs-container-${targetScope}`]);
-  };
-
   /* link or unlink the optional project; ignored while the project is locked by the entry point */
   const handleProjectChange = (projId: string) => {
     if (isProjectLocked) return;
@@ -1709,7 +1678,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     });
 
     /* demo only: SS-04 and SS-05 start with most of their template documents already submitted and verified, so the walkthrough only needs the last few */
-    const DEMO_PREVERIFIED_TEMPLATES = ['tmpl-pub-ss04', 'tmpl-pub-ss05', 'tmpl-pub-ss04-bunkering', 'tmpl-pub-ss05-control-systems'];
+    const DEMO_PREVERIFIED_TEMPLATES = ['tmpl-pub-ss04-bunkering', 'tmpl-pub-ss05-control-systems'];
     const DEMO_OPEN_TASKS = 3;
     const demoDocuments: MasterDocument[] = [];
 
@@ -2868,7 +2837,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           {/* GENERAL TAB: identification, contract period, template privacy and stakeholders */}
           {currentStepData.id === 'step-general' && (
             <div className="d-flex flex-column gap-4">
-              <PilotTemplateSelector selectedTemplateId={selectedGlobalTemplateId} onSelectTemplate={handleSelectPilotTemplate} />
               {/* Campaign Identification Card */}
               <div className="card border shadow-2xs rounded-3 bg-white">
                 <div className="card-header bg-light border-bottom px-4 py-3">
