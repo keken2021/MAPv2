@@ -9,7 +9,7 @@ import { exportDocumentAsPdf } from '../utils/documentTemplateHelpers';
 import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { DocumentVersion, MasterDocument } from '../types/document';
-import { getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
+import { documentExpiresBeforeContractEnd, getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
 import { VERIFICATION_SCOPE_STATEMENT } from '../utils/verificationPolicy';
 import { maskRestrictedValue } from '../utils/restrictedData';
 import { usePagination } from '../utils/usePagination';
@@ -20,7 +20,7 @@ interface DocumentDetailViewProps {
 }
 
 export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ documentId }) => {
-  const { documents, setCurrentHashView, activePersona, notifications } = useMapStore();
+  const { documents, assuranceSets, setCurrentHashView, activePersona, notifications } = useMapStore();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
   const [selectedVersionForModal, setSelectedVersionForModal] = useState<DocumentVersion | null>(null);
@@ -78,8 +78,21 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
 
   if (!doc) return <div>Document not found.</div>;
 
-  /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
-  const reuploadBlockReason = getDocumentReuploadBlockReason(doc, notifications);
+  /* Library detail has no set context; use a linked set whose contract outruns this certificate */
+  const linkedCharterWindowEnd = assuranceSets
+    .filter((set) =>
+      set.requirements.some((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id),
+    )
+    .map((set) => set.charterWindowEnd)
+    .find((end) => end && documentExpiresBeforeContractEnd(doc, end));
+
+  /* unlock when expired, short of a linked contract, returned by a reviewer, or a renewal notice is open */
+  const reuploadBlockReason = getDocumentReuploadBlockReason(
+    doc,
+    notifications,
+    new Date(),
+    linkedCharterWindowEnd,
+  );
 
   const activeModalDoc: MasterDocument = useMemo(() => {
     if (!doc) return {} as MasterDocument;

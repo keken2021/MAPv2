@@ -390,15 +390,65 @@ export function filterExternalEquipmentForProjectComposition(
 }
 
 /**
+  what: true when a set can seed a project roster row (vessel, crew or equipment).
+  how: uses the same resolver as Create Project Step 2 → Step 3 seeding.
+*/
+export function isAssuranceSetRosterable(
+  set: AssuranceSet,
+  vessels: VesselInformation[],
+  crew: CrewMember[],
+  equipment: EquipmentAsset[],
+): boolean {
+  return Boolean(buildDraftAssetLinkFromAssuranceSet(set, vessels, crew, equipment));
+}
+
+/**
+  what: true when a set's contract period lies fully inside the project window.
+  how: requires both windows; set start on or after project start and set end on or before project end.
+  Dates are not rewritten — callers filter or block selection instead.
+*/
+export function isAssuranceSetWithinProjectWindow(
+  set: Pick<AssuranceSet, 'charterWindowStart' | 'charterWindowEnd'>,
+  projectWindowStart: string,
+  projectWindowEnd: string,
+): boolean {
+  if (!projectWindowStart || !projectWindowEnd) return false;
+  if (!set.charterWindowStart || !set.charterWindowEnd) return false;
+  return (
+    projectWindowStart <= set.charterWindowStart && set.charterWindowEnd <= projectWindowEnd
+  );
+}
+
+export type AssuranceSetsForProjectCreationOptions = {
+  vessels?: VesselInformation[];
+  crew?: CrewMember[];
+  equipment?: EquipmentAsset[];
+  projectWindowStart?: string;
+  projectWindowEnd?: string;
+};
+
+/**
   what: assurance sets the requester may seed a new project from.
   how: public or org-matched sets that are not drafts/private and do not already belong to a project
-  (a set is 1:1 with a project; a project may hold many sets).
+  (a set is 1:1 with a project; a project may hold many sets). When asset registries are passed,
+  only rosterable sets are kept. When a project window is passed, only sets fully inside it are kept.
 */
 export function getAssuranceSetsForProjectCreation(
   assuranceSets: AssuranceSet[],
   requestingOrganization: string,
   projects: Project[] = [],
+  options: AssuranceSetsForProjectCreationOptions = {},
 ): AssuranceSet[] {
+  const {
+    vessels,
+    crew,
+    equipment,
+    projectWindowStart = '',
+    projectWindowEnd = '',
+  } = options;
+  const requireRosterable = Boolean(vessels && crew && equipment);
+  const requireWindow = Boolean(projectWindowStart && projectWindowEnd);
+
   return assuranceSets.filter((s) => {
     if (s.visibility === 'draft' || (s.visibility as string) === 'private') return false;
     /* already on a project — cannot seed another (same rule as getStandaloneAssuranceSetsForAttach) */
@@ -410,8 +460,20 @@ export function getAssuranceSetsForProjectCreation(
       orgFieldMatches(requestingOrganization, s.initiatorOrg || '') ||
       orgFieldMatches(requestingOrganization, s.clientOrg || '') ||
       orgFieldMatches(requestingOrganization, s.serviceProviderOrg || '');
-
-    return isPublic || matchesOrg;
+    if (!(isPublic || matchesOrg)) return false;
+    if (
+      requireRosterable &&
+      !isAssuranceSetRosterable(s, vessels!, crew!, equipment!)
+    ) {
+      return false;
+    }
+    if (
+      requireWindow &&
+      !isAssuranceSetWithinProjectWindow(s, projectWindowStart, projectWindowEnd)
+    ) {
+      return false;
+    }
+    return true;
   });
 }
 

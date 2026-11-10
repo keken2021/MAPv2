@@ -13,6 +13,8 @@ import {
   getProjectForAssuranceSet,
   getStandaloneAssuranceSetsForAttach,
   isAssuranceSetOrphaned,
+  isAssuranceSetRosterable,
+  isAssuranceSetWithinProjectWindow,
 } from '../utils/projectHelpers';
 import {
   getAssuranceSetCreatedByLabel,
@@ -195,6 +197,97 @@ describe('project to assurance set relationship', () => {
 
     expect(offered.some((s) => linkedIds.has(s.id))).toBe(false);
     expect(offered.some((s) => s.id === 'AS-REL-CREATE-ORPHAN')).toBe(true);
+  });
+
+  it('create-project step 2 keeps only rosterable sets when registries are passed', () => {
+    const afterAdd = () => {
+      useMapStore.setState((prev) => ({
+        assuranceSets: [
+          ...prev.assuranceSets,
+          buildOrphanSet('AS-REL-ROSTERABLE', 'VESSEL-002', 'Rosterable Orphan'),
+          {
+            ...buildOrphanSet('AS-REL-NO-ASSET', 'VESSEL-MISSING', 'No Asset Orphan'),
+            vesselId: '',
+            vesselName: '',
+          },
+        ],
+      }));
+      return useMapStore.getState();
+    };
+    const state = afterAdd();
+    expect(isAssuranceSetRosterable(
+      state.assuranceSets.find((s) => s.id === 'AS-REL-ROSTERABLE') as AssuranceSet,
+      state.vessels,
+      state.crew,
+      state.equipment,
+    )).toBe(true);
+    expect(isAssuranceSetRosterable(
+      state.assuranceSets.find((s) => s.id === 'AS-REL-NO-ASSET') as AssuranceSet,
+      state.vessels,
+      state.crew,
+      state.equipment,
+    )).toBe(false);
+
+    const offered = getAssuranceSetsForProjectCreation(
+      state.assuranceSets,
+      'Northwind Marine Pty Ltd',
+      state.projects,
+      {
+        vessels: state.vessels,
+        crew: state.crew,
+        equipment: state.equipment,
+      },
+    );
+    expect(offered.some((s) => s.id === 'AS-REL-ROSTERABLE')).toBe(true);
+    expect(offered.some((s) => s.id === 'AS-REL-NO-ASSET')).toBe(false);
+  });
+
+  it('create-project step 2 keeps only sets inside the project window', () => {
+    useMapStore.setState((prev) => ({
+      assuranceSets: [
+        ...prev.assuranceSets,
+        {
+          ...buildOrphanSet('AS-REL-IN-WINDOW', 'VESSEL-002', 'In Window Orphan'),
+          charterWindowStart: '2026-12-01',
+          charterWindowEnd: '2027-01-15',
+        },
+        {
+          ...buildOrphanSet('AS-REL-OUT-WINDOW', 'VESSEL-003', 'Out Window Orphan'),
+          charterWindowStart: '2026-10-01',
+          charterWindowEnd: '2027-06-01',
+        },
+      ],
+    }));
+    const state = useMapStore.getState();
+    expect(
+      isAssuranceSetWithinProjectWindow(
+        state.assuranceSets.find((s) => s.id === 'AS-REL-IN-WINDOW') as AssuranceSet,
+        '2026-11-01',
+        '2027-02-28',
+      ),
+    ).toBe(true);
+    expect(
+      isAssuranceSetWithinProjectWindow(
+        state.assuranceSets.find((s) => s.id === 'AS-REL-OUT-WINDOW') as AssuranceSet,
+        '2026-11-01',
+        '2027-02-28',
+      ),
+    ).toBe(false);
+
+    const offered = getAssuranceSetsForProjectCreation(
+      state.assuranceSets,
+      'Northwind Marine Pty Ltd',
+      state.projects,
+      {
+        vessels: state.vessels,
+        crew: state.crew,
+        equipment: state.equipment,
+        projectWindowStart: '2026-11-01',
+        projectWindowEnd: '2027-02-28',
+      },
+    );
+    expect(offered.some((s) => s.id === 'AS-REL-IN-WINDOW')).toBe(true);
+    expect(offered.some((s) => s.id === 'AS-REL-OUT-WINDOW')).toBe(false);
   });
 
   it('returns a set to orphaned when its roster link is removed', () => {

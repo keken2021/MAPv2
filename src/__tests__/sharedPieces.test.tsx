@@ -224,6 +224,16 @@ describe('Tabs', () => {
     expect(screen.queryByRole('tab', { name: /Hidden/i })).toBeNull();
   });
 
+  it('section warn count renders as a red circle badge with the bare number', () => {
+    const { container } = render(
+      <Tabs tabs={baseTabs} active="overview" onChange={vi.fn()} variant="section" />,
+    );
+    const badge = container.querySelector('.map-tabs-section-action-count');
+    expect(badge).toBeInTheDocument();
+    expect(badge?.textContent).toBe('2');
+    expect(screen.getByRole('tab', { name: /Risks, 2 pending/i })).toBeInTheDocument();
+  });
+
   it('filter variant shows counts and warn tone', () => {
     const { container } = render(
       <Tabs tabs={baseTabs} active="overview" onChange={vi.fn()} variant="filter" />,

@@ -39,6 +39,21 @@ describe('Task 5515: Restrict document submission and reupload to tasks tab', ()
     expect(uploadButtons.length).toBe(0);
   });
 
+  it('shows the pending action count on Tasks as a red circle, not on Requirements', () => {
+    const { container } = render(<AssuranceDetailView setId={testSetId} />);
+
+    const requirementsTab = screen.getByRole('tab', { name: /^requirements$/i });
+    expect(within(requirementsTab).queryByText(/\d+/)).toBeNull();
+    expect(requirementsTab.querySelector('.map-tabs-section-action-count')).toBeNull();
+
+    const tasksBadge = container.querySelector('.map-tabs-section-action-count');
+    expect(tasksBadge).toBeInTheDocument();
+    expect(Number(tasksBadge?.textContent)).toBeGreaterThan(0);
+
+    const tasksTab = screen.getByRole('tab', { name: /tasks/i });
+    expect(tasksTab.contains(tasksBadge)).toBe(true);
+  });
+
   it('renders Upload/Reupload actions on the Tasks tab and opens upload modal directly in-place', () => {
     render(<AssuranceDetailView setId={testSetId} />);
     

@@ -1,6 +1,6 @@
 /*
   file summary: shared tab bar with section, filter, and toggle variants.
-  responsibilities: renders keyed tabs with optional count, tone, icon, and hidden; manages active styling and a11y attrs.
+  responsibilities: renders keyed tabs with optional count, tone, icon, and hidden; manages active styling and a11y attrs. Section warn counts render as a red circle badge.
   role in system: CountTabs wraps the filter variant; detail screens migrate onto section/toggle later.
 */
 
@@ -91,21 +91,40 @@ export const Tabs: React.FC<TabsProps> = ({
           </span>,
         );
         if (hasCount) {
-          labelParts.push(
-            <span
-              key="count"
-              className={`${isSection ? 'map-tabs-section-count' : 'map-count-tab-count'} ms-1 ${isWarn ? 'is-warn map-count-tab-warn' : ''}`}
-            >
-              ({tab.count})
-            </span>,
-          );
+          /* section + warn: red circle with the number so action tabs read as "click here" */
+          if (isSection && isWarn) {
+            labelParts.push(
+              <span
+                key="count"
+                className="map-tabs-section-action-count ms-1"
+                aria-hidden="true"
+              >
+                {tab.count}
+              </span>,
+            );
+          } else {
+            labelParts.push(
+              <span
+                key="count"
+                className={`${isSection ? 'map-tabs-section-count' : 'map-count-tab-count'} ms-1 ${isWarn ? 'is-warn map-count-tab-warn' : ''}`}
+              >
+                ({tab.count})
+              </span>,
+            );
+          }
         }
+
+        const accessibleName =
+          hasCount && isWarn
+            ? `${tab.label}, ${tab.count} pending`
+            : undefined;
 
         return (
           <button
             key={tab.key}
             type="button"
             role={isToggle ? 'button' : 'tab'}
+            aria-label={accessibleName}
             aria-selected={isToggle ? undefined : isActive}
             aria-pressed={isToggle ? isActive : undefined}
             className={buttonClass}

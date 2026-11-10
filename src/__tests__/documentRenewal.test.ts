@@ -129,6 +129,18 @@ describe('document renewal: re-upload rule', () => {
     expect(getDocumentReuploadBlockReason(short, [], TODAY, '2026-12-15')).toBe(DOCUMENT_REUPLOAD_BLOCK_REASON);
   });
 
+  it('opens re-upload while a charter-window renewal notice is open', () => {
+    const short = { ...valid, expiryDate: '2026-12-15', complianceState: 'Expiring < 6 Mos' as const };
+    const charterNotice = {
+      ...request,
+      renewalReason: 'charter_window' as const,
+    };
+    expect(getDocumentReuploadBlockReason(short, [charterNotice], TODAY)).toBeUndefined();
+    expect(
+      getDocumentReuploadBlockReason(short, [{ ...charterNotice, status: 'actioned' }], TODAY),
+    ).toBe(DOCUMENT_REUPLOAD_BLOCK_REASON);
+  });
+
   it('counts expiring and expired documents from their compliance state', () => {
     expect(
       countDocumentsByExpiry([

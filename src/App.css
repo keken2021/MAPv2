@@ -1879,6 +1879,24 @@ div.map-autofill-animate {
   color: var(--map-primary-blue);
 }
 
+/* Action count on section tabs (e.g. Tasks): solid red circle with white number */
+.map-tabs-section-action-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 9999px;
+  background-color: #dc2626;
+  color: #fff;
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
 .map-tabs-toggle-group {
   border: 1px solid var(--map-border-color);
   border-radius: 9999px;

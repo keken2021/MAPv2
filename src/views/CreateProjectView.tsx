@@ -27,10 +27,12 @@ import {
   getAssuranceSetsForProjectCreation,
   getLinkableProjectAssets,
   getProjectOrganizationForPersona,
+  isAssuranceSetWithinProjectWindow,
   LinkableProjectAsset,
   projectTypeRequiresRiskProfile,
   projectTypeRequiresRoute,
   projectTypeShowsServiceFields,
+  sameOrganization,
 } from "../utils/projectHelpers";
 import { ProjectAssetPicker } from "../components/common/ProjectAssetPicker";
 import { EmptyState } from "../components/common/EmptyState";
@@ -138,6 +140,11 @@ export const CreateProjectView: React.FC = () => {
     Record<string, string>
   >({});
   const [error, setError] = useState("");
+  /** when adding an asset whose provider is not yet a project party */
+  const [partyPrompt, setPartyPrompt] = useState<{
+    asset: LinkableProjectAsset;
+    assuranceSetId: string;
+  } | null>(null);
 
   const showCharterFields =
     projectType === "Charter / Voyage" || projectType === "Mixed / Composite";
@@ -151,8 +158,52 @@ export const CreateProjectView: React.FC = () => {
         assuranceSets,
         requestingOrganization,
         projects,
+        {
+          vessels,
+          crew,
+          equipment,
+          projectWindowStart,
+          projectWindowEnd,
+        },
       ),
-    [assuranceSets, requestingOrganization, projects],
+    [
+      assuranceSets,
+      requestingOrganization,
+      projects,
+      vessels,
+      crew,
+      equipment,
+      projectWindowStart,
+      projectWindowEnd,
+    ],
+  );
+
+  /* drop selections that no longer qualify when project dates or registries change */
+  useEffect(() => {
+    const allowed = new Set(selectableAssuranceSets.map((s) => s.id));
+    setSelectedAssuranceSetIds((prev) => {
+      const next = prev.filter((id) => allowed.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [selectableAssuranceSets]);
+
+  const partyOrganizationNames = useMemo(
+    () =>
+      [
+        requestingOrganization,
+        headContractor,
+        vendor,
+        ...otherParties.map((p) => p.organization),
+      ].filter((name) => name.trim()),
+    [requestingOrganization, headContractor, vendor, otherParties],
+  );
+
+  const isProviderOnParties = useCallback(
+    (providerOrganization: string) =>
+      partyOrganizationNames.some((name) =>
+        sameOrganization(name, providerOrganization),
+      ),
+    [partyOrganizationNames],
   );
 
   const selectedAssuranceSets = useMemo(
@@ -257,6 +308,23 @@ export const CreateProjectView: React.FC = () => {
       return;
     }
 
+    const outsideWindow = selectedAssuranceSets.filter(
+      (s) =>
+        !isAssuranceSetWithinProjectWindow(
+          s,
+          projectWindowStart,
+          projectWindowEnd,
+        ),
+    );
+    if (outsideWindow.length > 0) {
+      setError(
+        `These sets fall outside the project window (${projectWindowStart} → ${projectWindowEnd}): ${outsideWindow
+          .map((s) => s.id)
+          .join(", ")}. Adjust the project dates in Step 1 or deselect them.`,
+      );
+      return;
+    }
+
     const { links, unresolvedSetIds } = buildDraftAssetLinksFromAssuranceSets(
       selectedAssuranceSetIds,
       assuranceSets,
@@ -273,15 +341,10 @@ export const CreateProjectView: React.FC = () => {
     setStep(3);
   };
 
-  const handleAddAsset = (asset: LinkableProjectAsset) => {
-    const key = `${asset.assetType}:${asset.assetId}`;
-    const assuranceSetId =
-      pickAssuranceSetByKey[key] || asset.eligibleAssuranceSets[0]?.id;
-    if (!assuranceSetId) {
-      setError("Select an assurance set for this asset.");
-      return;
-    }
-
+  const commitDraftAsset = (
+    asset: LinkableProjectAsset,
+    assuranceSetId: string,
+  ) => {
     setDraftLinks((prev) => [
       ...prev,
       {
@@ -294,6 +357,52 @@ export const CreateProjectView: React.FC = () => {
       },
     ]);
     setError("");
+    setPartyPrompt(null);
+  };
+
+  const addProviderAsParty = (
+    providerOrganization: string,
+    group: "Vendor" | "Third party",
+  ) => {
+    if (isProviderOnParties(providerOrganization)) return;
+    if (group === "Vendor" && !vendor.trim()) {
+      setVendor(providerOrganization);
+      return;
+    }
+    setOtherParties((current) => [
+      ...current,
+      { organization: providerOrganization, group },
+    ]);
+  };
+
+  const handleAddAsset = (asset: LinkableProjectAsset) => {
+    const key = `${asset.assetType}:${asset.assetId}`;
+    const assuranceSetId =
+      pickAssuranceSetByKey[key] || asset.eligibleAssuranceSets[0]?.id;
+    if (!assuranceSetId) {
+      setError("Select an assurance set for this asset.");
+      return;
+    }
+
+    if (
+      asset.providerOrganization.trim() &&
+      !isProviderOnParties(asset.providerOrganization)
+    ) {
+      setPartyPrompt({ asset, assuranceSetId });
+      setError("");
+      return;
+    }
+
+    commitDraftAsset(asset, assuranceSetId);
+  };
+
+  const resolvePartyPrompt = (action: "Vendor" | "Third party" | "skip") => {
+    if (!partyPrompt) return;
+    const { asset, assuranceSetId } = partyPrompt;
+    if (action !== "skip") {
+      addProviderAsParty(asset.providerOrganization, action);
+    }
+    commitDraftAsset(asset, assuranceSetId);
   };
 
   const handleRemoveAsset = (assetType: ProjectAssetType, assetId: string) => {
@@ -911,15 +1020,19 @@ export const CreateProjectView: React.FC = () => {
           <>
             <p className="text-muted small mb-3">
               Select unassigned assurance sets for{" "}
-              <strong>{requestingOrganization}</strong>. Sets that already
-              belong to another project are not listed. Their assets are added
-              to the project in the next step.
+              <strong>{requestingOrganization}</strong>. Only sets that are not
+              on another project, have an asset (vessel, crew or equipment), and
+              whose contract period falls inside this project&apos;s window (
+              <span className="font-mono-code">
+                {projectWindowStart || "—"} → {projectWindowEnd || "—"}
+              </span>
+              ) are listed. Their assets are added in the next step.
             </p>
 
             {selectableAssuranceSets.length === 0 ? (
               <div className="alert alert-warning small">
-                No unassigned assurance sets available. Create one first, or
-                detach a set from its current project.
+                No attachable assurance sets. Create a set with an object first,
+                adjust the project dates in Step 1, or skip and add assets later.
               </div>
             ) : (
               <div className="list-group mb-3">
@@ -1010,10 +1123,50 @@ export const CreateProjectView: React.FC = () => {
         {step === 3 && (
           <>
             <div className="text-muted small mb-3">
-              Add assets for{" "}
-              <strong>{requestingOrganization}</strong>. Assets from the selected
-              assurance sets are already listed. Add more from the right.
+              Assets from the assurance sets you picked in Step 2 are listed under
+              Selected Assurance Sets. Available Assets are extra eligible external
+              assets for <strong>{requestingOrganization}</strong> — they are not
+              limited to the head contractor, vendor or third parties named in
+              Step 1. If a provider is missing from the parties list, you can add
+              them when you attach the asset.
             </div>
+
+            {partyPrompt && (
+              <div className="alert alert-warning small mb-3" role="alertdialog" aria-label="Add provider as party">
+                <div className="fw-semibold mb-1">
+                  {partyPrompt.asset.providerOrganization || "This provider"} is not
+                  on the project parties yet.
+                </div>
+                <p className="mb-2">
+                  Add them before attaching{" "}
+                  <strong>{partyPrompt.asset.assetName}</strong>, or skip and keep
+                  the asset without updating parties.
+                </p>
+                <div className="d-flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => resolvePartyPrompt("Vendor")}
+                  >
+                    Add as Vendor
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => resolvePartyPrompt("Third party")}
+                  >
+                    Add as Third party
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => resolvePartyPrompt("skip")}
+                  >
+                    Skip — add asset only
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="row g-3 mb-4">
               <div className="col-md-6">
@@ -1046,7 +1199,11 @@ export const CreateProjectView: React.FC = () => {
                   style={{ maxHeight: "360px", overflowY: "auto" }}
                 >
                   {assuranceSetCards.length === 0 ? (
-                    <EmptyState title="No assurance sets selected" className="border rounded" />
+                    <EmptyState
+                      title="No sets selected"
+                      description="Add assets from Available Assets, or go back and pick assurance sets in Step 2."
+                      className="border rounded"
+                    />
                   ) : (
                     assuranceSetCards.map(({ set, assets }) => (
                       <div key={set.id} className="border rounded p-3">

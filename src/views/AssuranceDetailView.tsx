@@ -2108,7 +2108,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const verifiedCount = assuranceSet.requirements.filter((r) => r.verifierStatus === 'Verified').length;
-  /* how many requirements this role still has to work on; shown on the Requirements tab and above the list */
+  /* how many requirements this role still has to work on; shown on the Tasks tab badge and above the requirements list */
   const requirementCounts = (() => {
     const reqs = assuranceSet.requirements;
     const total = reqs.length;
@@ -2411,8 +2411,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         tabs={[
           { key: 'details', label: 'Details' },
           { key: 'objects', label: 'Objects' },
-          { key: 'requirements', label: 'Requirements', count: requirementCounts.mine > 0 ? requirementCounts.mine : undefined, tone: 'warn' },
-          { key: 'tasks', label: 'Tasks' },
+          { key: 'requirements', label: 'Requirements' },
+          {
+            key: 'tasks',
+            label: 'Tasks',
+            count: requirementCounts.mine > 0 ? requirementCounts.mine : undefined,
+            tone: 'warn',
+          },
           { key: 'audit', label: 'Audit Trail' },
         ]}
       />

@@ -152,7 +152,7 @@ export function listCertificatesShortOfContract(
 
 /**
   what: why a document already on record cannot be re-uploaded yet, or undefined when it can; inputs are the document, all notifications, today's date and an optional contract end.
-  how: re-upload is open when the document is expired, when it expires before the contract end, when a reviewer returned or rejected it, or while a reviewer's reupload request is still open.
+  how: re-upload is open when the document is expired, when it expires before the contract end, when a reviewer returned or rejected it, while a reviewer's reupload request is still open, or while a charter-window renewal notice for that document is still open.
   with what file: src/utils/documentRenewalHelpers.ts used by AssuranceDetailView.tsx, DocumentReviewDrawer.tsx, DocumentDetailView.tsx, VersionHistoryDrawer.tsx and DocumentUploadModal.tsx.
 */
 export function getDocumentReuploadBlockReason(
@@ -172,7 +172,7 @@ export function getDocumentReuploadBlockReason(
   const hasOpenReuploadRequest = notifications.some(
     (n) =>
       n.type === 'document_renewal' &&
-      n.renewalReason === 'reupload_requested' &&
+      (n.renewalReason === 'reupload_requested' || n.renewalReason === 'charter_window') &&
       n.documentId === document.id &&
       n.status !== 'actioned',
   );
