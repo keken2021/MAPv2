@@ -67,6 +67,7 @@ export interface ProjectTasksTableProps {
   sessionUser?: { organization?: string; name?: string; id?: string } | null;
   onOpenSet?: (set: AssuranceSet) => void;
   onOpenRequirement?: (requirement: AssuranceRequirement, set: AssuranceSet) => void;
+  onTaskAction?: (requirement: AssuranceRequirement, set: AssuranceSet) => void;
   today?: Date;
   /** When true, renders an action column per row (Upload, Review, View) */
   showActions?: boolean;
@@ -326,6 +327,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   sessionUser,
   onOpenSet,
   onOpenRequirement,
+  onTaskAction,
   today = new Date(),
   showActions,
   showActionColumn,
@@ -791,19 +793,25 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
                     </td>
                     {hasActions && (
                       <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
-                        <button
-                          type="button"
-                          className={`btn btn-sm ${
-                            actionLabel === 'Upload' || actionLabel === 'Review'
-                              ? 'btn-primary'
-                              : 'btn-outline-primary'
-                          }`}
-                          onClick={() => onOpenRequirement?.(requirement, parentSet)}
-                          data-testid={`task-action-btn-${requirement.id}`}
-                          aria-label={`${actionLabel} requirement ${requirement.title}`}
-                        >
-                          {actionLabel}
-                        </button>
+                        {(() => {
+                          const isReupload = Boolean(row.requirement.reuploadRequested) || (row.status || '').toLowerCase().includes('reupload');
+                          const displayActionLabel = actionLabel === 'Upload' && isReupload ? 'Reupload' : actionLabel;
+                          return (
+                            <button
+                              type="button"
+                              className={`btn btn-sm ${
+                                actionLabel === 'Upload' || actionLabel === 'Review'
+                                  ? 'btn-primary'
+                                  : 'btn-outline-primary'
+                              }`}
+                              onClick={() => (onTaskAction ? onTaskAction(requirement, parentSet) : onOpenRequirement?.(requirement, parentSet))}
+                              data-testid={`task-action-btn-${requirement.id}`}
+                              aria-label={`${displayActionLabel} requirement ${requirement.title}`}
+                            >
+                              {displayActionLabel}
+                            </button>
+                          );
+                        })()}
                       </td>
                     )}
                   </tr>

@@ -35,7 +35,7 @@ import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AttachAssuranceSetPreviewModal } from '../components/modals/AttachAssuranceSetPreviewModal';
 import { AssuranceTaskModal } from '../components/modals/AssuranceTaskModal';
-import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
+import { ProjectTasksTable, getTaskRowActionLabel } from '../components/tables/ProjectTasksTable';
 import {
   canAssignStakeholderRole,
   getOrganizationRoleCandidates,
@@ -3462,19 +3462,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     </div>
                   )}
 
-                  {canUploadHere && (
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-primary text-white"
-                      onClick={() => {
-                        setUploadTargetRequirement(null);
-                        setReplaceExistingDoc(null);
-                        setIsUploadModalOpen(true);
-                      }}
-                    >
-                      Upload Document
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -4012,18 +3999,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                       <FileText size={16} />
                                                     </button>
                                                   )}
-                                                  {!isVerifier && !isApproverOrInspector && canUploadHere && (isClientViewer || canViewPartyDoc) && (
-                                                    <button
-                                                      type="button"
-                                                      className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
-                                                      style={{ width: '32px', height: '32px' }}
-                                                      onClick={() => openRequirementUpload(partyTask, effectivePartyDoc)}
-                                                      title="Upload document"
-                                                      aria-label="Upload document"
-                                                    >
-                                                      <Upload size={14} />
-                                                    </button>
-                                                  )}
                                                 </div>
                                               </td>
                                             </tr>
@@ -4065,20 +4040,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                         >
                                                           <FileText size={14} />
                                                           <span>PDF Review</span>
-                                                        </button>
-                                                      </div>
-                                                    )}
-                                                    {isVerifier && canUploadHere && (isClientViewer || canViewPartyDoc) && (
-                                                      <div className="d-flex align-items-center gap-2 flex-wrap">
-                                                        <button
-                                                          type="button"
-                                                          className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-2.5 py-1"
-                                                          onClick={() => openRequirementUpload(partyTask, effectivePartyDoc)}
-                                                          title="Upload document"
-                                                          aria-label="Upload document"
-                                                        >
-                                                          <Upload size={14} />
-                                                          <span>Upload document</span>
                                                         </button>
                                                       </div>
                                                     )}
@@ -4181,44 +4142,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                               </>
                                             )}
                                             {effectiveLinkedDoc && canViewDoc ? (
-                                              <>
-                                                {!isSubmitter && (
-                                                  <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                                                    style={{ width: '32px', height: '32px' }}
-                                                    onClick={() => setSelectedDocForReview({ doc: docView?.doc || effectiveLinkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
-                                                    title="PDF Review"
-                                                    aria-label="PDF Review"
-                                                  >
-                                                    <FileText size={16} />
-                                                  </button>
-                                                )}
-                                                {!isVerifier && !isApproverOrInspector && canUploadHere && (
-                                                  <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
-                                                    style={{ width: '32px', height: '32px' }}
-                                                    onClick={() => openRequirementUpload(req, effectiveLinkedDoc)}
-                                                    disabled={Boolean(getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
-                                                    title={getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || 'Upload new version'}
-                                                    aria-label="Upload new version"
-                                                  >
-                                                    <RefreshCw size={16} />
-                                                  </button>
-                                                )}
-                                              </>
-                                            ) : !isVerifier && !isApproverOrInspector && canUploadHere && canViewDoc ? (
-                                              <button
-                                                type="button"
-                                                className="btn btn-sm btn-primary text-white d-inline-flex align-items-center justify-content-center p-0"
-                                                style={{ width: '32px', height: '32px' }}
-                                                onClick={() => openRequirementUpload(req)}
-                                                title="Upload document"
-                                                aria-label="Upload document"
-                                              >
-                                                <Upload size={16} />
-                                              </button>
+                                              !isSubmitter ? (
+                                                <button
+                                                  type="button"
+                                                  className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
+                                                  style={{ width: '32px', height: '32px' }}
+                                                  onClick={() => setSelectedDocForReview({ doc: docView?.doc || effectiveLinkedDoc, notes: req.notes, requirementId: req.id, verifierStatus: req.verifierStatus, isVersionLocked: docView?.isLocked })}
+                                                  title="PDF Review"
+                                                  aria-label="PDF Review"
+                                                >
+                                                  <FileText size={16} />
+                                                </button>
+                                              ) : null
                                             ) : (
                                               <span className="text-secondary small">No Document</span>
                                             )}
@@ -4282,21 +4217,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                   >
                                                     <FileText size={14} />
                                                     <span>PDF Review</span>
-                                                  </button>
-                                                </div>
-                                              )}
-                                              {isVerifier && canUploadHere && canViewDoc && (
-                                                <div className="d-flex align-items-center gap-2 flex-wrap">
-                                                  <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-2.5 py-1"
-                                                    onClick={() => openRequirementUpload(req, effectiveLinkedDoc)}
-                                                    disabled={Boolean(effectiveLinkedDoc && getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd))}
-                                                    title={effectiveLinkedDoc ? (getDocumentReuploadBlockReason(effectiveLinkedDoc, notifications, new Date(), assuranceSet.charterWindowEnd) || "Upload new version") : "Upload document"}
-                                                    aria-label={effectiveLinkedDoc ? "Upload new version" : "Upload document"}
-                                                  >
-                                                    {effectiveLinkedDoc ? <RefreshCw size={14} /> : <Upload size={14} />}
-                                                    <span>{effectiveLinkedDoc ? "Upload new version" : "Upload document"}</span>
                                                   </button>
                                                 </div>
                                               )}
@@ -4438,6 +4358,28 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             setFocusedRequirementId(req.id);
             setShowBackToTasks(true);
             setActiveTab('requirements');
+          }}
+          onTaskAction={(req, parentSet) => {
+            const action = getTaskRowActionLabel({ requirement: req, parentSet }, viewerParty);
+            const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+            if (action === 'Upload') {
+              openRequirementUpload(req, linkedDoc);
+            } else if (action === 'Review') {
+              if (linkedDoc) {
+                const docView = getRequirementDocumentView(parentSet, req, linkedDoc);
+                setSelectedDocForReview({
+                  doc: docView?.doc || linkedDoc,
+                  notes: req.notes,
+                  requirementId: req.id,
+                  verifierStatus: req.verifierStatus,
+                  isVersionLocked: docView?.isLocked,
+                });
+              }
+            } else {
+              setFocusedRequirementId(req.id);
+              setShowBackToTasks(true);
+              setActiveTab('requirements');
+            }
           }}
         />
       </div>

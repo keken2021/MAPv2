@@ -859,7 +859,7 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     // Both Add menu and primary Upload Document button are present
     const addMenuBtn = screen.getByRole('button', { name: /^add$/i });
     expect(addMenuBtn).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /upload document/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /upload document/i })).toBeNull();
 
     // Opening Add menu reveals both actions
     fireEvent.click(addMenuBtn);
@@ -1123,8 +1123,7 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
 
     const submitterRow = screen.getByTestId('toggle-req-REQ-PERSONA-01').closest('tr');
     expect(submitterRow).not.toBeNull();
-    // Submitter row has Upload (or Upload new version) and no PDF review
-    expect(within(submitterRow!).getByTitle(/upload/i)).toBeInTheDocument();
+    expect(within(submitterRow!).queryByTitle(/upload/i)).toBeNull();
     expect(within(submitterRow!).queryByTitle(/pdf review/i)).toBeNull();
 
     // In expanded detail row, Target Object is available
