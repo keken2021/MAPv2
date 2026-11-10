@@ -17,6 +17,7 @@ import { AssuranceSet } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
 import { UserProfile } from '../types/user';
 import { usePagination } from '../utils/usePagination';
+import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { TablePagination } from '../components/common/TablePagination';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
 
@@ -88,6 +89,26 @@ export const VerifierWorkspaceView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      type: typeFilter,
+      status: statusFilter,
+    },
+    defaults: {
+      type: 'ALL',
+      status: 'ALL',
+    },
+    onCommit: (next) => {
+      setTypeFilter(next.type);
+      setStatusFilter(next.status);
+    },
+  });
+
+  const draftActiveFilterCount =
+    (filterState.draft.type !== 'ALL' ? 1 : 0) +
+    (filterState.draft.status !== 'ALL' ? 1 : 0);
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
@@ -472,9 +493,10 @@ export const VerifierWorkspaceView: React.FC = () => {
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="d-flex flex-column gap-3">
           <div>
@@ -484,8 +506,8 @@ export const VerifierWorkspaceView: React.FC = () => {
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
+              value={filterState.draft.type}
+              onChange={(e) => filterState.setField('type', e.target.value)}
             >
               <option value="ALL">All Types</option>
               <option value="Vessel Certificate">Vessel Certificate</option>
@@ -500,8 +522,8 @@ export const VerifierWorkspaceView: React.FC = () => {
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={filterState.draft.status}
+              onChange={(e) => filterState.setField('status', e.target.value)}
             >
               <option value="ALL">All Statuses</option>
               <option value="Pending">Submitted</option>

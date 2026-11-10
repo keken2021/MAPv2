@@ -10,6 +10,7 @@ import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilter
 import { CountTabs, CountTab } from '../components/common/CountTabs';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { usePagination } from '../utils/usePagination';
+import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { TablePagination } from '../components/common/TablePagination';
 import { formatMaritimeDate } from '../utils/formatters';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
@@ -52,6 +53,21 @@ export const InspectorWorkspaceView: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchQuery, setSearchQuery] = useState('');
   const [locationFilter, setLocationFilter] = useState<string>('All');
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      location: locationFilter,
+    },
+    defaults: {
+      location: 'All',
+    },
+    onCommit: (next) => {
+      setLocationFilter(next.location);
+    },
+  });
+
+  const draftActiveFilterCount = filterState.draft.location !== 'All' ? 1 : 0;
 
   const handleResetFilters = () => {
     setLocationFilter('All');
@@ -431,9 +447,10 @@ export const InspectorWorkspaceView: React.FC = () => {
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="d-flex flex-column gap-3">
           <div>
@@ -443,8 +460,8 @@ export const InspectorWorkspaceView: React.FC = () => {
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
+              value={filterState.draft.location}
+              onChange={(e) => filterState.setField('location', e.target.value)}
             >
               <option value="All">All locations ({locations.length})</option>
               {locations.map((place) => (

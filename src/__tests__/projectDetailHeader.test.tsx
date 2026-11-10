@@ -92,7 +92,7 @@ describe('ProjectDetailView UI Declutter', () => {
     expect(svg?.classList.contains('lucide-eye')).toBe(false);
   });
 
-  it('makes Overview the default active tab, displays calculated efficiency metrics and provider summary, and switches cleanly to other tabs', () => {
+  it('makes Overview the default active tab, shows project readiness and KPIs, and switches cleanly to written-spec Details', () => {
     render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-017" />);
 
     const tablist = screen.getByRole('tablist', { name: /project detail tabs/i });
@@ -102,6 +102,13 @@ describe('ProjectDetailView UI Declutter', () => {
 
     const overviewPanel = screen.getByTestId('project-overview-tab');
     expect(overviewPanel).toBeInTheDocument();
+
+    const readinessCard = screen.getByTestId('project-overview-readiness');
+    expect(within(readinessCard).getByText('Overall Project Readiness')).toBeInTheDocument();
+    expect(within(readinessCard).getByRole('progressbar')).toBeInTheDocument();
+    expect(within(readinessCard).getByText('Objects')).toBeInTheDocument();
+    expect(within(readinessCard).getByText('Assurance Sets')).toBeInTheDocument();
+    expect(within(readinessCard).getByText('Providers')).toBeInTheDocument();
 
     const metrics = screen.getByTestId('project-efficiency-metrics');
     expect(within(metrics).getByText('Turnaround Days')).toBeInTheDocument();
@@ -125,6 +132,24 @@ describe('ProjectDetailView UI Declutter', () => {
     );
     expect(tabs[0]).toHaveAttribute('aria-selected', 'false');
     expect(screen.queryByTestId('project-overview-tab')).toBeNull();
-    expect(screen.getByText('Project metadata and scope')).toBeInTheDocument();
+
+    const detailsTab = screen.getByTestId('project-details-tab');
+    expect(within(detailsTab).getByText('Scope & Particulars')).toBeInTheDocument();
+    expect(within(detailsTab).getByText('Organizations & Contract Chain')).toBeInTheDocument();
+    expect(within(detailsTab).queryByRole('progressbar')).toBeNull();
+    expect(within(detailsTab).queryByText('Overall Project Readiness')).toBeNull();
+    expect(detailsTab.querySelectorAll('.badge, .map-status-badge')).toHaveLength(0);
+
+    // Confidential Project Value must stay hidden from Details
+    expect(within(detailsTab).queryByText(/Project Value/i)).toBeNull();
+    expect(within(detailsTab).queryByText(/240,000,000/)).toBeNull();
+
+    // Non-confidential particulars and contract chain appear cleanly
+    expect(within(detailsTab).getByText('Multi-Year Term')).toBeInTheDocument();
+    expect(within(detailsTab).getByText('On-Hire Date')).toBeInTheDocument();
+    expect(within(detailsTab).getByText('Oil Company')).toBeInTheDocument();
+    expect(within(detailsTab).getByText('Northwind Marine Pty Ltd')).toBeInTheDocument();
+    expect(within(detailsTab).getByText('Meridian Shipyards')).toBeInTheDocument();
+    expect(within(detailsTab).getByText('Harbourline Terminals')).toBeInTheDocument();
   });
 });

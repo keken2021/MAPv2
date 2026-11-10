@@ -27,6 +27,7 @@ import {
 } from '../utils/notificationHelpers';
 import { useNotificationInbox } from '../utils/useNotificationInbox';
 import { usePagination } from '../utils/usePagination';
+import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { TablePagination } from '../components/common/TablePagination';
 
 const COLUMN_COUNT = 6;
@@ -47,6 +48,23 @@ export const NotificationsView: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<string | null>(null);
+
+  const filterState = useDeferredFilters<{
+    category: 'ALL' | NotificationCategory;
+  }>({
+    isOpen: isFilterModalOpen,
+    applied: {
+      category: categoryFilter,
+    },
+    defaults: {
+      category: 'ALL',
+    },
+    onCommit: (next) => {
+      setCategoryFilter(next.category);
+    },
+  });
+
+  const draftActiveFilterCount = filterState.draft.category !== 'ALL' ? 1 : 0;
 
   const tabCounts = useMemo(
     () =>
@@ -283,9 +301,10 @@ export const NotificationsView: React.FC = () => {
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={() => setCategoryFilter('ALL')}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <label className="form-label small fw-semibold text-secondary mb-1" htmlFor="notification-category-filter">
@@ -294,8 +313,8 @@ export const NotificationsView: React.FC = () => {
           <select
             id="notification-category-filter"
             className="form-select form-select-sm bg-white text-dark border-secondary"
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as 'ALL' | NotificationCategory)}
+            value={filterState.draft.category}
+            onChange={(e) => filterState.setField('category', e.target.value as 'ALL' | NotificationCategory)}
           >
             <option value="ALL">All Categories</option>
             {NOTIFICATION_CATEGORIES.map((category) => (

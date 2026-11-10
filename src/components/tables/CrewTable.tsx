@@ -18,6 +18,7 @@ import { getStatusDisplayLabel } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { usePagination } from '../../utils/usePagination';
+import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 import { maskRestrictedValue } from '../../utils/restrictedData';
 
@@ -86,6 +87,40 @@ export const CrewTable: React.FC<CrewTableProps> = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [groupSortField, setGroupSortField] = useState<GroupSortField>('id');
   const [groupSortDirection, setGroupSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      rank: rankFilter,
+      status: statusFilter,
+      vessel: vesselFilter,
+      groupSpecialization: groupSpecializationFilter,
+    },
+    defaults: {
+      rank: 'ALL',
+      status: 'ALL',
+      vessel: 'ALL',
+      groupSpecialization: 'ALL',
+    },
+    onCommit: (next) => {
+      if (directoryMode === 'individuals') {
+        setRankFilter(next.rank);
+        setStatusFilter(next.status);
+        setVesselFilter(next.vessel);
+      } else {
+        setGroupSpecializationFilter(next.groupSpecialization);
+      }
+    },
+  });
+
+  const draftActiveFilterCount =
+    directoryMode === 'individuals'
+      ? (filterState.draft.rank !== 'ALL' ? 1 : 0) +
+        (filterState.draft.status !== 'ALL' ? 1 : 0) +
+        (!scopedToVessel && filterState.draft.vessel !== 'ALL' ? 1 : 0)
+      : filterState.draft.groupSpecialization !== 'ALL'
+        ? 1
+        : 0;
 
   const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
   const canRegisterCrew =
@@ -632,9 +667,10 @@ export const CrewTable: React.FC<CrewTableProps> = ({
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title={directoryMode === 'individuals' ? 'Filters' : 'Filter Groups'}
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           {directoryMode === 'individuals' ? (
@@ -643,8 +679,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                 <label className="form-label small fw-semibold text-secondary mb-1">Rank</label>
                 <select
                   className="form-select form-select-sm bg-white text-dark border-secondary"
-                  value={rankFilter}
-                  onChange={(e) => setRankFilter(e.target.value)}
+                  value={filterState.draft.rank}
+                  onChange={(e) => filterState.setField('rank', e.target.value)}
                 >
                   <option value="ALL">All Ranks</option>
                   <option value="Master">Master</option>
@@ -658,8 +694,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                 <label className="form-label small fw-semibold text-secondary mb-1">Compliance</label>
                 <select
                   className="form-select form-select-sm bg-white text-dark border-secondary"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
+                  value={filterState.draft.status}
+                  onChange={(e) => filterState.setField('status', e.target.value)}
                 >
                   <option value="ALL">All Statuses</option>
                   <option value="Fully Compliant">Compliant</option>
@@ -673,8 +709,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                   <label className="form-label small fw-semibold text-secondary mb-1">Vessel</label>
                   <select
                     className="form-select form-select-sm bg-white text-dark border-secondary"
-                    value={vesselFilter}
-                    onChange={(e) => setVesselFilter(e.target.value)}
+                    value={filterState.draft.vessel}
+                    onChange={(e) => filterState.setField('vessel', e.target.value)}
                   >
                     <option value="ALL">All Vessels</option>
                     <option value="UNASSIGNED">Unassigned</option>
@@ -693,8 +729,8 @@ export const CrewTable: React.FC<CrewTableProps> = ({
                 <label className="form-label small fw-semibold text-secondary mb-1">Specialization</label>
                 <select
                   className="form-select form-select-sm bg-white text-dark border-secondary"
-                  value={groupSpecializationFilter}
-                  onChange={(e) => setGroupSpecializationFilter(e.target.value)}
+                  value={filterState.draft.groupSpecialization}
+                  onChange={(e) => filterState.setField('groupSpecialization', e.target.value)}
                 >
                   <option value="ALL">All Specializations</option>
                   {specializations.map((spec) => (

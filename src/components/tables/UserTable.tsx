@@ -21,6 +21,7 @@ import { canPerform } from '../../utils/permissionHelpers';
 import { filterUsersForPersona } from '../../utils/rbacHelpers';
 import { formatUserRoles, getRoleDisplayLabel, userHasRole } from '../../utils/userRoleHelpers';
 import { usePagination } from '../../utils/usePagination';
+import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 
 type UserSortField =
@@ -56,6 +57,30 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      role: roleFilter,
+      type: typeFilter,
+      status: statusFilter,
+    },
+    defaults: {
+      role: 'ALL',
+      type: 'ALL',
+      status: 'ALL',
+    },
+    onCommit: (next) => {
+      setRoleFilter(next.role);
+      setTypeFilter(next.type);
+      setStatusFilter(next.status);
+    },
+  });
+
+  const draftActiveFilterCount =
+    (filterState.draft.role !== 'ALL' ? 1 : 0) +
+    (filterState.draft.type !== 'ALL' ? 1 : 0) +
+    (filterState.draft.status !== 'ALL' ? 1 : 0);
   const [sortField, setSortField] = useState<UserSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
@@ -332,9 +357,10 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
@@ -342,8 +368,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
               <label className="form-label small fw-semibold text-secondary mb-1">Role</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                value={filterState.draft.role}
+                onChange={(e) => filterState.setField('role', e.target.value)}
               >
                 <option value="ALL">All Roles</option>
                 {activePersona !== 'C Admin' && <option value="Administrator">{getRoleDisplayLabel('Administrator')}</option>}
@@ -364,8 +390,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
               <label className="form-label small fw-semibold text-secondary mb-1">User Type</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
+                value={filterState.draft.type}
+                onChange={(e) => filterState.setField('type', e.target.value)}
               >
                 <option value="ALL">All Types</option>
                 <option value="Organization">Organization</option>
@@ -377,8 +403,8 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
               <label className="form-label small fw-semibold text-secondary mb-1">Status</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={filterState.draft.status}
+                onChange={(e) => filterState.setField('status', e.target.value)}
               >
                 <option value="ALL">All Statuses</option>
                 <option value="Active">Active</option>

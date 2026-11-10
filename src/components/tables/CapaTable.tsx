@@ -20,6 +20,7 @@ import { EmptyState } from '../common/EmptyState';
 import { StatusBadge } from '../common/StatusBadge';
 import { DueCell } from '../common/DueCell';
 import { usePagination } from '../../utils/usePagination';
+import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 
 export interface CapaTableProps {
@@ -129,6 +130,32 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<CapaSortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const committedVessel = isFleetOverview ? 'ALL_FLEET' : selectedVesselName;
+  const filterState = useDeferredFilters<{
+    vessel: string;
+    status: 'All' | CapaStatus;
+  }>({
+    isOpen: isFilterModalOpen,
+    applied: {
+      vessel: committedVessel,
+      status: activeTab,
+    },
+    defaults: {
+      vessel: 'ALL_FLEET',
+      status: 'All',
+    },
+    onCommit: (next) => {
+      setActiveTab(next.status);
+      if (!vesselId && next.vessel !== committedVessel) {
+        setCurrentHashView('capas', next.vessel);
+      }
+    },
+  });
+
+  const draftActiveFilterCount =
+    (!vesselId && filterState.draft.vessel !== 'ALL_FLEET' ? 1 : 0) +
+    (filterState.draft.status !== 'All' ? 1 : 0);
 
   const handleResetFilters = () => {
     setActiveTab('All');
@@ -273,7 +300,7 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
   };
 
 
-  const capasPagination = usePagination(sortedCapas, [activeTab, searchQuery, sortField, sortOrder]);
+  const capasPagination = usePagination(sortedCapas, [committedVessel, activeTab, searchQuery, sortField, sortOrder]);
 
   const capaTabs = [
     { key: 'All', label: 'All', count: totalCount },
@@ -387,9 +414,10 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
@@ -398,8 +426,8 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
               <label className="form-label small fw-semibold text-secondary mb-1">Vessel</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={isFleetOverview ? 'ALL_FLEET' : selectedVesselName}
-                onChange={(e) => setCurrentHashView('capas', e.target.value)}
+                value={filterState.draft.vessel}
+                onChange={(e) => filterState.setField('vessel', e.target.value)}
               >
                 <option value="ALL_FLEET">
                   {activePersona === 'Submitter' ? 'All Assigned Vessels' : 'All Fleet Vessels'} ({availableCapas.length})
@@ -422,8 +450,8 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
               <label className="form-label small fw-semibold text-secondary mb-1">Status</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value as any)}
+                value={filterState.draft.status}
+                onChange={(e) => filterState.setField('status', e.target.value as 'All' | CapaStatus)}
               >
                 <option value="All">All Statuses</option>
                 <option value="Open">Open</option>

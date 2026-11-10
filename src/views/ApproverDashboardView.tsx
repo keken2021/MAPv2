@@ -26,6 +26,7 @@ import { Ship, Camera, ShieldCheck, ArrowUpDown, ArrowUp, ArrowDown, FileCheck, 
 import { FilterModal } from '../components/common/FilterModal';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { usePagination } from '../utils/usePagination';
+import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { Paginated, TablePagination } from '../components/common/TablePagination';
 import { EmptyState } from '../components/common/EmptyState';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
@@ -108,6 +109,21 @@ export const ApproverDashboardView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('All');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      stage: stageFilter,
+    },
+    defaults: {
+      stage: 'All',
+    },
+    onCommit: (next) => {
+      setStageFilter(next.stage);
+    },
+  });
+
+  const draftActiveFilterCount = filterState.draft.stage !== 'All' ? 1 : 0;
   const [approverNotes, setApproverNotes] = useState('');
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -877,9 +893,10 @@ export const ApproverDashboardView: React.FC = () => {
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="d-flex flex-column gap-3">
           {/* Stage Filter */}
@@ -890,8 +907,8 @@ export const ApproverDashboardView: React.FC = () => {
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={stageFilter}
-              onChange={(e) => setStageFilter(e.target.value)}
+              value={filterState.draft.stage}
+              onChange={(e) => filterState.setField('stage', e.target.value)}
             >
               <option value="All">All Stages</option>
               <option value="Initiated">Initiated</option>

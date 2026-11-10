@@ -266,37 +266,45 @@ describe('ProjectDetailView assurance tab', () => {
     expect(screen.getByRole('tab', { name: /vessel/i })).toBeInTheDocument();
   });
 
-  it('has a Details tab showing project readiness first and two cards for metadata and commercial terms', () => {
+  it('keeps Overall Project Readiness in Overview and renders written specs only in Details', () => {
     render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-007" />);
-    const detailsTab = screen.getByRole('tab', { name: 'Details' });
-    expect(detailsTab).toBeInTheDocument();
 
-    fireEvent.click(detailsTab);
+    const overviewReadiness = screen.getByTestId('project-overview-readiness');
+    expect(within(overviewReadiness).getByText('Overall Project Readiness')).toBeInTheDocument();
+    expect(within(overviewReadiness).getByRole('progressbar')).toBeInTheDocument();
 
-    // New card titles
-    const metadataTitle = screen.getByText('Project metadata and scope');
-    const commercialTitle = screen.getByText('Commercial terms and contract chain');
-    expect(metadataTitle).toBeInTheDocument();
-    expect(commercialTitle).toBeInTheDocument();
+    const detailsTabButton = screen.getByRole('tab', { name: 'Details' });
+    expect(detailsTabButton).toBeInTheDocument();
+    fireEvent.click(detailsTabButton);
 
-    // Old card titles are removed
+    const detailsTab = screen.getByTestId('project-details-tab');
+    const scopeCard = screen.getByTestId('project-scope-particulars-card');
+    expect(within(scopeCard).getByText('Scope & Particulars')).toBeInTheDocument();
+
+    // Sparse charter with no extra contract parties omits the second card cleanly
+    expect(screen.queryByTestId('project-organizations-card')).toBeNull();
+
+    // Old titles, duplicated header facts, readiness charts, and pill badges are absent from Details
     expect(screen.queryByText('Project Information')).toBeNull();
     expect(screen.queryByText('Contract & Parties')).toBeNull();
+    expect(screen.queryByText('Project metadata and scope')).toBeNull();
+    expect(screen.queryByText('Commercial terms and contract chain')).toBeNull();
+    expect(within(detailsTab).queryByText('Overall Project Readiness')).toBeNull();
+    expect(within(detailsTab).queryByRole('progressbar')).toBeNull();
+    expect(detailsTab.querySelectorAll('.badge, .map-status-badge')).toHaveLength(0);
+    expect(within(scopeCard).queryByText(/Project ID/i)).toBeNull();
+    expect(within(scopeCard).queryByText(/Project Name/i)).toBeNull();
+    expect(within(scopeCard).queryByText(/Project Window/i)).toBeNull();
+    expect(within(scopeCard).queryByText(/Project Value/i)).toBeNull();
 
-    // Readiness bar and badges are at the top before the metadata card
-    const readiness = screen.getByText('Overall Project Readiness');
-    expect(readiness).toBeInTheDocument();
-    expect(readiness.compareDocumentPosition(metadataTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
-    // Removed fields: Project ID and Project Name do not repeat in the metadata card
-    const metadataCard = metadataTitle.closest('.card') as HTMLElement;
-    expect(within(metadataCard).queryByText(/Project ID:/i)).toBeNull();
-    expect(within(metadataCard).queryByText(/Project Name:/i)).toBeNull();
-
-    // Preserved fields in metadata card
-    expect(within(metadataCard).getByText(/Work Location:/i)).toBeInTheDocument();
-    expect(within(metadataCard).getByText(/Project Window:/i)).toBeInTheDocument();
-    expect(within(metadataCard).getByText(/Risk Profile:/i)).toBeInTheDocument();
-    expect(within(metadataCard).getByText(/Description:/i)).toBeInTheDocument();
+    // Written specifications render cleanly without trailing colons
+    expect(within(scopeCard).getByText('Project Scope')).toBeInTheDocument();
+    expect(within(scopeCard).getByText('Route')).toBeInTheDocument();
+    expect(within(scopeCard).getByText('Project Type')).toBeInTheDocument();
+    expect(within(scopeCard).getByText('Charter / Voyage')).toBeInTheDocument();
+    expect(within(scopeCard).getByText('Work Location')).toBeInTheDocument();
+    expect(within(scopeCard).getByText('Timor Sea — High-Risk Transit Corridor')).toBeInTheDocument();
+    expect(within(scopeCard).getByText('Risk Profile')).toBeInTheDocument();
+    expect(within(scopeCard).getByText('Armed escort required')).toBeInTheDocument();
   });
 });

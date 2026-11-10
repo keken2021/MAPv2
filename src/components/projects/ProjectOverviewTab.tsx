@@ -1,6 +1,6 @@
 /*
-  file summary: Overview briefing tab for ProjectDetailView.tsx showing delivery efficiency metrics, active bottlenecks, and participating providers.
-  responsibilities: computes and renders the 4 efficiency KPI cards from valueMetrics.ts, highlights Conditional or No-go sets with late tasks or review bottlenecks, and lists participating Providers with Assurance Set counts and Readiness percentages.
+  file summary: Overview briefing tab for ProjectDetailView.tsx showing Overall Project Readiness, delivery efficiency metrics, active bottlenecks, and participating providers.
+  responsibilities: computes Overall Project Readiness and linked counts, renders the 4 efficiency KPI cards from valueMetrics.ts, highlights Conditional or No-go sets with late tasks or review bottlenecks, and lists participating Providers with Assurance Set counts and Readiness percentages.
   role in system: rendered by ProjectDetailView.tsx as the default Overview tab (ADR 0033, docs/GLOSSARY.md).
 */
 
@@ -12,6 +12,7 @@ import type { MasterDocument } from '../../types/document';
 import type { Project } from '../../types/project';
 import { getAssuranceSetStatus } from '../../utils/assuranceSetStatus';
 import { getAssuranceSetObjects } from '../../utils/assuranceTemplates';
+import { calculateProjectReadiness } from '../../utils/projectHelpers';
 import { calculateAssuranceSetReadiness, isRequirementLate } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
 import {
@@ -56,6 +57,10 @@ export const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({
   canOpenSet,
   onOpenSet,
 }) => {
+  const projectReadiness = useMemo(
+    () => calculateProjectReadiness(project, allSets),
+    [project, allSets],
+  );
   const avgTurnaround = useMemo(() => averageDaysToClearance(sets), [sets]);
   const submissionAttempts = useMemo(() => countSubmissionAttempts(sets), [sets]);
   const reusedDocs = useMemo(() => countReusedDocuments(sets), [sets]);
@@ -169,6 +174,37 @@ export const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({
 
   return (
     <div className="d-flex flex-column gap-3" data-testid="project-overview-tab">
+      <div className="card map-card-custom p-4" data-testid="project-overview-readiness">
+        <div className="row g-3 align-items-center">
+          <div className="col-12 col-md-5">
+            <div className="text-secondary small fw-semibold mb-2">
+              Overall Project Readiness
+            </div>
+            <ReadinessGauge score={projectReadiness} size="md" />
+          </div>
+          <div className="col-12 col-md-7">
+            <div className="row g-3 ps-md-4">
+              <div className="col-6 col-sm-4">
+                <div className="text-secondary small fw-medium mb-1">Objects</div>
+                <div className="fs-4 fw-bold text-dark font-mono-code">
+                  {project.assetLinks.length}
+                </div>
+              </div>
+              <div className="col-6 col-sm-4">
+                <div className="text-secondary small fw-medium mb-1">Assurance Sets</div>
+                <div className="fs-4 fw-bold text-dark font-mono-code">{sets.length}</div>
+              </div>
+              <div className="col-6 col-sm-4">
+                <div className="text-secondary small fw-medium mb-1">Providers</div>
+                <div className="fs-4 fw-bold text-dark font-mono-code">
+                  {providerRows.length}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="row g-3" data-testid="project-efficiency-metrics">
         {efficiencyTiles.map((tile) => (
           <div key={tile.id} className="col-12 col-sm-6 col-xl-3">

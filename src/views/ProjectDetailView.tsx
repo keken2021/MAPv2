@@ -1,24 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Eye, Trash2, Plus, FolderPlus, Send, Link2 } from "lucide-react";
+import { ChevronDown, Eye, Trash2, Plus, FolderPlus, Send, Link2 } from "lucide-react";
 import { ListToolbar } from "../components/common/ListToolbar";
 import { CountTab, CountTabs } from "../components/common/CountTabs";
 import { ActiveFilterChips, FilterChip } from "../components/common/ActiveFilterChips";
 import { DetailHeader } from "../components/common/DetailHeader";
 import { Tabs } from "../components/common/Tabs";
-import { ReadinessGauge } from "../components/common/ReadinessGauge";
 import { useMapStore } from "../store/useMapStore";
-import { ProjectAssetType } from "../types/project";
+import {
+  ContractChainRole,
+  ContractParty,
+  ProjectAssetType,
+} from "../types/project";
 import { AssuranceSet } from "../types/assurance";
 import {
   CONTRACT_CHAIN_LABELS,
-  calculateProjectReadiness,
   contractPartyByRole,
   filterProjectsForPersona,
-  formatProjectValue,
   getProjectAssuranceSets,
   getStandaloneAssuranceSetsForAttach,
 } from "../utils/projectHelpers";
-import { ContractChainRole } from "../types/project";
 import { isAssuranceSetAssignedToPersona, orgFieldMatches } from "../utils/rbacHelpers";
 import { getDemoSessionContext, getSessionUserForPersona } from "../utils/userRoleHelpers";
 import { summarizeTaskSections } from "../utils/readinessHelpers";
@@ -242,23 +242,39 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     const b = right.trim().toLowerCase();
     return a === b || a.includes(b) || b.includes(a);
   };
-  const chainParties = (["client", "head_contractor", "vendor"] as ContractChainRole[])
+  const allChainParties = (["client", "head_contractor", "vendor"] as ContractChainRole[])
     .map((role) => ({ role, party: contractPartyByRole(project.contractParties, role) }))
-    .filter(({ role, party }) => {
-      if (!party?.organization?.trim()) return false;
-      if (role === "client" && sameOrganization(party.organization, headerClient)) return false;
-      return true;
-    });
+    .filter(
+      (entry): entry is { role: ContractChainRole; party: ContractParty } =>
+        Boolean(entry.party?.organization?.trim()),
+    );
+  const showChain = allChainParties.some(
+    ({ role, party }) => role !== "client" || !sameOrganization(party.organization, headerClient),
+  );
+  const visibleChainParties = showChain ? allChainParties : [];
   const otherParties = (project.contractParties ?? []).filter((party) => !party.chainRole);
-  const projectValueLabel = formatProjectValue(project.projectValue, project.currency);
+  const showOrganizationsCard = visibleChainParties.length > 0 || otherParties.length > 0;
+  const organizationCount = visibleChainParties.length + otherParties.length;
+  const workLocationLabel =
+    project.workLocationType && project.location
+      ? `${project.workLocationType} · ${project.location}`
+      : project.workLocationType || project.location || "";
+  const riskProfileLabel = project.riskProfile
+    ? project.riskProfile.charAt(0).toUpperCase() + project.riskProfile.slice(1).toLowerCase()
+    : "";
   const multiYearLabel =
     project.multiYearStart && project.multiYearEnd
       ? `${project.multiYearStart} → ${project.multiYearEnd}`
       : "";
   const showOnHire = Boolean(project.onHireDate) && project.onHireDate !== project.charterWindowStart;
-  const showContractParties = chainParties.length > 0 || otherParties.length > 0;
-  const showContractFacts = Boolean(projectValueLabel) || Boolean(multiYearLabel) || showOnHire;
-  const showContract = showContractParties || showContractFacts;
+  const hasParticulars = Boolean(
+    project.projectType ||
+      workLocationLabel ||
+      riskProfileLabel ||
+      project.workOrderRef ||
+      multiYearLabel ||
+      showOnHire,
+  );
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -349,208 +365,150 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       {activeTab === "overview" && <ProjectOverviewTab project={project} sets={projectAssuranceSets} allSets={assuranceSets} documents={documents} capaItems={capaItems} canOpenSet={canOpenSet} onOpenSet={(set) => setCurrentHashView("assurance-sets", set.id)} />}
 
       {activeTab === "details" && (
-        <div className="d-flex flex-column gap-3">
-          <div className="card map-card-custom p-4">
-            <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
-              <div>
-                <div className="text-secondary small fw-semibold mb-1">Overall Project Readiness</div>
-                <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
-                  <span className="badge bg-light text-dark border">
-                    Status: {project.status}
-                  </span>
-                  {project.riskProfile && (
-                    <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                      Risk: {project.riskProfile.charAt(0).toUpperCase() + project.riskProfile.slice(1).toLowerCase()}
-                    </span>
-                  )}
-                  <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
-                    {project.assetLinks.length} {project.assetLinks.length === 1 ? "Object" : "Objects"}
-                  </span>
-                  <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle">
-                    {projectAssuranceSets.length} {projectAssuranceSets.length === 1 ? "Assurance Set" : "Assurance Sets"}
-                  </span>
-                </div>
-                <div className="text-muted small">
-                  Aggregated from all linked assurance sets and compliance requirements.
-                </div>
-              </div>
-              <div style={{ minWidth: "200px" }}>
-                <ReadinessGauge
-                  score={calculateProjectReadiness(project, assuranceSets)}
-                  size="sm"
-                />
-              </div>
+        <div className="d-flex flex-column gap-3" data-testid="project-details-tab">
+          <div className="card map-card-custom" data-testid="project-scope-particulars-card">
+            <div className="card-header d-flex align-items-center justify-content-between">
+              <h2 className="h6 fw-semibold mb-0 text-dark">Scope &amp; Particulars</h2>
             </div>
-          </div>
-
-          <div className="row g-3">
-            <div className="col-md-6">
-              <div className="card map-card-custom p-4 h-100">
-                <div className="d-flex align-items-center justify-content-between mb-3">
-                  <span
-                    className="text-uppercase fw-bold text-secondary"
-                    style={{ fontSize: "0.725rem", letterSpacing: "0.05em" }}
-                  >
-                    Project metadata and scope
-                  </span>
+            <div className="card-body d-flex flex-column gap-3">
+              {project.description && (
+                <div>
+                  <div className="text-secondary small fw-medium mb-1">Project Scope</div>
+                  <div className="text-dark small">{project.description}</div>
                 </div>
-                <div className="d-flex flex-column gap-3 small">
-                  {project.description && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Description:</div>
-                      <div className="text-dark">{project.description}</div>
-                    </div>
-                  )}
-                  {(project.workLocationType || project.location) && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Work Location:</div>
-                      <div className="fw-bold text-dark">
-                        {project.workLocationType && project.location
-                          ? `${project.workLocationType} · ${project.location}`
-                          : project.workLocationType || project.location}
-                      </div>
-                    </div>
-                  )}
-                  {project.routeDescription && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Route:</div>
-                      <div className="text-dark">{project.routeDescription}</div>
-                    </div>
-                  )}
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Project Window:</div>
-                    <div className="fw-bold text-dark font-mono-code">
-                      {project.charterWindowStart} → {project.charterWindowEnd}
-                    </div>
-                  </div>
-                  {project.riskProfile && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Risk Profile:</div>
-                      <div className="fw-bold text-dark">
-                        {project.riskProfile.charAt(0).toUpperCase() + project.riskProfile.slice(1).toLowerCase()}
-                      </div>
-                    </div>
-                  )}
+              )}
+              {project.routeDescription && (
+                <div>
+                  <div className="text-secondary small fw-medium mb-1">Route</div>
+                  <div className="text-dark small">{project.routeDescription}</div>
+                </div>
+              )}
+              {hasParticulars && (
+                <div
+                  className={`row g-3${
+                    project.description || project.routeDescription ? " border-top pt-3" : ""
+                  }`}
+                >
                   {project.projectType && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Project Type:</div>
-                      <div className="fw-bold text-dark">{project.projectType}</div>
+                    <div className="col-12 col-sm-6 col-lg-4">
+                      <div className="text-secondary small fw-medium mb-1">Project Type</div>
+                      <div className="fw-semibold text-dark small">{project.projectType}</div>
+                    </div>
+                  )}
+                  {workLocationLabel && (
+                    <div className="col-12 col-sm-6 col-lg-4">
+                      <div className="text-secondary small fw-medium mb-1">Work Location</div>
+                      <div className="fw-semibold text-dark small">{workLocationLabel}</div>
+                    </div>
+                  )}
+                  {riskProfileLabel && (
+                    <div className="col-12 col-sm-6 col-lg-4">
+                      <div className="text-secondary small fw-medium mb-1">Risk Profile</div>
+                      <div className="fw-semibold text-dark small">{riskProfileLabel}</div>
                     </div>
                   )}
                   {project.workOrderRef && (
-                    <div className="map-detail-row">
-                      <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Work Order Ref:</div>
-                      <div className="fw-bold text-dark font-mono-code">{project.workOrderRef}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="col-md-6">
-              <div className="card map-card-custom p-4 h-100">
-                <div className="d-flex align-items-center justify-content-between mb-3">
-                  <span
-                    className="text-uppercase fw-bold text-secondary"
-                    style={{ fontSize: "0.725rem", letterSpacing: "0.05em" }}
-                  >
-                    Commercial terms and contract chain
-                  </span>
-                </div>
-                <div className="d-flex flex-column gap-3 small">
-                  <div className="map-detail-row border-bottom pb-2">
-                    <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Client / Requesting Org:</div>
-                    <div className="fw-bold text-dark">
-                      {project.ownerOrganization || project.charterer || project.requestingOrganization}
-                    </div>
-                  </div>
-                  {project.charterer && project.charterer !== project.ownerOrganization && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Charterer:</div>
-                      <div className="fw-bold text-dark">{project.charterer}</div>
-                    </div>
-                  )}
-                  {project.serviceProvider && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary" style={{ fontSize: "0.725rem" }}>Service Provider:</div>
-                      <div className="fw-bold text-dark">{project.serviceProvider}</div>
-                    </div>
-                  )}
-
-                  {chainParties.length > 0 && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary mb-1" style={{ fontSize: "0.725rem" }}>Contract Chain:</div>
-                      <div className="d-flex flex-wrap align-items-stretch gap-2 mt-1">
-                        {chainParties.map(({ role, party }, index) => (
-                          <React.Fragment key={role}>
-                            {index > 0 && (
-                              <span className="d-flex align-items-center text-secondary" aria-hidden="true">
-                                <ChevronRight size={16} />
-                              </span>
-                            )}
-                            <div className="border rounded px-2.5 py-1.5 bg-light" style={{ minWidth: "9rem" }}>
-                              <div className="text-secondary" style={{ fontSize: "0.675rem" }}>
-                                {CONTRACT_CHAIN_LABELS[role]}
-                              </div>
-                              <div className="fw-semibold text-dark small">{party?.organization}</div>
-                              {party?.group && (
-                                <span className="badge bg-white text-dark border mt-0.5" style={{ fontSize: "0.65rem" }}>
-                                  {party.group}
-                                </span>
-                              )}
-                            </div>
-                          </React.Fragment>
-                        ))}
+                    <div className="col-12 col-sm-6 col-lg-4">
+                      <div className="text-secondary small fw-medium mb-1">Work Order Ref</div>
+                      <div className="fw-semibold text-dark small font-mono-code">
+                        {project.workOrderRef}
                       </div>
                     </div>
                   )}
-
-                  {otherParties.length > 0 && (
-                    <div className="map-detail-row border-bottom pb-2">
-                      <div className="text-secondary mb-1" style={{ fontSize: "0.725rem" }}>Other Parties:</div>
-                      <ul className="list-unstyled mb-0 mt-1">
-                        {otherParties.map((party) => (
-                          <li
-                            key={`${party.organization}-${party.group}`}
-                            className="d-flex justify-content-between align-items-center gap-2 py-1"
-                          >
-                            <span className="fw-semibold text-dark">{party.organization}</span>
-                            <span className="badge bg-light text-dark border">{party.group}</span>
-                          </li>
-                        ))}
-                      </ul>
+                  {multiYearLabel && (
+                    <div className="col-12 col-sm-6 col-lg-4">
+                      <div className="text-secondary small fw-medium mb-1">Multi-Year Term</div>
+                      <div className="fw-semibold text-dark small font-mono-code">
+                        {multiYearLabel}
+                      </div>
                     </div>
                   )}
-
-                  {showContractFacts && (
-                    <div className="map-detail-row">
-                      <div className="text-secondary mb-1" style={{ fontSize: "0.725rem" }}>Commercial Terms:</div>
-                      <div className="d-flex flex-wrap gap-3 mt-1">
-                        {projectValueLabel && (
-                          <div>
-                            <div className="text-secondary" style={{ fontSize: "0.7rem" }}>Project Value</div>
-                            <div className="fw-semibold text-dark">{projectValueLabel}</div>
-                          </div>
-                        )}
-                        {multiYearLabel && (
-                          <div>
-                            <div className="text-secondary" style={{ fontSize: "0.7rem" }}>Multi-year Term</div>
-                            <div className="fw-semibold font-mono-code text-dark">{multiYearLabel}</div>
-                          </div>
-                        )}
-                        {showOnHire && (
-                          <div>
-                            <div className="text-secondary" style={{ fontSize: "0.7rem" }}>On-hire Date</div>
-                            <div className="fw-semibold font-mono-code text-dark">{project.onHireDate}</div>
-                          </div>
-                        )}
+                  {showOnHire && (
+                    <div className="col-12 col-sm-6 col-lg-4">
+                      <div className="text-secondary small fw-medium mb-1">On-Hire Date</div>
+                      <div className="fw-semibold text-dark small font-mono-code">
+                        {project.onHireDate}
                       </div>
                     </div>
                   )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
+
+          {showOrganizationsCard && (
+            <div className="card map-card-custom" data-testid="project-organizations-card">
+              <div className="card-header d-flex align-items-center justify-content-between">
+                <h2 className="h6 fw-semibold mb-0 text-dark">
+                  Organizations &amp; Contract Chain
+                </h2>
+                <span className="font-mono-code small text-secondary">
+                  {organizationCount}{" "}
+                  {organizationCount === 1 ? "Organization" : "Organizations"}
+                </span>
+              </div>
+              <div className="card-body d-flex flex-column gap-3">
+                {visibleChainParties.length > 0 && (
+                  <div>
+                    <div className="text-secondary small fw-semibold mb-2">Contract Chain</div>
+                    <div className="row g-3">
+                      {visibleChainParties.map(({ role, party }, index) => (
+                        <div key={role} className="col-12 col-md-4">
+                          <div className="d-flex align-items-start gap-2">
+                            <span
+                              className="d-inline-flex align-items-center justify-content-center rounded-circle fw-semibold font-mono-code flex-shrink-0 mt-1"
+                              style={{
+                                width: "22px",
+                                height: "22px",
+                                fontSize: "0.75rem",
+                                backgroundColor: "#f1f5f9",
+                                color: "#334155",
+                              }}
+                              aria-hidden="true"
+                            >
+                              {index + 1}
+                            </span>
+                            <div>
+                              <div className="text-secondary small fw-medium">
+                                {CONTRACT_CHAIN_LABELS[role]}
+                              </div>
+                              <div className="fw-semibold text-dark small">
+                                {party.organization}
+                              </div>
+                              {party.group && (
+                                <div className="text-secondary small">{party.group}</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {otherParties.length > 0 && (
+                  <div className={visibleChainParties.length > 0 ? "border-top pt-3" : ""}>
+                    <div className="text-secondary small fw-semibold mb-2">
+                      Participating Organizations
+                    </div>
+                    <div className="row g-3">
+                      {otherParties.map((party) => (
+                        <div
+                          key={`${party.organization}-${party.group}`}
+                          className="col-12 col-sm-6 col-lg-3"
+                        >
+                          <div className="fw-semibold text-dark small">{party.organization}</div>
+                          {party.group && (
+                            <div className="text-secondary small">{party.group}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {activeTab === "roster" && (

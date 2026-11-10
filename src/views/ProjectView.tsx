@@ -17,6 +17,7 @@ import { useMapStore } from '../store/useMapStore';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateProjectReadiness, filterProjectsForPersona } from '../utils/projectHelpers';
 import { usePagination } from '../utils/usePagination';
+import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { TablePagination } from '../components/common/TablePagination';
 
 export const ProjectView: React.FC = () => {
@@ -26,6 +27,26 @@ export const ProjectView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      status: statusFilter,
+      type: typeFilter,
+    },
+    defaults: {
+      status: 'ALL',
+      type: 'ALL',
+    },
+    onCommit: (next) => {
+      setStatusFilter(next.status);
+      setTypeFilter(next.type);
+    },
+  });
+
+  const draftActiveFilterCount =
+    (filterState.draft.status !== 'ALL' ? 1 : 0) +
+    (filterState.draft.type !== 'ALL' ? 1 : 0);
 
   const visibleProjects = useMemo(
     () =>
@@ -230,9 +251,10 @@ export const ProjectView: React.FC = () => {
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
@@ -240,8 +262,8 @@ export const ProjectView: React.FC = () => {
               <label className="form-label small fw-semibold text-secondary mb-1">Status</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={filterState.draft.status}
+                onChange={(e) => filterState.setField('status', e.target.value)}
               >
                 <option value="ALL">All Statuses</option>
                 <option value="Draft">Draft</option>
@@ -256,8 +278,8 @@ export const ProjectView: React.FC = () => {
               <label className="form-label small fw-semibold text-secondary mb-1">Type</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
+                value={filterState.draft.type}
+                onChange={(e) => filterState.setField('type', e.target.value)}
               >
                 <option value="ALL">All Types</option>
                 {projectTypes.map((type) => (

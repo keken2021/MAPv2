@@ -17,6 +17,7 @@ import { formatMaritimeDate, getStatusDisplayLabel } from '../../utils/formatter
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { usePagination } from '../../utils/usePagination';
+import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 import { StatusBadge } from '../common/StatusBadge';
 
@@ -68,6 +69,30 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const setStatusFilter = onStatusFilterChange ?? setInternalStatusFilter;
   const [verificationFilter, setVerificationFilter] = useState('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      type: typeFilter,
+      status: statusFilter,
+      verification: verificationFilter,
+    },
+    defaults: {
+      type: 'ALL',
+      status: 'ALL',
+      verification: 'ALL',
+    },
+    onCommit: (next) => {
+      setTypeFilter(next.type);
+      setStatusFilter(next.status);
+      setVerificationFilter(next.verification);
+    },
+  });
+
+  const draftActiveFilterCount =
+    (filterState.draft.type !== 'ALL' ? 1 : 0) +
+    (filterState.draft.status !== 'ALL' ? 1 : 0) +
+    (filterState.draft.verification !== 'ALL' ? 1 : 0);
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -289,9 +314,10 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
@@ -299,8 +325,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
               <label className="form-label small fw-semibold text-secondary mb-1">Type</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
+                value={filterState.draft.type}
+                onChange={(e) => filterState.setField('type', e.target.value)}
               >
                 <option value="ALL">All Types</option>
                 <option value="Vessel Certificate">Vessel Certificate</option>
@@ -314,8 +340,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
               <label className="form-label small fw-semibold text-secondary mb-1">Compliance</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={filterState.draft.status}
+                onChange={(e) => filterState.setField('status', e.target.value)}
               >
                 <option value="ALL">All Statuses</option>
                 <option value="Valid">Valid</option>
@@ -329,8 +355,8 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
               <label className="form-label small fw-semibold text-secondary mb-1">Verification</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={verificationFilter}
-                onChange={(e) => setVerificationFilter(e.target.value)}
+                value={filterState.draft.verification}
+                onChange={(e) => filterState.setField('verification', e.target.value)}
               >
                 <option value="ALL">All Statuses</option>
                 <option value="Verified">Verified</option>

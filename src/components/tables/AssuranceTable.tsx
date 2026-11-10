@@ -32,6 +32,7 @@ import { filterAssuranceSetsByDashboardFilter } from '../../utils/dashboardTileN
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { ASSURANCE_SCOPE_OPTIONS } from '../../utils/assuranceTemplates';
 import { usePagination } from '../../utils/usePagination';
+import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 
 type AssuranceSortField =
@@ -93,6 +94,32 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
   const [scopeFilter, setScopeFilter] = useState<string>('ALL');
   const [projectFilter, setProjectFilter] = useState<string>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      stage: stageFilter,
+      scope: scopeFilter,
+      project: projectFilter,
+    },
+    defaults: {
+      stage: 'ALL',
+      scope: 'ALL',
+      project: 'ALL',
+    },
+    onCommit: (next) => {
+      setStageFilter(next.stage);
+      setScopeFilter(next.scope);
+      setProjectFilter(next.project);
+    },
+  });
+
+  const draftActiveFilterCount =
+    activeTab === 'public'
+      ? (filterState.draft.scope !== 'ALL' ? 1 : 0)
+      : (filterState.draft.stage !== 'ALL' ? 1 : 0) +
+        (filterState.draft.scope !== 'ALL' ? 1 : 0) +
+        (filterState.draft.project !== 'ALL' ? 1 : 0);
   const [sortField, setSortField] = useState<AssuranceSortField>('id');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -614,9 +641,10 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
@@ -624,8 +652,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
               <label className="form-label small fw-semibold text-secondary mb-1">Stage</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={stageFilter}
-                onChange={(e) => setStageFilter(e.target.value)}
+                value={filterState.draft.stage}
+                onChange={(e) => filterState.setField('stage', e.target.value)}
               >
                 <option value="ALL">All Stages</option>
                 <option value="Initiated">Initiated</option>
@@ -642,8 +670,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
               <label className="form-label small fw-semibold text-secondary mb-1">Scope</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={scopeFilter}
-                onChange={(e) => setScopeFilter(e.target.value)}
+                value={filterState.draft.scope}
+                onChange={(e) => filterState.setField('scope', e.target.value)}
               >
                 <option value="ALL">All Scopes</option>
                 {ASSURANCE_SCOPE_OPTIONS.map((scope) => (
@@ -659,8 +687,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
               <select
                 id="assurance-filter-project"
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={projectFilter}
-                onChange={(e) => setProjectFilter(e.target.value)}
+                value={filterState.draft.project}
+                onChange={(e) => filterState.setField('project', e.target.value)}
               >
                 <option value="ALL">All Projects</option>
                 <option value="ORPHANED">{NO_PROJECT_LABEL}</option>

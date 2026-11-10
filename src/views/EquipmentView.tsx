@@ -18,6 +18,7 @@ import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilter
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { filterEquipmentForPersona } from '../utils/rbacHelpers';
 import { usePagination } from '../utils/usePagination';
+import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { TablePagination } from '../components/common/TablePagination';
 
 /**
@@ -37,6 +38,34 @@ export const EquipmentView: React.FC = () => {
   const [vesselFilter, setVesselFilter] = useState('ALL');
   const [availabilityFilter, setAvailabilityFilter] = useState('ALL');
   const [complianceFilter, setComplianceFilter] = useState('ALL');
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      category: categoryFilter,
+      vessel: vesselFilter,
+      availability: availabilityFilter,
+      compliance: complianceFilter,
+    },
+    defaults: {
+      category: 'ALL',
+      vessel: 'ALL',
+      availability: 'ALL',
+      compliance: 'ALL',
+    },
+    onCommit: (next) => {
+      setCategoryFilter(next.category);
+      setVesselFilter(next.vessel);
+      setAvailabilityFilter(next.availability);
+      setComplianceFilter(next.compliance);
+    },
+  });
+
+  const draftActiveFilterCount =
+    (filterState.draft.category !== 'ALL' ? 1 : 0) +
+    (filterState.draft.vessel !== 'ALL' ? 1 : 0) +
+    (filterState.draft.availability !== 'ALL' ? 1 : 0) +
+    (filterState.draft.compliance !== 'ALL' ? 1 : 0);
 
   const visibleEquipment = useMemo(
     () => filterEquipmentForPersona(equipment, vessels, assuranceSets, activePersona),
@@ -316,9 +345,10 @@ export const EquipmentView: React.FC = () => {
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
@@ -326,8 +356,8 @@ export const EquipmentView: React.FC = () => {
               <label className="form-label small fw-semibold text-secondary mb-1">Category</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                value={filterState.draft.category}
+                onChange={(e) => filterState.setField('category', e.target.value)}
               >
                 <option value="ALL">All Categories</option>
                 {categories.map((cat) => (
@@ -342,8 +372,8 @@ export const EquipmentView: React.FC = () => {
               <label className="form-label small fw-semibold text-secondary mb-1">Vessel</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={vesselFilter}
-                onChange={(e) => setVesselFilter(e.target.value)}
+                value={filterState.draft.vessel}
+                onChange={(e) => filterState.setField('vessel', e.target.value)}
               >
                 <option value="ALL">All Vessels</option>
                 <option value="UNASSIGNED">Unassigned</option>
@@ -359,8 +389,8 @@ export const EquipmentView: React.FC = () => {
               <label className="form-label small fw-semibold text-secondary mb-1">Availability</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={availabilityFilter}
-                onChange={(e) => setAvailabilityFilter(e.target.value)}
+                value={filterState.draft.availability}
+                onChange={(e) => filterState.setField('availability', e.target.value)}
               >
                 <option value="ALL">All Statuses</option>
                 <option value="Available">Available</option>
@@ -374,8 +404,8 @@ export const EquipmentView: React.FC = () => {
               <label className="form-label small fw-semibold text-secondary mb-1">Compliance</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={complianceFilter}
-                onChange={(e) => setComplianceFilter(e.target.value)}
+                value={filterState.draft.compliance}
+                onChange={(e) => filterState.setField('compliance', e.target.value)}
               >
                 <option value="ALL">All Statuses</option>
                 <option value="Compliant">Compliant</option>

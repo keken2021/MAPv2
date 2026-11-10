@@ -21,6 +21,7 @@ import { FilterModal } from '../common/FilterModal';
 import { ListToolbar } from '../common/ListToolbar';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { usePagination } from '../../utils/usePagination';
+import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 import { EmptyState } from '../common/EmptyState';
 
@@ -71,6 +72,29 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ vesselId }) =>
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [targetKindFilter, setTargetKindFilter] = useState<'ALL' | AuditEventTarget['kind']>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const filterState = useDeferredFilters<{
+    role: string;
+    targetKind: 'ALL' | AuditEventTarget['kind'];
+  }>({
+    isOpen: isFilterModalOpen,
+    applied: {
+      role: roleFilter,
+      targetKind: targetKindFilter,
+    },
+    defaults: {
+      role: 'ALL',
+      targetKind: 'ALL',
+    },
+    onCommit: (next) => {
+      setRoleFilter(next.role);
+      setTargetKindFilter(next.targetKind);
+    },
+  });
+
+  const draftActiveFilterCount =
+    (filterState.draft.role !== 'ALL' ? 1 : 0) +
+    (filterState.draft.targetKind !== 'ALL' ? 1 : 0);
 
   const sessionUser = useMemo(
     () =>
@@ -315,9 +339,10 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ vesselId }) =>
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
@@ -325,8 +350,8 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ vesselId }) =>
               <label className="form-label small fw-semibold text-secondary mb-1">Role</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                value={filterState.draft.role}
+                onChange={(e) => filterState.setField('role', e.target.value)}
               >
                 <option value="ALL">All Roles</option>
                 <option value="Administrator">{getRoleDisplayLabel('Administrator')}</option>
@@ -341,8 +366,8 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ vesselId }) =>
               <label className="form-label small fw-semibold text-secondary mb-1">Target</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={targetKindFilter}
-                onChange={(e) => setTargetKindFilter(e.target.value as 'ALL' | AuditEventTarget['kind'])}
+                value={filterState.draft.targetKind}
+                onChange={(e) => filterState.setField('targetKind', e.target.value as 'ALL' | AuditEventTarget['kind'])}
               >
                 <option value="ALL">All targets</option>
                 <option value="set">Set</option>

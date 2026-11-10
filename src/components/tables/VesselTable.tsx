@@ -35,6 +35,7 @@ import type { FleetRegistryTab } from '../../utils/rbacHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
 import { calculateVesselReadiness } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
+import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 import { deriveObjectVerification } from '../../utils/documentVersionSnapshot';
 import { ObjectVerificationBadge } from '../common/ObjectVerificationBadge';
@@ -82,6 +83,34 @@ export const VesselTable: React.FC<VesselTableProps> = ({
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [assuranceSetFilter, setAssuranceSetFilter] = useState('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const filterState = useDeferredFilters({
+    isOpen: isFilterModalOpen,
+    applied: {
+      flag: flagFilter,
+      classSociety: classFilter,
+      status: statusFilter,
+      assuranceSet: assuranceSetFilter,
+    },
+    defaults: {
+      flag: 'ALL',
+      classSociety: 'ALL',
+      status: 'ALL',
+      assuranceSet: 'ALL',
+    },
+    onCommit: (next) => {
+      setFlagFilter(next.flag);
+      setClassFilter(next.classSociety);
+      setStatusFilter(next.status);
+      setAssuranceSetFilter(next.assuranceSet);
+    },
+  });
+
+  const draftActiveFilterCount =
+    (filterState.draft.flag !== 'ALL' ? 1 : 0) +
+    (filterState.draft.classSociety !== 'ALL' ? 1 : 0) +
+    (filterState.draft.status !== 'ALL' ? 1 : 0) +
+    (filterState.draft.assuranceSet !== 'ALL' ? 1 : 0);
   const [sortField, setSortField] = useState<VesselSortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -541,9 +570,10 @@ export const VesselTable: React.FC<VesselTableProps> = ({
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="card p-3 bg-white border rounded">
           <div className="row g-3">
@@ -551,8 +581,8 @@ export const VesselTable: React.FC<VesselTableProps> = ({
               <label className="form-label small fw-semibold text-secondary mb-1">Flag State</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={flagFilter}
-                onChange={(e) => setFlagFilter(e.target.value)}
+                value={filterState.draft.flag}
+                onChange={(e) => filterState.setField('flag', e.target.value)}
               >
                 <option value="ALL">All Flag States</option>
                 <option value="Australia">Australia</option>
@@ -563,8 +593,8 @@ export const VesselTable: React.FC<VesselTableProps> = ({
               <label className="form-label small fw-semibold text-secondary mb-1">Class Society</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={classFilter}
-                onChange={(e) => setClassFilter(e.target.value)}
+                value={filterState.draft.classSociety}
+                onChange={(e) => filterState.setField('classSociety', e.target.value)}
               >
                 <option value="ALL">All Class Societies</option>
                 <option value="DNV">DNV</option>
@@ -583,8 +613,8 @@ export const VesselTable: React.FC<VesselTableProps> = ({
               <label className="form-label small fw-semibold text-secondary mb-1">Operating Status</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={filterState.draft.status}
+                onChange={(e) => filterState.setField('status', e.target.value)}
               >
                 <option value="ALL">All Statuses</option>
                 <option value="In Operations">In Operations</option>
@@ -604,8 +634,8 @@ export const VesselTable: React.FC<VesselTableProps> = ({
               <label className="form-label small fw-semibold text-secondary mb-1">Assurance Set</label>
               <select
                 className="form-select form-select-sm bg-white text-dark border-secondary font-mono-code"
-                value={assuranceSetFilter}
-                onChange={(e) => setAssuranceSetFilter(e.target.value)}
+                value={filterState.draft.assuranceSet}
+                onChange={(e) => filterState.setField('assuranceSet', e.target.value)}
               >
                 <option value="ALL">All Assurance Sets</option>
                 {availableAssuranceSets.map((set) => (

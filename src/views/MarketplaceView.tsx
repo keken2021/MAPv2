@@ -24,6 +24,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { usePagination } from '../utils/usePagination';
+import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { TablePagination } from '../components/common/TablePagination';
 
 export const MarketplaceView: React.FC = () => {
@@ -56,6 +57,53 @@ export const MarketplaceView: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<MarketplaceItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const filterState = useDeferredFilters<{
+    category: MarketplaceCategory;
+    provider: string;
+    location: string;
+    availableOn: string;
+    availableFrom: string;
+    availableTo: string;
+    status: string;
+  }>({
+    isOpen: isFilterModalOpen,
+    applied: {
+      category: activeCategory,
+      provider: providerFilter,
+      location: locationFilter,
+      availableOn,
+      availableFrom,
+      availableTo,
+      status: statusFilter,
+    },
+    defaults: {
+      category: 'all',
+      provider: 'ALL',
+      location: 'ALL',
+      availableOn: '',
+      availableFrom: '',
+      availableTo: '',
+      status: 'ALL',
+    },
+    onCommit: (next) => {
+      setActiveCategory(next.category);
+      setProviderFilter(next.provider);
+      setLocationFilter(next.location);
+      setAvailableOn(next.availableOn);
+      setAvailableFrom(next.availableFrom);
+      setAvailableTo(next.availableTo);
+      setStatusFilter(next.status);
+    },
+  });
+
+  const draftActiveFilterCount =
+    (filterState.draft.provider !== 'ALL' ? 1 : 0) +
+    (filterState.draft.location !== 'ALL' ? 1 : 0) +
+    (filterState.draft.status !== 'ALL' ? 1 : 0) +
+    (filterState.draft.availableFrom || filterState.draft.availableTo ? 1 : 0) +
+    (filterState.draft.availableOn ? 1 : 0) +
+    (filterState.draft.category !== 'all' ? 1 : 0);
 
   /* registered asset behind the open listing, or null when the listing is not linked to one */
   const charterTarget = selectedItem
@@ -508,9 +556,10 @@ export const MarketplaceView: React.FC = () => {
       <FilterModal
         isOpen={isFilterModalOpen}
         onClose={() => setIsFilterModalOpen(false)}
-        onReset={handleResetFilters}
+        onReset={filterState.resetDraft}
+        onApply={filterState.applyDraft}
         title="Filters"
-        activeCount={activeFilterCount}
+        activeCount={draftActiveFilterCount}
       >
         <div className="d-flex flex-column gap-3">
           {/* Category Filter */}
@@ -521,8 +570,8 @@ export const MarketplaceView: React.FC = () => {
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={activeCategory}
-              onChange={(e) => setActiveCategory(e.target.value as MarketplaceCategory)}
+              value={filterState.draft.category}
+              onChange={(e) => filterState.setField('category', e.target.value as MarketplaceCategory)}
             >
               <option value="all">All Categories ({counts.all})</option>
               <option value="vessel">Vessels ({counts.vessel})</option>
@@ -540,8 +589,8 @@ export const MarketplaceView: React.FC = () => {
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={providerFilter}
-              onChange={(e) => setProviderFilter(e.target.value)}
+              value={filterState.draft.provider}
+              onChange={(e) => filterState.setField('provider', e.target.value)}
             >
               <option value="ALL">All Providers ({uniqueProviders.length})</option>
               {uniqueProviders.map((p) => (
@@ -560,8 +609,8 @@ export const MarketplaceView: React.FC = () => {
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
+              value={filterState.draft.location}
+              onChange={(e) => filterState.setField('location', e.target.value)}
             >
               <option value="ALL">All Locations ({uniqueLocations.length})</option>
               {uniqueLocations.map((l) => (
@@ -581,12 +630,12 @@ export const MarketplaceView: React.FC = () => {
               type="date"
               className="form-control form-control-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={availableOn}
+              value={filterState.draft.availableOn}
               min={todayIso}
               onChange={(e) => {
                 /* a typed date can bypass min, so a date before today is not kept */
                 if (!e.target.value || e.target.value >= todayIso) {
-                  setAvailableOn(e.target.value);
+                  filterState.setField('availableOn', e.target.value);
                 }
               }}
             />
@@ -606,8 +655,8 @@ export const MarketplaceView: React.FC = () => {
                 aria-label="Available from"
                 className="form-control form-control-sm bg-white text-dark font-sans"
                 style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-                value={availableFrom}
-                onChange={(e) => setAvailableFrom(e.target.value)}
+                value={filterState.draft.availableFrom}
+                onChange={(e) => filterState.setField('availableFrom', e.target.value)}
               />
               <span className="text-muted small">to</span>
               <input
@@ -616,8 +665,8 @@ export const MarketplaceView: React.FC = () => {
                 aria-label="Available to"
                 className="form-control form-control-sm bg-white text-dark font-sans"
                 style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-                value={availableTo}
-                onChange={(e) => setAvailableTo(e.target.value)}
+                value={filterState.draft.availableTo}
+                onChange={(e) => filterState.setField('availableTo', e.target.value)}
               />
             </div>
             <div className="text-muted small mt-1">
@@ -633,8 +682,8 @@ export const MarketplaceView: React.FC = () => {
             <select
               className="form-select form-select-sm bg-white text-dark font-sans"
               style={{ borderColor: '#E2E8F0', fontSize: '0.84rem' }}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              value={filterState.draft.status}
+              onChange={(e) => filterState.setField('status', e.target.value)}
             >
               <option value="ALL">All Statuses</option>
               <option value="Available Now">Available Now</option>
