@@ -69,6 +69,7 @@ Root: `C:\mapFiles\MAPv2`
 - `getAssuranceSetCrewIds`, `getAssuranceSetCrewNames`, `getAssuranceSetAssets` in `src/utils/assuranceTemplates.ts` : every crew member of a crew set (`crewIds`, ADR 0023); tests `src/__tests__/multiCrewScope.test.tsx` (includes the wizard checkbox list)
 - `src/__tests__/assuranceDetailTabs.test.tsx` : tests for assurance set detail tab layout and audit trail integration (Task 5269)
 - `src/__tests__/workflowRejectionAndRemediation.test.ts` : automated integration tests for approver rejection, correction requested pings, multi-party task status, document version remediation, scoped re-verification, and final approval locking (Task 5508)
+- `src/__tests__/workflowClientDisruptions.test.ts` : automated integration tests for client cancellation, charter window date shifts, contract overlap collisions, and certificate expiry cascades (Task 5509)
 - `src/__tests__/assuranceDetailTaskModals.test.tsx` : tests for add and edit task dialog section and predecessor selects on assurance set detail (Task 5287)
 - `src/__tests__/assuranceDetailPartyVisibility.test.tsx` : tests for assurance set detail document visibility per party (Task 5309)
 - `src/utils/assuranceSetStatus.ts` : Set status rule (Go, Conditional, No-go), `ASSURANCE_SET_STATUS_RULES` thresholds, next expiry, party roles, worst-first order (ADR 0033); tests `src/__tests__/assuranceSetStatus.test.ts`
