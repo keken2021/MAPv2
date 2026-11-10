@@ -29,9 +29,8 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
     /* the handed-over vessel sets the vendor; removing it frees the crew group picker for every organization */
     removeObjectRow(container, objectRowIds(container)[0]);
 
-    const headerGroupSelect = container.querySelector('#wizard-pick-crew-group') as HTMLSelectElement;
-    expect(headerGroupSelect).not.toBeNull();
-    expect(headerGroupSelect.options.length).toBeGreaterThanOrEqual(2);
+    // Redundant header select is removed
+    expect(container.querySelector('#wizard-pick-crew-group')).toBeNull();
 
     const typeSelect = container.querySelector('#grid-add-object-type') as HTMLSelectElement;
     fireEvent.change(typeSelect, { target: { value: 'person' } });
@@ -48,9 +47,12 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
     /* the handed-over vessel sets the vendor; removing it frees the crew group picker for every organization */
     removeObjectRow(container, objectRowIds(container)[0]);
 
-    // Select Dive Team (CG-001: CREW-101 and CREW-104)
-    const headerGroupSelect = container.querySelector('#wizard-pick-crew-group') as HTMLSelectElement;
-    fireEvent.change(headerGroupSelect, { target: { value: 'CG-001' } });
+    const typeSelect = container.querySelector('#grid-add-object-type') as HTMLSelectElement;
+    fireEvent.change(typeSelect, { target: { value: 'person' } });
+
+    // Select Dive Team (CG-001: CREW-101 and CREW-104) via grid-pick-crew-group
+    const gridGroupSelect = container.querySelector('#grid-pick-crew-group') as HTMLSelectElement;
+    fireEvent.change(gridGroupSelect, { target: { value: 'CG-001' } });
 
     const rowIds = objectRowIds(container);
     expect(rowIds).toContain('CREW-101');
@@ -75,9 +77,12 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
     /* the handed-over vessel sets the vendor; removing it frees the crew group picker for every organization */
     removeObjectRow(container, objectRowIds(container)[0]);
 
+    const typeSelect = container.querySelector('#grid-add-object-type') as HTMLSelectElement;
+    fireEvent.change(typeSelect, { target: { value: 'person' } });
+
     // Pick Survey Team (CG-002: CREW-102 and CREW-103)
-    const headerGroupSelect = container.querySelector('#wizard-pick-crew-group') as HTMLSelectElement;
-    fireEvent.change(headerGroupSelect, { target: { value: 'CG-002' } });
+    const gridGroupSelect = container.querySelector('#grid-pick-crew-group') as HTMLSelectElement;
+    fireEvent.change(gridGroupSelect, { target: { value: 'CG-002' } });
 
     const rowIds = objectRowIds(container);
     expect(rowIds).toContain('CREW-102');
@@ -127,5 +132,31 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
       .getState()
       .assuranceSets.find((s) => s.title === 'Dive Operations Multi-Member Set');
     expect(setAfterRosterChange?.crewGroups?.[0].memberIds).toEqual(['CREW-102', 'CREW-103', 'CREW-105']);
+  });
+
+  it('allows picking a crew group from the SearchableSelect object picker the same way as other objects', () => {
+    const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
+    clickNext();
+    removeObjectRow(container, objectRowIds(container)[0]);
+
+    const typeSelect = container.querySelector('#grid-add-object-type') as HTMLSelectElement;
+    fireEvent.change(typeSelect, { target: { value: 'person' } });
+
+    const input = container.querySelector('#grid-add-object-item') as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: 'Dive' } });
+
+    const option = container.querySelector('#grid-add-object-item-listbox [data-item-id="group:CG-001"]');
+    expect(option).not.toBeNull();
+    fireEvent.click(option!);
+
+    const rowIds = objectRowIds(container);
+    expect(rowIds).toContain('CREW-101');
+    expect(rowIds).toContain('CREW-104');
+
+    const groupBadgeBar = screen.getByTestId('selected-crew-groups-bar');
+    expect(groupBadgeBar).toBeInTheDocument();
+    expect(groupBadgeBar).toHaveTextContent('Dive Team');
   });
 });

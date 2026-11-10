@@ -748,10 +748,37 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       },
     };
   });
-  const listedObjectItems = objectPickerOptions.filter((option) => option.isListed).map((option) => option.item);
-  const otherObjectItems = objectPickerOptions.filter((option) => !option.isListed).map((option) => option.item);
+
+  const crewGroupPickerOptions =
+    newObjectType === 'person'
+      ? crewGroups
+          .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
+          .map((g) => {
+            const isAdded = selectedCrewGroups.some((ref) => ref.groupId === g.id);
+            const groupOrg = g.organization;
+            const isListed = !groupOrg || organizations.some((organization) => sameOrganization(organization, groupOrg));
+            return {
+              isListed,
+              item: {
+                id: `group:${g.id}`,
+                label: `Crew Group: ${g.name} (${g.memberIds.length} seafarers · ${g.specialization})${isAdded ? ' — added' : ''}`,
+                hint: g.organization || 'Crew Group',
+                searchText: `${g.id} ${g.name} ${g.specialization} crew group`,
+                disabled: isAdded,
+              },
+            };
+          })
+      : [];
+
+  const allPickerOptions = [...crewGroupPickerOptions, ...objectPickerOptions];
+  const listedObjectItems = allPickerOptions.filter((option) => option.isListed).map((option) => option.item);
+  const otherObjectItems = allPickerOptions.filter((option) => !option.isListed).map((option) => option.item);
 
   const handleAddObject = (id: string) => {
+    if (id.startsWith('group:')) {
+      handlePickCrewGroup(id.replace('group:', ''));
+      return;
+    }
     const found = availableObjectsForType.find((o) => o.id === id);
     if (!found) return;
     if (selectedVendorOrg && !sameOrganization(found.ownerOrganization, selectedVendorOrg)) {
@@ -3365,27 +3392,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                     </div>
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    {crewGroups.length > 0 && (
-                      <select
-                        id="wizard-pick-crew-group"
-                        aria-label="Pick Crew Group"
-                        className="form-select form-select-sm"
-                        style={{ minWidth: '180px' }}
-                        value=""
-                        onChange={(e) => {
-                          if (e.target.value) handlePickCrewGroup(e.target.value);
-                        }}
-                      >
-                        <option value="">Pick a Crew Group...</option>
-                        {crewGroups
-                          .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
-                          .map((group) => (
-                            <option key={group.id} value={group.id}>
-                              {group.name} ({group.memberIds.length} members)
-                            </option>
-                          ))}
-                      </select>
-                    )}
                     <button
                       type="button"
                       id="btn-load-port-entry-bundle"
@@ -3626,7 +3632,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                           newObjectType === 'vessel'
                             ? 'Search vessels...'
                             : newObjectType === 'person'
-                              ? 'Search crew...'
+                              ? 'Search crew or crew group...'
                               : newObjectType === 'equipment'
                                 ? 'Search equipment...'
                                 : 'Search activities...'
