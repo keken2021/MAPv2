@@ -38,6 +38,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
 
   it('lists the 16 usual vessel documents without descriptions by default', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     // Step 1: General -> Step 2: Objects
     clickNext();
     // Step 2: Objects -> Step 3: Requirements
@@ -60,6 +61,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
 
   it('removes a document and allows finding and re-adding it through the search', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext(); // To Objects
     clickNext(); // To Requirements
 
@@ -170,6 +172,7 @@ describe('Requirements Tab: Compact Document Lists and Searchable Picker', () =>
 
   it('renders exactly one Crew documents section when two crew members are added', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext(); // To Objects
     // Free vendor by removing initial vessel, then add crew members from same vendor
     objectRowIds(container).forEach((id) => removeObjectRow(container, id));

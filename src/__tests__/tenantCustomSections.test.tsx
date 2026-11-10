@@ -244,6 +244,7 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
       });
 
       const { container, unmount } = renderWizardWithDefaultVessel();
+      pickReviewerRoles(container);
 
       clickNext(); // Step 1 -> Step 2
       clickNext(); // Step 2 -> Step 3

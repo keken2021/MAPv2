@@ -57,6 +57,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
 
   it('first assurance object chosen sets the vendor, and object pickers of all types list only objects owned by that vendor', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
 
     // The initial vessel (MV Ocean Pioneer / MV Pacific Endeavour) is from Northwind Marine Pty Ltd
@@ -88,6 +89,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
 
   it('allows mixed object types from the same vendor to be added to the set', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
 
     const initialRows = objectRowIds(container);
@@ -112,6 +114,7 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
 
   it('removing the last object frees the vendor, allowing an object from another vendor to be chosen', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
 
     // Remove all initial objects

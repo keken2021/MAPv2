@@ -1401,9 +1401,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       if (deadlineError) {
         newErrors.complianceDeadline = deadlineError;
       }
-      if (isDualRoleBlocked(verifierOrg, approverOrg)) {
-        newErrors.dualRole = 'One organization cannot be both Verifier and Approver.';
-      }
     }
 
     if (step.id === 'step-objects') {
@@ -1426,8 +1423,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       });
     }
 
-    /* a missing verifier, inspector or approver is reported on the Requirements/Review tab */
-    if (step.id === 'step-requirements' || step.id === 'step-review') {
+    /* a missing verifier, inspector or approver is reported on General (Step 1), Requirements (Step 3), and Review (Step 4) */
+    if (step.id === 'step-general' || step.id === 'step-requirements' || step.id === 'step-review') {
       const objectOwners = objectOwnerOrganizations(selectedAssuranceObjects);
       if (verificationRequired) {
         if (!verifierOrg) {
@@ -1454,7 +1451,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           newErrors.approver = `${approverOrg} owns an object in this set, so it cannot approve it.`;
         }
       }
-      if (isDualRoleBlocked(verifierOrg, approverOrg)) {
+      if (verificationRequired && approvalRequired && isDualRoleBlocked(verifierOrg, approverOrg)) {
         newErrors.dualRole = 'One organization cannot be both Verifier and Approver.';
       }
     }

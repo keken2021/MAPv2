@@ -64,6 +64,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
 
   it('picks the vessel on the Objects tab and blocks only the vessel already contracted for the period', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
     const [bookedVesselId] = objectRowIds(container);
     expect(bookedVesselId).toBeTruthy();
@@ -95,6 +96,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
 
   it("moves the dates to the booked vessel's next free period with one click", () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
     addConflictingSet('Vessel', objectRowIds(container)[0]);
 
@@ -108,6 +110,7 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
 
   it('picks the equipment on the Objects tab and blocks only the equipment already contracted', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
     removeObjectRow(container, objectRowIds(container)[0]);
 

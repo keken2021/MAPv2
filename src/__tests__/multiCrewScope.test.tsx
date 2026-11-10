@@ -94,6 +94,7 @@ describe('multi-crew assurance sets', () => {
   it('picks crew members on the Objects tab and blocks only a member already contracted', () => {
     useMapStore.setState({ isAuthenticated: true, activePersona: 'Administrator', activeDemoOrganization: 'Chevron Australia Pty Ltd' });
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
 
     /* Demo-friendly non-conflicting default dates */
     expect((container.querySelector('#grid-charter-start') as HTMLInputElement).value).toBe('2028-01-01');

@@ -132,46 +132,67 @@ describe('Assurance set parties - Role ticks start empty and reviewer segregatio
     expect(roleBox('Approver', CLIENT).title).toBe('One organization cannot be both Verifier and Approver.');
   });
 
-  it('each required role must be ticked before step 3 is left', () => {
+  it('each toggled stage must have a party assigned before Step 1 is left', () => {
     const { container } = renderWizardWithDefaultVessel();
     addOrganization(container, THIRD_PARTY_1);
     addOrganization(container, THIRD_PARTY_2);
 
-    // Can leave Step 1 without ticking roles
-    clickNext();
-    expect(screen.queryByTestId('error-verifier')).toBeNull();
-
-    // Can leave Step 2 without ticking roles
-    clickNext();
-    expect(screen.queryByTestId('error-verifier')).toBeNull();
-
-    // Now on Step 3 (Requirements). Attempt to advance to Step 4 without roles:
+    // Step 1: Attempt to advance to Step 2 without assigning roles to toggled stages
     clickNext();
 
-    // Blocked on Step 3 with field errors
+    // Blocked on Step 1 with field errors below the Parties table
     expect(screen.getByTestId('error-verifier')).toBeDefined();
     expect(screen.getByTestId('error-verifier').textContent).toContain('Select a verifier organization.');
     expect(screen.getByTestId('error-inspector')).toBeDefined();
     expect(screen.getByTestId('error-inspector').textContent).toContain('Select an inspector organization.');
     expect(screen.getByTestId('error-approver')).toBeDefined();
     expect(screen.getByTestId('error-approver').textContent).toContain('Select an approver organization.');
-
-    // Go back to Step 1 and tick all required roles
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(screen.getByRole('heading', { name: '2. Parties' })).toBeDefined();
 
     // Tick Verifier as THIRD_PARTY_1, Approver as CLIENT, Inspector as THIRD_PARTY_2
     fireEvent.click(roleBox('Verifier', THIRD_PARTY_1));
     fireEvent.click(roleBox('Approver', CLIENT));
     fireEvent.click(roleBox('Inspector', THIRD_PARTY_2));
 
-    // Now advance through Step 1, Step 2, and Step 3
+    // Now advance through Step 1 (General/Parties), Step 2 (Objects), and Step 3 (Requirements)
     clickNext();
+    expect(screen.queryByTestId('error-verifier')).toBeNull();
     clickNext();
     clickNext();
 
     // Successfully reaches Step 4 (Review)
     expect(screen.getByRole('heading', { name: 'Review' })).toBeDefined();
     expect(screen.getByTestId('review-client')).toBeDefined();
+  });
+
+  it('toggling a stage off and on remembers the previously checked party without raising errors while off', () => {
+    const { container } = renderWizardWithDefaultVessel();
+    addOrganization(container, THIRD_PARTY_1);
+    addOrganization(container, THIRD_PARTY_2);
+
+    // Tick roles for all 3 stages
+    fireEvent.click(roleBox('Verifier', THIRD_PARTY_1));
+    fireEvent.click(roleBox('Approver', CLIENT));
+    fireEvent.click(roleBox('Inspector', THIRD_PARTY_2));
+
+    const verifySwitch = container.querySelector('#wf-verify') as HTMLInputElement;
+    expect(verifySwitch.checked).toBe(true);
+
+    // Toggle Verifier OFF: column is hidden and no verifier error is raised
+    fireEvent.click(verifySwitch);
+    expect(verifySwitch.checked).toBe(false);
+    expect(screen.queryByRole('columnheader', { name: 'Verifier' })).toBeNull();
+    expect(screen.queryByTestId('error-verifier')).toBeNull();
+
+    // Toggle Verifier back ON: column returns with previously checked party remembered
+    fireEvent.click(verifySwitch);
+    expect(verifySwitch.checked).toBe(true);
+    expect(screen.getByRole('columnheader', { name: 'Verifier' })).toBeDefined();
+    expect(roleBox('Verifier', THIRD_PARTY_1).checked).toBe(true);
+    expect(screen.queryByTestId('error-verifier')).toBeNull();
+
+    // Advancing succeeds
+    clickNext();
+    expect(screen.queryByTestId('error-verifier')).toBeNull();
   });
 });

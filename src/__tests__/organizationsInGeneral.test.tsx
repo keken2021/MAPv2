@@ -474,6 +474,7 @@ describe('wizard', () => {
   it('offers only the vendor objects when a vendor is set, and finds others when freed', () => {
     const { container } = renderWizardWithDefaultVessel();
     const organizations = listed(container);
+    pickReviewerRoles(container);
     clickNext();
 
     const searchedBefore = objectPickerOptions(container, 'equipment');
@@ -488,6 +489,7 @@ describe('wizard', () => {
   it('adds the owner of an object found by search to the list, with a notice', () => {
     const { container } = renderWizardWithDefaultVessel();
     const before = listed(container);
+    pickReviewerRoles(container);
     clickNext();
 
     removeObjectRow(container, objectRowIds(container)[0]);
@@ -510,6 +512,7 @@ describe('wizard', () => {
 
   it('keeps an added object from being picked twice', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
     const added = objectRowIds(container)[0];
     const option = objectItemSelect(container, 'vessel').options.find((o) => o.value === added);
@@ -520,6 +523,7 @@ describe('wizard', () => {
   it('moves a role back to the client when its organization becomes an object owner', () => {
     const { container } = renderWizardWithDefaultVessel();
     const before = listed(container);
+    pickReviewerRoles(container);
     clickNext();
     removeObjectRow(container, objectRowIds(container)[0]);
     const free = objectPickerOptions(container, 'equipment').find(

@@ -24,6 +24,7 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
 
   it('renders crew group pickers in wizard Step 2 (Objects tab)', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
     /* the handed-over vessel sets the vendor; removing it frees the crew group picker for every organization */
     removeObjectRow(container, objectRowIds(container)[0]);
@@ -42,6 +43,7 @@ describe('CreateAssuranceSetView - Crew Group Picking & Member Snapshot (Task 53
 
   it('picking a group adds all member seafarers to the objects table and displays snapshot bar', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
     /* the handed-over vessel sets the vendor; removing it frees the crew group picker for every organization */
     removeObjectRow(container, objectRowIds(container)[0]);

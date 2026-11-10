@@ -18,6 +18,7 @@ describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
 
   it('renders General documents as the first pinned section before object type sections with no blank sections on load', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     // Step 1 -> Step 2
     clickNext();
     // Step 2 -> Step 3
@@ -57,6 +58,7 @@ describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
 
   it('renders requirements under object type with a flat list and one Add other document button', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
     clickNext();
 
@@ -78,6 +80,7 @@ describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
 
   it('renders sections for each covered object type with their respective flat lists and sentence case titles', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext(); // To Step 2
 
     // Add a crew member and equipment
@@ -111,6 +114,7 @@ describe('CreateAssuranceSetView Requirements Step (Step 3)', () => {
 
   it('rejects blank section name when adding a custom section', () => {
     const { container } = renderWizardWithDefaultVessel();
+    pickReviewerRoles(container);
     clickNext();
     clickNext();
 
