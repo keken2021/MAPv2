@@ -246,11 +246,11 @@ describe('optional tasks closed as not done at set close', () => {
         assuranceSets: useMapStore.getState().assuranceSets.map((s) =>
           s.id === 'AS-CLOSE-OPT-01'
             ? {
-                ...s,
-                requirements: s.requirements.map((r) =>
-                  r.id === 'REQ-MAND-1' ? { ...r, verifierStatus: 'Verified', isFulfilled: true, documentId: 'DOC-1' } : r,
-                ),
-              }
+              ...s,
+              requirements: s.requirements.map((r) =>
+                r.id === 'REQ-MAND-1' ? { ...r, verifierStatus: 'Verified', isFulfilled: true, documentId: 'DOC-1' } : r,
+              ),
+            }
             : s,
         ),
       });

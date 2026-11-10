@@ -1338,12 +1338,12 @@ export function getAssuranceSetCreator(
 
   const creator = role
     ? users.find(
-        (u) =>
-          u.roles.includes(role) &&
-          Boolean(u.organization) &&
-          Boolean(organization) &&
-          orgFieldMatches(u.organization as string, organization),
-      )
+      (u) =>
+        u.roles.includes(role) &&
+        Boolean(u.organization) &&
+        Boolean(organization) &&
+        orgFieldMatches(u.organization as string, organization),
+    )
     : undefined;
 
   return { name: creator?.name, organization };

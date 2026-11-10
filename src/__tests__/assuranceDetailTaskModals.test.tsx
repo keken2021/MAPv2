@@ -259,13 +259,13 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
       <AssuranceTaskModal
         mode="date"
         isOpen={true}
-        onClose={() => {}}
+        onClose={() => { }}
         assuranceSet={baseSet}
         editingTaskDate={{ reqId: 'REQ-TASK-001', title: 'Emergency Disconnect Protocol', currentDate: '2026-11-05' }}
         dateDraft="2026-11-08"
         dateReasonDraft=""
         dateError={null}
-        onDateDraftChange={() => {}}
+        onDateDraftChange={() => { }}
         onDateReasonChange={onDateReasonChange}
         onSave={onSave}
       />,
@@ -283,13 +283,13 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
       <AssuranceTaskModal
         mode="date"
         isOpen={true}
-        onClose={() => {}}
+        onClose={() => { }}
         assuranceSet={baseSet}
         editingTaskDate={{ reqId: 'REQ-TASK-001', title: 'Emergency Disconnect Protocol', currentDate: '2026-11-05' }}
         dateDraft="2026-11-08"
         dateReasonDraft="Rescheduled for drydock window"
         dateError={null}
-        onDateDraftChange={() => {}}
+        onDateDraftChange={() => { }}
         onDateReasonChange={onDateReasonChange}
         onSave={onSave}
       />,

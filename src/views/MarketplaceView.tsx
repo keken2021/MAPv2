@@ -75,10 +75,10 @@ export const MarketplaceView: React.FC = () => {
       const available =
         activePersona === 'C Admin'
           ? filterCAdminAvailableToCharter(
-              vessel,
-              assuranceSets,
-              getClientAdminOrganization(users, activeDemoOrganization),
-            )
+            vessel,
+            assuranceSets,
+            getClientAdminOrganization(users, activeDemoOrganization),
+          )
           : filterVesselAdminAvailableToCharter(vessel);
       if (available.length === 0) {
         return 'This vessel is not available to charter.';

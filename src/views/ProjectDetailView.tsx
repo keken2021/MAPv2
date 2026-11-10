@@ -151,14 +151,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     () =>
       project
         ? notifications.find(
-            (n) =>
-              n.type === "assurance_set_request" &&
-              n.projectId === project.id &&
-              n.request &&
-              !n.request.createdAssuranceSetId &&
-              (n.recipientUserId === sessionUser?.id ||
-                (viewingOrganization && orgFieldMatches(n.request.respondingParty || "", viewingOrganization))),
-          )
+          (n) =>
+            n.type === "assurance_set_request" &&
+            n.projectId === project.id &&
+            n.request &&
+            !n.request.createdAssuranceSetId &&
+            (n.recipientUserId === sessionUser?.id ||
+              (viewingOrganization && orgFieldMatches(n.request.respondingParty || "", viewingOrganization))),
+        )
         : undefined,
     [notifications, project, sessionUser, viewingOrganization],
   );
@@ -687,7 +687,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
       {activeTab === "assurance" && (
         <div className="d-flex flex-column gap-3">
-         
+
           <div className="card map-card-custom">
             <ProjectAssuranceStatusTable
               sets={projectAssuranceSets}

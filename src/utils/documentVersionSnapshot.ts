@@ -98,8 +98,8 @@ export function syncDocumentVersionLock<T extends AssuranceSet>(set: T, document
     changed = true;
     const snapshotStatus: RequirementVersionSnapshot['verificationStatus'] =
       r.verifierStatus === 'Verified' ||
-      r.verifierStatus === 'Correction Requested' ||
-      r.verifierStatus === 'Rejected'
+        r.verifierStatus === 'Correction Requested' ||
+        r.verifierStatus === 'Rejected'
         ? r.verifierStatus
         : 'Pending';
     return {

@@ -368,9 +368,8 @@ export function getMarketplaceItems(
           },
           {
             label: 'Class & Readiness',
-            value: `${v.classificationSociety || '—'} · ${
-              vesselReadiness === null ? NOT_ASSESSED_LABEL : `${vesselReadiness}% Ready`
-            }`,
+            value: `${v.classificationSociety || '—'} · ${vesselReadiness === null ? NOT_ASSESSED_LABEL : `${vesselReadiness}% Ready`
+              }`,
           },
         ],
         complianceReadinessScore: vesselReadiness,
