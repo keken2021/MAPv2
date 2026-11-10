@@ -389,13 +389,20 @@ export function filterExternalEquipmentForProjectComposition(
   );
 }
 
-/** Assurance sets the requester may seed a new project from (public and organizational). */
+/**
+  what: assurance sets the requester may seed a new project from.
+  how: public or org-matched sets that are not drafts/private and do not already belong to a project
+  (a set is 1:1 with a project; a project may hold many sets).
+*/
 export function getAssuranceSetsForProjectCreation(
   assuranceSets: AssuranceSet[],
   requestingOrganization: string,
+  projects: Project[] = [],
 ): AssuranceSet[] {
   return assuranceSets.filter((s) => {
     if (s.visibility === 'draft' || (s.visibility as string) === 'private') return false;
+    /* already on a project — cannot seed another (same rule as getStandaloneAssuranceSetsForAttach) */
+    if (getProjectForAssuranceSet(s, projects)) return false;
     const isPublic = s.visibility === 'public';
     const matchesOrg =
       !requestingOrganization ||

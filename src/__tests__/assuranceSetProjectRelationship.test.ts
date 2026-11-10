@@ -9,6 +9,7 @@ import { useMapStore } from '../store/useMapStore';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import { MOCK_ASSURANCE_SETS, MOCK_USERS } from '../store/mockData';
 import {
+  getAssuranceSetsForProjectCreation,
   getProjectForAssuranceSet,
   getStandaloneAssuranceSetsForAttach,
   isAssuranceSetOrphaned,
@@ -170,6 +171,30 @@ describe('project to assurance set relationship', () => {
 
     expect(firstProjectSetIds.length).toBeGreaterThan(0);
     expect(offered.some((s) => firstProjectSetIds.includes(s.id))).toBe(false);
+  });
+
+  it('create-project step 2 only offers orphaned assurance sets', () => {
+    const state = useMapStore.getState();
+    useMapStore.setState((prev) => ({
+      assuranceSets: [
+        ...prev.assuranceSets,
+        buildOrphanSet('AS-REL-CREATE-ORPHAN', 'VESSEL-REL-CREATE', 'Create Project Orphan Vessel'),
+      ],
+    }));
+    const after = useMapStore.getState();
+    const linkedIds = new Set(
+      after.projects.flatMap((p) => p.assetLinks.map((l) => l.assuranceSetId).filter(Boolean)),
+    );
+    expect(linkedIds.size).toBeGreaterThan(0);
+
+    const offered = getAssuranceSetsForProjectCreation(
+      after.assuranceSets,
+      'Northwind Marine Pty Ltd',
+      after.projects,
+    );
+
+    expect(offered.some((s) => linkedIds.has(s.id))).toBe(false);
+    expect(offered.some((s) => s.id === 'AS-REL-CREATE-ORPHAN')).toBe(true);
   });
 
   it('returns a set to orphaned when its roster link is removed', () => {

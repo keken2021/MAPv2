@@ -49,6 +49,7 @@ export const CreateProjectView: React.FC = () => {
     crew,
     equipment,
     assuranceSets,
+    projects,
     activePersona,
     activeDemoOrganization,
     users,
@@ -146,8 +147,12 @@ export const CreateProjectView: React.FC = () => {
 
   const selectableAssuranceSets = useMemo(
     () =>
-      getAssuranceSetsForProjectCreation(assuranceSets, requestingOrganization),
-    [assuranceSets, requestingOrganization],
+      getAssuranceSetsForProjectCreation(
+        assuranceSets,
+        requestingOrganization,
+        projects,
+      ),
+    [assuranceSets, requestingOrganization, projects],
   );
 
   const selectedAssuranceSets = useMemo(
@@ -187,8 +192,9 @@ export const CreateProjectView: React.FC = () => {
         assuranceSets,
         requestingOrganization,
         excludeAssetKeys: draftLinks.map((l) => `${l.assetType}:${l.assetId}`),
+        orphanedAmongProjects: projects,
       }),
-    [vessels, crew, equipment, assuranceSets, requestingOrganization, draftLinks],
+    [vessels, crew, equipment, assuranceSets, requestingOrganization, draftLinks, projects],
   );
 
   useEffect(() => {
@@ -904,14 +910,16 @@ export const CreateProjectView: React.FC = () => {
         {step === 2 && (
           <>
             <p className="text-muted small mb-3">
-              Select assurance sets for{" "}
-              <strong>{requestingOrganization}</strong>. Their assets are
-              added to the project in the next step.
+              Select unassigned assurance sets for{" "}
+              <strong>{requestingOrganization}</strong>. Sets that already
+              belong to another project are not listed. Their assets are added
+              to the project in the next step.
             </p>
 
             {selectableAssuranceSets.length === 0 ? (
               <div className="alert alert-warning small">
-                No assurance sets available. Create one first.
+                No unassigned assurance sets available. Create one first, or
+                detach a set from its current project.
               </div>
             ) : (
               <div className="list-group mb-3">
