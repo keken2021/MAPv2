@@ -14,15 +14,31 @@ describe('Role dashboards routing to SharedDashboardFrame (Task 5390)', () => {
     });
   });
 
-  it('routes Administrator as client to SharedDashboardFrame with client config', () => {
+  it('routes Administrator (Vessel Admin) to SharedDashboardFrame with vessel admin config', () => {
     useMapStore.setState({ activePersona: 'Administrator' });
     render(<DashboardView />);
 
     expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
-    expect(screen.getByTestId('kpi-tile-needing_people')).toBeInTheDocument();
-    expect(screen.getByTestId('kpi-tile-overdue')).toBeInTheDocument();
-    expect(screen.getByTestId('kpi-tile-due_this_week')).toBeInTheDocument();
-    expect(screen.getByTestId('kpi-tile-open_findings')).toBeInTheDocument();
+    expect(screen.queryByTestId('performance-measures-strip')).toBeNull();
+    expect(screen.getByTestId('kpi-tile-vessels')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-tile-average_readiness')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-tile-assurance_sets')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-tile-expiring_soon')).toBeInTheDocument();
+  });
+
+  it('routes Client Admin (C Admin) to SharedDashboardFrame with client performance config', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+    });
+    render(<DashboardView />);
+
+    expect(screen.getByTestId('shared-dashboard-frame')).toBeInTheDocument();
+    expect(screen.queryByTestId('performance-measures-strip')).toBeNull();
+    expect(screen.getByTestId('kpi-tile-perf_on_time')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-tile-perf_resubmissions')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-tile-perf_cycle_time')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-tile-perf_findings')).toBeInTheDocument();
   });
 
   it('routes Submitter to SharedDashboardFrame with submitter config', () => {
@@ -69,8 +85,8 @@ describe('Role dashboards routing to SharedDashboardFrame (Task 5390)', () => {
     expect(screen.getByTestId('kpi-tile-approved_this_month')).toBeInTheDocument();
   });
 
-  it('renders Needs your action and Recent activity across all 5 roles', () => {
-    const roles = ['Administrator', 'Submitter', 'Verifier', 'Inspector', 'Approver'] as const;
+  it('renders Needs your action and Recent activity across all 6 personas', () => {
+    const roles = ['Administrator', 'C Admin', 'Submitter', 'Verifier', 'Inspector', 'Approver'] as const;
 
     for (const role of roles) {
       useMapStore.setState({ activePersona: role });

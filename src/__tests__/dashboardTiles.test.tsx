@@ -9,7 +9,12 @@ const tileLabels = () =>
   screen
     .getAllByRole('button')
     .filter((b) => /View →$/.test(b.textContent?.trim() || ''))
-    .map((b) => (b.textContent || '').replace(/^\d+/, '').replace(/View →$/, '').trim());
+    .map((b) =>
+      (b.textContent || '')
+        .replace(/^[\d%d—-]+/, '')
+        .replace(/View →$/, '')
+        .trim(),
+    );
 
 describe('Dashboard KPI tilesSuite', () => {
   beforeEach(() => {
@@ -38,9 +43,28 @@ describe('Dashboard KPI tilesSuite', () => {
     expect(expiringTab).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('shows the Administrator tiles in the shared frame, with no tables', () => {
+  it('shows the Administrator (Vessel Admin) tiles in a single row, with no tables', () => {
     render(<DashboardView />);
-    expect(tileLabels()).toEqual(['Sets needing people', 'Overdue', 'Due this week', 'Open findings']);
+    expect(tileLabels()).toEqual(['Vessels', 'Average readiness', 'Assurance sets', 'Expiring soon']);
+    expect(screen.queryByTestId('performance-measures-strip')).toBeNull();
+    expect(screen.getByText('Needs your action')).toBeInTheDocument();
+    expect(screen.queryAllByRole('table')).toHaveLength(0);
+  });
+
+  it('shows distinct Client Admin (C Admin) performance tiles in a single row, with no tables', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+      activeSessionUserId: 'USR-201',
+    });
+    render(<DashboardView />);
+    expect(tileLabels()).toEqual([
+      'On-time completion',
+      'Resubmissions',
+      'Average review cycle time',
+      'Findings',
+    ]);
+    expect(screen.queryByTestId('performance-measures-strip')).toBeNull();
     expect(screen.getByText('Needs your action')).toBeInTheDocument();
     expect(screen.queryAllByRole('table')).toHaveLength(0);
   });

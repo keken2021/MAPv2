@@ -408,9 +408,9 @@ export const AppSidebar: React.FC = () => {
           isActive: isItemActive(item),
           onClick: () => {
             if (item.key === "activities") {
-              setCurrentHashView("objects", "activity");
+              setCurrentHashView("objects", "activity", { source: "sidebar" });
             } else {
-              setCurrentHashView(item.key);
+              setCurrentHashView(item.key, undefined, { source: "sidebar" });
             }
           },
           depth,

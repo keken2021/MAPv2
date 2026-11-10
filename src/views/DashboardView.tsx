@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import {
+  getAdministratorDashboardConfig,
   getAdministratorClientDashboardConfig,
   getSubmitterDashboardConfig,
   getVerifierDashboardConfig,
@@ -12,9 +13,11 @@ import { SharedDashboardFrame } from '../components/dashboard/SharedDashboardFra
 
 export const DashboardView: React.FC = () => {
   const {
+    vessels,
     assuranceSets,
     documents,
     projects,
+    users,
     capaItems,
     auditEvents,
     notifications,
@@ -24,19 +27,53 @@ export const DashboardView: React.FC = () => {
   } = useMapStore();
   const sessionUser = useSessionUser();
 
-  const isClientAdmin = activePersona === 'Administrator' || activePersona === 'C Admin';
+  const adminConfig = useMemo(() => {
+    if (activePersona !== 'Administrator') return null;
+    return getAdministratorDashboardConfig({
+      vessels,
+      assuranceSets,
+      documents,
+      capaItems,
+      auditEvents,
+      sessionUser,
+      activeOrganization: activeDemoOrganization,
+      setCurrentHashView,
+    });
+  }, [
+    activePersona,
+    vessels,
+    assuranceSets,
+    documents,
+    capaItems,
+    auditEvents,
+    sessionUser,
+    activeDemoOrganization,
+    setCurrentHashView,
+  ]);
 
   const adminClientConfig = useMemo(() => {
-    if (!isClientAdmin) return null;
+    if (activePersona !== 'C Admin') return null;
     return getAdministratorClientDashboardConfig({
       assuranceSets,
       capaItems,
       auditEvents,
       projects,
+      users,
+      sessionUser,
       activeOrganization: activeDemoOrganization,
       setCurrentHashView,
     });
-  }, [isClientAdmin, assuranceSets, capaItems, auditEvents, projects, activeDemoOrganization, setCurrentHashView]);
+  }, [
+    activePersona,
+    assuranceSets,
+    capaItems,
+    auditEvents,
+    projects,
+    users,
+    sessionUser,
+    activeDemoOrganization,
+    setCurrentHashView,
+  ]);
 
   const submitterConfig = useMemo(() => {
     if (activePersona !== 'Submitter') return null;
@@ -88,7 +125,15 @@ export const DashboardView: React.FC = () => {
     });
   }, [activePersona, assuranceSets, capaItems, auditEvents, sessionUser, activeDemoOrganization, setCurrentHashView]);
 
-  if (isClientAdmin && adminClientConfig) {
+  if (activePersona === 'Administrator' && adminConfig) {
+    return (
+      <div className="d-flex flex-column gap-4">
+        <SharedDashboardFrame config={adminConfig} />
+      </div>
+    );
+  }
+
+  if (activePersona === 'C Admin' && adminClientConfig) {
     return (
       <div className="d-flex flex-column gap-4">
         <SharedDashboardFrame config={adminClientConfig} />

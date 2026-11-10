@@ -4,10 +4,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { AssuranceSet } from '../types/assurance';
 import { CapaItem } from '../types/capa';
 import { AuditTrailEvent } from '../types/audit';
+import { MasterDocument } from '../types/document';
+import { VesselInformation } from '../types/vessel';
 import { SharedDashboardFrame } from '../components/dashboard/SharedDashboardFrame';
 import {
   formatMissingRolesSnippet,
   formatStartDateSnippet,
+  getAdministratorDashboardConfig,
   getAdministratorClientDashboardConfig,
   getMissingRolesForSet,
 } from '../utils/roleDashboardConfigs';
@@ -107,7 +110,7 @@ describe('Administrator as client dashboard config', () => {
     expect(formatStartDateSnippet('')).toBe('');
   });
 
-  it('builds 4 neutral KPI tiles and orders action items by soonest start date first', () => {
+  it('builds 4 neutral performance KPI tiles and orders action items by soonest start date first', () => {
     const setCurrentHashView = vi.fn();
     const config = getAdministratorClientDashboardConfig({
       assuranceSets: mockAssuranceSets,
@@ -126,14 +129,15 @@ describe('Administrator as client dashboard config', () => {
     }
 
     const tileLabels = config.tiles.map((t) => t.label);
-    expect(tileLabels).toEqual(['Sets needing people', 'Overdue', 'Due this week', 'Open findings']);
+    expect(tileLabels).toEqual([
+      'On-time completion',
+      'Resubmissions',
+      'Average review cycle time',
+      'Findings',
+    ]);
 
-    // Check tile values
-    const needingPeopleTile = config.tiles.find((t) => t.id === 'needing_people')!;
-    expect(needingPeopleTile.value).toBe(3);
-
-    const openFindingsTile = config.tiles.find((t) => t.id === 'open_findings')!;
-    expect(openFindingsTile.value).toBe(2);
+    const findingsTile = config.tiles.find((t) => t.id === 'perf_findings')!;
+    expect(findingsTile.value).toBe(2);
 
     // Check action items (soonest start first: Nov 10, then Nov 14, then Nov 21)
     expect(config.actionItems).toHaveLength(3);
@@ -178,7 +182,7 @@ describe('Administrator as client dashboard config', () => {
     expect(config.actionItems[0].buttonLabel).toBe('Assign');
   });
 
-  it('renders SharedDashboardFrame correctly with Administrator as client config', () => {
+  it('renders a single KPI strip with Client Admin cards in SharedDashboardFrame', () => {
     const setCurrentHashView = vi.fn();
     const config = getAdministratorClientDashboardConfig({
       assuranceSets: mockAssuranceSets,
@@ -190,10 +194,14 @@ describe('Administrator as client dashboard config', () => {
 
     render(<SharedDashboardFrame config={config} />);
 
-    expect(screen.getByText('Sets needing people')).toBeInTheDocument();
-    expect(screen.getByText('Overdue')).toBeInTheDocument();
-    expect(screen.getByText('Due this week')).toBeInTheDocument();
-    expect(screen.getByText('Open findings')).toBeInTheDocument();
+    expect(screen.getByTestId('kpi-strip')).toBeInTheDocument();
+    expect(screen.queryByTestId('performance-measures-strip')).toBeNull();
+    expect(screen.queryByText('Sets needing people')).toBeNull();
+
+    expect(screen.getByText('On-time completion')).toBeInTheDocument();
+    expect(screen.getByText('Resubmissions')).toBeInTheDocument();
+    expect(screen.getByText('Average review cycle time')).toBeInTheDocument();
+    expect(screen.getByText('Findings')).toBeInTheDocument();
 
     // Check rows
     expect(screen.getByText('MV Borealis · Q4 Survey')).toBeInTheDocument();
@@ -205,10 +213,10 @@ describe('Administrator as client dashboard config', () => {
     fireEvent.click(assignButtons[0]);
     expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets', 'AS-001');
 
-    // Click a KPI tile
-    const needingPeopleTile = screen.getByTestId('kpi-tile-needing_people');
-    fireEvent.click(needingPeopleTile);
-    expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets');
+    // Click Findings tile
+    const findingsTile = screen.getByTestId('kpi-tile-perf_findings');
+    fireEvent.click(findingsTile);
+    expect(setCurrentHashView).toHaveBeenCalledWith('capa');
   });
 
   it('renders empty action message when all sets are staffed', () => {
@@ -224,7 +232,7 @@ describe('Administrator as client dashboard config', () => {
     expect(screen.getByText('Nothing needs you today')).toBeInTheDocument();
   });
 
-  it('computes and renders the 4 performance metric tiles from seeded pilot sets', () => {
+  it('computes the 4 performance KPI cards in the main tiles row from seeded pilot sets', () => {
     const seededPilotSets: AssuranceSet[] = [
       {
         id: 'AS-2026-101',
@@ -299,28 +307,192 @@ describe('Administrator as client dashboard config', () => {
       now: new Date('2026-11-05T00:00:00Z'),
     });
 
-    expect(config.performanceTiles).toHaveLength(4);
-    for (const tile of config.performanceTiles!) {
+    expect(config.tiles).toHaveLength(4);
+    for (const tile of config.tiles) {
       expect(tile.tone).toBe('neutral');
     }
 
-    expect(config.performanceTiles!.map((t) => t.label)).toEqual([
+    expect(config.tiles.map((t) => t.label)).toEqual([
       'On-time completion',
       'Resubmissions',
       'Average review cycle time',
       'Findings',
     ]);
-    expect(config.performanceTiles!.find((t) => t.id === 'perf_on_time')?.value).toBe('100%');
-    expect(config.performanceTiles!.find((t) => t.id === 'perf_resubmissions')?.value).toBe(1);
-    expect(config.performanceTiles!.find((t) => t.id === 'perf_cycle_time')?.value).toBe('8d');
-    expect(config.performanceTiles!.find((t) => t.id === 'perf_findings')?.value).toBe(2);
+    expect(config.tiles.find((t) => t.id === 'perf_on_time')?.value).toBe('100%');
+    expect(config.tiles.find((t) => t.id === 'perf_resubmissions')?.value).toBe(1);
+    expect(config.tiles.find((t) => t.id === 'perf_cycle_time')?.value).toBe('8d');
+    expect(config.tiles.find((t) => t.id === 'perf_findings')?.value).toBe(2);
 
     render(<SharedDashboardFrame config={config} />);
 
-    expect(screen.getByTestId('performance-measures-strip')).toBeInTheDocument();
+    expect(screen.queryByTestId('performance-measures-strip')).toBeNull();
     expect(screen.getByTestId('kpi-tile-perf_on_time')).toHaveTextContent('100%');
     expect(screen.getByTestId('kpi-tile-perf_resubmissions')).toHaveTextContent('1');
     expect(screen.getByTestId('kpi-tile-perf_cycle_time')).toHaveTextContent('8d');
     expect(screen.getByTestId('kpi-tile-perf_findings')).toHaveTextContent('2');
+  });
+
+  it('scopes Client Admin KPIs and Needs your action to activeOrganization when provided', () => {
+    const sets: AssuranceSet[] = [
+      {
+        ...mockAssuranceSets[0],
+        id: 'AS-CLIENT-A',
+        clientOrg: 'Southern Basin Energy Pty Ltd',
+        charterer: 'Southern Basin Energy Pty Ltd',
+        serviceProviderOrg: 'Northwind Marine Pty Ltd',
+      },
+      {
+        ...mockAssuranceSets[2],
+        id: 'AS-CLIENT-B',
+        clientOrg: 'Oil Company',
+        charterer: 'Oil Company',
+        serviceProviderOrg: 'Meridian Shipyards',
+        assignedApprover: 'K. Adeyemi',
+      },
+    ];
+    const capas: CapaItem[] = [
+      { id: 'CAPA-A', vesselId: 'VES-001', vesselName: 'MV Borealis', status: 'Open', title: 'Own Finding' } as unknown as CapaItem,
+      { id: 'CAPA-B', vesselId: 'VES-003', vesselName: 'MV Aurora', status: 'Open', title: 'Other Org Finding' } as unknown as CapaItem,
+    ];
+
+    const config = getAdministratorClientDashboardConfig({
+      assuranceSets: sets,
+      capaItems: capas,
+      auditEvents: mockAuditEvents,
+      activeOrganization: 'Southern Basin Energy Pty Ltd',
+      setCurrentHashView: vi.fn(),
+      now: new Date('2026-11-05T00:00:00Z'),
+    });
+
+    expect(config.tiles.find((t) => t.id === 'perf_findings')?.value).toBe(1);
+    expect(config.actionItems).toHaveLength(1);
+    expect(config.actionItems[0].id).toBe('AS-CLIENT-A');
+  });
+});
+
+describe('Administrator (Vessel Admin) dashboard config', () => {
+  it('builds fleet and compliance KPI cards distinct from Client Admin and scopes actions to organization', () => {
+    const setCurrentHashView = vi.fn();
+    const vessels: VesselInformation[] = [
+      {
+        id: 'VES-NW-1',
+        name: 'MV Northwind One',
+        imoNumber: '9000001',
+        registeredOwner: 'Northwind Marine Pty Ltd',
+        complianceReadinessScore: 70,
+      } as unknown as VesselInformation,
+      {
+        id: 'VES-OTHER-1',
+        name: 'MV Meridian Other',
+        imoNumber: '9000002',
+        registeredOwner: 'Meridian Shipyards',
+        complianceReadinessScore: 100,
+      } as unknown as VesselInformation,
+    ];
+    const sets: AssuranceSet[] = [
+      {
+        id: 'AS-NW-1',
+        title: 'Annual Charter',
+        vesselId: 'VES-NW-1',
+        vesselName: 'MV Northwind One',
+        serviceProviderOrg: 'Northwind Marine Pty Ltd',
+        stage: 'Verification',
+        assignedSubmitter: '',
+        charterWindowStart: '2026-11-12T00:00:00Z',
+        requirements: [
+          {
+            id: 'REQ-1',
+            title: 'Safety Equipment Certificate',
+            isMandatory: true,
+            isFulfilled: false,
+            documentId: 'DOC-NW-RET',
+            verifierStatus: 'Correction Requested',
+          },
+        ],
+      } as unknown as AssuranceSet,
+      {
+        id: 'AS-OTHER-1',
+        title: 'Meridian Set',
+        vesselId: 'VES-OTHER-1',
+        vesselName: 'MV Meridian Other',
+        serviceProviderOrg: 'Meridian Shipyards',
+        stage: 'Verification',
+        assignedSubmitter: '',
+        requirements: [],
+      } as unknown as AssuranceSet,
+    ];
+    const documents: MasterDocument[] = [
+      {
+        id: 'DOC-NW-EXP',
+        title: 'Class Certificate',
+        vesselId: 'VES-NW-1',
+        expiryDate: '2026-12-15T00:00:00Z',
+        verificationStatus: 'Verified',
+        complianceState: 'Expiring < 6 Mos',
+        versions: [],
+      } as unknown as MasterDocument,
+      {
+        id: 'DOC-OTHER-EXP',
+        title: 'Other Expiring Certificate',
+        vesselId: 'VES-OTHER-1',
+        expiryDate: '2026-12-10T00:00:00Z',
+        verificationStatus: 'Verified',
+        complianceState: 'Expiring < 6 Mos',
+        versions: [],
+      } as unknown as MasterDocument,
+    ];
+    const capas: CapaItem[] = [
+      {
+        id: 'CAPA-NW-1',
+        title: 'Calibrate OWS',
+        vesselId: 'VES-NW-1',
+        vesselName: 'MV Northwind One',
+        status: 'Open',
+      } as unknown as CapaItem,
+      {
+        id: 'CAPA-OTHER-1',
+        title: 'Other Org Finding',
+        vesselId: 'VES-OTHER-1',
+        vesselName: 'MV Meridian Other',
+        status: 'Open',
+      } as unknown as CapaItem,
+    ];
+
+    const config = getAdministratorDashboardConfig({
+      vessels,
+      assuranceSets: sets,
+      documents,
+      capaItems: capas,
+      auditEvents: mockAuditEvents,
+      activeOrganization: 'Northwind Marine Pty Ltd',
+      setCurrentHashView,
+      now: new Date('2026-11-05T00:00:00Z'),
+    });
+
+    expect(config.roleTitle).toBe('Administrator');
+    expect(config.tiles.map((t) => t.label)).toEqual([
+      'Vessels',
+      'Average readiness',
+      'Assurance sets',
+      'Expiring soon',
+    ]);
+    expect(config.tiles.find((t) => t.id === 'vessels')?.value).toBe(1);
+    expect(config.tiles.find((t) => t.id === 'average_readiness')?.value).toBe('40%');
+    expect(config.tiles.find((t) => t.id === 'assurance_sets')?.value).toBe(1);
+    expect(config.tiles.find((t) => t.id === 'expiring_soon')?.value).toBe(1);
+
+    expect(config.actionItems.map((item) => item.buttonLabel)).toEqual([
+      'Assign',
+      'Re-upload',
+      'Renew',
+      'Respond',
+    ]);
+
+    config.tiles.find((t) => t.id === 'expiring_soon')?.onClick?.();
+    expect(setCurrentHashView).toHaveBeenCalledWith('documents');
+
+    render(<SharedDashboardFrame config={config} />);
+    expect(screen.queryByTestId('performance-measures-strip')).toBeNull();
+    expect(screen.getByText('Vessels')).toBeInTheDocument();
   });
 });

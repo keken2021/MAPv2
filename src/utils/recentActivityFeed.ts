@@ -169,6 +169,7 @@ export function isEventRelevantToRole(event: AuditTrailEvent, role: DashboardRol
   const targetKind = event.target?.kind;
 
   switch (role) {
+    case 'Administrator':
     case 'Administrator as client': {
       return true;
     }

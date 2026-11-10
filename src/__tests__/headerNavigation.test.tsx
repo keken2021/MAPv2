@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import {
   getHeaderBackNavigation,
@@ -22,6 +22,7 @@ describe('Reusable Header Navigation', () => {
       previousHashView: undefined,
       currentEntityId: undefined,
       previousEntityId: undefined,
+      navigationSource: undefined,
     });
   });
 
@@ -87,6 +88,30 @@ describe('Reusable Header Navigation', () => {
       expect(nav.targetView).toBe('crew');
       expect(nav.targetEntityId).toBeUndefined();
     });
+
+    it('hides breadcrumbs when navigation came from the sidebar even if prior referring state is passed', () => {
+      const nav = getHeaderBackNavigation('capa', undefined, 'assurance-sets', 'AS-2026-001', 'sidebar');
+      expect(nav.isDetailPage).toBe(false);
+    });
+
+    it('hides breadcrumbs on dashboard even if previous view was notifications or marketplace', () => {
+      expect(getHeaderBackNavigation('dashboard', undefined, 'notifications', undefined).isDetailPage).toBe(false);
+      expect(getHeaderBackNavigation('dashboard', undefined, 'marketplace', undefined).isDetailPage).toBe(false);
+    });
+
+    it('hides breadcrumbs on objects view with activity filter key', () => {
+      expect(getHeaderBackNavigation('objects', 'activity', 'assurance-sets', 'AS-2026-001').isDetailPage).toBe(false);
+    });
+
+    it('preserves breadcrumbs for in-screen cross-view navigation from notifications and marketplace', () => {
+      const fromNotifications = getHeaderBackNavigation('assurance-sets', 'AS-2026-001', 'notifications', undefined, 'in-screen');
+      expect(fromNotifications.isDetailPage).toBe(true);
+      expect(fromNotifications.label).toBe('Back to Notifications');
+
+      const fromMarketplace = getHeaderBackNavigation('create-assurance-set', undefined, 'marketplace', undefined, 'in-screen');
+      expect(fromMarketplace.isDetailPage).toBe(true);
+      expect(fromMarketplace.label).toBe('Back to Marketplace');
+    });
   });
 
   describe('HeaderBackButton component', () => {
@@ -117,6 +142,24 @@ describe('Reusable Header Navigation', () => {
 
       const { container } = render(<HeaderBackButton />);
       expect(container.firstChild).toBeNull();
+    });
+
+    it('clears referring context when navigating from sidebar and restores breadcrumbs for in-screen navigation', () => {
+      const store = useMapStore.getState();
+      store.setCurrentHashView('assurance-sets', 'AS-2026-001');
+      store.setCurrentHashView('capa', undefined, { source: 'sidebar' });
+
+      expect(useMapStore.getState().previousHashView).toBeUndefined();
+      expect(useMapStore.getState().previousEntityId).toBeUndefined();
+      expect(useMapStore.getState().navigationSource).toBe('sidebar');
+
+      const { container } = render(<HeaderBackButton />);
+      expect(container.firstChild).toBeNull();
+
+      act(() => {
+        useMapStore.getState().setCurrentHashView('assurance-sets', 'AS-2026-001');
+      });
+      expect(screen.getByRole('button', { name: 'Back to Assurance Sets' })).toBeInTheDocument();
     });
   });
 });

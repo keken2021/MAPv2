@@ -1,6 +1,6 @@
 /*
   file summary: Role-specific dashboard configuration builders for MAPv2 shared dashboard frame.
-  responsibilities: constructs DashboardConfig objects for all 5 roles (Administrator as client, Submitter, Verifier, Inspector, Approver) mapping store state into KPI tiles, prioritized action rows, and recent activity items.
+  responsibilities: constructs DashboardConfig objects for all 6 role configs (Administrator, Administrator as client, Submitter, Verifier, Inspector, Approver) mapping store state into KPI tiles, prioritized action rows, and recent activity items.
   role in system: consumed by DashboardView, ApproverDashboardView, VerifierWorkspaceView, and InspectorWorkspaceView.
 */
 
@@ -11,13 +11,22 @@ import { Project } from '../types/project';
 import { MasterDocument } from '../types/document';
 import { AppNotification } from '../types/notification';
 import { UserProfile, RoleName } from '../types/user';
+import { VesselInformation } from '../types/vessel';
 import {
   DashboardConfig,
   DashboardActionItem,
   DashboardKpiTile,
   DashboardReadinessBar,
 } from '../types/dashboard';
-import { isAssuranceSetAssignedToPersona } from './rbacHelpers';
+import {
+  filterAssuranceSetsForSession,
+  isAssuranceSetAssignedToPersona,
+  isVesselOwnedByClientOrg,
+  orgFieldMatches,
+} from './rbacHelpers';
+import { filterProjectsForPersona } from './projectHelpers';
+import { calculateVesselReadiness } from './readinessHelpers';
+import { isExpiringWithinWarning } from './expiryPolicy';
 import {
   isSetNeedingPeople,
   isSetOverdue,
@@ -87,24 +96,71 @@ export interface AdministratorClientConfigParams {
   capaItems: CapaItem[];
   auditEvents: AuditTrailEvent[];
   projects?: Project[];
+  users?: UserProfile[];
+  sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | { id?: string; name?: string; organization?: string; roles?: RoleName[] } | null;
   activeOrganization?: string;
   setCurrentHashView: (view: string, entityId?: string) => void;
   now?: Date;
 }
 
 /**
- * Builds the DashboardConfig for the Administrator as client role.
+ * Builds the DashboardConfig for the Administrator as client (C Admin) role.
  */
 export function getAdministratorClientDashboardConfig({
   assuranceSets,
   capaItems,
   auditEvents,
   projects = [],
-  activeOrganization = 'Northwind Shipping',
+  users = [],
+  sessionUser,
+  activeOrganization,
   setCurrentHashView,
   now = new Date(),
 }: AdministratorClientConfigParams): DashboardConfig {
-  const needingPeopleSets = assuranceSets
+  const scopedOrg = activeOrganization?.trim();
+  const userForRbac: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null = sessionUser
+    ? {
+        id: sessionUser.id || '',
+        name: sessionUser.name || '',
+        organization: sessionUser.organization || '',
+        roles: sessionUser.roles || ['C Admin'],
+      }
+    : null;
+
+  const orgSets = scopedOrg
+    ? filterAssuranceSetsForSession(assuranceSets, 'C Admin', scopedOrg, userForRbac)
+    : assuranceSets;
+
+  const orgSetIds = new Set(orgSets.map((s) => s.id));
+  const orgVesselIds = new Set(orgSets.map((s) => s.vesselId).filter(Boolean));
+  const orgVesselNames = new Set(
+    orgSets.map((s) => s.vesselName?.toLowerCase()).filter(Boolean) as string[],
+  );
+
+  const orgCapas = scopedOrg
+    ? capaItems.filter((c) =>
+        Boolean(
+          (c.assuranceSetId && orgSetIds.has(c.assuranceSetId)) ||
+            (c.vesselId && orgVesselIds.has(c.vesselId)) ||
+            (c.vesselName && orgVesselNames.has(c.vesselName.toLowerCase())) ||
+            (c.owner && orgFieldMatches(scopedOrg, c.owner)),
+        ),
+      )
+    : capaItems;
+
+  const orgProjects =
+    scopedOrg && users.length > 0
+      ? filterProjectsForPersona(
+          projects,
+          'C Admin',
+          users,
+          assuranceSets,
+          scopedOrg,
+          userForRbac ?? undefined,
+        )
+      : projects;
+
+  const needingPeopleSets = orgSets
     .filter(isSetNeedingPeople)
     .sort((a, b) => {
       const dateA = Date.parse(getSetStartDate(a) || '9999-12-31');
@@ -112,16 +168,14 @@ export function getAdministratorClientDashboardConfig({
       return dateA - dateB;
     });
 
-  const overdueSetsCount = assuranceSets.filter((s) => isSetOverdue(s, now)).length;
-  const dueThisWeekCount = assuranceSets.filter((s) => isSetDueThisWeek(s, now)).length;
-  const openFindingsCount = capaItems.filter((c) => c.status !== 'Verified & Closed').length;
+  const openFindingsCount = orgCapas.filter((c) => c.status !== 'Verified & Closed').length;
 
-  const activeSets = assuranceSets.filter((s) => s.stage !== 'Cancelled');
+  const activeSets = orgSets.filter((s) => s.stage !== 'Cancelled');
   const onTimeCount = activeSets.filter((s) => !isSetOverdue(s, now)).length;
   const onTimeCompletionPct =
     activeSets.length > 0 ? Math.round((onTimeCount / activeSets.length) * 100) : 100;
 
-  const extraAttemptsCount = assuranceSets.reduce(
+  const extraAttemptsCount = orgSets.reduce(
     (sum, s) =>
       sum +
       (s.requirements || []).reduce(
@@ -135,8 +189,8 @@ export function getAdministratorClientDashboardConfig({
       ),
     0,
   );
-  const reVerificationsCount = countReVerifications(assuranceSets);
-  const reusedDocsCount = countReusedDocuments(assuranceSets);
+  const reVerificationsCount = countReVerifications(orgSets);
+  const reusedDocsCount = countReusedDocuments(orgSets);
   const resubmissionsCount =
     extraAttemptsCount > 0
       ? extraAttemptsCount
@@ -144,10 +198,10 @@ export function getAdministratorClientDashboardConfig({
         ? reVerificationsCount
         : reusedDocsCount;
 
-  const avgCycleDays = averageDaysToClearance(assuranceSets);
+  const avgCycleDays = averageDaysToClearance(orgSets);
   const cycleTimeDisplay = avgCycleDays !== undefined ? `${avgCycleDays}d` : '—';
 
-  const performanceTiles: DashboardKpiTile[] = [
+  const tiles: DashboardKpiTile[] = [
     {
       id: 'perf_on_time',
       label: 'On-time completion',
@@ -174,38 +228,7 @@ export function getAdministratorClientDashboardConfig({
       label: 'Findings',
       value: openFindingsCount,
       tone: 'neutral',
-      onClick: () => navigateToFilteredList('capa', 'filter', 'open_findings', setCurrentHashView),
-    },
-  ];
-
-  const tiles: DashboardKpiTile[] = [
-    {
-      id: 'needing_people',
-      label: 'Sets needing people',
-      value: needingPeopleSets.length,
-      tone: 'neutral',
-      onClick: () => navigateToFilteredList('assurance-sets', 'filter', 'needing_people', setCurrentHashView),
-    },
-    {
-      id: 'overdue',
-      label: 'Overdue',
-      value: overdueSetsCount,
-      tone: 'neutral',
-      onClick: () => navigateToFilteredList('assurance-sets', 'filter', 'overdue', setCurrentHashView),
-    },
-    {
-      id: 'due_this_week',
-      label: 'Due this week',
-      value: dueThisWeekCount,
-      tone: 'neutral',
-      onClick: () => navigateToFilteredList('assurance-sets', 'filter', 'due_this_week', setCurrentHashView),
-    },
-    {
-      id: 'open_findings',
-      label: 'Open findings',
-      value: openFindingsCount,
-      tone: 'neutral',
-      onClick: () => navigateToFilteredList('capa', 'filter', 'open_findings', setCurrentHashView),
+      onClick: () => navigateToFilteredList('capa', 'filter', 'open', setCurrentHashView),
     },
   ];
 
@@ -231,17 +254,330 @@ export function getAdministratorClientDashboardConfig({
   });
 
   const activityItems = getRoleRecentActivity('Administrator as client', auditEvents, 5, now);
-  const projectsCount = projects.length > 0 ? projects.length : 3;
+  const displayOrg = scopedOrg || 'Northwind Shipping';
+  const projectsCount = projects.length > 0 ? orgProjects.length : 3;
 
   return {
     roleTitle: 'Administrator as client',
-    subtitle: `${activeOrganization} · ${projectsCount} projects`,
+    subtitle: `${displayOrg} · ${projectsCount} projects`,
     tiles,
-    performanceTiles,
     actionItems,
     activityItems,
     seeAllText: needingPeopleSets.length > 0 ? `See all ${needingPeopleSets.length}` : undefined,
     onSeeAll: () => navigateToFilteredList('assurance-sets', 'filter', 'needing_people', setCurrentHashView),
+    emptyActionMessage: 'Nothing needs you today',
+  };
+}
+
+export interface AdministratorConfigParams {
+  vessels: VesselInformation[];
+  assuranceSets: AssuranceSet[];
+  documents: MasterDocument[];
+  capaItems: CapaItem[];
+  auditEvents: AuditTrailEvent[];
+  sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | { id?: string; name?: string; organization?: string; roles?: RoleName[] } | null;
+  activeOrganization?: string;
+  setCurrentHashView: (view: string, entityId?: string) => void;
+  now?: Date;
+}
+
+/**
+ * Builds the DashboardConfig for the Administrator (Vessel Admin / Provider Admin) role.
+ */
+export function getAdministratorDashboardConfig({
+  vessels,
+  assuranceSets,
+  documents,
+  capaItems,
+  auditEvents,
+  sessionUser,
+  activeOrganization,
+  setCurrentHashView,
+  now = new Date(),
+}: AdministratorConfigParams): DashboardConfig {
+  const scopedOrg = activeOrganization?.trim();
+  const userForRbac: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null = sessionUser
+    ? {
+        id: sessionUser.id || '',
+        name: sessionUser.name || '',
+        organization: sessionUser.organization || '',
+        roles: sessionUser.roles || ['Administrator'],
+      }
+    : null;
+
+  const orgSets = scopedOrg
+    ? filterAssuranceSetsForSession(assuranceSets, 'Administrator', scopedOrg, userForRbac)
+    : assuranceSets;
+
+  const orgVessels = scopedOrg
+    ? vessels.filter((v) => isVesselOwnedByClientOrg(v, scopedOrg))
+    : vessels;
+
+  const orgSetIds = new Set(orgSets.map((s) => s.id));
+  const orgVesselIds = new Set([
+    ...orgVessels.map((v) => v.id),
+    ...orgSets.map((s) => s.vesselId).filter(Boolean),
+  ]);
+  const orgVesselNames = new Set(
+    [
+      ...orgVessels.map((v) => v.name?.toLowerCase()),
+      ...orgSets.map((s) => s.vesselName?.toLowerCase()),
+    ].filter(Boolean) as string[],
+  );
+  const orgVesselImos = new Set(orgVessels.map((v) => v.imoNumber).filter(Boolean));
+
+  const docIdToSetId = new Map<string, string>();
+  const orgSetDocIds = new Set<string>();
+  for (const set of orgSets) {
+    for (const r of set.requirements || []) {
+      if (r.documentId) {
+        orgSetDocIds.add(r.documentId);
+        docIdToSetId.set(r.documentId, set.id);
+      }
+      if (r.linkedDocumentId) {
+        orgSetDocIds.add(r.linkedDocumentId);
+        docIdToSetId.set(r.linkedDocumentId, set.id);
+      }
+    }
+  }
+
+  const orgDocs = scopedOrg
+    ? documents.filter((doc) => {
+        const docExt = doc as MasterDocument & { organization?: string; vesselName?: string; assuranceSetId?: string };
+        const docVesselName =
+          doc.vesselAttributes?.vesselName ||
+          doc.crewAttributes?.assignedVessel ||
+          docExt.vesselName;
+        const docImo = doc.vesselAttributes?.imoNumber;
+        return Boolean(
+          orgSetDocIds.has(doc.id) ||
+            (docExt.assuranceSetId && orgSetIds.has(docExt.assuranceSetId)) ||
+            (doc.vesselId && orgVesselIds.has(doc.vesselId)) ||
+            (docVesselName && orgVesselNames.has(docVesselName.toLowerCase())) ||
+            (docImo && orgVesselImos.has(docImo)) ||
+            (docExt.organization && orgFieldMatches(scopedOrg, docExt.organization)),
+        );
+      })
+    : documents;
+
+  const orgCapas = scopedOrg
+    ? capaItems.filter((c) =>
+        Boolean(
+          (c.assuranceSetId && orgSetIds.has(c.assuranceSetId)) ||
+            (c.vesselId && orgVesselIds.has(c.vesselId)) ||
+            (c.vesselName && orgVesselNames.has(c.vesselName.toLowerCase())) ||
+            (c.owner && orgFieldMatches(scopedOrg, c.owner)),
+        ),
+      )
+    : capaItems;
+
+  const avgReadiness =
+    orgVessels.length > 0
+      ? Math.round(
+          orgVessels.reduce((sum, v) => sum + calculateVesselReadiness(v, orgSets, orgDocs), 0) /
+            orgVessels.length,
+        )
+      : 0;
+
+  const activeSetsCount = orgSets.filter(
+    (s) => s.stage !== 'Certified' && s.stage !== 'Approved' && s.stage !== 'Cancelled',
+  ).length;
+
+  const expiringDocs = orgDocs
+    .filter((d) => isExpiringWithinWarning(d.expiryDate, now))
+    .sort((a, b) => Date.parse(a.expiryDate || '9999-12-31') - Date.parse(b.expiryDate || '9999-12-31'));
+
+  const tiles: DashboardKpiTile[] = [
+    {
+      id: 'vessels',
+      label: 'Vessels',
+      value: orgVessels.length,
+      tone: 'neutral',
+      onClick: () => setCurrentHashView('vessels'),
+    },
+    {
+      id: 'average_readiness',
+      label: 'Average readiness',
+      value: `${avgReadiness}%`,
+      tone: 'neutral',
+      onClick: () => setCurrentHashView('vessels'),
+    },
+    {
+      id: 'assurance_sets',
+      label: 'Assurance sets',
+      value: activeSetsCount,
+      tone: 'neutral',
+      onClick: () => navigateToFilteredList('assurance-sets', 'filter', 'in_progress', setCurrentHashView),
+    },
+    {
+      id: 'expiring_soon',
+      label: 'Expiring soon',
+      value: expiringDocs.length,
+      tone: 'neutral',
+      onClick: () => navigateToFilteredList('documents', 'filter', 'Expiring < 6 Mos', setCurrentHashView),
+    },
+  ];
+
+  // 1. Org assurance sets missing a Submitter
+  const needingSubmitterSets = orgSets
+    .filter(
+      (s) =>
+        s.stage !== 'Certified' &&
+        s.stage !== 'Approved' &&
+        s.stage !== 'Cancelled' &&
+        (!s.assignedSubmitter ||
+          s.assignedSubmitter === 'Unassigned' ||
+          s.assignedSubmitter.toLowerCase().includes('pending')),
+    )
+    .sort((a, b) => {
+      const dateA = Date.parse(getSetStartDate(a) || '9999-12-31');
+      const dateB = Date.parse(getSetStartDate(b) || '9999-12-31');
+      return dateA - dateB;
+    });
+
+  const needingSubmitterItems: DashboardActionItem[] = needingSubmitterSets.map((set) => {
+    const startSnippet = formatStartDateSnippet(getSetStartDate(set));
+    const vessel = set.vesselName?.trim();
+    const title = set.title?.trim() || set.id;
+    const itemTitle = vessel && !title.includes(vessel) ? `${vessel} · ${title}` : title;
+
+    return {
+      id: `assign-submitter-${set.id}`,
+      tag: 'Missing role',
+      tagTone: 'warn',
+      title: itemTitle,
+      subtitle: ['No submitter', startSnippet].filter(Boolean).join(' · '),
+      buttonLabel: 'Assign',
+      onAction: () => {
+        setCurrentHashView('assurance-sets', set.id);
+      },
+    };
+  });
+
+  // 2. Returned requirements/documents across org sets and docs
+  const returnedItems: DashboardActionItem[] = [];
+  const returnedDocIds = new Set<string>();
+  for (const set of orgSets) {
+    if (set.stage === 'Cancelled') continue;
+    for (const req of set.requirements || []) {
+      if (req.verifierStatus === 'Correction Requested') {
+        if (req.documentId) returnedDocIds.add(req.documentId);
+        if (req.linkedDocumentId) returnedDocIds.add(req.linkedDocumentId);
+        const vessel = set.vesselName || set.title;
+        returnedItems.push({
+          id: `returned-req-${set.id}-${req.id}`,
+          tag: 'Returned',
+          tagTone: 'bad',
+          title: `${req.title} · ${vessel}`,
+          subtitle: req.notes || req.verificationResultSummary || 'Correction requested by verifier',
+          buttonLabel: 'Re-upload',
+          onAction: () => {
+            setCurrentHashView('assurance-sets', set.id);
+          },
+        });
+      }
+    }
+  }
+
+  for (const doc of orgDocs) {
+    if (
+      (doc.verificationStatus === 'Correction Requested' || doc.verificationStatus === 'Rejected') &&
+      !returnedDocIds.has(doc.id)
+    ) {
+      returnedDocIds.add(doc.id);
+      const docExt = doc as MasterDocument & { vesselName?: string; assuranceSetId?: string; organization?: string; rejectionReason?: string };
+      const linkedSetId = docIdToSetId.get(doc.id) || docExt.assuranceSetId;
+      const entity =
+        doc.vesselAttributes?.vesselName ||
+        doc.crewAttributes?.assignedVessel ||
+        docExt.vesselName ||
+        docExt.organization ||
+        'Vessel';
+      returnedItems.push({
+        id: `returned-doc-${doc.id}`,
+        tag: 'Returned',
+        tagTone: 'bad',
+        title: `${doc.title} · ${entity}`,
+        subtitle: doc.verificationNotes || docExt.rejectionReason || 'Correction requested by verifier',
+        buttonLabel: 'Re-upload',
+        onAction: () => {
+          if (linkedSetId) {
+            setCurrentHashView('assurance-sets', linkedSetId);
+          } else {
+            setCurrentHashView('documents');
+          }
+        },
+      });
+    }
+  }
+
+  // 3. Expiring documents within warning period (deduped against returned items)
+  const expiringItems: DashboardActionItem[] = expiringDocs
+    .filter((doc) => !returnedDocIds.has(doc.id))
+    .map((doc) => {
+      const docExt = doc as MasterDocument & { vesselName?: string; organization?: string };
+      const entity =
+        doc.vesselAttributes?.vesselName ||
+        doc.crewAttributes?.assignedVessel ||
+        docExt.vesselName ||
+        docExt.organization ||
+        scopedOrg ||
+        'Vessel';
+      return {
+        id: `expiring-${doc.id}`,
+        tag: 'Expiring',
+        tagTone: 'warn',
+        title: `${doc.title} · ${entity}`,
+        subtitle: `Expires ${formatShortDate(doc.expiryDate)}`,
+        buttonLabel: 'Renew',
+        onAction: () => navigateToFilteredList('documents', 'filter', 'Expiring < 6 Mos', setCurrentHashView),
+      };
+    });
+
+  // 4. Open CAPA findings on org vessels/sets
+  const capaActionItems: DashboardActionItem[] = orgCapas
+    .filter((c) => c.status !== 'Verified & Closed')
+    .map((capa) => ({
+      id: `capa-${capa.id}`,
+      tag: 'CAPA',
+      tagTone: capa.status === 'Rectification Required' ? 'bad' : 'warn',
+      title: `${capa.title} · ${capa.vesselName || 'Fleet vessel'}`,
+      subtitle: capa.dueDate ? `Due ${formatShortDate(capa.dueDate)}` : capa.status,
+      buttonLabel: 'Respond',
+      onAction: () => {
+        setCurrentHashView('capa', capa.id);
+      },
+    }));
+
+  const allActions = [
+    ...needingSubmitterItems,
+    ...returnedItems,
+    ...expiringItems,
+    ...capaActionItems,
+  ];
+  const actionItems = allActions.slice(0, 5);
+
+  const onSeeAll = () => {
+    if (needingSubmitterItems.length > 0 || returnedItems.length > 0) {
+      navigateToFilteredList('assurance-sets', 'filter', 'in_progress', setCurrentHashView);
+    } else if (expiringItems.length > 0) {
+      navigateToFilteredList('documents', 'filter', 'Expiring < 6 Mos', setCurrentHashView);
+    } else {
+      navigateToFilteredList('capa', 'filter', 'open', setCurrentHashView);
+    }
+  };
+
+  const activityItems = getRoleRecentActivity('Administrator', auditEvents, 5, now);
+  const displayOrg = scopedOrg || 'Northwind Marine Pty Ltd';
+
+  return {
+    roleTitle: 'Administrator',
+    subtitle: `${displayOrg} · ${orgVessels.length} vessels`,
+    tiles,
+    actionItems,
+    activityItems,
+    seeAllText: allActions.length > 0 ? `See all ${allActions.length}` : undefined,
+    onSeeAll,
     emptyActionMessage: 'Nothing needs you today',
   };
 }

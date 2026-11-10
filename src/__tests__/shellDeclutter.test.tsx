@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, beforeEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { HeaderBanner } from '../components/layout/HeaderBanner';
 import { AppSidebar } from '../components/layout/AppSidebar';
 import { useMapStore } from '../store/useMapStore';
@@ -21,6 +21,7 @@ describe('Shell header and sidebar declutter suite', () => {
       previousHashView: undefined,
       currentEntityId: undefined,
       previousEntityId: undefined,
+      navigationSource: undefined,
     });
   });
 
@@ -422,5 +423,51 @@ describe('Shell header and sidebar declutter suite', () => {
       expect(useMapStore.getState().currentHashView).toBe(prevView);
       expect(useMapStore.getState().currentEntityId).toBe(prevId);
     });
+  });
+
+  it('shows no breadcrumbs when clicking sidepanel items from detail, notifications, or marketplace screens', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      currentHashView: 'assurance-sets',
+      currentEntityId: 'AS-2026-001',
+      previousHashView: 'project',
+      previousEntityId: 'PROJ-001',
+      navigationSource: 'in-screen',
+    });
+
+    render(
+      <>
+        <AppSidebar />
+        <HeaderBanner />
+      </>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Back to Project Detail' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'CAPA' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'CAPA' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /back to/i })).toBeNull();
+
+    // Navigating inside Notifications or Marketplace shows a breadcrumb, whereas sidepanel clicks clear it
+    act(() => {
+      useMapStore.getState().setCurrentHashView('notifications');
+      useMapStore.getState().setCurrentHashView('vessels');
+    });
+    expect(screen.getByRole('button', { name: 'Back to Notifications' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dashboard' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /back to/i })).toBeNull();
+
+    act(() => {
+      useMapStore.getState().setCurrentHashView('marketplace');
+      useMapStore.getState().setCurrentHashView('create-assurance-set');
+    });
+    expect(screen.getByRole('button', { name: 'Back to Marketplace' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Activities' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'All Objects' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /back to/i })).toBeNull();
   });
 });

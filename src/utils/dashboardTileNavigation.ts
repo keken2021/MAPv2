@@ -127,7 +127,9 @@ export const filterAssuranceSetsByDashboardFilter = (
     case 'with_open_findings':
       return sets.filter((s) => (s as any).openFindingsCount > 0 || (s as any).hasOpenFindings);
     case 'in_progress':
-      return sets.filter((s) => s.stage !== 'Certified' && s.stage !== 'Cancelled');
+      return sets.filter(
+        (s) => s.stage !== 'Certified' && s.stage !== 'Approved' && s.stage !== 'Cancelled',
+      );
     case 'approved':
       return sets.filter((s) => s.stage === 'Approved');
     default:

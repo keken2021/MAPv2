@@ -160,6 +160,7 @@ describe('recentActivityFeed', () => {
 
   describe('isEventRelevantToRole', () => {
     const roles: DashboardRole[] = [
+      'Administrator',
       'Administrator as client',
       'Submitter',
       'Verifier',
@@ -167,8 +168,9 @@ describe('recentActivityFeed', () => {
       'Approver',
     ];
 
-    it('marks major set events relevant to Administrator as client', () => {
+    it('marks major set events relevant to Administrator roles', () => {
       for (const ev of SEEDED_AUDIT_EVENTS) {
+        expect(isEventRelevantToRole(ev, 'Administrator')).toBe(true);
         expect(isEventRelevantToRole(ev, 'Administrator as client')).toBe(true);
       }
     });
@@ -207,6 +209,7 @@ describe('recentActivityFeed', () => {
 
   describe('getRoleRecentActivity with seeded mock data', () => {
     const roles: DashboardRole[] = [
+      'Administrator',
       'Administrator as client',
       'Submitter',
       'Verifier',

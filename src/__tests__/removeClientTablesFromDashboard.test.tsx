@@ -21,8 +21,9 @@ describe('Remove client tables from dashboard (Task 5385)', () => {
     useMapStore.setState({ activePersona: 'Administrator' });
     render(<DashboardView />);
 
-    // Shared dashboard frame is rendered
-    expect(screen.getByText('Sets needing people')).toBeInTheDocument();
+    // Shared dashboard frame renders single Vessel Admin KPI row
+    expect(screen.getByText('Vessels')).toBeInTheDocument();
+    expect(screen.queryByTestId('performance-measures-strip')).toBeNull();
 
     // No tables are rendered on the dashboard
     expect(screen.queryAllByRole('table')).toHaveLength(0);
@@ -35,9 +36,17 @@ describe('Remove client tables from dashboard (Task 5385)', () => {
     expect(screen.queryByText(/Showing \d+-\d+ of \d+/)).toBeNull();
   });
 
-  it('renders shared dashboard frame with no tables on C Admin dashboard', () => {
-    useMapStore.setState({ activePersona: 'C Admin' });
+  it('renders shared dashboard frame with retained Client Admin performance KPIs and no tables on C Admin dashboard', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+      activeSessionUserId: 'USR-201',
+    });
     render(<DashboardView />);
+
+    expect(screen.getByText('On-time completion')).toBeInTheDocument();
+    expect(screen.queryByText('Sets needing people')).toBeNull();
+    expect(screen.queryByTestId('performance-measures-strip')).toBeNull();
 
     // No tables are rendered
     expect(screen.queryAllByRole('table')).toHaveLength(0);

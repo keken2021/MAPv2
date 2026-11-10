@@ -52,13 +52,29 @@ export function getHeaderBackNavigation(
   currentEntityId?: string,
   previousHashView?: string,
   previousEntityId?: string,
+  navigationSource?: 'sidebar' | 'in-screen',
 ): HeaderBackNavigationInfo {
   const currentSection = detailSection(currentHashView);
+
+  /* Sidepanel clicks and the dashboard/objects-activity list never display breadcrumbs */
+  if (
+    navigationSource === 'sidebar' ||
+    currentHashView === 'dashboard' ||
+    (currentHashView === 'objects' && currentEntityId === 'activity')
+  ) {
+    return {
+      isDetailPage: false,
+      label: `Back to ${currentSection.label}`,
+      targetView: currentSection.listView,
+      targetEntityId: undefined,
+    };
+  }
 
   const hasReferringEntity = Boolean(
     previousEntityId &&
       previousHashView &&
       previousHashView !== 'dashboard' &&
+      !(previousHashView === 'objects' && previousEntityId === 'activity') &&
       previousHashView !== currentHashView
   );
 
@@ -184,11 +200,19 @@ export function useHeaderBackNavigation(): HeaderBackNavigationHookResult {
   const currentEntityId = useMapStore((s) => s.currentEntityId);
   const previousHashView = useMapStore((s) => s.previousHashView);
   const previousEntityId = useMapStore((s) => s.previousEntityId);
+  const navigationSource = useMapStore((s) => s.navigationSource);
   const setCurrentHashView = useMapStore((s) => s.setCurrentHashView);
 
   const navInfo = useMemo(
-    () => getHeaderBackNavigation(currentHashView, currentEntityId, previousHashView, previousEntityId),
-    [currentHashView, currentEntityId, previousHashView, previousEntityId],
+    () =>
+      getHeaderBackNavigation(
+        currentHashView,
+        currentEntityId,
+        previousHashView,
+        previousEntityId,
+        navigationSource,
+      ),
+    [currentHashView, currentEntityId, previousHashView, previousEntityId, navigationSource],
   );
 
   const handleBack = useCallback(() => {

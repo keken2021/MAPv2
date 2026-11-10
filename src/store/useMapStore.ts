@@ -188,7 +188,12 @@ export interface MapStoreState {
   previousHashView?: string;
   currentEntityId?: string;
   previousEntityId?: string;
-  setCurrentHashView: (view: string, entityId?: string) => void;
+  navigationSource?: "sidebar" | "in-screen";
+  setCurrentHashView: (
+    view: string,
+    entityId?: string,
+    options?: { source?: "sidebar" | "in-screen" },
+  ) => void;
 
   // Active Asset Context
   activeVesselId: string;
@@ -1230,11 +1235,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       activeDemoOrganization: organization,
       activeSessionUserId: sessionUser?.id,
       currentHashView: targetView,
+      previousHashView: undefined,
+      currentEntityId: undefined,
+      previousEntityId: undefined,
+      navigationSource: undefined,
     });
   },
   logout: () => {
     window.location.hash = "#/login";
-    set({ isAuthenticated: false, currentHashView: "login" });
+    set({
+      isAuthenticated: false,
+      currentHashView: "login",
+      previousHashView: undefined,
+      currentEntityId: undefined,
+      previousEntityId: undefined,
+      navigationSource: undefined,
+    });
   },
 
   activePersona: "Administrator",
@@ -1287,14 +1303,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   previousHashView: undefined,
   currentEntityId: undefined,
   previousEntityId: undefined,
-  setCurrentHashView: (view, entityId) => {
+  navigationSource: undefined,
+  setCurrentHashView: (view, entityId, options) => {
+    const source = options?.source ?? "in-screen";
     const currentView = get().currentHashView;
     const currentId = get().currentEntityId;
 
-    let prevView = get().previousHashView;
-    let prevId = get().previousEntityId;
+    let prevView = source === "sidebar" ? undefined : get().previousHashView;
+    let prevId = source === "sidebar" ? undefined : get().previousEntityId;
 
-    if (currentView !== view || currentId !== entityId) {
+    if (source !== "sidebar" && (currentView !== view || currentId !== entityId)) {
       prevView = currentView;
       prevId = currentId;
     }
@@ -1306,6 +1324,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     set({
       previousHashView: prevView,
       previousEntityId: prevId,
+      navigationSource: source,
       currentHashView: view,
       currentEntityId: entityId,
     });

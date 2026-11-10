@@ -1,4 +1,5 @@
 export type DashboardRole =
+  | 'Administrator'
   | 'Administrator as client'
   | 'Submitter'
   | 'Verifier'
@@ -48,7 +49,6 @@ export interface DashboardConfig {
   roleTitle: string;
   subtitle?: string;
   tiles: DashboardKpiTile[];
-  performanceTiles?: DashboardKpiTile[];
   actionItems: DashboardActionItem[];
   activityItems: DashboardActivityItem[];
   seeAllText?: string;
