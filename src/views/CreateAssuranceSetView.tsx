@@ -1862,7 +1862,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const requestingCount = Object.values(orgPartyRoles).filter((r) => r === 'Requesting party').length;
     const respondingCount = Object.values(orgPartyRoles).filter((r) => r === 'Responding party').length;
     if (requestingCount !== 1 || respondingCount !== 1) {
-      setErrorMessage('An assurance set must have exactly one Requesting party and one Responding party.');
       setFieldErrors((prev) => ({
         ...prev,
         ...(requestingCount !== 1 ? { requestingParty: 'Select exactly one Requesting party.' } : {}),
@@ -2181,7 +2180,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const requestingCount = Object.values(orgPartyRoles).filter((r) => r === 'Requesting party').length;
     const respondingCount = Object.values(orgPartyRoles).filter((r) => r === 'Responding party').length;
     if (requestingCount !== 1 || respondingCount !== 1) {
-      setErrorMessage('An assurance set must have exactly one Requesting party and one Responding party.');
       setFieldErrors((prev) => ({
         ...prev,
         ...(requestingCount !== 1 ? { requestingParty: 'Select exactly one Requesting party.' } : {}),
@@ -2816,7 +2814,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         saveDraftLabel={editingDraftId ? 'Save Draft' : 'Save as Draft'}
         onSubmit={handleSubmit}
         submitLabel="Create Assurance Set"
-        errorMessage={errorMessage}
         showProgressBar={false}
       >
         {dateNotice && (
@@ -3095,10 +3092,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       <span className="badge bg-light text-dark border">Pre-filled from request</span>
                     </div>
                   )}
-                  <PartyRoleErrors
-                    requestingParty={fieldErrors.requestingParty}
-                    respondingParty={fieldErrors.respondingParty}
-                  />
                   {/* Verification & Governance Stages */}
                   <div className="p-3 bg-light border rounded-3 mb-3" data-testid="card-governance-stages">
                     <div className="mb-2">
@@ -3292,11 +3285,30 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       </tbody>
                     </table>
                   </div>
-                  {[fieldErrors.verifier, fieldErrors.inspector, fieldErrors.approver, fieldErrors.dualRole].filter(Boolean).map((message) => (
-                    <div key={message} className="text-danger small mb-2 font-mono-code" style={{ fontSize: '0.725rem' }}>
-                      {message}
+                  <PartyRoleErrors
+                    requestingParty={fieldErrors.requestingParty}
+                    respondingParty={fieldErrors.respondingParty}
+                  />
+                  {fieldErrors.verifier && (
+                    <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-verifier">
+                      {fieldErrors.verifier}
                     </div>
-                  ))}
+                  )}
+                  {fieldErrors.inspector && (
+                    <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-inspector">
+                      {fieldErrors.inspector}
+                    </div>
+                  )}
+                  {fieldErrors.approver && (
+                    <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-approver">
+                      {fieldErrors.approver}
+                    </div>
+                  )}
+                  {fieldErrors.dualRole && (
+                    <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-dual-role">
+                      {fieldErrors.dualRole}
+                    </div>
+                  )}
                   <SearchableSelect
                     id="grid-add-organization"
                     aria-label="Add party"

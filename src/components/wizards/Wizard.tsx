@@ -27,6 +27,8 @@ export interface WizardProps {
   onError?: (errors: Record<string, string>) => void;
   /** If provided, renders an error summary banner at the top of the step body */
   errorMessage?: string;
+  /** Whether to render field errors in a top banner; defaults to false so errors are only displayed near where the error actually is */
+  showErrorSummary?: boolean;
   isSubmitting?: boolean;
   isSavingDraft?: boolean;
   layout?: 'page' | 'modal';
@@ -52,6 +54,7 @@ export const Wizard: React.FC<WizardProps> = ({
   canJumpTo,
   onError,
   errorMessage,
+  showErrorSummary = false,
   isSubmitting = false,
   isSavingDraft = false,
   layout = 'page',
@@ -153,7 +156,7 @@ export const Wizard: React.FC<WizardProps> = ({
   };
 
   const activeErrorMessage =
-    errorMessage || (Object.keys(localErrors).length > 0 ? Object.values(localErrors)[0] : null);
+    errorMessage || (showErrorSummary && Object.keys(localErrors).length > 0 ? Object.values(localErrors)[0] : null);
 
   const isModal = layout === 'modal';
 

@@ -6,12 +6,12 @@ export const PartyRoleErrors: React.FC<{ requestingParty?: string; respondingPar
 }) => (
   <>
     {requestingParty && (
-      <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-requesting-party">
+      <div className="text-danger small mb-1 font-mono-code" role="alert" data-testid="error-requesting-party" style={{ fontSize: '0.725rem' }}>
         {requestingParty}
       </div>
     )}
     {respondingParty && (
-      <div className="alert alert-danger py-2 px-3 small mb-3" role="alert" data-testid="error-responding-party">
+      <div className="text-danger small mb-1 font-mono-code" role="alert" data-testid="error-responding-party" style={{ fontSize: '0.725rem' }}>
         {respondingParty}
       </div>
     )}

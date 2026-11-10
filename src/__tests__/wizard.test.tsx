@@ -57,6 +57,7 @@ describe('Wizard component', () => {
         onSaveDraft={onSaveDraft}
         canJumpTo={canJumpTo}
         onError={onError}
+        showErrorSummary={true}
       >
         <div data-testid="wizard-body">
           Current step body: {currentStep}
