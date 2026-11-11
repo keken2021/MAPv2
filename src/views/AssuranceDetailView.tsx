@@ -10,6 +10,7 @@ import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { isAssuranceSetAtRisk } from '../config/thresholds';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
@@ -2316,8 +2317,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     if (assuranceSet.stage === 'Cancelled') return undefined;
     if (assuranceSet.closureType === 'partial') return 'Partially Closed';
     if (complianceOverdue) return 'Overdue';
+    if (isAssuranceSetAtRisk(assuranceSet)) return 'At risk';
     return assuranceSet.stage;
-  }, [assuranceSet.stage, assuranceSet.closureType, complianceOverdue]);
+  }, [assuranceSet, complianceOverdue]);
 
   const canUseAsTemplate =
     roleActions.canManage ||

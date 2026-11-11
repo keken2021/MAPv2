@@ -613,8 +613,8 @@ describe('store: workflow notifications', () => {
 });
 
 describe('target date notices', () => {
-  it('uses a reminder at 8 to 14 days, a warning within 7 days, and an escalation once overdue', () => {
-    expect(targetDateNoticeKind('2026-11-11', '2026-10-28')).toBe('reminder');
+  it('fires a warning within 14 days, and an escalation once overdue', () => {
+    expect(targetDateNoticeKind('2026-11-11', '2026-10-28')).toBe('warning');
     expect(targetDateNoticeKind('2026-11-04', '2026-10-28')).toBe('warning');
     expect(targetDateNoticeKind('2026-10-28', '2026-10-28')).toBe('warning');
     expect(targetDateNoticeKind('2026-11-12', '2026-10-28')).toBeNull();

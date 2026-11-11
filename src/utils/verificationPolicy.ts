@@ -16,8 +16,9 @@ export const VERIFICATION_METHODS: readonly VerificationMethod[] = [
   'Client-provided copy',
 ];
 
-/* minimum overall extraction confidence before Verify is offered without an override; pending supervisor Q25 */
-export const OCR_MIN_CONFIDENCE = 90;
+import { OCR_MIN_CONFIDENCE } from '../config/thresholds';
+
+export { OCR_MIN_CONFIDENCE };
 
 /* shown wherever a verification is recorded (paper P3, P4, P9) */
 export const VERIFICATION_SCOPE_STATEMENT =

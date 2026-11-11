@@ -15,6 +15,7 @@ import { canRequestDocumentReupload, getDocumentReuploadBlockReason } from '../.
 import { Drawer } from './Drawer';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import type { VerificationMethod } from '../../types/assurance';
+import { OCR_MIN_CONFIDENCE } from '../../config/thresholds';
 import {
   VERIFICATION_METHODS,
   VERIFICATION_SCOPE_STATEMENT,
@@ -179,7 +180,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   const pageCount = currentVer?.scanDetails?.pageCount || currentVer?.pageCount || 1;
   const resolutionDpi = currentVer?.scanDetails?.dpi || currentVer?.scanDetails?.resolutionDpi || currentVer?.dpi || 240;
   const verConf = currentVer?.perFieldConfidence || currentVer?.fieldConfidence;
-  const isReuploaded = versions.length > 1 || document.currentVersion !== 'v1.0' || (document.ocrConfidence && document.ocrConfidence >= 90);
+  const isReuploaded = versions.length > 1 || document.currentVersion !== 'v1.0' || (document.ocrConfidence && document.ocrConfidence >= OCR_MIN_CONFIDENCE);
   const activeNotes = requirementNotes || document.verificationNotes || (versions.length > 0 ? versions[0].changeSummary : undefined);
 
   /* each check is shown under the field it belongs to, judged against the set the review was opened from */
@@ -265,7 +266,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     correctedFieldIds.has('4') ||
     (editedValues['5'] && editedValues['5'].trim() !== '') ||
     (editedValues['4'] && editedValues['4'].trim() !== '') ||
-    overallConfidence >= 90 ||
+    overallConfidence >= OCR_MIN_CONFIDENCE ||
     isVerified;
 
   /* issuer verification profile (gap review R2-G4, R2-S8) */
@@ -373,11 +374,11 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
         paused={isUploadModalOpen}
         headerAside={
           <div className="text-end">
-            <div className="fw-bold lh-1" style={{ fontSize: '1.5rem', color: overallConfidence >= 90 ? '#047857' : '#c2410c' }}>
+            <div className="fw-bold lh-1" style={{ fontSize: '1.5rem', color: overallConfidence >= OCR_MIN_CONFIDENCE ? '#047857' : '#c2410c' }}>
               {overallConfidence}%
             </div>
             <div className="lh-sm text-muted" style={{ fontSize: '0.75rem' }}>
-              overall confidence, threshold 90%
+              overall confidence, threshold {OCR_MIN_CONFIDENCE}%
             </div>
           </div>
         }
@@ -528,10 +529,10 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
             {extractedAttributes.map((attr) => {
               const isFieldCorrected = correctedFieldIds.has(attr.id);
               const currentValue = editedValues[attr.id] !== undefined ? editedValues[attr.id] : attr.value;
-              const isBelowThreshold = !isFieldCorrected && attr.confidence < 90 && attr.confidence > 0;
+              const isBelowThreshold = !isFieldCorrected && attr.confidence < OCR_MIN_CONFIDENCE && attr.confidence > 0;
               const isMissing = !isFieldCorrected && attr.isMandatoryMissing;
               const effectiveConfidence = isFieldCorrected ? 100 : attr.confidence;
-              const barColor = isMissing ? '#e2e8f0' : effectiveConfidence >= 90 ? '#059669' : '#c2410c';
+              const barColor = isMissing ? '#e2e8f0' : effectiveConfidence >= OCR_MIN_CONFIDENCE ? '#059669' : '#c2410c';
 
               return (
                 <div key={attr.id} className="map-extraction-field-row">
@@ -587,7 +588,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                         )}
                         {isBelowThreshold && (
                           <div className="small mt-0.5" style={{ fontSize: '0.75rem', color: '#b45309' }}>
-                            Below 90%. Check this field.
+                            Below {OCR_MIN_CONFIDENCE}%. Check this field.
                           </div>
                         )}
                       </>
@@ -690,9 +691,9 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     Submitter action required
                   </div>
                   <div className="small" style={{ fontSize: '0.775rem', color: '#b45309' }}>
-                    {extractedAttributes.some((attr) => attr.isMandatoryMissing || (attr.confidence > 0 && attr.confidence < 90))
+                    {extractedAttributes.some((attr) => attr.isMandatoryMissing || (attr.confidence > 0 && attr.confidence < OCR_MIN_CONFIDENCE))
                       ? `Check ${extractedAttributes
-                        .filter((attr) => attr.isMandatoryMissing || (attr.confidence > 0 && attr.confidence < 90))
+                        .filter((attr) => attr.isMandatoryMissing || (attr.confidence > 0 && attr.confidence < OCR_MIN_CONFIDENCE))
                         .map((attr) => attr.label.toLowerCase())
                         .join(', ')}. Upload a clearer scan or enter the values.`
                       : 'Upload a clearer scan or a renewed certificate if a value is wrong.'}

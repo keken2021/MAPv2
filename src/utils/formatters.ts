@@ -5,6 +5,7 @@
 */
 
 import type { AssuranceSet, ReviewChannel, ReviewMode } from '../types/assurance';
+import { OCR_MIN_CONFIDENCE } from '../config/thresholds';
 
 /**
   what: formats an ISO date string into a standard maritime date format (e.g. "15 SEP 2026").
@@ -49,7 +50,7 @@ export function formatMaritimeDateTime(dateStr: string): string {
 */
 export function getOcrConfidenceBadgeClass(confidenceScore: number): string {
   if (confidenceScore >= 95) return 'badge-conf-high';
-  if (confidenceScore >= 90) return 'badge-conf-med';
+  if (confidenceScore >= OCR_MIN_CONFIDENCE) return 'badge-conf-med';
   return 'badge-conf-low';
 }
 

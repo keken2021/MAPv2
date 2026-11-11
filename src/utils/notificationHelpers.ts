@@ -468,17 +468,13 @@ export function resolveAssuranceRequestSetClient(
   how: the notification must be an open assurance set request addressed to that user.
   with what file: src/utils/notificationHelpers.ts used by App.tsx to grant request-scoped wizard access.
 */
-/** a reminder is 8 to 14 days out, a warning is within 7 days, and an escalation is overdue */
-export const TARGET_DATE_WARNING_DAYS = 7;
-export const TARGET_DATE_REMINDER_DAYS = 14;
+import {
+  TARGET_DATE_WARNING_DAYS,
+  TARGET_DATE_REMINDER_DAYS,
+  daysUntilTarget,
+} from '../config/thresholds';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-export function daysUntilTarget(targetDate: string, today: string): number {
-  const target = Date.parse(`${targetDate.slice(0, 10)}T00:00:00Z`);
-  const start = Date.parse(`${today.slice(0, 10)}T00:00:00Z`);
-  return Math.round((target - start) / DAY_MS);
-}
+export { TARGET_DATE_WARNING_DAYS, TARGET_DATE_REMINDER_DAYS, daysUntilTarget };
 
 /**
   what: which notice a target date needs today.

@@ -6,8 +6,9 @@
 
 import type { AssuranceSet } from '../types/assurance';
 
-/* the one warning period for expiring documents, from the BRD's 90-day warning; pending supervisor Q3 (prototype used 183, 180 and 60) */
-export const EXPIRY_WARNING_DAYS = 90;
+import { EXPIRY_WARNING_DAYS } from '../config/thresholds';
+
+export { EXPIRY_WARNING_DAYS };
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 

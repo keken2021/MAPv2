@@ -16,6 +16,7 @@ import { CountTabs, CountTab } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
 import { StatusBadge } from '../common/StatusBadge';
 import { EmptyState } from '../common/EmptyState';
+import { isAssuranceSetAtRisk } from '../../config/thresholds';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 
@@ -557,7 +558,12 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
                       <span title={s.initiatorOrg}>{getAssuranceSetCreatedByLabel(s, users, activePersona)}</span>
                     </td>
                     <td>
-                      <StatusBadge value={s.stage} />
+                      <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                        <StatusBadge value={s.stage} />
+                        {isAssuranceSetAtRisk(s) && (
+                          <StatusBadge value="At risk" tone="danger" />
+                        )}
+                      </div>
                     </td>
                     <td>
                       <ReadinessGauge score={calculateAssuranceSetReadiness(s)} size="sm" />

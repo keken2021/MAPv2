@@ -22,6 +22,7 @@ import { getComplianceStateForExpiry, getDocumentReuploadBlockReason } from '../
 import { Upload, Check, AlertCircle, X, FileText } from 'lucide-react';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import { UniversalDocumentPreviewModal } from './UniversalDocumentPreviewModal';
+import { OCR_MIN_CONFIDENCE } from '../../config/thresholds';
 
 interface DocumentUploadModalProps {
   isOpen: boolean;
@@ -358,7 +359,6 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       ? `${selectedVesselObj.classificationSociety} Classification Society`
       : 'DNV Classification Society';
 
-    /* demo failure when the file name signals a bad scan (A55 / Task 5492) */
     const shouldFailExtraction = /fail|corrupt|illegible/i.test(selectedName);
 
     /* step 1: complete ai scan after 1100ms then reveal fields with staggered delays */
@@ -838,8 +838,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                           const dynamicScore = correctedFields.size >= 3
                             ? 100
                             : Math.min(100, Math.round((titleScore + certNoScore + authorityScore + expiryScore) / 4));
-                          const isFullPageCaptured = certNoScore >= 90 && expiryScore >= 90;
-                          const isSignaturePresent = authorityScore >= 90;
+                          const isFullPageCaptured = certNoScore >= OCR_MIN_CONFIDENCE && expiryScore >= OCR_MIN_CONFIDENCE;
+                          const isSignaturePresent = authorityScore >= OCR_MIN_CONFIDENCE;
 
                           return (
                             <div className="row g-3 mb-3">
@@ -849,9 +849,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                   className="p-3 border rounded-3 text-center d-flex flex-column align-items-center justify-content-center bg-white shadow-2xs"
                                   style={{
                                     borderStyle: 'dashed',
-                                    borderColor: dynamicScore >= 90 ? '#86efac' : '#cbd5e1',
+                                    borderColor: dynamicScore >= OCR_MIN_CONFIDENCE ? '#86efac' : '#cbd5e1',
                                     minHeight: '180px',
-                                    background: dynamicScore >= 90 ? 'linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)' : '#ffffff',
+                                    background: dynamicScore >= OCR_MIN_CONFIDENCE ? 'linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)' : '#ffffff',
                                   }}
                                 >
                                   <div className="font-mono-code text-uppercase text-muted small fw-bold" style={{ fontSize: '0.7rem', letterSpacing: '0.08em' }}>
@@ -864,8 +864,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                     className="mt-2.5 px-2 py-0.5 rounded border font-mono-code fw-semibold"
                                     style={{
                                       fontSize: '0.65rem',
-                                      backgroundColor: dynamicScore >= 90 ? '#dcfce7' : '#ffedd5',
-                                      color: dynamicScore >= 90 ? '#15803d' : '#c2410c',
+                                      backgroundColor: dynamicScore >= OCR_MIN_CONFIDENCE ? '#dcfce7' : '#ffedd5',
+                                      color: dynamicScore >= OCR_MIN_CONFIDENCE ? '#15803d' : '#c2410c',
                                     }}
                                   >
                                     OCR {dynamicScore}%
@@ -938,9 +938,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                         {certificateNo || 'Not extracted'}
                                       </div>
                                     )}
-                                    {certNoScore < 90 ? (
+                                    {certNoScore < OCR_MIN_CONFIDENCE ? (
                                       <div className="small mt-0.5" style={{ fontSize: '0.675rem', color: '#b45309' }}>
-                                        Below 90%. Check this field.
+                                        Below {OCR_MIN_CONFIDENCE}%. Check this field.
                                       </div>
                                     ) : (
                                       <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
@@ -949,7 +949,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                     )}
                                   </div>
                                   <div className="d-flex flex-column align-items-end flex-shrink-0" style={{ width: '80px' }}>
-                                    <div className="font-mono-code small fw-bold" style={{ fontSize: '0.7rem', color: certNoScore >= 90 ? '#059669' : '#c2410c' }}>{certNoScore}%</div>
+                                    <div className="font-mono-code small fw-bold" style={{ fontSize: '0.7rem', color: certNoScore >= OCR_MIN_CONFIDENCE ? '#059669' : '#c2410c' }}>{certNoScore}%</div>
                                   </div>
                                 </div>
 
@@ -974,9 +974,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                         {issuingAuthority || 'illegible stamp'}
                                       </div>
                                     )}
-                                    {authorityScore < 90 ? (
+                                    {authorityScore < OCR_MIN_CONFIDENCE ? (
                                       <div className="small mt-0.5" style={{ fontSize: '0.675rem', color: '#b45309' }}>
-                                        Below 90%. Check this field.
+                                        Below {OCR_MIN_CONFIDENCE}%. Check this field.
                                       </div>
                                     ) : (
                                       <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
@@ -985,7 +985,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                     )}
                                   </div>
                                   <div className="d-flex flex-column align-items-end flex-shrink-0" style={{ width: '80px' }}>
-                                    <div className="font-mono-code small fw-bold" style={{ fontSize: '0.7rem', color: authorityScore >= 90 ? '#059669' : '#c2410c' }}>{authorityScore}%</div>
+                                    <div className="font-mono-code small fw-bold" style={{ fontSize: '0.7rem', color: authorityScore >= OCR_MIN_CONFIDENCE ? '#059669' : '#c2410c' }}>{authorityScore}%</div>
                                   </div>
                                 </div>
 
@@ -1010,9 +1010,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                         {expiryDate || 'Not extracted'}
                                       </div>
                                     )}
-                                    {expiryScore < 90 ? (
+                                    {expiryScore < OCR_MIN_CONFIDENCE ? (
                                       <div className="small mt-0.5" style={{ fontSize: '0.675rem', color: '#b45309' }}>
-                                        Below 90%. Check this field.
+                                        Below {OCR_MIN_CONFIDENCE}%. Check this field.
                                       </div>
                                     ) : (
                                       <div className="small mt-0.5 text-success fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.675rem' }}>
@@ -1021,7 +1021,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                                     )}
                                   </div>
                                   <div className="d-flex flex-column align-items-end flex-shrink-0" style={{ width: '80px' }}>
-                                    <div className="font-mono-code small fw-bold" style={{ fontSize: '0.7rem', color: expiryScore >= 90 ? '#059669' : '#c2410c' }}>{expiryScore}%</div>
+                                    <div className="font-mono-code small fw-bold" style={{ fontSize: '0.7rem', color: expiryScore >= OCR_MIN_CONFIDENCE ? '#059669' : '#c2410c' }}>{expiryScore}%</div>
                                   </div>
                                 </div>
                               </div>

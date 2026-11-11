@@ -24,6 +24,7 @@ import {
 import { ReadinessGauge } from '../common/ReadinessGauge';
 import { StatusBadge } from '../common/StatusBadge';
 import { TablePagination } from '../common/TablePagination';
+import { isAssuranceSetAtRisk } from '../../config/thresholds';
 
 interface ProjectOverviewTabProps {
   project: Project;
@@ -247,6 +248,9 @@ export const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({
                         value={status}
                         tone={status === 'No-go' ? 'danger' : status === 'Conditional' ? 'warning' : 'success'}
                       />
+                    )}
+                    {isAssuranceSetAtRisk(set) && (
+                      <StatusBadge value="At risk" tone="danger" />
                     )}
                   </div>
                   <div className="text-secondary small">

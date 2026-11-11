@@ -25,6 +25,7 @@ import {
 } from '../types/assurance';
 import { UserProfile } from '../types/user';
 import { CrewMember } from '../types/crew';
+import { DATE_PERMISSION_DEFAULT_DAYS } from '../config/thresholds';
 import {
   filterCAdminAvailableToCharter,
   getClientAdminOrganization,
@@ -1956,7 +1957,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             userName: creatorName || 'Client Admin',
             grantedBy: 'System (Creation)',
             grantedAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            expiresAt: new Date(Date.now() + DATE_PERMISSION_DEFAULT_DAYS * 24 * 60 * 60 * 1000).toISOString(),
             reason: 'Initial setup permission',
           },
         ]

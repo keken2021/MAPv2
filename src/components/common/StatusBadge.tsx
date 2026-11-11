@@ -74,6 +74,8 @@ export const STATUS_TONE_MAP: Record<string, StatusTone> = {
   'unread': 'warning',
 
   // Danger
+  'At risk': 'danger',
+  'at risk': 'danger',
   'Non-Compliant': 'danger',
   'Document Deficient': 'danger',
   'Expired': 'danger',
