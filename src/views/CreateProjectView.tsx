@@ -15,10 +15,7 @@ import {
   PROJECT_CURRENCIES,
   PROJECT_TYPE_OPTIONS,
   ProjectAssetType,
-  ProjectRiskProfile,
   ProjectType,
-  WORK_LOCATION_OPTIONS,
-  WorkLocationType,
 } from "../types/project";
 import {
   buildContractParties,
@@ -29,7 +26,6 @@ import {
   getProjectOrganizationForPersona,
   isAssuranceSetWithinProjectWindow,
   LinkableProjectAsset,
-  projectTypeRequiresRiskProfile,
   projectTypeRequiresRoute,
   projectTypeShowsServiceFields,
   sameOrganization,
@@ -68,28 +64,18 @@ export const CreateProjectView: React.FC = () => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [projectType, setProjectType] =
     useState<ProjectType>("Service Engagement");
-  const [name, setName] = useState(
-    "Pacific Endeavour — Subsea Maintenance Campaign",
-  );
+  const [name, setName] = useState("");
   const [requestingOrganization, setRequestingOrganization] =
     useState(defaultOrg);
-  const [location, setLocation] = useState("Timor Sea — Offshore Sector 4");
+  const [location, setLocation] = useState("");
   const [projectWindowStart, setProjectWindowStart] = useState("2026-11-01");
   const [projectWindowEnd, setProjectWindowEnd] = useState("2027-02-28");
-  const [description, setDescription] = useState(
-    "Subsea equipment inspection, statutory assurance verification, and offshore charter mobilization.",
-  );
-  const [charterer, setCharterer] = useState(defaultOrg);
-  const [routeDescription, setRouteDescription] = useState(
-    "Dampier Port to Browse Basin Field Corridor",
-  );
-  const [riskProfile, setRiskProfile] = useState<ProjectRiskProfile | "">(
-    "Standard",
-  );
-  const [serviceProvider, setServiceProvider] = useState(
-    "Oceanic Subsea Services",
-  );
-  const [workOrderRef, setWorkOrderRef] = useState("WO-2026-MAR-0412");
+  const [description, setDescription] = useState("");
+  const [routeDescription, setRouteDescription] = useState("");
+  const [workOrderRef, setWorkOrderRef] = useState("");
+  /** clients invited to create their own assurance sets on this project */
+  const [invitedClients, setInvitedClients] = useState<string[]>([]);
+  const [invitedClientPick, setInvitedClientPick] = useState("");
   const [headContractor, setHeadContractor] = useState("");
   const [vendor, setVendor] = useState("");
   /** vendors and third parties beyond the chain; each keeps the group it was added with */
@@ -119,15 +105,18 @@ export const CreateProjectView: React.FC = () => {
     users.forEach((u) => u.organization && names.add(u.organization));
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [users]);
+  /* organizations that have a Client Admin, so they can create a set when invited */
+  const clientOrganizationOptions = useMemo(() => {
+    const names = new Set<string>();
+    users.forEach((u) => {
+      if (u.organization && u.roles.includes("C Admin")) names.add(u.organization);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [users]);
   const [showCommercialTerms, setShowCommercialTerms] = useState(false);
   const [projectValue, setProjectValue] = useState("");
   const [currency, setCurrency] = useState<(typeof PROJECT_CURRENCIES)[number]>("AUD");
-  const [multiYearStart, setMultiYearStart] = useState("");
-  const [multiYearEnd, setMultiYearEnd] = useState("");
   const [onHireDate, setOnHireDate] = useState("");
-  const [workLocationType, setWorkLocationType] =
-    useState<WorkLocationType>("Onboard");
-  const [primaryVesselId, setPrimaryVesselId] = useState("");
   const [selectedAssuranceSetIds, setSelectedAssuranceSetIds] = useState<
     string[]
   >([]);
@@ -146,9 +135,6 @@ export const CreateProjectView: React.FC = () => {
     assuranceSetId: string;
   } | null>(null);
 
-  const showCharterFields =
-    projectType === "Charter / Voyage" || projectType === "Mixed / Composite";
-  const showRiskProfile = projectTypeRequiresRiskProfile(projectType);
   const showRoute = projectTypeRequiresRoute(projectType);
   const showServiceFields = projectTypeShowsServiceFields(projectType);
 
@@ -280,14 +266,6 @@ export const CreateProjectView: React.FC = () => {
     }
     if (projectValue.trim() && !Number.isFinite(Number(projectValue))) {
       setError("Project value must be a number.");
-      return false;
-    }
-    if ((multiYearStart && !multiYearEnd) || (!multiYearStart && multiYearEnd)) {
-      setError("Enter both multi-year dates, or leave both empty.");
-      return false;
-    }
-    if (multiYearStart && multiYearEnd && multiYearEnd < multiYearStart) {
-      setError("The multi-year end date must be on or after the start date.");
       return false;
     }
     if (showRoute && !routeDescription.trim()) {
@@ -473,29 +451,20 @@ export const CreateProjectView: React.FC = () => {
       charterWindowStart: projectWindowStart,
       charterWindowEnd: projectWindowEnd,
       operatorOrganization: defaultOrg,
-      charterer: showCharterFields
-        ? charterer.trim() || requestingOrganization.trim()
-        : undefined,
       routeDescription: showRoute ? routeDescription.trim() : undefined,
-      riskProfile: showRiskProfile && riskProfile ? riskProfile : null,
-      serviceProvider: showServiceFields
-        ? serviceProvider.trim() || undefined
-        : undefined,
+      riskProfile: null,
       workOrderRef: showServiceFields
         ? workOrderRef.trim() || undefined
         : undefined,
-      workLocationType: showServiceFields ? workLocationType : undefined,
-      primaryVesselId: primaryVesselId || undefined,
+      invitedOrganizations: invitedClients.length > 0 ? invitedClients : undefined,
       contractParties: buildContractParties({
         client: requestingOrganization.trim(),
         headContractor,
-        vendor: vendor.trim() || (showServiceFields ? serviceProvider.trim() : ""),
+        vendor: vendor.trim(),
         extraParties: otherParties,
       }),
       projectValue: projectValue.trim() ? Number(projectValue) : null,
       currency,
-      multiYearStart: multiYearStart || undefined,
-      multiYearEnd: multiYearEnd || undefined,
       onHireDate: onHireDate || undefined,
       assetLinks: draftLinks.map(
         ({
@@ -831,6 +800,55 @@ export const CreateProjectView: React.FC = () => {
               )}
               <div className="form-text">Optional. Add as many as the contract has.</div>
             </div>
+            <div className="col-12" data-testid="invited-clients">
+              <label className="form-label small fw-semibold">Invite clients to create sets</label>
+              <div className="d-flex flex-wrap gap-2 align-items-start">
+                <select
+                  className="form-select form-select-sm"
+                  style={{ maxWidth: "22rem" }}
+                  value={invitedClientPick}
+                  onChange={(e) => setInvitedClientPick(e.target.value)}
+                  aria-label="Invite client"
+                >
+                  <option value="">Select a client organization</option>
+                  {clientOrganizationOptions
+                    .filter((org) => org !== requestingOrganization && !invitedClients.includes(org))
+                    .map((org) => (
+                      <option key={org} value={org}>{org}</option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => {
+                    if (!invitedClientPick) return;
+                    setInvitedClients((current) => [...current, invitedClientPick]);
+                    setInvitedClientPick("");
+                  }}
+                >
+                  Invite
+                </button>
+              </div>
+              {invitedClients.length > 0 && (
+                <ul className="list-inline mt-2 mb-0">
+                  {invitedClients.map((org) => (
+                    <li className="list-inline-item mb-1" key={org}>
+                      <span className="badge bg-light text-dark border fw-normal">
+                        {org}
+                        <button
+                          type="button"
+                          className="btn-close ms-2"
+                          style={{ fontSize: "0.5rem" }}
+                          aria-label={`Remove ${org}`}
+                          onClick={() => setInvitedClients((current) => current.filter((o) => o !== org))}
+                        />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="form-text">Optional. Invited clients can be asked to create their own assurance set on this project.</div>
+            </div>
             <div className="col-12">
               <button
                 type="button"
@@ -848,7 +866,7 @@ export const CreateProjectView: React.FC = () => {
               <div className="col-12" id="commercial-terms-fields" data-testid="commercial-terms-fields">
                 <div className="row g-3">
             <div className="col-md-4">
-              <label className="form-label small fw-semibold">Project value</label>
+              <label className="form-label small fw-semibold">Project value <span className="text-secondary fw-normal">(optional)</span></label>
               <input
                 className="form-control form-control-sm"
                 inputMode="decimal"
@@ -858,7 +876,7 @@ export const CreateProjectView: React.FC = () => {
               />
             </div>
             <div className="col-md-2">
-              <label className="form-label small fw-semibold">Currency</label>
+              <label className="form-label small fw-semibold">Currency <span className="text-secondary fw-normal">(optional)</span></label>
               <select
                 className="form-select form-select-sm"
                 value={currency}
@@ -871,30 +889,9 @@ export const CreateProjectView: React.FC = () => {
                 ))}
               </select>
             </div>
-            <div className="col-12 text-muted small pt-1">
-              Multi-year dates are the commercial term across years. The project period above is the operating window.
-            </div>
-            <div className="col-md-3">
-              <label className="form-label small fw-semibold">Multi-year start</label>
-              <input
-                type="date"
-                className="form-control form-control-sm"
-                value={multiYearStart}
-                onChange={(e) => setMultiYearStart(e.target.value)}
-              />
-            </div>
-            <div className="col-md-3">
-              <label className="form-label small fw-semibold">Multi-year end</label>
-              <input
-                type="date"
-                className="form-control form-control-sm"
-                value={multiYearEnd}
-                onChange={(e) => setMultiYearEnd(e.target.value)}
-              />
-            </div>
             <div className="col-md-6">
               <label className="form-label small fw-semibold">
-                On-hire date <span className="badge bg-warning text-dark ms-1">Pending</span>
+                On-hire date <span className="text-secondary fw-normal">(optional)</span>
               </label>
               <input
                 type="date"
@@ -902,9 +899,6 @@ export const CreateProjectView: React.FC = () => {
                 value={onHireDate}
                 onChange={(e) => setOnHireDate(e.target.value)}
               />
-              <div className="form-text">
-                Not confirmed. Entering a date here does not apply it to the project's sets.
-              </div>
             </div>
 
                 </div>
@@ -924,19 +918,6 @@ export const CreateProjectView: React.FC = () => {
               />
             </div>
 
-            {showCharterFields && (
-              <div className="col-md-6">
-                <label className="form-label small fw-semibold">
-                  Client
-                </label>
-                <input
-                  className="form-control form-control-sm"
-                  value={charterer}
-                  onChange={(e) => setCharterer(e.target.value)}
-                />
-              </div>
-            )}
-
             {showRoute && (
               <div className="col-12">
                 <label className="form-label small fw-semibold">
@@ -952,29 +933,6 @@ export const CreateProjectView: React.FC = () => {
               </div>
             )}
 
-            {showRiskProfile && (
-              <div className="col-md-6">
-                <label className="form-label small fw-semibold">
-                  Risk Profile (optional)
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={riskProfile}
-                  onChange={(e) =>
-                    setRiskProfile(e.target.value as ProjectRiskProfile | "")
-                  }
-                >
-                  <option value="">Not Applicable</option>
-                  <option value="Standard">Standard</option>
-                  <option value="Elevated">Elevated</option>
-                  <option value="High-Risk">High-Risk</option>
-                  <option value="Armed Escort Required">
-                    Armed Escort Required
-                  </option>
-                </select>
-              </div>
-            )}
-
             {showServiceFields && (
               <>
                 <div className="col-md-6">
@@ -986,24 +944,6 @@ export const CreateProjectView: React.FC = () => {
                     value={workOrderRef}
                     onChange={(e) => setWorkOrderRef(e.target.value)}
                   />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small fw-semibold">
-                    Work Location
-                  </label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={workLocationType}
-                    onChange={(e) =>
-                      setWorkLocationType(e.target.value as WorkLocationType)
-                    }
-                  >
-                    {WORK_LOCATION_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>
-                        {opt}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </>
             )}

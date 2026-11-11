@@ -13,9 +13,15 @@ import { filterProjectsForPersona } from '../utils/projectHelpers';
 
 const initialState = useMapStore.getState();
 
-/* skips the optional steps and saves, returning the id the wizard navigated to */
+/* fills required Step 1 fields, skips optional steps, and saves; returns the id the wizard navigated to */
 const createProjectThroughWizard = (): string | undefined => {
   render(<CreateProjectView />);
+  fireEvent.change(screen.getByPlaceholderText(/Pacific Endeavour/i), {
+    target: { value: 'Chevron Browse Basin Campaign' },
+  });
+  fireEvent.change(screen.getByPlaceholderText(/Port, yard, vessel, or field location/i), {
+    target: { value: 'Browse Basin' },
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Next: Choose Assurance Set' }));
   fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
   fireEvent.click(screen.getByRole('button', { name: 'Create Project' }));

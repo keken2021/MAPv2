@@ -101,6 +101,12 @@ describe('project asset picker call sites', () => {
 
   it('shows the shared picker on create-project step 3', () => {
     render(<CreateProjectView />);
+    fireEvent.change(screen.getByPlaceholderText(/Pacific Endeavour/i), {
+      target: { value: 'Asset Picker Create Project' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Port, yard, vessel, or field location/i), {
+      target: { value: 'Browse Basin' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Next: Choose Assurance Set' }));
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
     expect(screen.getByTestId('project-asset-picker')).toBeInTheDocument();

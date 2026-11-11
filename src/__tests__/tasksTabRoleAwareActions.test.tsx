@@ -205,7 +205,7 @@ describe('Task 5378: Role-aware Upload, Review or View button per row on Tasks t
       expect(onOpenRequirement).toHaveBeenCalledWith(req, set);
     });
 
-    it('renders Upload for responding party on reupload_requested task', () => {
+    it('renders Reupload for responding party on reupload_requested task', () => {
       const req = createRequirement({
         id: 'REQ-REUPLOAD',
         title: 'IOPP Certificate',
@@ -227,7 +227,8 @@ describe('Task 5378: Role-aware Upload, Review or View button per row on Tasks t
 
       const actionBtn = screen.getByTestId('task-action-btn-REQ-REUPLOAD');
       expect(actionBtn).toBeInTheDocument();
-      expect(actionBtn).toHaveTextContent('Upload');
+      /* action kind stays Upload; label shows Reupload when a reupload was requested */
+      expect(actionBtn).toHaveTextContent('Reupload');
     });
   });
 });

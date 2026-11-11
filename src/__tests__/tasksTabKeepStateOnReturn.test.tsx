@@ -53,8 +53,9 @@ describe('Task 5380: Keep search, filters, sort and page on return to Tasks tab'
     cleanup();
     useMapStore.setState({
       assuranceSets: [testSet],
-      activePersona: 'Submitter',
-      activeDemoOrganization: 'Northwind Marine',
+      /* requesting party → View on pending (responding party would get Upload, which opens a modal) */
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia',
     });
   });
 
@@ -75,8 +76,9 @@ describe('Task 5380: Keep search, filters, sort and page on return to Tasks tab'
     fireEvent.click(pendingTab);
     expect(pendingTab).toHaveAttribute('aria-selected', 'true');
 
-    // Navigate to requirement detail via action button
+    // Navigate to requirement detail via View action
     const actionBtn = screen.getByTestId('task-action-btn-REQ-5380-01');
+    expect(actionBtn).toHaveTextContent('View');
     fireEvent.click(actionBtn);
 
     // Requirements tab is active, Tasks pane is now hidden with display: none

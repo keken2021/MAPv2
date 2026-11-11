@@ -142,8 +142,10 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
     clickNext();
     removeObjectRow(container, objectRowIds(container)[0]);
 
-    /* add two crew members on the Objects tab */
-    const free = Array.from(objectItemSelect(container, 'person').options).filter((opt) => opt.value && !opt.disabled);
+    /* add two individual crew members (skip crew groups, which expand to many rows) */
+    const free = Array.from(objectItemSelect(container, 'person').options).filter(
+      (opt) => opt.value && !opt.disabled && !opt.value.startsWith('group:'),
+    );
     expect(free.length).toBeGreaterThanOrEqual(2);
     const [firstId, secondId] = [free[0].value, free[1].value];
     addObject(container, 'person', firstId);
@@ -157,11 +159,13 @@ describe('assurance set workflow: collisions, defaults, and crew review', () => 
     clickNext();
 
     /* Verify Details card does not concatenate full crew list with commas */
-    expect(screen.getByText(/Selected Crew Members \(itemized below\)/)).toBeInTheDocument();
+    expect(screen.getByText(/2 Selected Crew Members \(itemized below\)/)).toBeInTheDocument();
 
-    /* Verify distinct individual table rows */
-    const table = container.querySelector('table');
-    expect(table).not.toBeNull();
+    /* the crew roster table (not the requirements preview table earlier on the page) */
+    const table = Array.from(container.querySelectorAll('table')).find((candidate) =>
+      Array.from(candidate.querySelectorAll('thead th')).some((th) => th.textContent?.includes('Crew Member')),
+    );
+    expect(table).toBeTruthy();
     const rows = table!.querySelectorAll('tbody tr');
     expect(rows.length).toBe(2);
 

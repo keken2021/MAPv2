@@ -39,7 +39,12 @@ describe('inspection evidence', () => {
         .getState()
         .assuranceSets.map((s) => (s.id === set.id ? { ...s, requirements: [req, ...s.requirements.slice(1)] } : s)),
     });
-    const doc = { ...useMapStore.getState().documents[0], id: 'MAP-VES-2026-INSP-00001' };
+    /* new library id so this is an upload, not A16 reuse of an existing vault document */
+    const doc = {
+      ...useMapStore.getState().documents[0],
+      id: 'MAP-VES-2026-INSP-TEST-G4',
+      ownerOrganization: useMapStore.getState().activeDemoOrganization || 'Northwind Marine Pty Ltd',
+    };
 
     useMapStore.getState().uploadDocumentForRequirement(set.id, req.id, doc, {
       source: 'eCMID',

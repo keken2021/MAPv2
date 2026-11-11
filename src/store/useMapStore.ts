@@ -278,6 +278,7 @@ export interface MapStoreState {
     workOrderRef?: string;
     workLocationType?: WorkLocationType;
     primaryVesselId?: string;
+    invitedOrganizations?: string[];
     contractParties?: ContractParty[];
     projectValue?: number | null;
     currency?: string;
@@ -1712,6 +1713,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       workOrderRef: input.workOrderRef,
       workLocationType: input.workLocationType,
       primaryVesselId: input.primaryVesselId,
+      invitedOrganizations: input.invitedOrganizations,
     };
 
     const initialProjects = [...get().projects, projectDraft];

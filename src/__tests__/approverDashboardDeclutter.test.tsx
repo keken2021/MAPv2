@@ -100,7 +100,8 @@ describe('ApproverDashboardView UI Declutter', () => {
       initiatorRole: 'Vessel Provider',
       charterWindowStart: '2026-11-01',
       charterWindowEnd: '2026-12-01',
-      complianceDeadline: '2026-11-10',
+      /* keep returned sets off the Overdue tab so Overdue stays AS-OVERDUE-01 only */
+      complianceDeadline: '2026-12-15',
       stage: 'Approval',
       approverDecision: 'Returned for Correction',
       verificationRequired: true,

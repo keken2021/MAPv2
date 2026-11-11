@@ -45,10 +45,11 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
       getAssuranceSetRequestRecipients(
         users,
         senderOrg,
-        project.invitedOrganizations,
+        /* any organization with a Client Admin can be asked, not only invited ones */
+        Array.from(new Set(users.map((user) => user.organization).filter(Boolean) as string[])),
         senderUser?.id,
       ),
-    [users, senderOrg, senderUser, project.invitedOrganizations],
+    [users, senderOrg, senderUser],
   );
 
   const [recipientUserId, setRecipientUserId] = useState('');

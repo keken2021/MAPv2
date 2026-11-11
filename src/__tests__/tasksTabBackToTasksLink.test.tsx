@@ -10,14 +10,16 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
 
   beforeEach(() => {
     cleanup();
+    /* Verified + document → View action (Upload opens the modal and does not switch tabs) */
     const testReq: AssuranceRequirement = {
       id: 'REQ-5379-01',
       title: 'Safety Equipment Certificate',
       category: 'Statutory Certificate',
       isMandatory: true,
-      isFulfilled: false,
+      isFulfilled: true,
       ocrConfidence: 95,
-      verifierStatus: 'Pending',
+      verifierStatus: 'Verified',
+      documentId: 'DOC-5379',
       targetDate: '2026-11-20',
       assignedSubmitter: 'M. Chen (Northwind Marine)',
     };
@@ -58,10 +60,10 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
     expect(screen.queryByRole('button', { name: /Back to tasks/i })).toBeNull();
     expect(screen.getByTestId('project-tasks-tab')).toBeInTheDocument();
 
-    // 2. Click the Upload action button on the task row
-    const uploadBtn = screen.getByTestId('task-action-btn-REQ-5379-01');
-    expect(uploadBtn).toHaveTextContent('Upload');
-    fireEvent.click(uploadBtn);
+    // 2. Click the View action button on the task row
+    const viewBtn = screen.getByTestId('task-action-btn-REQ-5379-01');
+    expect(viewBtn).toHaveTextContent('View');
+    fireEvent.click(viewBtn);
 
     // 3. Lands on Requirements tab and Back to tasks link is now displayed in the header
     const backToTasksBtn = screen.getByRole('button', { name: /Back to tasks/i });
@@ -85,9 +87,9 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
   it('clears Back to tasks link when switching tabs by hand', () => {
     render(<AssuranceDetailView setId={testSetId} initialTab="tasks" />);
 
-    // Open requirement from Tasks tab
-    const uploadBtn = screen.getByTestId('task-action-btn-REQ-5379-01');
-    fireEvent.click(uploadBtn);
+    // Open requirement from Tasks tab via View
+    const viewBtn = screen.getByTestId('task-action-btn-REQ-5379-01');
+    fireEvent.click(viewBtn);
 
     // Back to tasks link appears
     expect(screen.getByRole('button', { name: /Back to tasks/i })).toBeInTheDocument();

@@ -32,8 +32,15 @@ export const objectItemSelect = (container: HTMLElement, type: string) => ({
   })),
 });
 export const addObject = (container: HTMLElement, type: string, id: string) => {
-  const option = objectPickerOptions(container, type, id).find((item) => item.getAttribute('data-item-id') === id);
-  fireEvent.click(option as HTMLElement);
+  /* prefer a search for the id; fall back to a broad query when the id string is not a title match */
+  let option = objectPickerOptions(container, type, id).find((item) => item.getAttribute('data-item-id') === id);
+  if (!option) {
+    option = objectPickerOptions(container, type, '-').find((item) => item.getAttribute('data-item-id') === id);
+  }
+  if (!option) {
+    throw new Error(`Object picker option not found for ${type} id=${id}`);
+  }
+  fireEvent.click(option);
 };
 export const removeObjectRow = (container: HTMLElement, id: string) =>
   fireEvent.click(container.querySelector(`[data-testid="assurance-object-row-${id}"] button[title="Remove object"]`) as HTMLButtonElement);
