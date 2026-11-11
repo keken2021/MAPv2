@@ -42,6 +42,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/issuerVerificationProfiles.ts` : confirmed digital verification portals and procedures for ROs and Flag Administrations (gap review R2-G4, R2-S8)
 - `src/config/featureFlags.ts` : feature flags
 - `src/config/readinessScale.ts` : unified readiness scale cut-offs, tones, and CSS class helpers
+- `src/config/thresholds.ts` : centralized reminder, expiry, OCR, and at-risk thresholds (Task 5524 / A17)
 - `src/utils/formatters.ts` : dates, status labels, and `getProviderLabel` (Vessel Provider, Crew Provider, Equipment Provider, or Provider)
 - `src/utils/dashboardTileNavigation.ts` : KPI tile navigation and list filtering for role dashboards
 - `src/utils/recentActivityFeed.ts` : Recent activity feed formatting and role relevance filtering for role dashboards
