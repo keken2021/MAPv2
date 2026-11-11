@@ -65,6 +65,7 @@ import {
   assigneeMatchesUser,
   filterAuditTrailForPersona,
   orgFieldMatches,
+  isProjectOwnerWithoutSubSetGroup,
 } from '../utils/rbacHelpers';
 import { useSessionUser } from '../utils/useSessionUser';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
@@ -1654,7 +1655,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   /* project side of the set: zero or one project per set */
   const linkedProject = getProjectForAssuranceSet(assuranceSet, projects);
-  const canAddToProject = roleActions.canManage && isAssuranceSetOrphaned(assuranceSet, projects);
+  const isRestrictedProjectOwner = isProjectOwnerWithoutSubSetGroup(
+    assuranceSet,
+    linkedProject,
+    viewerPartyOrg,
+    sessionUser,
+  );
+  const canAddToProject = !isRestrictedProjectOwner && roleActions.canManage && isAssuranceSetOrphaned(assuranceSet, projects);
   const attachableProjects = canAddToProject
     ? filterProjectsForPersona(
       projects,
@@ -1668,9 +1675,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   /* the charter window stays editable for managers with date permission until the set is approved or certified */
   const isCharterWindowLocked = assuranceSet.stage === 'Approved' || assuranceSet.stage === 'Certified' || assuranceSet.stage === 'Cancelled';
-  const canEditCharterWindow = roleActions.canManage && roleActions.canChangeDates && !isCharterWindowLocked;
+  const canEditCharterWindow = !isRestrictedProjectOwner && roleActions.canManage && roleActions.canChangeDates && !isCharterWindowLocked;
   const isSetOpen = !isClosedAssuranceSet(assuranceSet) && assuranceSet.stage !== 'Cancelled';
-  const canEditTasks = (isClientUser(sessionUser, assuranceSet, activePersona) || activePersona === 'Administrator' || roleActions.canManage) && isSetOpen;
+  const canEditTasks = !isRestrictedProjectOwner && (isClientUser(sessionUser, assuranceSet, activePersona) || activePersona === 'Administrator' || roleActions.canManage) && isSetOpen;
   const activeDateGrantsCount = (assuranceSet.datePermissionGrants || []).filter((g) => isDatePermissionActive(g)).length;
 
   const openAddTaskModal = () => {
@@ -3375,6 +3382,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             </button>
           </div>
 
+          {isRestrictedProjectOwner ? (
+            <div className="card map-card-custom p-4 text-center my-2" data-testid="restricted-project-owner-requirements-note">
+              <p className="text-secondary mb-0">Documents and requirements are restricted to participating group members.</p>
+            </div>
+          ) : (
+            <>
           {/* how many requirements each role has to work on */}
           {(() => {
             const c = requirementCounts;
@@ -4345,6 +4358,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             </div>
             <TablePagination {...requirementsPagination.controls} />
           </div>
+          </>
+          )}
         </div>
       )}
 
@@ -4355,40 +4370,46 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         className="flex-column gap-3"
         data-testid="assurance-detail-tasks-tab-pane"
       >
-        <ProjectTasksTable
-          sets={assuranceSet ? [assuranceSet] : []}
-          scope={{ type: 'set', id: assuranceSet?.id || '' }}
-          today={new Date()}
-          showActions
-          viewerParty={viewerParty}
-          onOpenRequirement={(req) => {
-            setFocusedRequirementId(req.id);
-            setShowBackToTasks(true);
-            setActiveTab('requirements');
-          }}
-          onTaskAction={(req, parentSet) => {
-            const action = getTaskRowActionLabel({ requirement: req, parentSet }, viewerParty);
-            const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
-            if (action === 'Upload') {
-              openRequirementUpload(req, linkedDoc);
-            } else if (action === 'Review') {
-              if (linkedDoc) {
-                const docView = getRequirementDocumentView(parentSet, req, linkedDoc);
-                setSelectedDocForReview({
-                  doc: docView?.doc || linkedDoc,
-                  notes: req.notes,
-                  requirementId: req.id,
-                  verifierStatus: req.verifierStatus,
-                  isVersionLocked: docView?.isLocked,
-                });
-              }
-            } else {
+        {isRestrictedProjectOwner ? (
+          <div className="card map-card-custom p-4 text-center my-2" data-testid="restricted-project-owner-tasks-note">
+            <p className="text-secondary mb-0">Documents and requirements are restricted to participating group members.</p>
+          </div>
+        ) : (
+          <ProjectTasksTable
+            sets={assuranceSet ? [assuranceSet] : []}
+            scope={{ type: 'set', id: assuranceSet?.id || '' }}
+            today={new Date()}
+            showActions
+            viewerParty={viewerParty}
+            onOpenRequirement={(req) => {
               setFocusedRequirementId(req.id);
               setShowBackToTasks(true);
               setActiveTab('requirements');
-            }
-          }}
-        />
+            }}
+            onTaskAction={(req, parentSet) => {
+              const action = getTaskRowActionLabel({ requirement: req, parentSet }, viewerParty);
+              const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+              if (action === 'Upload') {
+                openRequirementUpload(req, linkedDoc);
+              } else if (action === 'Review') {
+                if (linkedDoc) {
+                  const docView = getRequirementDocumentView(parentSet, req, linkedDoc);
+                  setSelectedDocForReview({
+                    doc: docView?.doc || linkedDoc,
+                    notes: req.notes,
+                    requirementId: req.id,
+                    verifierStatus: req.verifierStatus,
+                    isVersionLocked: docView?.isLocked,
+                  });
+                }
+              } else {
+                setFocusedRequirementId(req.id);
+                setShowBackToTasks(true);
+                setActiveTab('requirements');
+              }
+            }}
+          />
+        )}
       </div>
       )}
 
@@ -4519,6 +4540,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       {/* Document Review Drawer */}
       <DocumentReviewDrawer
         document={
+          !isRestrictedProjectOwner &&
           selectedDocForReview &&
             (isClientViewer ||
               !selectedDocForReview.requirementId ||

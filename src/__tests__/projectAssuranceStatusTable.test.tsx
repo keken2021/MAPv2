@@ -123,7 +123,7 @@ describe('ProjectAssuranceStatusTable', () => {
     const { container } = renderTable();
 
     expect(screen.getByRole('tab', { name: /^All \(6\)/ })).toBeInTheDocument();
-    clickTab(/Needs attention \(3\)/);
+    clickTab(/Needs attention/);
     expect(rowIds(container).sort()).toEqual(['AS-RED', 'AS-RED-READY', 'AS-SOON']);
 
     clickTab(/On track \(2\)/);

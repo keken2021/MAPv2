@@ -232,7 +232,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   };
 
   const canOpenSet = (set: AssuranceSet) =>
-    canManage || isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser);
+    canManage || isProjectOwnerOrganization || isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser);
 
   const headerClient =
     project.ownerOrganization || project.charterer || project.requestingOrganization || "";

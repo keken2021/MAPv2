@@ -5,12 +5,14 @@
 */
 
 import { AssuranceSet, DatePermissionGrant } from "../types/assurance";
+import { Project } from "../types/project";
 import { AuditTrailEvent, UserRolePersona } from "../types/audit";
 import { MasterDocument } from "../types/document";
 import { VesselInformation } from "../types/vessel";
 import { EquipmentAsset } from "../types/equipment";
 import { setSubmitters, userMatchesAnyRole } from "./userRoleHelpers";
 import { isDatePermissionActive } from "./validation";
+import { getAssuranceSetObjects } from "./assuranceTemplates";
 import { VIEW_TO_SCOPE, canPerform, isUserOverride, getEffectiveUserScopeFlags, getRoleScopeFlags } from "./permissionHelpers";
 import { RolePermissionMatrix, UserPermissionOverrides } from "../types/permissions";
 import { UserProfile } from "../types/user";
@@ -1407,4 +1409,72 @@ export function filterVesselAdminChartered(
         );
       }),
   );
+}
+
+/**
+  what: checks if viewer is the master-project owner organization but has no participating group or assigned role in the sub-set.
+  how: checks if viewer organization matches the linked project's owner organization, but has no group (Client, Vendor, Third party) or stakeholder role in the assurance set.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceDetailView.tsx and ProjectDetailView.tsx.
+*/
+export function isProjectOwnerWithoutSubSetGroup(
+  set: AssuranceSet | null | undefined,
+  project: Project | null | undefined,
+  viewerOrg?: string,
+  user?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null,
+): boolean {
+  if (!set || !project || !viewerOrg?.trim()) return false;
+  const projectOwnerOrg =
+    project.ownerOrganization || project.requestingOrganization || project.charterer || '';
+  if (!projectOwnerOrg || !orgFieldMatches(viewerOrg, projectOwnerOrg)) return false;
+
+  const parties = set.parties ?? [];
+  const matchesViewer = (org?: string) => Boolean(org?.trim()) && orgFieldMatches(viewerOrg, org as string);
+
+  // 1. Check explicit parties array
+  const hasPartyMatch = parties.some((party) => matchesViewer(party.organization));
+  if (hasPartyMatch) return false;
+
+  // 2. Check set client, provider, initiator, charterer, requesting party, responding party
+  const setDirectOrgs = [
+    set.clientOrg,
+    set.charterer,
+    set.initiatorOrg,
+    set.serviceProviderOrg,
+    set.requestingParty,
+    set.respondingParty,
+  ];
+  if (setDirectOrgs.some(matchesViewer)) return false;
+
+  // 3. Check covered object owners
+  const setObjects = getAssuranceSetObjects(set);
+  if (setObjects.some((obj) => matchesViewer(obj.ownerOrganization))) return false;
+
+  // 4. Check stakeholders mappings
+  const stakeholdersList = [set.stakeholders, set.assignedStakeholders];
+  const hasStakeholderOrg = stakeholdersList.some((s) =>
+    Boolean(
+      matchesViewer(s?.submitterOrg) ||
+      matchesViewer(s?.verifierOrg) ||
+      matchesViewer(s?.inspectorOrg) ||
+      matchesViewer(s?.approverOrg),
+    ),
+  );
+  if (hasStakeholderOrg) return false;
+
+  // 5. Check assigned submitters
+  const submitterOrgs = setSubmitters(set).map((s) => s.organization);
+  if (submitterOrgs.some(matchesViewer)) return false;
+
+  // 6. Check user assignments if user is passed
+  if (user?.name) {
+    const isNamed = [
+      set.assignedSubmitter,
+      set.assignedVerifier,
+      set.assignedInspector,
+      set.assignedApprover,
+    ].some((assigned) => assigneeMatchesUser(assigned, user));
+    if (isNamed) return false;
+  }
+
+  return true;
 }
