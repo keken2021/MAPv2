@@ -43,6 +43,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/config/featureFlags.ts` : feature flags
 - `src/config/readinessScale.ts` : unified readiness scale cut-offs, tones, and CSS class helpers
 - `src/config/thresholds.ts` : centralized reminder, expiry, OCR, and at-risk thresholds (Task 5524 / A17)
+- `src/__tests__/projectOwnerSubSetVisibility.test.ts` : unit tests for master-project owner sub-set visibility and document restriction rule (Task 5529 / A37)
 - `src/utils/formatters.ts` : dates, status labels, and `getProviderLabel` (Vessel Provider, Crew Provider, Equipment Provider, or Provider)
 - `src/utils/dashboardTileNavigation.ts` : KPI tile navigation and list filtering for role dashboards
 - `src/utils/recentActivityFeed.ts` : Recent activity feed formatting and role relevance filtering for role dashboards
