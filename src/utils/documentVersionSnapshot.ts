@@ -271,3 +271,34 @@ export function deriveObjectVerification(
     clientOrganization: clientOf(ownSets[0]),
   };
 }
+
+/**
+  what: checks if a requirement in an open set is pinned to an older document version when a newer library version exists.
+  how: checks if the set is open, the requirement points to a library document, has a pinned version (documentVersion or verifiedVersion), and the library document's currentVersion differs from that pinned version.
+  with what file: src/utils/documentVersionSnapshot.ts used by AssuranceDetailView.tsx.
+*/
+export function isRequirementOnOlderVersion(
+  req: Pick<AssuranceRequirement, 'documentId' | 'linkedDocumentId' | 'documentVersion' | 'verifiedVersion'>,
+  set: Pick<AssuranceSet, 'stage' | 'approverDecision'>,
+  documents: MasterDocument[],
+): boolean {
+  if (isClosedAssuranceSet(set)) return false;
+  const doc = findRequirementDocument(req, documents);
+  if (!doc) return false;
+  const pinnedVersion = req.verifiedVersion?.versionLabel || req.documentVersion;
+  if (!pinnedVersion) return false;
+  return Boolean(doc.currentVersion && doc.currentVersion !== pinnedVersion);
+}
+
+/**
+  what: counts requirements in an open assurance set that are on an older document version.
+  how: returns 0 if set is closed/approved, otherwise counts requirements meeting isRequirementOnOlderVersion.
+  with what file: src/utils/documentVersionSnapshot.ts used by AssuranceDetailView.tsx.
+*/
+export function countOutdatedVersionRequirements(
+  set: Pick<AssuranceSet, 'stage' | 'approverDecision' | 'requirements'>,
+  documents: MasterDocument[],
+): number {
+  if (isClosedAssuranceSet(set)) return 0;
+  return (set.requirements || []).filter((req) => isRequirementOnOlderVersion(req, set, documents)).length;
+}

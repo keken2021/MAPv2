@@ -79,6 +79,8 @@ import {
   getRequirementDocumentView,
   isClosedAssuranceSet,
   RequirementDocumentView,
+  isRequirementOnOlderVersion,
+  countOutdatedVersionRequirements,
 } from '../utils/documentVersionSnapshot';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
@@ -1308,6 +1310,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     return isClientUser(sessionUser, assuranceSet, activePersona);
   }, [activeDemoOrganization, sessionUser, clientOwnerOrg, activePersona, assuranceSet]);
 
+  const outdatedVersionCount = useMemo(
+    () => countOutdatedVersionRequirements(assuranceSet, documents),
+    [assuranceSet, documents],
+  );
+
   const visibleEvents = useMemo(
     () => filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels, currentUserId),
     [auditEvents, activePersona, assuranceSets, vessels, currentUserId],
@@ -2182,22 +2189,34 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   /* version badge of a requirement row: the pinned version with a lock on an approved set, and a note when the library has moved on */
   const renderVersionBadge = (req: AssuranceRequirement, docView?: RequirementDocumentView, canViewDoc: boolean = true) => {
     if (!canViewDoc) return null;
+    const isOutdated = isRequirementOnOlderVersion(req, assuranceSet, documents);
     const label = docView?.doc.currentVersion || req.documentVersion;
-    if (!label) return null;
+    if (!label && !isOutdated) return null;
     const lockedOn = docView?.snapshot?.verifiedAt || assuranceSet.lockedAt;
     return (
       <>
-        <span
-          className="badge bg-light text-secondary border ms-2 d-inline-flex align-items-center gap-1"
-          style={{ fontSize: '0.7rem' }}
-          title={docView?.isLocked ? `Approved version${lockedOn ? `, locked ${formatMaritimeDate(lockedOn)}` : ''}` : undefined}
-        >
-          {docView?.isLocked && <Lock size={10} aria-label="Locked version" />}
-          {label}
-        </span>
+        {label && (
+          <span
+            className="badge bg-light text-secondary border ms-2 d-inline-flex align-items-center gap-1"
+            style={{ fontSize: '0.7rem' }}
+            title={docView?.isLocked ? `Approved version${lockedOn ? `, locked ${formatMaritimeDate(lockedOn)}` : ''}` : undefined}
+          >
+            {docView?.isLocked && <Lock size={10} aria-label="Locked version" />}
+            {label}
+          </span>
+        )}
         {docView?.newerVersionLabel && (
           <span className="text-secondary ms-1.5 fw-normal" style={{ fontSize: '0.7rem' }}>
             {docView.newerVersionLabel} available
+          </span>
+        )}
+        {isOutdated && (
+          <span
+            className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-2"
+            style={{ fontSize: '0.7rem' }}
+            data-testid={`badge-newer-version-${req.id}`}
+          >
+            Newer version available
           </span>
         )}
       </>
@@ -2394,6 +2413,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             : '',
           assuranceSet.requestingParty ? `Requesting party: ${assuranceSet.requestingParty}` : '',
           assuranceSet.respondingParty ? `Responding party: ${assuranceSet.respondingParty}` : '',
+          outdatedVersionCount > 0
+            ? `${outdatedVersionCount} newer version${outdatedVersionCount > 1 ? 's' : ''} available`
+            : '',
         ].filter(Boolean)}
         mainAction={detailHeaderActions}
         onExportCsv={handleExportCsv}
@@ -3873,7 +3895,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                               <div className="fw-semibold text-dark">
                                                 {req.title}
                                                 {renderRowStatusBadge(req, docView, canViewDoc, true, groupTasks.length)}
-                                                {docView?.isLocked && renderVersionBadge(req, docView, canViewDoc)}
+                                                {(docView?.isLocked || isRequirementOnOlderVersion(req, assuranceSet, documents)) && renderVersionBadge(req, docView, canViewDoc)}
                                               </div>
                                               {renderTaskPlacement(req)}
                                             </div>
@@ -4047,7 +4069,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                                       {partyName}
                                                     </span>
                                                     {renderRowStatusBadge(partyTask, partyDocView, canViewPartyDoc, false, 0)}
-                                                    {partyDocView?.isLocked && renderVersionBadge(partyTask, partyDocView, canViewPartyDoc)}
+                                                    {(partyDocView?.isLocked || isRequirementOnOlderVersion(partyTask, assuranceSet, documents)) && renderVersionBadge(partyTask, partyDocView, canViewPartyDoc)}
                                                   </div>
                                                 </div>
                                               </td>
@@ -4164,7 +4186,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                               <div className="fw-semibold text-dark">
                                                 {req.title}
                                                 {renderRowStatusBadge(req, docView, canViewDoc, false, 0)}
-                                                {docView?.isLocked && renderVersionBadge(req, docView, canViewDoc)}
+                                                {(docView?.isLocked || isRequirementOnOlderVersion(req, assuranceSet, documents)) && renderVersionBadge(req, docView, canViewDoc)}
                                               </div>
                                             </div>
                                           </div>
