@@ -540,6 +540,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const [isEditingCharterWindow, setIsEditingCharterWindow] = useState(false);
   const [charterStartDraft, setCharterStartDraft] = useState('');
   const [charterEndDraft, setCharterEndDraft] = useState('');
+  const [plannedCharterDateDraft, setPlannedCharterDateDraft] = useState('');
   const [deadlineDraft, setDeadlineDraft] = useState('');
   const [deadlineReasonDraft, setDeadlineReasonDraft] = useState('');
   const [isDatePermissionsModalOpen, setIsDatePermissionsModalOpen] = useState(false);
@@ -1812,6 +1813,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     }
     setCharterStartDraft(assuranceSet.charterWindowStart || '');
     setCharterEndDraft(assuranceSet.charterWindowEnd || '');
+    setPlannedCharterDateDraft(assuranceSet.plannedCharterDate || '');
     setDeadlineDraft(assuranceSet.complianceDeadline || assuranceSet.targetDate || assuranceSet.charterWindowStart || '');
     setDeadlineReasonDraft('');
     setCharterWindowErrors({});
@@ -1845,6 +1847,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       ...assuranceSet,
       charterWindowStart: charterStartDraft,
       charterWindowEnd: charterEndDraft,
+      plannedCharterDate: plannedCharterDateDraft || undefined,
       complianceDeadline: deadlineDraft,
       targetDate: deadlineDraft,
       targetDateHistory: historyRow
@@ -2741,6 +2744,18 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                             )}
                           </div>
                           <div>
+                            <label className="form-label text-secondary small mb-1" htmlFor="planned-charter-date">
+                              Planned Charter Date <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                            </label>
+                            <input
+                              id="planned-charter-date"
+                              type="date"
+                              className="form-control form-control-sm bg-white text-dark"
+                              value={plannedCharterDateDraft}
+                              onChange={(e) => setPlannedCharterDateDraft(e.target.value)}
+                            />
+                          </div>
+                          <div>
                             <label className="form-label text-secondary small mb-1" htmlFor="compliance-deadline">
                               Compliance Deadline <span className="text-danger">*</span>
                             </label>
@@ -2788,6 +2803,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                       ) : (
                         <div>
                           <div className="fw-bold text-dark">{formatMaritimeDate(assuranceSet.charterWindowStart)} - {formatMaritimeDate(assuranceSet.charterWindowEnd)}</div>
+                          {assuranceSet.plannedCharterDate && (
+                            <div className="text-secondary mt-1" style={{ fontSize: '0.75rem' }} data-testid="detail-planned-charter-date">
+                              <span>Planned charter: {formatMaritimeDate(assuranceSet.plannedCharterDate)}</span>
+                            </div>
+                          )}
                           <div className="text-secondary mt-1 d-flex align-items-center gap-2 flex-wrap" style={{ fontSize: '0.75rem' }}>
                             <span>Compliance deadline: {formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}</span>
                           </div>

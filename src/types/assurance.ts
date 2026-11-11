@@ -381,6 +381,7 @@ export interface AssuranceSet {
   initiatorOrg: string;
   initiatorRole: InitiatingRoleType;
   charterer?: string; /* charterer organization or entity assigned to the campaign set */
+  plannedCharterDate?: string; /* iso date - optional planned charter commencement date (A64) */
   charterWindowStart: string; /* iso date - contractual hire window (on-hire delivery to off-hire redelivery) */
   charterWindowEnd: string; /* iso date - contractual hire window */
   complianceDeadline: string; /* iso date - the set must be complete on or before the contract start */

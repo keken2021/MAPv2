@@ -404,6 +404,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [startDate, setStartDate] = useState(() => initialPeriod.start);
   const [endDate, setEndDate] = useState(() => initialPeriod.end);
   const [complianceDeadline, setComplianceDeadline] = useState(() => initialPeriod.start);
+  const [plannedCharterDate, setPlannedCharterDate] = useState('');
   const isVesselLocked = Boolean(lockedVessel);
 
   useEffect(() => {
@@ -1063,6 +1064,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (targetSet.charterWindowStart) setStartDate(targetSet.charterWindowStart);
     if (targetSet.charterWindowEnd) setEndDate(targetSet.charterWindowEnd);
     setComplianceDeadline(targetSet.complianceDeadline || targetSet.charterWindowStart || '');
+    if (targetSet.plannedCharterDate) setPlannedCharterDate(targetSet.plannedCharterDate);
     setVerificationRequired(targetSet.verificationRequired !== undefined ? targetSet.verificationRequired : Boolean(targetSet.assignedVerifier));
     setInspectionRequired(targetSet.mandatoryInspectionRequired);
     setApprovalRequired(targetSet.formalApprovalRequired !== undefined ? targetSet.formalApprovalRequired : Boolean(targetSet.assignedApprover));
@@ -1174,6 +1176,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           if (target.charterWindowStart) setStartDate(target.charterWindowStart);
           if (target.charterWindowEnd) setEndDate(target.charterWindowEnd);
           setComplianceDeadline(target.complianceDeadline || target.charterWindowStart || '');
+          if (target.plannedCharterDate) setPlannedCharterDate(target.plannedCharterDate);
           setVerificationRequired(target.verificationRequired ?? true);
           setInspectionRequired(target.mandatoryInspectionRequired);
           setApprovalRequired(target.formalApprovalRequired ?? true);
@@ -1955,6 +1958,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       initiatorOrg,
       initiatorRole: 'C Admin · Client Created',
       charterer: effectiveCharterer,
+      plannedCharterDate: plannedCharterDate || undefined,
       charterWindowStart: startDate,
       charterWindowEnd: endDate,
       complianceDeadline,
@@ -2277,6 +2281,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       initiatorOrg,
       initiatorRole: 'C Admin · Client Created',
       charterer: effectiveCharterer,
+      plannedCharterDate: plannedCharterDate || undefined,
       charterWindowStart: startDate || initialPeriod.start,
       charterWindowEnd: endDate || initialPeriod.end,
       complianceDeadline: complianceDeadline || startDate || initialPeriod.start,
@@ -3063,7 +3068,24 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                       )}
                     </div>
 
-                    <div className="col-12 col-md-4">
+                    <div className="col-12 col-md-3">
+                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-planned-charter-date">
+                        Planned Charter Date <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                      </label>
+                      <input
+                        id="grid-planned-charter-date"
+                        type="date"
+                        className="form-control bg-white text-dark border-secondary-subtle font-mono-code"
+                        value={plannedCharterDate}
+                        onChange={(e) => setPlannedCharterDate(e.target.value)}
+                        aria-describedby="grid-planned-charter-date-help"
+                      />
+                      <div id="grid-planned-charter-date-help" className="form-text small">
+                        Optional planned commencement date for asset chartering.
+                      </div>
+                    </div>
+
+                    <div className="col-12 col-md-3">
                       <label className="form-label text-secondary small fw-semibold" htmlFor="grid-compliance-deadline">
                         Compliance Deadline <span className="text-danger">*</span>
                       </label>
@@ -3091,7 +3113,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         aria-describedby="grid-compliance-deadline-help"
                       />
                       <div id="grid-compliance-deadline-help" className="form-text small">
-                        When this assurance set must be complete. On or before the contract start. Separate from the period the asset is chartered.
+                        When this assurance set must be complete. On or before the contract start.
                       </div>
                       {fieldErrors.complianceDeadline && (
                         <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>

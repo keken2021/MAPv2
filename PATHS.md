@@ -157,6 +157,7 @@ Root: `C:\mapFiles\MAPv2`
 - Unit tests for UI declutter role access check across organizations: `src/__tests__/roleAccessAcrossOrganizations.test.ts` (walks every organization and persona, checks sidebar links, workflow role scoping, admin org scoping)
 - Unit tests for UI declutter Northwind Verifier persona and queue: `src/__tests__/northwindVerifierQueue.test.tsx` (sidebar persona switch, at least 4 To Verify items, 1 Overdue item, no submitter == verifier)
 - Unit tests for Approver decision bar on set detail: `src/__tests__/approverDecisionBar.test.tsx` (bar shown only for named approver at Approval, reason required for Return and Reject, Approve disabled with open findings)
+- Unit tests for Task 5530 (A64): `src/__tests__/approverNoticeAndCharterDate.test.ts` (approver sent-back notification on correction/rejection, optional planned charter date)
 - Projects: `createProjectWizardOrganization.test.tsx`, `projectComposition.test.ts`, `projectDetailHeader.test.tsx`, `projectNestedSets.test.ts`, `assuranceSetProjectRelationship.test.ts`, `mockDataConsistency.test.ts`, `notifications.test.ts`
 - User Management: `cAdminUserManagement.test.ts`, `userRoleHelpers.test.ts`, `store.test.ts`
 - Audit Trail: `permissionHelpers.test.ts`, `notifications.test.ts`, `mockDataBusinessRules.test.ts`, `store.test.ts`
