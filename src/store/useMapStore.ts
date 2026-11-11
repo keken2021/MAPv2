@@ -371,11 +371,6 @@ export interface MapStoreState {
   assuranceSets: AssuranceSet[];
   addAssuranceSet: (set: AssuranceSet) => void;
   updateAssuranceSet: (set: AssuranceSet) => void;
-  /** FR-09: client confirms a Third party on the set is independent */
-  confirmThirdPartyIndependence: (
-    setId: string,
-    organization: string,
-  ) => { success: boolean; message?: string };
   grantDatePermission: (setId: string, grant: Omit<DatePermissionGrant, 'id' | 'grantedAt'>) => void;
   revokeDatePermission: (setId: string, grantId: string) => void;
   excludeGroupMember: (setId: string, memberId: string, reason: string, excludedBy: string) => void;
@@ -2433,51 +2428,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         logStageTransitionAudit(get, computedSet, previousSet.stage, computedSet.stage);
       }
     }
-  },
-  confirmThirdPartyIndependence: (setId, organization) => {
-    const state = get();
-    const target = state.assuranceSets.find((s) => s.id === setId);
-    if (!target) return { success: false, message: "Assurance set not found." };
-    const orgName = organization.trim();
-    if (!orgName) return { success: false, message: "Organization is required." };
-
-    const parties = [...(target.parties || [])];
-    let idx = parties.findIndex((p) => orgFieldMatches(p.organization, orgName));
-    if (idx < 0) {
-      const listed =
-        (target.organizations || []).some((o) => orgFieldMatches(o, orgName)) ||
-        Boolean(target.stakeholders && Object.values(target.stakeholders).some((o) => o && orgFieldMatches(o, orgName)));
-      if (!listed) {
-        return { success: false, message: "Organization is not a party on this set." };
-      }
-      parties.push({
-        organization: orgName,
-        group: "Third party",
-        independenceStatus: "pending",
-      });
-      idx = parties.length - 1;
-    }
-    if (parties[idx].group !== "Third party") {
-      return { success: false, message: "Independence confirmation applies to Third party organizations only." };
-    }
-
-    const actor = getSessionActor(get);
-    const confirmedAt = new Date().toISOString();
-    parties[idx] = {
-      ...parties[idx],
-      independenceStatus: "confirmed",
-      independenceConfirmedBy: actor.userId || state.activeDemoOrganization || "Client",
-      independenceConfirmedAt: confirmedAt,
-    };
-
-    get().updateAssuranceSet({ ...target, parties });
-    get().logAuditEvent({
-      action: "Confirmed third party independence [FR-09]",
-      targetAsset: `${target.id} (${orgName})`,
-      target: { kind: "party", setId: target.id, organization: orgName, partyRole: "Third party" },
-      justificationNotes: `${actor.userId || "Client"} confirmed ${orgName} is independent on ${target.title}.`,
-    });
-    return { success: true };
   },
   grantDatePermission: (setId, grantInput) => {
     set((state) => {

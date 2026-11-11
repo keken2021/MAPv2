@@ -2028,8 +2028,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           organization: org,
           group,
           partyRole: orgPartyRoles[org] || (org === requestContext?.requestingParty ? 'Requesting party' : org === requestContext?.respondingParty ? 'Responding party' : undefined),
-          /* FR-09: third parties start pending until the client confirms independence */
-          ...(group === 'Third party' ? { independenceStatus: 'pending' as const } : {}),
         };
       }),
       organizations,
@@ -2309,23 +2307,11 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         requestContext?.respondingParty ||
         effectiveVendorOrg,
       partyRoles: orgPartyRoles,
-      /* FR-09: draft path also stamps Third parties as independence pending */
-      parties: (() => {
-        const base = setOrganizationParties({
-          clientOrg: ownerOrg,
-          charterer: effectiveCharterer,
-          serviceProviderOrg: effectiveVendorOrg,
-        });
-        const extras = organizations
-          .filter((org) => !base.some((p) => sameOrganization(p.organization, org)))
-          .map((org) => ({
-            organization: org,
-            group: 'Third party' as const,
-            independenceStatus: 'pending' as const,
-            partyRole: orgPartyRoles[org],
-          }));
-        return [...base, ...extras];
-      })(),
+      parties: setOrganizationParties({
+        clientOrg: ownerOrg,
+        charterer: effectiveCharterer,
+        serviceProviderOrg: effectiveVendorOrg,
+      }),
       organizations,
       submitters,
       requirements: effectiveRequirements,

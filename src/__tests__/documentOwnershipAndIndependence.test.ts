@@ -1,10 +1,10 @@
 /*
-  file summary: FR-16 evidence ownership, A16 vendor-only reuse, and FR-09 third-party independence.
-  responsibilities: unit coverage for documentOwnershipHelpers and confirmThirdPartyIndependence.
-  role in system: Sprint 3 tasks 5532, 5533, 5534.
+  file summary: FR-16 evidence ownership and A16 vendor-only reuse.
+  responsibilities: unit coverage for documentOwnershipHelpers and related store guards.
+  role in system: Sprint 3 tasks 5533 and 5534.
 */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import type { MasterDocument } from '../types/document';
 import type { AssuranceSet } from '../types/assurance';
@@ -76,7 +76,7 @@ const bunkerSet = (overrides: Partial<AssuranceSet> = {}): AssuranceSet =>
     parties: [
       { organization: 'Northwind Marine Pty Ltd', group: 'Client' },
       { organization: 'Oil Company', group: 'Vendor' },
-      { organization: 'Coastal Fuel Testing', group: 'Third party', independenceStatus: 'pending' },
+      { organization: 'Coastal Fuel Testing', group: 'Third party' },
     ],
     organizations: ['Northwind Marine Pty Ltd', 'Oil Company', 'Coastal Fuel Testing'],
     ...overrides,
@@ -145,45 +145,5 @@ describe('A16 evidence reuse vendor-only', () => {
     });
     expect(canOfferEvidenceReuse(set, 'Oil Company')).toBe(true);
     expect(isReusableLibraryDocument(baseDoc({ ownerOrganization: 'Oil Company' }), set)).toBe(true);
-  });
-});
-
-describe('FR-09 third party independence', () => {
-  beforeEach(() => {
-    useMapStore.setState(initialState, true);
-  });
-
-  it('confirms a pending Third party and writes audit', () => {
-    const set = bunkerSet({ id: 'AS-FR09-1' });
-    useMapStore.setState((s) => ({
-      assuranceSets: [...s.assuranceSets, set],
-      activeDemoOrganization: 'Northwind Marine Pty Ltd',
-      activePersona: 'C Admin',
-    }));
-
-    const result = useMapStore.getState().confirmThirdPartyIndependence(set.id, 'Coastal Fuel Testing');
-    expect(result.success).toBe(true);
-
-    const updated = useMapStore.getState().assuranceSets.find((s) => s.id === set.id)!;
-    const party = updated.parties?.find((p) => p.organization === 'Coastal Fuel Testing');
-    expect(party?.independenceStatus).toBe('confirmed');
-    expect(party?.independenceConfirmedAt).toBeTruthy();
-
-    const audit = useMapStore
-      .getState()
-      .auditEvents.find((e) => e.action.includes('Confirmed third party independence'));
-    expect(audit).toBeTruthy();
-  });
-
-  it('rejects confirmation for a Vendor organization', () => {
-    const set = bunkerSet({ id: 'AS-FR09-2' });
-    useMapStore.setState((s) => ({
-      assuranceSets: [...s.assuranceSets, set],
-      activeDemoOrganization: 'Northwind Marine Pty Ltd',
-      activePersona: 'C Admin',
-    }));
-
-    const result = useMapStore.getState().confirmThirdPartyIndependence(set.id, 'Oil Company');
-    expect(result.success).toBe(false);
   });
 });

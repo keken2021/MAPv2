@@ -103,10 +103,6 @@ export interface OrganizationParty {
   organization: string;
   group: OrganizationGroup;
   partyRole?: 'Requesting party' | 'Responding party' | (string & {});
-  /** FR-09: client confirmation that a Third party is independent */
-  independenceStatus?: 'pending' | 'confirmed';
-  independenceConfirmedBy?: string;
-  independenceConfirmedAt?: string;
 }
 export type AuthorityValidationMethod = 'api' | 'direct_link' | 'manual';
 
