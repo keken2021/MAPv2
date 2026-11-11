@@ -35,6 +35,13 @@ import {
 } from "../types/assurance";
 import { MasterDocument } from "../types/document";
 import {
+  canEditOwnedEvidence,
+  canOfferEvidenceReuse,
+  isReusableLibraryDocument,
+  EVIDENCE_NOT_OWNED_EDIT,
+  EVIDENCE_REUSE_VENDOR_ONLY,
+} from "../utils/documentOwnershipHelpers";
+import {
   MOCK_VESSELS,
   MOCK_ASSURANCE_SETS,
   MOCK_ASSURANCE_TEMPLATES,
@@ -363,6 +370,11 @@ export interface MapStoreState {
   assuranceSets: AssuranceSet[];
   addAssuranceSet: (set: AssuranceSet) => void;
   updateAssuranceSet: (set: AssuranceSet) => void;
+  /** FR-09: client confirms a Third party on the set is independent */
+  confirmThirdPartyIndependence: (
+    setId: string,
+    organization: string,
+  ) => { success: boolean; message?: string };
   grantDatePermission: (setId: string, grant: Omit<DatePermissionGrant, 'id' | 'grantedAt'>) => void;
   revokeDatePermission: (setId: string, grantId: string) => void;
   excludeGroupMember: (setId: string, memberId: string, reason: string, excludedBy: string) => void;
@@ -2420,6 +2432,51 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       }
     }
   },
+  confirmThirdPartyIndependence: (setId, organization) => {
+    const state = get();
+    const target = state.assuranceSets.find((s) => s.id === setId);
+    if (!target) return { success: false, message: "Assurance set not found." };
+    const orgName = organization.trim();
+    if (!orgName) return { success: false, message: "Organization is required." };
+
+    const parties = [...(target.parties || [])];
+    let idx = parties.findIndex((p) => orgFieldMatches(p.organization, orgName));
+    if (idx < 0) {
+      const listed =
+        (target.organizations || []).some((o) => orgFieldMatches(o, orgName)) ||
+        Boolean(target.stakeholders && Object.values(target.stakeholders).some((o) => o && orgFieldMatches(o, orgName)));
+      if (!listed) {
+        return { success: false, message: "Organization is not a party on this set." };
+      }
+      parties.push({
+        organization: orgName,
+        group: "Third party",
+        independenceStatus: "pending",
+      });
+      idx = parties.length - 1;
+    }
+    if (parties[idx].group !== "Third party") {
+      return { success: false, message: "Independence confirmation applies to Third party organizations only." };
+    }
+
+    const actor = getSessionActor(get);
+    const confirmedAt = new Date().toISOString();
+    parties[idx] = {
+      ...parties[idx],
+      independenceStatus: "confirmed",
+      independenceConfirmedBy: actor.userId || state.activeDemoOrganization || "Client",
+      independenceConfirmedAt: confirmedAt,
+    };
+
+    get().updateAssuranceSet({ ...target, parties });
+    get().logAuditEvent({
+      action: "Confirmed third party independence [FR-09]",
+      targetAsset: `${target.id} (${orgName})`,
+      target: { kind: "party", setId: target.id, organization: orgName, partyRole: "Third party" },
+      justificationNotes: `${actor.userId || "Client"} confirmed ${orgName} is independent on ${target.title}.`,
+    });
+    return { success: true };
+  },
   grantDatePermission: (setId, grantInput) => {
     set((state) => {
       const target = state.assuranceSets.find((s) => s.id === setId);
@@ -3558,12 +3615,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   // Documents
   documents: MOCK_DOCUMENTS,
   addDocument: (doc) => {
+    /* stamp owning org when missing so FR-16 / A16 can resolve ownership later */
+    const ownerOrganization =
+      doc.ownerOrganization?.trim() ||
+      get().activeDemoOrganization?.trim() ||
+      undefined;
+    const prepared = {
+      ...doc,
+      ...(ownerOrganization ? { ownerOrganization } : {}),
+    };
     /* the validation rules run on upload, so the reviewer sees results, not "not checked" */
-    set((state) => ({ documents: [...state.documents, withDocumentChecks(doc, state.vessels)] }));
+    set((state) => ({ documents: [...state.documents, withDocumentChecks(prepared, state.vessels)] }));
     get().logAuditEvent({
       action: "Uploaded New Master Document",
-      targetAsset: `${doc.id} (${doc.title})`,
-      justificationNotes: `Uploaded certificate ${doc.certificateNo}`,
+      targetAsset: `${prepared.id} (${prepared.title})`,
+      justificationNotes: `Uploaded certificate ${prepared.certificateNo}`,
     });
   },
   linkDocumentToVessel: (docId, vesselId, vesselName, imoNumber) => {
@@ -3588,6 +3654,29 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     /* the document this upload replaces on the requirement, if any */
     const previousSet = get().assuranceSets.find((s) => s.id === setId);
     const replacedDocumentId = previousSet?.requirements.find((r) => r.id === requirementId)?.documentId;
+    /* A16: linking an existing library document is reuse — Vendor-owned evidence only */
+    const stateBefore = get();
+    const alreadyInLibrary = stateBefore.documents.some((d) => d.id === doc.id);
+    if (alreadyInLibrary && previousSet) {
+      if (
+        !canOfferEvidenceReuse(previousSet, stateBefore.activeDemoOrganization) ||
+        !isReusableLibraryDocument(doc, previousSet, stateBefore.vessels, stateBefore.users)
+      ) {
+        get().logAuditEvent({
+          action: "Blocked evidence reuse [A16]",
+          targetAsset: `${doc.id} -> ${setId} / ${requirementId || "Other Documents"}`,
+          justificationNotes: EVIDENCE_REUSE_VENDOR_ONLY,
+        });
+        return;
+      }
+    }
+    const preparedDoc = {
+      ...doc,
+      ownerOrganization:
+        doc.ownerOrganization?.trim() ||
+        stateBefore.activeDemoOrganization?.trim() ||
+        undefined,
+    };
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
         if (s.id !== setId) return s;
@@ -3604,36 +3693,36 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
             const nextAttempt = isResubmission ? (r.attemptNumber || 1) + 1 : (r.attemptNumber || 1);
             return {
               ...r,
-              documentId: doc.id,
-              documentVersion: doc.currentVersion,
+              documentId: preparedDoc.id,
+              documentVersion: preparedDoc.currentVersion,
               verifierStatus: "Pending" as const,
               decisionTime: undefined,
               attemptNumber: nextAttempt,
               isFulfilled: false,
-              ocrConfidence: doc.ocrConfidence,
+              ocrConfidence: preparedDoc.ocrConfidence,
               inspectionReport: inspectionReport ?? r.inspectionReport,
               reuploadRequested: undefined,
-              notes: `Upload linked to requirement (${doc.versions[0]?.fileName || doc.title}).`,
+              notes: `Upload linked to requirement (${preparedDoc.versions[0]?.fileName || preparedDoc.title}).`,
             };
           });
         } else {
           const newReq: AssuranceRequirement = {
             id: `req-other-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
             category:
-              doc.entityType === "Crew Certificate"
+              preparedDoc.entityType === "Crew Certificate"
                 ? "Crew Credential"
                 : "Statutory Certificate",
-            title: doc.title,
+            title: preparedDoc.title,
             isMandatory: false,
             isFulfilled: false,
-            ocrConfidence: doc.ocrConfidence || 99,
-            documentId: doc.id,
-            documentVersion: doc.currentVersion || "v1.0",
+            ocrConfidence: preparedDoc.ocrConfidence || 99,
+            documentId: preparedDoc.id,
+            documentVersion: preparedDoc.currentVersion || "v1.0",
             verifierStatus: "Pending",
             decisionTime: undefined,
             attemptNumber: 1,
             isOtherDocument: true,
-            notes: `Uploaded additional document (${doc.versions?.[0]?.fileName || doc.title}).`,
+            notes: `Uploaded additional document (${preparedDoc.versions?.[0]?.fileName || preparedDoc.title}).`,
           };
           updatedReqs.push(newReq);
         }
@@ -3646,9 +3735,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         return recalculateSetReadiness(candidateSet);
       });
 
-      const updatedDocs = state.documents.some((d) => d.id === doc.id)
+      const updatedDocs = state.documents.some((d) => d.id === preparedDoc.id)
         ? state.documents
-        : [...state.documents, withDocumentChecks(doc, state.vessels)];
+        : [...state.documents, withDocumentChecks(preparedDoc, state.vessels)];
 
       const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
         syncAllAffectedProjectRollups(state.projects, updatedSets, [setId]);
@@ -3662,8 +3751,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     get().logAuditEvent({
       action: "Uploaded Document for Assurance Requirement",
-      targetAsset: `${doc.id} -> ${setId} / ${requirementId || "Other Documents"}`,
-      justificationNotes: `Upload: ${doc.title} (${doc.certificateNo}) queued for verifier review.`,
+      targetAsset: `${preparedDoc.id} -> ${setId} / ${requirementId || "Other Documents"}`,
+      justificationNotes: `Upload: ${preparedDoc.title} (${preparedDoc.certificateNo}) queued for verifier review.`,
     });
 
     const updatedSet = get().assuranceSets.find((s) => s.id === setId);
@@ -3672,7 +3761,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
 
     /* a submitted document goes straight to the set's verifier, when one is appointed */
-    notifySubmittedForReview(get, setId, requirementId, doc.id);
+    notifySubmittedForReview(get, setId, requirementId, preparedDoc.id);
 
     /* the upload answers the renewals of the document it replaces; the new document is then checked in turn */
     closeDocumentRenewalNotifications(set, replacedDocumentId, setId);
@@ -3688,6 +3777,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     scope,
   ) => {
     const matchingDoc = get().documents.find((d) => d.id === docId);
+    if (!matchingDoc) return;
+    const stateForGuard = get();
+    if (
+      !canEditOwnedEvidence(matchingDoc, stateForGuard.activeDemoOrganization, {
+        persona: stateForGuard.activePersona,
+        vessels: stateForGuard.vessels,
+        users: stateForGuard.users,
+      })
+    ) {
+      get().logAuditEvent({
+        action: "Blocked evidence edit [FR-16]",
+        targetAsset: `${matchingDoc.id} (${matchingDoc.title})`,
+        justificationNotes: EVIDENCE_NOT_OWNED_EDIT,
+      });
+      return;
+    }
     const prevVersionLabel =
       matchingDoc?.versions?.[0]?.versionLabel ||
       matchingDoc?.currentVersion ||

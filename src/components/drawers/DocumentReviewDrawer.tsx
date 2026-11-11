@@ -12,6 +12,10 @@ import { Check, AlertCircle } from 'lucide-react';
 import { isUserDocumentSubmitter } from '../../utils/userRoleHelpers';
 import { isAssuranceSetCreatedByCAdmin } from '../../utils/rbacHelpers';
 import { canRequestDocumentReupload, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
+import {
+  canEditOwnedEvidence,
+  EVIDENCE_NOT_OWNED_EDIT,
+} from '../../utils/documentOwnershipHelpers';
 import { Drawer } from './Drawer';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import type { VerificationMethod } from '../../types/assurance';
@@ -73,7 +77,17 @@ interface ExtractedAttribute {
   with what file: src/components/drawers/DocumentReviewDrawer.tsx loaded by VerifierWorkspaceView.tsx and AssuranceDetailView.tsx.
 */
 export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ document, requirementNotes, onClose, allowSubmit = true, allowVerify = true, requirementId, requirementVerifierStatus, assuranceSetId, isVersionLocked = false }) => {
-  const { verifyDocument, requestDocumentReupload, activePersona, assuranceSets, notifications, documents, vessels } = useMapStore();
+  const {
+    verifyDocument,
+    requestDocumentReupload,
+    activePersona,
+    activeDemoOrganization,
+    assuranceSets,
+    notifications,
+    documents,
+    vessels,
+    users,
+  } = useMapStore();
   const [comment, setComment] = useState('');
   const [commentError, setCommentError] = useState('');
   /* the notes field takes focus when a footer action needs notes, so the error is in view */
@@ -142,8 +156,20 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     linkedSet
   );
 
+  /* FR-16: only the owning organization (or Administrator) may replace or edit this evidence */
+  const ownsEvidence = canEditOwnedEvidence(document, activeDemoOrganization, {
+    persona: activePersona,
+    vessels,
+    users,
+  });
+  const ownershipBlockReason = ownsEvidence ? undefined : EVIDENCE_NOT_OWNED_EDIT;
+
   /* a version locked on an approved set takes no new upload */
-  const canSubmit = allowSubmit && !isVersionLocked && (activePersona === 'Submitter' || activePersona === 'Administrator');
+  const canSubmit =
+    allowSubmit &&
+    !isVersionLocked &&
+    (activePersona === 'Submitter' || activePersona === 'Administrator') &&
+    ownsEvidence;
 
   /* the client admin verifies the documents on a set a client admin created; it never edits or uploads them */
   const isClientVerifier =
@@ -159,7 +185,8 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     activePersona !== 'Administrator' &&
     (activePersona === 'Verifier' || isClientVerifier);
   /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
-  const reuploadBlockReason = getDocumentReuploadBlockReason(document, notifications);
+  const reuploadBlockReason =
+    ownershipBlockReason || getDocumentReuploadBlockReason(document, notifications);
   /* A11: Request Re-upload only for Exception or Expired documents */
   const canRequestReupload = canRequestDocumentReupload(document);
 

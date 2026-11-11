@@ -10,6 +10,7 @@ import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentVersion } from '../../types/document';
 import { formatMaritimeDate } from '../../utils/formatters';
 import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
+import { canEditOwnedEvidence, EVIDENCE_NOT_OWNED_EDIT } from '../../utils/documentOwnershipHelpers';
 import { exportDocumentAsPdf } from '../../utils/documentTemplateHelpers';
 import { UniversalDocumentPreviewModal } from '../modals/UniversalDocumentPreviewModal';
 import { Drawer } from './Drawer';
@@ -27,7 +28,7 @@ interface VersionHistoryDrawerProps {
   with what file: src/components/drawers/VersionHistoryDrawer.tsx loaded by DocumentLibraryView.tsx.
 */
 export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ document, onClose }) => {
-  const { addDocumentVersion, activePersona, notifications } = useMapStore();
+  const { addDocumentVersion, activePersona, activeDemoOrganization, vessels, users, notifications } = useMapStore();
   const defaultNextVer = document ? `v1.${document.versions.length}` : 'v1.1';
   const [newVersionLabel, setNewVersionLabel] = useState(defaultNextVer);
   const [newFileName, setNewFileName] = useState('');
@@ -55,6 +56,20 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
     };
   }, [document, selectedVersionForModal]);
 
+  const ownsEvidence = document
+    ? canEditOwnedEvidence(document, activeDemoOrganization, {
+        persona: activePersona,
+        vessels,
+        users,
+      })
+    : false;
+  const renewalBlockReason = document
+    ? getDocumentReuploadBlockReason(document, notifications)
+    : undefined;
+  const reuploadBlockReason = !ownsEvidence ? EVIDENCE_NOT_OWNED_EDIT : renewalBlockReason;
+  const canUpload =
+    (activePersona === 'Administrator' || activePersona === 'Submitter') && ownsEvidence;
+
   if (!document) return null;
 
   const isCAdmin = activePersona === 'C Admin';
@@ -77,10 +92,6 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
     setChangeSummary('');
     onClose();
   };
-
-  const canUpload = activePersona === 'Administrator' || activePersona === 'Submitter';
-  /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
-  const reuploadBlockReason = getDocumentReuploadBlockReason(document, notifications);
 
   return (
     <>

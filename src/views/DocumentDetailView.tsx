@@ -10,6 +10,7 @@ import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDoc
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { DocumentVersion, MasterDocument } from '../types/document';
 import { documentExpiresBeforeContractEnd, getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
+import { canEditOwnedEvidence, EVIDENCE_NOT_OWNED_EDIT } from '../utils/documentOwnershipHelpers';
 import { VERIFICATION_SCOPE_STATEMENT } from '../utils/verificationPolicy';
 import { maskRestrictedValue } from '../utils/restrictedData';
 import { usePagination } from '../utils/usePagination';
@@ -20,7 +21,16 @@ interface DocumentDetailViewProps {
 }
 
 export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ documentId }) => {
-  const { documents, assuranceSets, setCurrentHashView, activePersona, notifications } = useMapStore();
+  const {
+    documents,
+    assuranceSets,
+    vessels,
+    users,
+    setCurrentHashView,
+    activePersona,
+    activeDemoOrganization,
+    notifications,
+  } = useMapStore();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
   const [selectedVersionForModal, setSelectedVersionForModal] = useState<DocumentVersion | null>(null);
@@ -32,9 +42,17 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
     return () => clearTimeout(timer);
   }, [documentId]);
 
-  const canUpload = activePersona === 'Submitter' || activePersona === 'Administrator';
-
   const doc = documents.find((d) => d.id === documentId) || documents[0];
+  const ownsEvidence = doc
+    ? canEditOwnedEvidence(doc, activeDemoOrganization, {
+        persona: activePersona,
+        vessels,
+        users,
+      })
+    : false;
+  const canUpload =
+    (activePersona === 'Submitter' || activePersona === 'Administrator') && ownsEvidence;
+  const ownershipBlockReason = ownsEvidence ? undefined : EVIDENCE_NOT_OWNED_EDIT;
 
   type VersionSortField = 'versionLabel' | 'fileName' | 'uploadedAt' | 'uploadedBy' | 'fileSizeBytes' | 'changeSummary';
   const [versionSortField, setVersionSortField] = useState<VersionSortField>('uploadedAt');
@@ -87,12 +105,13 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
     .find((end) => end && documentExpiresBeforeContractEnd(doc, end));
 
   /* unlock when expired, short of a linked contract, returned by a reviewer, or a renewal notice is open */
-  const reuploadBlockReason = getDocumentReuploadBlockReason(
+  const renewalBlockReason = getDocumentReuploadBlockReason(
     doc,
     notifications,
     new Date(),
     linkedCharterWindowEnd,
   );
+  const reuploadBlockReason = ownershipBlockReason || renewalBlockReason;
 
   const activeModalDoc: MasterDocument = useMemo(() => {
     if (!doc) return {} as MasterDocument;

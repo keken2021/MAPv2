@@ -505,6 +505,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     updateAssuranceStakeholder,
     updateAssuranceInspector,
     updateAssuranceSet,
+    confirmThirdPartyIndependence,
     raiseDocumentRenewalNotifications,
     documents,
     capaItems,
@@ -2568,20 +2569,83 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     {organizations.length > 0 && (
                       <div className="map-detail-row border-bottom pb-2">
                         <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Organizations</div>
-                        <ul className="list-unstyled mb-0 mt-1">
+                        <ul className="list-unstyled mb-0 mt-1" data-testid="assurance-set-organizations">
                           {organizations.map((organization) => {
+                            const partyRow =
+                              assuranceSet.parties?.find((p) => p.organization === organization) ||
+                              organizationParties.find((p) => p.organization === organization);
                             const partyRole =
                               assuranceSet.partyRoles?.[organization] ||
                               (assuranceSet.requestingParty === organization ? 'Requesting party' : undefined) ||
                               (assuranceSet.respondingParty === organization ? 'Responding party' : undefined) ||
-                              assuranceSet.parties?.find((p) => p.organization === organization)?.partyRole;
+                              partyRow?.partyRole;
+                            const isClientSide = Boolean(
+                              clientOwnerOrg && orgFieldMatches(organization, clientOwnerOrg),
+                            );
+                            const isVendorSide = Boolean(
+                              orgFieldMatches(organization, assuranceSet.serviceProviderOrg || '') ||
+                                orgFieldMatches(organization, assuranceSet.respondingParty || ''),
+                            );
+                            const isThirdParty =
+                              partyRow?.group === 'Third party' ||
+                              (!partyRow && !isClientSide && !isVendorSide);
+                            const independenceStatus =
+                              partyRow?.independenceStatus ||
+                              (isThirdParty ? 'pending' : undefined);
+                            const canConfirmIndependence =
+                              isThirdParty &&
+                              independenceStatus !== 'confirmed' &&
+                              (activePersona === 'C Admin' || activePersona === 'Administrator') &&
+                              Boolean(
+                                clientOwnerOrg &&
+                                  activeDemoOrganization &&
+                                  orgFieldMatches(activeDemoOrganization, clientOwnerOrg),
+                              );
                             return (
-                              <li key={organization} className="fw-bold text-dark py-1 d-flex align-items-center justify-content-between">
-                                <span>{organization}</span>
-                                {partyRole && (
-                                  <span className="badge bg-light text-secondary border ms-2" style={{ fontSize: '0.7rem' }}>
-                                    {partyRole}
-                                  </span>
+                              <li key={organization} className="fw-bold text-dark py-1">
+                                <div className="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                  <span>{organization}</span>
+                                  <div className="d-flex align-items-center gap-1 flex-wrap">
+                                    {partyRole && (
+                                      <span className="badge bg-light text-secondary border" style={{ fontSize: '0.7rem' }}>
+                                        {partyRole}
+                                      </span>
+                                    )}
+                                    {isThirdParty && (
+                                      <span
+                                        className={`badge border ${independenceStatus === 'confirmed' ? 'bg-success-subtle text-success border-success-subtle' : 'bg-warning-subtle text-warning-emphasis border-warning-subtle'}`}
+                                        style={{ fontSize: '0.7rem' }}
+                                        data-testid={`independence-status-${organization}`}
+                                      >
+                                        {independenceStatus === 'confirmed' ? 'Independent' : 'Independence pending'}
+                                      </span>
+                                    )}
+                                    {canConfirmIndependence && (
+                                      <button
+                                        type="button"
+                                        className="btn btn-link p-0 text-decoration-none small"
+                                        style={{ fontSize: '0.7rem', color: '#0284c7' }}
+                                        data-testid={`confirm-independence-${organization}`}
+                                        onClick={() => {
+                                          const result = confirmThirdPartyIndependence(assuranceSet.id, organization);
+                                          setProjectToast(
+                                            result.success
+                                              ? `Confirmed ${organization} is independent.`
+                                              : result.message || 'Could not confirm independence.',
+                                          );
+                                          setTimeout(() => setProjectToast(null), 3500);
+                                        }}
+                                      >
+                                        Confirm independence
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                {isThirdParty && independenceStatus === 'confirmed' && partyRow?.independenceConfirmedAt && (
+                                  <div className="text-muted fw-normal small mt-1" style={{ fontSize: '0.7rem' }}>
+                                    Confirmed {formatMaritimeDate(partyRow.independenceConfirmedAt)}
+                                    {partyRow.independenceConfirmedBy ? ` by ${partyRow.independenceConfirmedBy}` : ''}
+                                  </div>
                                 )}
                               </li>
                             );

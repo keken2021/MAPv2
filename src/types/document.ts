@@ -89,6 +89,8 @@ export interface MasterDocument {
   validationRules: ValidationRuleStatus;
   verificationStatus: 'Pending' | 'Verified' | 'Correction Requested' | 'Rejected';
   verificationNotes?: string;
+  /** organization that owns this evidence; used for FR-16 edit/remove and A16 reuse */
+  ownerOrganization?: string;
   /** true when certificate metadata was entered by hand after a failed extraction (A55) */
   isHandEntered?: boolean;
   fileUrl?: string;

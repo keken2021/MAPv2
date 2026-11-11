@@ -747,7 +747,7 @@ export const CreateProjectView: React.FC = () => {
               </div>
             </div>
             <div className="col-md-4">
-              <label className="form-label small fw-semibold">Head contractor</label>
+              <label className="form-label small fw-semibold">Head contractor (optional)</label>
               <select
                 className="form-select form-select-sm"
                 value={headContractor}

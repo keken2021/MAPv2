@@ -19,6 +19,13 @@ import {
 } from '../../utils/inspectionEvidence';
 import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { getComplianceStateForExpiry, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
+import {
+  canEditOwnedEvidence,
+  canOfferEvidenceReuse,
+  EVIDENCE_NOT_OWNED_EDIT,
+  EVIDENCE_REUSE_VENDOR_ONLY,
+  isReusableLibraryDocument,
+} from '../../utils/documentOwnershipHelpers';
 import { Upload, Check, AlertCircle, X, FileText } from 'lucide-react';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import { UniversalDocumentPreviewModal } from './UniversalDocumentPreviewModal';
@@ -60,11 +67,28 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   defaultVesselId,
   modalTitle,
 }) => {
-  const { vessels, documents, notifications, addDocument, uploadDocumentForRequirement, addDocumentVersion, addCrewDocument, updateCrewDocument, activePersona, users, activeDemoOrganization, activeSessionUserId } =
-    useMapStore();
+  const {
+    vessels,
+    documents,
+    assuranceSets,
+    notifications,
+    addDocument,
+    uploadDocumentForRequirement,
+    addDocumentVersion,
+    addCrewDocument,
+    updateCrewDocument,
+    activePersona,
+    users,
+    activeDemoOrganization,
+    activeSessionUserId,
+  } = useMapStore();
   const isCrew = kind === 'crew';
   /* the version is recorded against the signed-in user, not a placeholder name */
   const sessionUser = getSessionUserForPersona(activePersona, users, getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }));
+  const uploadContextSet = assuranceSetId
+    ? assuranceSets.find((s) => s.id === assuranceSetId)
+    : undefined;
+  const allowLibraryReuse = canOfferEvidenceReuse(uploadContextSet, activeDemoOrganization);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +117,13 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [fileName, setFileName] = useState('');
   const masterDocExisting = !isCrew ? (existingDocument as MasterDocument | null | undefined) : null;
   const crewDocExisting = isCrew ? (existingDocument as STCWDocumentItem | null | undefined) : null;
+  const ownsExistingEvidence =
+    !masterDocExisting ||
+    canEditOwnedEvidence(masterDocExisting, activeDemoOrganization, {
+      persona: activePersona,
+      vessels,
+      users,
+    });
   const [fileSizeBytes, setFileSizeBytes] = useState<number>(masterDocExisting?.versions?.[0]?.fileSizeBytes || crewDocExisting?.fileSizeBytes || 2100000);
   const [changeSummary, setChangeSummary] = useState('');
 
@@ -131,9 +162,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   /* kept with the other hooks: this state used to sit after the closed-modal return and crashed the page when the modal opened */
   const [leftPaneMode, setLeftPaneMode] = useState<'pdf' | 'attributes'>('pdf');
 
-  /* filter unassigned master documents available in library to link to requirement */
+  /* Vendor-owned library evidence only when reusing onto a set (A16); otherwise vessel filter only */
   const unassignedDocuments = documents.filter((doc) => {
     if (vesselId && doc.vesselId && doc.vesselId !== vesselId) return false;
+    if (uploadContextSet && !isReusableLibraryDocument(doc, uploadContextSet, vessels, users)) {
+      return false;
+    }
     return true;
   });
 
@@ -498,6 +532,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }
 
     /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
+    if (existingDocument && !isCrew && !ownsExistingEvidence) return;
     if (existingDocument && getDocumentReuploadBlockReason(existingDocument as MasterDocument, notifications)) return;
 
     /* a new document needs its certificate no. and expiry entered; nothing is made up for it (gap review E7) */
@@ -563,6 +598,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           certificateNo: finalCertNo,
           issuingAuthority: finalAuthority,
           expiryDate: finalExpiry,
+          ownerOrganization:
+            activeDemoOrganization ||
+            uploadContextSet?.serviceProviderOrg ||
+            sessionUser?.organization ||
+            undefined,
           ocrConfidence: aiOcrConfidence || 99,
           complianceState: getComplianceStateForExpiry(finalExpiry),
           currentVersion: 'v1.0',
@@ -730,6 +770,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               {errorMessage && (
                 <div className="alert alert-danger py-2 px-3 mb-3" role="alert" data-testid="upload-file-error">
                   {errorMessage}
+                </div>
+              )}
+
+              {existingDocument && !isCrew && !ownsExistingEvidence && (
+                <div className="alert alert-warning py-2 px-3 mb-3" role="alert" data-testid="evidence-ownership-blocked">
+                  {EVIDENCE_NOT_OWNED_EDIT}
                 </div>
               )}
 
@@ -1158,7 +1204,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       </div>
                     </div>
                   )}
-                  {/* Option A: Upload from Document Library */}
+                  {/* Option A: Upload from Document Library (A16: Vendor on the set only) */}
                   {!existingDocument && (() => {
                     const libDocs = isCrew
                       ? documents.filter((d) => {
@@ -1167,8 +1213,16 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                           return !vId || vId === '' || vId === 'UNASSIGNED' || vId === 'UNLINKED' || vId.startsWith('VESSEL-PENDING');
                         })
                       : unassignedDocuments;
+                    if (assuranceSetId && !allowLibraryReuse) {
+                      return (
+                        <div className="p-2.5 bg-light border rounded-3 mb-1 small text-muted" data-testid="evidence-reuse-blocked">
+                          {EVIDENCE_REUSE_VENDOR_ONLY}
+                          {uploadContextSet?.title ? ` (${uploadContextSet.title})` : ''}
+                        </div>
+                      );
+                    }
                     return (
-                      <div className="p-2.5 bg-light border rounded-3 d-flex flex-column gap-2 mb-1">
+                      <div className="p-2.5 bg-light border rounded-3 d-flex flex-column gap-2 mb-1" data-testid="evidence-reuse-picker">
                         <div className="d-flex flex-column">
                           <label className="form-label text-secondary small fw-semibold mb-1 text-truncate" htmlFor="lib-doc-select">
                             {isCrew ? 'Fill from Document Library' : 'Select from Document Library'}
@@ -1192,7 +1246,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                             <option value="">
                               {libDocs.length > 0
                                 ? `-- Select from ${libDocs.length} Available Document${libDocs.length > 1 ? 's' : ''} --`
-                                : isCrew ? '-- No unassigned crew certificates --' : '-- No library documents available --'}
+                                : isCrew ? '-- No unassigned crew certificates --' : '-- No Vendor-owned library documents available --'}
                             </option>
                             {libDocs.map((doc) => (
                               <option key={doc.id} value={doc.id}>
@@ -1456,8 +1510,20 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               <button
                 type="submit"
                 className="btn btn-sm btn-primary fw-bold px-4 d-inline-flex align-items-center gap-2"
-                disabled={isUploading || isExtractingAi || !title.trim() || (!existingDocument && (!certificateNo.trim() || !expiryDate))}
-                title={!existingDocument && (!certificateNo.trim() || !expiryDate) ? 'Enter the certificate no. and expiry date.' : undefined}
+                disabled={
+                  isUploading ||
+                  isExtractingAi ||
+                  !title.trim() ||
+                  (!existingDocument && (!certificateNo.trim() || !expiryDate)) ||
+                  (Boolean(existingDocument) && !isCrew && !ownsExistingEvidence)
+                }
+                title={
+                  existingDocument && !isCrew && !ownsExistingEvidence
+                    ? EVIDENCE_NOT_OWNED_EDIT
+                    : !existingDocument && (!certificateNo.trim() || !expiryDate)
+                      ? 'Enter the certificate no. and expiry date.'
+                      : undefined
+                }
               >
                 {isUploading ? (
                   <>

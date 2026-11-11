@@ -4,11 +4,12 @@
   role in system: consumed by CreateAssuranceSetView, useMapStore (addAssuranceSet), and project composition services.
 */
 
-import { AssuranceRequirement, AssuranceSubtype } from '../types/assurance';
+import { AssuranceRequirement, AssuranceSet, AssuranceSubtype } from '../types/assurance';
 import { MasterDocument } from '../types/document';
 import { VesselInformation, StatutoryCertificateSummary } from '../types/vessel';
 import { CrewMember, STCWDocumentItem } from '../types/crew';
 import { EquipmentAsset } from '../types/equipment';
+import { isReusableLibraryDocument } from './documentOwnershipHelpers';
 
 export interface AssetMatchingContext {
   documents: MasterDocument[];
@@ -22,6 +23,11 @@ export interface AssetMatchingContext {
   selectedEquipmentId?: string;
   selectedVesselId?: string;
   targetSubtype?: AssuranceSubtype;
+  /** when set, vault library reuse follows A16 (Vendor-owned evidence only) */
+  reuseSet?: Pick<
+    AssuranceSet,
+    'clientOrg' | 'charterer' | 'serviceProviderOrg' | 'respondingParty' | 'parties'
+  >;
 }
 
 export interface MatchedDocumentResult {
@@ -567,6 +573,16 @@ export function autoAttachDocumentsToRequirements(
 
     const matched = findMatchingDocumentForRequirement(req, context);
     if (matched) {
+      /* A16: vault library auto-attach only reuses Vendor-owned evidence */
+      if (matched.matchedFrom === 'vault_document' && context.reuseSet) {
+        const vaultDoc = context.documents.find((d) => d.id === matched.documentId);
+        if (
+          vaultDoc &&
+          !isReusableLibraryDocument(vaultDoc, context.reuseSet, context.vessels || [], [])
+        ) {
+          return req;
+        }
+      }
       return {
         ...req,
         documentId: matched.documentId,

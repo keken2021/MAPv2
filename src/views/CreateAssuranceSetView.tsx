@@ -1871,6 +1871,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       selectedEquipmentId,
       selectedVesselId: vesselId,
       targetSubtype: assuranceType,
+      /* A16: vault auto-attach only reuses Vendor-owned library evidence */
+      reuseSet: {
+        clientOrg: ownerOrg,
+        charterer: effectiveCharterer,
+        serviceProviderOrg: effectiveVendorOrg,
+        respondingParty:
+          Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
+          requestContext?.respondingParty ||
+          effectiveVendorOrg,
+      },
     });
 
     const invalidTask = finalRequirements.find(
@@ -2003,10 +2013,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           charterer: effectiveCharterer,
           serviceProviderOrg: effectiveVendorOrg,
         }).find((p) => sameOrganization(p.organization, org));
+        const group =
+          existingParty?.group ||
+          (sameOrganization(org, ownerOrg)
+            ? 'Client'
+            : sameOrganization(org, effectiveVendorOrg)
+              ? 'Vendor'
+              : 'Third party');
         return {
           organization: org,
-          group: existingParty?.group || (sameOrganization(org, ownerOrg) ? 'Client' : sameOrganization(org, effectiveVendorOrg) ? 'Vendor' : 'Third party'),
+          group,
           partyRole: orgPartyRoles[org] || (org === requestContext?.requestingParty ? 'Requesting party' : org === requestContext?.respondingParty ? 'Responding party' : undefined),
+          /* FR-09: third parties start pending until the client confirms independence */
+          ...(group === 'Third party' ? { independenceStatus: 'pending' as const } : {}),
         };
       }),
       organizations,
@@ -2189,6 +2208,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       selectedEquipmentId,
       selectedVesselId: vesselId,
       targetSubtype: assuranceType,
+      /* A16: vault auto-attach only reuses Vendor-owned library evidence */
+      reuseSet: {
+        clientOrg: ownerOrg,
+        charterer: effectiveCharterer,
+        serviceProviderOrg: effectiveVendorOrg,
+        respondingParty:
+          Object.keys(orgPartyRoles).find((org) => orgPartyRoles[org] === 'Responding party') ||
+          requestContext?.respondingParty ||
+          effectiveVendorOrg,
+      },
     });
 
     const invalidTask = finalRequirements.find(
@@ -2275,11 +2304,23 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         requestContext?.respondingParty ||
         effectiveVendorOrg,
       partyRoles: orgPartyRoles,
-      parties: setOrganizationParties({
-        clientOrg: ownerOrg,
-        charterer: effectiveCharterer,
-        serviceProviderOrg: effectiveVendorOrg,
-      }),
+      /* FR-09: draft path also stamps Third parties as independence pending */
+      parties: (() => {
+        const base = setOrganizationParties({
+          clientOrg: ownerOrg,
+          charterer: effectiveCharterer,
+          serviceProviderOrg: effectiveVendorOrg,
+        });
+        const extras = organizations
+          .filter((org) => !base.some((p) => sameOrganization(p.organization, org)))
+          .map((org) => ({
+            organization: org,
+            group: 'Third party' as const,
+            independenceStatus: 'pending' as const,
+            partyRole: orgPartyRoles[org],
+          }));
+        return [...base, ...extras];
+      })(),
       organizations,
       submitters,
       requirements: effectiveRequirements,
