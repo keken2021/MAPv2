@@ -50,7 +50,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/roleDashboardConfigs.ts` : Role-specific dashboard configuration builders for shared dashboard frame
 
 ## Notifications
-- `src/views/NotificationsView.tsx`, `src/components/layout/NotificationPanel.tsx`, `src/components/modals/NotificationDetailModal.tsx` : inbox page, header bell panel, detail modal
+- `src/views/NotificationsView.tsx`, `src/components/layout/NotificationPanel.tsx`, `src/components/modals/NotificationDetailModal.tsx` : inbox page, header bell panel, detail modal (with mock email channel line for re-upload and expiry notices per Task 5527 / FR-35; tests `src/__tests__/reuploadNoticeEmailChannel.test.tsx`)
 - `src/types/notification.ts`, `src/store/notificationMockData.ts` : types, categories and their id codes, seeded inbox
 - `src/utils/notificationHelpers.ts` : inbox filters, ids, the row action of each type
 - `src/utils/documentRenewalHelpers.ts` : Document Renewal category: reason of a document on a set, renewals due, wording. Raised by `raiseDocumentRenewalNotifications` and `requestDocumentReupload` in the store

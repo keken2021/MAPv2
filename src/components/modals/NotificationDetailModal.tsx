@@ -52,6 +52,12 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
     request?.assignee || users.find((u) => u.id === notification.request?.assigneeUserId);
   const set = assuranceSets.find((s) => s.id === notification.assuranceSetId);
   const doc = documents.find((d) => d.id === notification.documentId);
+  const recipientUser = users.find((u) => u.id === notification.recipientUserId);
+  const recipientEmail = recipientUser?.email || `${(notification.recipientUserId || 'user').toLowerCase()}@maritimeassurance.com`;
+  const isReuploadOrExpiryNotice =
+    notification.type === 'document_renewal' ||
+    Boolean(notification.renewalReason) ||
+    /re-?upload|expired/i.test(notification.subject);
 
   const details: DetailField[] = [
     { label: 'From', value: notification.senderName, note: sender?.organization },
@@ -109,6 +115,12 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
     details.push({ label: 'CAPA', value: <span className="font-mono-code">{notification.capaId}</span> });
   }
   if (notification.vesselName) details.push({ label: 'Vessel', value: notification.vesselName });
+  if (isReuploadOrExpiryNotice) {
+    details.push({
+      label: 'Channel',
+      value: `Email also sent to ${recipientEmail}`,
+    });
+  }
 
   const groups: DetailGroup[] = [{ title: 'Details', fields: details }];
   if (project) {
@@ -180,6 +192,14 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
       footer={footerNode}
     >
       {notification.message && <p className="map-notif-modal-message">{notification.message}</p>}
+      {isReuploadOrExpiryNotice && (
+        <div
+          className="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-3"
+          data-testid="notice-email-channel"
+        >
+          <span>Email also sent to <strong className="font-mono-code">{recipientEmail}</strong></span>
+        </div>
+      )}
       {groups.map((group) => (
         <section key={group.title} className="map-notif-modal-group">
           <h4 className="map-notif-modal-group-title">{group.title}</h4>
