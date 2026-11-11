@@ -12,7 +12,7 @@ import type { MasterDocument } from '../../types/document';
 import type { Project } from '../../types/project';
 import { getAssuranceSetStatus } from '../../utils/assuranceSetStatus';
 import { getAssuranceSetObjects } from '../../utils/assuranceTemplates';
-import { calculateProjectReadiness } from '../../utils/projectHelpers';
+import { calculateProjectReadiness, calculateProjectApprovedPercentage } from '../../utils/projectHelpers';
 import { calculateAssuranceSetReadiness, isRequirementLate } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
 import {
@@ -61,6 +61,10 @@ export const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({
   const projectReadiness = useMemo(
     () => calculateProjectReadiness(project, allSets),
     [project, allSets],
+  );
+  const projectApprovedPercentage = useMemo(
+    () => calculateProjectApprovedPercentage(project, sets),
+    [project, sets],
   );
   const avgTurnaround = useMemo(() => averageDaysToClearance(sets), [sets]);
   const submissionAttempts = useMemo(() => countSubmissionAttempts(sets), [sets]);
@@ -185,17 +189,25 @@ export const ProjectOverviewTab: React.FC<ProjectOverviewTabProps> = ({
           </div>
           <div className="col-12 col-md-7">
             <div className="row g-3 ps-md-4">
-              <div className="col-6 col-sm-4">
+              <div className="col-6 col-sm-3">
+                <div className="text-secondary small fw-medium mb-1" data-testid="tile-approved-percentage-label">
+                  Approved %
+                </div>
+                <div className="fs-4 fw-bold text-dark font-mono-code" data-testid="tile-approved-percentage">
+                  {projectApprovedPercentage}%
+                </div>
+              </div>
+              <div className="col-6 col-sm-3">
                 <div className="text-secondary small fw-medium mb-1">Objects</div>
                 <div className="fs-4 fw-bold text-dark font-mono-code">
                   {project.assetLinks.length}
                 </div>
               </div>
-              <div className="col-6 col-sm-4">
+              <div className="col-6 col-sm-3">
                 <div className="text-secondary small fw-medium mb-1">Assurance Sets</div>
                 <div className="fs-4 fw-bold text-dark font-mono-code">{sets.length}</div>
               </div>
-              <div className="col-6 col-sm-4">
+              <div className="col-6 col-sm-3">
                 <div className="text-secondary small fw-medium mb-1">Providers</div>
                 <div className="fs-4 fw-bold text-dark font-mono-code">
                   {providerRows.length}

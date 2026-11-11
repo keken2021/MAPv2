@@ -21,6 +21,7 @@ import {
 import { UserProfile } from '../types/user';
 import { VesselInformation } from '../types/vessel';
 import { calculateAssuranceSetReadiness, derivePipelineStage } from './readinessHelpers';
+import { isClosedAssuranceSet } from './documentVersionSnapshot';
 import { getSessionUserForPersona, parseAssigneeOrganization } from './userRoleHelpers';
 import {
   filterVesselsForPersona,
@@ -776,6 +777,37 @@ export function calculateProjectReadiness(
 
   const total = sets.reduce((sum, s) => sum + calculateAssuranceSetReadiness(s, assuranceSets), 0);
   return Math.round(total / sets.length);
+}
+
+/**
+  what: computes the percentage (0-100%) of approved required tasks across a project's sub-sets.
+  how: counts mandatory, non-exempted requirements across all sub-sets of the project; a requirement is approved if its parent set is closed/approved or its verifierStatus is 'Verified' or isFulfilled is true.
+  with what file: src/utils/projectHelpers.ts consumed by ProjectOverviewTab.tsx.
+*/
+export function calculateProjectApprovedPercentage(
+  project: Project,
+  assuranceSets: AssuranceSet[],
+): number {
+  const sets = getProjectAssuranceSets(project, assuranceSets);
+  if (sets.length === 0) return 0;
+
+  let totalRequired = 0;
+  let approvedCount = 0;
+
+  for (const set of sets) {
+    const isSetApproved = isClosedAssuranceSet(set);
+    const reqs = set.requirements ?? [];
+    for (const req of reqs) {
+      if (req.isMandatory === false || req.exemption) continue;
+      totalRequired++;
+      if (isSetApproved || req.verifierStatus === 'Verified' || req.isFulfilled) {
+        approvedCount++;
+      }
+    }
+  }
+
+  if (totalRequired === 0) return 0;
+  return Math.round((approvedCount / totalRequired) * 100);
 }
 
 export function deriveProjectStatus(
