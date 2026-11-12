@@ -83,9 +83,6 @@ export const CreateProjectView: React.FC = () => {
   const [description, setDescription] = useState("");
   const [routeDescription, setRouteDescription] = useState("");
   const [workOrderRef, setWorkOrderRef] = useState("");
-  /** clients invited to create their own assurance sets on this project */
-  const [invitedClients, setInvitedClients] = useState<string[]>([]);
-  const [invitedClientPick, setInvitedClientPick] = useState("");
   const [headContractor, setHeadContractor] = useState("");
   const [vendor, setVendor] = useState("");
   /** vendors and third parties beyond the chain; each keeps the group it was added with */
@@ -113,14 +110,6 @@ export const CreateProjectView: React.FC = () => {
     const names = new Set<string>();
     MOCK_ORGANIZATION_PROFILES.forEach((p) => p.name && names.add(p.name));
     users.forEach((u) => u.organization && names.add(u.organization));
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [users]);
-  /* organizations that have a Client Admin, so they can create a set when invited */
-  const clientOrganizationOptions = useMemo(() => {
-    const names = new Set<string>();
-    users.forEach((u) => {
-      if (u.organization && u.roles.includes("C Admin")) names.add(u.organization);
-    });
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [users]);
   const [showCommercialTerms, setShowCommercialTerms] = useState(false);
@@ -469,7 +458,6 @@ export const CreateProjectView: React.FC = () => {
       workOrderRef: showServiceFields
         ? workOrderRef.trim() || undefined
         : undefined,
-      invitedOrganizations: invitedClients.length > 0 ? invitedClients : undefined,
       contractParties: buildContractParties({
         client: requestingOrganization.trim(),
         headContractor,
@@ -812,55 +800,6 @@ export const CreateProjectView: React.FC = () => {
                 </ul>
               )}
               <div className="form-text">Optional. Add as many as the contract has.</div>
-            </div>
-            <div className="col-12" data-testid="invited-clients">
-              <label className="form-label small fw-semibold">Invite clients to create sets</label>
-              <div className="d-flex flex-wrap gap-2 align-items-start">
-                <select
-                  className="form-select form-select-sm"
-                  style={{ maxWidth: "22rem" }}
-                  value={invitedClientPick}
-                  onChange={(e) => setInvitedClientPick(e.target.value)}
-                  aria-label="Invite client"
-                >
-                  <option value="">Select a client organization</option>
-                  {clientOrganizationOptions
-                    .filter((org) => org !== requestingOrganization && !invitedClients.includes(org))
-                    .map((org) => (
-                      <option key={org} value={org}>{org}</option>
-                    ))}
-                </select>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => {
-                    if (!invitedClientPick) return;
-                    setInvitedClients((current) => [...current, invitedClientPick]);
-                    setInvitedClientPick("");
-                  }}
-                >
-                  Invite
-                </button>
-              </div>
-              {invitedClients.length > 0 && (
-                <ul className="list-inline mt-2 mb-0">
-                  {invitedClients.map((org) => (
-                    <li className="list-inline-item mb-1" key={org}>
-                      <span className="badge bg-light text-dark border fw-normal">
-                        {org}
-                        <button
-                          type="button"
-                          className="btn-close ms-2"
-                          style={{ fontSize: "0.5rem" }}
-                          aria-label={`Remove ${org}`}
-                          onClick={() => setInvitedClients((current) => current.filter((o) => o !== org))}
-                        />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="form-text">Optional. Invited clients can be asked to create their own assurance set on this project.</div>
             </div>
             <div className="col-12">
               <button
