@@ -15,6 +15,7 @@ describe('Assurance Requirements - Remove Per-Requirement Party Picker (Task 535
       isAuthenticated: true,
       activePersona: 'Administrator',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-CHEV-01',
       users: [
         ...initialState.users,
         {

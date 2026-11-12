@@ -10,6 +10,13 @@ import { getInspectorDashboardConfig } from '../utils/roleDashboardConfigs';
 describe('Inspector dashboard config (Task 5388)', () => {
   const fixedNow = new Date('2026-11-05T00:00:00Z');
 
+  const inspectorSessionUser = {
+    id: 'USR-INSP',
+    name: 'K. Tanaka',
+    organization: 'Bureau Veritas Inspectorate',
+    roles: ['Inspector' as const],
+  };
+
   it('builds KPI tiles with correct tones and labels', () => {
     const mockSets: AssuranceSet[] = [
       {
@@ -17,6 +24,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
         title: 'Borealis Survey',
         vesselName: 'MV Borealis',
         stage: 'Inspection',
+        mandatoryInspectionRequired: true,
         assignedInspector: 'K. Tanaka',
         complianceDeadline: '2026-11-01T00:00:00Z', // 4 days ago -> overdue
       } as unknown as AssuranceSet,
@@ -25,8 +33,25 @@ describe('Inspector dashboard config (Task 5388)', () => {
         title: 'Aurora Inspection',
         vesselName: 'MV Aurora',
         stage: 'Inspection',
+        mandatoryInspectionRequired: true,
         assignedInspector: 'K. Tanaka',
         complianceDeadline: '2026-11-08T00:00:00Z', // 3 days away -> next 7 days
+      } as unknown as AssuranceSet,
+      {
+        id: 'AS-CELESTE',
+        title: 'Celeste Inspection',
+        vesselName: 'MV Celeste',
+        stage: 'Inspection',
+        mandatoryInspectionRequired: true,
+        assignedInspector: 'K. Tanaka',
+      } as unknown as AssuranceSet,
+      {
+        id: 'AS-DELTA',
+        title: 'Delta Inspection',
+        vesselName: 'MV Delta',
+        stage: 'Inspection',
+        mandatoryInspectionRequired: true,
+        assignedInspector: 'K. Tanaka',
       } as unknown as AssuranceSet,
     ];
 
@@ -35,6 +60,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
         id: 'CAPA-REINSPECT',
         title: 'Fire pump finding',
         vesselName: 'MV Celeste',
+        assuranceSetId: 'AS-CELESTE',
         status: 'Under Re-Inspection',
         flaggedForReinspection: true,
       } as unknown as CapaItem,
@@ -42,6 +68,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
         id: 'CAPA-FIX',
         title: 'Lifeboat davit',
         vesselName: 'MV Delta',
+        assuranceSetId: 'AS-DELTA',
         status: 'Open',
         evidences: [{ id: 'EVID-1', fileName: 'davit_fix.jpg' }],
       } as unknown as CapaItem,
@@ -51,6 +78,8 @@ describe('Inspector dashboard config (Task 5388)', () => {
       assuranceSets: mockSets,
       capaItems: mockCapas,
       auditEvents: [],
+      sessionUser: inspectorSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
       setCurrentHashView: vi.fn(),
       now: fixedNow,
     });
@@ -86,6 +115,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
       title: 'Borealis Survey',
       vesselName: 'MV Borealis',
       stage: 'Inspection',
+      mandatoryInspectionRequired: true,
       assignedInspector: 'K. Tanaka',
       hasInspectionReportToFinish: true,
       inspectedDate: '2026-10-31T00:00:00Z',
@@ -98,6 +128,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
       id: 'CAPA-101',
       title: 'Fire pump finding',
       vesselName: 'MV Celeste',
+      assuranceSetId: 'AS-CELESTE',
       status: 'Open',
       flaggedForReinspection: true,
       flaggedDate: '2026-11-03T00:00:00Z',
@@ -109,10 +140,29 @@ describe('Inspector dashboard config (Task 5388)', () => {
       title: 'Aurora Inspection',
       vesselName: 'MV Aurora',
       stage: 'Inspection',
+      mandatoryInspectionRequired: true,
       assignedInspector: 'K. Tanaka',
       complianceDeadline: '2026-11-06T00:00:00Z',
       port: 'Rotterdam',
       scheduledTime: 'Tomorrow 09:00',
+    } as unknown as AssuranceSet;
+
+    const celesteSet: AssuranceSet = {
+      id: 'AS-CELESTE',
+      title: 'Celeste Inspection',
+      vesselName: 'MV Celeste',
+      stage: 'Inspection',
+      mandatoryInspectionRequired: true,
+      assignedInspector: 'K. Tanaka',
+    } as unknown as AssuranceSet;
+
+    const deltaSet: AssuranceSet = {
+      id: 'AS-DELTA',
+      title: 'Delta Inspection',
+      vesselName: 'MV Delta',
+      stage: 'Inspection',
+      mandatoryInspectionRequired: true,
+      assignedInspector: 'K. Tanaka',
     } as unknown as AssuranceSet;
 
     // 4. Fixes to check
@@ -120,15 +170,18 @@ describe('Inspector dashboard config (Task 5388)', () => {
       id: 'CAPA-102',
       title: 'Lifeboat davit',
       vesselName: 'MV Delta',
+      assuranceSetId: 'AS-DELTA',
       status: 'Pending Verification',
       hasFixEvidence: true,
     } as unknown as CapaItem;
 
     const setCurrentHashView = vi.fn();
     const config = getInspectorDashboardConfig({
-      assuranceSets: [upcomingSet, reportSet], // out of order input
+      assuranceSets: [upcomingSet, reportSet, celesteSet, deltaSet], // out of order input
       capaItems: [fixCapa, reinspectCapa], // out of order input
       auditEvents: [],
+      sessionUser: inspectorSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
       setCurrentHashView,
       now: fixedNow,
     });
@@ -170,15 +223,26 @@ describe('Inspector dashboard config (Task 5388)', () => {
       title: 'Borealis Survey',
       vesselName: 'MV Borealis',
       stage: 'Inspection',
+      mandatoryInspectionRequired: true,
       assignedInspector: 'K. Tanaka',
       hasInspectionReportToFinish: true,
       inspectedDate: '2026-10-31T00:00:00Z',
+    } as unknown as AssuranceSet;
+
+    const celesteSet: AssuranceSet = {
+      id: 'AS-CELESTE',
+      title: 'Celeste Inspection',
+      vesselName: 'MV Celeste',
+      stage: 'Inspection',
+      mandatoryInspectionRequired: true,
+      assignedInspector: 'K. Tanaka',
     } as unknown as AssuranceSet;
 
     const reinspectCapa: CapaItem = {
       id: 'CAPA-101',
       title: 'Fire pump finding',
       vesselName: 'MV Celeste',
+      assuranceSetId: 'AS-CELESTE',
       flaggedForReinspection: true,
     } as unknown as CapaItem;
 
@@ -197,9 +261,11 @@ describe('Inspector dashboard config (Task 5388)', () => {
 
     const setCurrentHashView = vi.fn();
     const config = getInspectorDashboardConfig({
-      assuranceSets: [reportSet],
+      assuranceSets: [reportSet, celesteSet],
       capaItems: [reinspectCapa],
       auditEvents: mockAudit,
+      sessionUser: inspectorSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
       setCurrentHashView,
       now: fixedNow,
     });
@@ -212,7 +278,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
     const scheduleBtn = screen.getByRole('button', { name: 'Schedule' });
 
     fireEvent.click(finishBtn);
-    expect(setCurrentHashView).toHaveBeenCalledWith('inspector-workspace', 'AS-REPORT');
+    expect(setCurrentHashView).toHaveBeenCalledWith('inspector', 'AS-REPORT');
 
     fireEvent.click(scheduleBtn);
     expect(setCurrentHashView).toHaveBeenCalledWith('capa', 'CAPA-101');
@@ -223,6 +289,8 @@ describe('Inspector dashboard config (Task 5388)', () => {
       assuranceSets: [],
       capaItems: [],
       auditEvents: [],
+      sessionUser: inspectorSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
       setCurrentHashView: vi.fn(),
       now: fixedNow,
     });

@@ -4,7 +4,7 @@
   role in system: shared Tasks table component used on ProjectDetailView, DashboardView, and AssuranceDetailView.
 */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTab, CountTabs } from '../common/CountTabs';
@@ -15,6 +15,10 @@ import type { AssuranceObject, AssuranceRequirement, AssuranceSet } from '../../
 import type { MasterDocument } from '../../types/document';
 import type { UserProfile } from '../../types/user';
 import { paginate } from '../../utils/paginationHelpers';
+import { getAssuranceSetRoleActions, RbacSessionUser } from '../../utils/rbacHelpers';
+import { isClosedAssuranceSet } from '../../utils/documentVersionSnapshot';
+import { documentExpiresBeforeContractEnd, isDocumentExpired } from '../../utils/documentRenewalHelpers';
+import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
 
 export type TaskStatus = 'Pending' | 'On-going' | 'Done';
 
@@ -64,7 +68,7 @@ export interface ProjectTasksTableProps {
   assuranceObjects?: AssuranceObject[];
   users?: UserProfile[];
   activeDemoOrganization?: string;
-  sessionUser?: { organization?: string; name?: string; id?: string } | null;
+  sessionUser?: Partial<Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'>> | null;
   onOpenSet?: (set: AssuranceSet) => void;
   onOpenRequirement?: (requirement: AssuranceRequirement, set: AssuranceSet) => void;
   onTaskAction?: (requirement: AssuranceRequirement, set: AssuranceSet) => void;
@@ -72,9 +76,14 @@ export interface ProjectTasksTableProps {
   /** When true, renders an action column per row (Upload, Review, View) */
   showActions?: boolean;
   showActionColumn?: boolean;
+  /** Optional explicit permissions; when omitted while authenticated, derived per set from RBAC. */
+  canUpload?: boolean;
+  canVerify?: boolean;
   /** Viewer's party perspective: 'requesting' (client/approver/verifier) or 'responding' (service provider/submitter) */
   viewerParty?: 'requesting' | 'responding' | 'other' | string;
   party?: 'requesting' | 'responding' | 'other' | string;
+  /** Optional requirement ID to highlight and paginate into view when routed from Dashboard */
+  highlightedTaskId?: string;
 
   // Optional controlled/initial state props for state lifting/persistence
   initialSearch?: string;
@@ -100,6 +109,8 @@ export interface ProjectTasksTableProps {
 export function getTaskRowActionLabel(
   row: { requirement: AssuranceRequirement; status?: string; parentSet?: AssuranceSet },
   viewerParty?: 'requesting' | 'responding' | 'other' | string,
+  permissions?: { canUpload?: boolean; canVerify?: boolean },
+  context?: { document?: Pick<MasterDocument, 'expiryDate' | 'complianceState'>; today?: Date },
 ): 'Upload' | 'Review' | 'View' {
   const party = (viewerParty || '').toLowerCase();
   const req = row.requirement;
@@ -108,7 +119,16 @@ export function getTaskRowActionLabel(
   const isReuploadRequested =
     Boolean(req?.reuploadRequested) ||
     statusLower === 'reupload_requested' ||
-    statusLower === 'reupload requested';
+    statusLower === 'reupload requested' ||
+    req?.verifierStatus === 'Correction Requested' ||
+    req?.verifierStatus === 'Rejected';
+
+  const needsRenewalUpload = Boolean(
+    context?.document &&
+      (isDocumentExpired(context.document, context.today) ||
+        (row.parentSet?.charterWindowEnd &&
+          documentExpiresBeforeContractEnd(context.document, row.parentSet.charterWindowEnd))),
+  );
 
   const isPending =
     statusLower === 'pending' ||
@@ -122,14 +142,14 @@ export function getTaskRowActionLabel(
       (req?.verifierStatus === 'Pending' || statusLower === 'on-going'));
 
   if (party === 'responding') {
-    if (isPending || isReuploadRequested) {
-      return 'Upload';
+    if (isPending || isReuploadRequested || needsRenewalUpload) {
+      return permissions?.canUpload === false ? 'View' : 'Upload';
     }
   }
 
   if (party === 'requesting') {
     if (isSubmitted) {
-      return 'Review';
+      return permissions?.canVerify === false ? 'View' : 'Review';
     }
   }
 
@@ -331,8 +351,11 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   today = new Date(),
   showActions,
   showActionColumn,
+  canUpload: canUploadProp,
+  canVerify: canVerifyProp,
   viewerParty,
   party,
+  highlightedTaskId,
   initialSearch,
   initialStatusTab,
   initialSortField,
@@ -356,6 +379,29 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   const store = useMapStore();
   const rawSets = sets ?? store.assuranceSets ?? [];
   const allUsers = users ?? store.users ?? [];
+  const resolvedOrg = activeDemoOrganization ?? store.activeDemoOrganization;
+  const rawSessionUser =
+    sessionUser !== undefined
+      ? sessionUser
+      : getSessionUserForPersona(
+          store.activePersona,
+          allUsers,
+          getDemoSessionContext({
+            activeDemoOrganization: resolvedOrg,
+            activeSessionUserId: store.activeSessionUserId,
+          }),
+        ) ?? null;
+  const resolvedSessionUser: RbacSessionUser | null = rawSessionUser
+    ? ((rawSessionUser.id ? allUsers.find((u) => u.id === rawSessionUser.id) : undefined) ?? {
+        id: rawSessionUser.id ?? '',
+        name: rawSessionUser.name ?? '',
+        organization: rawSessionUser.organization ?? resolvedOrg ?? '',
+        roles:
+          rawSessionUser.roles && rawSessionUser.roles.length > 0
+            ? rawSessionUser.roles
+            : [store.activePersona],
+      })
+    : null;
   const handleOpenSet = onOpenSet ?? ((set: AssuranceSet) => store.setCurrentHashView?.('assurance-sets', set.id));
 
   const [internalActiveTabKey, setInternalActiveTabKey] = useState<string>(initialStatusTab ?? 'all');
@@ -408,7 +454,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     onSortChange?.(field, nextDirection);
   };
 
-  const viewerOrg = activeDemoOrganization || sessionUser?.organization || '';
+  const viewerOrg = resolvedOrg || resolvedSessionUser?.organization || '';
 
   const resolvedScopeType = typeof scope === 'string' ? scope : scope?.type;
   const resolvedScopeId =
@@ -422,8 +468,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   const scopedSets = useMemo(() => {
     if (!resolvedScopeType || !resolvedScopeId) return rawSets;
     if (resolvedScopeType === 'project') {
-      const matched = rawSets.filter((s) => s.projectId === resolvedScopeId);
-      return matched.length > 0 ? matched : rawSets;
+      return rawSets.filter((s) => s.projectId === resolvedScopeId);
     }
     if (resolvedScopeType === 'set') {
       return rawSets.filter((s) => s.id === resolvedScopeId);
@@ -566,6 +611,42 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     return paginate(sortedRows, page, pageSize);
   }, [sortedRows, page, pageSize]);
 
+  const resolvedDocuments = documents.length > 0 ? documents : (store.documents ?? []);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const lastHighlightedRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!highlightedTaskId) {
+      lastHighlightedRef.current = undefined;
+      return;
+    }
+    const matchingRow = allRows.find((r) => r.requirement.id === highlightedTaskId);
+    if (!matchingRow) return;
+
+    if (lastHighlightedRef.current !== highlightedTaskId) {
+      if (activeTabKey !== 'all') {
+        const visibleInSorted = sortedRows.some((r) => r.requirement.id === highlightedTaskId);
+        if (!visibleInSorted) {
+          setInternalActiveTabKey('all');
+          onStatusTabChange?.('all');
+          return;
+        }
+      }
+      const idx = sortedRows.findIndex((r) => r.requirement.id === highlightedTaskId);
+      if (idx >= 0) {
+        const targetPage = Math.floor(idx / pageSize) + 1;
+        if (targetPage !== page) {
+          setPage(targetPage);
+        }
+        lastHighlightedRef.current = highlightedTaskId;
+        const rowEl = tableContainerRef.current?.querySelector(`tr[data-task-id="${highlightedTaskId}"]`);
+        if (rowEl && typeof (rowEl as HTMLElement).scrollIntoView === 'function') {
+          (rowEl as HTMLElement).scrollIntoView({ block: 'nearest' });
+        }
+      }
+    }
+  }, [highlightedTaskId, allRows, sortedRows, activeTabKey, page, pageSize]);
+
   const renderSortIndicator = (field: SortField) => {
     if (sortField !== field) {
       return <ArrowUpDown size={14} className="text-muted ms-1 opacity-50 inline-block align-middle" />;
@@ -627,7 +708,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
         </div>
       )}
 
-      <div className="table-responsive">
+      <div className="table-responsive" ref={tableContainerRef}>
         <table className="table map-table-custom align-middle mb-0">
           <thead>
             <tr>
@@ -682,10 +763,43 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
                 const { requirement, parentSet, targetObject, assignee, status, targetDate } = row;
                 const rowParty =
                   explicitParty ||
-                  resolveViewerPartyForRow(parentSet, explicitParty, sessionUser, activeDemoOrganization);
-                const actionLabel = getTaskRowActionLabel(row, rowParty);
+                  resolveViewerPartyForRow(parentSet, explicitParty, resolvedSessionUser, resolvedOrg);
+                const roleActions = getAssuranceSetRoleActions(
+                  parentSet,
+                  store.activePersona,
+                  resolvedOrg,
+                  resolvedSessionUser,
+                );
+                const isNonUploadPersona =
+                  store.activePersona !== 'Administrator' && store.activePersona !== 'Submitter';
+                const rowPermissions =
+                  canUploadProp !== undefined || canVerifyProp !== undefined
+                    ? { canUpload: canUploadProp, canVerify: canVerifyProp }
+                    : store.isAuthenticated
+                      ? {
+                          canUpload: roleActions.canUpload && !isClosedAssuranceSet(parentSet) && parentSet.stage !== 'Cancelled',
+                          canVerify: roleActions.canVerify,
+                        }
+                      : {
+                          canUpload: !isNonUploadPersona && !isClosedAssuranceSet(parentSet) && parentSet.stage !== 'Cancelled',
+                          canVerify: undefined,
+                        };
+                const rowLinkedDocId = requirement.documentId || requirement.linkedDocumentId;
+                const rowLinkedDoc = rowLinkedDocId
+                  ? resolvedDocuments.find((d) => d.id === rowLinkedDocId)
+                  : undefined;
+                const actionLabel = getTaskRowActionLabel(row, rowParty, rowPermissions, {
+                  document: rowLinkedDoc,
+                  today,
+                });
+                const isHighlighted = highlightedTaskId === requirement.id;
                 return (
-                  <tr key={row.id} data-task-id={requirement.id} data-set-id={parentSet.id}>
+                  <tr
+                    key={row.id}
+                    data-task-id={requirement.id}
+                    data-set-id={parentSet.id}
+                    className={isHighlighted ? 'table-primary' : undefined}
+                  >
                     <td>
                       {onOpenRequirement ? (
                         <button
@@ -794,7 +908,19 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
                     {hasActions && (
                       <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
                         {(() => {
-                          const isReupload = Boolean(row.requirement.reuploadRequested) || (row.status || '').toLowerCase().includes('reupload');
+                          const hasLinkedDoc = Boolean(row.requirement.documentId || row.requirement.linkedDocumentId || rowLinkedDoc);
+                          const isReupload =
+                            Boolean(row.requirement.reuploadRequested) ||
+                            (row.status || '').toLowerCase().includes('reupload') ||
+                            (hasLinkedDoc &&
+                              (row.requirement.verifierStatus === 'Correction Requested' ||
+                                row.requirement.verifierStatus === 'Rejected' ||
+                                Boolean(
+                                  rowLinkedDoc &&
+                                    (isDocumentExpired(rowLinkedDoc, today) ||
+                                      (parentSet.charterWindowEnd &&
+                                        documentExpiresBeforeContractEnd(rowLinkedDoc, parentSet.charterWindowEnd))),
+                                )));
                           const displayActionLabel = actionLabel === 'Upload' && isReupload ? 'Reupload' : actionLabel;
                           return (
                             <button

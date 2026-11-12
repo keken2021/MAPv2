@@ -12,6 +12,9 @@ const project = (overrides: Partial<Project> & Pick<Project, 'id' | 'status'>): 
     name: `${overrides.id} project`,
     projectType: 'Charter / Voyage',
     requestingOrganization: 'Northwind Marine Pty Ltd',
+    createdByUserId: 'USR-101',
+    createdByName: 'K. Osei',
+    createdByPersona: 'Administrator',
     charterWindowStart: '2026-11-01',
     charterWindowEnd: '2026-12-01',
     assetLinks: [],
@@ -22,6 +25,8 @@ describe('Projects, marketplace and users declutter', () => {
   beforeEach(() => {
     useMapStore.setState({
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
       isAuthenticated: true,
       projects: [
         project({ id: 'PRJ-DRAFT', status: 'Draft' }),

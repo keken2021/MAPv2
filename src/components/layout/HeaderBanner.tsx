@@ -7,7 +7,9 @@
 import React, { useMemo } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { getPersonaOptionsForOrganization } from '../../utils/demoSessionHelpers';
-import { getRoleDisplayLabel } from '../../utils/userRoleHelpers';
+import { getDemoSessionContext, getRoleDisplayLabel, getSessionUserForPersona } from '../../utils/userRoleHelpers';
+import { isAssuranceSetAssignedToPersona } from '../../utils/rbacHelpers';
+import { isProjectAccessibleToUser } from '../../utils/projectHelpers';
 import { HeaderBackButton, useHeaderBackNavigation } from '../../utils/headerNavigation';
 import { NotificationPanel } from './NotificationPanel';
 
@@ -21,7 +23,9 @@ export const HeaderBanner: React.FC = () => {
     activePersona,
     setActivePersona,
     activeDemoOrganization,
+    activeSessionUserId,
     users,
+    notifications,
     currentHashView,
     currentEntityId,
     vessels,
@@ -37,6 +41,16 @@ export const HeaderBanner: React.FC = () => {
   const rolesList = useMemo(
     () => getPersonaOptionsForOrganization(users, activeDemoOrganization),
     [users, activeDemoOrganization],
+  );
+
+  const sessionUser = useMemo(
+    () =>
+      getSessionUserForPersona(
+        activePersona,
+        users,
+        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+      ),
+    [activePersona, users, activeDemoOrganization, activeSessionUserId],
   );
 
   /* compute active page title based on current view */
@@ -68,9 +82,21 @@ export const HeaderBanner: React.FC = () => {
         }
         if (currentEntityId) {
           const p = projects.find((item) => item.id === currentEntityId);
+          const canShow = Boolean(
+            p &&
+              isProjectAccessibleToUser(
+                p,
+                activePersona,
+                users,
+                assuranceSets,
+                activeDemoOrganization,
+                sessionUser ?? null,
+                notifications,
+              ),
+          );
           return {
-            breadcrumb: p?.id || 'PROJECT',
-            title: p ? p.name : 'Project Detail',
+            breadcrumb: canShow && p?.id ? p.id : 'PROJECT',
+            title: canShow && p ? p.name : 'Project Detail',
           };
         }
         return { breadcrumb: 'PROJECTS', title: 'Projects' };
@@ -78,9 +104,19 @@ export const HeaderBanner: React.FC = () => {
       case 'assurance-sets': {
         if (currentEntityId) {
           const s = assuranceSets.find((item) => item.id === currentEntityId);
+          const canShow = Boolean(
+            s &&
+              isAssuranceSetAssignedToPersona(
+                s,
+                activePersona,
+                activeDemoOrganization,
+                sessionUser ?? null,
+                users,
+              ),
+          );
           return {
-            breadcrumb: s?.id ? `${s.id} · ASSURANCE SET` : 'ASSURANCE SET',
-            title: s ? s.title : 'Assurance Set Detail',
+            breadcrumb: canShow && s?.id ? `${s.id} · ASSURANCE SET` : 'ASSURANCE SET',
+            title: canShow && s ? s.title : 'Assurance Set Detail',
           };
         }
         return { breadcrumb: 'ASSURANCE SETS', title: 'Assurance Sets' };
@@ -88,9 +124,28 @@ export const HeaderBanner: React.FC = () => {
       case 'documents': {
         if (currentEntityId) {
           const d = documents.find((item) => item.id === currentEntityId);
+          const linkedSets = d
+            ? assuranceSets.filter((s) =>
+                s.requirements.some((r) => r.documentId === d.id || r.linkedDocumentId === d.id),
+              )
+            : [];
+          const canShow = Boolean(
+            d &&
+              sessionUser &&
+              (linkedSets.length === 0 ||
+                linkedSets.some((s) =>
+                  isAssuranceSetAssignedToPersona(
+                    s,
+                    activePersona,
+                    activeDemoOrganization,
+                    sessionUser,
+                    users,
+                  ),
+                )),
+          );
           return {
-            breadcrumb: d?.certificateNo ? `CERT ${d.certificateNo}` : 'DOCUMENT',
-            title: d ? d.title : 'Document Detail',
+            breadcrumb: canShow && d?.certificateNo ? `CERT ${d.certificateNo}` : 'DOCUMENT',
+            title: canShow && d ? d.title : 'Document Detail',
           };
         }
         return { breadcrumb: 'DOCUMENTS', title: 'Document Library' };

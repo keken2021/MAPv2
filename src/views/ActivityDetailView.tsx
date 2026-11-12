@@ -6,15 +6,18 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
+import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { useMapStore } from '../store/useMapStore';
 import { MasterDocument } from '../types/document';
 import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
 import { formatMaritimeDate, formatMaritimeDateTime } from '../utils/formatters';
 import { setsUsingObject } from './AssuranceObjectsView';
 import { setsForObjectDrawer, verificationsForViewer } from '../components/drawers/AssuranceObjectDrawer';
-import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
+import { isMarketplacePersona, orgFieldMatches } from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
 import { Eye } from 'lucide-react';
 
 export type ActivityDetailTab = 'overview' | 'documents' | 'assurance' | 'audit';
@@ -30,7 +33,6 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
     documents,
     activePersona,
     activeDemoOrganization,
-    activeSessionUserId,
     users,
     currentHashView,
     previousHashView,
@@ -40,21 +42,16 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
 
   const [activeTab, setActiveTab] = useState<ActivityDetailTab>('overview');
   const [previewDoc, setPreviewDoc] = useState<MasterDocument | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [versionTargetDoc, setVersionTargetDoc] = useState<MasterDocument | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const activity = useMemo(
     () => assuranceObjects.find((obj) => obj.id === activityId && obj.type === 'activity'),
     [assuranceObjects, activityId],
   );
 
-  const sessionUser = useMemo(
-    () =>
-      getSessionUserForPersona(
-        activePersona,
-        users,
-        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
-      ),
-    [activePersona, users, activeDemoOrganization, activeSessionUserId],
-  );
+  const sessionUser = useSessionUser();
   const organization = sessionUser?.organization || activeDemoOrganization;
 
   const usedInCount = useMemo(
@@ -75,14 +72,35 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
   const visibleSets = useMemo(
     () =>
       activity
-        ? setsForObjectDrawer(activity.id, assuranceSets, activePersona, organization, sessionUser)
+        ? setsForObjectDrawer(
+            activity.id,
+            assuranceSets,
+            activePersona,
+            organization,
+            sessionUser,
+            users,
+          )
         : [],
-    [activity, assuranceSets, activePersona, organization, sessionUser],
+    [activity, assuranceSets, activePersona, organization, sessionUser, users],
+  );
+
+  const isOwnedActivity = Boolean(
+    sessionUser &&
+      activity &&
+      organization &&
+      orgFieldMatches(organization, activity.ownerOrganization),
   );
 
   const activityDocs = useMemo(() => {
-    if (!activity) return [];
+    if (!activity || !sessionUser) return [];
     const docMap = new Map<string, MasterDocument>();
+    const docIdsOnAnySet = new Set<string>();
+    assuranceSets.forEach((set) => {
+      set.requirements?.forEach((req) => {
+        if (req.documentId) docIdsOnAnySet.add(req.documentId);
+        if (req.linkedDocumentId) docIdsOnAnySet.add(req.linkedDocumentId);
+      });
+    });
     const docIdsOnSets = new Set<string>();
 
     visibleSets.forEach((set) => {
@@ -146,17 +164,24 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
       });
     });
 
-    const idLower = activity.id.toLowerCase();
-    const tagLower = (activity.identifier || '').toLowerCase();
-    documents.forEach((doc) => {
-      const haystack = `${doc.id} ${doc.title} ${doc.certificateNo}`.toLowerCase();
-      if (haystack.includes(idLower) || (tagLower && haystack.includes(tagLower))) {
-        docMap.set(doc.id, doc);
-      }
-    });
+    if (isOwnedActivity) {
+      const idLower = activity.id.toLowerCase();
+      const tagLower = (activity.identifier || '').toLowerCase();
+      documents.forEach((doc) => {
+        if (docIdsOnAnySet.has(doc.id) && !docIdsOnSets.has(doc.id)) return;
+        if (doc.targetObjectType === 'activity' && doc.targetObjectId === activity.id) {
+          docMap.set(doc.id, doc);
+          return;
+        }
+        const haystack = `${doc.id} ${doc.title} ${doc.certificateNo}`.toLowerCase();
+        if (haystack.includes(idLower) || (tagLower && haystack.includes(tagLower))) {
+          docMap.set(doc.id, doc);
+        }
+      });
+    }
 
     return Array.from(docMap.values());
-  }, [activity, visibleSets, documents]);
+  }, [activity, sessionUser, assuranceSets, visibleSets, documents, isOwnedActivity]);
 
   const auditEntries = useMemo(
     () => [...(activity?.statusHistory || [])].reverse(),
@@ -165,9 +190,11 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
 
   const isAdmin = activePersona === 'Administrator';
   const isCAdmin = activePersona === 'C Admin';
+  const isSubmitter = activePersona === 'Submitter';
 
-  const canAddDocuments = isAdmin;
-  const canAddAssurance = isAdmin || isCAdmin;
+  const canManageActivityDocs = Boolean(sessionUser && isOwnedActivity && (isAdmin || isSubmitter));
+  const canAddDocuments = Boolean(sessionUser && isAdmin && isOwnedActivity);
+  const canAddAssurance = Boolean(sessionUser && (isAdmin || isCAdmin));
 
   const showDocumentsTab = activityDocs.length > 0 || canAddDocuments;
   const showAssuranceTab = visibleSets.length > 0 || canAddAssurance;
@@ -208,6 +235,16 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
     );
   }
 
+  const isAccessibleActivity = Boolean(
+    sessionUser &&
+      (isOwnedActivity ||
+        visibleSets.length > 0 ||
+        isMarketplacePersona(activePersona)),
+  );
+  if (!isAccessibleActivity) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('objects')} />;
+  }
+
   return (
     <div className="d-flex flex-column gap-3">
       <DetailHeader
@@ -218,6 +255,20 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
           activity.ownerOrganization || '',
           `Used in ${usedInCount} ${usedInCount === 1 ? 'set' : 'sets'}`,
         ].filter(Boolean)}
+        mainAction={
+          canManageActivityDocs ? (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={() => {
+                setVersionTargetDoc(null);
+                setIsUploadModalOpen(true);
+              }}
+            >
+              Upload Document
+            </button>
+          ) : undefined
+        }
         backLink={{
           label: backLabel,
           onClick: handleBack,
@@ -326,6 +377,18 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
           <div className="card map-card-custom">
             <div className="card-header fw-bold bg-white p-3 border-bottom d-flex align-items-center justify-content-between">
               <div>Documents ({activityDocs.length})</div>
+              {canManageActivityDocs && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={() => {
+                    setVersionTargetDoc(null);
+                    setIsUploadModalOpen(true);
+                  }}
+                >
+                  Upload Document
+                </button>
+              )}
             </div>
             <div className="table-responsive">
               <table className="table map-table-custom align-middle mb-0" data-testid="activity-documents-table">
@@ -363,16 +426,31 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
                           </span>
                         </td>
                         <td className="text-end">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                            style={{ width: '32px', height: '32px' }}
-                            onClick={() => setPreviewDoc(doc)}
-                            title="View document"
-                            aria-label={`View ${doc.title}`}
-                          >
-                            <Eye size={16} />
-                          </button>
+                          <div className="d-flex align-items-center justify-content-end gap-1">
+                            {canManageActivityDocs && (
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => {
+                                  setVersionTargetDoc(doc);
+                                  setIsUploadModalOpen(true);
+                                }}
+                                title="Upload New Version"
+                              >
+                                New Version
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                              style={{ width: '32px', height: '32px' }}
+                              onClick={() => setPreviewDoc(doc)}
+                              title="View document"
+                              aria-label={`View ${doc.title}`}
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -485,6 +563,48 @@ export const ActivityDetailView: React.FC<ActivityDetailViewProps> = ({ activity
           onClose={() => setPreviewDoc(null)}
           title={previewDoc.title || 'Document Preview'}
           subtitle={`${previewDoc.certificateNo || previewDoc.id} · ${activity.name}`}
+          extraAction={
+            previewDoc && canManageActivityDocs ? (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-light text-nowrap"
+                onClick={() => {
+                  const target = previewDoc;
+                  setPreviewDoc(null);
+                  setVersionTargetDoc(target);
+                  setIsUploadModalOpen(true);
+                }}
+              >
+                Upload New Version
+              </button>
+            ) : undefined
+          }
+        />
+      )}
+
+      {/* Upload Document Modal */}
+      {isUploadModalOpen && activity && (
+        <DocumentUploadModal
+          isOpen={isUploadModalOpen}
+          onClose={() => {
+            setIsUploadModalOpen(false);
+            setVersionTargetDoc(null);
+          }}
+          existingDocument={versionTargetDoc ?? undefined}
+          defaultObjectType="activity"
+          defaultObjectId={activity.id}
+          allowVersionModeSwitch={true}
+          modalTitle={
+            versionTargetDoc
+              ? `Upload New Version: ${versionTargetDoc.title}`
+              : `Upload Document for ${activity.name}`
+          }
+          onUploadComplete={() => {
+            setIsUploadModalOpen(false);
+            setVersionTargetDoc(null);
+            setToastMessage('Document uploaded.');
+            setTimeout(() => setToastMessage(null), 3500);
+          }}
         />
       )}
     </div>

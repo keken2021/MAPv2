@@ -10,6 +10,8 @@ import { AssuranceSet } from '../types/assurance';
 import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { generateUniqueAssuranceSetId } from '../utils/validation';
 
+const initialState = useMapStore.getState();
+
 /**
   what: test suite for c admin assurance set creation and charterer defaults.
   how: simulates assurance set creation under c admin persona and validates charterer attribution and dashboard visibility.
@@ -17,8 +19,16 @@ import { generateUniqueAssuranceSetId } from '../utils/validation';
 */
 describe('c admin assurance set creation and default charterer attribution', () => {
   beforeEach(() => {
-    /* reset active persona to c admin */
-    useMapStore.getState().setActivePersona('C Admin');
+    /* reset store state with chevron c admin session */
+    useMapStore.setState(
+      {
+        ...initialState,
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      },
+      true,
+    );
   });
 
   /**
@@ -55,12 +65,13 @@ describe('c admin assurance set creation and default charterer attribution', () 
 
     store.addAssuranceSet(newSet);
 
+    const cAdminUser = useMapStore.getState().users.find((u) => u.id === 'USR-221')!;
     const createdSet = useMapStore.getState().assuranceSets.find((s) => s.id === uniqueId);
     expect(createdSet).toBeDefined();
     expect(createdSet?.charterer).toBe('Chevron Australia Pty Ltd');
     expect(createdSet?.initiatorOrg).toBe('Chevron Australia Pty Ltd');
     expect(createdSet?.initiatorRole).toBe('C Admin · Client Created');
-    expect(isAssuranceSetAssignedToPersona(createdSet!, 'C Admin')).toBe(true);
+    expect(isAssuranceSetAssignedToPersona(createdSet!, 'C Admin', defaultCharterer, cAdminUser)).toBe(true);
   });
 
   /**

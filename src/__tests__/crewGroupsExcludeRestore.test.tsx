@@ -17,8 +17,14 @@ const TEST_SET_EXCLUDE_RESTORE: AssuranceSet = {
   assuranceType: 'Crew',
   subtypes: ['Crew'],
   vesselName: 'Pacific Responder',
+  initiatorOrg: 'Northwind Marine Pty Ltd',
+  initiatorRole: 'Vessel Provider Admin',
+  createdByUserId: 'USR-101',
+  createdByName: 'K. Osei',
+  createdByPersona: 'Administrator',
   clientOrg: 'Chevron Australia Pty Ltd',
-  serviceProviderOrg: 'Tidewater Marine',
+  serviceProviderOrg: 'Northwind Marine Pty Ltd',
+  assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
   crewGroups: [
     {
       groupId: 'CG-001',
@@ -82,7 +88,8 @@ describe('Crew Groups - Exclude and Restore a Member in a Set (Task 5343)', () =
       {
         ...initialState,
         activePersona: 'Administrator',
-        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
         isAuthenticated: true,
         crewGroups: JSON.parse(JSON.stringify(MOCK_CREW_GROUPS)),
         assuranceSets: [JSON.parse(JSON.stringify(TEST_SET_EXCLUDE_RESTORE)), ...initialState.assuranceSets],
@@ -239,6 +246,8 @@ describe('Crew Groups - Exclude and Restore a Member in a Set (Task 5343)', () =
     // Submitter persona
     useMapStore.setState({
       activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
     });
 
     render(<AssuranceDetailView setId="AS-TEST-EXCLUDE-RESTORE" initialTab="objects" />);

@@ -20,6 +20,7 @@ import {
 } from '../types/project';
 import { UserProfile } from '../types/user';
 import { VesselInformation } from '../types/vessel';
+import type { AppNotification } from '../types/notification';
 import { calculateAssuranceSetReadiness, derivePipelineStage } from './readinessHelpers';
 import { isClosedAssuranceSet } from './documentVersionSnapshot';
 import { getSessionUserForPersona, parseAssigneeOrganization } from './userRoleHelpers';
@@ -259,6 +260,29 @@ export function contractPartyByRole(
 }
 
 /**
+  what: ensures all invitedOrganizations are present in contractParties.
+  how: checks project.invitedOrganizations, and appends any missing ones as Vendor contractParties.
+  with what file: src/utils/projectHelpers.ts consumed by ProjectDetailView.tsx, RequestAssuranceSetModal.tsx, and EditParticipatingOrganizationsModal.tsx.
+*/
+export function syncInvitedOrganizationsToParties(project: Project): Project {
+  const invited = project.invitedOrganizations ?? [];
+  if (invited.length === 0) return project;
+  const currentParties = project.contractParties ?? [];
+  const missing = invited.filter(
+    (org) => org?.trim() && !currentParties.some((p) => sameOrganization(p.organization, org)),
+  );
+  if (missing.length === 0) return project;
+  const newParties: ContractParty[] = [
+    ...currentParties,
+    ...missing.map((org) => ({ organization: org.trim(), group: 'Vendor' as const })),
+  ];
+  return {
+    ...project,
+    contractParties: newParties,
+  };
+}
+
+/**
   what: organizations on a set with their group.
   how: uses the recorded party list, otherwise the client and the vendor already stored on the set.
   with what file: src/utils/projectHelpers.ts used by AssuranceDetailView.tsx and CreateAssuranceSetView.tsx.
@@ -301,19 +325,19 @@ export function isOrganizationMatch(org: string, fieldValue: string): boolean {
 }
 
 export function isVesselOwnedByOrganization(vessel: VesselInformation, org: string): boolean {
-  if (!org.trim()) return false;
+  if (!org?.trim()) return false;
   return [vessel.registeredOwner, vessel.technicalManager, vessel.ismCompany].some(
     (field) => field && orgFieldMatches(org, field),
   );
 }
 
 export function isCrewOwnedByOrganization(crewMember: CrewMember, org: string): boolean {
-  if (!org.trim() || !crewMember.organization) return false;
+  if (!org?.trim() || !crewMember.organization) return false;
   return orgFieldMatches(org, crewMember.organization);
 }
 
 export function isEquipmentOwnedByOrganization(equipment: EquipmentAsset, org: string): boolean {
-  if (!org.trim()) return false;
+  if (!org?.trim()) return false;
   return orgFieldMatches(org, equipment.owningOrganization);
 }
 
@@ -845,19 +869,26 @@ function projectOrgMatchesClient(
     project.clientOperator,
     project.requestingOrganization,
     project.charterer,
-    project.serviceProvider,
   ];
   return fields.some((field) => field && orgFieldMatches(clientOrg, field));
 }
 
-export function filterProjectsForPersona(
-  projects: Project[],
+/**
+  what: checks whether a single project is accessible to a user in their active persona session.
+  how: checks project ownership/operator, invited orgs, creator/stakeholder assignment, direct notifications, and child assurance set assignments.
+  with what file: src/utils/projectHelpers.ts used by useMapStore.ts, App.tsx, HeaderBanner.tsx, CreateAssuranceSetView.tsx, useNotificationInbox.ts, and tests.
+*/
+export function isProjectAccessibleToUser(
+  project: Project,
   persona: UserRolePersona,
   users: UserProfile[],
   assuranceSets: AssuranceSet[] = [],
   sessionOrganization?: string,
-  sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'>,
-): Project[] {
+  sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null,
+  notifications: (AppNotification | { type?: string; projectId?: string; assuranceSetId?: string; recipientUserId?: string })[] = [],
+): boolean {
+  if (!project) return false;
+
   const resolvedUser =
     sessionUser ??
     getSessionUserForPersona(
@@ -871,20 +902,52 @@ export function filterProjectsForPersona(
       !resolvedUser.organization ||
       orgFieldMatches(sessionOrganization, resolvedUser.organization))
       ? resolvedUser
-      : undefined;
+      : (sessionUser ?? undefined);
 
-  if (persona === 'Administrator') return projects;
+  // Direct stakeholder on project
+  if (user?.id && project.stakeholderUserIds?.includes(user.id)) {
+    return true;
+  }
+
+  // Direct creator of project
+  if (user?.id && project.createdByUserId === user.id) {
+    return true;
+  }
+
+  // Direct notification to user for this project or its child sets
+  if (
+    user?.id &&
+    notifications?.length > 0 &&
+    notifications.some(
+      (n) =>
+        n.recipientUserId === user.id &&
+        (n.projectId === project.id ||
+          Boolean(project.assetLinks?.some((l) => l.assuranceSetId && l.assuranceSetId === n.assuranceSetId))),
+    )
+  ) {
+    return true;
+  }
+
+  if (persona === 'Administrator') return true;
 
   if (persona === 'C Admin') {
     const clientOrg = getClientAdminOrganization(users, sessionOrganization);
-    return projects.filter((p) => {
-      if (projectOrgMatchesClient(p, clientOrg)) return true;
-      if (p.invitedOrganizations?.some((org) => orgFieldMatches(clientOrg, org))) return true;
-      if (assuranceSets.length === 0) return false;
-      return getProjectAssuranceSets(p, assuranceSets).some((set) =>
-        isAssuranceSetAssignedToPersona(set, persona, sessionOrganization, user),
-      );
-    });
+    if (clientOrg && projectOrgMatchesClient(project, clientOrg)) return true;
+    if (sessionOrganization && projectOrgMatchesClient(project, sessionOrganization)) return true;
+    if (assuranceSets.length === 0) return false;
+    return getProjectAssuranceSets(project, assuranceSets).some((set) =>
+      isAssuranceSetAssignedToPersona(set, persona, sessionOrganization, user, users),
+    );
+  }
+
+  if (persona === 'Submitter') {
+    if (
+      sessionOrganization &&
+      !projectOrgMatchesClient(project, sessionOrganization) &&
+      project.invitedOrganizations?.some((org) => orgFieldMatches(sessionOrganization, org))
+    ) {
+      return true;
+    }
   }
 
   const operationalPersonas: UserRolePersona[] = [
@@ -894,21 +957,34 @@ export function filterProjectsForPersona(
     'Approver',
   ];
   if (operationalPersonas.includes(persona)) {
-    return projects.filter((p) => {
-      if (
-        persona === 'Submitter' &&
-        sessionOrganization &&
-        p.invitedOrganizations?.some((org) => orgFieldMatches(sessionOrganization, org))
-      ) {
-        return true;
-      }
-      return getProjectAssuranceSets(p, assuranceSets).some((set) =>
-        isAssuranceSetAssignedToPersona(set, persona, sessionOrganization, user),
-      );
-    });
+    return getProjectAssuranceSets(project, assuranceSets).some((set) =>
+      isAssuranceSetAssignedToPersona(set, persona, sessionOrganization, user, users),
+    );
   }
 
-  return [];
+  return false;
+}
+
+export function filterProjectsForPersona(
+  projects: Project[],
+  persona: UserRolePersona,
+  users: UserProfile[],
+  assuranceSets: AssuranceSet[] = [],
+  sessionOrganization?: string,
+  sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'>,
+  notifications?: (AppNotification | { type?: string; projectId?: string; assuranceSetId?: string; recipientUserId?: string })[],
+): Project[] {
+  return projects.filter((p) =>
+    isProjectAccessibleToUser(
+      p,
+      persona,
+      users,
+      assuranceSets,
+      sessionOrganization,
+      sessionUser,
+      notifications,
+    ),
+  );
 }
 
 /** Users in the sender's org who may create assurance sets (Vessel Admin / Submitter / C Admin). */
@@ -1002,6 +1078,7 @@ export function getAssuranceWizardProjectOptions(
   users: UserProfile[],
   assuranceSets: AssuranceSet[] = [],
   sessionOrganization?: string,
+  sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'>,
 ): AssuranceProject[] {
   return filterProjectsForPersona(
     projects,
@@ -1009,6 +1086,7 @@ export function getAssuranceWizardProjectOptions(
     users,
     assuranceSets,
     sessionOrganization,
+    sessionUser,
   ).map(projectToAssuranceProjectScope);
 }
 

@@ -243,7 +243,7 @@ describe('role access check across organizations', () => {
     });
   });
 
-  it('ensures Administrator and Administrator as client see their organization sets', () => {
+  it('ensures Administrator and C Admin see only sets they created or are assigned to, blocking same-org colleagues', () => {
     const orgOptions = getOrganizationSwitcherOptions(MOCK_USERS);
 
     orgOptions.forEach((option) => {
@@ -263,12 +263,18 @@ describe('role access check across organizations', () => {
 
         adminSets.forEach((set) => {
           expect(orgMatchesSetForAdmin(set, org)).toBe(true);
+          expect(isAssuranceSetAssignedToPersona(set, 'Administrator', org, adminUser)).toBe(true);
         });
 
-        MOCK_ASSURANCE_SETS.forEach((set) => {
-          const matchesOrg = orgMatchesSetForAdmin(set, org);
-          const isVisible = isAssuranceSetAssignedToPersona(set, 'Administrator', org, adminUser);
-          expect(isVisible).toBe(matchesOrg);
+        const coworker = {
+          id: 'USR-COWORKER-ADMIN',
+          name: 'Colleague Other',
+          organization: org,
+          roles: ['Administrator' as const],
+        };
+        adminSets.forEach((set) => {
+          expect(isAssuranceSetAssignedToPersona(set, 'Administrator', org, coworker)).toBe(false);
+          expect(isAssuranceSetAssignedToPersona(set, 'Administrator', org, null)).toBe(false);
         });
       }
 
@@ -285,12 +291,18 @@ describe('role access check across organizations', () => {
 
         clientSets.forEach((set) => {
           expect(orgMatchesSetForClientAdmin(set, org)).toBe(true);
+          expect(isAssuranceSetAssignedToPersona(set, 'C Admin', org, clientAdminUser)).toBe(true);
         });
 
-        MOCK_ASSURANCE_SETS.forEach((set) => {
-          const matchesOrg = orgMatchesSetForClientAdmin(set, org);
-          const isVisible = isAssuranceSetAssignedToPersona(set, 'C Admin', org, clientAdminUser);
-          expect(isVisible).toBe(matchesOrg);
+        const coworker = {
+          id: 'USR-COWORKER-CADMIN',
+          name: 'Colleague Other',
+          organization: org,
+          roles: ['C Admin' as const],
+        };
+        clientSets.forEach((set) => {
+          expect(isAssuranceSetAssignedToPersona(set, 'C Admin', org, coworker)).toBe(false);
+          expect(isAssuranceSetAssignedToPersona(set, 'C Admin', org, null)).toBe(false);
         });
       }
     });

@@ -382,8 +382,20 @@ describe('ProjectTasksTable', () => {
 });
 
 describe('ProjectDetailView - Tasks Tab Integration', () => {
+  const initialState = useMapStore.getState();
+
   beforeEach(() => {
     cleanup();
+    useMapStore.setState(
+      {
+        ...initialState,
+        isAuthenticated: true,
+        activePersona: 'Administrator',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
+      },
+      true,
+    );
   });
 
   it('renders Details, Assurance Sets, Objects, and Tasks tabs on project detail', () => {
@@ -416,6 +428,12 @@ describe('ProjectDetailView - Tasks Tab Integration', () => {
   });
 
   it('loads MARINE-017, opens Tasks tab, uses search, chips, and follows a set link', () => {
+    useMapStore.setState({
+      isAuthenticated: true,
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Oil Company',
+      activeSessionUserId: 'USR-228',
+    });
     const store = useMapStore.getState();
     const marineProject = store.projects.find((p) => p.id.includes('MARINE-017'));
     expect(marineProject).toBeDefined();

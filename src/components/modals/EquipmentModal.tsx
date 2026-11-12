@@ -5,6 +5,7 @@ import { EquipmentAsset, EquipmentCategory } from '../../types/equipment';
 import { getDefaultAssetStatus, deriveComplianceStatus } from '../../types/asset';
 import { isDuplicateEquipment, generateUniqueEquipmentId } from '../../utils/validation';
 import { filterVesselsForPersona } from '../../utils/rbacHelpers';
+import { useSessionUser } from '../../utils/useSessionUser';
 import { ImageCropModal } from './VesselImageCropModal';
 import { CURATED_EQUIPMENT_PHOTOS, getEquipmentStockPhoto } from '../../utils/vesselImageHelpers';
 import { Modal } from './Modal';
@@ -24,7 +25,8 @@ const CATEGORIES: EquipmentCategory[] = [
 ];
 
 export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose, onRegistered }) => {
-  const { addEquipment, equipment, vessels, assuranceSets, activePersona } = useMapStore();
+  const { addEquipment, equipment, vessels, assuranceSets, activePersona, activeDemoOrganization } = useMapStore();
+  const sessionUser = useSessionUser();
   const [name, setName] = useState('');
   const [equipmentIdentifier, setEquipmentIdentifier] = useState('');
   const [category, setCategory] = useState<EquipmentCategory>('Fire-Fighting Equipment (FFE)');
@@ -45,9 +47,15 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
   const [dragOverPhotoIdx, setDragOverPhotoIdx] = useState<number | null>(null);
   const photoFileInputRef = useRef<HTMLInputElement>(null);
 
-  const availableVessels = filterVesselsForPersona(vessels, assuranceSets, activePersona);
+  const availableVessels = filterVesselsForPersona(
+    vessels,
+    assuranceSets,
+    activePersona,
+    activeDemoOrganization,
+    sessionUser,
+  );
   const owningOrganization =
-    activePersona === 'C Admin' ? 'Southern Basin Energy' : 'Northwind Marine Pty Ltd';
+    activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
 
   const runDuplicateCheck = (identifier: string) => {
     const result = isDuplicateEquipment(identifier, equipment);
@@ -76,6 +84,10 @@ export const EquipmentModal: React.FC<EquipmentModalProps> = ({ isOpen, onClose,
 
   const handleSubmit = () => {
     setErrorMessage('');
+    if (!sessionUser || !owningOrganization) {
+      setErrorMessage('Sign in as an authorized administrator to register equipment.');
+      return;
+    }
     if (!name.trim()) {
       setErrorMessage('Equipment name is required.');
       return;

@@ -90,6 +90,10 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
     ...initialState.assuranceSets[0],
     id: 'AS-TEST-5308',
     title: 'Party Rows and Export Test Set',
+    initiatorOrg: 'Chevron Australia Pty Ltd',
+    createdByUserId: 'USR-221',
+    createdByName: 'C. Henderson',
+    createdByPersona: 'C Admin',
     clientOrg: 'Chevron Australia Pty Ltd',
     serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
     charterWindowStart: '2026-11-01',
@@ -115,6 +119,7 @@ describe('Assurance Detail Shared Requirements - Party Rows and Exports (Task 53
       isAuthenticated: true,
       activePersona: 'C Admin',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
       assuranceSets: [mockTestSet, ...initialState.assuranceSets],
       documents: [mockDocOceanic, ...initialState.documents],
     });

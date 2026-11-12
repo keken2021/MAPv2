@@ -9,9 +9,13 @@ import { FileText, Printer, X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentVersion } from '../../types/document';
 import { formatMaritimeDate } from '../../utils/formatters';
-import { getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
+import { documentExpiresBeforeContractEnd, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import { canEditOwnedEvidence, EVIDENCE_NOT_OWNED_EDIT } from '../../utils/documentOwnershipHelpers';
+import { getAssuranceSetRoleActions } from '../../utils/rbacHelpers';
+import { isClosedAssuranceSet } from '../../utils/documentVersionSnapshot';
+import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { exportDocumentAsPdf } from '../../utils/documentTemplateHelpers';
+import { getNextVersionLabel } from '../../utils/documentObjectHelpers';
 import { UniversalDocumentPreviewModal } from '../modals/UniversalDocumentPreviewModal';
 import { Drawer } from './Drawer';
 
@@ -28,20 +32,37 @@ interface VersionHistoryDrawerProps {
   with what file: src/components/drawers/VersionHistoryDrawer.tsx loaded by DocumentLibraryView.tsx.
 */
 export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ document, onClose }) => {
-  const { addDocumentVersion, activePersona, activeDemoOrganization, vessels, users, notifications } = useMapStore();
-  const defaultNextVer = document ? `v1.${document.versions.length}` : 'v1.1';
+  const {
+    addDocumentVersion,
+    activePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
+    assuranceSets,
+    vessels,
+    crew,
+    equipment,
+    assuranceObjects,
+    users,
+    notifications,
+  } = useMapStore();
+  const defaultNextVer = document ? getNextVersionLabel(document.versions, document.currentVersion) : 'v1.1';
   const [newVersionLabel, setNewVersionLabel] = useState(defaultNextVer);
   const [newFileName, setNewFileName] = useState('');
   const [newFileSizeBytes, setNewFileSizeBytes] = useState<number>(0);
   const [changeSummary, setChangeSummary] = useState('');
+  const [newExpiryDate, setNewExpiryDate] = useState('');
   const [isCertModalOpen, setIsCertModalOpen] = useState(false);
   const [selectedVersionForModal, setSelectedVersionForModal] = useState<DocumentVersion | null>(null);
 
   React.useEffect(() => {
     if (document) {
-      setNewVersionLabel(`v1.${document.versions.length}`);
+      setNewVersionLabel(getNextVersionLabel(document.versions, document.currentVersion));
+      setNewFileName('');
+      setNewFileSizeBytes(0);
+      setChangeSummary('');
+      setNewExpiryDate('');
     }
-  }, [document]);
+  }, [document?.id]);
 
   const activeModalDoc: MasterDocument = useMemo(() => {
     if (!document) return {} as MasterDocument;
@@ -56,40 +77,91 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
     };
   }, [document, selectedVersionForModal]);
 
+  const sessionUser = getSessionUserForPersona(
+    activePersona,
+    users,
+    getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+  );
+  const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
+  const linkedSets = document
+    ? assuranceSets.filter((set) =>
+        set.requirements?.some((req) => req.documentId === document.id || req.linkedDocumentId === document.id),
+      )
+    : [];
+  const hasOpenLinkedSetUploadRights =
+    linkedSets.length === 0 ||
+    linkedSets.some((set) => {
+      if (isClosedAssuranceSet(set) || set.stage === 'Cancelled') return false;
+      return getAssuranceSetRoleActions(set, activePersona, activeDemoOrganization, sessionUser).canUpload;
+    });
+
   const ownsEvidence = document
-    ? canEditOwnedEvidence(document, activeDemoOrganization, {
+    ? canEditOwnedEvidence(document, effectiveOrg, {
         persona: activePersona,
         vessels,
         users,
+        equipment,
+        crew,
+        assuranceObjects,
       })
     : false;
+
+  const linkedCharterWindowEnd = linkedSets
+    .map((set) => set.charterWindowEnd)
+    .find((end) => end && documentExpiresBeforeContractEnd(document!, end));
+
+  const linkedReqVerifierStatus = linkedSets
+    .flatMap((set) => set.requirements.filter((r) => r.documentId === document?.id || r.linkedDocumentId === document?.id))
+    .find((r) => r.verifierStatus === 'Correction Requested' || r.verifierStatus === 'Rejected')?.verifierStatus;
+
+  const isUnlinked = linkedSets.length === 0;
   const renewalBlockReason = document
-    ? getDocumentReuploadBlockReason(document, notifications)
+    ? getDocumentReuploadBlockReason(
+        document,
+        notifications,
+        new Date(),
+        linkedCharterWindowEnd,
+        linkedReqVerifierStatus,
+        isUnlinked,
+      )
     : undefined;
   const reuploadBlockReason = !ownsEvidence ? EVIDENCE_NOT_OWNED_EDIT : renewalBlockReason;
   const canUpload =
-    (activePersona === 'Administrator' || activePersona === 'Submitter') && ownsEvidence;
+    Boolean(sessionUser) &&
+    (activePersona === 'Administrator' || activePersona === 'Submitter') &&
+    ownsEvidence &&
+    hasOpenLinkedSetUploadRights;
 
   if (!document) return null;
 
-  const isCAdmin = activePersona === 'C Admin';
-
   const handleUploadRevision = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newFileName.trim() || reuploadBlockReason) return;
+    if (!canUpload || !newFileName.trim() || reuploadBlockReason) return;
 
     const sizeToSave = newFileSizeBytes > 0 ? newFileSizeBytes : (document.versions[0]?.fileSizeBytes || 1024 * 1024);
 
-    addDocumentVersion(
-      document.id,
-      newVersionLabel,
-      newFileName,
-      sizeToSave,
-      changeSummary || 'New version uploaded.'
-    );
+    if (newExpiryDate.trim()) {
+      addDocumentVersion(
+        document.id,
+        newVersionLabel,
+        newFileName,
+        sizeToSave,
+        changeSummary || 'New version uploaded.',
+        newExpiryDate.trim(),
+      );
+    } else {
+      addDocumentVersion(
+        document.id,
+        newVersionLabel,
+        newFileName,
+        sizeToSave,
+        changeSummary || 'New version uploaded.',
+      );
+    }
 
     setNewFileName('');
     setChangeSummary('');
+    setNewExpiryDate('');
     onClose();
   };
 
@@ -173,6 +245,19 @@ export const VersionHistoryDrawer: React.FC<VersionHistoryDrawerProps> = ({ docu
                 required
               />
             </div>
+          </div>
+
+          <div className="mb-3">
+            <label className="map-drawer-label" htmlFor="ver-expiry-date">
+              Expiry Date <span className="text-muted small fw-normal">(optional — leaves current {document.expiryDate ? formatMaritimeDate(document.expiryDate) : 'expiry'} if blank)</span>
+            </label>
+            <input
+              id="ver-expiry-date"
+              type="date"
+              className="form-control bg-white text-dark font-mono-code"
+              value={newExpiryDate}
+              onChange={(e) => setNewExpiryDate(e.target.value)}
+            />
           </div>
 
           <div>

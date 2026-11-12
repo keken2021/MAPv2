@@ -37,6 +37,34 @@ function visible(persona: UserRolePersona, organization = ORG) {
   );
 }
 
+function seedClientAdminExternalSet() {
+  const prevSets = useMapStore.getState().assuranceSets;
+  const baseSet = prevSets[0];
+  const towActivity = useMapStore.getState().assuranceObjects.find((o) => o.id === 'OBJ-METH-TOW-01');
+  const tempSet = {
+    ...baseSet,
+    id: 'AS-TEST-CADMIN-EXT-OBJ',
+    title: 'Northwind C Admin External Object Set',
+    initiatorOrg: ORG,
+    initiatorRole: 'C Admin · Client Created' as const,
+    createdByPersona: 'C Admin' as const,
+    createdByUserId: 'USR-235',
+    createdByName: 'T. Okada',
+    clientOrg: ORG,
+    charterer: ORG,
+    serviceProviderOrg: 'Tidewater Marine',
+    assignedSubmitter: 'Unassigned (Tidewater Marine)',
+    assignedVerifier: undefined,
+    assignedInspector: undefined,
+    assignedApprover: undefined,
+    assuranceObjects: towActivity ? [towActivity] : [],
+    vesselId: '',
+    vesselName: '',
+  };
+  useMapStore.setState({ assuranceSets: [...prevSets, tempSet] });
+  return () => useMapStore.setState({ assuranceSets: prevSets });
+}
+
 function signIn(persona: UserRolePersona) {
   useMapStore.setState({
     activePersona: persona,
@@ -95,25 +123,30 @@ describe('assurance objects list', () => {
   });
 
   it('filters by owner together with the type dropdown', () => {
-    signIn('C Admin');
-    const rows = visible('C Admin');
-    const other = rows.find((row) => !row.ownerOrganization.toLowerCase().includes('northwind'));
-    expect(other).toBeTruthy();
-    render(<AssuranceObjectsView />);
+    const restore = seedClientAdminExternalSet();
+    try {
+      signIn('C Admin');
+      const rows = visible('C Admin');
+      const other = rows.find((row) => !row.ownerOrganization.toLowerCase().includes('northwind'));
+      expect(other).toBeTruthy();
+      render(<AssuranceObjectsView />);
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by owner' }), {
-      target: { value: other!.ownerOrganization },
-    });
+      fireEvent.change(screen.getByRole('combobox', { name: 'Filter by owner' }), {
+        target: { value: other!.ownerOrganization },
+      });
 
-    const owned = rows.filter((row) => row.ownerOrganization === other!.ownerOrganization);
-    const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
-    expect(within(typeSelect).getByRole('option', { name: `All (${owned.length})` })).toBeTruthy();
-    expect(screen.getByText(other!.name)).toBeTruthy();
-    expect(within(typeSelect).queryByRole('option', { name: `All (${rows.length})` })).toBeNull();
+      const owned = rows.filter((row) => row.ownerOrganization === other!.ownerOrganization);
+      const typeSelect = screen.getByRole('combobox', { name: 'Filter by type' });
+      expect(within(typeSelect).getByRole('option', { name: `All (${owned.length})` })).toBeTruthy();
+      expect(screen.getByText(other!.name)).toBeTruthy();
+      expect(within(typeSelect).queryByRole('option', { name: `All (${rows.length})` })).toBeNull();
 
-    const clearBtn = screen.getByRole('button', { name: 'Clear' });
-    fireEvent.click(clearBtn);
-    expect(within(typeSelect).getByRole('option', { name: `All (${rows.length})` })).toBeTruthy();
+      const clearBtn = screen.getByRole('button', { name: 'Clear' });
+      fireEvent.click(clearBtn);
+      expect(within(typeSelect).getByRole('option', { name: `All (${rows.length})` })).toBeTruthy();
+    } finally {
+      restore();
+    }
   });
 
   it('filters by verification status and resets with clear', () => {
@@ -129,35 +162,40 @@ describe('assurance objects list', () => {
   });
 
   it('scopes the catalogue by role', () => {
-    const admin = visible('Administrator');
-    const client = visible('C Admin');
-    const submitter = visible('Submitter');
-    const verifier = visible('Verifier');
-    const inspector = visible('Inspector');
-    const approver = visible('Approver');
+    const restore = seedClientAdminExternalSet();
+    try {
+      const admin = visible('Administrator');
+      const client = visible('C Admin');
+      const submitter = visible('Submitter');
+      const verifier = visible('Verifier');
+      const inspector = visible('Inspector');
+      const approver = visible('Approver');
 
-    expect(admin.every((object) => object.ownerOrganization.toLowerCase().includes('northwind'))).toBe(true);
-    expect(client.length).toBeGreaterThan(admin.length);
-    expect(client.some((object) => !object.ownerOrganization.toLowerCase().includes('northwind'))).toBe(true);
-    expect(admin.some((object) => object.type === 'vessel')).toBe(true);
-    admin.forEach((object) => expect(client.some((row) => row.id === object.id)).toBe(true));
-    expect(submitter.length).toBeGreaterThan(0);
-    expect(submitter.length).toBeLessThan(client.length);
+      expect(admin.every((object) => object.ownerOrganization.toLowerCase().includes('northwind'))).toBe(true);
+      expect(client.length).toBeGreaterThan(admin.length);
+      expect(client.some((object) => !object.ownerOrganization.toLowerCase().includes('northwind'))).toBe(true);
+      expect(admin.some((object) => object.type === 'vessel')).toBe(true);
+      admin.forEach((object) => expect(client.some((row) => row.id === object.id)).toBe(true));
+      expect(submitter.length).toBeGreaterThan(0);
+      expect(submitter.length).toBeLessThan(client.length);
 
-    const onAssignedSets = (persona: UserRolePersona) => {
-      const { assuranceSets } = useMapStore.getState();
-      const user = sessionUser(persona);
-      const ids = new Set<string>();
-      assuranceSets
-        .filter((set) => isAssuranceSetAssignedToPersona(set, persona, user?.organization || ORG, user))
-        .forEach((set) => getAssuranceSetObjects(set).forEach((object) => ids.add(object.id)));
-      return ids;
-    };
+      const onAssignedSets = (persona: UserRolePersona) => {
+        const { assuranceSets } = useMapStore.getState();
+        const user = sessionUser(persona);
+        const ids = new Set<string>();
+        assuranceSets
+          .filter((set) => isAssuranceSetAssignedToPersona(set, persona, user?.organization || ORG, user))
+          .forEach((set) => getAssuranceSetObjects(set).forEach((object) => ids.add(object.id)));
+        return ids;
+      };
 
-    submitter.forEach((object) => expect(onAssignedSets('Submitter').has(object.id)).toBe(true));
-    verifier.forEach((object) => expect(onAssignedSets('Verifier').has(object.id)).toBe(true));
-    inspector.forEach((object) => expect(onAssignedSets('Inspector').has(object.id)).toBe(true));
-    approver.forEach((object) => expect(onAssignedSets('Approver').has(object.id)).toBe(true));
+      submitter.forEach((object) => expect(onAssignedSets('Submitter').has(object.id)).toBe(true));
+      verifier.forEach((object) => expect(onAssignedSets('Verifier').has(object.id)).toBe(true));
+      inspector.forEach((object) => expect(onAssignedSets('Inspector').has(object.id)).toBe(true));
+      approver.forEach((object) => expect(onAssignedSets('Approver').has(object.id)).toBe(true));
+    } finally {
+      restore();
+    }
   });
 
   it('opens the vessel detail from a vessel row', () => {

@@ -11,10 +11,10 @@ import { getAssuranceSetObjects } from './assuranceTemplates';
 import { findRequirementDocument, isClosedAssuranceSet } from './documentVersionSnapshot';
 import { EXPIRY_WARNING_DAYS, getValidityInContractPeriod } from './expiryPolicy';
 import { assigneeMatchesUser, orgFieldMatches } from './rbacHelpers';
-import { getAssuranceSetOpenFindings, isRequirementLate } from './readinessHelpers';
+import { doFindingsBlockSet, getAssuranceSetOpenFindings, isRequirementLate } from './readinessHelpers';
 import { isComplianceDeadlineOverdue } from './validation';
 
-/* every threshold of the status rule; findings have no severity field, so status and due date decide which ones block */
+/* every threshold of the status rule; findings have no severity field, so status and due date decide which ones block. On a set with no inspection, no finding blocks (doFindingsBlockSet) */
 export const ASSURANCE_SET_STATUS_RULES = {
   expirySoonDays: EXPIRY_WARNING_DAYS,
   blockingTaskStatuses: ['Rejected', 'Correction Requested'] as readonly string[],
@@ -107,9 +107,11 @@ export function getAssuranceSetStatus(
 ): AssuranceSetStatusResult {
   const rules = ASSURANCE_SET_STATUS_RULES;
   const findings = getAssuranceSetOpenFindings(set, capaItems);
-  const blockingFindings = findings.filter(
-    (finding) => rules.blockingFindingStatuses.includes(finding.status) || isBeforeToday(finding.dueDate, today),
-  ).length;
+  const blockingFindings = doFindingsBlockSet(set)
+    ? findings.filter(
+        (finding) => rules.blockingFindingStatuses.includes(finding.status) || isBeforeToday(finding.dueDate, today),
+      ).length
+    : 0;
 
   if (set.stage === 'Cancelled') {
     return {

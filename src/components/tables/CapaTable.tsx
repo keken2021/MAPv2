@@ -7,7 +7,9 @@
 import React, { useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Eye, Search, AlertCircle } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
-import { filterVesselsForPersona } from '../../utils/rbacHelpers';
+import { canSessionUserAccessCapa, filterVesselsForPersona, isAssuranceSetAssignedToPersona } from '../../utils/rbacHelpers';
+import { useSessionUser } from '../../utils/useSessionUser';
+import { AccessDeniedState } from '../common/AccessDeniedState';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { formatMaritimeDateTime, getStatusDisplayLabel } from '../../utils/formatters';
 import { CapaItem, CapaStatus } from '../../types/capa';
@@ -22,6 +24,7 @@ import { DueCell } from '../common/DueCell';
 import { usePagination } from '../../utils/usePagination';
 import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
+import { filterCapaItemsByDashboardFilter } from '../../utils/dashboardTileNavigation';
 
 export interface CapaTableProps {
   vesselName?: string;
@@ -42,31 +45,69 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
     vessels,
     assuranceSets,
     activePersona,
+    activeDemoOrganization,
+    users,
     setCurrentHashView,
     previousHashView,
     previousEntityId,
     logExport,
   } = useMapStore();
+  const sessionUser = useSessionUser();
 
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
-
-  /* filter available vessels and capas for non-admin personas */
-  const availableVessels =
-    activePersona === 'Administrator'
-      ? vessels
-      : filterVesselsForPersona(vessels, assuranceSets, activePersona);
-
-  const availableCapas =
-    activePersona === 'Administrator'
-      ? capaItems
-      : capaItems.filter((c) =>
-          availableVessels.some(
-            (v) =>
-              v.name.toLowerCase() === c.vesselName.toLowerCase() ||
-              v.id === c.vesselId
+  const accessibleSets = React.useMemo(
+    () =>
+      sessionUser
+        ? assuranceSets.filter((set) =>
+            isAssuranceSetAssignedToPersona(
+              set,
+              activePersona,
+              activeDemoOrganization,
+              sessionUser,
+              users,
+            ),
           )
-        );
+        : [],
+    [assuranceSets, activePersona, activeDemoOrganization, sessionUser, users],
+  );
+
+  const availableCapas = React.useMemo(
+    () =>
+      sessionUser
+        ? capaItems.filter((c) =>
+            canSessionUserAccessCapa(
+              c,
+              assuranceSets,
+              activePersona,
+              activeDemoOrganization,
+              sessionUser,
+              users,
+            ),
+          )
+        : [],
+    [capaItems, assuranceSets, activePersona, activeDemoOrganization, sessionUser, users],
+  );
+
+  const availableVessels = React.useMemo(
+    () =>
+      filterVesselsForPersona(
+        vessels,
+        assuranceSets,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+      ).filter(
+        (v) =>
+          availableCapas.some(
+            (c) => c.vesselId === v.id || c.vesselName.toLowerCase() === v.name.toLowerCase(),
+          ) ||
+          accessibleSets.some(
+            (s) => s.vesselId === v.id || s.vesselName?.toLowerCase() === v.name.toLowerCase(),
+          ),
+      ),
+    [vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser, availableCapas, accessibleSets],
+  );
 
   /* parse vesselName prop or target CAPA ID if passed as vesselName:capaId or CAPA ID */
   const lockedVessel = vesselId ? vessels.find((v) => v.id === vesselId) : undefined;
@@ -80,11 +121,14 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
     const parts = rawProp.split(':');
     targetVesselName = parts[0];
     targetCapaId = parts[1];
-  } else if (rawProp.startsWith('CAPA-')) {
-    targetCapaId = rawProp;
-    const foundCapa = availableCapas.find((c) => c.id === rawProp);
-    if (foundCapa) {
-      targetVesselName = foundCapa.vesselName;
+  } else if (rawProp) {
+    const foundCapa =
+      availableCapas.find((c) => c.id === rawProp) ?? capaItems.find((c) => c.id === rawProp);
+    if (foundCapa || rawProp.startsWith('CAPA-')) {
+      targetCapaId = rawProp;
+      if (foundCapa) {
+        targetVesselName = foundCapa.vesselName;
+      }
     }
   }
 
@@ -127,6 +171,16 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
     }
     return 'All';
   });
+  const [subFilter, setSubFilter] = useState<string>(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      const stored = sessionStorage.getItem('map_capa_subfilter');
+      if (stored) {
+        sessionStorage.removeItem('map_capa_subfilter');
+        return stored;
+      }
+    }
+    return '';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<CapaSortField>('id');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -159,44 +213,58 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
 
   const handleResetFilters = () => {
     setActiveTab('All');
+    setSubFilter('');
     setSearchQuery('');
     if (!isFleetOverview && !vesselId) {
       setCurrentHashView('capas', 'ALL_FLEET');
     }
   };
 
-  const isFiltered = Boolean(searchQuery.trim() || activeTab !== 'All' || !isFleetOverview);
+  const isFiltered = Boolean(searchQuery.trim() || activeTab !== 'All' || subFilter || !isFleetOverview);
 
   const activeChips: FilterChip[] = [
     ...(!isFleetOverview && !vesselId
       ? [{ id: 'vessel', label: 'Vessel', value: selectedVesselName, onRemove: () => setCurrentHashView('capas', 'ALL_FLEET') }]
       : []),
+    ...(subFilter ? [{ id: 'subFilter', label: 'Filter', value: subFilter, onRemove: () => setSubFilter('') }] : []),
     ...(activeTab !== 'All' ? [{ id: 'status', label: 'Status', value: activeTab, onRemove: () => setActiveTab('All') }] : []),
   ];
 
   const activeFilterCount = activeChips.length;
 
   /* re-inspection drawer state */
-  const [activeCapa, setActiveCapa] = useState<CapaItem | null>(null);
+  const [activeCapaId, setActiveCapaId] = useState<string | null>(null);
+  const lastAutoOpenedCapaIdRef = React.useRef<string | undefined>(undefined);
 
   /* auto-open target CAPA item re-inspection drawer if targetCapaId is specified */
   React.useEffect(() => {
-    if (targetCapaId) {
-      const found = capaItems.find((c) => c.id === targetCapaId);
-      if (found) {
-        setActiveCapa(found);
-      }
+    if (!targetCapaId) {
+      lastAutoOpenedCapaIdRef.current = undefined;
+      return;
     }
-  }, [targetCapaId, capaItems]);
+    if (lastAutoOpenedCapaIdRef.current === targetCapaId) return;
+    const found = availableCapas.find((c) => c.id === targetCapaId);
+    if (found) {
+      lastAutoOpenedCapaIdRef.current = targetCapaId;
+      setActiveCapaId(found.id);
+    }
+  }, [targetCapaId, availableCapas]);
+
+  const activeCapa = activeCapaId
+    ? availableCapas.find((c) => c.id === activeCapaId) ?? null
+    : null;
 
   /* compute capa KPI counts */
-  const totalCount = vesselCapas.length;
-  const openCount = vesselCapas.filter((c) => c.status === 'Open').length;
-  const reInspectionCount = vesselCapas.filter((c) => c.status === 'Under Re-Inspection').length;
-  const closedCount = vesselCapas.filter((c) => c.status === 'Verified & Closed').length;
+  const subFilteredCapas = subFilter
+    ? filterCapaItemsByDashboardFilter(vesselCapas, subFilter)
+    : vesselCapas;
+  const totalCount = subFilteredCapas.length;
+  const openCount = subFilteredCapas.filter((c) => c.status === 'Open').length;
+  const reInspectionCount = subFilteredCapas.filter((c) => c.status === 'Under Re-Inspection').length;
+  const closedCount = subFilteredCapas.filter((c) => c.status === 'Verified & Closed').length;
 
   /* apply search & status filtering */
-  const filteredCapas = vesselCapas.filter((item) => {
+  const filteredCapas = subFilteredCapas.filter((item) => {
     const matchesTab = activeTab === 'All' || item.status === activeTab;
     const matchesSearch =
       item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -246,7 +314,7 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
   const exportSetId = (() => {
     if (isFleetOverview) return undefined;
     const ids = new Set(
-      assuranceSets
+      accessibleSets
         .filter(
           (set) =>
             set.vesselName.toLowerCase() === selectedVesselName.toLowerCase() ||
@@ -300,7 +368,7 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
   };
 
 
-  const capasPagination = usePagination(sortedCapas, [committedVessel, activeTab, searchQuery, sortField, sortOrder]);
+  const capasPagination = usePagination(sortedCapas, [committedVessel, activeTab, subFilter, searchQuery, sortField, sortOrder]);
 
   const capaTabs = [
     { key: 'All', label: 'All', count: totalCount },
@@ -308,6 +376,15 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
     { key: 'Under Re-Inspection', label: 'Re-Inspection', count: reInspectionCount },
     { key: 'Verified & Closed', label: 'Closed', count: closedCount },
   ];
+
+  if (
+    !vesselId &&
+    targetCapaId &&
+    capaItems.some((c) => c.id === targetCapaId) &&
+    !availableCapas.some((c) => c.id === targetCapaId)
+  ) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('capas', 'ALL_FLEET')} />;
+  }
 
   return (
     <div className="d-flex flex-column gap-4" data-testid={vesselId ? "vessel-scoped-capa-table" : undefined}>
@@ -351,7 +428,7 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
             </thead>
             <tbody>
               {capasPagination.pageItems.map((capa) => (
-                <tr key={capa.id} onClick={() => setActiveCapa(capa)} style={{ cursor: 'pointer' }}>
+                <tr key={capa.id} onClick={() => setActiveCapaId(capa.id)} style={{ cursor: 'pointer' }}>
                   <td>
                     <span className="font-mono-code fw-bold text-primary">{capa.id}</span>
                   </td>
@@ -381,7 +458,7 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
                       style={{ width: '32px', height: '32px' }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setActiveCapa(capa);
+                        setActiveCapaId(capa.id);
                       }}
                       title="View"
                       aria-label="View"
@@ -468,7 +545,12 @@ export const CapaTable: React.FC<CapaTableProps> = ({ vesselName, vesselId }) =>
       {activeCapa && (
         <CapaReinspectionDrawer
           capa={activeCapa}
-          onClose={() => setActiveCapa(null)}
+          onClose={() => {
+            setActiveCapaId(null);
+            if (targetCapaId && !vesselId) {
+              setCurrentHashView('capas', 'ALL_FLEET');
+            }
+          }}
         />
       )}
     </div>

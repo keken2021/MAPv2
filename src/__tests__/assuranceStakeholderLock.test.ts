@@ -6,7 +6,24 @@ import {
 } from '../utils/rbacHelpers';
 import { AssuranceSet } from '../types/assurance';
 import { useMapStore } from '../store/useMapStore';
-import { MOCK_ASSURANCE_SETS } from '../store/mockData';
+import { MOCK_ASSURANCE_SETS, MOCK_USERS } from '../store/mockData';
+import { UserProfile } from '../types/user';
+
+const northwindAdmin = MOCK_USERS.find((u) => u.id === 'USR-101')!;
+const sbeCAdmin = MOCK_USERS.find((u) => u.id === 'USR-201')!;
+const chevronCAdmin = MOCK_USERS.find((u) => u.id === 'USR-221')!;
+const woodsideApprover = MOCK_USERS.find((u) => u.id === 'USR-220' && u.organization === 'Woodside Energy Ltd')!;
+const inpexCAdmin: UserProfile = {
+  id: 'USR-INPEX-CADMIN',
+  name: 'I. Takahashi',
+  email: 'i.takahashi@inpex.test',
+  roles: ['C Admin'],
+  userType: 'Organization',
+  organization: 'Inpex Operations Australia',
+  departmentOrScope: 'Asset Governance',
+  status: 'Active',
+  lastActive: '2026-10-01 09:00 UTC',
+};
 
 describe('assurance set stakeholder assignment lock', () => {
   it('locks Approved and Certified pipeline stages', () => {
@@ -52,6 +69,8 @@ describe('assurance set stakeholder assignment lock', () => {
       canEditAssuranceSetStakeholders(
         { stage: 'Initiated', clientWorkflowStage: 'draft' },
         'Administrator',
+        'Northwind Marine Pty Ltd',
+        northwindAdmin,
       ),
     ).toBe(true);
 
@@ -59,6 +78,8 @@ describe('assurance set stakeholder assignment lock', () => {
       canEditAssuranceSetStakeholders(
         { stage: 'Validation', clientWorkflowStage: undefined },
         'C Admin',
+        'Southern Basin Energy Pty Ltd',
+        sbeCAdmin,
       ),
     ).toBe(true);
   });
@@ -72,6 +93,8 @@ describe('assurance set stakeholder assignment lock', () => {
           approverDecision: 'Returned for Correction',
         },
         'Administrator',
+        'Northwind Marine Pty Ltd',
+        northwindAdmin,
       ),
     ).toBe(true);
   });
@@ -84,33 +107,72 @@ describe('assurance set stakeholder assignment lock', () => {
 
   it('locks Woodside approved mock set and open Inpex initiated set correctly', () => {
     const woodside = MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-004')!;
-    const inpex = MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-003')!;
+    const inpex: AssuranceSet = {
+      ...MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-003')!,
+      createdByUserId: inpexCAdmin.id,
+      createdByName: inpexCAdmin.name,
+      createdByPersona: 'C Admin',
+    };
     const chevron = MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-001')!;
 
-    expect(canEditAssuranceSetStakeholders(woodside, 'Administrator')).toBe(false);
-    expect(canEditAssuranceSetStakeholders(inpex, 'Administrator')).toBe(true);
-    expect(canEditAssuranceSetStakeholders(chevron, 'C Admin')).toBe(false);
+    expect(
+      canEditAssuranceSetStakeholders(woodside, 'Administrator', 'Woodside Energy Ltd', woodsideApprover),
+    ).toBe(false);
+    expect(
+      canEditAssuranceSetStakeholders(inpex, 'C Admin', 'Inpex Operations Australia', inpexCAdmin),
+    ).toBe(true);
+    expect(
+      canEditAssuranceSetStakeholders(inpex, 'Administrator', 'Northwind Marine Pty Ltd', northwindAdmin),
+    ).toBe(false);
+    expect(
+      canEditAssuranceSetStakeholders(chevron, 'C Admin', 'Chevron Australia Pty Ltd', chevronCAdmin),
+    ).toBe(false);
   });
 
   it('store updateAssuranceStakeholder rejects locked campaigns', () => {
-    useMapStore.getState().setActivePersona('Administrator');
-    const locked = MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-004') as AssuranceSet;
-    const editable = MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-003') as AssuranceSet;
+    const initialState = useMapStore.getState();
+    try {
+      const locked = MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-004') as AssuranceSet;
+      const editable = MOCK_ASSURANCE_SETS.find((s) => s.id === 'AS-2026-003') as AssuranceSet;
 
-    const blocked = useMapStore.getState().updateAssuranceStakeholder(
-      locked.id,
-      'Verifier',
-      'S. Basin (Southern Basin Energy Pty Ltd)',
-    );
-    expect(blocked.success).toBe(false);
-    expect(blocked.message).toContain('approved or certified');
+      useMapStore.setState({
+        users: [...initialState.users, inpexCAdmin],
+        assuranceSets: initialState.assuranceSets.map((s) =>
+          s.id === editable.id
+            ? {
+                ...s,
+                createdByUserId: inpexCAdmin.id,
+                createdByName: inpexCAdmin.name,
+                createdByPersona: 'C Admin',
+              }
+            : s,
+        ),
+        activePersona: 'Administrator',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
+      });
 
-    useMapStore.setState({ activeDemoOrganization: 'Inpex Operations Australia' });
-    const allowed = useMapStore.getState().updateAssuranceStakeholder(
-      editable.id,
-      'Verifier',
-      'K. Tanabe (Inpex Operations Australia)',
-    );
-    expect(allowed.success).toBe(true);
+      const blocked = useMapStore.getState().updateAssuranceStakeholder(
+        locked.id,
+        'Verifier',
+        'S. Basin (Southern Basin Energy Pty Ltd)',
+      );
+      expect(blocked.success).toBe(false);
+      expect(blocked.message).toContain('approved or certified');
+
+      useMapStore.setState({
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Inpex Operations Australia',
+        activeSessionUserId: inpexCAdmin.id,
+      });
+      const allowed = useMapStore.getState().updateAssuranceStakeholder(
+        editable.id,
+        'Verifier',
+        'K. Tanabe (Inpex Operations Australia)',
+      );
+      expect(allowed.success).toBe(true);
+    } finally {
+      useMapStore.setState(initialState, true);
+    }
   });
 });

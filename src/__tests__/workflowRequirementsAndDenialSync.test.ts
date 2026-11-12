@@ -11,7 +11,11 @@ import { AssuranceSet } from '../types/assurance';
 
 describe('Workflow Requirements & Approver Document Denial Synchronization', () => {
   beforeEach(() => {
-    useMapStore.getState().setActivePersona('Administrator');
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
   });
 
   /**
@@ -20,6 +24,11 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     with what file: src/__tests__/workflowRequirementsAndDenialSync.test.ts testing useMapStore.ts.
   */
   it('should update verifier status to Correction Requested, drop stage to Verification, and ping submitter on approver document denial', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
     const store = useMapStore.getState();
     const testSet: AssuranceSet = {
       id: 'AS-WORKFLOW-TEST-01',
@@ -38,9 +47,9 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
-      assignedApprover: 'P. Nardelli (Chevron)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [
         {
           id: 'REQ-WF-001',
@@ -56,12 +65,18 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       stakeholders: undefined,
       assignedStakeholders: undefined,
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
-    store.setActivePersona('Approver');
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
 
-    store.denyRequirementByApprover(
+    useMapStore.getState().denyRequirementByApprover(
       'AS-WORKFLOW-TEST-01',
       'REQ-WF-001',
       'Correction Requested',
@@ -93,6 +108,11 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     with what file: src/__tests__/workflowRequirementsAndDenialSync.test.ts testing useMapStore.ts.
   */
   it('should reject every requirement of the set, not its shared documents, and ping the submitter', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
     const store = useMapStore.getState();
     const testSet: AssuranceSet = {
       id: 'AS-WORKFLOW-TEST-02',
@@ -100,7 +120,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       vesselId: 'VESSEL-002',
       vesselName: 'MV Dampier Supplier',
       imoNumber: '9284714',
-      initiatorOrg: 'Woodside Energy Ltd',
+      initiatorOrg: 'Chevron Australia Pty Ltd',
       initiatorRole: 'C Admin · Client Created',
       charterWindowStart: '2026-11-01',
       complianceDeadline: '2026-11-01',
@@ -111,9 +131,9 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
-      assignedApprover: 'P. Nardelli (Chevron)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [
         {
           id: 'REQ-WF-002',
@@ -129,12 +149,18 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       stakeholders: undefined,
       assignedStakeholders: undefined,
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
-    store.setActivePersona('Approver');
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
 
-    store.setApproverDecision(
+    useMapStore.getState().setApproverDecision(
       'AS-WORKFLOW-TEST-02',
       'Rejected',
       'Vessel does not satisfy charter baseline criteria.'
@@ -310,6 +336,11 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
   });
 
   it('allows client user to add a task to an open set, writes audit event, and notifies vendor', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
     const store = useMapStore.getState();
     const setId = 'AS-TASK-EDIT-01';
     const testSet: AssuranceSet = {
@@ -320,7 +351,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       imoNumber: '9123453',
       initiatorOrg: 'Chevron Australia Pty Ltd',
       clientOrg: 'Chevron Australia Pty Ltd',
-      serviceProviderOrg: 'Northwind Marine',
+      serviceProviderOrg: 'Northwind Marine Pty Ltd',
       initiatorRole: 'C Admin · Client Created',
       charterWindowStart: '2026-11-01',
       complianceDeadline: '2026-11-01',
@@ -331,8 +362,8 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
       requirements: [
         {
           id: 'REQ-EXISTING-01',
@@ -345,12 +376,13 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
         },
       ],
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
-    store.setActivePersona('C Admin');
 
-    const result = store.addAssuranceTask(setId, {
+    const result = useMapStore.getState().addAssuranceTask(setId, {
       title: 'Dynamic Mooring Plan',
       category: 'Operational Plan',
       isMandatory: true,
@@ -373,9 +405,13 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
   });
 
   it('allows client user to edit a task on an open set, writes audit event with delta, and notifies vendor', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
     const store = useMapStore.getState();
     const setId = 'AS-TASK-EDIT-01';
-    store.setActivePersona('C Admin');
 
     const set = store.assuranceSets.find((s) => s.id === setId)!;
     const taskToEdit = set.requirements.find((r) => r.title === 'Dynamic Mooring Plan')!;
@@ -404,9 +440,13 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
   });
 
   it('allows client user to remove a task from an open set, writes audit event, and notifies vendor', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
     const store = useMapStore.getState();
     const setId = 'AS-TASK-EDIT-01';
-    store.setActivePersona('C Admin');
 
     const set = store.assuranceSets.find((s) => s.id === setId)!;
     const taskToRemove = set.requirements.find((r) => r.title === 'Dynamic Mooring Plan (Revised)')!;
@@ -431,40 +471,48 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     const setId = 'AS-TASK-EDIT-01';
 
     // Administrator (Vendor Provider) persona
-    store.setActivePersona('Administrator');
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
 
-    const addAsAdmin = store.addAssuranceTask(setId, {
+    const addAsAdmin = useMapStore.getState().addAssuranceTask(setId, {
       title: 'Unauthorized Vendor Task',
       category: 'Custom Requirement',
     });
     expect(addAsAdmin.success).toBe(false);
     expect(addAsAdmin.message).toContain('Vendor users cannot edit tasks');
 
-    const editAsAdmin = store.editAssuranceTask(setId, 'REQ-EXISTING-01', {
+    const editAsAdmin = useMapStore.getState().editAssuranceTask(setId, 'REQ-EXISTING-01', {
       title: 'Tampered Title',
     });
     expect(editAsAdmin.success).toBe(false);
     expect(editAsAdmin.message).toContain('Vendor users cannot edit tasks');
 
-    const removeAsAdmin = store.removeAssuranceTask(setId, 'REQ-EXISTING-01');
+    const removeAsAdmin = useMapStore.getState().removeAssuranceTask(setId, 'REQ-EXISTING-01');
     expect(removeAsAdmin.success).toBe(false);
     expect(removeAsAdmin.message).toContain('Vendor users cannot edit tasks');
 
     // Submitter persona
-    store.setActivePersona('Submitter');
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
 
-    const addAsSubmitter = store.addAssuranceTask(setId, {
+    const addAsSubmitter = useMapStore.getState().addAssuranceTask(setId, {
       title: 'Unauthorized Submitter Task',
       category: 'Custom Requirement',
     });
     expect(addAsSubmitter.success).toBe(false);
 
-    const editAsSubmitter = store.editAssuranceTask(setId, 'REQ-EXISTING-01', {
+    const editAsSubmitter = useMapStore.getState().editAssuranceTask(setId, 'REQ-EXISTING-01', {
       title: 'Tampered Title by Submitter',
     });
     expect(editAsSubmitter.success).toBe(false);
 
-    const removeAsSubmitter = store.removeAssuranceTask(setId, 'REQ-EXISTING-01');
+    const removeAsSubmitter = useMapStore.getState().removeAssuranceTask(setId, 'REQ-EXISTING-01');
     expect(removeAsSubmitter.success).toBe(false);
 
     // Ensure tasks remained completely intact
@@ -474,6 +522,11 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
   });
 
   it('preserves correction, rejection, and resubmission loops after task editing', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
     const store = useMapStore.getState();
     const setId = 'AS-TASK-LOOP-01';
     const testSet: AssuranceSet = {
@@ -484,7 +537,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       imoNumber: '9123453',
       initiatorOrg: 'Chevron Australia Pty Ltd',
       clientOrg: 'Chevron Australia Pty Ltd',
-      serviceProviderOrg: 'Northwind Marine',
+      serviceProviderOrg: 'Northwind Marine Pty Ltd',
       initiatorRole: 'C Admin · Client Created',
       charterWindowStart: '2026-11-01',
       complianceDeadline: '2026-11-01',
@@ -495,9 +548,9 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
-      assignedApprover: 'P. Nardelli (Chevron)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [
         {
           id: 'REQ-LOOP-01',
@@ -511,13 +564,19 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
         },
       ],
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
 
     // Approver denies requirement
-    store.setActivePersona('Approver');
-    store.denyRequirementByApprover(setId, 'REQ-LOOP-01', 'Correction Requested', 'Missing endorsement signature.');
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
+    useMapStore.getState().denyRequirementByApprover(setId, 'REQ-LOOP-01', 'Correction Requested', 'Missing endorsement signature.');
 
     let set = useMapStore.getState().assuranceSets.find((s) => s.id === setId)!;
     expect(set.stage).toBe('Verification');
@@ -525,8 +584,12 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     expect(req.verifierStatus).toBe('Correction Requested');
 
     // Client edits task details on open set
-    store.setActivePersona('C Admin');
-    const editRes = store.editAssuranceTask(setId, 'REQ-LOOP-01', {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
+    const editRes = useMapStore.getState().editAssuranceTask(setId, 'REQ-LOOP-01', {
       description: 'Endorsement signature must be clearly visible on page 3.',
     });
     expect(editRes.success).toBe(true);
@@ -538,9 +601,13 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     expect(req.description).toBe('Endorsement signature must be clearly visible on page 3.');
 
     // Submitter resubmits new document version
-    store.setActivePersona('Submitter');
-    const baseDoc = store.documents[0];
-    store.uploadDocumentForRequirement(setId, 'REQ-LOOP-01', {
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
+    const baseDoc = useMapStore.getState().documents[0];
+    useMapStore.getState().uploadDocumentForRequirement(setId, 'REQ-LOOP-01', {
       ...baseDoc,
       id: 'MAP-DOC-RESUBMIT-01',
       title: 'Certificate of Class Signed',
@@ -548,6 +615,7 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
       expiryDate: '2028-05-15',
       verificationStatus: 'Pending',
       vesselId: 'VESSEL-001',
+      ownerOrganization: 'Northwind Marine Pty Ltd',
       versions: [
         ...baseDoc.versions,
         {
@@ -567,8 +635,12 @@ describe('Workflow Requirements & Approver Document Denial Synchronization', () 
     expect(req.verifierStatus).toBe('Pending');
 
     // Verifier verifies resubmission
-    store.setActivePersona('Verifier');
-    store.verifyDocument('MAP-DOC-RESUBMIT-01', 'Verified', 'Endorsement confirmed.', undefined, 'REQ-LOOP-01', setId, {
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
+    useMapStore.getState().verifyDocument('MAP-DOC-RESUBMIT-01', 'Verified', 'Endorsement confirmed.', undefined, 'REQ-LOOP-01', setId, {
       verificationMethod: 'Issuer lookup',
       verificationReference: 'DNV-VER-9901',
     });

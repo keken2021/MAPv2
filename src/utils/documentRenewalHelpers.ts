@@ -151,8 +151,8 @@ export function listCertificatesShortOfContract(
 }
 
 /**
-  what: why a document already on record cannot be re-uploaded yet, or undefined when it can; inputs are the document, all notifications, today's date and an optional contract end.
-  how: re-upload is open when the document is expired, when it expires before the contract end, when a reviewer returned or rejected it, while a reviewer's reupload request is still open, or while a charter-window renewal notice for that document is still open.
+  what: why a document already on record cannot be re-uploaded yet, or undefined when it can; inputs are the document, all notifications, today's date, an optional contract end, an optional requirement verifier status, and whether the document is unlinked from assurance sets.
+  how: under Option A, unlinked vault documents allow free version updates by their owning org; assurance-set-linked documents open for re-upload when expired, short of contract end, returned/rejected at document or requirement level, or subject to an open renewal notice.
   with what file: src/utils/documentRenewalHelpers.ts used by AssuranceDetailView.tsx, DocumentReviewDrawer.tsx, DocumentDetailView.tsx, VersionHistoryDrawer.tsx and DocumentUploadModal.tsx.
 */
 export function getDocumentReuploadBlockReason(
@@ -160,12 +160,17 @@ export function getDocumentReuploadBlockReason(
   notifications: Pick<AppNotification, 'type' | 'documentId' | 'renewalReason' | 'status'>[],
   today: Date = new Date(),
   charterWindowEnd?: string,
+  requirementVerifierStatus?: string,
+  isUnlinked = false,
 ): string | undefined {
+  if (isUnlinked) return undefined;
   if (isDocumentExpired(document, today)) return undefined;
   if (charterWindowEnd && documentExpiresBeforeContractEnd(document, charterWindowEnd)) return undefined;
   if (
     document.verificationStatus === 'Correction Requested' ||
-    document.verificationStatus === 'Rejected'
+    document.verificationStatus === 'Rejected' ||
+    requirementVerifierStatus === 'Correction Requested' ||
+    requirementVerifierStatus === 'Rejected'
   ) {
     return undefined;
   }

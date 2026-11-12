@@ -23,6 +23,7 @@ import { useMapStore } from '../store/useMapStore';
 import { STCWDocumentItem, CrewVesselAssignment, CrewMember } from '../types/crew';
 import { AssuranceObjectType } from '../types/assurance';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { EmptyState } from '../components/common/EmptyState';
 import { Tabs } from '../components/common/Tabs';
@@ -31,7 +32,13 @@ import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AssetPhotosModal } from '../components/modals/AssetPhotosModal';
 import { CrewDocumentViewerModal } from '../components/modals/CrewDocumentViewerModal';
-import { getProjectOrganizationForPersona, isCrewOwnedByOrganization } from '../utils/projectHelpers';
+import { isCrewOwnedByOrganization } from '../utils/projectHelpers';
+import {
+  filterAuditTrailForPersona,
+  isAssuranceSetAssignedToPersona,
+  isMarketplacePersona,
+} from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
 import { ImageCropModal } from '../components/modals/VesselImageCropModal';
 import { CURATED_CREW_PHOTOS, getCrewStockPhoto } from '../utils/vesselImageHelpers';
 import { usePagination } from '../utils/usePagination';
@@ -49,17 +56,21 @@ interface CrewDetailViewProps {
 export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   const {
     crew,
+    vessels,
     assuranceObjects,
     assuranceSets,
     auditEvents,
     assignPersonToObject,
     activePersona,
+    activeDemoOrganization,
     setCurrentHashView,
     deleteCrewDocument,
     updateCrewMember,
     users,
     setCreateAssuranceForAsset,
   } = useMapStore();
+  const sessionUser = useSessionUser();
+  const viewerOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
 
   const [activeTab, setActiveTab] = useState<CrewDetailTab>('overview');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -90,25 +101,33 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
 
   /* unknown id must not fall back to another crew member */
   const crewMember = crew.find((c) => c.id === crewId);
+  const isOwnedByOrg = Boolean(
+    sessionUser && crewMember && viewerOrg && isCrewOwnedByOrganization(crewMember, viewerOrg),
+  );
   const personObject = crewMember
     ? assuranceObjects.find((object) => object.id === crewMember.id && object.type === 'person')
     : undefined;
   const otherObjectAssignments = (personObject?.assignments ?? []).filter(
     (assignment) => assignment.targetObjectType !== 'vessel',
   );
-  const assignmentTargets = crewMember
+  const assignmentTargets = crewMember && isOwnedByOrg
     ? assuranceObjects.filter((object) => object.id !== crewMember.id)
     : [];
-  const canManageDocuments = activePersona === 'Administrator' || activePersona === 'Submitter';
-  const canManagePhotos = activePersona === 'Administrator' || activePersona === 'Submitter';
+  const canManageDocuments =
+    isOwnedByOrg && (activePersona === 'Administrator' || activePersona === 'Submitter');
+  const canManagePhotos = canManageDocuments;
   const canAssign = canManageDocuments;
   /* hire is offered to admins for crew from other organizations only */
   const canHireCrew = Boolean(
-    crewMember &&
-    (activePersona === 'Administrator' || activePersona === 'C Admin') &&
-    !isCrewOwnedByOrganization(crewMember, getProjectOrganizationForPersona(activePersona, users)),
+    sessionUser &&
+      crewMember &&
+      (activePersona === 'Administrator' || activePersona === 'C Admin') &&
+      viewerOrg &&
+      !isCrewOwnedByOrganization(crewMember, viewerOrg),
   );
-  const canOpenAssurance = activePersona === 'Administrator' || activePersona === 'C Admin';
+  const canOpenAssurance = Boolean(
+    sessionUser && (activePersona === 'Administrator' || activePersona === 'C Admin'),
+  );
 
   useEffect(() => {
     if (crewMember) {
@@ -206,13 +225,30 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
   }, [crewMember, layer2SortField, layer2SortDirection]);
 
   const linkedAssuranceSets = useMemo(() => {
-    if (!crewMember) return [];
-    return assuranceSets.filter((set) => getAssuranceSetCrewIds(set).includes(crewMember.id));
-  }, [assuranceSets, crewMember]);
+    if (!crewMember || !sessionUser) return [];
+    return assuranceSets.filter(
+      (set) =>
+        getAssuranceSetCrewIds(set).includes(crewMember.id) &&
+        isAssuranceSetAssignedToPersona(
+          set,
+          activePersona,
+          activeDemoOrganization,
+          sessionUser,
+          users,
+        ),
+    );
+  }, [assuranceSets, crewMember, sessionUser, activePersona, activeDemoOrganization, users]);
 
   const linkedAudits = useMemo(() => {
-    if (!crewMember) return [];
-    return auditEvents.filter((event) => {
+    if (!crewMember || !sessionUser) return [];
+    return filterAuditTrailForPersona(
+      auditEvents,
+      activePersona,
+      assuranceSets,
+      vessels,
+      sessionUser.id,
+      sessionUser,
+    ).filter((event) => {
       const target = event.targetAsset || '';
       return (
         target.includes(crewMember.id) ||
@@ -220,7 +256,7 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         target.includes(crewMember.fullName)
       );
     });
-  }, [auditEvents, crewMember]);
+  }, [auditEvents, crewMember, sessionUser, activePersona, assuranceSets, vessels]);
 
   const documentCount =
     (crewMember?.layer1CoreDocuments?.length || 0) + (crewMember?.layer2Endorsements?.length || 0);
@@ -253,6 +289,16 @@ export const CrewDetailView: React.FC<CrewDetailViewProps> = ({ crewId }) => {
         </div>
       </div>
     );
+  }
+
+  const isAccessibleCrew = Boolean(
+    sessionUser &&
+      (isOwnedByOrg ||
+        linkedAssuranceSets.length > 0 ||
+        isMarketplacePersona(activePersona)),
+  );
+  if (!isAccessibleCrew) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('crew')} />;
   }
 
   /* an export never carries a restricted number in clear (gap review G12) */

@@ -92,8 +92,8 @@ describe('status rule', () => {
     ['a passed compliance deadline', set({ stage: 'Validation', approverDecision: undefined, complianceDeadline: '2026-10-01' }), [], []],
     ['an approver return', set({ stage: 'Approval', approverDecision: 'Returned for Correction' }), [], []],
     ['an expired required certificate', set({ requirements: [task({ documentId: 'D1' })] }), [document('D1', '2026-10-01')], []],
-    ['a finding that needs rectification', set(), [], [finding({ status: 'Rectification Required' })]],
-    ['an unresolved finding past its due date', set(), [], [finding({ dueDate: '2026-10-01' })]],
+    ['a finding that needs rectification', set({ mandatoryInspectionRequired: true }), [], [finding({ status: 'Rectification Required' })]],
+    ['an unresolved finding past its due date', set({ mandatoryInspectionRequired: true }), [], [finding({ dueDate: '2026-10-01' })]],
   ])('reads No-go on %s', (_label, s, documents, capa) => {
     const result = status(s as AssuranceSet, documents as MasterDocument[], capa as CapaItem[]);
     expect(result.status).toBe('No-go');
@@ -122,6 +122,18 @@ describe('status rule', () => {
     expect(status(closed, documents).attention).toBe('needs_attention');
   });
 
+  it.each([
+    ['a finding that needs rectification', finding({ status: 'Rectification Required' })],
+    ['an unresolved finding past its due date', finding({ dueDate: '2026-10-01' })],
+  ])('only flags %s on a set with no inspection', (_label, capa) => {
+    const result = status(set(), [], [capa]);
+    expect(result.status).toBe('Conditional');
+    expect(result.attention).toBe('needs_attention');
+    expect(result.blockingFindings).toBe(0);
+    expect(result.openFindings).toBe(1);
+    expect(result.reasons).toContain('1 open finding');
+  });
+
   it('ignores an exempted task', () => {
     const exempted = task({
       verifierStatus: 'Rejected',
@@ -138,7 +150,7 @@ describe('status rule', () => {
 
   it('counts blocking items once, keeps findings apart, and says why', () => {
     const result = status(
-      set({ stage: 'Approval', approverDecision: 'Rejected', requirements: [task({ verifierStatus: 'Rejected', isFulfilled: false, documentId: 'D1' })] }),
+      set({ stage: 'Approval', approverDecision: 'Rejected', mandatoryInspectionRequired: true, requirements: [task({ verifierStatus: 'Rejected', isFulfilled: false, documentId: 'D1' })] }),
       [document('D1', '2026-10-01')],
       [finding(), finding({ id: 'F2', status: 'Rectification Required' })],
     );
@@ -191,7 +203,13 @@ describe('party roles', () => {
 
   it('reads Reviewing from the named reviewer of the set', () => {
     const s = set({ clientOrg: 'Oil Co', assignedVerifier: 'A. Fontaine (Bureau Veritas)' });
-    expect(getPartyRoles(s, { organization: 'Elsewhere', name: 'A. Fontaine' }).roles).toEqual(['reviewing']);
+    expect(getPartyRoles(s, { organization: 'Bureau Veritas', name: 'A. Fontaine' }).roles).toEqual(['reviewing']);
+  });
+
+  /* ADR 0037: the same name acting for another organization is not the named reviewer */
+  it('does not read Reviewing for the same name in another organization', () => {
+    const s = set({ clientOrg: 'Oil Co', assignedVerifier: 'A. Fontaine (Bureau Veritas)' });
+    expect(getPartyRoles(s, { organization: 'Elsewhere', name: 'A. Fontaine' }).roles).toEqual([]);
   });
 });
 
@@ -217,10 +235,21 @@ describe('optional tasks closed as not done at set close', () => {
   it('closes open optional tasks as Not Done and logs audit events when a set is approved or partially closed, while open mandatory tasks block closure', () => {
     const initialSets = useMapStore.getState().assuranceSets;
     const initialEvents = useMapStore.getState().auditEvents;
+    const prevPersona = useMapStore.getState().activePersona;
+    const prevOrg = useMapStore.getState().activeDemoOrganization;
+    const prevUserId = useMapStore.getState().activeSessionUserId;
 
     try {
       const testSet: AssuranceSet = set({
         id: 'AS-CLOSE-OPT-01',
+        initiatorOrg: 'Chevron Australia Pty Ltd',
+        initiatorRole: 'C Admin · Client Created',
+        clientOrg: 'Chevron Australia Pty Ltd',
+        charterer: 'Chevron Australia Pty Ltd',
+        createdByUserId: 'USR-221',
+        createdByName: 'C. Henderson',
+        createdByPersona: 'C Admin',
+        assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
         stage: 'Approval',
         approverDecision: undefined,
         readinessScore: 70,
@@ -230,12 +259,22 @@ describe('optional tasks closed as not done at set close', () => {
         ],
       });
 
-      useMapStore.setState({ assuranceSets: [testSet, ...initialSets] });
+      useMapStore.setState({
+        assuranceSets: [testSet, ...initialSets],
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      });
 
       /* open mandatory task blocks both partial closure and approver closure */
       const blockedPartial = useMapStore.getState().partiallyCloseAssuranceSet('AS-CLOSE-OPT-01', 'Client Admin');
       expect(blockedPartial.success).toBe(false);
 
+      useMapStore.setState({
+        activePersona: 'Approver',
+        activeDemoOrganization: 'Marine Assurance Authority',
+        activeSessionUserId: 'USR-204',
+      });
       useMapStore.getState().setApproverDecision('AS-CLOSE-OPT-01', 'Approved', 'Attempted early approval');
       const stillOpen = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-CLOSE-OPT-01')!;
       expect(stillOpen.approverDecision).toBeUndefined();
@@ -274,7 +313,13 @@ describe('optional tasks closed as not done at set close', () => {
       );
       expect(notDoneAudit).toBeDefined();
     } finally {
-      useMapStore.setState({ assuranceSets: initialSets, auditEvents: initialEvents });
+      useMapStore.setState({
+        assuranceSets: initialSets,
+        auditEvents: initialEvents,
+        activePersona: prevPersona,
+        activeDemoOrganization: prevOrg,
+        activeSessionUserId: prevUserId,
+      });
     }
   });
 });

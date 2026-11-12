@@ -4,7 +4,13 @@
   role in system: used by document library, verifier split-screen drawer, deep-dive document view, and assurance set requirements.
 */
 
-export type DocumentEntityType = 'Vessel Certificate' | 'Crew Certificate';
+import type { AssuranceObjectType } from './assurance';
+
+export type DocumentEntityType =
+  | 'Vessel Certificate'
+  | 'Crew Certificate'
+  | 'Equipment Certificate'
+  | 'Project Dossier';
 
 export type ComplianceState = 'Valid' | 'Expiring < 6 Mos' | 'Mismatch/Exception' | 'Expired';
 
@@ -12,6 +18,8 @@ export interface DocumentVersion {
   versionLabel: string; // e.g. v1.0, v1.1
   uploadedAt: string;
   uploadedBy: string;
+  /** user record (membership) that uploaded it; older records have only a name or persona (ADR 0037) */
+  uploadedByUserId?: string;
   fileSizeBytes: number;
   fileName: string;
   changeSummary: string;
@@ -76,7 +84,8 @@ export interface MasterDocument {
   id: string; // e.g. MAP-VES-2026-STAT-00412
   title: string;
   entityType: DocumentEntityType;
-  vesselId: string;
+  /** optional once a document can target a non-vessel assurance object (equipment, person, activity) via targetObjectType/targetObjectId */
+  vesselId?: string;
   certificateNo: string;
   issuingAuthority: string;
   expiryDate: string;
@@ -91,6 +100,12 @@ export interface MasterDocument {
   verificationNotes?: string;
   /** organization that owns this evidence; used for FR-16 edit/remove and A16 reuse */
   ownerOrganization?: string;
+  /** referenced assurance object type when attached to an asset, person, equipment, or activity */
+  targetObjectType?: AssuranceObjectType;
+  /** referenced assurance object ID (e.g. VESSEL-001, CREW-101, EQ-001, ACT-...) */
+  targetObjectId?: string;
+  /** cached display name of the referenced assurance object */
+  targetObjectName?: string;
   /** true when certificate metadata was entered by hand after a failed extraction (A55) */
   isHandEntered?: boolean;
   fileUrl?: string;

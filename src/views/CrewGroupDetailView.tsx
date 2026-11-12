@@ -20,9 +20,13 @@ import {
 } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { Tabs } from '../components/common/Tabs';
 import { formatMaritimeDate } from '../utils/formatters';
+import { useSessionUser } from '../utils/useSessionUser';
+import { isCrewOwnedByOrganization } from '../utils/projectHelpers';
+import { isAssuranceSetAssignedToPersona, orgFieldMatches } from '../utils/rbacHelpers';
 
 interface CrewGroupDetailViewProps {
   groupId: string;
@@ -32,12 +36,17 @@ export const CrewGroupDetailView: React.FC<CrewGroupDetailViewProps> = ({ groupI
   const {
     crewGroups,
     crew,
+    assuranceSets,
+    users,
     activePersona,
+    activeDemoOrganization,
     setCurrentHashView,
     updateCrewGroup,
     addMemberToCrewGroup,
     removeMemberFromCrewGroup,
   } = useMapStore();
+  const sessionUser = useSessionUser();
+  const viewerOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
 
   const [activeTab, setActiveTab] = useState<'details' | 'roster'>('details');
   const [selectedMemberToAdd, setSelectedMemberToAdd] = useState<string>('');
@@ -74,8 +83,32 @@ export const CrewGroupDetailView: React.FC<CrewGroupDetailViewProps> = ({ groupI
     );
   }
 
-  // Permission: Crew Provider (Administrator or Submitter persona)
-  const isCrewProvider = activePersona === 'Administrator' || activePersona === 'Submitter';
+  const isOwnedGroup = Boolean(
+    sessionUser &&
+      viewerOrg &&
+      (!group.organization || orgFieldMatches(viewerOrg, group.organization)),
+  );
+  const hasAssignedGroupSet = Boolean(
+    sessionUser &&
+      assuranceSets.some(
+        (set) =>
+          set.crewGroups?.some((cg) => cg.groupId === group.id) &&
+          isAssuranceSetAssignedToPersona(
+            set,
+            activePersona,
+            activeDemoOrganization,
+            sessionUser,
+            users,
+          ),
+      ),
+  );
+  if (!sessionUser || (!isOwnedGroup && !hasAssignedGroupSet)) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('crew')} />;
+  }
+
+  // Permission: Crew Provider (owning Administrator or Submitter persona)
+  const isCrewProvider =
+    isOwnedGroup && (activePersona === 'Administrator' || activePersona === 'Submitter');
 
   // Roster members resolved from crew state
   const rosterMembers = group.memberIds
@@ -83,21 +116,25 @@ export const CrewGroupDetailView: React.FC<CrewGroupDetailViewProps> = ({ groupI
     .filter((c): c is NonNullable<typeof c> => Boolean(c));
 
   // Available crew members eligible to be added
-  const availableCrew = crew.filter((c) => !group.memberIds.includes(c.id));
+  const availableCrew = crew.filter(
+    (c) => !group.memberIds.includes(c.id) && isCrewOwnedByOrganization(c, viewerOrg),
+  );
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMemberToAdd) return;
+    if (!isCrewProvider || !selectedMemberToAdd) return;
     addMemberToCrewGroup(group.id, selectedMemberToAdd);
     setSelectedMemberToAdd('');
   };
 
   const handleRemoveMember = (memberId: string) => {
+    if (!isCrewProvider) return;
     removeMemberFromCrewGroup(group.id, memberId);
   };
 
   const handleSaveDetails = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isCrewProvider) return;
     const specs = editSpecializationsText
       .split(',')
       .map((s) => s.trim())

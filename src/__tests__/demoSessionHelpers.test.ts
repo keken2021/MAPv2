@@ -9,6 +9,7 @@ import {
   getPersonasForOrganization,
   getPersonaOptionsForOrganization,
   pickSessionUserForOrgPersona,
+  hasOtherMembership,
   resolveDefaultPersonaForOrganization,
 } from '../utils/demoSessionHelpers';
 
@@ -81,7 +82,8 @@ describe('demoSessionHelpers', () => {
       'Gulf Security Services Pty Ltd',
       'Submitter',
     );
-    expect(user?.id).toBe('USR-220');
+    /* USR-220 was also F. Abernathy's id; D. Rahimi has her own id now */
+    expect(user?.id).toBe('USR-249');
     expect(user?.name).toBe('D. Rahimi');
   });
 
@@ -97,21 +99,35 @@ describe('demoSessionHelpers', () => {
     );
   });
 
-  it('resolves Northwind Verifier to S. Girard differing from Submitter M. Chen', () => {
-    const submitter = pickSessionUserForOrgPersona(
-      MOCK_USERS,
-      'Northwind Marine Pty Ltd',
-      'Submitter',
-    );
-    const verifier = pickSessionUserForOrgPersona(
-      MOCK_USERS,
-      'Northwind Marine Pty Ltd',
-      'Verifier',
-    );
+  /* ADR 0037: no special case for S. Girard; M. Chen holds Verifier in Northwind himself */
+  it('resolves Northwind Submitter and Verifier to M. Chen, a Northwind record', () => {
+    const submitter = pickSessionUserForOrgPersona(MOCK_USERS, 'Northwind Marine Pty Ltd', 'Submitter');
+    const verifier = pickSessionUserForOrgPersona(MOCK_USERS, 'Northwind Marine Pty Ltd', 'Verifier');
     expect(submitter?.id).toBe('USR-102');
-    expect(submitter?.name).toBe('M. Chen');
-    expect(verifier?.id).toBe('USR-244');
-    expect(verifier?.name).toBe('S. Girard');
-    expect(verifier?.id).not.toBe(submitter?.id);
+    expect(verifier?.id).toBe('USR-102');
+    expect(verifier?.organization).toBe('Northwind Marine Pty Ltd');
+  });
+
+  it('prefers the person in two organizations: S. Girard for Bureau Veritas Verifier and Northwind Inspector', () => {
+    const bvVerifier = pickSessionUserForOrgPersona(MOCK_USERS, 'Bureau Veritas Inspectorate', 'Verifier');
+    const nwInspector = pickSessionUserForOrgPersona(MOCK_USERS, 'Northwind Marine Pty Ltd', 'Inspector');
+    expect(bvVerifier?.id).toBe('USR-244');
+    expect(nwInspector?.id).toBe('USR-250');
+    expect(nwInspector?.personId).toBe(bvVerifier?.personId);
+    expect(getPersonasForOrganization(MOCK_USERS, 'Northwind Marine Pty Ltd')).toContain('Inspector');
+  });
+
+  it("keeps the same person when a personId is given and they have a record in the organization", () => {
+    const user = pickSessionUserForOrgPersona(MOCK_USERS, 'Bureau Veritas Inspectorate', 'Verifier', 'PER-S-GIRARD');
+    expect(user?.id).toBe('USR-244');
+    const other = pickSessionUserForOrgPersona(MOCK_USERS, 'Gulf Security Services Pty Ltd', 'Submitter', 'PER-S-GIRARD');
+    expect(other?.name).toBe('D. Rahimi');
+  });
+
+  it('reports a second membership only for a linked record in another organization', () => {
+    const girard = MOCK_USERS.find((u) => u.id === 'USR-244')!;
+    const chen = MOCK_USERS.find((u) => u.id === 'USR-102')!;
+    expect(hasOtherMembership(MOCK_USERS, girard)).toBe(true);
+    expect(hasOtherMembership(MOCK_USERS, chen)).toBe(false);
   });
 });

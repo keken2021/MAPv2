@@ -114,10 +114,12 @@ describe('ApproverDashboardView UI Declutter', () => {
   ];
 
   beforeEach(() => {
+    useMapStore.setState(initialStore, true);
     useMapStore.setState({
       activePersona: 'Approver',
       isAuthenticated: true,
-      activeDemoOrganization: '',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
       currentEntityId: undefined,
       assuranceSets: mockAssuranceSets,
       vessels: [

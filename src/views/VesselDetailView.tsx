@@ -13,15 +13,22 @@ import {
   VesselRegistrationStatus,
 } from '../types/vessel';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { formatMaritimeDate, getDaysUntilExpiry } from '../utils/formatters';
+import { getRoleDisplayLabel } from '../utils/userRoleHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
 import {
-  getDemoSessionContext,
-  getRoleDisplayLabel,
-  getSessionUserForPersona,
-  pickSessionUserForOrgPersona,
-} from '../utils/userRoleHelpers';
-import { filterCAdminAvailableToCharter, filterVesselAdminAvailableToCharter, filterVesselsForPersona, getBackButtonInfo, getClientAdminOrganization, isVesselOwnedByClientOrg } from '../utils/rbacHelpers';
+  canSessionUserAccessCapa,
+  filterCAdminAvailableToCharter,
+  filterVesselAdminAvailableToCharter,
+  filterVesselsForPersona,
+  getAssuranceSetRoleActions,
+  getBackButtonInfo,
+  getClientAdminOrganization,
+  isAssuranceSetAssignedToPersona,
+  isVesselOwnedByClientOrg,
+} from '../utils/rbacHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { calculateVesselReadiness, isVesselAssuranceApproved, isVesselStatusPermitted } from '../utils/readinessHelpers';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
@@ -104,18 +111,40 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     vesselStatusHistory,
   } = useMapStore();
 
-  const isAccessible =
-    activePersona === 'Administrator' ||
-    filterVesselsForPersona(vessels, assuranceSets, activePersona).some((v) => v.id === vesselId);
+  const sessionUser = useSessionUser();
+  const viewerOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
+  const rawVessel = vessels.find((v) => v.id === vesselId);
+  const isAccessible = Boolean(
+    sessionUser &&
+      rawVessel &&
+      filterVesselsForPersona(
+        vessels,
+        assuranceSets,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+      ).some((v) => v.id === vesselId),
+  );
 
-  const vessel = isAccessible ? vessels.find((v) => v.id === vesselId) : undefined;
+  const vessel = isAccessible ? rawVessel : undefined;
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'vault' | 'assurance' | 'crew' | 'inspections' | 'history' | 'audit' | 'clients'
   >('overview');
 
-  const linkedCapas = vessel
-    ? capaItems.filter((c) => c.vesselId === vessel.id || c.vesselName.toLowerCase() === vessel.name.toLowerCase())
+  const linkedCapas = vessel && sessionUser
+    ? capaItems.filter(
+        (c) =>
+          (c.vesselId === vessel.id || c.vesselName.toLowerCase() === vessel.name.toLowerCase()) &&
+          canSessionUserAccessCapa(
+            c,
+            assuranceSets,
+            activePersona,
+            activeDemoOrganization,
+            sessionUser,
+            users,
+          ),
+      )
     : [];
 
   const linkedEquipment = useMemo(
@@ -224,16 +253,17 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const isSubmitter = activePersona === 'Submitter';
   const isCAdmin = activePersona === 'C Admin';
   const isOwned =
+    Boolean(sessionUser) &&
     (isAdmin || isSubmitter || isCAdmin) &&
-    Boolean(activeDemoOrganization) &&
-    isVesselOwnedByClientOrg(vessel, activeDemoOrganization);
+    Boolean(viewerOrg) &&
+    isVesselOwnedByClientOrg(vessel, viewerOrg);
   const isReadOnly = (isCAdmin && !isOwned) || activePersona === 'Inspector' || activePersona === 'Verifier' || activePersona === 'Approver';
   const canEditFull = !isReadOnly && isOwned;
   const canEditStatus = canEditFull || (isSubmitter && isOwned);
   const canShowEditButton = canEditFull || canEditStatus;
   /* A6: non-owners cannot upload documents or edit the vessel datasheet */
   const canUploadDocs = isOwned && (isAdmin || isSubmitter);
-  const canExport = isAdmin || isCAdmin || isOwned;
+  const canExport = Boolean(sessionUser) && (isAdmin || isCAdmin || isOwned);
   const canManagePhotos = canEditFull;
   const showManagementSection = isCAdmin && isOwned;
   const showPublicVesselProfile = Boolean(vessel) && !isOwned;
@@ -244,10 +274,10 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   );
   const organizationProfiles = useOrganizationProfileStore((s) => s.profiles);
 
-  const canCreateAssurance = isAdmin || isCAdmin;
+  const canCreateAssurance = Boolean(sessionUser) && (isAdmin || isCAdmin);
   const clientOrg = getClientAdminOrganization(
     users,
-    isCAdmin ? activeDemoOrganization : undefined,
+    isCAdmin ? viewerOrg : undefined,
   );
   const canCreateAssuranceForThisVessel = Boolean(
     vessel &&
@@ -369,26 +399,64 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
     exportToPdf(`${vessel.name} Datasheet`, headers, rows);
   };
 
-  const sessionUser = useMemo(
-    () =>
-      getSessionUserForPersona(
-        activePersona,
-        users,
-        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
-      ) ?? pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona),
-    [activePersona, users, activeDemoOrganization, activeSessionUserId],
-  );
   const currentUserId = sessionUser?.id || activeSessionUserId;
 
-
-  // Linked assurance sets, documents, crew, and audit items for this vessel
-  const linkedSets = vessel ? assuranceSets.filter((s) => s.vesselId === vessel.id) : [];
-  const linkedDocs = vessel ? documents.filter((d) => d.vesselId === vessel.id) : [];
+  // Linked assurance sets, documents, crew, and audit items for this vessel (scoped to the active user)
+  const linkedSets = useMemo(
+    () =>
+      vessel && sessionUser
+        ? assuranceSets.filter(
+            (s) =>
+              (s.vesselId === vessel.id ||
+                (vessel.name && s.vesselName?.toLowerCase() === vessel.name.toLowerCase())) &&
+              isAssuranceSetAssignedToPersona(
+                s,
+                activePersona,
+                activeDemoOrganization,
+                sessionUser,
+                users,
+              ),
+          )
+        : [],
+    [vessel, sessionUser, assuranceSets, activePersona, activeDemoOrganization, users],
+  );
+  const linkedDocs = useMemo(() => {
+    if (!vessel || !sessionUser) return [];
+    const docIdsOnAnySet = new Set<string>();
+    assuranceSets.forEach((s) => {
+      s.requirements?.forEach((r) => {
+        if (r.documentId) docIdsOnAnySet.add(r.documentId);
+        if (r.linkedDocumentId) docIdsOnAnySet.add(r.linkedDocumentId);
+      });
+    });
+    const docIdsOnAccessibleSets = new Set<string>();
+    linkedSets.forEach((s) => {
+      s.requirements?.forEach((r) => {
+        if (r.documentId) docIdsOnAccessibleSets.add(r.documentId);
+        if (r.linkedDocumentId) docIdsOnAccessibleSets.add(r.linkedDocumentId);
+      });
+    });
+    return documents.filter((d) => {
+      if (docIdsOnAccessibleSets.has(d.id)) {
+        return (
+          d.vesselId === vessel.id ||
+          (d.targetObjectType === 'vessel' && d.targetObjectId === vessel.id) ||
+          (vessel.name && d.vesselAttributes?.vesselName?.toLowerCase() === vessel.name.toLowerCase()) ||
+          true
+        );
+      }
+      if (d.targetObjectType && (d.targetObjectType !== 'vessel' || d.targetObjectId !== vessel.id)) {
+        return false;
+      }
+      if (d.vesselId !== vessel.id && !(d.targetObjectType === 'vessel' && d.targetObjectId === vessel.id)) return false;
+      return isOwned && !docIdsOnAnySet.has(d.id);
+    });
+  }, [vessel, sessionUser, documents, assuranceSets, linkedSets, isOwned]);
   const objectVerification = vessel
-    ? deriveObjectVerification(vessel.id, assuranceSets, activeDemoOrganization)
+    ? deriveObjectVerification(vessel.id, assuranceSets, viewerOrg)
     : null;
-  const visibleObjectDocuments = vessel
-    ? filterDocumentsVisibleToOrganization(linkedDocs, assuranceSets, activeDemoOrganization)
+  const visibleObjectDocuments = vessel && sessionUser
+    ? filterDocumentsVisibleToOrganization(linkedDocs, linkedSets, viewerOrg)
     : [];
 
   const handleCreateAssuranceForVessel = (templateSetId?: string) => {
@@ -709,9 +777,22 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const inspectionPagination = usePagination(filteredInspections, [inspectionSearch, inspectionStatusFilter, inspectionSortField, inspectionSortDirection]);
   const modalChecklistPagination = usePagination(sortedModalChecklists, [selectedInspectionForDetail?.id, modalChecklistSortField, modalChecklistSortDirection]);
   const modalCapaPagination = usePagination(sortedModalCapas, [selectedInspectionForDetail?.id, modalCapaSortField, modalCapaSortDirection]);
-  /* vessels owned or managed by the company opened in the fleet modal */
+  /* vessels owned or managed by the company opened in the fleet modal (scoped to visible fleet) */
+  const visibleFleetVessels = useMemo(
+    () =>
+      sessionUser
+        ? filterVesselsForPersona(
+            vessels,
+            assuranceSets,
+            activePersona,
+            activeDemoOrganization,
+            sessionUser,
+          )
+        : [],
+    [vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser],
+  );
   const companyFleetVessels = selectedCompanyForFleetModal
-    ? vessels.filter(
+    ? visibleFleetVessels.filter(
         (v) =>
           v.registeredOwner.toLowerCase().includes(selectedCompanyForFleetModal.toLowerCase()) ||
           (v.technicalManager && v.technicalManager.toLowerCase().includes(selectedCompanyForFleetModal.toLowerCase())) ||
@@ -721,16 +802,7 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
   const companyFleetPagination = usePagination(companyFleetVessels, [selectedCompanyForFleetModal]);
 
   if (!vessel || !isAccessible) {
-    return (
-      <div className="container-fluid px-4 py-5 text-center">
-        <div className="card map-card-custom p-5 mx-auto" style={{ maxWidth: '520px' }}>
-          <h4 className="fw-bold text-dark mb-2">No Access</h4>
-          <p className="text-secondary small mb-0">
-            You cannot view this vessel. Providers can only view vessels their organization owns or manages.
-          </p>
-        </div>
-      </div>
-    );
+    return <AccessDeniedState onBack={() => setCurrentHashView('vessels')} />;
   }
 
   if (!formData) {
@@ -1841,7 +1913,17 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
 
                 </div>
 
-                {activePersona !== 'C Admin' && (
+                {activePersona === 'Inspector' &&
+                  Boolean(sessionUser) &&
+                  linkedSets.some((s) =>
+                    Boolean(s.mandatoryInspectionRequired) &&
+                    getAssuranceSetRoleActions(
+                      s,
+                      activePersona,
+                      activeDemoOrganization,
+                      sessionUser,
+                    ).canInspect,
+                  ) && (
                   <div className="d-flex align-items-center gap-2 ms-auto">
                     <button
                       type="button"
@@ -2314,7 +2396,10 @@ export const VesselDetailView: React.FC<VesselDetailViewProps> = ({ vesselId }) 
         <DocumentUploadModal
           isOpen={isUploadModalOpen}
           onClose={() => setIsUploadModalOpen(false)}
+          defaultObjectType="vessel"
+          defaultObjectId={vessel.id}
           defaultVesselId={vessel.id}
+          allowVersionModeSwitch={true}
           modalTitle="Upload Preassurance Document"
           onUploadComplete={() => {
             setIsUploadModalOpen(false);

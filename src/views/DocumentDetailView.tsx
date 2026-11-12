@@ -11,10 +11,15 @@ import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { DocumentVersion, MasterDocument } from '../types/document';
 import { documentExpiresBeforeContractEnd, getDocumentReuploadBlockReason } from '../utils/documentRenewalHelpers';
 import { canEditOwnedEvidence, EVIDENCE_NOT_OWNED_EDIT } from '../utils/documentOwnershipHelpers';
+import { getAssuranceSetRoleActions, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { isClosedAssuranceSet } from '../utils/documentVersionSnapshot';
+import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { VERIFICATION_SCOPE_STATEMENT } from '../utils/verificationPolicy';
 import { maskRestrictedValue } from '../utils/restrictedData';
 import { usePagination } from '../utils/usePagination';
 import { TablePagination } from '../components/common/TablePagination';
+import { resolveDocumentTargetObject, getObjectTypeLabel } from '../utils/documentObjectHelpers';
 
 interface DocumentDetailViewProps {
   documentId: string;
@@ -25,10 +30,14 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
     documents,
     assuranceSets,
     vessels,
+    crew,
+    equipment,
+    assuranceObjects,
     users,
     setCurrentHashView,
     activePersona,
     activeDemoOrganization,
+    activeSessionUserId,
     notifications,
   } = useMapStore();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -42,16 +51,56 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
     return () => clearTimeout(timer);
   }, [documentId]);
 
-  const doc = documents.find((d) => d.id === documentId) || documents[0];
+  const doc = documents.find((d) => d.id === documentId);
+  const sessionUser = getSessionUserForPersona(
+    activePersona,
+    users,
+    getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+  );
+  const linkedSets = useMemo(
+    () =>
+      doc
+        ? assuranceSets.filter((set) =>
+            set.requirements.some((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id),
+          )
+        : [],
+    [doc, assuranceSets],
+  );
+  const accessibleLinkedSets = useMemo(
+    () =>
+      linkedSets.filter((set) =>
+        isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser, users),
+      ),
+    [linkedSets, activePersona, activeDemoOrganization, sessionUser, users],
+  );
   const ownsEvidence = doc
-    ? canEditOwnedEvidence(doc, activeDemoOrganization, {
+    ? canEditOwnedEvidence(doc, activeDemoOrganization || sessionUser?.organization, {
         persona: activePersona,
         vessels,
+        crew,
+        equipment,
+        assuranceObjects,
         users,
       })
     : false;
+  const canAccessDoc = Boolean(
+    doc &&
+      sessionUser &&
+      (linkedSets.length > 0
+        ? accessibleLinkedSets.length > 0
+        : (activePersona === 'Submitter' || activePersona === 'Administrator') && ownsEvidence),
+  );
+  const hasOpenLinkedSetUploadRights =
+    linkedSets.length === 0 ||
+    accessibleLinkedSets.some((set) => {
+      if (isClosedAssuranceSet(set) || set.stage === 'Cancelled') return false;
+      return getAssuranceSetRoleActions(set, activePersona, activeDemoOrganization, sessionUser).canUpload;
+    });
   const canUpload =
-    (activePersona === 'Submitter' || activePersona === 'Administrator') && ownsEvidence;
+    canAccessDoc &&
+    (activePersona === 'Submitter' || activePersona === 'Administrator') &&
+    ownsEvidence &&
+    hasOpenLinkedSetUploadRights;
   const ownershipBlockReason = ownsEvidence ? undefined : EVIDENCE_NOT_OWNED_EDIT;
 
   type VersionSortField = 'versionLabel' | 'fileName' | 'uploadedAt' | 'uploadedBy' | 'fileSizeBytes' | 'changeSummary';
@@ -94,24 +143,17 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
 
   const versionsPagination = usePagination(sortedVersions, [versionSortField, versionSortDirection]);
 
-  if (!doc) return <div>Document not found.</div>;
-
-  /* Library detail has no set context; use a linked set whose contract outruns this certificate */
-  const linkedCharterWindowEnd = assuranceSets
-    .filter((set) =>
-      set.requirements.some((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id),
-    )
-    .map((set) => set.charterWindowEnd)
-    .find((end) => end && documentExpiresBeforeContractEnd(doc, end));
-
-  /* unlock when expired, short of a linked contract, returned by a reviewer, or a renewal notice is open */
-  const renewalBlockReason = getDocumentReuploadBlockReason(
-    doc,
-    notifications,
-    new Date(),
-    linkedCharterWindowEnd,
+  const targetObject = useMemo(
+    () =>
+      resolveDocumentTargetObject(doc, {
+        vessels,
+        crew,
+        equipment,
+        assuranceObjects,
+        assuranceSets,
+      }),
+    [doc, vessels, crew, equipment, assuranceObjects, assuranceSets],
   );
-  const reuploadBlockReason = ownershipBlockReason || renewalBlockReason;
 
   const activeModalDoc: MasterDocument = useMemo(() => {
     if (!doc) return {} as MasterDocument;
@@ -125,6 +167,36 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
       ],
     };
   }, [doc, selectedVersionForModal]);
+
+  if (!doc) return <div>Document not found.</div>;
+  if (!canAccessDoc) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('dashboard')} />;
+  }
+
+  /* Library detail has no set context; use a linked set whose contract outruns this certificate */
+  const linkedCharterWindowEnd = accessibleLinkedSets
+    .map((set) => set.charterWindowEnd)
+    .find((end) => end && documentExpiresBeforeContractEnd(doc, end));
+
+  const linkedReqVerifierStatus = accessibleLinkedSets
+    .flatMap((set) =>
+      set.requirements.filter((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id),
+    )
+    .find(
+      (r) =>
+        r.verifierStatus === 'Correction Requested' || r.verifierStatus === 'Rejected',
+    )?.verifierStatus;
+
+  /* unlock when expired, short of a linked contract, returned by a reviewer, or a renewal notice is open (or unlinked vault doc under Option A) */
+  const renewalBlockReason = getDocumentReuploadBlockReason(
+    doc,
+    notifications,
+    new Date(),
+    linkedCharterWindowEnd,
+    linkedReqVerifierStatus,
+    linkedSets.length === 0,
+  );
+  const reuploadBlockReason = ownershipBlockReason || renewalBlockReason;
 
   const handleExportCsv = () => {
     const metaRows: Record<string, string>[] = [
@@ -305,6 +377,32 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
               </div>
             </div>
           )}
+
+          {!doc.vesselAttributes && !doc.crewAttributes && (
+            <div className="row g-3 small">
+              <div className="col-md-4">
+                <span className="text-secondary">Certificate No.:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.certificateNo}</strong></div>
+              </div>
+              <div className="col-md-4">
+                <span className="text-secondary">Type:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.entityType}</strong></div>
+              </div>
+              <div className="col-md-4">
+                <span className="text-secondary">Referenced Object:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{targetObject ? `${getObjectTypeLabel(targetObject.type)}: ${targetObject.name}` : '—'}</strong></div>
+              </div>
+              <div className="col-md-4">
+                <span className="text-secondary">Issuing Authority:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.issuingAuthority}</strong></div>
+              </div>
+              <div className="col-md-4">
+                <span className="text-secondary">Issue Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.issueDate || doc.uploadedAt)}</strong></div>
+              </div>
+              <div className="col-md-4">
+                <span className="text-secondary">Expiry Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.expiryDate)}</strong></div>
+              </div>
+              <div className="col-md-4">
+                <span className="text-secondary">OCR Confidence:</span> <div><ConfidenceBadge score={doc.ocrConfidence} /></div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -427,6 +525,8 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         existingDocument={doc}
+        charterWindowEnd={linkedCharterWindowEnd}
+        allowVersionModeSwitch={true}
       />
     </div>
   );

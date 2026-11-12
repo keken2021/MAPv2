@@ -5,6 +5,8 @@ import { AssuranceDetailView } from '../views/AssuranceDetailView';
 import { useMapStore } from '../store/useMapStore';
 import type { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 
+const initialState = useMapStore.getState();
+
 describe('Task 5379: Back to tasks link after opening a requirement', () => {
   const testSetId = 'AS-TASK-5379';
 
@@ -21,7 +23,7 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
       verifierStatus: 'Verified',
       documentId: 'DOC-5379',
       targetDate: '2026-11-20',
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
     };
 
     const testSet: AssuranceSet = {
@@ -30,12 +32,12 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
       vesselName: 'Pacific Supporter',
       vesselId: 'VES-5379',
       imoNumber: '9123456',
-      initiatorOrg: 'Chevron Australia',
+      initiatorOrg: 'Chevron Australia Pty Ltd',
       initiatorRole: 'Client Admin',
-      clientOrg: 'Chevron Australia',
-      requestingParty: 'Chevron Australia',
-      serviceProviderOrg: 'Northwind Marine',
-      respondingParty: 'Northwind Marine',
+      clientOrg: 'Chevron Australia Pty Ltd',
+      requestingParty: 'Chevron Australia Pty Ltd',
+      serviceProviderOrg: 'Northwind Marine Pty Ltd',
+      respondingParty: 'Northwind Marine Pty Ltd',
       charterWindowStart: '2026-01-01',
       charterWindowEnd: '2026-12-31',
       complianceDeadline: '2026-11-30',
@@ -46,11 +48,17 @@ describe('Task 5379: Back to tasks link after opening a requirement', () => {
       inspectionCompleted: false,
     };
 
-    useMapStore.setState({
-      assuranceSets: [testSet],
-      activePersona: 'Submitter',
-      activeDemoOrganization: 'Northwind Marine',
-    });
+    useMapStore.setState(
+      {
+        ...initialState,
+        assuranceSets: [testSet],
+        isAuthenticated: true,
+        activePersona: 'Submitter',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-102',
+      },
+      true,
+    );
   });
 
   it('shows Back to tasks link after opening a requirement from the Tasks tab, returns to Tasks on click, and clears itself', () => {

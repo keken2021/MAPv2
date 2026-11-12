@@ -10,14 +10,24 @@ import { AuditTrailEvent, UserRolePersona } from "../types/audit";
 import { MasterDocument } from "../types/document";
 import { VesselInformation } from "../types/vessel";
 import { EquipmentAsset } from "../types/equipment";
-import { setSubmitters, userMatchesAnyRole } from "./userRoleHelpers";
+import { PENDING_ASSIGNMENT, setSubmitters, userMatchesAnyRole } from "./userRoleHelpers";
 import { isDatePermissionActive } from "./validation";
 import { getAssuranceSetObjects } from "./assuranceTemplates";
 import { VIEW_TO_SCOPE, canPerform, isUserOverride, getEffectiveUserScopeFlags, getRoleScopeFlags } from "./permissionHelpers";
 import { RolePermissionMatrix, UserPermissionOverrides } from "../types/permissions";
 import { UserProfile } from "../types/user";
-import { MOCK_PERSONA_SESSION_USER_IDS } from "../store/mockData";
+import { MOCK_PERSONA_SESSION_USER_IDS, MOCK_USERS } from "../store/mockData";
 import { documentClientOrganizations } from "./documentVersionSnapshot";
+import type { CapaItem } from "../types/capa";
+import { sameOrganization } from "./organizationMatch";
+
+export { sameOrganization };
+
+/** The session fields a role check reads. `status` and `personId` are optional for callers that only know a name. */
+export type RbacSessionUser = Pick<UserProfile, "id" | "name" | "organization" | "roles"> & {
+  status?: UserProfile["status"];
+  personId?: string;
+};
 
 /**
   what: checks if an assurance set is assigned to the specified user persona role.
@@ -30,16 +40,159 @@ function pilotPartyMatches(organization: string, ...fields: Array<string | undef
   return fields.some((field) => Boolean(field) && field!.toLowerCase().includes(org));
 }
 
-/** Matches an assigned stakeholder against a user by name, ignoring case and organization suffix. */
+/** The person fields a role match reads. Organization and personId are optional for callers that only know a name. */
+export type AssigneeCandidate = { id?: string; name?: string; organization?: string; personId?: string };
+
+function isPlaceholderAssignee(value: string): boolean {
+  const lower = value.toLowerCase();
+  return !lower || lower === PENDING_ASSIGNMENT.toLowerCase() || lower === "unassigned";
+}
+
+/**
+ * Matches an assigned stakeholder label against a user (ADR 0037). An id always matches.
+ * A name matches only with the organization the set names: the label's "(Org)" suffix, else `organization`.
+ * A name with no organization matches only a person with one membership (no personId).
+ * A user given without an organization falls back to the name alone.
+ */
 export function assigneeMatchesUser(
   assigned: string | undefined,
-  user?: { name?: string } | null,
+  user?: AssigneeCandidate | null,
+  organization?: string,
 ): boolean {
-  if (!assigned || !user?.name) return false;
-  const userName = user.name.trim().toLowerCase();
-  if (!userName) return false;
-  const namePart = assigned.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
-  return namePart === userName;
+  if (!assigned || !user) return false;
+  const trimmed = assigned.trim();
+  if (isPlaceholderAssignee(trimmed)) return false;
+  if (user.id && trimmed === user.id) return true;
+  const userName = user.name?.trim().toLowerCase();
+  const namePart = trimmed.replace(/\s*\([^)]*\)\s*$/, "").trim().toLowerCase();
+  if (!userName || isPlaceholderAssignee(namePart) || namePart !== userName) return false;
+  if (!user.organization?.trim()) return true;
+  const namedOrganization = trimmed.match(/\(([^)]+)\)\s*$/)?.[1] || organization;
+  if (namedOrganization?.trim()) return sameOrganization(namedOrganization, user.organization);
+  return !user.personId;
+}
+
+type RoleKey = "submitter" | "verifier" | "inspector" | "approver";
+type RoleMapping = Partial<Record<`${RoleKey}Id` | `${RoleKey}Name` | `${RoleKey}Org`, string>> & {
+  assignedSubmitter?: string;
+  assignedVerifier?: string;
+};
+
+function mappingNamesUser(mapping: RoleMapping, role: RoleKey, user: RbacSessionUser): boolean {
+  const id = mapping[`${role}Id`];
+  if (id && user.id && id === user.id) return true;
+  const organization = mapping[`${role}Org`];
+  if (assigneeMatchesUser(mapping[`${role}Name`], user, organization)) return true;
+  const label = role === "submitter" ? mapping.assignedSubmitter : role === "verifier" ? mapping.assignedVerifier : undefined;
+  return assigneeMatchesUser(label, user, organization);
+}
+
+/** Every stakeholder mapping on a set, top level first, then per subtype and per category. */
+function setRoleMappings(set: AssuranceSet): RoleMapping[] {
+  const top = [set.stakeholders, set.assignedStakeholders];
+  const nested = [set.subtypeStakeholders, set.categoryStakeholders].flatMap((map) => Object.values(map ?? {}));
+  return [...top, ...nested].filter((mapping): mapping is RoleMapping => Boolean(mapping));
+}
+
+function isUserSubmitterOnSet(set: AssuranceSet, user?: RbacSessionUser | null): boolean {
+  if (!user) return false;
+  if (assigneeMatchesUser(set.assignedSubmitter, user)) return true;
+  if (
+    user.organization &&
+    set.assignedSubmitter &&
+    !isPlaceholderAssignee(set.assignedSubmitter) &&
+    sameOrganization(set.assignedSubmitter, user.organization)
+  ) {
+    return true;
+  }
+  if (
+    setSubmitters(set).some(
+      (s) =>
+        assigneeMatchesUser(s.assignee, user, s.organization) ||
+        (Boolean(user.organization) &&
+          !isPlaceholderAssignee(s.assignee) &&
+          sameOrganization(s.assignee, user.organization)),
+    )
+  ) {
+    return true;
+  }
+  if (setRoleMappings(set).some((mapping) => mappingNamesUser(mapping, "submitter", user))) return true;
+
+  return (set.requirements ?? []).some(
+    (req) =>
+      (Boolean(req.submitterId) && Boolean(user.id) && req.submitterId === user.id) ||
+      assigneeMatchesUser(req.assignedSubmitter, user) ||
+      (Boolean(user.organization) && (
+        (Boolean(req.assignedSubmitter) &&
+          !isPlaceholderAssignee(req.assignedSubmitter!) &&
+          sameOrganization(req.assignedSubmitter, user.organization)) ||
+        (Boolean(req.responsibleParty) &&
+          !isPlaceholderAssignee(req.responsibleParty!) &&
+          sameOrganization(req.responsibleParty, user.organization)) ||
+        Boolean(
+          req.responsibleParties?.some(
+            (party) =>
+              !isPlaceholderAssignee(party) && sameOrganization(party, user.organization),
+          ),
+        )
+      )),
+  );
+}
+
+function isUserVerifierOnSet(set: AssuranceSet, user?: RbacSessionUser | null): boolean {
+  if (!user) return false;
+  if (assigneeMatchesUser(set.assignedVerifier, user)) return true;
+  if (setRoleMappings(set).some((mapping) => mappingNamesUser(mapping, "verifier", user))) return true;
+  return (set.requirements ?? []).some(
+    (req) =>
+      (Boolean(req.verifierId) && Boolean(user.id) && req.verifierId === user.id) ||
+      assigneeMatchesUser(req.assignedVerifier, user),
+  );
+}
+
+function isUserInspectorOnSet(set: AssuranceSet, user?: RbacSessionUser | null): boolean {
+  if (!user) return false;
+  if (assigneeMatchesUser(set.assignedInspector, user)) return true;
+  return [set.stakeholders, set.assignedStakeholders].some(
+    (mapping) => Boolean(mapping) && mappingNamesUser(mapping as RoleMapping, "inspector", user),
+  );
+}
+
+function isUserApproverOnSet(set: AssuranceSet, user?: RbacSessionUser | null): boolean {
+  if (!user) return false;
+  if (assigneeMatchesUser(set.assignedApprover, user)) return true;
+  return [set.stakeholders, set.assignedStakeholders].some(
+    (mapping) => Boolean(mapping) && mappingNamesUser(mapping as RoleMapping, "approver", user),
+  );
+}
+
+export function isUserAssuranceSetCreator(
+  set: Pick<AssuranceSet, "createdByUserId" | "createdByName" | "createdByPersona" | "initiatorRole" | "initiatorOrg">,
+  user?: RbacSessionUser | null,
+  users: (Pick<UserProfile, "name" | "roles" | "organization"> & { id?: string; status?: UserProfile["status"] })[] = MOCK_USERS,
+): boolean {
+  if (!user || (!user.id && !user.name?.trim())) return false;
+  if (set.createdByUserId) {
+    return Boolean(user.id && set.createdByUserId === user.id);
+  }
+  if (set.createdByName) {
+    const orgMatches =
+      !set.initiatorOrg ||
+      !user.organization ||
+      orgFieldMatches(set.initiatorOrg, user.organization);
+    return orgMatches && assigneeMatchesUser(set.createdByName, user);
+  }
+  const resolvedCreator = getAssuranceSetCreator(set, users);
+  if (!resolvedCreator.name) return false;
+  const orgMatches =
+    !resolvedCreator.organization ||
+    !user.organization ||
+    orgFieldMatches(resolvedCreator.organization, user.organization);
+  return (
+    orgMatches &&
+    Boolean(user.name) &&
+    resolvedCreator.name.trim().toLowerCase() === user.name.trim().toLowerCase()
+  );
 }
 
 /** Routes hidden from the sidebar because the role dashboard already is that screen. */
@@ -57,92 +210,41 @@ export function isAssuranceSetAssignedToPersona(
   set: AssuranceSet,
   persona: UserRolePersona,
   organization?: string,
-  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
+  user?: RbacSessionUser | null,
+  users: (Pick<UserProfile, "name" | "roles" | "organization"> & { id?: string; status?: UserProfile["status"] })[] = MOCK_USERS,
 ): boolean {
+  if (!user || (!user.id && !user.name?.trim())) {
+    return false;
+  }
+  if (user.status && user.status !== "Active") {
+    return false;
+  }
+  if (user.roles?.length && !user.roles.includes(persona)) {
+    return false;
+  }
+
+  const trimmedOrg = organization?.trim();
+  if (trimmedOrg && user.organization?.trim() && !orgFieldMatches(trimmedOrg, user.organization)) {
+    return false;
+  }
+
   if (persona === "Administrator") {
-    if (organization) {
-      const orgMatches = pilotPartyMatches(
-        organization,
-        set.serviceProviderOrg,
-        set.initiatorOrg,
-        set.assignedSubmitter,
-        set.stakeholders?.submitterOrg,
-        set.assignedStakeholders?.submitterOrg,
-        ...setSubmitters(set).map((submitter) => submitter.organization),
-      );
-      const isOwnerVessel =
-        (organization.toLowerCase().includes("northwind") || organization.toLowerCase().includes("pacific")) &&
-        (set.vesselId === "VESSEL-005" || Boolean(set.vesselName?.toLowerCase().includes("atlantic ocean")));
-      const isMadeByThisOrgAdmin =
-        set.createdByPersona === "Administrator" &&
-        pilotPartyMatches(organization, set.initiatorOrg, set.serviceProviderOrg);
-      return orgMatches || isOwnerVessel || isMadeByThisOrgAdmin;
-    }
-    /* administrator only sees assurance sets they made (northwind marine) or made by c admin for the admin's vessels (VESSEL-005 MV Atlantic Ocean) */
-    const isNorthwindVessel =
-      set.vesselId === "VESSEL-005" ||
-      Boolean(set.vesselName?.toLowerCase().includes("atlantic ocean"));
-
-    const isNorthwindStakeholder =
-      Boolean(set.initiatorOrg?.toLowerCase().includes("northwind")) ||
-      Boolean(set.assignedSubmitter?.toLowerCase().includes("northwind")) ||
-      Boolean(set.stakeholders?.submitterOrg?.toLowerCase().includes("northwind")) ||
-      Boolean(set.assignedStakeholders?.submitterOrg?.toLowerCase().includes("northwind")) ||
-      Boolean(set.assignedStakeholders?.verifierOrg?.toLowerCase().includes("northwind")) ||
-      Boolean(set.assignedStakeholders?.inspectorOrg?.toLowerCase().includes("northwind")) ||
-      Boolean(set.assignedStakeholders?.approverOrg?.toLowerCase().includes("northwind"));
-
-    const isMadeByAdmin =
-      Boolean(set.createdByPersona === "Administrator") ||
-      Boolean(set.initiatorRole?.toLowerCase().includes("northwind"));
-
-    return isNorthwindVessel || isNorthwindStakeholder || isMadeByAdmin;
+    return isUserAssuranceSetCreator(set, user, users) || isUserSubmitterOnSet(set, user);
   }
+
   if (persona === "Submitter") {
-    if (user) {
-      return setSubmitters(set).some((submitter) => assigneeMatchesUser(submitter.assignee, user));
-    }
-    /* submitter / vessel admin can only access assurance sets for their own organization */
-    const isAssignedToOrg = Boolean(
-      (set.assignedSubmitter &&
-        (set.assignedSubmitter.includes("M. Chen") ||
-          set.assignedSubmitter.includes("E. Ramirez") ||
-          set.assignedSubmitter.includes("Pacific Ocean") ||
-          set.assignedSubmitter.includes("Northwind Marine"))) ||
-      (set.initiatorOrg &&
-        (set.initiatorOrg.includes("Pacific Ocean") ||
-          set.initiatorOrg.includes("Northwind Marine")))
-    );
+    return isUserSubmitterOnSet(set, user);
+  }
 
-    if (organization) {
-      return pilotPartyMatches(
-        organization,
-        set.assignedSubmitter,
-        set.serviceProviderOrg,
-        set.stakeholders?.submitterOrg,
-        ...setSubmitters(set).map((submitter) => submitter.organization),
-      );
-    }
-    return isAssignedToOrg;
-  }
   if (persona === "Verifier") {
-    if (user) {
-      return assigneeMatchesUser(set.assignedVerifier, user);
-    }
-    if (organization) {
-      return pilotPartyMatches(organization, set.assignedVerifier, set.stakeholders?.verifierOrg);
-    }
-    return Boolean(set.assignedVerifier);
+    return isUserVerifierOnSet(set, user);
   }
+
   if (persona === "Inspector") {
-    const assigned = Boolean(set.mandatoryInspectionRequired && set.assignedInspector);
-    if (!assigned) return false;
-    if (user) {
-      return assigneeMatchesUser(set.assignedInspector, user);
-    }
-    if (!organization) return assigned;
-    return assigned && pilotPartyMatches(organization, set.assignedInspector, set.stakeholders?.inspectorOrg);
+    if (!set.mandatoryInspectionRequired) return false;
+    return isUserInspectorOnSet(set, user);
   }
+
   if (persona === "Approver") {
     /* approver persona can only see assurance sets that are already verified and awaiting approval or certified */
     const isVerifiedAndAwaitingApproval =
@@ -153,36 +255,209 @@ export function isAssuranceSetAssignedToPersona(
         set.requirements.every(
           (r) => !r.isMandatory || r.verifierStatus === "Verified" || r.isFulfilled,
         ));
-    const awaiting = Boolean(set.assignedApprover && isVerifiedAndAwaitingApproval);
-    if (!awaiting) return false;
+    if (!isVerifiedAndAwaitingApproval) return false;
+    return isUserApproverOnSet(set, user);
+  }
+
+  if (persona === "C Admin") {
+    return (
+      isUserAssuranceSetCreator(set, user, users) ||
+      isUserSubmitterOnSet(set, user) ||
+      isUserVerifierOnSet(set, user) ||
+      isUserInspectorOnSet(set, user) ||
+      isUserApproverOnSet(set, user) ||
+      Boolean(getUserActiveDatePermission(user, set))
+    );
+  }
+
+  return false;
+}
+
+export function canSessionUserAccessCapa(
+  capa: Pick<CapaItem, "assuranceSetId" | "vesselId" | "vesselName"> | null | undefined,
+  assuranceSets: AssuranceSet[],
+  persona: UserRolePersona,
+  organization?: string,
+  user?: RbacSessionUser | null,
+  users: (Pick<UserProfile, "name" | "roles" | "organization"> & { id?: string; status?: UserProfile["status"] })[] = MOCK_USERS,
+): boolean {
+  if (!capa || !user) return false;
+  if (capa.assuranceSetId) {
+    const exactSet = assuranceSets.find((s) => s.id === capa.assuranceSetId);
+    if (!exactSet) return false;
+    if (!isAssuranceSetAssignedToPersona(exactSet, persona, organization, user, users)) {
+      return false;
+    }
+    return persona !== "Inspector" || Boolean(exactSet.mandatoryInspectionRequired);
+  }
+  return assuranceSets.some((s) => {
+    const matchesVessel =
+      (Boolean(capa.vesselId) && s.vesselId === capa.vesselId) ||
+      (Boolean(capa.vesselName) &&
+        Boolean(s.vesselName) &&
+        s.vesselName!.trim().toLowerCase() === capa.vesselName!.trim().toLowerCase());
+    if (!matchesVessel) return false;
+    if (!isAssuranceSetAssignedToPersona(s, persona, organization, user, users)) {
+      return false;
+    }
+    return persona !== "Inspector" || Boolean(s.mandatoryInspectionRequired);
+  });
+}
+
+/**
+  what: checks if a user is an assigned stakeholder on the assurance set for their active persona role.
+  how: checks role-specific assignment fields without restricting by premature stage gates.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx and AssuranceDetailView.tsx.
+*/
+export function isUserStakeholderOnSet(
+  set: AssuranceSet,
+  persona: UserRolePersona,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
+  organization?: string,
+): boolean {
+  if (persona === "C Admin") return true;
+  if (!user && !organization) return false;
+
+  if (persona === "Administrator") {
+    return isAssuranceSetAssignedToPersona(set, persona, organization, user);
+  }
+
+  if (persona === "Submitter") {
+    if (user && setSubmitters(set).some((submitter) => assigneeMatchesUser(submitter.assignee, user))) {
+      return true;
+    }
+    if (organization) {
+      return pilotPartyMatches(
+        organization,
+        set.assignedSubmitter,
+        set.serviceProviderOrg,
+        set.stakeholders?.submitterOrg,
+        ...setSubmitters(set).map((submitter) => submitter.organization),
+      );
+    }
+    return Boolean(set.assignedSubmitter);
+  }
+
+  if (persona === "Verifier") {
+    if (user) {
+      return assigneeMatchesUser(set.assignedVerifier, user);
+    }
+    if (organization) {
+      return pilotPartyMatches(organization, set.assignedVerifier, set.stakeholders?.verifierOrg);
+    }
+    return Boolean(set.assignedVerifier);
+  }
+
+  if (persona === "Inspector") {
+    if (user) {
+      return assigneeMatchesUser(set.assignedInspector, user);
+    }
+    if (organization) {
+      return pilotPartyMatches(organization, set.assignedInspector, set.stakeholders?.inspectorOrg);
+    }
+    return Boolean(set.assignedInspector);
+  }
+
+  if (persona === "Approver") {
     if (user) {
       return assigneeMatchesUser(set.assignedApprover, user);
     }
-    if (!organization) return awaiting;
-    return awaiting && pilotPartyMatches(organization, set.assignedApprover, set.stakeholders?.approverOrg);
+    if (organization) {
+      return pilotPartyMatches(organization, set.assignedApprover, set.stakeholders?.approverOrg);
+    }
+    return Boolean(set.assignedApprover);
   }
-  if (persona === "C Admin") {
-    const legacy =
-      set.initiatorRole === "C Admin · Client Created" ||
-      set.initiatorOrg === "Chevron Australia Pty Ltd" ||
-      set.charterer === "Chevron Australia Pty Ltd" ||
-      set.charterer === "Southern Basin Energy Pty Ltd" ||
-      set.initiatorOrg === "Southern Basin Energy Pty Ltd";
-    if (!organization) return legacy;
-    /* the client admin of a provider or assurance organization is a party too: the pending submitter, verifier, inspector and approver notices go to it and it chooses the person */
-    return pilotPartyMatches(
-      organization,
-      set.clientOrg,
-      set.charterer,
-      set.initiatorOrg,
-      set.serviceProviderOrg,
-      set.stakeholders?.submitterOrg,
-      set.stakeholders?.verifierOrg,
-      set.stakeholders?.inspectorOrg,
-      set.stakeholders?.approverOrg,
+
+  return false;
+}
+
+export type AssuranceWorkflowTab = 'todo' | 'in_progress' | 'completed';
+
+/**
+  what: maps an assurance set to a workflow tab ('todo' | 'in_progress' | 'completed') for workflow roles.
+  how: checks approval/certification status for completed, role-specific open actions for todo, and defaults to in_progress.
+  with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx.
+*/
+export function getAssuranceSetWorkflowTab(
+  set: AssuranceSet,
+  persona: UserRolePersona,
+  user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
+): AssuranceWorkflowTab {
+  if (
+    set.stage === 'Approved' ||
+    set.stage === 'Certified' ||
+    set.approverDecision === 'Approved' ||
+    set.stage === 'Cancelled'
+  ) {
+    return 'completed';
+  }
+
+  if (persona === 'Approver') {
+    const isReadyForApproval =
+      set.stage === 'Approval' ||
+      (set.requirements.length > 0 &&
+        set.requirements.every(
+          (r) => !r.isMandatory || r.verifierStatus === 'Verified' || r.isFulfilled,
+        ));
+    if (isReadyForApproval) {
+      return 'todo';
+    }
+    return 'in_progress';
+  }
+
+  if (persona === 'Verifier') {
+    const hasPendingReview = (set.requirements ?? []).some((r) => {
+      const isAssigned =
+        (Boolean(r.verifierId) && Boolean(user?.id) && r.verifierId === user?.id) ||
+        assigneeMatchesUser(r.assignedVerifier, user) ||
+        assigneeMatchesUser(set.assignedVerifier, user);
+      if (!isAssigned) return false;
+      return (
+        r.isFulfilled &&
+        (r.verifierStatus === 'Pending' ||
+          r.verifierStatus === 'Correction Requested' ||
+          !r.verifierStatus)
+      );
+    });
+    if (hasPendingReview || set.stage === 'Verification') {
+      return 'todo';
+    }
+    return 'in_progress';
+  }
+
+  if (persona === 'Submitter') {
+    const hasActionRequired = (set.requirements ?? []).some((r) => {
+      const isAssigned =
+        (Boolean(r.submitterId) && Boolean(user?.id) && r.submitterId === user?.id) ||
+        assigneeMatchesUser(r.assignedSubmitter, user) ||
+        assigneeMatchesUser(set.assignedSubmitter, user);
+      if (!isAssigned) return false;
+      return !r.isFulfilled || r.verifierStatus === 'Correction Requested' || r.verifierStatus === 'Rejected';
+    });
+    if (hasActionRequired || set.stage === 'Initiated') {
+      return 'todo';
+    }
+    return 'in_progress';
+  }
+
+  if (persona === 'Inspector') {
+    if (!set.inspectionCompleted && (set.mandatoryInspectionRequired || set.stage === 'Inspection')) {
+      return 'todo';
+    }
+    return 'in_progress';
+  }
+
+  if (persona === 'Administrator') {
+    const hasUnfulfilled = (set.requirements ?? []).some(
+      (r) => !r.isFulfilled || r.verifierStatus === 'Correction Requested',
     );
+    if (hasUnfulfilled || set.stage === 'Initiated') {
+      return 'todo';
+    }
+    return 'in_progress';
   }
-  return true;
+
+  return 'in_progress';
 }
 
 /** Filters assurance sets visible in the current session for the persona, organization, and user. */
@@ -191,9 +466,12 @@ export function filterAssuranceSetsForSession(
   persona: UserRolePersona,
   organization?: string,
   user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
+  allUsers?: (Pick<UserProfile, "name" | "roles" | "organization"> & { id?: string; status?: UserProfile["status"] })[],
 ): AssuranceSet[] {
   return sets.filter((set) =>
-    isAssuranceSetAssignedToPersona(set, persona, organization, user),
+    allUsers
+      ? isAssuranceSetAssignedToPersona(set, persona, organization, user, allUsers)
+      : isAssuranceSetAssignedToPersona(set, persona, organization, user),
   );
 }
 
@@ -504,6 +782,15 @@ export function canEditAssuranceSetStakeholders(
   if (isAssuranceSetStakeholderAssignmentLocked(assuranceSet)) {
     return false;
   }
+  if (user && persona === 'Administrator' && 'requirements' in assuranceSet) {
+    const s = assuranceSet as AssuranceSet;
+    const isCreator = Boolean(
+      (s.createdByUserId && user.id && s.createdByUserId === user.id) ||
+      (s.createdByName && user.name && assigneeMatchesUser(s.createdByName, user))
+    );
+    const isSubmitter = setSubmitters(s).some((submitter) => assigneeMatchesUser(submitter.assignee, user));
+    if (!isCreator && !isSubmitter) return false;
+  }
   if (organization && ('requirements' in assuranceSet || 'initiatorOrg' in assuranceSet || 'vesselId' in assuranceSet)) {
     return isAssuranceSetAssignedToPersona(assuranceSet as AssuranceSet, persona, organization, user);
   }
@@ -683,9 +970,11 @@ export function filterEquipmentForPersona(
   vessels: VesselInformation[],
   assuranceSets: AssuranceSet[],
   persona: UserRolePersona,
+  organization?: string,
+  user?: RbacSessionUser | null,
 ): EquipmentAsset[] {
   const visibleVesselIds = new Set(
-    filterVesselsForPersona(vessels, assuranceSets, persona).map((v) => v.id),
+    filterVesselsForPersona(vessels, assuranceSets, persona, organization, user).map((v) => v.id),
   );
   return equipment.filter(
     (item) => !item.parentVesselId || visibleVesselIds.has(item.parentVesselId),
@@ -760,8 +1049,22 @@ export function filterVesselsForPersona(
 export function filterUsersForPersona(
   users: import("../types/user").UserProfile[],
   persona: UserRolePersona,
+  organization?: string,
+  user?: RbacSessionUser | null,
 ): import("../types/user").UserProfile[] {
   if (persona === "Administrator" || persona === "Submitter") {
+    /* the active membership's own organization, when known, replaces the Northwind default (ADR 0037) */
+    const activeOrg = organization?.trim() || user?.organization?.trim();
+    if (activeOrg) {
+      return users.filter(
+        (u) =>
+          sameOrganization(u.organization, activeOrg) ||
+          u.createdBy === "Administrator" ||
+          u.invitedBy === "Administrator" ||
+          u.createdBy === "Vessel Provider Admin" ||
+          u.createdBy === "Submitter"
+      );
+    }
     /* vessel admin sees their own details (and internal organization members) plus users they created or invited */
     return users.filter(
       (u) =>
@@ -800,12 +1103,13 @@ export function filterAuditTrailForUser(
   events: AuditTrailEvent[],
   userId?: string,
   persona?: UserRolePersona,
+  user?: RbacSessionUser | null,
 ): AuditTrailEvent[] {
   if (persona === "Approver") {
     return events;
   }
 
-  const effectiveUserId = userId || (persona ? MOCK_PERSONA_SESSION_USER_IDS[persona] : undefined);
+  const effectiveUserId = user?.id || userId || (persona ? MOCK_PERSONA_SESSION_USER_IDS[persona] : undefined);
   if (!effectiveUserId && !persona) return [];
 
   return events.filter((ev) => {
@@ -830,8 +1134,9 @@ export function filterAuditTrailForPersona(
   assuranceSets?: AssuranceSet[],
   vessels?: VesselInformation[],
   userId?: string,
+  user?: RbacSessionUser | null,
 ): AuditTrailEvent[] {
-  return filterAuditTrailForUser(events, userId, persona);
+  return filterAuditTrailForUser(events, userId, persona, user);
 }
 
 /**
@@ -1318,13 +1623,36 @@ export function matchesVesselSearch(
 }
 
 /**
+ * The active user record that created a set: by `createdByUserId`, else by name and the creator's
+ * organization (ADR 0037). Without an organization, only a person with one membership is found.
+ */
+export function findAssuranceSetCreatorUser(
+  set: Pick<AssuranceSet, 'createdByUserId' | 'createdByName' | 'createdByPersona' | 'initiatorRole' | 'initiatorOrg'>,
+  users: UserProfile[],
+): UserProfile | undefined {
+  const active = users.filter((u) => u.status === 'Active');
+  if (set.createdByUserId) {
+    const byId = active.find((u) => u.id === set.createdByUserId);
+    if (byId) return byId;
+  }
+  const creator = getAssuranceSetCreator(set, users);
+  const name = creator.name?.trim().toLowerCase();
+  if (!name) return undefined;
+  return active.find(
+    (u) =>
+      u.name.trim().toLowerCase() === name &&
+      (creator.organization ? sameOrganization(u.organization, creator.organization) : !u.personId),
+  );
+}
+
+/**
   what: resolves the user who created an assurance set; inputs are the set and the user registry.
   how: uses createdByName when stored, otherwise matches the creating role (createdByPersona or initiatorRole) to a user in the initiating organization; name is undefined when no user matches.
   with what file: src/utils/rbacHelpers.ts used by AssuranceTable.tsx and AssuranceDetailView.tsx.
 */
 export function getAssuranceSetCreator(
   set: Pick<AssuranceSet, 'createdByName' | 'createdByPersona' | 'initiatorRole' | 'initiatorOrg'>,
-  users: Pick<UserProfile, 'name' | 'roles' | 'organization'>[],
+  users: (Pick<UserProfile, 'name' | 'roles' | 'organization'> & { status?: UserProfile['status'] })[],
 ): { name?: string; organization: string } {
   const organization = set.initiatorOrg || '';
   if (set.createdByName) return { name: set.createdByName, organization };
@@ -1334,13 +1662,16 @@ export function getAssuranceSetCreator(
       ? set.createdByPersona
       : set.initiatorRole === 'C Admin · Client Created' || set.initiatorRole === 'Client Admin'
         ? 'C Admin'
-        : set.initiatorRole === 'Vessel Provider Admin' || set.initiatorRole === 'Vessel Provider'
+        : set.initiatorRole === 'Vessel Provider Admin' ||
+            set.initiatorRole === 'Vessel Provider' ||
+            set.initiatorRole === 'Service Provider Admin'
           ? 'Administrator'
           : undefined;
 
   const creator = role
     ? users.find(
       (u) =>
+        (!u.status || u.status === 'Active') &&
         u.roles.includes(role) &&
         Boolean(u.organization) &&
         Boolean(organization) &&
@@ -1360,9 +1691,10 @@ export function getAssuranceSetCreatedByLabel(
   set: Pick<AssuranceSet, 'createdByName' | 'createdByPersona' | 'initiatorRole' | 'initiatorOrg'>,
   users: Pick<UserProfile, 'name' | 'roles' | 'organization'>[],
   persona: UserRolePersona,
+  viewerOrganization?: string,
 ): string {
   const creator = getAssuranceSetCreator(set, users);
-  const viewerOrg = users.find((u) => u.roles.includes(persona))?.organization;
+  const viewerOrg = viewerOrganization?.trim() || users.find((u) => u.roles.includes(persona))?.organization;
   const isWithinOrganization = Boolean(
     viewerOrg && creator.organization && orgFieldMatches(viewerOrg, creator.organization),
   );

@@ -15,8 +15,9 @@ describe('Assurance Set Parties - Requesting and Responding party only (Task 534
     useMapStore.setState({
       assuranceSets: [],
       isAuthenticated: true,
-      activePersona: 'Administrator',
+      activePersona: 'C Admin',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
     });
   });
 
@@ -78,6 +79,10 @@ describe('Assurance Set Parties - Requesting and Responding party only (Task 534
       ...initialState.assuranceSets[0],
       id: 'AS-TEST-5349',
       title: 'Requesting and Responding Party Test Set',
+      initiatorOrg: 'Chevron Australia Pty Ltd',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
+      createdByPersona: 'C Admin',
       clientOrg: 'Chevron Australia Pty Ltd',
       serviceProviderOrg: 'Northwind Marine Pty Ltd',
       requestingParty: 'Chevron Australia Pty Ltd',

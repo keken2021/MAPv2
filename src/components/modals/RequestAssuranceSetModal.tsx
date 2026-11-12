@@ -1,15 +1,20 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
-import { Project, ProjectAssetType } from '../../types/project';
+import { Project } from '../../types/project';
+import {
+  getProjectOrganizationForPersona,
+  syncInvitedOrganizationsToParties,
+} from '../../utils/projectHelpers';
 import {
   getAssuranceSetRequestRecipients,
-  getProjectOrganizationForPersona,
-} from '../../utils/projectHelpers';
+  getRequestRosterObjects,
+  toSuggestedAsset,
+} from '../../utils/assuranceRequestHelpers';
 import { getSessionUserForPersona } from '../../utils/userRoleHelpers';
-import { ScopeChecklist } from '../common/ScopeChecklist';
 import { Modal } from './Modal';
-
-const SCOPE_OPTIONS: ProjectAssetType[] = ['Vessel', 'Equipment', 'Crew'];
+import { RequestRecipientSelect } from './RequestRecipientSelect';
+import { RequestRosterObjectPicker } from './RequestRosterObjectPicker';
+import { EditParticipatingOrganizationsModal } from './EditParticipatingOrganizationsModal';
 
 interface RequestAssuranceSetModalProps {
   isOpen: boolean;
@@ -24,8 +29,18 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
   project,
   onSuccess,
 }) => {
-  const { users, activePersona, activeDemoOrganization, activeSessionUserId, requestAssuranceSet } =
-    useMapStore();
+  const {
+    users,
+    activePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
+    requestAssuranceSet,
+  } = useMapStore();
+
+  const [isEditPartiesModalOpen, setIsEditPartiesModalOpen] = useState(false);
+
+  const canEditOrganizations = activePersona === 'C Admin' || activePersona === 'Administrator';
+
   const senderOrg = getProjectOrganizationForPersona(
     activePersona,
     users,
@@ -41,26 +56,39 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
   );
 
   const recipients = useMemo(
-    () =>
-      getAssuranceSetRequestRecipients(
-        users,
-        senderOrg,
-        /* any organization with a Client Admin can be asked, not only invited ones */
-        Array.from(new Set(users.map((user) => user.organization).filter(Boolean) as string[])),
-        senderUser?.id,
-      ),
-    [users, senderOrg, senderUser],
+    () => getAssuranceSetRequestRecipients(users, project, senderOrg, senderUser?.id),
+    [users, project, senderOrg, senderUser],
   );
 
   const [recipientUserId, setRecipientUserId] = useState('');
-  const [selectedScopes, setSelectedScopes] = useState<ProjectAssetType[]>([]);
+  const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const toggleScope = (scope: ProjectAssetType) => {
-    setSelectedScopes((current) =>
-      current.includes(scope) ? current.filter((item) => item !== scope) : [...current, scope],
+  const recipient = recipients.find((r) => r.id === recipientUserId);
+  const rosterObjects = useMemo(
+    () => getRequestRosterObjects(project, recipient?.organization),
+    [project, recipient],
+  );
+
+  const chooseRecipient = (userId: string) => {
+    setRecipientUserId(userId);
+    /* objects belong to the recipient's organization, so a new recipient starts with none */
+    setSelectedObjectIds([]);
+  };
+
+  const toggleObject = (assetId: string) => {
+    setSelectedObjectIds((current) =>
+      current.includes(assetId) ? current.filter((id) => id !== assetId) : [...current, assetId],
     );
+  };
+
+  const resetAndClose = () => {
+    setRecipientUserId('');
+    setSelectedObjectIds([]);
+    setMessage('');
+    setError('');
+    onClose();
   };
 
   const handleSubmit = () => {
@@ -73,106 +101,89 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
       return;
     }
 
+    const suggestedAssets = rosterObjects
+      .filter((object) => selectedObjectIds.includes(object.assetId))
+      .map(toSuggestedAsset);
     const result = requestAssuranceSet({
       projectId: project.id,
       recipientUserId,
-      suggestedScopes: selectedScopes.length > 0 ? selectedScopes : undefined,
+      suggestedAssets: suggestedAssets.length > 0 ? suggestedAssets : undefined,
       message: message.trim() || undefined,
       senderUserId: senderUser.id,
       senderName: senderUser.name,
     });
 
-    if (result.success) {
-      onSuccess(`Assurance set request sent to ${recipients.find((r) => r.id === recipientUserId)?.name || 'recipient'}.`);
-      setRecipientUserId('');
-      setSelectedScopes([]);
-      setMessage('');
-      setError('');
-      onClose();
-    } else {
+    if (!result.success) {
       setError(result.message || 'The request could not be sent.');
+      return;
     }
+    onSuccess(`Assurance set request sent to ${recipient?.name || 'recipient'}.`);
+    resetAndClose();
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Request Assurance Set"
-      size="md"
-      footer={
-        <>
-          <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={handleSubmit}
-            disabled={!recipientUserId}
-          >
-            Send Request
-          </button>
-        </>
-      }
-    >
-      <p className="text-muted small mb-2">
-        Ask an organization invited to <strong>{project.name}</strong> to create an assurance set for <strong>{senderOrg}</strong>.
-      </p>
-      <div className="mb-3 p-2 bg-light rounded border small" data-testid="requesting-party-banner">
-        <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party</div>
-        <div className="fw-semibold text-dark">{senderOrg}</div>
-      </div>
-      {error && <div className="alert alert-danger py-2 small">{error}</div>}
-      <div className="mb-3">
-        <label className="form-label small fw-semibold">
-          Recipient <span className="text-danger">*</span>
-        </label>
-        <select
-          className="form-select form-select-sm"
-          value={recipientUserId}
-          onChange={(e) => setRecipientUserId(e.target.value)}
-        >
-          <option value="">Select recipient</option>
-          {recipients.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name} — {u.organization} — Responding party
-            </option>
-          ))}
-        </select>
-        {recipients.length === 0 && (
-          <div className="text-muted small mt-1">
-            No one in your organization can create assurance sets.
-          </div>
-        )}
-      </div>
-      <div className="mb-3">
-        <label className="form-label small fw-semibold" id="request-suggested-scope-label">
-          Scope (optional)
-        </label>
-        <ScopeChecklist
-          id="request-suggested-scope"
-          labelId="request-suggested-scope-label"
-          className="form-select-sm"
-          options={SCOPE_OPTIONS}
-          selected={selectedScopes}
-          onToggle={toggleScope}
-          emptyLabel="No preference"
-        />
-        <div className="text-muted small mt-1">
-          Choose one or more, or leave as no preference.
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Request Assurance Set"
+        size="md"
+        paused={isEditPartiesModalOpen}
+        footer={
+          <>
+            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={handleSubmit}
+              disabled={!recipientUserId}
+            >
+              Send Request
+            </button>
+          </>
+        }
+      >
+        <p className="text-muted small mb-2">
+          Ask an organization invited to <strong>{project.name}</strong> to create an assurance set for <strong>{senderOrg}</strong>.
+        </p>
+        <div className="mb-3 p-2 bg-light rounded border small" data-testid="requesting-party-banner">
+          <div className="text-secondary" style={{ fontSize: '0.725rem' }}>Requesting party</div>
+          <div className="fw-semibold text-dark">{senderOrg}</div>
         </div>
-      </div>
-      <div className="mb-0">
-        <label className="form-label small fw-semibold">Message (optional)</label>
-        <textarea
-          className="form-control form-control-sm"
-          rows={3}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="e.g. Please create a vessel assurance set for the platform supply charter."
+        {error && <div className="alert alert-danger py-2 small">{error}</div>}
+        <RequestRecipientSelect
+          recipients={recipients}
+          value={recipientUserId}
+          onChange={chooseRecipient}
+          canEditOrganizations={canEditOrganizations}
+          onEditOrganizations={() => setIsEditPartiesModalOpen(true)}
         />
-      </div>
-    </Modal>
+        <RequestRosterObjectPicker
+          objects={rosterObjects}
+          selectedIds={selectedObjectIds}
+          onToggle={toggleObject}
+          enabled={Boolean(recipient)}
+        />
+        <div className="mb-0">
+          <label className="form-label small fw-semibold">Message (optional)</label>
+          <textarea
+            className="form-control form-control-sm"
+            rows={3}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="e.g. Please create a vessel assurance set for the platform supply charter."
+          />
+        </div>
+      </Modal>
+
+      <EditParticipatingOrganizationsModal
+        isOpen={isEditPartiesModalOpen}
+        onClose={() => setIsEditPartiesModalOpen(false)}
+        project={project}
+        zIndex={1080}
+      />
+    </>
   );
 };

@@ -15,6 +15,7 @@ import {
   KESTREL_ORG,
   MERIDIAN_ORG,
   NORTHWIND_ORG,
+  OIL_CO_ENDEAVOUR_ID,
   OIL_CO_LNG_PROJECT_ID,
   OIL_CO_ORG,
   OIL_CO_SS01_ID,
@@ -80,6 +81,7 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       initiatorOrg: NORTHWIND_ORG,
       initiatorRole: 'C Admin · Client Created',
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-235',
       createdByName: 'T. Okada',
       clientOrg: NORTHWIND_ORG,
       charterer: NORTHWIND_ORG,
@@ -99,7 +101,26 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       visibility: 'organization',
     };
 
-    // 1. Non-project owner adds set to the project
+    // 1. Oil Company project owner invites Northwind C Admin (T. Okada) to add SS-04, then T. Okada creates and attaches it
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: OIL_CO_ORG,
+      activeSessionUserId: 'USR-228',
+    });
+    const reqRes = useMapStore.getState().requestAssuranceSet({
+      projectId: OIL_CO_LNG_PROJECT_ID,
+      recipientUserId: 'USR-235',
+      suggestedScope: 'Vessel',
+      senderUserId: 'USR-228',
+      senderName: 'A. Okonkwo',
+    });
+    expect(reqRes.success).toBe(true);
+
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: NORTHWIND_ORG,
+      activeSessionUserId: 'USR-235',
+    });
     useMapStore.getState().addAssuranceSet(ss04Set);
     const attachResult = useMapStore.getState().attachAssuranceSetToProject(ss04Set.id, OIL_CO_LNG_PROJECT_ID);
     expect(attachResult.success).toBe(true);
@@ -128,6 +149,9 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       vesselName: 'BB Oilco Bunker Barge 01',
       imoNumber: '9876139',
       initiatorRole: 'C Admin · Client Created',
+      createdByPersona: 'C Admin',
+      createdByUserId: 'USR-235',
+      createdByName: 'T. Okada',
       charterWindowStart: '2026-11-15',
       charterWindowEnd: '2027-05-15',
       complianceDeadline: '2026-11-15',
@@ -139,6 +163,24 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       visibility: 'organization',
     };
 
+    const northwindCreator = {
+      id: 'USR-235',
+      name: 'T. Okada',
+      organization: NORTHWIND_ORG,
+      roles: ['C Admin' as const],
+    };
+    const northwindColleague = {
+      id: 'USR-NORTHWIND-OTHER',
+      name: 'Colleague Other',
+      organization: NORTHWIND_ORG,
+      roles: ['C Admin' as const],
+    };
+
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: NORTHWIND_ORG,
+      activeSessionUserId: 'USR-235',
+    });
     useMapStore.getState().addAssuranceSet(ss04Set);
 
     // Northwind initiated and is client -> Northwind owns the set
@@ -147,8 +189,9 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
     // Meridian Shipyards is on the project (SS-02) but does not own SS-04
     expect(isAssuranceSetOwnedOrInitiatedByOrganization(ss04Set, MERIDIAN_ORG)).toBe(false);
 
-    // Northwind user can view and manage their initiated set
-    expect(isAssuranceSetAssignedToPersona(ss04Set, 'C Admin', NORTHWIND_ORG)).toBe(true);
+    // Northwind creator can view and manage their initiated set; unassigned same-org colleague cannot
+    expect(isAssuranceSetAssignedToPersona(ss04Set, 'C Admin', NORTHWIND_ORG, northwindCreator)).toBe(true);
+    expect(isAssuranceSetAssignedToPersona(ss04Set, 'C Admin', NORTHWIND_ORG, northwindColleague)).toBe(false);
   });
 
   it('rolls up progress across all 5 assurance sets on Master Project Oil Co LNG Field Development', () => {
@@ -174,6 +217,9 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       clientOrg: NORTHWIND_ORG,
       serviceProviderOrg: OIL_CO_ORG,
       initiatorRole: 'C Admin · Client Created',
+      createdByPersona: 'C Admin',
+      createdByUserId: 'USR-235',
+      createdByName: 'T. Okada',
       charterWindowStart: '2026-11-15',
       charterWindowEnd: '2027-05-15',
       complianceDeadline: '2026-11-15',
@@ -196,10 +242,13 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       initiatorOrg: OIL_CO_ORG,
       clientOrg: OIL_CO_ORG,
       serviceProviderOrg: KESTREL_ORG,
-      vesselId: '',
-      vesselName: '',
-      imoNumber: '',
+      vesselId: OIL_CO_ENDEAVOUR_ID,
+      vesselName: 'OSV Meridian Endeavour',
+      imoNumber: '9876501',
       initiatorRole: 'C Admin · Client Created',
+      createdByPersona: 'C Admin',
+      createdByUserId: 'USR-228',
+      createdByName: 'A. Okonkwo',
       charterWindowStart: '2026-11-15',
       charterWindowEnd: '2027-05-15',
       complianceDeadline: '2026-11-15',
@@ -212,11 +261,36 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       visibility: 'organization',
     };
 
-    store.addAssuranceSet(ss04);
-    store.attachAssuranceSetToProject(ss04.id, OIL_CO_LNG_PROJECT_ID);
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: OIL_CO_ORG,
+      activeSessionUserId: 'USR-228',
+    });
+    expect(
+      store.requestAssuranceSet({
+        projectId: OIL_CO_LNG_PROJECT_ID,
+        recipientUserId: 'USR-235',
+        suggestedScope: 'Vessel',
+        senderUserId: 'USR-228',
+        senderName: 'A. Okonkwo',
+      }).success,
+    ).toBe(true);
 
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: NORTHWIND_ORG,
+      activeSessionUserId: 'USR-235',
+    });
+    store.addAssuranceSet(ss04);
+    expect(store.attachAssuranceSetToProject(ss04.id, OIL_CO_LNG_PROJECT_ID).success).toBe(true);
+
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: OIL_CO_ORG,
+      activeSessionUserId: 'USR-228',
+    });
     store.addAssuranceSet(ss05);
-    store.attachAssuranceSetToProject(ss05.id, OIL_CO_LNG_PROJECT_ID);
+    expect(store.attachAssuranceSetToProject(ss05.id, OIL_CO_LNG_PROJECT_ID).success).toBe(true);
 
     const allSets = useMapStore.getState().assuranceSets;
     const project = useMapStore.getState().projects.find((p) => p.id === OIL_CO_LNG_PROJECT_ID)!;

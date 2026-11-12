@@ -92,7 +92,8 @@ describe('FR-16 evidence ownership', () => {
     expect(canEditOwnedEvidence(doc, 'Oil Company')).toBe(true);
     expect(canEditOwnedEvidence(doc, 'Northwind Marine Pty Ltd')).toBe(false);
     expect(canEditOwnedEvidence(doc, 'Coastal Fuel Testing')).toBe(false);
-    expect(canEditOwnedEvidence(doc, 'Northwind Marine Pty Ltd', { persona: 'Administrator' })).toBe(true);
+    expect(canEditOwnedEvidence(doc, 'Northwind Marine Pty Ltd', { persona: 'Administrator' })).toBe(false);
+    expect(canEditOwnedEvidence(doc, 'Oil Company', { persona: 'Administrator' })).toBe(true);
   });
 
   it('blocks addDocumentVersion when the active org does not own the evidence', () => {

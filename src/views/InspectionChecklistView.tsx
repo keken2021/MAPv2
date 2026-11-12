@@ -7,8 +7,11 @@
 import React, { useState, useRef } from 'react';
 import { useMapStore } from '../store/useMapStore';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { getStatusDisplayLabel } from '../utils/formatters';
+import { getAssuranceSetRoleActions, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
 import { CapaItem } from '../types/capa';
 import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { Camera, FileText } from 'lucide-react';
@@ -16,7 +19,6 @@ import { CameraCaptureModal } from '../components/modals/CameraCaptureModal';
 
 import {
   DEFAULT_INSPECTION_CHECKLIST_ITEMS,
-  DEFAULT_INSPECTION_CAPA_ITEMS,
   EvidenceItem,
   InspectionChecklistTemplateItem as InspectionItem,
   InspectionCapaActionItem as CapaActionItem,
@@ -50,31 +52,54 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
     addCapaItem,
     logAuditEvent,
     activePersona,
+    activeDemoOrganization,
+    users,
     setCurrentHashView,
     completeVesselInspection,
   } = useMapStore();
 
+  const sessionUser = useSessionUser();
   const targetIdentifier = propSetId || vesselName || currentEntityId || '';
+  const decodedTarget = targetIdentifier ? decodeURIComponent(targetIdentifier) : '';
 
-  const matchedSet =
-    assuranceSets.find((s) => s.id === targetIdentifier) ||
-    assuranceSets.find((s) => s.vesselName === targetIdentifier || s.vesselId === targetIdentifier) ||
-    assuranceSets.find((s) => s.vesselName === decodeURIComponent(targetIdentifier) || s.vesselId === decodeURIComponent(targetIdentifier));
+  const candidateSets = assuranceSets.filter(
+    (s) =>
+      s.id === targetIdentifier ||
+      s.id === decodedTarget ||
+      s.vesselName === targetIdentifier ||
+      s.vesselName === decodedTarget ||
+      s.vesselId === targetIdentifier ||
+      s.vesselId === decodedTarget,
+  );
+
+  const accessibleCandidateSets = sessionUser
+    ? candidateSets.filter(
+        (s) =>
+          Boolean(s.mandatoryInspectionRequired) &&
+          isAssuranceSetAssignedToPersona(
+            s,
+            activePersona,
+            activeDemoOrganization,
+            sessionUser,
+            users,
+          ),
+      )
+    : [];
+
+  const matchedSet = accessibleCandidateSets[0];
 
   const matchedVessel =
-    vessels.find((v) => v.name === targetIdentifier || v.id === targetIdentifier) ||
-    vessels.find((v) => v.name === decodeURIComponent(targetIdentifier) || v.id === decodeURIComponent(targetIdentifier)) ||
-    (matchedSet ? vessels.find((v) => v.id === matchedSet.vesselId || v.name === matchedSet.vesselName) : undefined);
+    matchedSet
+      ? vessels.find((v) => v.id === matchedSet.vesselId || v.name === matchedSet.vesselName)
+      : undefined;
 
-  const resolvedSetId =
-    matchedSet?.id ||
-    (targetIdentifier.startsWith('AS-') ? targetIdentifier : (propSetId || ''));
+  const resolvedSetId = matchedSet?.id || '';
 
   const cleanVesselName =
     matchedSet?.vesselName ||
     matchedVessel?.name ||
-    (!targetIdentifier.startsWith('AS-') && targetIdentifier ? decodeURIComponent(targetIdentifier) : '') ||
-    'MV Pacific Endeavour';
+    (!targetIdentifier.startsWith('AS-') && decodedTarget ? decodedTarget : '') ||
+    '';
 
   const physicalInspection = PHYSICAL_INSPECTIONS.find((p) => p.assuranceSetId === resolvedSetId);
   const progressRecord = resolvedSetId ? inspectionProgressForSet(resolvedSetId) : undefined;
@@ -131,21 +156,22 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
   const [selectedResult, setSelectedResult] = useState<'Pass' | 'Pass with observations' | 'Fail'>('Pass with observations');
 
-  const vesselCapas = capaItems.filter((c) =>
-    c.vesselName.toLowerCase() === cleanVesselName.toLowerCase() ||
-    (matchedVessel && c.vesselId === matchedVessel.id) ||
-    (resolvedSetId && c.assuranceSetId === resolvedSetId)
-  );
+  const vesselCapas = matchedSet
+    ? capaItems.filter((c) =>
+        c.assuranceSetId
+          ? c.assuranceSetId === matchedSet.id
+          : c.vesselName.toLowerCase() === cleanVesselName.toLowerCase() ||
+            (matchedVessel && c.vesselId === matchedVessel.id),
+      )
+    : [];
 
-  const initialCapas: CapaActionItem[] = vesselCapas.length > 0
-    ? vesselCapas.map((c) => ({
-        id: c.id,
-        title: c.title,
-        owner: c.owner,
-        dueDate: c.dueDate,
-        status: (c.status === 'Verified & Closed' ? 'Closed' : 'Open') as 'Open' | 'Closed',
-      }))
-    : DEFAULT_INSPECTION_CAPA_ITEMS;
+  const initialCapas: CapaActionItem[] = vesselCapas.map((c) => ({
+    id: c.id,
+    title: c.title,
+    owner: c.owner,
+    dueDate: c.dueDate,
+    status: (c.status === 'Verified & Closed' ? 'Closed' : 'Open') as 'Open' | 'Closed',
+  }));
 
   const [capas, setCapas] = useState<CapaActionItem[]>(initialCapas);
 
@@ -172,7 +198,18 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   const [newCapaTitle, setNewCapaTitle] = useState('');
   const [newCapaOwner, setNewCapaOwner] = useState('Northwind Marine Technical');
   const [newCapaDueDate, setNewCapaDueDate] = useState(initialDate);
-  const isInspector = activePersona === 'Inspector';
+  const canInspect = Boolean(
+    sessionUser &&
+      matchedSet &&
+      activePersona === 'Inspector' &&
+      getAssuranceSetRoleActions(
+        matchedSet,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+      ).canInspect,
+  );
+  const isInspector = canInspect;
 
   /* calculate recommended outcome dynamically */
   const observationCount = items.filter((i) => i.status === 'Observation').length;
@@ -238,6 +275,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const handleStatusChange = (id: string, newStatus: 'Satisfactory' | 'Observation' | 'Deficiency') => {
+    if (!canInspect) return;
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
@@ -250,6 +288,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const handleTriggerUpload = (itemId: string) => {
+    if (!canInspect) return;
     setUploadingItemId(itemId);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -259,6 +298,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
   /* trigger native mobile device camera capture input */
   const handleTriggerCameraCapture = (itemId: string) => {
+    if (!canInspect) return;
     setActivePhotoItemId(itemId);
     if (cameraInputRef.current) {
       cameraInputRef.current.value = '';
@@ -268,6 +308,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
   /* process camera photo file input from mobile camera */
   const handleCameraFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canInspect) return;
     const file = e.target.files?.[0];
     if (!file || !activePhotoItemId) return;
 
@@ -306,12 +347,13 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const openLiveCameraModal = (itemId: string) => {
+    if (!canInspect) return;
     setActivePhotoItemId(itemId);
     setIsCameraModalOpen(true);
   };
 
   const handleCameraCapture = (dataUrl: string) => {
-    if (!activePhotoItemId) return;
+    if (!canInspect || !activePhotoItemId) return;
     const timeStamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const newEvidence: EvidenceItem = {
       id: `EV-${Date.now().toString().slice(-4)}`,
@@ -337,6 +379,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canInspect) return;
     const file = e.target.files?.[0];
     if (!file || !uploadingItemId) return;
 
@@ -370,6 +413,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
 
   const handleRemoveEvidence = (itemId: string, evId: string) => {
+    if (!canInspect) return;
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
@@ -382,6 +426,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const handleSaveComment = (itemId: string) => {
+    if (!canInspect) return;
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item;
@@ -396,7 +441,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const handleRaiseItemCapa = (item: InspectionItem) => {
-    if (!itemCapaTitle.trim()) return;
+    if (!canInspect || !itemCapaTitle.trim()) return;
     const nextCapaNum = 118 + capas.length;
     const capaId = `CAPA-${nextCapaNum}`;
 
@@ -439,7 +484,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const handleAddGlobalCapa = () => {
-    if (!newCapaTitle.trim()) return;
+    if (!canInspect || !newCapaTitle.trim()) return;
     const nextCapaNum = 118 + capas.length;
     const capaId = `CAPA-${nextCapaNum}`;
 
@@ -453,6 +498,8 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
 
     const newCapaStoreItem: CapaItem = {
       id: capaId,
+      assuranceSetId: resolvedSetId || undefined,
+      vesselId: matchedSet?.vesselId || matchedVessel?.id,
       vesselName: cleanVesselName,
       checklistItemTitle: 'General Inspection Finding',
       title: newCapaTitle,
@@ -471,6 +518,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
   };
 
   const handleSubmitOutcome = () => {
+    if (!canInspect) return;
     logAuditEvent({
       action: `Submitted Visual Survey Outcome (${selectedResult})`,
       targetAsset: `${cleanVesselName}${resolvedSetId ? ` (${resolvedSetId})` : ''}`,
@@ -481,6 +529,10 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
     alert(`Submitted Inspection Outcome: ${selectedResult} for ${cleanVesselName}.`);
     setCurrentHashView('inspector');
   };
+
+  if (!sessionUser || !matchedSet) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('inspector')} />;
+  }
 
   return (
     <div className="d-flex flex-column gap-4">
@@ -544,6 +596,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                   className="form-control form-control-sm"
                   value={inspectionLocation}
                   onChange={(e) => setInspectionLocation(e.target.value)}
+                  disabled={!canInspect}
                   placeholder="Inspection Location"
                 />
               </div>
@@ -558,6 +611,7 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
                   className="form-control form-control-sm"
                   value={inspectionDate}
                   onChange={(e) => setInspectionDate(e.target.value)}
+                  disabled={!canInspect}
                   placeholder="Inspection Date"
                 />
               </div>
@@ -1002,12 +1056,11 @@ export const InspectionChecklistView: React.FC<InspectionChecklistViewProps> = (
             {/* List of active CAPAs */}
             <div className="d-flex flex-column gap-2.5">
               {(() => {
-                const storeCapas = capaItems.filter(
-                  (c) =>
-                    c.vesselName.toLowerCase() === cleanVesselName.toLowerCase() ||
-                    c.vesselId === cleanVesselName ||
-                    c.vesselName.toLowerCase().includes(cleanVesselName.toLowerCase()) ||
-                    cleanVesselName.toLowerCase().includes(c.vesselName.toLowerCase())
+                const storeCapas = capaItems.filter((c) =>
+                  c.assuranceSetId
+                    ? c.assuranceSetId === matchedSet.id
+                    : c.vesselName.toLowerCase() === cleanVesselName.toLowerCase() ||
+                      (matchedVessel && c.vesselId === matchedVessel.id),
                 );
                 const displayList = storeCapas.length > 0
                   ? storeCapas

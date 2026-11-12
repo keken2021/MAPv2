@@ -8,7 +8,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { VesselDetailView } from '../views/VesselDetailView';
 import { useMapStore } from '../store/useMapStore';
-import { MOCK_ASSURANCE_SETS, MOCK_VESSELS } from '../store/mockData';
+import { MOCK_ASSURANCE_SETS, MOCK_USERS, MOCK_VESSELS } from '../store/mockData';
+import { filterAssuranceSetsForSession } from '../utils/rbacHelpers';
 
 const initialState = useMapStore.getState();
 
@@ -20,6 +21,7 @@ describe('vessel detail assurance tab', () => {
         isAuthenticated: true,
         activePersona: 'Administrator',
         activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
         vessels: MOCK_VESSELS,
         assuranceSets: MOCK_ASSURANCE_SETS,
       },
@@ -29,10 +31,19 @@ describe('vessel detail assurance tab', () => {
   afterEach(cleanup);
 
   it('lists only the vessel assurance sets through AssuranceTable', () => {
+    const sessionUser = MOCK_USERS.find((u) => u.id === 'USR-101') ?? null;
+    const accessible = filterAssuranceSetsForSession(
+      MOCK_ASSURANCE_SETS,
+      'Administrator',
+      'Northwind Marine Pty Ltd',
+      sessionUser,
+    );
     const vessel =
-      MOCK_VESSELS.find((v) => MOCK_ASSURANCE_SETS.some((s) => s.vesselId === v.id)) || MOCK_VESSELS[0];
-    const linked = MOCK_ASSURANCE_SETS.filter((s) => s.vesselId === vessel.id);
-    const other = MOCK_ASSURANCE_SETS.find((s) => s.vesselId && s.vesselId !== vessel.id);
+      MOCK_VESSELS.find((v) => accessible.some((s) => s.vesselId === v.id)) || MOCK_VESSELS[0];
+    const linked = accessible.filter((s) => s.vesselId === vessel.id);
+    const other = MOCK_ASSURANCE_SETS.find(
+      (s) => (s.vesselId && s.vesselId !== vessel.id) || !linked.some((l) => l.id === s.id),
+    );
 
     render(<VesselDetailView vesselId={vessel.id} />);
     fireEvent.click(screen.getByRole('tab', { name: /^assurance/i }));

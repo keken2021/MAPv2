@@ -17,8 +17,9 @@ describe('Assurance set parties - One requesting and one responding party (Task 
     useMapStore.setState({
       assuranceSets: [],
       isAuthenticated: true,
-      activePersona: 'Administrator',
+      activePersona: 'C Admin',
       activeDemoOrganization: CLIENT,
+      activeSessionUserId: 'USR-221',
     });
   });
 

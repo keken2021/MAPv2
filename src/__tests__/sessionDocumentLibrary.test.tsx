@@ -82,9 +82,30 @@ describe('document library per person', () => {
     expect(visible.map((doc) => doc.id)).toEqual(['DOC-MINE']);
   });
 
-  it('leaves the administrator library unchanged', () => {
+  it('fails closed without a user and restricts administrator library to assigned sets plus unlinked org docs', () => {
     const docs = [mine, other, loose];
-    expect(documentsForSessionLibrary(docs, sets, 'Administrator', 'Northwind Marine Pty Ltd', null)).toEqual(docs);
+    expect(documentsForSessionLibrary(docs, sets, 'Administrator', 'Northwind Marine Pty Ltd', null)).toEqual([]);
+
+    const adminUser = {
+      id: 'USR-101',
+      name: 'K. Osei',
+      organization: 'Northwind Marine Pty Ltd',
+      roles: ['Administrator' as const],
+    };
+    const adminSets = [
+      {
+        ...setFor('AS-ADMIN', 'assignedSubmitter', 'K. Osei (Northwind Marine Pty Ltd)', 'DOC-MINE'),
+        initiatorOrg: 'Northwind Marine Pty Ltd',
+        createdByUserId: 'USR-101',
+        createdByName: 'K. Osei',
+        createdByPersona: 'Administrator' as const,
+      },
+      sets[1],
+    ];
+
+    expect(
+      documentsForSessionLibrary(docs, adminSets, 'Administrator', 'Northwind Marine Pty Ltd', adminUser).map((d) => d.id),
+    ).toEqual(['DOC-MINE', 'DOC-LOOSE']);
   });
 
   describe('rendered library', () => {

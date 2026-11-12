@@ -242,7 +242,19 @@ describe('Category Stakeholders, Segregation of Duties, and Role Boundaries', ()
         requirements: [],
       };
 
-      const isAssigned = isAssuranceSetAssignedToPersona(setWithClientVerifier, 'C Admin');
+      const clientAdmin = {
+        id: 'USR-CHEV-SARAH',
+        name: 'Sarah Jenkins',
+        organization: 'Chevron Australia Pty Ltd',
+        roles: ['C Admin' as const],
+      };
+
+      const isAssigned = isAssuranceSetAssignedToPersona(
+        setWithClientVerifier,
+        'C Admin',
+        'Chevron Australia Pty Ltd',
+        clientAdmin,
+      );
       expect(isAssigned).toBe(true);
     });
   });

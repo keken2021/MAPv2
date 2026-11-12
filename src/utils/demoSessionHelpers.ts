@@ -7,6 +7,7 @@
 import { UserRolePersona } from '../types/audit';
 import { UserProfile } from '../types/user';
 import { orgFieldMatches } from './rbacHelpers';
+import { sameOrganization } from './organizationMatch';
 import { getOrganizationLogo } from './vesselImageHelpers';
 
 export const DEFAULT_DEMO_ORGANIZATION = 'Northwind Marine Pty Ltd';
@@ -110,35 +111,37 @@ export function getPersonasForOrganization(
       }
     });
   });
-  if (organization.trim().toLowerCase().includes('northwind')) {
-    const hasVerifier = users.some(
-      (user) =>
-        (user.id === 'USR-244' || user.name === 'S. Girard') &&
-        user.status === 'Active' &&
-        user.roles.includes('Verifier'),
-    );
-    if (hasVerifier) roleSet.add('Verifier');
-  }
   return DEMO_PERSONA_ORDER.filter((persona) => roleSet.has(persona));
 }
 
+/** True when the person behind this record also has an active record in another organization. */
+export function hasOtherMembership(users: UserProfile[], user: UserProfile): boolean {
+  if (!user.personId) return false;
+  return users.some(
+    (other) =>
+      other.id !== user.id &&
+      other.personId === user.personId &&
+      other.status === 'Active' &&
+      !sameOrganization(other.organization, user.organization),
+  );
+}
+
+/**
+ * Picks the demo session user for a role in an organization. A person in several organizations
+ * comes first so the separation between their memberships can be seen; otherwise the lowest id wins.
+ * With `personId`, that person's record in the organization wins over both.
+ */
 export function pickSessionUserForOrgPersona(
   users: UserProfile[],
   organization: string,
   persona: UserRolePersona,
+  personId?: string,
 ): UserProfile | undefined {
-  if (persona === 'Verifier' && organization.trim().toLowerCase().includes('northwind')) {
-    const northwindVerifier = users.find(
-      (user) =>
-        (user.id === 'USR-244' || user.name === 'S. Girard') &&
-        user.status === 'Active' &&
-        user.roles.includes('Verifier'),
-    );
-    if (northwindVerifier) return northwindVerifier;
-  }
-  return getActiveUsersInOrganization(users, organization)
+  const candidates = getActiveUsersInOrganization(users, organization)
     .filter((user) => user.roles.includes(persona))
-    .sort((a, b) => a.id.localeCompare(b.id))[0];
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const samePerson = personId ? candidates.find((user) => user.personId === personId) : undefined;
+  return samePerson || candidates.find((user) => hasOtherMembership(users, user)) || candidates[0];
 }
 
 export function resolveDefaultPersonaForOrganization(

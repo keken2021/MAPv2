@@ -15,11 +15,13 @@ import { DueCell } from '../common/DueCell';
 import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../../utils/formatters';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
-import { canPerform } from '../../utils/permissionHelpers';
+import { canPerform, canCreateLibraryDocuments } from '../../utils/permissionHelpers';
+import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import { usePagination } from '../../utils/usePagination';
 import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 import { StatusBadge } from '../common/StatusBadge';
+import { formatDocumentTargetObjectLabel } from '../../utils/documentObjectHelpers';
 
 type SortField =
   | 'title'
@@ -56,10 +58,17 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const {
     documents: storeDocuments,
     activePersona,
+    activeDemoOrganization,
+    activeSessionUserId,
     rolePermissionDefaults,
     userPermissionOverrides,
     customScopes,
     users,
+    vessels,
+    crew,
+    equipment,
+    assuranceObjects,
+    assuranceSets,
   } = useMapStore();
   const documents = documentsProp ?? storeDocuments;
   const [searchTerm, setSearchTerm] = useState('');
@@ -69,6 +78,14 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const setStatusFilter = onStatusFilterChange ?? setInternalStatusFilter;
   const [verificationFilter, setVerificationFilter] = useState('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+
+  const lookupContext = React.useMemo(() => ({
+    vessels,
+    crew,
+    equipment,
+    assuranceObjects,
+    assuranceSets,
+  }), [vessels, crew, equipment, assuranceObjects, assuranceSets]);
 
   const filterState = useDeferredFilters({
     isOpen: isFilterModalOpen,
@@ -96,24 +113,27 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const [sortField, setSortField] = useState<SortField>('title');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
-  const canUpload =
-    activePersona === 'Administrator' ||
-    canPerform(
-      rolePermissionDefaults,
-      userPermissionOverrides,
-      matchingUser,
+  const sessionUser =
+    getSessionUserForPersona(
       activePersona,
-      'documents',
-      'create',
-      customScopes,
-    );
+      users,
+      getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+    ) ?? null;
+  const canUpload = canCreateLibraryDocuments(
+    rolePermissionDefaults,
+    userPermissionOverrides,
+    sessionUser,
+    activePersona,
+    customScopes,
+  );
 
   const filteredDocs = documents.filter((d) => {
+    const targetLabel = formatDocumentTargetObjectLabel(d, lookupContext);
     const matchesSearch =
       d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       d.certificateNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.issuingAuthority.toLowerCase().includes(searchTerm.toLowerCase());
+      d.issuingAuthority.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      targetLabel.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'ALL' || d.entityType === typeFilter;
     const matchesStatus = statusFilter === 'ALL' || d.complianceState === statusFilter;
     const matchesVerification = verificationFilter === 'ALL' || d.verificationStatus === verificationFilter;
@@ -174,6 +194,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   const handleExportCsv = () => {
     const exportData = sortedDocs.map((d) => ({
       Title: d.title,
+      Object: formatDocumentTargetObjectLabel(d, lookupContext),
       Type: d.entityType,
       CertificateNo: d.certificateNo,
       IssuingAuthority: d.issuingAuthority,
@@ -187,9 +208,10 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
   };
 
   const handleExportPdf = () => {
-    const headers = ['Title', 'Type', 'Issuing Authority', 'Expiry Date', 'OCR Confidence', 'Compliance', 'Version'];
+    const headers = ['Title', 'Object', 'Type', 'Issuing Authority', 'Expiry Date', 'OCR Confidence', 'Compliance', 'Version'];
     const rows = sortedDocs.map((d) => [
       d.title,
+      formatDocumentTargetObjectLabel(d, lookupContext),
       d.entityType,
       d.issuingAuthority,
       d.expiryDate,
@@ -280,7 +302,7 @@ export const DocumentTable: React.FC<DocumentTableProps> = ({
                 <td className="font-mono-code fw-semibold text-primary text-nowrap">{doc.certificateNo}</td>
                 <td>
                   <div className="fw-semibold text-dark text-nowrap">{doc.title}</div>
-                  <div className="text-secondary small">{doc.entityType}</div>
+                  <div className="text-secondary small">{formatDocumentTargetObjectLabel(doc, lookupContext)}</div>
                 </td>
                 <td className="font-mono-code small text-nowrap due-cell">
                   <DueCell date={doc.expiryDate} isExpiry />

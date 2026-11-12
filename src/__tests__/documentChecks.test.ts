@@ -173,6 +173,11 @@ describe('automated cross-certificate checks (gap review R2-G2, R2-S7)', () => {
   });
 
   it('records and preserves verificationReference on verified requirements (R2-G1, R2-S5)', () => {
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     const store = useMapStore.getState();
     const set = store.assuranceSets[0];
     const req = set.requirements[0];

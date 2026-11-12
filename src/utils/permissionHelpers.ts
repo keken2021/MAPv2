@@ -151,6 +151,22 @@ export function canPerform(
 }
 
 /**
+  what: true when the active user and persona may upload new documents or versions from the Document Library.
+*/
+export function canCreateLibraryDocuments(
+  matrix: RolePermissionMatrix,
+  overrides: UserPermissionOverrides,
+  user: Pick<UserProfile, 'id' | 'roles'> | null | undefined,
+  persona: UserRolePersona,
+  extraScopes: PermissionScopeDefinition[] = [],
+): boolean {
+  if (!user) return false;
+  if (persona !== 'Administrator' && persona !== 'Submitter') return false;
+  if (persona === 'Administrator') return true;
+  return canPerform(matrix, overrides, user, persona, 'documents', 'create', extraScopes);
+}
+
+/**
   what: returns whether any override exists for a user on a given scope action.
 */
 export function isUserOverride(

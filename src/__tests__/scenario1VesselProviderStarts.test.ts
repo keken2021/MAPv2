@@ -176,12 +176,15 @@ describe('Scenario 1: Vessel Provider starts', () => {
 
     useMapStore.getState().addAssuranceSet(set);
 
+    const submitterUser = MOCK_USERS.find((u) => u.id === 'USR-102')!;
+    const adminUser = MOCK_USERS.find((u) => u.id === 'USR-101')!;
+
     // Submitter and Administrator cannot verify or approve their own set
-    const submitterActions = getAssuranceSetRoleActions(set, 'Submitter', NORTHWIND_ORG);
+    const submitterActions = getAssuranceSetRoleActions(set, 'Submitter', NORTHWIND_ORG, submitterUser);
     expect(submitterActions.canVerify).toBe(false);
     expect(submitterActions.canApprove).toBe(false);
 
-    const adminActions = getAssuranceSetRoleActions(set, 'Administrator', NORTHWIND_ORG);
+    const adminActions = getAssuranceSetRoleActions(set, 'Administrator', NORTHWIND_ORG, adminUser);
     expect(adminActions.canVerify).toBe(false);
     expect(adminActions.canApprove).toBe(false);
 
@@ -253,7 +256,8 @@ describe('Scenario 1: Vessel Provider starts', () => {
     useMapStore.getState().addAssuranceSet(set);
 
     // 1. Independent third-party Verifier can verify
-    const verifierActions = getAssuranceSetRoleActions(set, 'Verifier', 'Bureau Veritas Inspectorate');
+    const verifierUser = MOCK_USERS.find((u) => u.id === 'USR-202')!;
+    const verifierActions = getAssuranceSetRoleActions(set, 'Verifier', 'Bureau Veritas Inspectorate', verifierUser);
     expect(verifierActions.canVerify).toBe(true);
 
     const verifiedRequirements = set.requirements.map((req) => ({
@@ -269,7 +273,13 @@ describe('Scenario 1: Vessel Provider starts', () => {
     useMapStore.getState().updateAssuranceSet(verifiedSet);
 
     // 2. Client Approver can approve
-    const approverActions = getAssuranceSetRoleActions(verifiedSet, 'Approver', 'Chevron Australia Pty Ltd');
+    const approverUser = {
+      id: 'USR-SARAH-APP',
+      name: 'Sarah Jenkins',
+      organization: 'Chevron Australia Pty Ltd',
+      roles: ['Approver' as const],
+    };
+    const approverActions = getAssuranceSetRoleActions(verifiedSet, 'Approver', 'Chevron Australia Pty Ltd', approverUser);
     expect(approverActions.canApprove).toBe(true);
 
     const approvedSet: AssuranceSet = {

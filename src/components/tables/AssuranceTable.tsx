@@ -26,6 +26,8 @@ import {
   isAssuranceSetAssignedToPersona,
   isAssuranceSetOwnedOrInitiatedByOrganization,
   isAssuranceSetsReadOnlyPersona,
+  isUserStakeholderOnSet,
+  getAssuranceSetWorkflowTab,
 } from '../../utils/rbacHelpers';
 import { getProjectForAssuranceSet } from '../../utils/projectHelpers';
 import { canPerform } from '../../utils/permissionHelpers';
@@ -46,7 +48,13 @@ type AssuranceSortField =
   | 'scope'
   | 'scopeType';
 
-export type AssuranceViewTab = 'public' | 'organization' | 'drafts';
+export type AssuranceViewTab =
+  | 'public'
+  | 'organization'
+  | 'drafts'
+  | 'todo'
+  | 'in_progress'
+  | 'completed';
 
 interface AssuranceTableProps {
   onSelectSet: (set: AssuranceSet) => void;
@@ -70,6 +78,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
   const {
     assuranceSets,
     assuranceTemplates = [],
+    capaItems = [],
     activePersona,
     setCurrentHashView,
     rolePermissionDefaults,
@@ -79,9 +88,49 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
     projects,
     activeDemoOrganization,
   } = useMapStore();
-  const [activeTab, setActiveTab] = useState<AssuranceViewTab>(defaultTab);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [stageFilter, setStageFilter] = useState<string>('ALL');
+  const sessionUser = useSessionUser();
+  /* workflow roles get the list read-only: no create, template, or draft editing */
+  const isReadOnly = isAssuranceSetsReadOnlyPersona(activePersona);
+  /* C Admin and Administrator keep the 3 default tabs (Public, Organization, Drafts); workflow roles get To do, In progress, Completed */
+  const isWorkflowRole = activePersona !== 'C Admin' && activePersona !== 'Administrator';
+
+  const canInitiate =
+    Boolean(sessionUser) &&
+    !isReadOnly &&
+    canPerform(
+      rolePermissionDefaults,
+      userPermissionOverrides,
+      sessionUser,
+      activePersona,
+      'assurance_sets',
+      'create',
+      customScopes,
+    );
+
+  const accessibleSets = assuranceSets.filter((s) => {
+    if (vesselId && s.vesselId !== vesselId) return false;
+    if (isWorkflowRole) {
+      return (
+        isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser, users) ||
+        isUserStakeholderOnSet(s, activePersona, sessionUser, activeDemoOrganization)
+      );
+    }
+    return (
+      isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser, users) &&
+      !(isReadOnly && s.visibility === 'draft')
+    );
+  });
+
+  const isDraftSet = (s: AssuranceSet) =>
+    s.visibility === 'draft' || s.stage === 'Initiated';
+
+  /* organization tab: sets this organization owns, or is appointed on, once they leave the draft stage */
+  const viewerOrg = activeDemoOrganization || sessionUser?.organization;
+  const isOrgSet = (s: AssuranceSet) =>
+    (isAssuranceSetOwnedOrInitiatedByOrganization(s, viewerOrg) ||
+      isAssuranceSetAssignedToPersona(s, activePersona, viewerOrg, sessionUser, users)) &&
+    !isDraftSet(s);
+
   const [dashboardFilter, setDashboardFilter] = useState<string>(() => {
     if (typeof sessionStorage !== 'undefined') {
       const stored = sessionStorage.getItem('map_assurance_filter');
@@ -92,6 +141,38 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
     }
     return '';
   });
+  const [activeTab, setActiveTab] = useState<AssuranceViewTab>(() => {
+    if (isWorkflowRole) {
+      return 'todo';
+    }
+    if (dashboardFilter && defaultTab === 'organization') {
+      const matched = filterAssuranceSetsByDashboardFilter(
+        accessibleSets,
+        dashboardFilter,
+        new Date(),
+        capaItems,
+      );
+      if (matched.filter(isOrgSet).length === 0 && matched.filter(isDraftSet).length > 0) {
+        return 'drafts';
+      }
+    }
+    return defaultTab;
+  });
+
+  const effectiveTab: AssuranceViewTab = useMemo(() => {
+    if (isWorkflowRole) {
+      if (activeTab === 'todo' || activeTab === 'in_progress' || activeTab === 'completed') {
+        return activeTab;
+      }
+      return 'todo';
+    }
+    if (activeTab === 'public' || activeTab === 'organization' || activeTab === 'drafts') {
+      return activeTab;
+    }
+    return 'organization';
+  }, [isWorkflowRole, activeTab]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stageFilter, setStageFilter] = useState<string>('ALL');
   const [scopeFilter, setScopeFilter] = useState<string>('ALL');
   const [projectFilter, setProjectFilter] = useState<string>('ALL');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -116,7 +197,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
   });
 
   const draftActiveFilterCount =
-    activeTab === 'public'
+    effectiveTab === 'public'
       ? (filterState.draft.scope !== 'ALL' ? 1 : 0)
       : (filterState.draft.stage !== 'ALL' ? 1 : 0) +
         (filterState.draft.scope !== 'ALL' ? 1 : 0) +
@@ -125,53 +206,39 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [isExportOpen, setIsExportOpen] = useState(false);
 
-  const sessionUser = useSessionUser();
-  const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
-  /* workflow roles get the list read-only: no create, template, or draft editing */
-  const isReadOnly = isAssuranceSetsReadOnlyPersona(activePersona);
-  const canInitiate =
-    !isReadOnly &&
-    canPerform(
-      rolePermissionDefaults,
-      userPermissionOverrides,
-      matchingUser,
-      activePersona,
-      'assurance_sets',
-      'create',
-      customScopes,
-    );
-
-  const accessibleSets = assuranceSets.filter(
-    (s) =>
-      (!vesselId || s.vesselId === vesselId) &&
-      isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser) &&
-      !(isReadOnly && s.visibility === 'draft'),
-  );
-
-  const isDraftSet = (s: AssuranceSet) =>
-    s.visibility === 'draft' || s.stage === 'Initiated';
-
-  /* organization tab: sets this organization owns, or is appointed on, once they leave the draft stage */
-  const viewerOrg = activeDemoOrganization || matchingUser?.organization;
-  const isOrgSet = (s: AssuranceSet) =>
-    (isAssuranceSetOwnedOrInitiatedByOrganization(s, viewerOrg) ||
-      isAssuranceSetAssignedToPersona(s, activePersona, viewerOrg, sessionUser)) &&
-    !isDraftSet(s);
-
   const NO_PROJECT_LABEL = 'No project';
 
   /* project id shown in the project column; empty for a set with no project */
   const getProjectId = (s: AssuranceSet) => getProjectForAssuranceSet(s, projects)?.id ?? '';
 
+  const todoCount = accessibleSets.filter(
+    (s) => getAssuranceSetWorkflowTab(s, activePersona, sessionUser) === 'todo',
+  ).length;
+  const inProgressCount = accessibleSets.filter(
+    (s) => getAssuranceSetWorkflowTab(s, activePersona, sessionUser) === 'in_progress',
+  ).length;
+  const completedCount = accessibleSets.filter(
+    (s) => getAssuranceSetWorkflowTab(s, activePersona, sessionUser) === 'completed',
+  ).length;
+
   const publicCount = (assuranceTemplates || []).length;
   const orgCount = accessibleSets.filter(isOrgSet).length;
   const draftsCount = accessibleSets.filter(isDraftSet).length;
 
-  const tabs: CountTab[] = useMemo(() => [
-    { key: 'public', label: 'Public', count: publicCount },
-    { key: 'organization', label: 'Organization', count: orgCount },
-    { key: 'drafts', label: 'Drafts', count: draftsCount },
-  ], [publicCount, orgCount, draftsCount]);
+  const tabs: CountTab[] = useMemo(() => {
+    if (isWorkflowRole) {
+      return [
+        { key: 'todo', label: 'To do', count: todoCount },
+        { key: 'in_progress', label: 'In progress', count: inProgressCount },
+        { key: 'completed', label: 'Completed', count: completedCount },
+      ];
+    }
+    return [
+      { key: 'public', label: 'Public', count: publicCount },
+      { key: 'organization', label: 'Organization', count: orgCount },
+      { key: 'drafts', label: 'Drafts', count: draftsCount },
+    ];
+  }, [isWorkflowRole, todoCount, inProgressCount, completedCount, publicCount, orgCount, draftsCount]);
 
   // Filter public templates
   const filteredTemplates = (assuranceTemplates || []).filter((t) => {
@@ -206,14 +273,19 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
   });
 
   const baseAccessibleSets = dashboardFilter
-    ? filterAssuranceSetsByDashboardFilter(accessibleSets, dashboardFilter)
+    ? filterAssuranceSetsByDashboardFilter(accessibleSets, dashboardFilter, new Date(), capaItems)
     : accessibleSets;
   const filteredSets = baseAccessibleSets.filter((s) => {
     let matchesTab = true;
-    if (activeTab === 'organization') {
-      matchesTab = isOrgSet(s);
-    } else if (activeTab === 'drafts') {
-      matchesTab = isDraftSet(s);
+    if (isWorkflowRole) {
+      const tabCategory = getAssuranceSetWorkflowTab(s, activePersona, sessionUser);
+      matchesTab = tabCategory === effectiveTab;
+    } else {
+      if (effectiveTab === 'organization') {
+        matchesTab = isOrgSet(s);
+      } else if (effectiveTab === 'drafts') {
+        matchesTab = isDraftSet(s);
+      }
     }
 
     const matchesSearch =
@@ -236,17 +308,17 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
   );
 
   const activeFilterCount =
-    activeTab === 'public'
+    effectiveTab === 'public'
       ? (scopeFilter !== 'ALL' ? 1 : 0)
       : (stageFilter !== 'ALL' ? 1 : 0) +
         (scopeFilter !== 'ALL' ? 1 : 0) +
         (projectFilter !== 'ALL' ? 1 : 0);
 
   const activeChips: FilterChip[] = [
-    ...(stageFilter !== 'ALL' && activeTab !== 'public' ? [{ id: 'stage', label: 'Stage', value: stageFilter, onRemove: () => setStageFilter('ALL') }] : []),
+    ...(stageFilter !== 'ALL' && effectiveTab !== 'public' ? [{ id: 'stage', label: 'Stage', value: stageFilter, onRemove: () => setStageFilter('ALL') }] : []),
     ...(dashboardFilter ? [{ id: 'dashboardFilter', label: 'Filter', value: dashboardFilter, onRemove: () => setDashboardFilter('') }] : []),
     ...(scopeFilter !== 'ALL' ? [{ id: 'scope', label: 'Scope', value: scopeFilter, onRemove: () => setScopeFilter('ALL') }] : []),
-    ...(projectFilter !== 'ALL' && activeTab !== 'public'
+    ...(projectFilter !== 'ALL' && effectiveTab !== 'public'
       ? [{
           id: 'project',
           label: 'Project',
@@ -307,8 +379,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
 
     /* sort the created-by column by what it displays */
     if (sortField === 'initiatorOrg') {
-      valA = getAssuranceSetCreatedByLabel(a, users, activePersona);
-      valB = getAssuranceSetCreatedByLabel(b, users, activePersona);
+      valA = getAssuranceSetCreatedByLabel(a, users, activePersona, viewerOrg);
+      valB = getAssuranceSetCreatedByLabel(b, users, activePersona, viewerOrg);
     }
 
     if (sortField === 'readinessScore') {
@@ -325,7 +397,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
   });
 
   const handleExportCsv = () => {
-    if (activeTab === 'public') {
+    if (effectiveTab === 'public') {
       const exportData = sortedTemplates.map((t) => ({
         Title: t.title,
         Scope: t.scope || t.assuranceType || 'Vessel',
@@ -342,7 +414,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
       SetID: s.id,
       Title: s.title,
       Project: getProjectId(s) || NO_PROJECT_LABEL,
-      CreatedBy: getAssuranceSetCreatedByLabel(s, users, activePersona),
+      CreatedBy: getAssuranceSetCreatedByLabel(s, users, activePersona, viewerOrg),
       Organization: s.initiatorOrg,
       Stage: s.stage,
       ReadinessScore: `${calculateAssuranceSetReadiness(s)}%`,
@@ -354,7 +426,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
   };
 
   const handleExportPdf = () => {
-    if (activeTab === 'public') {
+    if (effectiveTab === 'public') {
       const headers = ['Title', 'Scope', 'Scope Type', 'Created By', 'Organization'];
       const rows = sortedTemplates.map((t) => [
         t.title,
@@ -380,8 +452,8 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
     setIsExportOpen(false);
   };
 
-  const setsPagination = usePagination(sortedSets, [activeTab, searchTerm, stageFilter, scopeFilter, projectFilter, sortField, sortDirection]);
-  const templatesPagination = usePagination(sortedTemplates, [activeTab, searchTerm, scopeFilter, sortField, sortDirection]);
+  const setsPagination = usePagination(sortedSets, [effectiveTab, searchTerm, stageFilter, scopeFilter, projectFilter, sortField, sortDirection]);
+  const templatesPagination = usePagination(sortedTemplates, [effectiveTab, searchTerm, scopeFilter, sortField, sortDirection]);
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -389,7 +461,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
         <div className="p-3 border-bottom">
           <CountTabs
             tabs={tabs}
-            active={activeTab}
+            active={effectiveTab}
             onChange={(key) => setActiveTab(key as AssuranceViewTab)}
             aria-label="Assurance set tabs"
           />
@@ -398,7 +470,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
         <ListToolbar
           searchValue={searchTerm}
           onSearchChange={setSearchTerm}
-          searchPlaceholder={activeTab === 'public' ? 'Search templates...' : 'Search assurance sets...'}
+          searchPlaceholder={effectiveTab === 'public' ? 'Search templates...' : 'Search assurance sets...'}
           onFilterClick={() => setIsFilterModalOpen(true)}
           activeFilterCount={activeFilterCount}
           onExportCsv={handleExportCsv}
@@ -423,7 +495,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
       <div className="table-responsive">
         <table className="table map-table-custom align-middle mb-0">
           <thead>
-            {activeTab === 'public' ? (
+            {effectiveTab === 'public' ? (
               <tr>
                 <th onClick={() => handleSort('title')} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   Title {renderSortIndicator('title')}
@@ -461,7 +533,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
             )}
           </thead>
           <tbody>
-            {activeTab === 'public' ? (
+            {effectiveTab === 'public' ? (
               templatesPagination.pageItems.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="p-0">
@@ -555,7 +627,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
                     </td>
                     <td>
                       {/* creator name for sets made inside the viewer organization, otherwise the initiating organization */}
-                      <span title={s.initiatorOrg}>{getAssuranceSetCreatedByLabel(s, users, activePersona)}</span>
+                      <span title={s.initiatorOrg}>{getAssuranceSetCreatedByLabel(s, users, activePersona, viewerOrg)}</span>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-1.5 flex-wrap">
@@ -620,13 +692,19 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
                 );
               })
             )}
-            {activeTab !== 'public' && sortedSets.length === 0 && (
+            {effectiveTab !== 'public' && sortedSets.length === 0 && (
               <tr>
                 <td colSpan={7} className="p-0">
                   <EmptyState
                     icon={isFiltered ? Search : ShieldCheck}
                     title={isFiltered ? 'No matches' : 'No assurance sets yet'}
-                    description={isFiltered ? undefined : 'Create an assurance set to start tracking vessel compliance'}
+                    description={
+                      isFiltered
+                        ? undefined
+                        : isWorkflowRole
+                          ? 'No assurance sets in this tab'
+                          : 'Create an assurance set to start tracking vessel compliance'
+                    }
                     action={
                       isFiltered
                         ? { label: 'Clear filters', onClick: handleResetFilters }
@@ -641,7 +719,7 @@ export const AssuranceTable: React.FC<AssuranceTableProps> = ({
           </tbody>
         </table>
       </div>
-      <TablePagination {...(activeTab === 'public' ? templatesPagination.controls : setsPagination.controls)} />
+      <TablePagination {...(effectiveTab === 'public' ? templatesPagination.controls : setsPagination.controls)} />
 
       {/* Assurance Filter Modal */}
       <FilterModal

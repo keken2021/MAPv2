@@ -78,11 +78,12 @@ export function setsForObjectDrawer(
   persona: UserRolePersona,
   organization: string,
   user?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null,
+  users?: UserProfile[],
 ): AssuranceSet[] {
   return sets.filter(
     (set) =>
       getAssuranceSetObjects(set).some((item) => item.id === objectId) &&
-      isAssuranceSetAssignedToPersona(set, persona, organization, user),
+      isAssuranceSetAssignedToPersona(set, persona, organization, user, users),
   );
 }
 

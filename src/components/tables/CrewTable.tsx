@@ -21,6 +21,9 @@ import { usePagination } from '../../utils/usePagination';
 import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
 import { maskRestrictedValue } from '../../utils/restrictedData';
+import { useSessionUser } from '../../utils/useSessionUser';
+import { isCrewOwnedByOrganization } from '../../utils/projectHelpers';
+import { orgFieldMatches } from '../../utils/rbacHelpers';
 
 type CrewSortField =
   | 'id'
@@ -68,10 +71,13 @@ export const CrewTable: React.FC<CrewTableProps> = ({
     vessels,
     users,
     activePersona,
+    activeDemoOrganization,
     rolePermissionDefaults,
     userPermissionOverrides,
     customScopes,
   } = useMapStore();
+  const sessionUser = useSessionUser();
+  const viewerOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
 
   const [directoryMode, setDirectoryMode] = useState<'individuals' | 'groups'>(
     vesselId ? 'individuals' : initialMode,
@@ -122,31 +128,32 @@ export const CrewTable: React.FC<CrewTableProps> = ({
         ? 1
         : 0;
 
-  const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
   const canRegisterCrew =
-    activePersona === 'Administrator' ||
-    activePersona === 'Submitter' ||
-    canPerform(
-      rolePermissionDefaults,
-      userPermissionOverrides,
-      matchingUser,
-      activePersona,
-      'crew',
-      'create',
-      customScopes,
-    );
+    Boolean(sessionUser) &&
+    (activePersona === 'Administrator' ||
+      activePersona === 'Submitter' ||
+      canPerform(
+        rolePermissionDefaults,
+        userPermissionOverrides,
+        sessionUser,
+        activePersona,
+        'crew',
+        'create',
+        customScopes,
+      ));
   const canManageCrew =
-    activePersona === 'Administrator' ||
-    activePersona === 'Submitter' ||
-    canPerform(
-      rolePermissionDefaults,
-      userPermissionOverrides,
-      matchingUser,
-      activePersona,
-      'crew',
-      'update',
-      customScopes,
-    );
+    Boolean(sessionUser) &&
+    (activePersona === 'Administrator' ||
+      activePersona === 'Submitter' ||
+      canPerform(
+        rolePermissionDefaults,
+        userPermissionOverrides,
+        sessionUser,
+        activePersona,
+        'crew',
+        'update',
+        customScopes,
+      ));
 
   const handleModeChange = (mode: 'individuals' | 'groups') => {
     setDirectoryMode(mode);
@@ -161,13 +168,17 @@ export const CrewTable: React.FC<CrewTableProps> = ({
   };
 
   const vesselScopedCrew = useMemo(() => {
-    if (!vesselId) return crew;
-    return crew.filter(
-      (c) =>
-        c.currentVesselId === vesselId ||
-        (c.assignments || []).some((a) => a.vesselId === vesselId),
-    );
-  }, [crew, vesselId]);
+    if (!sessionUser) return [];
+    if (vesselId) {
+      return crew.filter(
+        (c) =>
+          c.currentVesselId === vesselId ||
+          (c.assignments || []).some((a) => a.vesselId === vesselId),
+      );
+    }
+    if (!viewerOrg) return [];
+    return crew.filter((c) => isCrewOwnedByOrganization(c, viewerOrg));
+  }, [crew, vesselId, sessionUser, viewerOrg]);
 
   /* --- INDIVIDUALS FILTERING & SORTING --- */
   const filteredCrew = vesselScopedCrew.filter((c) => {
@@ -232,27 +243,34 @@ export const CrewTable: React.FC<CrewTableProps> = ({
   };
 
   /* --- GROUPS FILTERING & SORTING --- */
+  const visibleCrewGroups = useMemo(() => {
+    if (!sessionUser || !viewerOrg) return [];
+    return crewGroups.filter(
+      (g) => !g.organization || orgFieldMatches(viewerOrg, g.organization),
+    );
+  }, [crewGroups, sessionUser, viewerOrg]);
+
   const specializations = useMemo(() => {
-    return Array.from(new Set(crewGroups.map((g) => g.specialization))).sort();
-  }, [crewGroups]);
+    return Array.from(new Set(visibleCrewGroups.map((g) => g.specialization))).sort();
+  }, [visibleCrewGroups]);
 
   const groupTabs = useMemo(() => {
     return [
-      { key: 'ALL', label: 'All', count: crewGroups.length },
+      { key: 'ALL', label: 'All', count: visibleCrewGroups.length },
       ...specializations.map((spec) => ({
         key: spec,
         label: spec,
-        count: crewGroups.filter((g) => g.specialization === spec).length,
+        count: visibleCrewGroups.filter((g) => g.specialization === spec).length,
       })),
     ];
-  }, [crewGroups, specializations]);
+  }, [visibleCrewGroups, specializations]);
 
   const activeGroupTab = groupTabs.some((tab) => tab.key === groupSpecializationFilter)
     ? groupSpecializationFilter
     : 'ALL';
 
   const filteredGroups = useMemo(() => {
-    return crewGroups.filter((g) => {
+    return visibleCrewGroups.filter((g) => {
       const term = searchTerm.toLowerCase();
       const matchesSearch =
         g.id.toLowerCase().includes(term) ||
@@ -266,7 +284,7 @@ export const CrewTable: React.FC<CrewTableProps> = ({
 
       return matchesSearch && matchesSpec;
     });
-  }, [crewGroups, searchTerm, groupSpecializationFilter]);
+  }, [visibleCrewGroups, searchTerm, groupSpecializationFilter]);
 
   const sortedGroups = useMemo(() => {
     return [...filteredGroups].sort((a, b) => {

@@ -23,7 +23,7 @@ import {
   NOTIFICATION_TYPE_META,
 } from '../store/notificationMockData';
 import { getProjectClientOrganization } from './projectHelpers';
-import { orgFieldMatches } from './rbacHelpers';
+import { getAssuranceSetCreator, orgFieldMatches } from './rbacHelpers';
 import { PENDING_ASSIGNMENT, StakeholderRole, findUserByAssigneeLabel, getStakeholderRoleOrganization, setSubmitters } from './userRoleHelpers';
 import { UserRolePersona } from '../types/audit';
 import { isTaskOpen } from './readinessHelpers';
@@ -123,19 +123,37 @@ export function seedAssignmentNotices(
     ];
     assignments.forEach(({ role, label, organization }) => {
       const person = label && label !== PENDING_ASSIGNMENT ? findUserByAssigneeLabel(users, label) : undefined;
-      if (person) push(set, person, role, 'assigned');
+      if (person) {
+        push(set, person, role, 'assigned');
+        return;
+      }
       /* a role with no label (for example no inspection required) has nobody to tell */
-      if (!person && !label && role !== 'Submitter') return;
+      if (!label && role !== 'Submitter') return;
       const org = (organization || getStakeholderRoleOrganization(set, role as StakeholderRole))?.trim().toLowerCase();
       if (!org) return;
-      users
-        .filter(
-          (u) =>
-            u.status === 'Active' &&
-            (u.roles.includes('Administrator') || u.roles.includes('C Admin')) &&
-            u.organization?.trim().toLowerCase() === org,
-        )
-        .forEach((admin) => push(set, admin, role, person ? 'follow' : 'choose-person'));
+      /* personal isolation: only notify the set's own creator to fill pending roles, never broadcast to all same-org admins */
+      const creator = getAssuranceSetCreator(set, users);
+      const creatorUser =
+        (set.createdByUserId &&
+          users.find(
+            (u) =>
+              u.id === set.createdByUserId &&
+              u.status === 'Active' &&
+              (u.roles.includes('Administrator') || u.roles.includes('C Admin')) &&
+              u.organization?.trim().toLowerCase() === org,
+          )) ||
+        (creator.name
+          ? users.find(
+              (u) =>
+                u.status === 'Active' &&
+                u.name === creator.name &&
+                (u.roles.includes('Administrator') || u.roles.includes('C Admin')) &&
+                u.organization?.trim().toLowerCase() === org,
+            )
+          : undefined);
+      if (creatorUser) {
+        push(set, creatorUser, role, 'choose-person');
+      }
     });
   });
   return all;

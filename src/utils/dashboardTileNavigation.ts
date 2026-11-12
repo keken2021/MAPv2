@@ -5,6 +5,63 @@ import { MasterDocument } from '../types/document';
 
 export type DashboardRole = 'Administrator as client' | 'Submitter' | 'Verifier' | 'Inspector' | 'Approver';
 
+export interface AssuranceDetailPreselect {
+  setId?: string;
+  tab?: 'details' | 'tasks' | 'requirements' | 'documents' | 'checklist' | 'audit';
+  reqId?: string;
+  capaId?: string;
+  section?: string;
+}
+
+export const setAssuranceDetailPreselect = (preselect: AssuranceDetailPreselect): void => {
+  if (typeof sessionStorage === 'undefined') return;
+  if (preselect.setId) {
+    sessionStorage.setItem('map_assurance_preselect_set_id', preselect.setId);
+  } else {
+    sessionStorage.removeItem('map_assurance_preselect_set_id');
+  }
+  if (preselect.tab) {
+    sessionStorage.setItem('map_assurance_detail_tab_preselect', preselect.tab);
+  }
+  if (preselect.reqId) {
+    sessionStorage.setItem('map_assurance_focus_req_id', preselect.reqId);
+  }
+  if (preselect.capaId) {
+    sessionStorage.setItem('map_assurance_focus_capa_id', preselect.capaId);
+  }
+  if (preselect.section) {
+    sessionStorage.setItem('map_assurance_focus_section', preselect.section);
+  }
+};
+
+export const peekAssuranceDetailPreselect = (currentSetId?: string): AssuranceDetailPreselect => {
+  if (typeof sessionStorage === 'undefined') return {};
+  const targetSetId = sessionStorage.getItem('map_assurance_preselect_set_id');
+  if (targetSetId && currentSetId && targetSetId !== currentSetId) {
+    return {};
+  }
+  const tab = sessionStorage.getItem('map_assurance_detail_tab_preselect') as AssuranceDetailPreselect['tab'] | null;
+  const reqId = sessionStorage.getItem('map_assurance_focus_req_id');
+  const capaId = sessionStorage.getItem('map_assurance_focus_capa_id');
+  const section = sessionStorage.getItem('map_assurance_focus_section');
+  return {
+    setId: targetSetId || undefined,
+    tab: tab || undefined,
+    reqId: reqId || undefined,
+    capaId: capaId || undefined,
+    section: section || undefined,
+  };
+};
+
+export const clearAssuranceDetailPreselect = (): void => {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.removeItem('map_assurance_preselect_set_id');
+  sessionStorage.removeItem('map_assurance_detail_tab_preselect');
+  sessionStorage.removeItem('map_assurance_focus_req_id');
+  sessionStorage.removeItem('map_assurance_focus_capa_id');
+  sessionStorage.removeItem('map_assurance_focus_section');
+};
+
 export const navigateToFilteredList = (
   targetView: string,
   filterKey: string,
@@ -23,11 +80,11 @@ export const navigateToFilteredList = (
     } else if (targetView === 'capa' || targetView === 'capas') {
       sessionStorage.setItem('map_capa_tab_preselect', filterValue === 'open' ? 'Open' : 'All');
       sessionStorage.setItem('map_capa_subfilter', filterValue);
-    } else if (targetView === 'verifier-workspace') {
+    } else if (targetView === 'verifier' || targetView === 'verifier-workspace') {
       sessionStorage.setItem('map_verifier_tab_preselect', filterValue);
-    } else if (targetView === 'inspector-workspace') {
+    } else if (targetView === 'inspector' || targetView === 'inspector-workspace') {
       sessionStorage.setItem('map_inspector_tab_preselect', filterValue);
-    } else if (targetView === 'approver-dashboard') {
+    } else if (targetView === 'approver' || targetView === 'approver-dashboard') {
       sessionStorage.setItem('map_approver_tab_preselect', filterValue);
     }
   }
@@ -36,11 +93,13 @@ export const navigateToFilteredList = (
 };
 
 export const isSetNeedingPeople = (set: AssuranceSet): boolean => {
+  const needsInspector = set.mandatoryInspectionRequired !== false && !set.assignedInspector;
+  const needsApprover = set.formalApprovalRequired !== false && !set.assignedApprover;
   return (
     !set.assignedSubmitter ||
     !set.assignedVerifier ||
-    !set.assignedInspector ||
-    !set.assignedApprover
+    needsInspector ||
+    needsApprover
   );
 };
 
@@ -94,6 +153,7 @@ export const filterAssuranceSetsByDashboardFilter = (
   sets: AssuranceSet[],
   filter?: string,
   now = new Date(),
+  capaItems?: CapaItem[],
 ): AssuranceSet[] => {
   if (!filter || filter === 'ALL') return sets;
   switch (filter) {
@@ -112,7 +172,14 @@ export const filterAssuranceSetsByDashboardFilter = (
     case 'missing':
       return sets.filter(
         (s) =>
-          s.requirements?.some((r) => !r.isFulfilled && !r.documentId) ||
+          s.requirements?.some(
+            (r) =>
+              !r.isFulfilled &&
+              !r.documentId &&
+              !r.linkedDocumentId &&
+              r.verifierStatus !== 'Correction Requested' &&
+              r.verifierStatus !== 'Rejected',
+          ) ||
           (s as any).status === 'Missing',
       );
     case 'escalated':
@@ -125,7 +192,17 @@ export const filterAssuranceSetsByDashboardFilter = (
           (s.requirements && s.requirements.every((r) => r.isFulfilled || r.verifierStatus === 'Verified')),
       );
     case 'with_open_findings':
-      return sets.filter((s) => (s as any).openFindingsCount > 0 || (s as any).hasOpenFindings);
+      return sets.filter(
+        (s) =>
+          (s as any).openFindingsCount > 0 ||
+          (s as any).hasOpenFindings ||
+          (Array.isArray(capaItems) &&
+            capaItems.some(
+              (c) =>
+                c.status !== 'Verified & Closed' &&
+                (c.assuranceSetId === s.id || (!c.assuranceSetId && c.vesselId && c.vesselId === s.vesselId)),
+            )),
+      );
     case 'in_progress':
       return sets.filter(
         (s) => s.stage !== 'Certified' && s.stage !== 'Approved' && s.stage !== 'Cancelled',
@@ -229,7 +306,14 @@ export const getRoleDashboardTiles = (
       );
       const missing = sets.filter(
         (s) =>
-          s.requirements?.some((r) => !r.isFulfilled && !r.documentId) ||
+          s.requirements?.some(
+            (r) =>
+              !r.isFulfilled &&
+              !r.documentId &&
+              !r.linkedDocumentId &&
+              r.verifierStatus !== 'Correction Requested' &&
+              r.verifierStatus !== 'Rejected',
+          ) ||
           (s as any).status === 'Missing',
       );
       const expiring30 = docs.filter((d) => {
@@ -238,7 +322,7 @@ export const getRoleDashboardTiles = (
         const diffDays = (exp - now.getTime()) / (1000 * 60 * 60 * 24);
         return diffDays >= 0 && diffDays <= 30;
       });
-      const openFindings = capas.filter((c) => c.status === 'Open');
+      const openFindingsSets = filterAssuranceSetsByDashboardFilter(sets, 'with_open_findings', now, capas);
 
       return [
         {
@@ -271,10 +355,11 @@ export const getRoleDashboardTiles = (
         {
           id: 'submitter-open-findings',
           label: 'Open findings',
-          value: openFindings.length,
+          value: openFindingsSets.length,
           tone: 'neutral',
           linkText: 'View →',
-          onClick: () => navigateToFilteredList('capa', 'map_capa_tab_preselect', 'open', setCurrentHashView),
+          onClick: () =>
+            navigateToFilteredList('assurance-sets', 'map_assurance_filter', 'with_open_findings', setCurrentHashView),
         },
       ];
     }
@@ -297,7 +382,7 @@ export const getRoleDashboardTiles = (
           tone: 'bad',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('verifier-workspace', 'map_verifier_tab_preselect', 'overdue', setCurrentHashView),
+            navigateToFilteredList('verifier', 'map_verifier_tab_preselect', 'overdue', setCurrentHashView),
         },
         {
           id: 'verifier-due-this-week',
@@ -306,7 +391,7 @@ export const getRoleDashboardTiles = (
           tone: 'warn',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('verifier-workspace', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
+            navigateToFilteredList('verifier', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
         },
         {
           id: 'verifier-resubmitted',
@@ -315,7 +400,7 @@ export const getRoleDashboardTiles = (
           tone: 'neutral',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('verifier-workspace', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
+            navigateToFilteredList('verifier', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
         },
         {
           id: 'verifier-in-queue',
@@ -324,7 +409,7 @@ export const getRoleDashboardTiles = (
           tone: 'neutral',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('verifier-workspace', 'map_verifier_tab_preselect', 'all', setCurrentHashView),
+            navigateToFilteredList('verifier', 'map_verifier_tab_preselect', 'all', setCurrentHashView),
         },
       ];
     }
@@ -349,7 +434,7 @@ export const getRoleDashboardTiles = (
           tone: 'bad',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('inspector-workspace', 'map_inspector_tab_preselect', 'overdue', setCurrentHashView),
+            navigateToFilteredList('inspector', 'map_inspector_tab_preselect', 'overdue', setCurrentHashView),
         },
         {
           id: 'inspector-reinspections',
@@ -367,7 +452,7 @@ export const getRoleDashboardTiles = (
           tone: 'neutral',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('inspector-workspace', 'map_inspector_tab_preselect', 'to-inspect', setCurrentHashView),
+            navigateToFilteredList('inspector', 'map_inspector_tab_preselect', 'to-inspect', setCurrentHashView),
         },
         {
           id: 'inspector-fixes-to-check',
@@ -403,7 +488,7 @@ export const getRoleDashboardTiles = (
           tone: 'ok',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'needs-decision', setCurrentHashView),
+            navigateToFilteredList('approver', 'map_approver_tab_preselect', 'needs-decision', setCurrentHashView),
         },
         {
           id: 'approver-with-findings',
@@ -412,7 +497,7 @@ export const getRoleDashboardTiles = (
           tone: 'warn',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'all', setCurrentHashView),
+            navigateToFilteredList('approver', 'map_approver_tab_preselect', 'all', setCurrentHashView),
         },
         {
           id: 'approver-waiting-over-5',
@@ -421,7 +506,7 @@ export const getRoleDashboardTiles = (
           tone: 'bad',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'overdue', setCurrentHashView),
+            navigateToFilteredList('approver', 'map_approver_tab_preselect', 'overdue', setCurrentHashView),
         },
         {
           id: 'approver-approved-this-month',
@@ -430,7 +515,7 @@ export const getRoleDashboardTiles = (
           tone: 'neutral',
           linkText: 'View →',
           onClick: () =>
-            navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'approved', setCurrentHashView),
+            navigateToFilteredList('approver', 'map_approver_tab_preselect', 'approved', setCurrentHashView),
         },
       ];
     }

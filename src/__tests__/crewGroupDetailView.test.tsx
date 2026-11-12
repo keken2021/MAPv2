@@ -101,7 +101,31 @@ describe('CrewGroupDetailView - Two Tabs & Master Roster Management (Task 5340)'
   });
 
   it('renders read-only roster without add/remove controls for non-Crew Provider persona', () => {
-    useMapStore.setState({ activePersona: 'C Admin' });
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+      assuranceSets: [
+        {
+          ...initialState.assuranceSets[0],
+          id: 'AS-CG-RO-TEST',
+          createdByUserId: 'USR-221',
+          createdByName: 'C. Henderson',
+          createdByPersona: 'C Admin',
+          initiatorOrg: 'Chevron Australia Pty Ltd',
+          clientOrg: 'Chevron Australia Pty Ltd',
+          crewGroups: [
+            {
+              groupId: 'CG-001',
+              groupName: 'Dive Team',
+              specialization: 'Subsea & Diving Operations',
+              memberIds: ['CREW-101', 'CREW-104'],
+              addedAt: '2026-11-04T00:00:00.000Z',
+            },
+          ],
+        },
+      ],
+    });
 
     render(<CrewGroupDetailView groupId="CG-001" />);
 

@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Eye, Search, Inbox } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
+import { setAssuranceDetailPreselect } from '../utils/dashboardTileNavigation';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
 import { MasterDocument } from '../types/document';
 import { formatMaritimeDate, getStatusDisplayLabel } from '../utils/formatters';
@@ -10,7 +11,7 @@ import { CountTabs, CountTab } from '../components/common/CountTabs';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { EmptyState } from '../components/common/EmptyState';
-import { filterDocumentsForVerifierQueue, filterDocumentsVisibleToOrganization, getAssuranceSetRoleActions, isAdminReadOnlyWorkView, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { filterDocumentsForVerifierQueue, getAssuranceSetRoleActions, isAdminReadOnlyWorkView, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { AssuranceSet } from '../types/assurance';
@@ -21,15 +22,9 @@ import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { TablePagination } from '../components/common/TablePagination';
 import { isComplianceDeadlineOverdue, toIsoLocalDate } from '../utils/validation';
 
-function namesSessionUser(label: string | undefined, userName: string | undefined): boolean {
-  const name = userName?.trim().toLowerCase();
-  if (!name || !label?.trim()) return false;
-  return label.toLowerCase().includes(name);
-}
-
 /**
   what: documents in the verification queue for this session user.
-  how: a verifier only keeps documents on sets that name them; every other persona keeps the existing assignment filter.
+  how: fails closed when no session user exists and filters strictly to assurance sets personally assigned to the user and their organization.
 */
 export function documentsForSessionVerifier(
   documents: MasterDocument[],
@@ -39,17 +34,10 @@ export function documentsForSessionVerifier(
   user?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null,
 ): MasterDocument[] {
   const org = organization?.trim() || undefined;
-  const queued = persona === 'Verifier' && user?.name
-    ? documents.filter((doc) => {
-        const namedSets = assuranceSets.filter(
-          (set) =>
-            isAssuranceSetAssignedToPersona(set, persona, org, user) &&
-            namesSessionUser(set.assignedVerifier, user.name),
-        );
-        return namedSets.some((set) => set.requirements?.some((req) => req.documentId === doc.id));
-      })
-    : filterDocumentsForVerifierQueue(documents, assuranceSets, persona, org);
-  return org ? filterDocumentsVisibleToOrganization(queued, assuranceSets, org) : queued;
+  if (!user || (persona === 'Verifier' && !user.name?.trim())) {
+    return [];
+  }
+  return filterDocumentsForVerifierQueue(documents, assuranceSets, persona, org, user);
 }
 
 export type VerifierTabKey = 'to-verify' | 'overdue' | 'verified' | 'returned' | 'all';
@@ -63,7 +51,16 @@ type SortField =
   | 'verificationStatus';
 
 export const VerifierWorkspaceView: React.FC = () => {
-  const { documents, assuranceSets, activePersona, activeDemoOrganization, users, activeSessionUserId } = useMapStore();
+  const {
+    documents,
+    assuranceSets,
+    activePersona,
+    activeDemoOrganization,
+    users,
+    activeSessionUserId,
+    currentEntityId,
+    setCurrentHashView,
+  } = useMapStore();
   const sessionUser = useMemo(
     () =>
       getSessionUserForPersona(
@@ -157,6 +154,9 @@ export const VerifierWorkspaceView: React.FC = () => {
 
   const getAssuranceSetInfo = (docId: string) => {
     for (const set of assuranceSets) {
+      if (!isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser)) {
+        continue;
+      }
       const requirement = set.requirements?.find((r) => r.documentId === docId || r.linkedDocumentId === docId);
       if (requirement) {
         return {
@@ -172,7 +172,10 @@ export const VerifierWorkspaceView: React.FC = () => {
     return null;
   };
 
-  const selectedDocSetInfo = selectedDoc ? getAssuranceSetInfo(selectedDoc.id) : null;
+  const activeSelectedDoc = selectedDoc
+    ? scopedDocs.find((d) => d.id === selectedDoc.id) ?? selectedDoc
+    : null;
+  const selectedDocSetInfo = activeSelectedDoc ? getAssuranceSetInfo(activeSelectedDoc.id) : null;
   const adminReadOnly = isAdminReadOnlyWorkView('verifier', activePersona);
   const selectedSet = selectedDocSetInfo
     ? assuranceSets.find((set) => set.id === selectedDocSetInfo.setId)
@@ -208,6 +211,69 @@ export const VerifierWorkspaceView: React.FC = () => {
       d.verificationStatus === 'Rejected'
     );
   };
+
+  const lastAutoOpenedEntityRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!currentEntityId) {
+      lastAutoOpenedEntityRef.current = undefined;
+      return;
+    }
+    if (lastAutoOpenedEntityRef.current === currentEntityId) return;
+
+    const matchDocTab = (doc: MasterDocument): VerifierTabKey => {
+      if (isToVerify(doc)) return 'to-verify';
+      if (isDocOverdue(doc)) return 'overdue';
+      if (isReturned(doc)) return 'returned';
+      if (isVerified(doc)) return 'verified';
+      return 'all';
+    };
+
+    const directDoc = scopedDocs.find((d) => d.id === currentEntityId);
+    if (directDoc) {
+      lastAutoOpenedEntityRef.current = currentEntityId;
+      if (activeTab !== matchDocTab(directDoc)) {
+        setActiveTab(matchDocTab(directDoc));
+      }
+      setSelectedDoc(directDoc);
+      return;
+    }
+
+    const matchedSet = assuranceSets.find(
+      (s) =>
+        s.id === currentEntityId &&
+        isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser),
+    );
+    if (matchedSet) {
+      lastAutoOpenedEntityRef.current = currentEntityId;
+      const setDocs = scopedDocs.filter((d) =>
+        matchedSet.requirements?.some((r) => r.documentId === d.id || r.linkedDocumentId === d.id),
+      );
+      const targetDoc = setDocs.find((d) => d.verificationStatus === 'Pending') ?? setDocs[0];
+      if (targetDoc) {
+        if (activeTab !== matchDocTab(targetDoc)) {
+          setActiveTab(matchDocTab(targetDoc));
+        }
+        setSelectedDoc(targetDoc);
+        return;
+      }
+      const pendingReq = matchedSet.requirements?.find(
+        (r) => !r.isFulfilled && r.verifierStatus === 'Pending',
+      );
+      setAssuranceDetailPreselect({
+        setId: matchedSet.id,
+        tab: 'tasks',
+        reqId: pendingReq?.id,
+      });
+      setCurrentHashView('assurance-sets', matchedSet.id);
+    }
+  }, [
+    currentEntityId,
+    scopedDocs,
+    assuranceSets,
+    activePersona,
+    activeDemoOrganization,
+    sessionUser,
+  ]);
 
   const toVerifyCount = useMemo(() => scopedDocs.filter(isToVerify).length, [scopedDocs]);
   const overdueCount = useMemo(() => scopedDocs.filter(isDocOverdue).length, [scopedDocs, assuranceSets]);
@@ -481,13 +547,19 @@ export const VerifierWorkspaceView: React.FC = () => {
       </div>
 
       <DocumentReviewDrawer
-        document={selectedDoc}
-        onClose={() => setSelectedDoc(null)}
+        document={activeSelectedDoc}
+        onClose={() => {
+          setSelectedDoc(null);
+          if (currentEntityId) {
+            lastAutoOpenedEntityRef.current = undefined;
+            setCurrentHashView('verifier');
+          }
+        }}
         assuranceSetId={selectedDocSetInfo?.setId}
         requirementId={selectedDocSetInfo?.requirementId}
         requirementVerifierStatus={selectedDocSetInfo?.requirementVerifierStatus}
-        allowVerify={adminReadOnly ? false : selectedActions?.canVerify ?? true}
-        allowSubmit={adminReadOnly ? false : selectedActions?.canUpload ?? true}
+        allowVerify={adminReadOnly ? false : selectedActions?.canVerify ?? false}
+        allowSubmit={adminReadOnly ? false : selectedActions?.canUpload ?? false}
       />
 
       <FilterModal

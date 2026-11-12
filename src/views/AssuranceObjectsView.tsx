@@ -112,7 +112,10 @@ export function assuranceObjectsForSession(
   persona: UserRolePersona,
   organization: string,
   user?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null,
+  users?: UserProfile[],
 ): AssuranceObject[] {
+  if (!user || !organization?.trim()) return [];
+
   const byId = new Map<string, AssuranceObject>();
   objects.forEach((object) => byId.set(object.id, object));
 
@@ -121,7 +124,7 @@ export function assuranceObjectsForSession(
   }
 
   const assigned = sets.filter((set) =>
-    isAssuranceSetAssignedToPersona(set, persona, organization, user),
+    isAssuranceSetAssignedToPersona(set, persona, organization, user, users),
   );
   assigned.forEach((set) => {
     getAssuranceSetObjects(set).forEach((object) => {
@@ -212,6 +215,7 @@ export const AssuranceObjectsView: React.FC = () => {
       activePersona,
       organization,
       sessionUser,
+      users,
     );
     return visible
       .map((object) => {
@@ -295,7 +299,7 @@ export const AssuranceObjectsView: React.FC = () => {
     ? verificationsForViewer(drawerObject, assuranceSets, activePersona, organization)
     : [];
   const drawerSets = drawerObject
-    ? setsForObjectDrawer(drawerObject.id, assuranceSets, activePersona, organization, sessionUser)
+    ? setsForObjectDrawer(drawerObject.id, assuranceSets, activePersona, organization, sessionUser, users)
     : [];
 
   const exportRows = visibleRows.map((row) => ({

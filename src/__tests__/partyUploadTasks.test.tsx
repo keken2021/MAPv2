@@ -13,8 +13,9 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
     useMapStore.setState(initialState, true);
     useMapStore.setState({
       isAuthenticated: true,
-      activePersona: 'Administrator',
+      activePersona: 'C Admin',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-CHEV-01',
       users: [
         ...initialState.users,
         {
@@ -49,12 +50,18 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
       ...prev,
       activePersona: 'C Admin',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-CHEV-01',
       assuranceSets: [
         ...prev.assuranceSets,
         {
           id: testSetId,
           title: 'Task 5305 Independent Tasks Set',
           stage: 'Initiated',
+          initiatorOrg: 'Chevron Australia Pty Ltd',
+          initiatorRole: 'C Admin · Client Created',
+          createdByUserId: 'USR-CHEV-01',
+          createdByName: 'C. Administrator',
+          createdByPersona: 'C Admin',
           clientOrg: 'Chevron Australia Pty Ltd',
           charterer: 'Chevron Australia Pty Ltd',
           serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
@@ -63,7 +70,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
           formalApprovalRequired: true,
           readinessScore: 0,
           assuranceType: 'Vessel',
-        } as any,
+        } as unknown as import('../types/assurance').AssuranceSet,
       ],
     }));
 
@@ -111,12 +118,18 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
       ...prev,
       activePersona: 'C Admin',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-CHEV-01',
       assuranceSets: [
         ...prev.assuranceSets,
         {
           id: setId,
           title: 'Task 5305 Completion Test Set',
           stage: 'Initiated',
+          initiatorOrg: 'Chevron Australia Pty Ltd',
+          initiatorRole: 'C Admin · Client Created',
+          createdByUserId: 'USR-CHEV-01',
+          createdByName: 'C. Administrator',
+          createdByPersona: 'C Admin',
           clientOrg: 'Chevron Australia Pty Ltd',
           charterer: 'Chevron Australia Pty Ltd',
           serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
@@ -125,7 +138,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
           formalApprovalRequired: true,
           readinessScore: 0,
           assuranceType: 'Vessel',
-        } as any,
+        } as unknown as import('../types/assurance').AssuranceSet,
       ],
     }));
 
@@ -201,12 +214,18 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
       ...prev,
       activePersona: 'C Admin',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-CHEV-01',
       assuranceSets: [
         ...prev.assuranceSets,
         {
           id: testSetId,
           title: 'Direct Multi Party Test Set',
           stage: 'Initiated',
+          initiatorOrg: 'Chevron Australia Pty Ltd',
+          initiatorRole: 'C Admin · Client Created',
+          createdByUserId: 'USR-CHEV-01',
+          createdByName: 'C. Administrator',
+          createdByPersona: 'C Admin',
           clientOrg: 'Chevron Australia Pty Ltd',
           charterer: 'Chevron Australia Pty Ltd',
           serviceProviderOrg: 'Oceanic Horizon Logistics Pty Ltd',
@@ -215,7 +234,7 @@ describe('Assurance Set - One Upload Task Per Party (Task 5305 / 5c-02)', () => 
           formalApprovalRequired: true,
           readinessScore: 0,
           assuranceType: 'Vessel',
-        } as any,
+        } as unknown as import('../types/assurance').AssuranceSet,
       ],
     }));
 

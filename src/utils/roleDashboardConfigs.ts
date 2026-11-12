@@ -19,10 +19,10 @@ import {
   DashboardReadinessBar,
 } from '../types/dashboard';
 import {
+  canSessionUserAccessCapa,
   filterAssuranceSetsForSession,
   isAssuranceSetAssignedToPersona,
   isVesselOwnedByClientOrg,
-  orgFieldMatches,
 } from './rbacHelpers';
 import { filterProjectsForPersona } from './projectHelpers';
 import { calculateVesselReadiness } from './readinessHelpers';
@@ -33,6 +33,7 @@ import {
   isSetDueThisWeek,
   isSetEscalated,
   navigateToFilteredList,
+  setAssuranceDetailPreselect,
 } from './dashboardTileNavigation';
 import { getRoleRecentActivity } from './recentActivityFeed';
 import {
@@ -40,6 +41,22 @@ import {
   countReusedDocuments,
   countReVerifications,
 } from './valueMetrics';
+
+function resolveCapaSetId(capa: CapaItem, candidateSets: AssuranceSet[]): string | undefined {
+  if (capa.assuranceSetId && candidateSets.some((s) => s.id === capa.assuranceSetId)) {
+    return capa.assuranceSetId;
+  }
+  const byVesselId = capa.vesselId
+    ? candidateSets.find((s) => s.vesselId === capa.vesselId)
+    : undefined;
+  if (byVesselId) return byVesselId.id;
+  const byVesselName = capa.vesselName
+    ? candidateSets.find(
+        (s) => s.vesselName && s.vesselName.toLowerCase() === capa.vesselName.toLowerCase(),
+      )
+    : undefined;
+  return byVesselName?.id;
+}
 
 /**
  * Returns missing roles for an assurance set (submitter, verifier, inspector, approver).
@@ -52,10 +69,16 @@ export function getMissingRolesForSet(set: AssuranceSet): string[] {
   if (!set.assignedVerifier || set.assignedVerifier === 'Unassigned' || set.assignedVerifier.toLowerCase().includes('pending')) {
     missing.push('verifier');
   }
-  if (!set.assignedInspector || set.assignedInspector === 'Unassigned' || set.assignedInspector.toLowerCase().includes('pending')) {
+  if (
+    set.mandatoryInspectionRequired !== false &&
+    (!set.assignedInspector || set.assignedInspector === 'Unassigned' || set.assignedInspector.toLowerCase().includes('pending'))
+  ) {
     missing.push('inspector');
   }
-  if (!set.assignedApprover || set.assignedApprover === 'Unassigned' || set.assignedApprover.toLowerCase().includes('pending')) {
+  if (
+    set.formalApprovalRequired !== false &&
+    (!set.assignedApprover || set.assignedApprover === 'Unassigned' || set.assignedApprover.toLowerCase().includes('pending'))
+  ) {
     missing.push('approver');
   }
   return missing;
@@ -97,6 +120,7 @@ export interface AdministratorClientConfigParams {
   auditEvents: AuditTrailEvent[];
   projects?: Project[];
   users?: UserProfile[];
+  notifications?: AppNotification[];
   sessionUser?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | { id?: string; name?: string; organization?: string; roles?: RoleName[] } | null;
   activeOrganization?: string;
   setCurrentHashView: (view: string, entityId?: string) => void;
@@ -112,12 +136,13 @@ export function getAdministratorClientDashboardConfig({
   auditEvents,
   projects = [],
   users = [],
+  notifications = [],
   sessionUser,
   activeOrganization,
   setCurrentHashView,
   now = new Date(),
 }: AdministratorClientConfigParams): DashboardConfig {
-  const scopedOrg = activeOrganization?.trim();
+  const scopedOrg = activeOrganization?.trim() || sessionUser?.organization?.trim() || '';
   const userForRbac: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null = sessionUser
     ? {
         id: sessionUser.id || '',
@@ -127,9 +152,9 @@ export function getAdministratorClientDashboardConfig({
       }
     : null;
 
-  const orgSets = scopedOrg
-    ? filterAssuranceSetsForSession(assuranceSets, 'C Admin', scopedOrg, userForRbac)
-    : assuranceSets;
+  const orgSets = userForRbac
+    ? filterAssuranceSetsForSession(assuranceSets, 'C Admin', scopedOrg || undefined, userForRbac, users.length > 0 ? users : undefined)
+    : [];
 
   const orgSetIds = new Set(orgSets.map((s) => s.id));
   const orgVesselIds = new Set(orgSets.map((s) => s.vesselId).filter(Boolean));
@@ -137,28 +162,39 @@ export function getAdministratorClientDashboardConfig({
     orgSets.map((s) => s.vesselName?.toLowerCase()).filter(Boolean) as string[],
   );
 
-  const orgCapas = scopedOrg
-    ? capaItems.filter((c) =>
-        Boolean(
-          (c.assuranceSetId && orgSetIds.has(c.assuranceSetId)) ||
-            (c.vesselId && orgVesselIds.has(c.vesselId)) ||
-            (c.vesselName && orgVesselNames.has(c.vesselName.toLowerCase())) ||
-            (c.owner && orgFieldMatches(scopedOrg, c.owner)),
-        ),
-      )
-    : capaItems;
+  const orgCapas = !userForRbac
+    ? []
+    : capaItems.filter((c) => {
+        if (
+          !canSessionUserAccessCapa(
+            c,
+            assuranceSets,
+            'C Admin',
+            scopedOrg || undefined,
+            userForRbac,
+          )
+        ) {
+          return false;
+        }
+        if (c.assuranceSetId) return orgSetIds.has(c.assuranceSetId);
+        return Boolean(
+          (c.vesselId && orgVesselIds.has(c.vesselId)) ||
+            (c.vesselName && orgVesselNames.has(c.vesselName.toLowerCase())),
+        );
+      });
 
   const orgProjects =
-    scopedOrg && users.length > 0
+    users.length > 0 && userForRbac
       ? filterProjectsForPersona(
           projects,
           'C Admin',
           users,
           assuranceSets,
-          scopedOrg,
-          userForRbac ?? undefined,
+          scopedOrg || undefined,
+          userForRbac,
+          notifications,
         )
-      : projects;
+      : [];
 
   const needingPeopleSets = orgSets
     .filter(isSetNeedingPeople)
@@ -248,6 +284,11 @@ export function getAdministratorClientDashboardConfig({
       subtitle,
       buttonLabel: 'Assign',
       onAction: () => {
+        setAssuranceDetailPreselect({
+          setId: set.id,
+          tab: 'details',
+          section: 'stakeholders',
+        });
         setCurrentHashView('assurance-sets', set.id);
       },
     };
@@ -255,7 +296,7 @@ export function getAdministratorClientDashboardConfig({
 
   const activityItems = getRoleRecentActivity('Administrator as client', auditEvents, 5, now);
   const displayOrg = scopedOrg || 'Northwind Shipping';
-  const projectsCount = projects.length > 0 ? orgProjects.length : 3;
+  const projectsCount = orgProjects.length;
 
   return {
     roleTitle: 'Administrator as client',
@@ -295,7 +336,7 @@ export function getAdministratorDashboardConfig({
   setCurrentHashView,
   now = new Date(),
 }: AdministratorConfigParams): DashboardConfig {
-  const scopedOrg = activeOrganization?.trim();
+  const scopedOrg = activeOrganization?.trim() || sessionUser?.organization?.trim() || '';
   const userForRbac: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null = sessionUser
     ? {
         id: sessionUser.id || '',
@@ -305,13 +346,14 @@ export function getAdministratorDashboardConfig({
       }
     : null;
 
-  const orgSets = scopedOrg
-    ? filterAssuranceSetsForSession(assuranceSets, 'Administrator', scopedOrg, userForRbac)
-    : assuranceSets;
+  const orgSets = userForRbac
+    ? filterAssuranceSetsForSession(assuranceSets, 'Administrator', scopedOrg || undefined, userForRbac)
+    : [];
 
-  const orgVessels = scopedOrg
-    ? vessels.filter((v) => isVesselOwnedByClientOrg(v, scopedOrg))
-    : vessels;
+  const orgVessels =
+    userForRbac && scopedOrg
+      ? vessels.filter((v) => isVesselOwnedByClientOrg(v, scopedOrg))
+      : [];
 
   const orgSetIds = new Set(orgSets.map((s) => s.id));
   const orgVesselIds = new Set([
@@ -328,6 +370,7 @@ export function getAdministratorDashboardConfig({
 
   const docIdToSetId = new Map<string, string>();
   const orgSetDocIds = new Set<string>();
+  const otherSetDocIds = new Set<string>();
   for (const set of orgSets) {
     for (const r of set.requirements || []) {
       if (r.documentId) {
@@ -340,36 +383,53 @@ export function getAdministratorDashboardConfig({
       }
     }
   }
+  for (const set of assuranceSets) {
+    if (orgSetIds.has(set.id)) continue;
+    for (const r of set.requirements || []) {
+      if (r.documentId) otherSetDocIds.add(r.documentId);
+      if (r.linkedDocumentId) otherSetDocIds.add(r.linkedDocumentId);
+    }
+  }
 
-  const orgDocs = scopedOrg
-    ? documents.filter((doc) => {
+  const orgDocs = !userForRbac
+    ? []
+    : documents.filter((doc) => {
         const docExt = doc as MasterDocument & { organization?: string; vesselName?: string; assuranceSetId?: string };
         const docVesselName =
           doc.vesselAttributes?.vesselName ||
           doc.crewAttributes?.assignedVessel ||
           docExt.vesselName;
         const docImo = doc.vesselAttributes?.imoNumber;
+        if (orgSetDocIds.has(doc.id)) return true;
+        if (docExt.assuranceSetId) return orgSetIds.has(docExt.assuranceSetId);
+        if (otherSetDocIds.has(doc.id)) return false;
         return Boolean(
-          orgSetDocIds.has(doc.id) ||
-            (docExt.assuranceSetId && orgSetIds.has(docExt.assuranceSetId)) ||
-            (doc.vesselId && orgVesselIds.has(doc.vesselId)) ||
+          (doc.vesselId && orgVesselIds.has(doc.vesselId)) ||
             (docVesselName && orgVesselNames.has(docVesselName.toLowerCase())) ||
-            (docImo && orgVesselImos.has(docImo)) ||
-            (docExt.organization && orgFieldMatches(scopedOrg, docExt.organization)),
+            (docImo && orgVesselImos.has(docImo)),
         );
-      })
-    : documents;
+      });
 
-  const orgCapas = scopedOrg
-    ? capaItems.filter((c) =>
-        Boolean(
-          (c.assuranceSetId && orgSetIds.has(c.assuranceSetId)) ||
-            (c.vesselId && orgVesselIds.has(c.vesselId)) ||
-            (c.vesselName && orgVesselNames.has(c.vesselName.toLowerCase())) ||
-            (c.owner && orgFieldMatches(scopedOrg, c.owner)),
-        ),
-      )
-    : capaItems;
+  const orgCapas = !userForRbac
+    ? []
+    : capaItems.filter((c) => {
+        if (
+          !canSessionUserAccessCapa(
+            c,
+            assuranceSets,
+            'Administrator',
+            scopedOrg || undefined,
+            userForRbac,
+          )
+        ) {
+          return false;
+        }
+        if (c.assuranceSetId) return orgSetIds.has(c.assuranceSetId);
+        return Boolean(
+          (c.vesselId && orgVesselIds.has(c.vesselId)) ||
+            (c.vesselName && orgVesselNames.has(c.vesselName.toLowerCase())),
+        );
+      });
 
   const avgReadiness =
     orgVessels.length > 0
@@ -449,6 +509,11 @@ export function getAdministratorDashboardConfig({
       subtitle: ['No submitter', startSnippet].filter(Boolean).join(' · '),
       buttonLabel: 'Assign',
       onAction: () => {
+        setAssuranceDetailPreselect({
+          setId: set.id,
+          tab: 'details',
+          section: 'stakeholders',
+        });
         setCurrentHashView('assurance-sets', set.id);
       },
     };
@@ -460,7 +525,7 @@ export function getAdministratorDashboardConfig({
   for (const set of orgSets) {
     if (set.stage === 'Cancelled') continue;
     for (const req of set.requirements || []) {
-      if (req.verifierStatus === 'Correction Requested') {
+      if (req.verifierStatus === 'Correction Requested' || req.verifierStatus === 'Rejected') {
         if (req.documentId) returnedDocIds.add(req.documentId);
         if (req.linkedDocumentId) returnedDocIds.add(req.linkedDocumentId);
         const vessel = set.vesselName || set.title;
@@ -472,6 +537,11 @@ export function getAdministratorDashboardConfig({
           subtitle: req.notes || req.verificationResultSummary || 'Correction requested by verifier',
           buttonLabel: 'Re-upload',
           onAction: () => {
+            setAssuranceDetailPreselect({
+              setId: set.id,
+              tab: 'tasks',
+              reqId: req.id,
+            });
             setCurrentHashView('assurance-sets', set.id);
           },
         });
@@ -502,9 +572,18 @@ export function getAdministratorDashboardConfig({
         buttonLabel: 'Re-upload',
         onAction: () => {
           if (linkedSetId) {
+            const linkedSet = orgSets.find((s) => s.id === linkedSetId);
+            const linkedReq = linkedSet?.requirements?.find(
+              (r) => r.documentId === doc.id || r.linkedDocumentId === doc.id,
+            );
+            setAssuranceDetailPreselect({
+              setId: linkedSetId,
+              tab: 'tasks',
+              reqId: linkedReq?.id,
+            });
             setCurrentHashView('assurance-sets', linkedSetId);
           } else {
-            setCurrentHashView('documents');
+            setCurrentHashView('documents', doc.id);
           }
         },
       });
@@ -530,7 +609,7 @@ export function getAdministratorDashboardConfig({
         title: `${doc.title} · ${entity}`,
         subtitle: `Expires ${formatShortDate(doc.expiryDate)}`,
         buttonLabel: 'Renew',
-        onAction: () => navigateToFilteredList('documents', 'filter', 'Expiring < 6 Mos', setCurrentHashView),
+        onAction: () => setCurrentHashView('documents', doc.id),
       };
     });
 
@@ -639,26 +718,37 @@ export function getSubmitterDashboardConfig({
       }
     : null;
 
-  const assignedSets = assuranceSets.filter((set) =>
-    isAssuranceSetAssignedToPersona(set, 'Submitter', activeOrganization, userForRbac),
-  );
+  const assignedSets = userForRbac
+    ? assuranceSets.filter((set) =>
+        isAssuranceSetAssignedToPersona(set, 'Submitter', activeOrganization, userForRbac),
+      )
+    : [];
 
   const assignedSetIds = new Set(assignedSets.map((s) => s.id));
   const assignedVesselIds = new Set(assignedSets.map((s) => s.vesselId).filter(Boolean));
 
   const docIdToSetId = new Map<string, string>();
+  const otherSetDocIds = new Set<string>();
   for (const set of assignedSets) {
     for (const r of set.requirements || []) {
       if (r.documentId) docIdToSetId.set(r.documentId, set.id);
       if (r.linkedDocumentId) docIdToSetId.set(r.linkedDocumentId, set.id);
     }
   }
+  for (const set of assuranceSets) {
+    if (assignedSetIds.has(set.id)) continue;
+    for (const r of set.requirements || []) {
+      if (r.documentId) otherSetDocIds.add(r.documentId);
+      if (r.linkedDocumentId) otherSetDocIds.add(r.linkedDocumentId);
+    }
+  }
 
   // 1. Returned documents
   const returnedItems: DashboardActionItem[] = [];
   for (const set of assignedSets) {
+    if (set.stage === 'Cancelled') continue;
     for (const req of set.requirements || []) {
-      if (req.verifierStatus === 'Correction Requested') {
+      if (req.verifierStatus === 'Correction Requested' || req.verifierStatus === 'Rejected') {
         const vessel = set.vesselName || set.title;
         returnedItems.push({
           id: `returned-${req.id}`,
@@ -668,6 +758,11 @@ export function getSubmitterDashboardConfig({
           subtitle: req.notes || req.verificationResultSummary || 'Expired date on scan',
           buttonLabel: 'Re-upload',
           onAction: () => {
+            setAssuranceDetailPreselect({
+              setId: set.id,
+              tab: 'tasks',
+              reqId: req.id,
+            });
             setCurrentHashView('assurance-sets', set.id);
           },
         });
@@ -675,29 +770,48 @@ export function getSubmitterDashboardConfig({
     }
   }
 
-  // Also check documents directly
+  // Also check documents directly linked to assigned sets
   for (const doc of documents) {
     if (doc.verificationStatus === 'Correction Requested' || doc.verificationStatus === 'Rejected') {
-      const anyDoc = doc as any;
-      const linkedSetId = docIdToSetId.get(doc.id) || (anyDoc.assuranceSetId as string | undefined);
-      const isAssigned = Boolean(linkedSetId) ||
-        Boolean(doc.vesselId && assignedVesselIds.has(doc.vesselId)) ||
-        Boolean(anyDoc.organization && anyDoc.organization.includes(activeOrganization));
+      const docExt = doc as MasterDocument & {
+        assuranceSetId?: string;
+        vesselName?: string;
+        organization?: string;
+        name?: string;
+        rejectionReason?: string;
+      };
+      const resolvedSetId =
+        docIdToSetId.get(doc.id) ||
+        (docExt.assuranceSetId && assignedSetIds.has(docExt.assuranceSetId) ? docExt.assuranceSetId : undefined);
+      const isAssigned = docIdToSetId.has(doc.id)
+        ? true
+        : docExt.assuranceSetId
+          ? assignedSetIds.has(docExt.assuranceSetId)
+          : !otherSetDocIds.has(doc.id) && Boolean(doc.vesselId && assignedVesselIds.has(doc.vesselId));
       if (isAssigned && !returnedItems.some((item) => item.id.includes(doc.id))) {
-        const entity = doc.vesselAttributes?.vesselName || anyDoc.vesselName || anyDoc.organization || 'Vessel';
-        const docTitle = doc.title || anyDoc.name || 'Document';
+        const entity = doc.vesselAttributes?.vesselName || docExt.vesselName || docExt.organization || 'Vessel';
+        const docTitle = doc.title || docExt.name || 'Document';
         returnedItems.push({
           id: `returned-doc-${doc.id}`,
           tag: 'Returned',
           tagTone: 'bad',
           title: `${docTitle} · ${entity}`,
-          subtitle: doc.verificationNotes || anyDoc.rejectionReason || 'Correction requested by verifier',
+          subtitle: doc.verificationNotes || docExt.rejectionReason || 'Correction requested by verifier',
           buttonLabel: 'Re-upload',
           onAction: () => {
-            if (linkedSetId) {
-              setCurrentHashView('assurance-sets', linkedSetId);
+            if (resolvedSetId) {
+              const resolvedSet = assignedSets.find((s) => s.id === resolvedSetId);
+              const linkedReq = resolvedSet?.requirements?.find(
+                (r) => r.documentId === doc.id || r.linkedDocumentId === doc.id,
+              );
+              setAssuranceDetailPreselect({
+                setId: resolvedSetId,
+                tab: 'tasks',
+                reqId: linkedReq?.id,
+              });
+              setCurrentHashView('assurance-sets', resolvedSetId);
             } else {
-              setCurrentHashView('documents');
+              setCurrentHashView('documents', doc.id);
             }
           },
         });
@@ -709,7 +823,13 @@ export function getSubmitterDashboardConfig({
   const findingItems: DashboardActionItem[] = [];
   const assignedCapas = capaItems.filter((c) => {
     if (c.status === 'Verified & Closed') return false;
-    if (c.assuranceSetId && assignedSetIds.has(c.assuranceSetId)) return true;
+    if (
+      userForRbac &&
+      !canSessionUserAccessCapa(c, assuranceSets, 'Submitter', activeOrganization, userForRbac)
+    ) {
+      return false;
+    }
+    if (c.assuranceSetId) return assignedSetIds.has(c.assuranceSetId);
     if (c.vesselId && assignedVesselIds.has(c.vesselId)) return true;
     return assignedSets.some((s) => s.vesselName && c.vesselName && s.vesselName.toLowerCase() === c.vesselName.toLowerCase());
   });
@@ -723,7 +843,17 @@ export function getSubmitterDashboardConfig({
       subtitle: capa.dueDate ? `Response due ${formatShortDate(capa.dueDate)}` : 'Response required',
       buttonLabel: 'Respond',
       onAction: () => {
-        setCurrentHashView('capa');
+        const targetSetId = resolveCapaSetId(capa, assignedSets);
+        if (targetSetId) {
+          setAssuranceDetailPreselect({
+            setId: targetSetId,
+            tab: 'tasks',
+            capaId: capa.id,
+          });
+          setCurrentHashView('assurance-sets', targetSetId);
+        } else {
+          navigateToFilteredList('assurance-sets', 'filter', 'with_open_findings', setCurrentHashView);
+        }
       },
     });
   }
@@ -737,7 +867,14 @@ export function getSubmitterDashboardConfig({
   });
 
   for (const set of sortedSetsByDueDate) {
-    const unfulfilled = (set.requirements || []).filter((r) => !r.isFulfilled && !r.documentId);
+    const unfulfilled = (set.requirements || []).filter(
+      (r) =>
+        !r.isFulfilled &&
+        !r.documentId &&
+        !r.linkedDocumentId &&
+        r.verifierStatus !== 'Correction Requested' &&
+        r.verifierStatus !== 'Rejected',
+    );
     if (unfulfilled.length > 0) {
       const setDueDate = set.targetDate || set.complianceDeadline || set.charterWindowStart;
       const dueSnippet = setDueDate ? `Set due ${formatShortDate(setDueDate)}` : 'Set due soon';
@@ -751,6 +888,11 @@ export function getSubmitterDashboardConfig({
         subtitle: dueSnippet,
         buttonLabel: 'Upload',
         onAction: () => {
+          setAssuranceDetailPreselect({
+            setId: set.id,
+            tab: 'tasks',
+            reqId: unfulfilled[0]?.id,
+          });
           setCurrentHashView('assurance-sets', set.id);
         },
       });
@@ -761,14 +903,20 @@ export function getSubmitterDashboardConfig({
   const expiringItems: DashboardActionItem[] = [];
   for (const doc of documents) {
     if (isDocumentExpiringIn30Days(doc, now)) {
-      const anyDoc = doc as any;
-      const linkedSetId = docIdToSetId.get(doc.id) || (anyDoc.assuranceSetId as string | undefined);
-      const isAssigned = Boolean(linkedSetId) ||
-        Boolean(doc.vesselId && assignedVesselIds.has(doc.vesselId)) ||
-        Boolean(anyDoc.organization && anyDoc.organization.includes(activeOrganization));
+      const docExt = doc as MasterDocument & {
+        assuranceSetId?: string;
+        vesselName?: string;
+        organization?: string;
+        name?: string;
+      };
+      const isAssigned = docIdToSetId.has(doc.id)
+        ? true
+        : docExt.assuranceSetId
+          ? assignedSetIds.has(docExt.assuranceSetId)
+          : !otherSetDocIds.has(doc.id) && Boolean(doc.vesselId && assignedVesselIds.has(doc.vesselId));
       if (isAssigned) {
-        const entity = doc.vesselAttributes?.vesselName || anyDoc.vesselName || anyDoc.organization || 'Vessel';
-        const docTitle = doc.title || anyDoc.name || 'Document';
+        const entity = doc.vesselAttributes?.vesselName || docExt.vesselName || docExt.organization || 'Vessel';
+        const docTitle = doc.title || docExt.name || 'Document';
         expiringItems.push({
           id: `expiring-${doc.id}`,
           tag: 'Expiring',
@@ -777,7 +925,7 @@ export function getSubmitterDashboardConfig({
           subtitle: `Expires ${formatShortDate(doc.expiryDate)}`,
           buttonLabel: 'Renew',
           onAction: () => {
-            setCurrentHashView('documents');
+            setCurrentHashView('documents', doc.id);
           },
         });
       }
@@ -821,7 +969,21 @@ export function getSubmitterDashboardConfig({
       label: 'Open findings',
       value: findingItems.length,
       tone: 'neutral',
-      onClick: () => navigateToFilteredList('capa', 'filter', 'open', setCurrentHashView),
+      onClick: () => {
+        const findingSetIds = Array.from(
+          new Set(
+            assignedCapas
+              .map((c) => resolveCapaSetId(c, assignedSets))
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        if (findingSetIds.length === 1) {
+          setAssuranceDetailPreselect({ setId: findingSetIds[0], tab: 'tasks' });
+          setCurrentHashView('assurance-sets', findingSetIds[0]);
+        } else {
+          navigateToFilteredList('assurance-sets', 'filter', 'with_open_findings', setCurrentHashView);
+        }
+      },
     },
   ];
 
@@ -882,20 +1044,14 @@ export function getVerifierDashboardConfig({
       }
     : null;
 
-  // Filter assigned sets for this verifier
-  const assignedSets = assuranceSets.filter((set) => {
-    if (!isAssuranceSetAssignedToPersona(set, 'Verifier', activeOrganization, userForRbac)) {
-      return false;
-    }
-    if (userForRbac?.name && set.assignedVerifier) {
-      return set.assignedVerifier.toLowerCase().includes(userForRbac.name.toLowerCase());
-    }
-    return true;
-  });
+  // Filter strictly to assurance sets personally assigned to this verifier
+  const assignedSets = userForRbac
+    ? assuranceSets.filter((set) =>
+        isAssuranceSetAssignedToPersona(set, 'Verifier', activeOrganization, userForRbac),
+      )
+    : [];
 
-  const effectiveSets = assignedSets.length > 0
-    ? assignedSets
-    : assuranceSets.filter((s) => s.stage === 'Verification' || isAssuranceSetAssignedToPersona(s, 'Verifier', activeOrganization, userForRbac));
+  const effectiveSets = assignedSets;
 
   const effectiveSetIds = new Set(effectiveSets.map((s) => s.id));
   const effectiveVesselIds = new Set(effectiveSets.map((s) => s.vesselId).filter(Boolean));
@@ -925,16 +1081,22 @@ export function getVerifierDashboardConfig({
   const queueCandidates: QueueCandidate[] = [];
   const seenIds = new Set<string>();
 
-  // 1. Gather pending items from documents
+  // 1. Gather pending items from documents belonging to assigned sets
   for (const doc of documents) {
     if (doc.verificationStatus === 'Pending') {
       const anyDoc = doc as any;
-      const linkedSet = docIdToSet.get(doc.id) ||
-        effectiveSets.find((s) => s.id === anyDoc.assuranceSetId || (doc.vesselId && s.vesselId === doc.vesselId));
+      const explicitSet = anyDoc.assuranceSetId
+        ? effectiveSets.find((s) => s.id === anyDoc.assuranceSetId)
+        : undefined;
+      const linkedSet =
+        docIdToSet.get(doc.id) ||
+        explicitSet ||
+        (!anyDoc.assuranceSetId && doc.vesselId
+          ? effectiveSets.find((s) => s.vesselId === doc.vesselId)
+          : undefined);
 
       const isAssigned = Boolean(linkedSet) ||
-        Boolean(doc.vesselId && effectiveVesselIds.has(doc.vesselId)) ||
-        Boolean(anyDoc.assuranceSetId && effectiveSetIds.has(anyDoc.assuranceSetId));
+        (!anyDoc.assuranceSetId && Boolean(doc.vesselId && effectiveVesselIds.has(doc.vesselId)));
 
       if (isAssigned) {
         seenIds.add(doc.id);
@@ -1042,7 +1204,7 @@ export function getVerifierDashboardConfig({
       tone: 'bad',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('verifier-workspace', 'map_verifier_tab_preselect', 'overdue', setCurrentHashView),
+        navigateToFilteredList('verifier', 'map_verifier_tab_preselect', 'overdue', setCurrentHashView),
     },
     {
       id: 'due_this_week',
@@ -1051,7 +1213,7 @@ export function getVerifierDashboardConfig({
       tone: 'warn',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('verifier-workspace', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
+        navigateToFilteredList('verifier', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
     },
     {
       id: 'resubmitted',
@@ -1060,7 +1222,7 @@ export function getVerifierDashboardConfig({
       tone: 'neutral',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('verifier-workspace', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
+        navigateToFilteredList('verifier', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
     },
     {
       id: 'in_queue',
@@ -1069,7 +1231,7 @@ export function getVerifierDashboardConfig({
       tone: 'neutral',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('verifier-workspace', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
+        navigateToFilteredList('verifier', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
     },
   ];
 
@@ -1096,7 +1258,7 @@ export function getVerifierDashboardConfig({
       subtitle: 'Set target date at risk',
       buttonLabel: 'Verify',
       onAction: () => {
-        setCurrentHashView('verifier-workspace', item.docId || item.setId);
+        setCurrentHashView('verifier', item.docId || item.setId);
       },
     });
   }
@@ -1111,7 +1273,7 @@ export function getVerifierDashboardConfig({
       subtitle: dueSnippet,
       buttonLabel: 'Verify',
       onAction: () => {
-        setCurrentHashView('verifier-workspace', item.docId || item.setId);
+        setCurrentHashView('verifier', item.docId || item.setId);
       },
     });
   }
@@ -1126,7 +1288,7 @@ export function getVerifierDashboardConfig({
       subtitle: attemptSnippet,
       buttonLabel: 'Verify',
       onAction: () => {
-        setCurrentHashView('verifier-workspace', item.docId || item.setId);
+        setCurrentHashView('verifier', item.docId || item.setId);
       },
     });
   }
@@ -1143,7 +1305,7 @@ export function getVerifierDashboardConfig({
       subtitle: waitSnippet,
       buttonLabel: 'Verify',
       onAction: () => {
-        setCurrentHashView('verifier-workspace', item.docId || item.setId);
+        setCurrentHashView('verifier', item.docId || item.setId);
       },
     });
   }
@@ -1159,7 +1321,7 @@ export function getVerifierDashboardConfig({
     activityItems: getRoleRecentActivity('Verifier', auditEvents, 5, now),
     seeAllText: totalQueue > 0 ? `Open queue (${totalQueue})` : undefined,
     onSeeAll: () =>
-      navigateToFilteredList('verifier-workspace', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
+      navigateToFilteredList('verifier', 'map_verifier_tab_preselect', 'to-verify', setCurrentHashView),
     emptyActionMessage: 'Nothing needs you today',
   };
 }
@@ -1195,31 +1357,37 @@ export function getInspectorDashboardConfig({
       }
     : null;
 
-  // Assigned sets for this inspector
-  const assignedSets = assuranceSets.filter((set) => {
-    if (!isAssuranceSetAssignedToPersona(set, 'Inspector', activeOrganization, userForRbac)) {
-      return false;
-    }
-    if (userForRbac?.name && set.assignedInspector) {
-      return set.assignedInspector.toLowerCase().includes(userForRbac.name.toLowerCase());
-    }
-    return true;
-  });
+  // Assigned sets strictly scoped to this inspector
+  const assignedSets = userForRbac
+    ? assuranceSets.filter((set) =>
+        isAssuranceSetAssignedToPersona(set, 'Inspector', activeOrganization, userForRbac),
+      )
+    : [];
 
-  const effectiveSets = assignedSets.length > 0
-    ? assignedSets
-    : assuranceSets.filter((s) => s.stage === 'Inspection' || isAssuranceSetAssignedToPersona(s, 'Inspector', activeOrganization, userForRbac));
+  const effectiveSets = assignedSets;
 
   const assignedSetIds = new Set(effectiveSets.map((s) => s.id));
   const assignedVesselIds = new Set(effectiveSets.map((s) => s.vesselId).filter(Boolean));
 
-  const relevantCapas = capaItems.filter((c) => {
-    if (c.status === 'Verified & Closed') return false;
-    if (c.assuranceSetId && assignedSetIds.has(c.assuranceSetId)) return true;
-    if (c.vesselId && assignedVesselIds.has(c.vesselId)) return true;
-    if (effectiveSets.some((s) => s.vesselName && c.vesselName && s.vesselName.toLowerCase() === c.vesselName.toLowerCase())) return true;
-    return assignedSets.length === 0;
-  });
+  const relevantCapas = !userForRbac
+    ? []
+    : capaItems.filter((c) => {
+        if (c.status === 'Verified & Closed') return false;
+        if (
+          !canSessionUserAccessCapa(
+            c,
+            assuranceSets,
+            'Inspector',
+            activeOrganization,
+            userForRbac,
+          )
+        ) {
+          return false;
+        }
+        if (c.assuranceSetId) return assignedSetIds.has(c.assuranceSetId);
+        if (c.vesselId && assignedVesselIds.has(c.vesselId)) return true;
+        return effectiveSets.some((s) => s.vesselName && c.vesselName && s.vesselName.toLowerCase() === c.vesselName.toLowerCase());
+      });
 
   // 1. Reports overdue / reports to finish
   const overdueReports = effectiveSets.filter((s) => isSetOverdue(s, now) || Boolean((s as any).hasInspectionReportToFinish) || Boolean((s as any).isReportOverdue));
@@ -1248,7 +1416,7 @@ export function getInspectorDashboardConfig({
       tone: 'bad',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('inspector-workspace', 'map_inspector_tab_preselect', 'overdue', setCurrentHashView),
+        navigateToFilteredList('inspector', 'map_inspector_tab_preselect', 'overdue', setCurrentHashView),
     },
     {
       id: 'reinspections',
@@ -1266,7 +1434,7 @@ export function getInspectorDashboardConfig({
       tone: 'neutral',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('inspector-workspace', 'map_inspector_tab_preselect', 'to-inspect', setCurrentHashView),
+        navigateToFilteredList('inspector', 'map_inspector_tab_preselect', 'to-inspect', setCurrentHashView),
     },
     {
       id: 'fixes_to_check',
@@ -1315,7 +1483,7 @@ export function getInspectorDashboardConfig({
       subtitle: checklistSnippet,
       buttonLabel: 'Finish report',
       onAction: () => {
-        setCurrentHashView('inspector-workspace', set.id);
+        setCurrentHashView('inspector', set.id);
       },
     });
   }
@@ -1357,7 +1525,7 @@ export function getInspectorDashboardConfig({
       subtitle: timeSnippet,
       buttonLabel: 'Prepare',
       onAction: () => {
-        setCurrentHashView('inspector-workspace', set.id);
+        setCurrentHashView('inspector', set.id);
       },
     });
   }
@@ -1399,7 +1567,7 @@ export function getInspectorDashboardConfig({
     activityItems: getRoleRecentActivity('Inspector', auditEvents, 5, now),
     seeAllText: totalActions > 0 ? `See all ${totalActions}` : undefined,
     onSeeAll: () =>
-      navigateToFilteredList('inspector-workspace', 'map_inspector_tab_preselect', 'all', setCurrentHashView),
+      navigateToFilteredList('inspector', 'map_inspector_tab_preselect', 'all', setCurrentHashView),
     emptyActionMessage: 'Nothing needs you today',
   };
 }
@@ -1435,19 +1603,13 @@ export function getApproverDashboardConfig({
       }
     : null;
 
-  const assignedSets = assuranceSets.filter((set) => {
-    if (!isAssuranceSetAssignedToPersona(set, 'Approver', activeOrganization, userForRbac)) {
-      return false;
-    }
-    if (userForRbac?.name && set.assignedApprover) {
-      return set.assignedApprover.toLowerCase().includes(userForRbac.name.toLowerCase());
-    }
-    return true;
-  });
+  const assignedSets = userForRbac
+    ? assuranceSets.filter((set) =>
+        isAssuranceSetAssignedToPersona(set, 'Approver', activeOrganization, userForRbac),
+      )
+    : [];
 
-  const effectiveSets = assignedSets.length > 0
-    ? assignedSets
-    : assuranceSets.filter((s) => s.stage === 'Approval' || s.stage === 'Approved' || (s.stage as string) === 'Ready for Approval' || isAssuranceSetAssignedToPersona(s, 'Approver', undefined, userForRbac));
+  const effectiveSets = assignedSets;
 
   interface ApproverCandidate {
     set: AssuranceSet;
@@ -1489,7 +1651,9 @@ export function getApproverDashboardConfig({
     const openCapas = capaItems.filter(
       (c) =>
         c.status !== 'Verified & Closed' &&
-        (c.assuranceSetId === set.id || (c.vesselId && c.vesselId === set.vesselId)),
+        (c.assuranceSetId
+          ? c.assuranceSetId === set.id
+          : Boolean(c.vesselId && c.vesselId === set.vesselId)),
     );
     const openFindingsCount = anySet.openFindingsCount != null ? anySet.openFindingsCount : openCapas.length;
     const hasOpenFindings = openFindingsCount > 0 || Boolean(anySet.hasOpenFindings);
@@ -1559,7 +1723,7 @@ export function getApproverDashboardConfig({
   const readyToDecideCount = candidates.filter((c) => c.isReady && !c.hasOpenFindings).length;
   const withFindingsCount = candidates.filter((c) => c.hasOpenFindings).length;
   const waitingOver5Count = candidates.filter((c) => c.waitDays >= 5).length;
-  const approvedThisMonthCount = assuranceSets.filter((s) => s.stage === 'Approved').length;
+  const approvedThisMonthCount = effectiveSets.filter((s) => s.stage === 'Approved').length;
 
   const tiles: DashboardKpiTile[] = [
     {
@@ -1569,7 +1733,7 @@ export function getApproverDashboardConfig({
       tone: 'ok',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'needs-decision', setCurrentHashView),
+        navigateToFilteredList('approver', 'map_approver_tab_preselect', 'needs-decision', setCurrentHashView),
     },
     {
       id: 'with_open_findings',
@@ -1578,7 +1742,7 @@ export function getApproverDashboardConfig({
       tone: 'warn',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'all', setCurrentHashView),
+        navigateToFilteredList('approver', 'map_approver_tab_preselect', 'all', setCurrentHashView),
     },
     {
       id: 'waiting_over_5',
@@ -1587,7 +1751,7 @@ export function getApproverDashboardConfig({
       tone: 'bad',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'overdue', setCurrentHashView),
+        navigateToFilteredList('approver', 'map_approver_tab_preselect', 'overdue', setCurrentHashView),
     },
     {
       id: 'approved_this_month',
@@ -1596,7 +1760,7 @@ export function getApproverDashboardConfig({
       tone: 'neutral',
       linkText: 'View →',
       onClick: () =>
-        navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'approved', setCurrentHashView),
+        navigateToFilteredList('approver', 'map_approver_tab_preselect', 'approved', setCurrentHashView),
     },
   ];
 
@@ -1612,6 +1776,10 @@ export function getApproverDashboardConfig({
       readinessBar: c.readinessBar,
       buttonLabel: c.buttonLabel,
       onAction: () => {
+        setAssuranceDetailPreselect({
+          setId: c.set.id,
+          tab: 'details',
+        });
         setCurrentHashView('assurance-sets', c.set.id);
       },
     };
@@ -1627,7 +1795,7 @@ export function getApproverDashboardConfig({
     activityItems: getRoleRecentActivity('Approver', auditEvents, 5, now),
     seeAllText: totalActions > 0 ? `See all ${totalActions}` : undefined,
     onSeeAll: () =>
-      navigateToFilteredList('approver-dashboard', 'map_approver_tab_preselect', 'all', setCurrentHashView),
+      navigateToFilteredList('approver', 'map_approver_tab_preselect', 'all', setCurrentHashView),
     emptyActionMessage: 'Nothing needs you today',
   };
 }

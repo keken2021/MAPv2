@@ -249,6 +249,10 @@ describe('assigning a pending role', () => {
       title: 'Organization Pending Test',
       projectId: undefined,
       projectName: undefined,
+      initiatorOrg: THIRD_PARTY,
+      createdByPersona: 'Administrator',
+      createdByUserId: 'USR-202',
+      createdByName: 'A. Fontaine',
       visibility: 'organization',
       stage: 'Initiated',
       approverDecision: 'Pending',
@@ -261,14 +265,45 @@ describe('assigning a pending role', () => {
 
   beforeEach(() => {
     useMapStore.setState(initialState, true);
-    useMapStore.setState({ activePersona: 'Administrator', activeDemoOrganization: THIRD_PARTY });
+    useMapStore.setState({
+      isAuthenticated: true,
+      activePersona: 'Administrator',
+      activeDemoOrganization: THIRD_PARTY,
+      activeSessionUserId: 'USR-202',
+    });
     addPendingSet();
   });
 
-  it('tells the admin of the pending organization', () => {
-    const admin = useMapStore.getState().users.find((u) => u.organization === THIRD_PARTY && u.roles.includes('Administrator'))!;
-    const inbox = useMapStore.getState().notifications.filter((n) => n.assuranceSetId === 'AS-ORG-TEST' && n.recipientUserId === admin.id);
-    expect(inbox.length).toBeGreaterThan(0);
+  it('tells only the assigned person and never broadcasts a pending role org-wide', () => {
+    const admin = useMapStore.getState().users.find((u) => u.id === 'USR-202')!;
+    const verifierCandidate = useMapStore.getState().users.find((u) => u.id === 'USR-244')!;
+    const unassignedColleague = useMapStore.getState().users.find((u) => u.id === 'USR-205')!;
+
+    // Pending role does not trigger a self-notification or an org-wide broadcast to unassigned colleagues.
+    expect(
+      useMapStore.getState().notifications.filter(
+        (n) => n.assuranceSetId === 'AS-ORG-TEST' && n.recipientUserId === admin.id,
+      ),
+    ).toHaveLength(0);
+    expect(
+      useMapStore.getState().notifications.filter(
+        (n) => n.assuranceSetId === 'AS-ORG-TEST' && n.recipientUserId === verifierCandidate.id,
+      ),
+    ).toHaveLength(0);
+
+    // Explicitly assigning the verifier notifies only that assigned recipient, leaving unassigned colleagues untouched.
+    const label = `${verifierCandidate.name} (${verifierCandidate.organization})`;
+    const assignResult = useMapStore.getState().updateAssuranceStakeholder('AS-ORG-TEST', 'Verifier', label);
+    expect(assignResult.success, assignResult.message).toBe(true);
+
+    const assigneeInbox = useMapStore
+      .getState()
+      .notifications.filter((n) => n.assuranceSetId === 'AS-ORG-TEST' && n.recipientUserId === verifierCandidate.id);
+    const colleagueInbox = useMapStore
+      .getState()
+      .notifications.filter((n) => n.assuranceSetId === 'AS-ORG-TEST' && n.recipientUserId === unassignedColleague.id);
+    expect(assigneeInbox.length).toBeGreaterThan(0);
+    expect(colleagueInbox).toHaveLength(0);
   });
 
   it('fills the set and its pending tasks, and reaches the chosen person', () => {
@@ -311,11 +346,39 @@ describe('assigning a pending role', () => {
   });
 
   it('refuses the admin of another organization', () => {
-    useMapStore.setState({ activeDemoOrganization: CLIENT });
+    const template = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-001')!;
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: CLIENT,
+      activeSessionUserId: 'USR-221',
+    });
     const verifier = getOrganizationRoleCandidates(useMapStore.getState().users, THIRD_PARTY, 'Verifier')[0];
-    const result = useMapStore
+    const blockedForeignSet = useMapStore
       .getState()
       .updateAssuranceStakeholder('AS-ORG-TEST', 'Verifier', `${verifier.name} (${verifier.organization})`);
+    expect(blockedForeignSet.success).toBe(false);
+
+    useMapStore.getState().addAssuranceSet({
+      ...template,
+      id: 'AS-CLIENT-PENDING',
+      title: 'Client Pending Verifier Test',
+      projectId: undefined,
+      projectName: undefined,
+      initiatorOrg: CLIENT,
+      createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
+      visibility: 'organization',
+      stage: 'Initiated',
+      approverDecision: 'Pending',
+      clientWorkflowStage: undefined,
+      assignedVerifier: PENDING_ASSIGNMENT,
+      stakeholders: { verifierOrg: THIRD_PARTY },
+      requirements: template.requirements.map((r) => ({ ...r, assignedVerifier: PENDING_ASSIGNMENT })),
+    });
+    const result = useMapStore
+      .getState()
+      .updateAssuranceStakeholder('AS-CLIENT-PENDING', 'Verifier', `${verifier.name} (${verifier.organization})`);
     expect(result.success).toBe(false);
     expect(result.message).toContain(THIRD_PARTY);
   });
@@ -365,6 +428,7 @@ describe('wizard', () => {
       isAuthenticated: true,
       activePersona: 'C Admin',
       activeDemoOrganization: CLIENT,
+      activeSessionUserId: 'USR-221',
     });
   });
 
@@ -564,7 +628,7 @@ describe('wizard', () => {
     expect(created.assignedSubmitter).toBe(created.submitters?.[0].assignee);
   });
 
-  it('creates a set that names organizations and leaves the people pending', () => {
+  it('creates a set that names organizations and defaults existing users as stakeholders', () => {
     const { container } = renderWizardWithDefaultVessel();
     fireEvent.change(container.querySelector('#grid-campaign-title') as HTMLInputElement, {
       target: { value: 'Organizations In General Vetting' },
@@ -576,7 +640,8 @@ describe('wizard', () => {
     clickNext();
     clickNext();
     clickNext();
-    expect(container.textContent).toContain(`Pending, ${THIRD_PARTY}`);
+    expect(container.textContent).toContain(`Verifier: S. Girard (${THIRD_PARTY})`);
+    expect(container.textContent).toContain(`Inspector: N. Technical (${THIRD_PARTY})`);
 
     const before = useMapStore.getState().assuranceSets.length;
     fireEvent.click(screen.getByRole('button', { name: /Create Assurance Set/i }));
@@ -587,9 +652,9 @@ describe('wizard', () => {
     expect(created.organizations).toContain(CLIENT);
     expect(created.organizations).toContain(THIRD_PARTY);
     expect(created.stakeholders?.verifierOrg).toBe(THIRD_PARTY);
-    expect(created.assignedVerifier).toBe(PENDING_ASSIGNMENT);
-    expect(created.assignedInspector).toBe(PENDING_ASSIGNMENT);
+    expect(created.assignedVerifier).toBe(`S. Girard (${THIRD_PARTY})`);
+    expect(created.assignedInspector).toBe(`N. Technical (${THIRD_PARTY})`);
     expect(created.assignedApprover).toBe(PENDING_ASSIGNMENT);
-    expect(created.requirements.every((r) => r.assignedVerifier === PENDING_ASSIGNMENT)).toBe(true);
+    expect(created.requirements.every((r) => r.assignedVerifier === `S. Girard (${THIRD_PARTY})`)).toBe(true);
   });
 });

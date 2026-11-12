@@ -15,7 +15,9 @@ import type { MasterDocument } from '../types/document';
 const initialState = useMapStore.getState();
 
 function withDocument(patch: (doc: MasterDocument) => MasterDocument): string {
-  const base = useMapStore.getState().documents.find((d) => d.vesselAttributes)!;
+  const base = useMapStore
+    .getState()
+    .documents.find((d) => d.vesselAttributes && d.vesselId === 'VESSEL-001')!;
   const doc = patch({ ...base, id: 'MAP-VES-2026-STAT-HONEST' });
   useMapStore.setState({ documents: [doc, ...useMapStore.getState().documents] });
   return doc.id;
@@ -24,6 +26,12 @@ function withDocument(patch: (doc: MasterDocument) => MasterDocument): string {
 describe('honest document UI', () => {
   beforeEach(() => {
     useMapStore.setState(initialState, true);
+    useMapStore.setState({
+      isAuthenticated: true,
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
   });
   afterEach(cleanup);
 

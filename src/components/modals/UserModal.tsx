@@ -5,6 +5,8 @@ import { UserType, UserProfile } from '../../types/user';
 import { RoleName } from '../../types/permissions';
 import { UserRoleChecklist } from '../common/UserRoleChecklist';
 import { buildRolesFromForm, splitRolesForForm } from '../../utils/userRoleHelpers';
+import { checkEmailForMembership, personIdFor } from '../../utils/membershipHelpers';
+import { ExistingPersonMembershipNotice } from './ExistingPersonMembershipNotice';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -30,6 +32,8 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, mode, use
   const [errorMessage, setErrorMessage] = useState('');
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [isJustLoaded, setIsJustLoaded] = useState(false);
+  /* a person from another organization with this email, waiting for the Administrator to confirm the new membership */
+  const [pendingPerson, setPendingPerson] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     if (!isAdd && user && isOpen) {
@@ -73,6 +77,11 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, mode, use
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    submit();
+  };
+
+  /* linkTo: the existing person the Administrator confirmed to add as a member of this organization */
+  const submit = (linkTo?: UserProfile) => {
     setErrorMessage('');
     setHasAttemptedSubmit(true);
 
@@ -98,17 +107,22 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, mode, use
       return;
     }
 
-    const existingUser = users.find(
-      (u) => (!isAdd && user ? u.id !== user.id : true) && u.email.toLowerCase() === email.trim().toLowerCase(),
-    );
-    if (existingUser) {
+    const emailCheck = checkEmailForMembership(users, email, resolvedOrg, isAdd ? null : user);
+    if (emailCheck.kind === 'same-organization' || (emailCheck.kind === 'other-organization' && !isAdd)) {
       setErrorMessage(`A user with email address "${email.trim()}" already exists in the system.`);
       return;
     }
+    if (emailCheck.kind === 'other-organization' && linkTo?.id !== emailCheck.person.id) {
+      setPendingPerson(emailCheck.person);
+      return;
+    }
+    const linkedPersonId = linkTo ? personIdFor(linkTo) : undefined;
+    if (linkTo && !linkTo.personId) updateUser({ ...linkTo, personId: linkedPersonId });
 
     if (isAdd) {
       const newUser: UserProfile = {
         id: `MAP-USR-2026-USER-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`,
+        personId: linkedPersonId,
         name: name.trim(),
         email: email.trim(),
         roles,
@@ -135,6 +149,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, mode, use
       setOrganization('');
       setDepartmentOrScope('');
       setErrorMessage('');
+      setPendingPerson(null);
     } else if (user) {
       const updatedUser: UserProfile = {
         ...user,
@@ -178,6 +193,13 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, mode, use
               <div className="alert alert-danger py-2 small mb-0">
                 {errorMessage}
               </div>
+            )}
+            {pendingPerson && (
+              <ExistingPersonMembershipNotice
+                person={pendingPerson}
+                organization={isOrgMember ? defaultOrgName : organization.trim()}
+                onConfirm={() => submit(pendingPerson)}
+              />
             )}
 
             <div>
@@ -234,7 +256,7 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, mode, use
                   className={`form-control form-control-sm bg-white text-dark border-secondary${!isAdd && isJustLoaded ? ' map-autofill-animate' : ''} ${hasAttemptedSubmit && !email.trim() ? 'is-invalid' : ''}`}
                   placeholder="name@organization.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setPendingPerson(null); }}
                   required
                 />
               </div>

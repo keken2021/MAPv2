@@ -115,7 +115,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     status: 'read',
     createdAt: '2026-10-06T09:40:00.000Z',
     readAt: '2026-10-06T22:05:00.000Z',
-    assuranceSetId: 'AS-EQP-007-01',
+    assuranceSetId: 'AS-2026-008',
   },
   {
     id: 'MAP-NTF-2026-APRV-00003',
@@ -131,7 +131,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     createdAt: '2026-10-02T05:20:00.000Z',
     readAt: '2026-10-02T06:00:00.000Z',
     actionedAt: '2026-10-02T06:00:00.000Z',
-    assuranceSetId: 'AS-01-V001',
+    assuranceSetId: 'AS-2026-001',
   },
   {
     id: 'MAP-NTF-2026-ASGN-00004',
@@ -157,7 +157,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     status: 'read',
     createdAt: '2026-10-05T01:10:00.000Z',
     readAt: '2026-10-05T04:30:00.000Z',
-    assuranceSetId: 'AS-SBE-012-V001',
+    assuranceSetId: 'AS-2026-005',
     assignedRole: 'Verifier',
   },
 

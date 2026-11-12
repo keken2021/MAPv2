@@ -15,6 +15,7 @@ describe('Assurance Wizard Step 3 Responsible Party Declutter (Task 5355 superse
       isAuthenticated: true,
       activePersona: 'Administrator',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-CHEV-01',
       users: [
         ...initialState.users,
         {

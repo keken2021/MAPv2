@@ -10,9 +10,19 @@ import { AssuranceSet } from '../types/assurance';
 import { findOverlappingAssuranceSets } from '../utils/assuranceOverlap';
 import { MasterDocument } from '../types/document';
 
+const initialState = useMapStore.getState();
+
 describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', () => {
   beforeEach(() => {
-    useMapStore.getState().setActivePersona('Administrator');
+    useMapStore.setState(
+      {
+        ...initialState,
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      },
+      true,
+    );
   });
 
   /**
@@ -29,7 +39,7 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
       vesselId: 'VESSEL-002',
       vesselName: 'Pacific Valour',
       imoNumber: '9234567',
-      initiatorOrg: 'Woodside Energy Ltd',
+      initiatorOrg: 'Chevron Australia Pty Ltd',
       initiatorRole: 'C Admin · Client Created',
       charterWindowStart: '2026-12-01',
       complianceDeadline: '2026-12-01',
@@ -40,8 +50,8 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
       requirements: [
         {
           id: 'REQ-CANC-01',
@@ -55,15 +65,16 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
         },
       ],
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
 
     // Client Admin cancels mid-flight
-    store.setActivePersona('C Admin');
     const result = store.cancelAssuranceSet(
       setId,
-      'C. Manager (Woodside Energy)',
+      'C. Henderson (Chevron Australia Pty Ltd)',
       'Drilling program postponed indefinitely due to commercial renegotiation.'
     );
 
@@ -80,7 +91,7 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
       (e) => e.targetAsset.includes(setId) && e.action === 'Cancelled Assurance Set'
     );
     expect(cancelAudit).toBeDefined();
-    expect(cancelAudit?.justificationNotes).toContain('cancelled by C. Manager (Woodside Energy)');
+    expect(cancelAudit?.justificationNotes).toContain('cancelled by C. Henderson (Chevron Australia Pty Ltd)');
     expect(cancelAudit?.justificationNotes).toContain('Drilling program postponed indefinitely');
   });
 
@@ -163,6 +174,7 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
       title: 'International Oil Pollution Prevention Certificate',
       entityType: 'Vessel Certificate',
       vesselId: 'VESSEL-001',
+      ownerOrganization: 'Northwind Marine Pty Ltd',
       certificateNo: 'IOPP-2026-9901',
       issuingAuthority: 'DNV',
       currentVersion: 'v1.0',
@@ -187,7 +199,12 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
         },
       ],
     };
-    store.addDocument(testDoc);
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
+    useMapStore.getState().addDocument(testDoc);
 
     // Assurance set initial charter window: 2026-11-01 to 2027-04-01 (expires after charter end)
     const testSet: AssuranceSet = {
@@ -207,9 +224,9 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
-      assignedApprover: 'P. Nardelli (Chevron)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [
         {
           id: reqId,
@@ -224,18 +241,25 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
         },
       ],
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
-    store.addAssuranceSet(testSet);
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
+    useMapStore.getState().addAssuranceSet(testSet);
 
     // Client extends charterWindowEnd to 2027-09-01 (past document expiry 2027-06-01)
     const updatedSet: AssuranceSet = {
       ...testSet,
       charterWindowEnd: '2027-09-01',
     };
-    store.updateAssuranceSet(updatedSet);
+    useMapStore.getState().updateAssuranceSet(updatedSet);
 
     // Trigger renewal check
-    store.raiseDocumentRenewalNotifications([setId]);
+    useMapStore.getState().raiseDocumentRenewalNotifications([setId]);
 
     // Verify renewal notification raised with renewalReason charter_window
     const notifications = useMapStore.getState().notifications;
@@ -246,8 +270,12 @@ describe('Real-World Operational Workflows - Client Disruptions & Date Shifts', 
     expect(renewalAlert?.renewalReason).toBe('charter_window');
 
     // Attempting final approval while mandatory requirement is unfulfilled/open is blocked
-    store.setActivePersona('Approver');
-    store.setApproverDecision(setId, 'Approved', 'Premature approval attempt.');
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
+    useMapStore.getState().setApproverDecision(setId, 'Approved', 'Premature approval attempt.');
 
     // The set remains in Verification stage and cannot be Approved
     const setAfterBlockedApproval = useMapStore.getState().assuranceSets.find((s) => s.id === setId)!;

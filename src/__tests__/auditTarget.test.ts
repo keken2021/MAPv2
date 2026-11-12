@@ -51,6 +51,11 @@ describe('audit targets and finding closed date', () => {
   });
 
   it('records a date change, a task edit and an export with a structured target', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
     const store = useMapStore.getState();
     const set = store.assuranceSets.find((item) => item.requirements.length > 0);
     expect(set).toBeDefined();
@@ -92,6 +97,11 @@ describe('audit targets and finding closed date', () => {
   });
 
   it('records an added task and a removed task', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
     const store = useMapStore.getState();
     const set = store.assuranceSets.find((item) => item.requirements.length > 0) as AssuranceSet;
     const kept = set.requirements[0];
@@ -127,6 +137,11 @@ describe('audit targets and finding closed date', () => {
   });
 
   it('sets the closed date when a finding is closed and clears it when the finding is opened', () => {
+    useMapStore.setState({
+      activePersona: 'Inspector',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-203',
+    });
     const openFinding = useMapStore.getState().capaItems.find((item) => item.status === 'Open');
     expect(openFinding).toBeDefined();
     expect(openFinding?.closedDate).toBeUndefined();

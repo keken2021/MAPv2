@@ -60,12 +60,29 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     lastActive: '2026-10-29 12:00 UTC',
   };
 
+  const mockAdminOsei: UserProfile = {
+    id: 'USR-101',
+    name: 'K. Osei',
+    email: 'k.osei@northwind.com',
+    roles: ['Administrator'],
+    userType: 'Organization',
+    organization: 'Northwind Marine Pty Ltd',
+    status: 'Active',
+    departmentOrScope: 'Fleet Management',
+    lastActive: '2026-10-29 12:00 UTC',
+  };
+
   const setA: AssuranceSet = {
     ...baseSet,
     id: 'AS-TEST-001',
     title: 'Fontaine Inspection Campaign',
     visibility: 'public',
     stage: 'Verification',
+    initiatorOrg: 'Northwind Marine Pty Ltd',
+    initiatorRole: 'Vessel Provider Admin',
+    createdByUserId: 'USR-101',
+    createdByName: 'K. Osei',
+    createdByPersona: 'Administrator',
     serviceProviderOrg: 'Northwind Marine Pty Ltd',
     clientOrg: 'Bureau Veritas Inspectorate',
     assignedSubmitter: undefined,
@@ -83,6 +100,11 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     title: 'Dupont Verification Campaign',
     visibility: 'public',
     stage: 'Verification',
+    initiatorOrg: 'Northwind Marine Pty Ltd',
+    initiatorRole: 'Vessel Provider Admin',
+    createdByUserId: 'USR-101',
+    createdByName: 'K. Osei',
+    createdByPersona: 'Administrator',
     serviceProviderOrg: 'Northwind Marine Pty Ltd',
     clientOrg: 'Bureau Veritas Inspectorate',
     assignedSubmitter: undefined,
@@ -140,7 +162,7 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
 
   beforeEach(() => {
     useMapStore.setState({
-      users: [mockUserVerifier1, mockUserVerifier2, mockSubmitterChen, mockSubmitterRamirez],
+      users: [mockAdminOsei, mockUserVerifier1, mockUserVerifier2, mockSubmitterChen, mockSubmitterRamirez],
       vessels: [vessel1, vessel2],
       assuranceSets: [setA, setB, setChen, setRamirez],
       projects: [],
@@ -172,7 +194,7 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     useMapStore.setState({
       activePersona: 'Administrator',
       activeDemoOrganization: 'Northwind Marine Pty Ltd',
-      activeSessionUserId: undefined,
+      activeSessionUserId: 'USR-101',
       assuranceSets: [setA, setB],
     });
 
@@ -207,6 +229,7 @@ describe('AssuranceTable and VesselTable per-person session filtering', () => {
     useMapStore.setState({
       activePersona: 'Administrator',
       activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
     render(<VesselTable onSelectVessel={() => {}} />);
     expect(screen.getByRole('tab', { name: /Own/i })).toBeInTheDocument();

@@ -20,6 +20,11 @@ export interface UserProfile {
   departmentOrScope: string;
   status: 'Active' | 'Pending Invitation' | 'Inactive';
   lastActive: string;
+  /**
+   * Links the records of one person who is a member of several organizations (ADR 0037).
+   * Each record is one membership, with its own organization and roles. A record without it is its own person.
+   */
+  personId?: string;
   /* persona or role that created or invited this user profile */
   createdBy?: string;
   invitedBy?: string;

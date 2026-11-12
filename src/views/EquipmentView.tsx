@@ -17,6 +17,7 @@ import { EmptyState } from '../components/common/EmptyState';
 import { ActiveFilterChips, FilterChip } from '../components/common/ActiveFilterChips';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { filterEquipmentForPersona } from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
 import { usePagination } from '../utils/usePagination';
 import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { TablePagination } from '../components/common/TablePagination';
@@ -27,7 +28,15 @@ import { TablePagination } from '../components/common/TablePagination';
   with what file: src/views/EquipmentView.tsx loaded by App.tsx.
 */
 export const EquipmentView: React.FC = () => {
-  const { equipment, vessels, assuranceSets, activePersona, setCurrentHashView } = useMapStore();
+  const {
+    equipment,
+    vessels,
+    assuranceSets,
+    activePersona,
+    activeDemoOrganization,
+    setCurrentHashView,
+  } = useMapStore();
+  const sessionUser = useSessionUser();
   const [viewMode, setViewMode] = useState<'list' | 'tree'>('list');
   const [isViewDropdownOpen, setIsViewDropdownOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,14 +77,22 @@ export const EquipmentView: React.FC = () => {
     (filterState.draft.compliance !== 'ALL' ? 1 : 0);
 
   const visibleEquipment = useMemo(
-    () => filterEquipmentForPersona(equipment, vessels, assuranceSets, activePersona),
-    [equipment, vessels, assuranceSets, activePersona],
+    () =>
+      filterEquipmentForPersona(
+        equipment,
+        vessels,
+        assuranceSets,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+      ),
+    [equipment, vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser],
   );
 
   const categories = useMemo(() => {
-    const set = new Set(equipment.map((e) => e.category).filter(Boolean));
+    const set = new Set(visibleEquipment.map((e) => e.category).filter(Boolean));
     return Array.from(set).sort();
-  }, [equipment]);
+  }, [visibleEquipment]);
 
   const filteredEquipment = useMemo(() => {
     return visibleEquipment.filter((item) => {
@@ -119,7 +136,7 @@ export const EquipmentView: React.FC = () => {
     setComplianceFilter('ALL');
   };
 
-  const canRegister = activePersona === 'Administrator';
+  const canRegister = Boolean(sessionUser && activePersona === 'Administrator');
 
   const handleRegistered = (equipmentId: string) => {
     setCurrentHashView('equipment', equipmentId);

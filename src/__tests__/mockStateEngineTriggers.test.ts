@@ -22,6 +22,12 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       readinessScore: 0,
       verificationRequired: true,
       formalApprovalRequired: true,
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [
         {
           id: 'REQ-1',
@@ -45,7 +51,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       vesselId: '',
       vesselName: '',
       imoNumber: '',
-      initiatorRole: 'C Admin · Client Created',
+      initiatorRole: 'Vessel Provider Admin',
       charterWindowStart: '',
       complianceDeadline: '',
       charterWindowEnd: '',
@@ -60,6 +66,12 @@ describe('Mock State Engine Triggers in useMapStore', () => {
     expect(currentSet?.readinessScore).toBe(10);
     expect(currentSet?.stage).toBe('Initiated');
 
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
+
     useMapStore.getState().updateRequirementStatus(testSetId, 'REQ-1', 'Verified');
     currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === testSetId);
     expect(currentSet?.readinessScore).toBe(40);
@@ -68,6 +80,12 @@ describe('Mock State Engine Triggers in useMapStore', () => {
     currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === testSetId);
     expect(currentSet?.readinessScore).toBe(70);
     expect(currentSet?.stage).toBe('Approval');
+
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
 
     // Approve the campaign -> readiness becomes 100% and stage becomes Approved
     useMapStore.getState().setApproverDecision(testSetId, 'Approved');
@@ -91,6 +109,9 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       stage: 'Approved',
       approverDecision: 'Approved',
       readinessScore: 100,
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       requirements: [
         {
           id: 'REQ-C1',
@@ -105,7 +126,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       vesselId: '',
       vesselName: '',
       imoNumber: '',
-      initiatorRole: 'C Admin · Client Created',
+      initiatorRole: 'Vessel Provider Admin',
       charterWindowStart: '',
       complianceDeadline: '',
       charterWindowEnd: '',
@@ -121,6 +142,12 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       initiatorOrg: 'Northwind Marine Pty Ltd',
       stage: 'Verification',
       readinessScore: 40,
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [
         {
           id: 'REQ-C2A',
@@ -144,7 +171,7 @@ describe('Mock State Engine Triggers in useMapStore', () => {
       vesselId: '',
       vesselName: '',
       imoNumber: '',
-      initiatorRole: 'C Admin · Client Created',
+      initiatorRole: 'Vessel Provider Admin',
       charterWindowStart: '',
       complianceDeadline: '',
       charterWindowEnd: '',
@@ -194,7 +221,17 @@ describe('Mock State Engine Triggers in useMapStore', () => {
     expect(project?.status).toBe('Assurance In Progress');
 
     // Verify childSet2 REQ-C2B and approve childSet2
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     useMapStore.getState().updateRequirementStatus(childSet2Id, 'REQ-C2B', 'Verified');
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
     useMapStore.getState().setApproverDecision(childSet2Id, 'Approved');
 
     project = useMapStore.getState().projects.find((p) => p.id === projId);

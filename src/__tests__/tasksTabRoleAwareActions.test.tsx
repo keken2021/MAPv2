@@ -230,6 +230,67 @@ describe('Task 5378: Role-aware Upload, Review or View button per row on Tasks t
       /* action kind stays Upload; label shows Reupload when a reupload was requested */
       expect(actionBtn).toHaveTextContent('Reupload');
     });
+
+    it('returns Upload and renders Reupload for responding party on expired or contract-short documents', () => {
+      const expiredDoc = {
+        id: 'DOC-EXP',
+        expiryDate: '2026-10-01',
+        complianceState: 'Expired' as const,
+      };
+      const shortDoc = {
+        id: 'DOC-SHORT',
+        expiryDate: '2026-12-01',
+        complianceState: 'Expiring < 6 Mos' as const,
+      };
+      const verifiedReqExpiredDoc = createRequirement({
+        id: 'REQ-EXP',
+        documentId: 'DOC-EXP',
+        verifierStatus: 'Verified',
+        isFulfilled: true,
+      });
+      const pendingReqShortDoc = createRequirement({
+        id: 'REQ-SHORT',
+        documentId: 'DOC-SHORT',
+        verifierStatus: 'Verified',
+        isFulfilled: true,
+      });
+      const set = createSet('AS-EXP', 'Charter Set', [verifiedReqExpiredDoc, pendingReqShortDoc]);
+
+      expect(
+        getTaskRowActionLabel(
+          { requirement: verifiedReqExpiredDoc, parentSet: set, status: 'Done' },
+          'responding',
+          undefined,
+          { document: expiredDoc, today: TEST_TODAY },
+        ),
+      ).toBe('Upload');
+
+      expect(
+        getTaskRowActionLabel(
+          { requirement: pendingReqShortDoc, parentSet: set, status: 'Done' },
+          'responding',
+          undefined,
+          { document: shortDoc, today: TEST_TODAY },
+        ),
+      ).toBe('Upload');
+
+      render(
+        <ProjectTasksTable
+          sets={[set]}
+          documents={[
+            { ...expiredDoc, title: 'Expired Cert', certificateNo: 'C-1', issuingAuthority: 'DNV', entityType: 'Vessel', issueDate: '2025-10-01', verificationStatus: 'Verified', ocrConfidence: 95, currentVersion: 'v1.0', versions: [], validationRules: { overallValid: true, rules: [] } } as any,
+            { ...shortDoc, title: 'Short Cert', certificateNo: 'C-2', issuingAuthority: 'DNV', entityType: 'Vessel', issueDate: '2025-12-01', verificationStatus: 'Verified', ocrConfidence: 95, currentVersion: 'v1.0', versions: [], validationRules: { overallValid: true, rules: [] } } as any,
+          ]}
+          today={TEST_TODAY}
+          showActions
+          viewerParty="responding"
+          onOpenRequirement={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByTestId('task-action-btn-REQ-EXP')).toHaveTextContent('Reupload');
+      expect(screen.getByTestId('task-action-btn-REQ-SHORT')).toHaveTextContent('Reupload');
+    });
   });
 });
 

@@ -27,6 +27,7 @@ import {
 } from '../utils/permissionHelpers';
 import { formatUserRoles, getRoleDisplayLabel } from '../utils/userRoleHelpers';
 import { filterUsersForPersona } from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
 import { UserProfile } from '../types/user';
 import { SearchableSelect } from '../components/common/SearchableSelect';
 import { Modal } from '../components/modals/Modal';
@@ -48,6 +49,7 @@ function cloneOverrides(overrides: UserPermissionOverrides): UserPermissionOverr
 export const RolesAndPermissionsView: React.FC = () => {
   const {
     activePersona,
+    activeDemoOrganization,
     users,
     rolePermissionDefaults,
     userPermissionOverrides,
@@ -59,10 +61,16 @@ export const RolesAndPermissionsView: React.FC = () => {
     clearUserPermissionOverrides,
     addCustomRole,
   } = useMapStore();
+  const sessionUser = useSessionUser();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('role-defaults');
   const [selectedRole, setSelectedRole] = useState<string>('Administrator');
-  const visibleUsers = filterUsersForPersona(users, activePersona);
+  const visibleUsers = filterUsersForPersona(
+    users,
+    activePersona,
+    activeDemoOrganization,
+    sessionUser ?? null,
+  );
   const [selectedUserId, setSelectedUserId] = useState<string>(
     () => visibleUsers[0]?.id ?? '',
   );
@@ -96,7 +104,7 @@ export const RolesAndPermissionsView: React.FC = () => {
     [visibleUsers],
   );
 
-  const canEdit = activePersona === 'Administrator';
+  const canEdit = Boolean(sessionUser && activePersona === 'Administrator');
   const allRoles = useMemo(
     () => [...ALL_ROLE_PERSONAS, ...customRoles],
     [customRoles],

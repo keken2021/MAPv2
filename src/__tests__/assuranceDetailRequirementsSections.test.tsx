@@ -13,7 +13,8 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
     useMapStore.setState({
       isAuthenticated: true,
       activePersona: 'Administrator',
-      activeDemoOrganization: 'Marine Assurance Platform',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
   });
 
@@ -23,6 +24,10 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
       ...initialState.assuranceSets[0],
       id: testSetId,
       title: 'No Blank Sections Test',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       subtypes: ['Vessel'],
       sections: [
         { id: 'sec-general', name: 'General documents', order: 1 },
@@ -79,6 +84,10 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
       ...initialState.assuranceSets[0],
       id: testSetId,
       title: 'Default Order Test',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       subtypes: ['Vessel', 'Crew'],
       requirements: [
         {
@@ -135,6 +144,10 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
       ...initialState.assuranceSets[0],
       id: testSetId,
       title: 'Wizard Custom Section Test',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       subtypes: ['Vessel'],
       sections: [
         { id: 'sec-general', name: 'General documents', order: 1 },
@@ -191,6 +204,10 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
       ...initialState.assuranceSets[0],
       id: testSetId,
       title: 'Add Custom Section Test',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       stage: 'Validation',
       approverDecision: undefined,
       subtypes: ['Vessel'],
@@ -239,6 +256,10 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
       ...initialState.assuranceSets[0],
       id: testSetId,
       title: 'Reject Blank Section Test',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       subtypes: ['Vessel'],
       sections: [
         { id: 'sec-general', name: 'General documents', order: 1 },
@@ -279,6 +300,10 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
       ...initialState.assuranceSets[0],
       id: testSetId,
       title: 'Sentence Case Test',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       subtypes: ['Vessel', 'Crew'],
       sections: [
         { id: 'sec-general', name: 'General documents', order: 1 },
@@ -329,6 +354,10 @@ describe('AssuranceDetailView Requirements Tab Default and Custom Sections', () 
       ...initialState.assuranceSets[0],
       id: testSetId,
       title: 'Empty Sections Collapse Test',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       subtypes: ['Vessel', 'Crew'],
       sections: [
         { id: 'sec-general', name: 'General documents', order: 1 },

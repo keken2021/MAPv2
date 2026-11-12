@@ -62,7 +62,11 @@ import {
 import {
   canEditAssuranceSetStakeholders,
   getAssuranceSetCreator,
+  findAssuranceSetCreatorUser,
+  getAssuranceSetRoleActions,
   getAssuranceSetStakeholderLockReason,
+  isAssuranceSetAssignedToPersona,
+  isVesselOwnedByClientOrg,
   isViewAccessibleToPersona,
   isClientUser,
   orgFieldMatches,
@@ -126,6 +130,12 @@ import {
 } from "../utils/documentRenewalHelpers";
 import { withDocumentChecks } from "../utils/documentChecks";
 import {
+  findDuplicateObjectDocumentTitle,
+  getEntityTypeForObjectType,
+  getNextVersionLabel,
+  resolveDocumentTargetObject,
+} from "../utils/documentObjectHelpers";
+import {
   getAssuranceSetCrewIds,
   toSingleAssetSet,
   vesselToAssuranceObject,
@@ -139,6 +149,7 @@ import { MOCK_NOTIFICATIONS } from "./notificationMockData";
 import {
   assuranceInvitationSubject,
   buildTargetDateNoticeDrafts,
+  canOpenAssuranceRequestWizard,
   generateNotificationId,
   isNotificationActionedOnOpen,
   resolveNotificationRecipient,
@@ -153,6 +164,9 @@ import {
   getProjectOrganizationForPersona,
   getProjectEffectiveCharterer,
   getProjectForAssuranceSet,
+  isCrewOwnedByOrganization,
+  isEquipmentOwnedByOrganization,
+  isProjectAccessibleToUser,
   recalculateSetReadiness,
   requiresAssuranceSetForAssetLink,
   syncAllAffectedProjectRollups,
@@ -266,6 +280,10 @@ export interface MapStoreState {
     projectType: ProjectType;
     clientOperator: string;
     requestingOrganization: string;
+    createdByUserId?: string;
+    createdByName?: string;
+    createdByPersona?: string;
+    stakeholderUserIds?: string[];
     location: string;
     description?: string;
     charterWindowStart: string;
@@ -359,7 +377,7 @@ export interface MapStoreState {
   tenantCustomSections: TenantCustomSection[];
   addTenantCustomSection: (
     section: Omit<TenantCustomSection, 'id' | 'createdAt'> & { id?: string },
-  ) => TenantCustomSection;
+  ) => TenantCustomSection | null;
   getTenantCustomSections: (organization: string) => TenantCustomSection[];
 
   // Assurance Objects State (ADR 0029)
@@ -488,6 +506,12 @@ export interface MapStoreState {
     vesselName?: string,
     imoNumber?: string,
   ) => void;
+  linkDocumentToObject: (
+    docId: string,
+    objectType: AssuranceObjectType,
+    objectId: string,
+    objectName?: string,
+  ) => { success: boolean; message?: string };
   uploadDocumentForRequirement: (
     setId: string,
     requirementId: string | undefined,
@@ -621,6 +645,7 @@ export interface MapStoreState {
   addCapaEvidence: (capaId: string, evidence: CapaEvidenceItem) => void;
   removeCapaEvidence: (capaId: string, evidenceId: string) => void;
   flagCapaForReinspection: (capaId: string, reason?: string) => void;
+  submitCapaResponse: (capaId: string, responseNotes: string) => void;
 }
 
 const BRD_PERMISSION_DEFAULTS = buildBrdRolePermissionDefaults();
@@ -912,44 +937,26 @@ function notifyVendorOfTaskChange(
     });
   }
 
-  const providerOrg = assuranceSet.serviceProviderOrg;
-  if (providerOrg) {
-    state.users
-      .filter(
-        (u) =>
-          u.status === "Active" &&
-          (u.roles.includes("Administrator") || u.roles.includes("Submitter")) &&
-          orgFieldMatches(u.organization, providerOrg) &&
-          !notifiedUserIds.has(u.id),
-      )
-      .forEach((user) => {
-        notifiedUserIds.add(user.id);
-        state.pushNotification({
-          type: "review_requested",
-          subject: `Task ${action}: ${taskTitle} · ${assuranceSet.id}`,
-          message: `A task on assurance set ${assuranceSet.title} was ${action}: ${taskTitle}.`,
-          recipientUserId: user.id,
-          senderName: state.activePersona,
-          assuranceSetId: assuranceSet.id,
-          vesselName: assuranceSet.vesselName || undefined,
-        });
-      });
-  }
-
-  if (notifiedUserIds.size === 0) {
-    const creator = getAssuranceSetCreator(assuranceSet, state.users);
-    const creatorUser = creator.name ? state.users.find((u) => u.name === creator.name) : undefined;
-    if (creatorUser && (creatorUser.roles.includes("Administrator") || creatorUser.roles.includes("Submitter"))) {
-      state.pushNotification({
-        type: "review_requested",
-        subject: `Task ${action}: ${taskTitle} · ${assuranceSet.id}`,
-        message: `A task on assurance set ${assuranceSet.title} was ${action}: ${taskTitle}.`,
-        recipientUserId: creatorUser.id,
-        senderName: state.activePersona,
-        assuranceSetId: assuranceSet.id,
-        vesselName: assuranceSet.vesselName || undefined,
-      });
-    }
+  const creatorUser =
+    (assuranceSet.createdByUserId &&
+      state.users.find((u) => u.id === assuranceSet.createdByUserId)) ||
+    findAssuranceSetCreatorUser(assuranceSet, state.users);
+  if (
+    creatorUser &&
+    creatorUser.status === "Active" &&
+    (creatorUser.roles.includes("Administrator") || creatorUser.roles.includes("Submitter")) &&
+    !notifiedUserIds.has(creatorUser.id)
+  ) {
+    notifiedUserIds.add(creatorUser.id);
+    state.pushNotification({
+      type: "review_requested",
+      subject: `Task ${action}: ${taskTitle} · ${assuranceSet.id}`,
+      message: `A task on assurance set ${assuranceSet.title} was ${action}: ${taskTitle}.`,
+      recipientUserId: creatorUser.id,
+      senderName: state.activePersona,
+      assuranceSetId: assuranceSet.id,
+      vesselName: assuranceSet.vesselName || undefined,
+    });
   }
 }
 
@@ -991,27 +998,54 @@ function resolveExpiredRenewalRecipientLabels(
   const primary = resolveNotificationRecipient(primaryLabel, users);
   if (primary && primaryLabel) labelsByUserId.set(primary.id, primaryLabel);
 
-  const submitter = [
-    getRenewalSubmitterLabel({ assignedSubmitter: undefined }, requirement),
-    getRenewalSubmitterLabel(assuranceSet),
-  ]
-    .map((label) => resolveNotificationRecipient(label, users))
-    .find(Boolean);
-  const providerOrg = assuranceSet.serviceProviderOrg || submitter?.organization;
-  if (providerOrg) {
-    users
-      .filter(
-        (u) =>
-          u.status === "Active" &&
-          u.roles.includes("Administrator") &&
-          orgFieldMatches(providerOrg, u.organization),
-      )
-      .forEach((u) => {
-        if (!labelsByUserId.has(u.id)) labelsByUserId.set(u.id, u.name);
-      });
+  const creatorUser = findAssuranceSetCreatorUser(assuranceSet, users);
+  if (creatorUser && !labelsByUserId.has(creatorUser.id)) {
+    labelsByUserId.set(creatorUser.id, creatorUser.name);
   }
 
   return Array.from(labelsByUserId.values());
+}
+
+function getStoreSessionActor(state: MapStoreState) {
+  const sessionUser = getSessionUserForPersona(
+    state.activePersona,
+    state.users,
+    getDemoSessionContext(state),
+  );
+  return {
+    sessionUser,
+    activePersona: state.activePersona,
+    activeDemoOrganization: state.activeDemoOrganization,
+  };
+}
+
+function canAccessCapaInSession(
+  state: MapStoreState,
+  capa: Pick<CapaItem, "assuranceSetId" | "vesselId" | "vesselName"> | undefined,
+): boolean {
+  if (!capa) return false;
+  const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+  if (!sessionUser) return false;
+  if (capa.assuranceSetId) {
+    const exactSet = state.assuranceSets.find((s) => s.id === capa.assuranceSetId);
+    if (!exactSet) return false;
+    if (!isAssuranceSetAssignedToPersona(exactSet, activePersona, activeDemoOrganization, sessionUser, state.users)) {
+      return false;
+    }
+    return activePersona !== "Inspector" || Boolean(exactSet.mandatoryInspectionRequired);
+  }
+  return state.assuranceSets.some((s) => {
+    const matchesVessel =
+      (Boolean(capa.vesselId) && s.vesselId === capa.vesselId) ||
+      (Boolean(capa.vesselName) &&
+        Boolean(s.vesselName) &&
+        s.vesselName!.trim().toLowerCase() === capa.vesselName!.trim().toLowerCase());
+    if (!matchesVessel) return false;
+    if (!isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser, state.users)) {
+      return false;
+    }
+    return activePersona !== "Inspector" || Boolean(s.mandatoryInspectionRequired);
+  });
 }
 
 /**
@@ -1093,11 +1127,10 @@ function notifyAssignedStakeholders(
 ): void {
   const state = get();
   const notifiedUserIds = new Set<string>();
-  const assignments: { role: UserRolePersona; label?: string; organization?: string }[] = [
+  const assignments: { role: UserRolePersona; label?: string }[] = [
     ...setSubmitters(assuranceSet).map((submitter) => ({
       role: "Submitter" as UserRolePersona,
       label: submitter.assignee,
-      organization: submitter.organization,
     })),
     { role: "Verifier", label: assuranceSet.assignedVerifier },
     {
@@ -1126,64 +1159,20 @@ function notifyAssignedStakeholders(
     });
   });
 
-  /* a role left pending goes to the admin of its organization, who chooses the person; a submitter's admins are told too, so they can follow the set */
-  assignments.forEach(({ role, label, organization }) => {
-    if (label !== PENDING_ASSIGNMENT && role !== "Submitter") return;
-    const roleOrganization = (
-      organization || getStakeholderRoleOrganization(assuranceSet, role as StakeholderRole)
-    )?.trim().toLowerCase();
-    if (!roleOrganization) return;
-    state.users
-      .filter(
-        (user) =>
-          user.status === "Active" &&
-          (user.roles.includes("Administrator") || user.roles.includes("C Admin")) &&
-          user.organization?.trim().toLowerCase() === roleOrganization &&
-          !notifiedUserIds.has(user.id),
-      )
-      .forEach((user) => {
-        notifiedUserIds.add(user.id);
-        const content = assignmentNoticeContent(
-          role,
-          assuranceSet.title,
-          label === PENDING_ASSIGNMENT ? "choose-person" : "follow",
-        );
-        notifyAssuranceSetUser(get, assuranceSet, `${user.name} (${user.organization})`, {
-          type: "stakeholder_assigned",
-          subject: content.subject,
-          message: content.message,
-          assignedRole: role,
-        });
-      });
-  });
-
-  const project = getProjectForAssuranceSet(assuranceSet, state.projects);
-  const organizations = [
-    assuranceSet.clientOrg,
-    assuranceSet.charterer,
-    project?.ownerOrganization,
-  ].filter((org): org is string => Boolean(org && org.trim()));
-  const sameOrganization = (left: string, right: string) =>
-    left.trim().toLowerCase() === right.trim().toLowerCase();
-
-  state.users
-    .filter(
-      (user) =>
-        user.status === "Active" &&
-        user.roles.includes("C Admin") &&
-        organizations.some((org) => sameOrganization(org, user.organization)) &&
-        !notifiedUserIds.has(user.id),
-    )
-    .forEach((user) => {
-      notifiedUserIds.add(user.id);
-      const content = assignmentNoticeContent("C Admin", assuranceSet.title, "created");
-      notifyAssuranceSetUser(get, assuranceSet, `${user.name} (${user.organization})`, {
-        type: "stakeholder_assigned",
-        subject: content.subject,
-        message: content.message,
-        assignedRole: "C Admin",
-      });
+  const creatorUser = findAssuranceSetCreatorUser(assuranceSet, state.users);
+  if (creatorUser && !notifiedUserIds.has(creatorUser.id)) {
+    notifiedUserIds.add(creatorUser.id);
+    const creatorRole: UserRolePersona = creatorUser.roles.includes("C Admin")
+      ? "C Admin"
+      : "Administrator";
+    const content = assignmentNoticeContent(creatorRole, assuranceSet.title, "created");
+    notifyAssuranceSetUser(get, assuranceSet, `${creatorUser.name} (${creatorUser.organization})`, {
+      type: "stakeholder_assigned",
+      subject: content.subject,
+      message: content.message,
+      assignedRole: creatorRole,
     });
+  }
 }
 
 function raiseTargetDateNotices(
@@ -1272,12 +1261,50 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     const nextPersona =
       resolveDefaultPersonaForOrganization(users, organization, get().activePersona) ??
       personas[0];
-    const sessionUser = pickSessionUserForOrgPersona(users, organization, nextPersona);
+    /* the same person stays signed in when they also hold a membership in the new organization (ADR 0037) */
+    const currentPersonId = users.find((u) => u.id === get().activeSessionUserId)?.personId;
+    const sessionUser = pickSessionUserForOrgPersona(users, organization, nextPersona, currentPersonId);
 
-
-    const currentView = get().currentHashView;
-    const currentId = get().currentEntityId;
-    if (!isViewAccessibleToPersona(currentView, currentId, nextPersona)) {
+    const state = get();
+    const currentView = state.currentHashView;
+    const currentId = state.currentEntityId;
+    const viewAllowed = isViewAccessibleToPersona(
+      currentView,
+      currentId,
+      nextPersona,
+      undefined,
+      undefined,
+      sessionUser ?? null,
+    );
+    const entityBlocked =
+      (currentView === "assurance-sets" &&
+        currentId &&
+        (() => {
+          const targetSet = state.assuranceSets.find((s) => s.id === currentId);
+          return Boolean(
+            targetSet &&
+              !isAssuranceSetAssignedToPersona(targetSet, nextPersona, organization, sessionUser, users),
+          );
+        })()) ||
+      (currentView === "project" &&
+        currentId &&
+        currentId !== "new" &&
+        (() => {
+          const targetProject = state.projects.find((p) => p.id === currentId);
+          return Boolean(
+            targetProject &&
+              !isProjectAccessibleToUser(
+                targetProject,
+                nextPersona,
+                users,
+                state.assuranceSets,
+                organization,
+                sessionUser,
+                state.notifications,
+              ),
+          );
+        })());
+    if (!viewAllowed || entityBlocked) {
       get().setCurrentHashView("dashboard");
     }
 
@@ -1295,12 +1322,48 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const sessionUser = pickSessionUserForOrgPersona(users, organization, persona);
 
+    /* default to dashboard if active view or entity is not accessible to newly selected persona */
+    const state = get();
+    const currentView = state.currentHashView;
+    const currentId = state.currentEntityId;
+    const viewAllowed = isViewAccessibleToPersona(
+      currentView,
+      currentId,
+      persona,
+      undefined,
+      undefined,
+      sessionUser ?? null,
+    );
+    const entityBlocked =
+      (currentView === "assurance-sets" &&
+        currentId &&
+        (() => {
+          const targetSet = state.assuranceSets.find((s) => s.id === currentId);
+          return Boolean(
+            targetSet &&
+              !isAssuranceSetAssignedToPersona(targetSet, persona, organization, sessionUser, users),
+          );
+        })()) ||
+      (currentView === "project" &&
+        currentId &&
+        currentId !== "new" &&
+        (() => {
+          const targetProject = state.projects.find((p) => p.id === currentId);
+          return Boolean(
+            targetProject &&
+              !isProjectAccessibleToUser(
+                targetProject,
+                persona,
+                users,
+                state.assuranceSets,
+                organization,
+                sessionUser,
+                state.notifications,
+              ),
+          );
+        })());
 
-    /* default to dashboard if active view is not accessible to newly selected persona */
-    const currentView = get().currentHashView;
-    const currentId = get().currentEntityId;
-
-    if (!isViewAccessibleToPersona(currentView, currentId, persona)) {
+    if (!viewAllowed || entityBlocked) {
       get().setCurrentHashView("dashboard");
     }
 
@@ -1429,15 +1492,35 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   requestDocumentReupload: (docId, reason) => {
-    const document = get().documents.find((d) => d.id === docId);
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    if (!sessionUser) return 0;
+
+    const document = state.documents.find((d) => d.id === docId);
     const note = reason.trim();
     if (!document || !note) return 0;
     /* A11: reviewers may request re-upload only for Exception or Expired documents */
     if (!canRequestDocumentReupload(document)) return 0;
 
+    const authorizedSetIds = new Set(
+      state.assuranceSets
+        .filter((s) => {
+          const refsDoc = s.requirements.some((r) => r.documentId === docId || r.linkedDocumentId === docId);
+          if (!refsDoc) return false;
+          if (!isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser, state.users)) {
+            return false;
+          }
+          const actions = getAssuranceSetRoleActions(s, activePersona, activeDemoOrganization, sessionUser);
+          return actions.canVerify || actions.canInspect || actions.canApprove || actions.canManage;
+        })
+        .map((s) => s.id),
+    );
+    if (authorizedSetIds.size === 0) return 0;
+
     const now = new Date().toISOString();
-    set((state) => ({
-      assuranceSets: state.assuranceSets.map((s) => {
+    set((curr) => ({
+      assuranceSets: curr.assuranceSets.map((s) => {
+        if (!authorizedSetIds.has(s.id)) return s;
         let hasMatched = false;
         const updatedReqs = s.requirements.map((r) => {
           if (r.documentId === docId || r.linkedDocumentId === docId) {
@@ -1463,6 +1546,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     let raised = 0;
     get().assuranceSets.forEach((s) => {
+      if (!authorizedSetIds.has(s.id)) return;
       const requirement = s.requirements.find(
         (r) => r.documentId === docId || r.linkedDocumentId === docId,
       );
@@ -1482,7 +1566,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       if (id) raised += 1;
     });
 
-    const activePersona = get().activePersona;
     get().logAuditEvent({
       action: "Requested Document Reupload [PING: SUBMITTER ACTION REQUIRED]",
       targetAsset: `Document ${docId}`,
@@ -1534,9 +1617,26 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   requestAssuranceSet: (input) => {
-    const project = get().projects.find((p) => p.id === input.projectId);
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const project = state.projects.find((p) => p.id === input.projectId);
     if (!project) {
       return { success: false, message: "Project not found." };
+    }
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isProjectAccessibleToUser(
+        project,
+        activePersona,
+        state.users,
+        state.assuranceSets,
+        activeDemoOrganization,
+        sessionUser,
+        state.notifications,
+      )
+    ) {
+      return { success: false, message: "You are not authorized to request assurance sets for this project." };
     }
 
     const assignee = get().users.find((u) => u.id === input.recipientUserId);
@@ -1637,7 +1737,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   addProject: (input) => {
     const existing = get().projects;
     const projectId = generateUniqueProjectId(existing);
-    const persona = get().activePersona;
+    const state = get();
+    const { sessionUser, activePersona: persona } = getStoreSessionActor(state);
+    if (!sessionUser || (persona !== "Administrator" && persona !== "C Admin")) {
+      return { success: false, message: "Only administrators can create projects." };
+    }
     const effectiveCharterer =
       input.charterer?.trim() || input.requestingOrganization;
 
@@ -1688,6 +1792,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       requestingOrganization: input.requestingOrganization,
       clientOperator: input.clientOperator || clientOwnerOrg,
       ownerOrganization: clientOwnerOrg,
+      createdByUserId: input.createdByUserId ?? sessionUser?.id ?? state.activeSessionUserId,
+      createdByName: input.createdByName ?? sessionUser?.name,
+      createdByPersona: input.createdByPersona ?? persona,
+      stakeholderUserIds: input.stakeholderUserIds,
       location: input.location,
       description: input.description || "",
       charterer: input.charterer,
@@ -1736,16 +1844,52 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   updateProject: (updatedProject) => {
-    set((state) => ({
-      projects: state.projects.map((p) =>
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const existingProject = state.projects.find((p) => p.id === updatedProject.id);
+    if (
+      !existingProject ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isProjectAccessibleToUser(
+        existingProject,
+        activePersona,
+        state.users,
+        state.assuranceSets,
+        activeDemoOrganization,
+        sessionUser,
+        state.notifications,
+      )
+    ) {
+      return;
+    }
+    set((curr) => ({
+      projects: curr.projects.map((p) =>
         p.id === updatedProject.id ? updatedProject : p,
       ),
     }));
   },
 
   addAssetToProject: (projectId, linkInput) => {
-    const project = get().projects.find((p) => p.id === projectId);
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const project = state.projects.find((p) => p.id === projectId);
     if (!project) return { success: false, message: "Project not found." };
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isProjectAccessibleToUser(
+        project,
+        activePersona,
+        state.users,
+        state.assuranceSets,
+        activeDemoOrganization,
+        sessionUser,
+        state.notifications,
+      )
+    ) {
+      return { success: false, message: "You are not authorized to modify this project." };
+    }
 
     const duplicate = project.assetLinks.some(
       (l) =>
@@ -1811,11 +1955,30 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   attachAssuranceSetToProject: (assuranceSetId, projectId) => {
-    const target = get().assuranceSets.find((s) => s.id === assuranceSetId);
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const target = state.assuranceSets.find((s) => s.id === assuranceSetId);
     if (!target) return { success: false, message: "Assurance set not found." };
 
-    const project = get().projects.find((p) => p.id === projectId);
+    const project = state.projects.find((p) => p.id === projectId);
     if (!project) return { success: false, message: "Project not found." };
+
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isAssuranceSetAssignedToPersona(target, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !isProjectAccessibleToUser(
+        project,
+        activePersona,
+        state.users,
+        state.assuranceSets,
+        activeDemoOrganization,
+        sessionUser,
+        state.notifications,
+      )
+    ) {
+      return { success: false, message: "You are not authorized to attach this assurance set to this project." };
+    }
 
     if (project.assetLinks.some((l) => l.assuranceSetId === assuranceSetId)) {
       return { success: true };
@@ -1857,8 +2020,25 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   removeAssetFromProject: (projectId, linkId) => {
-    const project = get().projects.find((p) => p.id === projectId);
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const project = state.projects.find((p) => p.id === projectId);
     if (!project) return;
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isProjectAccessibleToUser(
+        project,
+        activePersona,
+        state.users,
+        state.assuranceSets,
+        activeDemoOrganization,
+        sessionUser,
+        state.notifications,
+      )
+    ) {
+      return;
+    }
 
     const removedSetId = project.assetLinks.find(
       (l) => l.id === linkId,
@@ -1889,12 +2069,30 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   linkAssuranceSetToProjectAsset: (projectId, linkId, assuranceSetId) => {
-    const project = get().projects.find((p) => p.id === projectId);
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const project = state.projects.find((p) => p.id === projectId);
     if (!project) return;
-
-    const linkedSet = get().assuranceSets.find((s) => s.id === assuranceSetId);
+    const linkedSet = state.assuranceSets.find((s) => s.id === assuranceSetId);
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isProjectAccessibleToUser(
+        project,
+        activePersona,
+        state.users,
+        state.assuranceSets,
+        activeDemoOrganization,
+        sessionUser,
+        state.notifications,
+      ) ||
+      (linkedSet &&
+        !isAssuranceSetAssignedToPersona(linkedSet, activePersona, activeDemoOrganization, sessionUser, state.users))
+    ) {
+      return;
+    }
     const owner =
-      linkedSet && getProjectForAssuranceSet(linkedSet, get().projects);
+      linkedSet && getProjectForAssuranceSet(linkedSet, state.projects);
     if (owner && owner.id !== projectId) return;
 
     const replacedSetId = project.assetLinks.find(
@@ -1977,10 +2175,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   addVessel: (newVessel) => {
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || "";
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isVesselOwnedByClientOrg(newVessel, effectiveOrg)
+    ) {
+      return {
+        success: false,
+        message: "Only administrators of the owning organization can register vessels.",
+      };
+    }
+
     const dupCheck = isDuplicateVessel(
       newVessel.imoNumber,
       newVessel.officialRegNumber,
-      get().vessels,
+      state.vessels,
     );
     if (dupCheck.isDuplicate) {
       return { success: false, message: dupCheck.reason };
@@ -1994,10 +2206,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       registeredAt,
     );
 
-    set((state) => ({
-      vessels: [...state.vessels, newVessel],
-      assuranceObjects: [...state.assuranceObjects, vesselToAssuranceObject(newVessel)],
-      vesselStatusHistory: [...state.vesselStatusHistory, ...initialHistory],
+    set((curr) => ({
+      vessels: [...curr.vessels, newVessel],
+      assuranceObjects: [...curr.assuranceObjects, vesselToAssuranceObject(newVessel)],
+      vesselStatusHistory: [...curr.vesselStatusHistory, ...initialHistory],
     }));
 
     get().logAuditEvent({
@@ -2010,17 +2222,26 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   updateVessel: (updatedVessel) => {
-    const previousVessel = get().vessels.find((v) => v.id === updatedVessel.id);
-    const statusChanges = previousVessel
-      ? diffVesselStatusChanges(previousVessel, updatedVessel)
-      : [];
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const previousVessel = state.vessels.find((v) => v.id === updatedVessel.id);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || "";
+    if (
+      !previousVessel ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isVesselOwnedByClientOrg(previousVessel, effectiveOrg)
+    ) {
+      return;
+    }
+    const statusChanges = diffVesselStatusChanges(previousVessel, updatedVessel);
 
-    set((state) => ({
-      vessels: state.vessels.map((v) =>
+    set((curr) => ({
+      vessels: curr.vessels.map((v) =>
         v.id === updatedVessel.id ? updatedVessel : v,
       ),
       /* synchronize vessel name and imo across all linked assurance sets */
-      assuranceSets: state.assuranceSets.map((s) =>
+      assuranceSets: curr.assuranceSets.map((s) =>
         s.vesselId === updatedVessel.id
           ? {
               ...s,
@@ -2030,7 +2251,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           : s,
       ),
       /* synchronize vessel attributes in linked master documents */
-      documents: state.documents.map((d) =>
+      documents: curr.documents.map((d) =>
         d.vesselId === updatedVessel.id && d.vesselAttributes
           ? {
               ...d,
@@ -2062,14 +2283,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   updateVesselStatus: (vesselId, status) => {
-    const previousVessel = get().vessels.find((v) => v.id === vesselId);
-    if (!previousVessel) return;
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const previousVessel = state.vessels.find((v) => v.id === vesselId);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || "";
+    if (
+      !previousVessel ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin" && activePersona !== "Submitter") ||
+      !isVesselOwnedByClientOrg(previousVessel, effectiveOrg)
+    ) {
+      return;
+    }
 
     const nextVessel = { ...previousVessel, status };
     const statusChanges = diffVesselStatusChanges(previousVessel, nextVessel);
 
-    set((state) => ({
-      vessels: state.vessels.map((v) => (v.id === vesselId ? nextVessel : v)),
+    set((curr) => ({
+      vessels: curr.vessels.map((v) => (v.id === vesselId ? nextVessel : v)),
     }));
 
     statusChanges.forEach((change) => {
@@ -2084,8 +2315,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   updateVesselAvailability: (vesselId, availabilityStatus) => {
-    const previousVessel = get().vessels.find((v) => v.id === vesselId);
-    if (!previousVessel) return;
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const previousVessel = state.vessels.find((v) => v.id === vesselId);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || "";
+    if (
+      !previousVessel ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin" && activePersona !== "Submitter") ||
+      !isVesselOwnedByClientOrg(previousVessel, effectiveOrg)
+    ) {
+      return;
+    }
 
     const previousAvailability =
       previousVessel.availabilityStatus ??
@@ -2094,8 +2335,8 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     if (previousAvailability === availabilityStatus) return;
 
     const now = new Date().toISOString();
-    set((state) => ({
-      vessels: state.vessels.map((v) =>
+    set((curr) => ({
+      vessels: curr.vessels.map((v) =>
         v.id === vesselId
           ? { ...v, availabilityStatus, availabilityUpdatedAt: now }
           : v,
@@ -2114,16 +2355,30 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
   equipment: MOCK_EQUIPMENT,
   addEquipment: (newEquipment) => {
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || "";
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isEquipmentOwnedByOrganization(newEquipment, effectiveOrg)
+    ) {
+      return {
+        success: false,
+        message: "Only administrators of the owning organization can register equipment.",
+      };
+    }
+
     const dupCheck = isDuplicateEquipment(
       newEquipment.equipmentIdentifier,
-      get().equipment,
+      state.equipment,
     );
     if (dupCheck.isDuplicate) {
       return { success: false, message: dupCheck.reason };
     }
-    set((state) => ({
-      equipment: [...state.equipment, newEquipment],
-      assuranceObjects: [...state.assuranceObjects, equipmentToAssuranceObject(newEquipment)],
+    set((curr) => ({
+      equipment: [...curr.equipment, newEquipment],
+      assuranceObjects: [...curr.assuranceObjects, equipmentToAssuranceObject(newEquipment)],
     }));
     get().logAuditEvent({
       action: "Registered Equipment Asset",
@@ -2134,17 +2389,41 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   updateEquipment: (updatedEquipment) => {
-    set((state) => ({
-      equipment: state.equipment.map((e) =>
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const existing = state.equipment.find((e) => e.id === updatedEquipment.id);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || "";
+    if (
+      !existing ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin") ||
+      !isEquipmentOwnedByOrganization(existing, effectiveOrg)
+    ) {
+      return;
+    }
+    set((curr) => ({
+      equipment: curr.equipment.map((e) =>
         e.id === updatedEquipment.id ? updatedEquipment : e,
       ),
     }));
   },
 
   updateEquipmentAvailability: (equipmentId, availabilityStatus) => {
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const existing = state.equipment.find((e) => e.id === equipmentId);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || "";
+    if (
+      !existing ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "C Admin" && activePersona !== "Submitter") ||
+      !isEquipmentOwnedByOrganization(existing, effectiveOrg)
+    ) {
+      return;
+    }
     const now = new Date().toISOString();
-    set((state) => ({
-      equipment: state.equipment.map((e) =>
+    set((curr) => ({
+      equipment: curr.equipment.map((e) =>
         e.id === equipmentId
           ? { ...e, availabilityStatus, availabilityUpdatedAt: now }
           : e,
@@ -2155,6 +2434,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   // Assurance Templates State (Dedicated Public Templates Slice)
   assuranceTemplates: MOCK_ASSURANCE_TEMPLATES,
   addAssuranceTemplate: (template) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona } = getStoreSessionActor(stateBefore);
+    if (!sessionUser || (activePersona !== "Administrator" && activePersona !== "C Admin")) {
+      return;
+    }
     set((state) => {
       if (state.assuranceTemplates.some((t) => t.id === template.id)) {
         return {
@@ -2169,6 +2453,11 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   updateAssuranceTemplate: (template) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona } = getStoreSessionActor(stateBefore);
+    if (!sessionUser || (activePersona !== "Administrator" && activePersona !== "C Admin")) {
+      return;
+    }
     set((state) => ({
       assuranceTemplates: state.assuranceTemplates.map((t) =>
         t.id === template.id ? template : t,
@@ -2180,6 +2469,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   tenantCustomSections: [],
   addTenantCustomSection: (sectionInput) => {
     const state = get();
+    const { sessionUser, activePersona } = getStoreSessionActor(state);
+    const requestNotification = state.pendingAssuranceRequestNotificationId
+      ? state.notifications.find((n) => n.id === state.pendingAssuranceRequestNotificationId)
+      : undefined;
+    const isAuthorizedRequest = Boolean(
+      sessionUser &&
+        requestNotification &&
+        canOpenAssuranceRequestWizard(requestNotification, sessionUser),
+    );
+    if (
+      !sessionUser ||
+      (!isAuthorizedRequest && activePersona !== "Administrator" && activePersona !== "C Admin")
+    ) {
+      return null;
+    }
     const cleanName = sectionInput.name.trim();
     const cleanOrg = sectionInput.organization.trim();
     const id =
@@ -2246,7 +2550,32 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   /* seeded approved and certified sets start with their document versions locked */
   assuranceSets: freezeClosedSetDocuments([...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS], MOCK_DOCUMENTS),
   addAssuranceSet: (newSet) => {
-    const existingSets = get().assuranceSets;
+    const state = get();
+    const sessionCreator = getSessionUserForPersona(
+      state.activePersona,
+      state.users,
+      getDemoSessionContext(state),
+    );
+    const requestNotification = state.pendingAssuranceRequestNotificationId
+      ? state.notifications.find((n) => n.id === state.pendingAssuranceRequestNotificationId)
+      : undefined;
+    const isAuthorizedRequestCreation = Boolean(
+      sessionCreator &&
+        requestNotification &&
+        canOpenAssuranceRequestWizard(requestNotification, sessionCreator) &&
+        newSet.projectId &&
+        requestNotification.projectId === newSet.projectId,
+    );
+    if (
+      !sessionCreator ||
+      (!isAuthorizedRequestCreation &&
+        state.activePersona !== "Administrator" &&
+        state.activePersona !== "C Admin")
+    ) {
+      return;
+    }
+
+    const existingSets = state.assuranceSets;
     const titleCheck = isDuplicateCampaignTitle(
       newSet.title,
       existingSets,
@@ -2261,7 +2590,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ? generateUniqueAssuranceSetId(existingSets)
       : newSet.id || generateUniqueAssuranceSetId(existingSets);
 
-    const state = get();
     const matchingVessel = state.vessels.find(
       (v) => v.id === newSet.vesselId || v.name === newSet.vesselName,
     );
@@ -2289,11 +2617,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     /* normalizes set assets and assurance objects via toSingleAssetSet (ADR 0029: multi-object sets preserve all objects) */
 
+    const matchesCreatorOrg =
+      (!newSet.initiatorOrg || orgFieldMatches(sessionCreator.organization, newSet.initiatorOrg)) &&
+      (!newSet.createdByPersona || newSet.createdByPersona === state.activePersona);
+
     const computedSet = recalculateSetReadiness(
       toSingleAssetSet({
         ...newSet,
         id: uniqueId,
         stage: newSet.stage || "Initiated",
+        createdByUserId:
+          newSet.createdByUserId ??
+          (matchesCreatorOrg ? sessionCreator?.id : undefined),
+        createdByName:
+          newSet.createdByName ??
+          (matchesCreatorOrg ? sessionCreator?.name : undefined),
+        createdByPersona:
+          newSet.createdByPersona ??
+          (matchesCreatorOrg ? state.activePersona : newSet.createdByPersona),
         requirements: sanitizedRequirements,
       }),
     );
@@ -2336,22 +2677,42 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   updateAssuranceSet: (updatedSet) => {
     const state = get();
+    const prevSet = state.assuranceSets.find((s) => s.id === updatedSet.id);
+    if (!prevSet) return;
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    if (
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(prevSet, activePersona, activeDemoOrganization, sessionUser, state.users)
+    ) {
+      return;
+    }
+    const roleActions = getAssuranceSetRoleActions(prevSet, activePersona, activeDemoOrganization, sessionUser);
+    const canSubmitSectionsOnly =
+      roleActions.canUpload && !isClosedAssuranceSet(prevSet) && prevSet.stage !== "Cancelled";
+    if (!roleActions.canManage && !roleActions.canChangeDates && !canSubmitSectionsOnly) {
+      return;
+    }
+    const targetInputSet: AssuranceSet =
+      roleActions.canManage || roleActions.canChangeDates
+        ? updatedSet
+        : { ...prevSet, sections: updatedSet.sections };
+
     const matchingVessel = state.vessels.find(
-      (v) => v.id === updatedSet.vesselId || v.name === updatedSet.vesselName,
+      (v) => v.id === targetInputSet.vesselId || v.name === targetInputSet.vesselName,
     );
     const autoAttachedRequirements = autoAttachDocumentsToRequirements(
-      updatedSet.requirements || [],
+      targetInputSet.requirements || [],
       {
         documents: state.documents,
         vessel: matchingVessel,
         vessels: state.vessels,
         crew: state.crew,
-        selectedCrewId: updatedSet.crewId,
-        selectedCrewIds: getAssuranceSetCrewIds(updatedSet),
+        selectedCrewId: targetInputSet.crewId,
+        selectedCrewIds: getAssuranceSetCrewIds(targetInputSet),
         equipment: state.equipment,
-        selectedEquipmentId: updatedSet.equipmentId,
-        selectedVesselId: updatedSet.vesselId,
-        targetSubtype: updatedSet.assuranceType,
+        selectedEquipmentId: targetInputSet.equipmentId,
+        selectedVesselId: targetInputSet.vesselId,
+        targetSubtype: targetInputSet.assuranceType,
       },
     );
 
@@ -2363,14 +2724,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     const computedSet = recalculateSetReadiness(
       toSingleAssetSet({
-        ...updatedSet,
-        targetDate: updatedSet.targetDate || updatedSet.complianceDeadline,
-        datePermissionGrants: updatedSet.datePermissionGrants ?? state.assuranceSets.find((s) => s.id === updatedSet.id)?.datePermissionGrants ?? [],
+        ...targetInputSet,
+        targetDate: targetInputSet.targetDate || targetInputSet.complianceDeadline,
+        datePermissionGrants: targetInputSet.datePermissionGrants ?? state.assuranceSets.find((s) => s.id === targetInputSet.id)?.datePermissionGrants ?? [],
         targetDateHistory: (() => {
-          const prev = state.assuranceSets.find((s) => s.id === updatedSet.id);
-          const resolved = updatedSet.targetDate || updatedSet.complianceDeadline;
+          const prev = state.assuranceSets.find((s) => s.id === targetInputSet.id);
+          const resolved = targetInputSet.targetDate || targetInputSet.complianceDeadline;
           const prevDate = prev?.targetDate || prev?.complianceDeadline;
-          let ledger = updatedSet.targetDateHistory ?? prev?.targetDateHistory ?? [];
+          let ledger = targetInputSet.targetDateHistory ?? prev?.targetDateHistory ?? [];
           if (
             prev &&
             resolved &&
@@ -2382,7 +2743,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               ...ledger,
               {
                 id: `TDC-${Date.now()}-set`,
-                setId: updatedSet.id,
+                setId: targetInputSet.id,
                 scope: "set",
                 targetType: "set",
                 oldDate: prevDate,
@@ -2402,7 +2763,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     );
 
     const updatedSets = state.assuranceSets.map((s) =>
-      s.id === updatedSet.id ? computedSet : s,
+      s.id === targetInputSet.id ? computedSet : s,
     );
 
     const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
@@ -2413,7 +2774,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       projects: syncedProjects,
     });
 
-    const previousSet = state.assuranceSets.find((s) => s.id === updatedSet.id);
+    const previousSet = prevSet;
 
     /* a draft that is initiated notifies its stakeholders for the first time */
     if (previousSet?.visibility === "draft" && computedSet.visibility !== "draft") {
@@ -2423,25 +2784,37 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     /* date changes and task edits are recorded against the set the caller submitted */
     if (previousSet) {
-      logAssuranceSetAuditDiff(get, previousSet, updatedSet);
+      logAssuranceSetAuditDiff(get, previousSet, targetInputSet);
       if (previousSet.stage !== computedSet.stage) {
         logStageTransitionAudit(get, computedSet, previousSet.stage, computedSet.stage);
       }
     }
   },
   grantDatePermission: (setId, grantInput) => {
-    set((state) => {
-      const target = state.assuranceSets.find((s) => s.id === setId);
-      if (!target) return state;
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const target = state.assuranceSets.find((s) => s.id === setId);
+    if (
+      !target ||
+      !sessionUser ||
+      activePersona !== "C Admin" ||
+      !isAssuranceSetAssignedToPersona(target, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(target, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return;
+    }
+    set((curr) => {
+      const currentTarget = curr.assuranceSets.find((s) => s.id === setId);
+      if (!currentTarget) return curr;
       const newGrant: DatePermissionGrant = {
         ...grantInput,
         id: `DPG-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         grantedAt: new Date().toISOString(),
       };
-      const updatedGrants = [...(target.datePermissionGrants || []), newGrant];
-      const updatedSet: AssuranceSet = { ...target, datePermissionGrants: updatedGrants };
+      const updatedGrants = [...(currentTarget.datePermissionGrants || []), newGrant];
+      const updatedSet: AssuranceSet = { ...currentTarget, datePermissionGrants: updatedGrants };
       return {
-        assuranceSets: state.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
+        assuranceSets: curr.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
       };
     });
     get().logAuditEvent({
@@ -2451,15 +2824,27 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   revokeDatePermission: (setId, grantId) => {
-    set((state) => {
-      const target = state.assuranceSets.find((s) => s.id === setId);
-      if (!target) return state;
-      const updatedGrants = (target.datePermissionGrants || []).filter(
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const target = state.assuranceSets.find((s) => s.id === setId);
+    if (
+      !target ||
+      !sessionUser ||
+      activePersona !== "C Admin" ||
+      !isAssuranceSetAssignedToPersona(target, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(target, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return;
+    }
+    set((curr) => {
+      const currentTarget = curr.assuranceSets.find((s) => s.id === setId);
+      if (!currentTarget) return curr;
+      const updatedGrants = (currentTarget.datePermissionGrants || []).filter(
         (g) => g.id !== grantId && g.userId !== grantId,
       );
-      const updatedSet: AssuranceSet = { ...target, datePermissionGrants: updatedGrants };
+      const updatedSet: AssuranceSet = { ...currentTarget, datePermissionGrants: updatedGrants };
       return {
-        assuranceSets: state.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
+        assuranceSets: curr.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
       };
     });
     get().logAuditEvent({
@@ -2469,10 +2854,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   excludeGroupMember: (setId, memberId, reason, excludedBy) => {
-    set((state) => {
-      const target = state.assuranceSets.find((s) => s.id === setId);
-      if (!target) return state;
-      const existingExclusions = target.memberExclusions || [];
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const target = state.assuranceSets.find((s) => s.id === setId);
+    if (
+      !target ||
+      !sessionUser ||
+      activePersona !== "Administrator" ||
+      !isAssuranceSetAssignedToPersona(target, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(target, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return;
+    }
+    set((curr) => {
+      const currentTarget = curr.assuranceSets.find((s) => s.id === setId);
+      if (!currentTarget) return curr;
+      const existingExclusions = currentTarget.memberExclusions || [];
       const newExclusion: SetMemberExclusion = {
         memberId,
         reason,
@@ -2484,9 +2881,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         ...existingExclusions.filter((e) => e.memberId !== memberId),
         newExclusion,
       ];
-      const updatedSet: AssuranceSet = { ...target, memberExclusions: updatedExclusions };
+      const updatedSet: AssuranceSet = { ...currentTarget, memberExclusions: updatedExclusions };
       return {
-        assuranceSets: state.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
+        assuranceSets: curr.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
       };
     });
     get().logAuditEvent({
@@ -2496,10 +2893,23 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   restoreGroupMember: (setId, memberId, restoredBy) => {
-    set((state) => {
-      const target = state.assuranceSets.find((s) => s.id === setId);
-      if (!target || !target.memberExclusions) return state;
-      const updatedExclusions = target.memberExclusions.map((e) => {
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const target = state.assuranceSets.find((s) => s.id === setId);
+    if (
+      !target ||
+      !target.memberExclusions ||
+      !sessionUser ||
+      activePersona !== "Administrator" ||
+      !isAssuranceSetAssignedToPersona(target, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(target, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return;
+    }
+    set((curr) => {
+      const currentTarget = curr.assuranceSets.find((s) => s.id === setId);
+      if (!currentTarget || !currentTarget.memberExclusions) return curr;
+      const updatedExclusions = currentTarget.memberExclusions.map((e) => {
         if (e.memberId === memberId && !e.restored) {
           return {
             ...e,
@@ -2510,9 +2920,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         }
         return e;
       });
-      const updatedSet: AssuranceSet = { ...target, memberExclusions: updatedExclusions };
+      const updatedSet: AssuranceSet = { ...currentTarget, memberExclusions: updatedExclusions };
       return {
-        assuranceSets: state.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
+        assuranceSets: curr.assuranceSets.map((s) => (s.id === setId ? updatedSet : s)),
       };
     });
     get().logAuditEvent({
@@ -2535,6 +2945,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
     if (!isClientUser(sessionUser, setTarget, state.activePersona)) {
       return { success: false, message: "Vendor users cannot edit tasks. Only client users are authorized." };
+    }
+    if (
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(setTarget, state.activePersona, state.activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(setTarget, state.activePersona, state.activeDemoOrganization, sessionUser).canManage
+    ) {
+      return { success: false, message: "Only assigned set managers can edit tasks." };
     }
 
     if (isClosedAssuranceSet(setTarget) || setTarget.stage === "Cancelled") {
@@ -2628,6 +3045,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     if (!isClientUser(sessionUser, setTarget, state.activePersona)) {
       return { success: false, message: "Vendor users cannot edit tasks. Only client users are authorized." };
     }
+    if (
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(setTarget, state.activePersona, state.activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(setTarget, state.activePersona, state.activeDemoOrganization, sessionUser).canManage
+    ) {
+      return { success: false, message: "Only assigned set managers can edit tasks." };
+    }
 
     if (isClosedAssuranceSet(setTarget) || setTarget.stage === "Cancelled") {
       return { success: false, message: "Tasks cannot be modified on a closed or cancelled assurance set." };
@@ -2672,6 +3096,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     if (!isClientUser(sessionUser, setTarget, state.activePersona)) {
       return { success: false, message: "Vendor users cannot edit tasks. Only client users are authorized." };
     }
+    if (
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(setTarget, state.activePersona, state.activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(setTarget, state.activePersona, state.activeDemoOrganization, sessionUser).canManage
+    ) {
+      return { success: false, message: "Only assigned set managers can edit tasks." };
+    }
 
     if (isClosedAssuranceSet(setTarget) || setTarget.stage === "Cancelled") {
       return { success: false, message: "Tasks cannot be modified on a closed or cancelled assurance set." };
@@ -2694,8 +3125,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   updateTaskTargetDate: (setId, taskId, targetDate, actorName, reason) => {
     const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
     const setTarget = state.assuranceSets.find((s) => s.id === setId);
     if (!setTarget) return { success: false, message: "Assurance set not found." };
+    if (
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(setTarget, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(setTarget, activePersona, activeDemoOrganization, sessionUser).canChangeDates
+    ) {
+      return { success: false, message: "Date change permission is required." };
+    }
     const setDeadline = setTarget.targetDate || setTarget.complianceDeadline || "";
     if (setDeadline && targetDate > setDeadline) {
       return { success: false, message: "Task target date cannot be after the assurance set target date." };
@@ -2738,8 +3177,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   reviseAssuranceSetDeadline: (setId, revisedDate, actorName, reason) => {
     const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
     const setTarget = state.assuranceSets.find((s) => s.id === setId);
     if (!setTarget) return { success: false, message: "Assurance set not found." };
+    if (
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(setTarget, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(setTarget, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return { success: false, message: "Only assigned set managers can revise completion dates." };
+    }
     const oldDeadline = setTarget.revisedCompletionDate || setTarget.targetDate || setTarget.complianceDeadline || "—";
     const historyRow: TargetDateChangeRecord = {
       id: `TDC-${Date.now()}-set`,
@@ -2779,8 +3226,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   exemptAssuranceTasks: (setId, taskIds, reason, grantedBy, newDate) => {
     const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
     const setTarget = state.assuranceSets.find((s) => s.id === setId);
     if (!setTarget) return { success: false, message: "Assurance set not found." };
+    if (
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(setTarget, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(setTarget, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return { success: false, message: "Only assigned set managers can exempt tasks." };
+    }
     const now = new Date().toISOString();
     const historyRows: TargetDateChangeRecord[] = [];
     const updatedRequirements = setTarget.requirements.map((r) => {
@@ -2841,8 +3296,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   partiallyCloseAssuranceSet: (setId, actorName, notes) => {
     const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
     const setTarget = state.assuranceSets.find((s) => s.id === setId);
     if (!setTarget) return { success: false, message: "Assurance set not found." };
+    if (
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(setTarget, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(setTarget, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return { success: false, message: "Only assigned set managers can partially close this assurance set." };
+    }
     const openRequired = (setTarget.requirements || []).filter(
       (requirement) =>
         requirement.isMandatory &&
@@ -2932,8 +3395,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
   cancelAssuranceSet: (setId, actorName, reason) => {
     const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
     const setTarget = state.assuranceSets.find((s) => s.id === setId);
     if (!setTarget) return { success: false, message: "Assurance set not found." };
+    if (
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(setTarget, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(setTarget, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return { success: false, message: "Only assigned set managers can cancel this assurance set." };
+    }
     const now = new Date().toISOString();
     const updatedSet: AssuranceSet = {
       ...setTarget,
@@ -2950,8 +3421,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     return { success: true };
   },
   updateAssuranceStage: (setId, stage) => {
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    const target = state.assuranceSets.find((s) => s.id === setId);
+    if (
+      !target ||
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(target, activePersona, activeDemoOrganization, sessionUser, state.users) ||
+      !getAssuranceSetRoleActions(target, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return;
+    }
     /* explicit manual override: the chosen stage is kept and only the readiness index is recalculated */
-    const updatedSets = get().assuranceSets.map((s) => {
+    const updatedSets = state.assuranceSets.map((s) => {
       if (s.id !== setId) return s;
       const staged: AssuranceSet = { ...s, stage };
       return { ...staged, readinessScore: calculateAssuranceSetReadiness(staged) };
@@ -2966,13 +3448,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   updateAssuranceStakeholder: (setId, role, assigneeName, submitterOrganization) => {
-    const assuranceSet = get().assuranceSets.find((s) => s.id === setId);
+    const state = get();
+    const { sessionUser, activePersona: persona, activeDemoOrganization: adminOrganization } =
+      getStoreSessionActor(state);
+    const assuranceSet = state.assuranceSets.find((s) => s.id === setId);
     if (!assuranceSet) {
       return { success: false, message: "Assurance set not found." };
     }
 
-    const persona = get().activePersona;
-    if (!canEditAssuranceSetStakeholders(assuranceSet, persona)) {
+    if (!canEditAssuranceSetStakeholders(assuranceSet, persona, adminOrganization, sessionUser)) {
       return {
         success: false,
         message:
@@ -2982,7 +3466,6 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
 
     /* only the admin of the role's organization can choose its person */
-    const adminOrganization = get().activeDemoOrganization;
     if (!canAssignStakeholderRole(assuranceSet, role, adminOrganization, submitterOrganization)) {
       const roleOrganization =
         (role === "Submitter" && submitterOrganization) || getStakeholderRoleOrganization(assuranceSet, role);
@@ -3101,16 +3584,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   completeVesselInspection: (vesselName, outcome) => {
     /* a failed inspection completes nothing; the sets stay at the inspection stage */
     if (outcome === "Fail") return [];
+    const state = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(state);
+    if (!sessionUser || activePersona !== "Inspector") return [];
 
     const name = vesselName.trim().toLowerCase();
-    /* only sets waiting on the inspection move on: inspection required, not yet completed, every document verified */
-    const completedIds = get()
-      .assuranceSets.filter(
+    /* only sets waiting on the inspection and assigned to this inspector move on */
+    const completedIds = state.assuranceSets
+      .filter(
         (s) =>
           s.vesselName?.trim().toLowerCase() === name &&
           s.mandatoryInspectionRequired &&
           !s.inspectionCompleted &&
-          s.stage === "Inspection",
+          s.stage === "Inspection" &&
+          isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser, state.users) &&
+          getAssuranceSetRoleActions(s, activePersona, activeDemoOrganization, sessionUser).canInspect,
       )
       .map((s) => s.id);
     if (completedIds.length === 0) return [];
@@ -3148,9 +3636,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     return completedIds;
   },
   updateRequirementStatus: (setId, reqId, status, notes) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const previousSet = stateBefore.assuranceSets.find((set) => set.id === setId);
+    if (
+      !previousSet ||
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(previousSet, activePersona, activeDemoOrganization, sessionUser, stateBefore.users)
+    ) {
+      return;
+    }
+    const roleActions = getAssuranceSetRoleActions(previousSet, activePersona, activeDemoOrganization, sessionUser);
+    const isDenialDecision = status === "Correction Requested" || status === "Rejected";
+    if (!roleActions.canVerify && !(isDenialDecision && roleActions.canApprove)) {
+      return;
+    }
+
     const reviewedAt = new Date().toISOString();
     const reviewerId = getSessionActor(get).userId;
-    const previousSet = get().assuranceSets.find((set) => set.id === setId);
     const previousStatus = previousSet?.requirements.find((requirement) => requirement.id === reqId)?.verifierStatus;
 
     set((state) => {
@@ -3303,8 +3806,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     return { isDone, totalTasks, completedTasks, pendingTasks, partyStatuses };
   },
   denyRequirementByApprover: (setId, reqId, decision, notes) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const previousSet = stateBefore.assuranceSets.find((s) => s.id === setId);
+    if (
+      !previousSet ||
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(previousSet, activePersona, activeDemoOrganization, sessionUser, stateBefore.users) ||
+      !getAssuranceSetRoleActions(previousSet, activePersona, activeDemoOrganization, sessionUser).canApprove
+    ) {
+      return;
+    }
     let requirementTitle = reqId;
-    const previousSet = get().assuranceSets.find((s) => s.id === setId);
 
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -3375,13 +3888,27 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
   },
   setApproverDecision: (setId, decision, notes) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const previousSet = stateBefore.assuranceSets.find((s) => s.id === setId);
+    if (
+      !previousSet ||
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(previousSet, activePersona, activeDemoOrganization, sessionUser, stateBefore.users)
+    ) {
+      return;
+    }
+    const roleActions = getAssuranceSetRoleActions(previousSet, activePersona, activeDemoOrganization, sessionUser);
+    if (!roleActions.canApprove && !(activePersona === "C Admin" && roleActions.canManage)) {
+      return;
+    }
+
     const isDenial =
       decision === "Returned for Correction" || decision === "Rejected";
     const mappedStatus: "Correction Requested" | "Rejected" =
       decision === "Returned for Correction"
         ? "Correction Requested"
         : "Rejected";
-    const previousSet = get().assuranceSets.find((s) => s.id === setId);
     if (decision === "Approved" && previousSet) {
       const openMandatory = (previousSet.requirements || []).filter(
         (r) =>
@@ -3486,7 +4013,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   sendAssuranceForReview: (setId) => {
-    const previousSet = get().assuranceSets.find((s) => s.id === setId);
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const previousSet = stateBefore.assuranceSets.find((s) => s.id === setId);
+    if (
+      !previousSet ||
+      !sessionUser ||
+      activePersona !== "C Admin" ||
+      !isAssuranceSetAssignedToPersona(previousSet, activePersona, activeDemoOrganization, sessionUser, stateBefore.users) ||
+      !getAssuranceSetRoleActions(previousSet, activePersona, activeDemoOrganization, sessionUser).canManage
+    ) {
+      return;
+    }
     const now = new Date().toISOString();
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -3529,6 +4067,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   },
 
   setClientApproval: (setId, decision, notes) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const previousSet = stateBefore.assuranceSets.find((s) => s.id === setId);
+    if (
+      !previousSet ||
+      !sessionUser ||
+      !isAssuranceSetAssignedToPersona(previousSet, activePersona, activeDemoOrganization, sessionUser, stateBefore.users)
+    ) {
+      return;
+    }
+    const roleActions = getAssuranceSetRoleActions(previousSet, activePersona, activeDemoOrganization, sessionUser);
+    if (!(activePersona === "C Admin" && roleActions.canManage) && !roleActions.canApprove) {
+      return;
+    }
     /* try the full approver path first; it may no-op when mandatory tasks are still open */
     get().setApproverDecision(setId, decision, notes);
     set((state) => {
@@ -3567,30 +4119,87 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   // Documents
   documents: MOCK_DOCUMENTS,
   addDocument: (doc) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    if (!sessionUser || (activePersona !== "Administrator" && activePersona !== "Submitter")) {
+      return;
+    }
+    const lookupContext = {
+      vessels: stateBefore.vessels,
+      crew: stateBefore.crew,
+      equipment: stateBefore.equipment,
+      assuranceObjects: stateBefore.assuranceObjects,
+      assuranceSets: stateBefore.assuranceSets,
+    };
+    const resolvedTarget = resolveDocumentTargetObject(doc, lookupContext);
+    if (resolvedTarget) {
+      const duplicate = findDuplicateObjectDocumentTitle(
+        stateBefore.documents,
+        resolvedTarget,
+        doc.title,
+        {
+          ...lookupContext,
+          excludeDocId: doc.id,
+        },
+      );
+      if (duplicate) {
+        get().logAuditEvent({
+          action: "Blocked Duplicate Document Title",
+          targetAsset: `${resolvedTarget.name} (${resolvedTarget.id})`,
+          justificationNotes: `A document titled "${doc.title}" already exists on ${resolvedTarget.name}. Upload a new version of ${duplicate.id} instead.`,
+        });
+        return;
+      }
+    }
     /* stamp owning org when missing so FR-16 / A16 can resolve ownership later */
     const ownerOrganization =
       doc.ownerOrganization?.trim() ||
-      get().activeDemoOrganization?.trim() ||
+      activeDemoOrganization?.trim() ||
+      sessionUser.organization?.trim() ||
       undefined;
-    const prepared = {
+    const prepared: MasterDocument = {
       ...doc,
       ...(ownerOrganization ? { ownerOrganization } : {}),
+      ...(resolvedTarget
+        ? {
+            targetObjectType: doc.targetObjectType || resolvedTarget.type,
+            targetObjectId: doc.targetObjectId || resolvedTarget.id,
+            targetObjectName: doc.targetObjectName || resolvedTarget.name,
+            entityType: doc.entityType || getEntityTypeForObjectType(resolvedTarget.type),
+            vesselId:
+              resolvedTarget.type === "vessel"
+                ? doc.vesselId || resolvedTarget.id
+                : doc.vesselId,
+          }
+        : {}),
     };
     /* the validation rules run on upload, so the reviewer sees results, not "not checked" */
     set((state) => ({ documents: [...state.documents, withDocumentChecks(prepared, state.vessels)] }));
     get().logAuditEvent({
       action: "Uploaded New Master Document",
-      targetAsset: `${prepared.id} (${prepared.title})`,
+      targetAsset: resolvedTarget
+        ? `${prepared.id} (${prepared.title}) -> ${resolvedTarget.name}`
+        : `${prepared.id} (${prepared.title})`,
       justificationNotes: `Uploaded certificate ${prepared.certificateNo}`,
     });
   },
   linkDocumentToVessel: (docId, vesselId, vesselName, imoNumber) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona } = getStoreSessionActor(stateBefore);
+    if (!sessionUser || (activePersona !== "Administrator" && activePersona !== "Submitter")) {
+      return;
+    }
+    const matchedVessel = stateBefore.vessels.find((v) => v.id === vesselId);
+    const resolvedName = vesselName || matchedVessel?.name || vesselId;
     set((state) => ({
       documents: state.documents.map((d) => {
         if (d.id !== docId) return d;
         return {
           ...d,
           vesselId,
+          targetObjectType: "vessel" as const,
+          targetObjectId: vesselId,
+          targetObjectName: resolvedName,
           vesselAttributes: d.vesselAttributes
             ? {
                 ...d.vesselAttributes,
@@ -3602,16 +4211,119 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       }),
     }));
   },
+  linkDocumentToObject: (docId, objectType, objectId, objectName) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || undefined;
+    const targetDoc = stateBefore.documents.find((d) => d.id === docId);
+    if (!sessionUser || (activePersona !== "Administrator" && activePersona !== "Submitter")) {
+      return { success: false, message: "Only Administrators and Submitters can link documents to objects." };
+    }
+    if (!targetDoc) {
+      return { success: false, message: "Document not found." };
+    }
+    if (
+      !canEditOwnedEvidence(targetDoc, effectiveOrg, {
+        persona: activePersona,
+        vessels: stateBefore.vessels,
+        users: stateBefore.users,
+        equipment: stateBefore.equipment,
+        crew: stateBefore.crew,
+        assuranceObjects: stateBefore.assuranceObjects,
+      })
+    ) {
+      return { success: false, message: EVIDENCE_NOT_OWNED_EDIT };
+    }
+    const lookupContext = {
+      vessels: stateBefore.vessels,
+      crew: stateBefore.crew,
+      equipment: stateBefore.equipment,
+      assuranceObjects: stateBefore.assuranceObjects,
+      assuranceSets: stateBefore.assuranceSets,
+    };
+    const resolvedTarget = resolveDocumentTargetObject(
+      {
+        ...targetDoc,
+        targetObjectType: objectType,
+        targetObjectId: objectId,
+        targetObjectName: objectName,
+        vesselId: objectType === "vessel" ? objectId : "",
+      },
+      lookupContext,
+    ) || { type: objectType, id: objectId, name: objectName || objectId };
+
+    const duplicate = findDuplicateObjectDocumentTitle(
+      stateBefore.documents,
+      resolvedTarget,
+      targetDoc.title,
+      { ...lookupContext, excludeDocId: docId },
+    );
+    if (duplicate) {
+      const message = `A document titled "${targetDoc.title}" already exists on ${resolvedTarget.name}.`;
+      get().logAuditEvent({
+        action: "Blocked Duplicate Document Title",
+        targetAsset: `${resolvedTarget.name} (${resolvedTarget.id})`,
+        justificationNotes: message,
+      });
+      return { success: false, message };
+    }
+
+    set((state) => ({
+      documents: state.documents.map((d) => {
+        if (d.id !== docId) return d;
+        return withDocumentChecks(
+          {
+            ...d,
+            targetObjectType: objectType,
+            targetObjectId: objectId,
+            targetObjectName: resolvedTarget.name,
+            vesselId: objectType === "vessel" ? objectId : d.vesselId,
+          },
+          state.vessels,
+        );
+      }),
+    }));
+
+    get().logAuditEvent({
+      action: "Linked Document to Object",
+      targetAsset: `${docId} -> ${resolvedTarget.name} (${resolvedTarget.id})`,
+      justificationNotes: `Referenced object set to ${resolvedTarget.name}.`,
+    });
+    return { success: true };
+  },
   uploadDocumentForRequirement: (setId, requirementId, doc, inspectionReport) => {
     /* the document this upload replaces on the requirement, if any */
-    const previousSet = get().assuranceSets.find((s) => s.id === setId);
-    const replacedDocumentId = previousSet?.requirements.find((r) => r.id === requirementId)?.documentId;
-    /* A16: linking an existing library document is reuse — Vendor-owned evidence only */
     const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const previousSet = stateBefore.assuranceSets.find((s) => s.id === setId);
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !previousSet ||
+      isClosedAssuranceSet(previousSet) ||
+      previousSet.stage === "Cancelled" ||
+      !isAssuranceSetAssignedToPersona(previousSet, activePersona, activeDemoOrganization, sessionUser, stateBefore.users) ||
+      !getAssuranceSetRoleActions(previousSet, activePersona, activeDemoOrganization, sessionUser).canUpload
+    ) {
+      return;
+    }
+    const replacedDocumentId = previousSet.requirements.find((r) => r.id === requirementId)?.documentId;
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser.organization?.trim() || undefined;
+    const lookupContext = {
+      vessels: stateBefore.vessels,
+      crew: stateBefore.crew,
+      equipment: stateBefore.equipment,
+      assuranceObjects: stateBefore.assuranceObjects,
+      assuranceSets: stateBefore.assuranceSets,
+    };
+    const targetReq = requirementId
+      ? previousSet.requirements.find((r) => r.id === requirementId)
+      : undefined;
+    /* A16: linking an existing library document is reuse — Vendor-owned evidence only */
     const alreadyInLibrary = stateBefore.documents.some((d) => d.id === doc.id);
     if (alreadyInLibrary && previousSet) {
       if (
-        !canOfferEvidenceReuse(previousSet, stateBefore.activeDemoOrganization) ||
+        !canOfferEvidenceReuse(previousSet, effectiveOrg) ||
         !isReusableLibraryDocument(doc, previousSet, stateBefore.vessels, stateBefore.users)
       ) {
         get().logAuditEvent({
@@ -3622,12 +4334,73 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         return;
       }
     }
-    const preparedDoc = {
+
+    let resolvedTarget = resolveDocumentTargetObject(doc, lookupContext);
+    if (!resolvedTarget && previousSet) {
+      if (targetReq?.targetObjectId) {
+        const reqObj = getAssuranceSetObjects(previousSet).find((o) => o.id === targetReq.targetObjectId) ||
+          stateBefore.assuranceObjects.find((o) => o.id === targetReq.targetObjectId);
+        if (reqObj) {
+          resolvedTarget = {
+            type: reqObj.type,
+            id: reqObj.id,
+            name: reqObj.name,
+            identifier: reqObj.identifier,
+            ownerOrganization: reqObj.ownerOrganization,
+          };
+        }
+      } else if (previousSet.equipmentId) {
+        resolvedTarget = {
+          type: "equipment",
+          id: previousSet.equipmentId,
+          name: previousSet.equipmentName || previousSet.equipmentId,
+        };
+      } else if (previousSet.crewId) {
+        resolvedTarget = {
+          type: "person",
+          id: previousSet.crewId,
+          name: previousSet.crewName || previousSet.crewId,
+        };
+      } else if (previousSet.vesselId) {
+        resolvedTarget = {
+          type: "vessel",
+          id: previousSet.vesselId,
+          name: previousSet.vesselName || previousSet.vesselId,
+        };
+      }
+    }
+
+    if (!alreadyInLibrary && resolvedTarget) {
+      const duplicate = findDuplicateObjectDocumentTitle(
+        stateBefore.documents,
+        resolvedTarget,
+        doc.title,
+        { ...lookupContext, excludeDocId: doc.id },
+      );
+      if (duplicate) {
+        get().logAuditEvent({
+          action: "Blocked Duplicate Document Title",
+          targetAsset: `${resolvedTarget.name} (${resolvedTarget.id})`,
+          justificationNotes: `A document titled "${doc.title}" already exists on ${resolvedTarget.name}. Upload a new version of ${duplicate.id} instead.`,
+        });
+        return;
+      }
+    }
+
+    const preparedDoc: MasterDocument = {
       ...doc,
-      ownerOrganization:
-        doc.ownerOrganization?.trim() ||
-        stateBefore.activeDemoOrganization?.trim() ||
-        undefined,
+      ownerOrganization: doc.ownerOrganization?.trim() || effectiveOrg,
+      ...(resolvedTarget
+        ? {
+            targetObjectType: doc.targetObjectType || resolvedTarget.type,
+            targetObjectId: doc.targetObjectId || resolvedTarget.id,
+            targetObjectName: doc.targetObjectName || resolvedTarget.name,
+            vesselId:
+              resolvedTarget.type === "vessel"
+                ? doc.vesselId || resolvedTarget.id
+                : doc.vesselId,
+          }
+        : {}),
     };
     set((state) => {
       const updatedSets = state.assuranceSets.map((s) => {
@@ -3728,14 +4501,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     expiryDate,
     scope,
   ) => {
-    const matchingDoc = get().documents.find((d) => d.id === docId);
-    if (!matchingDoc) return;
     const stateForGuard = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateForGuard);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || undefined;
+    const matchingDoc = stateForGuard.documents.find((d) => d.id === docId);
+    if (!matchingDoc) return;
     if (
-      !canEditOwnedEvidence(matchingDoc, stateForGuard.activeDemoOrganization, {
-        persona: stateForGuard.activePersona,
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !canEditOwnedEvidence(matchingDoc, effectiveOrg, {
+        persona: activePersona,
         vessels: stateForGuard.vessels,
         users: stateForGuard.users,
+        equipment: stateForGuard.equipment,
+        crew: stateForGuard.crew,
+        assuranceObjects: stateForGuard.assuranceObjects,
       })
     ) {
       get().logAuditEvent({
@@ -3749,11 +4529,37 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       matchingDoc?.versions?.[0]?.versionLabel ||
       matchingDoc?.currentVersion ||
       "v1.0";
-    const prevMatchingSets = get().assuranceSets.filter((s) =>
+    const prevMatchingSets = stateForGuard.assuranceSets.filter((s) =>
       s.requirements.some((r) => r.documentId === docId || r.linkedDocumentId === docId),
     );
+    if (scope?.assuranceSetId) {
+      const scopedSet = stateForGuard.assuranceSets.find((s) => s.id === scope.assuranceSetId);
+      if (
+        !scopedSet ||
+        isClosedAssuranceSet(scopedSet) ||
+        scopedSet.stage === "Cancelled" ||
+        !isAssuranceSetAssignedToPersona(scopedSet, activePersona, effectiveOrg, sessionUser, stateForGuard.users) ||
+        !getAssuranceSetRoleActions(scopedSet, activePersona, effectiveOrg, sessionUser).canUpload
+      ) {
+        return;
+      }
+    } else {
+      const openMatchingSets = prevMatchingSets.filter(
+        (s) => !isClosedAssuranceSet(s) && s.stage !== "Cancelled",
+      );
+      if (
+        openMatchingSets.length > 0 &&
+        !openMatchingSets.some(
+          (s) =>
+            isAssuranceSetAssignedToPersona(s, activePersona, effectiveOrg, sessionUser, stateForGuard.users) &&
+            getAssuranceSetRoleActions(s, activePersona, effectiveOrg, sessionUser).canUpload,
+        )
+      ) {
+        return;
+      }
+    }
     const targetSet = scope
-      ? get().assuranceSets.find((s) => s.id === scope.assuranceSetId)
+      ? stateForGuard.assuranceSets.find((s) => s.id === scope.assuranceSetId)
       : prevMatchingSets[0];
 
     /* open sets that use the document but were not the one the version was submitted for */
@@ -3765,6 +4571,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           versionLabel: newVersionLabel,
           uploadedAt: new Date().toISOString(),
           uploadedBy: getSessionActor(get).userId,
+          uploadedByUserId: getSessionActor(get).userId,
           fileSizeBytes,
           fileName,
           changeSummary,
@@ -3792,9 +4599,20 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           state.vessels,
         );
       });
+      const changedSetIds: string[] = [];
       const updatedSets = state.assuranceSets.map((s) => {
         /* a new version of a shared library document must not reopen a set that is already approved */
-        if (isClosedAssuranceSet(s)) return s;
+        if (isClosedAssuranceSet(s) || s.stage === "Cancelled") return s;
+        const setCanUpload =
+          isAssuranceSetAssignedToPersona(s, activePersona, effectiveOrg, sessionUser, state.users) &&
+          getAssuranceSetRoleActions(s, activePersona, effectiveOrg, sessionUser).canUpload;
+        if (!setCanUpload) {
+          const usesDocument = s.requirements.some((r) => r.documentId === docId || r.linkedDocumentId === docId);
+          if (usesDocument && !noticeSetIds.includes(s.id)) {
+            noticeSetIds.push(s.id);
+          }
+          return s;
+        }
         let hasMatchedReq = false;
         const updatedReqs = s.requirements.map((r) => {
           const usesDocument = r.documentId === docId || r.linkedDocumentId === docId;
@@ -3829,6 +4647,7 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
         if (!hasMatchedReq) return s;
 
+        changedSetIds.push(s.id);
         const candidateSet: AssuranceSet = {
           ...s,
           requirements: updatedReqs,
@@ -3837,9 +4656,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         return recalculateSetReadiness(candidateSet);
       });
 
+      const { updatedProjects: syncedProjects, updatedAssuranceSets: syncedSets } =
+        changedSetIds.length > 0
+          ? syncAllAffectedProjectRollups(state.projects, updatedSets, changedSetIds)
+          : { updatedProjects: state.projects, updatedAssuranceSets: updatedSets };
+
       return {
         documents: updatedDocs,
-        assuranceSets: updatedSets,
+        assuranceSets: syncedSets,
+        projects: syncedProjects,
       };
     });
 
@@ -3902,7 +4727,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
   },
   verifyDocument: (docId, status, notes, routeTarget, requirementId, assuranceSetId, review) => {
-    const setsBeforeVerification = get().assuranceSets;
+    const stateBefore = get();
+    const { sessionUser, activePersona: sessionPersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    if (!sessionUser) return;
+    const setsBeforeVerification = stateBefore.assuranceSets;
     const reviewedAt = new Date().toISOString();
     const reviewerId = getSessionActor(get).userId;
     /* a decision belongs to one requirement on one set; without a requirement nothing on any set changes */
@@ -3910,6 +4738,26 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ? assuranceSetId ||
         setsBeforeVerification.find((s) => s.requirements.some((r) => r.id === requirementId))?.id
       : undefined;
+    const isDenialDecision = status === "Correction Requested" || status === "Rejected";
+    if (reviewedSetId) {
+      const reviewedSet = setsBeforeVerification.find((s) => s.id === reviewedSetId);
+      if (
+        !reviewedSet ||
+        !isAssuranceSetAssignedToPersona(reviewedSet, sessionPersona, activeDemoOrganization, sessionUser, stateBefore.users)
+      ) {
+        return;
+      }
+      const roleActions = getAssuranceSetRoleActions(reviewedSet, sessionPersona, activeDemoOrganization, sessionUser);
+      if (!roleActions.canVerify && !(isDenialDecision && roleActions.canApprove)) {
+        return;
+      }
+    } else if (
+      sessionPersona !== "Verifier" &&
+      sessionPersona !== "C Admin" &&
+      !(isDenialDecision && sessionPersona === "Approver")
+    ) {
+      return;
+    }
     set((state) => {
       /* the library document is only "on file"; its status is not a verification decision */
       const updatedDocs = state.documents;
@@ -4329,11 +5177,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   // Crew Directory
   crew: MOCK_CREW,
   addCrewMember: (newCrew) => {
-    const activePersona = get().activePersona;
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    if (!sessionUser || (activePersona !== "Administrator" && activePersona !== "Submitter")) {
+      return;
+    }
+    const effectiveOrg = sessionUser.organization || activeDemoOrganization;
+    if (newCrew.organization?.trim() && !orgFieldMatches(effectiveOrg, newCrew.organization)) {
+      return;
+    }
+    const storedCrew: CrewMember = newCrew.organization?.trim()
+      ? newCrew
+      : { ...newCrew, organization: effectiveOrg };
     /* convert all layer 1 and layer 2 certificates attached to new crew into MasterDocument entries */
     const allCrewDocs = [
-      ...newCrew.layer1CoreDocuments,
-      ...newCrew.layer2Endorsements,
+      ...storedCrew.layer1CoreDocuments,
+      ...storedCrew.layer2Endorsements,
     ];
     const newMasterDocs: MasterDocument[] = allCrewDocs.map((doc) => {
       const isExpired =
@@ -4341,9 +5200,9 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         new Date(doc.expiryDate).getTime() < Date.now();
       return {
         id: doc.id,
-        title: `${doc.title} — ${newCrew.fullName}`,
+        title: `${doc.title} — ${storedCrew.fullName}`,
         entityType: "Crew Certificate",
-        vesselId: newCrew.currentVesselId || "",
+        vesselId: storedCrew.currentVesselId || "",
         certificateNo: doc.certificateNo,
         issuingAuthority: doc.issuingAuthority,
         expiryDate: doc.expiryDate,
@@ -4367,15 +5226,15 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           },
         ],
         crewAttributes: {
-          crewName: newCrew.fullName,
-          passportId: newCrew.passportNo,
-          rank: newCrew.rank,
+          crewName: storedCrew.fullName,
+          passportId: storedCrew.passportNo,
+          rank: storedCrew.rank,
           certType: doc.stcwRegulation || doc.title,
           issuingCenter: doc.issuingAuthority,
           issueDate: doc.issueDate,
           expiryDate: doc.expiryDate,
-          assignedVessel: newCrew.currentVesselName || "",
-          nationality: newCrew.nationality,
+          assignedVessel: storedCrew.currentVesselName || "",
+          nationality: storedCrew.nationality,
           trainingDate: doc.issueDate,
           ocrConfidence: 98.5,
         },
@@ -4402,19 +5261,31 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         (d) => !existingDocIds.has(d.id),
       );
       return {
-        crew: [newCrew, ...state.crew],
-        assuranceObjects: [...state.assuranceObjects, crewToAssuranceObject(newCrew)],
+        crew: [storedCrew, ...state.crew],
+        assuranceObjects: [...state.assuranceObjects, crewToAssuranceObject(storedCrew)],
         documents: [...filteredNewDocs, ...state.documents],
       };
     });
 
     get().logAuditEvent({
       action: "Registered Crew Member",
-      targetAsset: `${newCrew.fullName} (${newCrew.rank})`,
-      justificationNotes: `Registered crew member with Seaman's Book ${newCrew.seamansBookNo}`,
+      targetAsset: `${storedCrew.fullName} (${storedCrew.rank})`,
+      justificationNotes: `Registered crew member with Seaman's Book ${storedCrew.seamansBookNo}`,
     });
   },
   updateCrewMember: (updatedCrew) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = sessionUser?.organization || activeDemoOrganization;
+    const existingCrew = stateBefore.crew.find((c) => c.id === updatedCrew.id);
+    if (
+      !existingCrew ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !isCrewOwnedByOrganization(existingCrew, effectiveOrg)
+    ) {
+      return;
+    }
     set((state) => ({
       crew: state.crew.map((c) => (c.id === updatedCrew.id ? updatedCrew : c)),
     }));
@@ -4425,7 +5296,22 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   assignCrewToVessel: (crewId, vesselId) => {
-    const vessel = get().vessels.find((v) => v.id === vesselId);
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = sessionUser?.organization || activeDemoOrganization;
+    const targetCrewRecord = stateBefore.crew.find((c) => c.id === crewId);
+    if (
+      !targetCrewRecord ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !isCrewOwnedByOrganization(targetCrewRecord, effectiveOrg)
+    ) {
+      return;
+    }
+    const vessel = vesselId ? stateBefore.vessels.find((v) => v.id === vesselId) : undefined;
+    if (vesselId && (!vessel || !isVesselOwnedByClientOrg(vessel, effectiveOrg))) {
+      return;
+    }
     set((state) => {
       const targetCrew = state.crew.find((c) => c.id === crewId);
       const crewName = targetCrew?.fullName;
@@ -4521,8 +5407,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     if (endDate && endDate < startDate) {
       return { success: false, message: "The end date must be on or after the start date." };
     }
-    const person = get().assuranceObjects.find((object) => object.id === personId && object.type === "person");
+    const stateBefore = get();
+    const person = stateBefore.assuranceObjects.find((object) => object.id === personId && object.type === "person");
     if (!person) return { success: false, message: "That person is not an assurance object." };
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = sessionUser?.organization || activeDemoOrganization;
+    if (!sessionUser || (activePersona !== "Administrator" && activePersona !== "Submitter")) {
+      return { success: false, message: "Only authorized staff of the owning organization can update crew assignments." };
+    }
+    const targetCrew = stateBefore.crew.find((c) => c.id === personId);
+    const ownsPerson = targetCrew
+      ? isCrewOwnedByOrganization(targetCrew, effectiveOrg)
+      : Boolean(person.ownerOrganization) && orgFieldMatches(effectiveOrg, person.ownerOrganization);
+    if (!ownsPerson) {
+      return { success: false, message: "Only authorized staff of the owning organization can update crew assignments." };
+    }
     const today = new Date().toISOString().split("T")[0];
     const isCurrent = !endDate || endDate >= today;
     const assignmentId = `ASG-OBJ-${Date.now()}`;
@@ -4606,16 +5505,51 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     return { success: true };
   },
   addCrewDocument: (crewId, doc) => {
-    const targetCrew = get().crew.find((c) => c.id === crewId);
-    const activePersona = get().activePersona;
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim();
+    const targetCrew = stateBefore.crew.find((c) => c.id === crewId);
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !targetCrew ||
+      !isCrewOwnedByOrganization(targetCrew, effectiveOrg || "")
+    ) {
+      return;
+    }
+    const duplicateCrewDoc = findDuplicateObjectDocumentTitle(
+      stateBefore.documents,
+      { type: "person", id: targetCrew.id, name: targetCrew.fullName },
+      doc.title,
+      {
+        excludeDocId: doc.id,
+        vessels: stateBefore.vessels,
+        crew: stateBefore.crew,
+        equipment: stateBefore.equipment,
+        assuranceObjects: stateBefore.assuranceObjects,
+        assuranceSets: stateBefore.assuranceSets,
+      },
+    );
+    if (duplicateCrewDoc) {
+      get().logAuditEvent({
+        action: "Blocked Duplicate Document Title",
+        targetAsset: `Crew ${targetCrew.fullName} (${targetCrew.id})`,
+        justificationNotes: `A certificate titled "${doc.title}" already exists for ${targetCrew.fullName}. Upload a new version instead.`,
+      });
+      return;
+    }
     const isExpired =
       doc.verificationStatus === "Expired" ||
       new Date(doc.expiryDate).getTime() < Date.now();
     const newMasterDoc: MasterDocument = {
       id: doc.id,
-      title: targetCrew ? `${doc.title} — ${targetCrew.fullName}` : doc.title,
+      title: `${doc.title} — ${targetCrew.fullName}`,
       entityType: "Crew Certificate",
-      vesselId: targetCrew?.currentVesselId || "",
+      vesselId: targetCrew.currentVesselId || "",
+      ownerOrganization: effectiveOrg || targetCrew.organization || targetCrew.manningAgency,
+      targetObjectType: "person",
+      targetObjectId: targetCrew.id,
+      targetObjectName: targetCrew.fullName,
       certificateNo: doc.certificateNo,
       issuingAuthority: doc.issuingAuthority,
       expiryDate: doc.expiryDate,
@@ -4638,21 +5572,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
           changeSummary: `Uploaded ${doc.layer} certificate for STCW compliance tracking.`,
         },
       ],
-      crewAttributes: targetCrew
-        ? {
-            crewName: targetCrew.fullName,
-            passportId: targetCrew.passportNo,
-            rank: targetCrew.rank,
-            certType: doc.stcwRegulation || doc.title,
-            issuingCenter: doc.issuingAuthority,
-            issueDate: doc.issueDate,
-            expiryDate: doc.expiryDate,
-            assignedVessel: targetCrew.currentVesselName || "",
-            nationality: targetCrew.nationality,
-            trainingDate: doc.issueDate,
-            ocrConfidence: 98.5,
-          }
-        : undefined,
+      crewAttributes: {
+        crewName: targetCrew.fullName,
+        passportId: targetCrew.passportNo,
+        rank: targetCrew.rank,
+        certType: doc.stcwRegulation || doc.title,
+        issuingCenter: doc.issuingAuthority,
+        issueDate: doc.issueDate,
+        expiryDate: doc.expiryDate,
+        assignedVessel: targetCrew.currentVesselName || "",
+        nationality: targetCrew.nationality,
+        trainingDate: doc.issueDate,
+        ocrConfidence: 98.5,
+      },
       validationRules: {
         charterBufferPassed: !isExpired,
         assetMatch100Percent: true,
@@ -4703,8 +5635,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   updateCrewDocument: (crewId, doc) => {
-    const targetCrew = get().crew.find((c) => c.id === crewId);
-    const activePersona = get().activePersona;
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim();
+    const targetCrew = stateBefore.crew.find((c) => c.id === crewId);
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !targetCrew ||
+      !isCrewOwnedByOrganization(targetCrew, effectiveOrg || "")
+    ) {
+      return;
+    }
     const isExpired =
       doc.verificationStatus === "Expired" ||
       new Date(doc.expiryDate).getTime() < Date.now();
@@ -4729,11 +5671,14 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       const updatedDocuments = existingDoc
         ? state.documents.map((d) => {
             if (d.id !== doc.id) return d;
+            const nextVer = getNextVersionLabel(d.versions, d.currentVersion);
             return {
               ...d,
-              title: targetCrew
-                ? `${doc.title} — ${targetCrew.fullName}`
-                : doc.title,
+              title: `${doc.title} — ${targetCrew.fullName}`,
+              targetObjectType: "person" as const,
+              targetObjectId: targetCrew.id,
+              targetObjectName: targetCrew.fullName,
+              ownerOrganization: d.ownerOrganization || effectiveOrg || targetCrew.organization,
               certificateNo: doc.certificateNo,
               issuingAuthority: doc.issuingAuthority,
               expiryDate: doc.expiryDate,
@@ -4745,9 +5690,10 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
               verificationStatus: isExpired
                 ? ("Correction Requested" as const)
                 : ("Pending" as const),
+              currentVersion: nextVer,
               versions: [
                 {
-                  versionLabel: `v${d.versions.length + 1}.0`,
+                  versionLabel: nextVer,
                   uploadedAt: new Date().toISOString(),
                   uploadedBy: activePersona || "Crewing Administrator",
                   fileSizeBytes: doc.fileSizeBytes || 1500000,
@@ -4764,11 +5710,13 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         : [
             {
               id: doc.id,
-              title: targetCrew
-                ? `${doc.title} — ${targetCrew.fullName}`
-                : doc.title,
+              title: `${doc.title} — ${targetCrew.fullName}`,
               entityType: "Crew Certificate" as const,
-              vesselId: targetCrew?.currentVesselId || "",
+              vesselId: targetCrew.currentVesselId || "",
+              ownerOrganization: effectiveOrg || targetCrew.organization || targetCrew.manningAgency,
+              targetObjectType: "person" as const,
+              targetObjectId: targetCrew.id,
+              targetObjectName: targetCrew.fullName,
               certificateNo: doc.certificateNo,
               issuingAuthority: doc.issuingAuthority,
               expiryDate: doc.expiryDate,
@@ -4787,21 +5735,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
                   changeSummary: `Uploaded ${doc.layer} certificate.`,
                 },
               ],
-              crewAttributes: targetCrew
-                ? {
-                    crewName: targetCrew.fullName,
-                    passportId: targetCrew.passportNo,
-                    rank: targetCrew.rank,
-                    certType: doc.stcwRegulation || doc.title,
-                    issuingCenter: doc.issuingAuthority,
-                    issueDate: doc.issueDate,
-                    expiryDate: doc.expiryDate,
-                    assignedVessel: targetCrew.currentVesselName || "",
-                    nationality: targetCrew.nationality,
-                    trainingDate: doc.issueDate,
-                    ocrConfidence: 98.5,
-                  }
-                : undefined,
+              crewAttributes: {
+                crewName: targetCrew.fullName,
+                passportId: targetCrew.passportNo,
+                rank: targetCrew.rank,
+                certType: doc.stcwRegulation || doc.title,
+                issuingCenter: doc.issuingAuthority,
+                issueDate: doc.issueDate,
+                expiryDate: doc.expiryDate,
+                assignedVessel: targetCrew.currentVesselName || "",
+                nationality: targetCrew.nationality,
+                trainingDate: doc.issueDate,
+                ocrConfidence: 98.5,
+              },
               validationRules: {
                 charterBufferPassed: !isExpired,
                 assetMatch100Percent: true,
@@ -4828,6 +5774,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   deleteCrewDocument: (crewId, docId) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = sessionUser?.organization || activeDemoOrganization;
+    const targetCrew = stateBefore.crew.find((c) => c.id === crewId);
+    if (
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !targetCrew ||
+      !isCrewOwnedByOrganization(targetCrew, effectiveOrg || "")
+    ) {
+      return;
+    }
     set((state) => ({
       crew: state.crew.map((c) => {
         if (c.id !== crewId) return c;
@@ -4852,16 +5810,41 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
   // Crew Groups
   crewGroups: MOCK_CREW_GROUPS,
   addCrewGroup: (newGroup) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    if (!sessionUser || (activePersona !== "Administrator" && activePersona !== "Submitter")) {
+      return;
+    }
+    const effectiveOrg = sessionUser.organization || activeDemoOrganization;
+    if (newGroup.organization?.trim() && !orgFieldMatches(effectiveOrg, newGroup.organization)) {
+      return;
+    }
+    const storedGroup: CrewGroup = newGroup.organization?.trim()
+      ? newGroup
+      : { ...newGroup, organization: effectiveOrg };
     set((state) => ({
-      crewGroups: [...state.crewGroups, newGroup],
+      crewGroups: [...state.crewGroups, storedGroup],
     }));
     get().logAuditEvent({
       action: "Created Crew Group",
-      targetAsset: `${newGroup.name} (${newGroup.id})`,
-      justificationNotes: `Created crew group with ${newGroup.memberIds.length} initial member(s).`,
+      targetAsset: `${storedGroup.name} (${storedGroup.id})`,
+      justificationNotes: `Created crew group with ${storedGroup.memberIds.length} initial member(s).`,
     });
   },
   updateCrewGroup: (updatedGroup) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = sessionUser?.organization || activeDemoOrganization;
+    const existingGroup = stateBefore.crewGroups.find((g) => g.id === updatedGroup.id);
+    if (
+      !existingGroup ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !existingGroup.organization ||
+      !orgFieldMatches(effectiveOrg, existingGroup.organization)
+    ) {
+      return;
+    }
     set((state) => ({
       crewGroups: state.crewGroups.map((g) =>
         g.id === updatedGroup.id
@@ -4876,6 +5859,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   setCrewGroupMembers: (groupId, memberIds) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = sessionUser?.organization || activeDemoOrganization;
+    const existingGroup = stateBefore.crewGroups.find((g) => g.id === groupId);
+    if (
+      !existingGroup ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !existingGroup.organization ||
+      !orgFieldMatches(effectiveOrg, existingGroup.organization)
+    ) {
+      return;
+    }
     set((state) => ({
       crewGroups: state.crewGroups.map((g) =>
         g.id === groupId
@@ -4890,6 +5886,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     });
   },
   addMemberToCrewGroup: (groupId, memberId) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = sessionUser?.organization || activeDemoOrganization;
+    const existingGroup = stateBefore.crewGroups.find((g) => g.id === groupId);
+    if (
+      !existingGroup ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !existingGroup.organization ||
+      !orgFieldMatches(effectiveOrg, existingGroup.organization)
+    ) {
+      return;
+    }
     set((state) => ({
       crewGroups: state.crewGroups.map((g) => {
         if (g.id !== groupId) return g;
@@ -4903,6 +5912,19 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
   },
   removeMemberFromCrewGroup: (groupId, memberId) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const effectiveOrg = sessionUser?.organization || activeDemoOrganization;
+    const existingGroup = stateBefore.crewGroups.find((g) => g.id === groupId);
+    if (
+      !existingGroup ||
+      !sessionUser ||
+      (activePersona !== "Administrator" && activePersona !== "Submitter") ||
+      !existingGroup.organization ||
+      !orgFieldMatches(effectiveOrg, existingGroup.organization)
+    ) {
+      return;
+    }
     set((state) => ({
       crewGroups: state.crewGroups.map((g) => {
         if (g.id !== groupId) return g;
@@ -4920,11 +5942,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
 
   // CAPA Management Store Implementation
   capaItems: MOCK_CAPA_ITEMS,
-  addCapaItem: (capa) =>
-    set((state) => ({ capaItems: [capa, ...state.capaItems] })),
+  addCapaItem: (capa) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona } = getStoreSessionActor(stateBefore);
+    if (!sessionUser || activePersona !== "Inspector" || !canAccessCapaInSession(stateBefore, capa)) {
+      return;
+    }
+    set((state) => ({ capaItems: [capa, ...state.capaItems] }));
+  },
   updateCapaStatus: (capaId, status, inspectorNotes) => {
-    const current = get().capaItems.find((item) => item.id === capaId);
-    if (!current) return;
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const current = stateBefore.capaItems.find((item) => item.id === capaId);
+    if (!current || !sessionUser || activePersona !== "Inspector" || !canAccessCapaInSession(stateBefore, current)) {
+      return;
+    }
     const closing = status === "Verified & Closed" && current.status !== "Verified & Closed";
     const closedDate =
       status === "Verified & Closed"
@@ -4953,8 +5985,23 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       ),
     }));
     if (closing && closedDate) {
-      const relatedSet = get().assuranceSets.find(
-        (s) => s.vesselId === current.vesselId || s.vesselName === current.vesselName,
+      const stateAfter = get();
+      const relatedSet = stateAfter.assuranceSets.find(
+        (s) =>
+          (current.assuranceSetId
+            ? s.id === current.assuranceSetId
+            : (Boolean(current.vesselId) && s.vesselId === current.vesselId) ||
+              (Boolean(current.vesselName) &&
+                Boolean(s.vesselName) &&
+                s.vesselName.trim().toLowerCase() === current.vesselName.trim().toLowerCase())) &&
+          isAssuranceSetAssignedToPersona(
+            s,
+            activePersona,
+            activeDemoOrganization,
+            sessionUser,
+            stateAfter.users,
+          ) &&
+          Boolean(s.mandatoryInspectionRequired),
       );
       get().logAuditEvent({
         action: "Closed finding",
@@ -4974,6 +6021,16 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }
   },
   addCapaEvidence: (capaId, evidence) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona } = getStoreSessionActor(stateBefore);
+    const current = stateBefore.capaItems.find((item) => item.id === capaId);
+    const allowedPersona =
+      activePersona === "Inspector" ||
+      activePersona === "Submitter" ||
+      activePersona === "Administrator";
+    if (!current || !sessionUser || !allowedPersona || !canAccessCapaInSession(stateBefore, current)) {
+      return;
+    }
     set((state) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
@@ -4983,6 +6040,24 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
   },
   removeCapaEvidence: (capaId, evidenceId) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona } = getStoreSessionActor(stateBefore);
+    const current = stateBefore.capaItems.find((item) => item.id === capaId);
+    const allowedPersona =
+      activePersona === "Inspector" ||
+      activePersona === "Submitter" ||
+      activePersona === "Administrator";
+    if (!current || !sessionUser || !allowedPersona || !canAccessCapaInSession(stateBefore, current)) {
+      return;
+    }
+    const targetEv = current.evidences.find((ev) => ev.id === evidenceId);
+    if (
+      activePersona !== "Inspector" &&
+      targetEv &&
+      targetEv.uploadedBy !== sessionUser.name
+    ) {
+      return;
+    }
     set((state) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
@@ -4995,6 +6070,17 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
     }));
   },
   flagCapaForReinspection: (capaId, reason) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const current = stateBefore.capaItems.find((item) => item.id === capaId);
+    if (
+      !current ||
+      !sessionUser ||
+      (activePersona !== "C Admin" && activePersona !== "Administrator") ||
+      !canAccessCapaInSession(stateBefore, current)
+    ) {
+      return;
+    }
     set((state) => ({
       capaItems: state.capaItems.map((item) =>
         item.id === capaId
@@ -5022,19 +6108,107 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
         reason || "C Admin requested re-inspection verification by inspector",
     });
 
-    const capa = get().capaItems.find((item) => item.id === capaId);
+    const stateAfter = get();
+    const capa = stateAfter.capaItems.find((item) => item.id === capaId);
     if (capa) {
-      /* the inspector is the one assigned on an assurance set for the same vessel */
-      const inspectedSet = get().assuranceSets.find(
+      /* the inspector is the one assigned on an accessible assurance set for the same vessel */
+      const inspectedSet = stateAfter.assuranceSets.find(
         (s) =>
-          (s.vesselId === capa.vesselId || s.vesselName === capa.vesselName) &&
-          Boolean(resolveNotificationRecipient(s.assignedInspector, get().users)),
+          (capa.assuranceSetId
+            ? s.id === capa.assuranceSetId
+            : (Boolean(capa.vesselId) && s.vesselId === capa.vesselId) ||
+              (Boolean(capa.vesselName) &&
+                Boolean(s.vesselName) &&
+                s.vesselName.trim().toLowerCase() === capa.vesselName.trim().toLowerCase())) &&
+          isAssuranceSetAssignedToPersona(
+            s,
+            activePersona,
+            activeDemoOrganization,
+            sessionUser,
+            stateAfter.users,
+          ) &&
+          Boolean(resolveNotificationRecipient(s.assignedInspector, stateAfter.users)),
       );
       if (inspectedSet) {
         notifyAssuranceSetUser(get, inspectedSet, inspectedSet.assignedInspector, {
           type: "capa_reinspection",
           subject: `Re-inspection requested: ${capa.id}`,
           message: reason?.trim() || undefined,
+          capaId: capa.id,
+          vesselName: capa.vesselName,
+        });
+      }
+    }
+  },
+  submitCapaResponse: (capaId, responseNotes) => {
+    const stateBefore = get();
+    const { sessionUser, activePersona, activeDemoOrganization } = getStoreSessionActor(stateBefore);
+    const current = stateBefore.capaItems.find((item) => item.id === capaId);
+    const allowedResponder =
+      activePersona === "Submitter" ||
+      activePersona === "Administrator" ||
+      activePersona === "C Admin";
+    if (
+      !current ||
+      !sessionUser ||
+      !allowedResponder ||
+      !canAccessCapaInSession(stateBefore, current)
+    ) {
+      return;
+    }
+    const cleanNotes = responseNotes.trim();
+    const formattedDate = new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    set((state) => ({
+      capaItems: state.capaItems.map((item) =>
+        item.id === capaId
+          ? {
+              ...item,
+              status: "Under Re-Inspection",
+              closedDate: undefined,
+              flaggedForReinspection: true,
+              submitterResponse: cleanNotes || "Corrective action submitted for verification.",
+              respondedBy: sessionUser.name,
+              respondedAt: formattedDate,
+            }
+          : item,
+      ),
+    }));
+    get().logAuditEvent({
+      action: `Submitted CAPA remediation response (${capaId})`,
+      targetAsset: `${current.vesselName} · ${current.title}`,
+      justificationNotes:
+        cleanNotes || "Submitter marked finding addressed and requested re-inspection.",
+    });
+
+    const stateAfter = get();
+    const capa = stateAfter.capaItems.find((item) => item.id === capaId);
+    if (capa) {
+      const inspectedSet = stateAfter.assuranceSets.find(
+        (s) =>
+          (capa.assuranceSetId
+            ? s.id === capa.assuranceSetId
+            : (Boolean(capa.vesselId) && s.vesselId === capa.vesselId) ||
+              (Boolean(capa.vesselName) &&
+                Boolean(s.vesselName) &&
+                s.vesselName.trim().toLowerCase() === capa.vesselName.trim().toLowerCase())) &&
+          isAssuranceSetAssignedToPersona(
+            s,
+            activePersona,
+            activeDemoOrganization,
+            sessionUser,
+            stateAfter.users,
+          ) &&
+          Boolean(resolveNotificationRecipient(s.assignedInspector, stateAfter.users)),
+      );
+      if (inspectedSet) {
+        notifyAssuranceSetUser(get, inspectedSet, inspectedSet.assignedInspector, {
+          type: "capa_reinspection",
+          subject: `Remediation submitted: ${capa.id}`,
+          message: cleanNotes || undefined,
           capaId: capa.id,
           vesselName: capa.vesselName,
         });

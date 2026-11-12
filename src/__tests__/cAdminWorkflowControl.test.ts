@@ -1,11 +1,40 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
+import { UserProfile } from '../types/user';
 import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
 import { getRoleScopeFlags } from '../utils/permissionHelpers';
 
+const initialState = useMapStore.getState();
+
+const inpexCAdmin: UserProfile = {
+  id: 'USR-INPEX-CADMIN',
+  name: 'I. Takahashi',
+  email: 'i.takahashi@inpex.com.au',
+  roles: ['C Admin'],
+  userType: 'Organization',
+  organization: 'Inpex Operations Australia',
+  departmentOrScope: 'Client Management',
+  status: 'Active',
+  lastActive: '2026-09-20 00:00 UTC',
+};
+
 describe('C Admin exclusive workflow control (Req 5)', () => {
   beforeEach(() => {
-    useMapStore.getState().setActivePersona('C Admin');
+    useMapStore.setState(
+      {
+        ...initialState,
+        users: [...initialState.users, inpexCAdmin],
+        assuranceSets: initialState.assuranceSets.map((s) =>
+          s.id === 'AS-2026-003'
+            ? { ...s, createdByUserId: inpexCAdmin.id, createdByName: inpexCAdmin.name }
+            : s,
+        ),
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Inpex Operations Australia',
+        activeSessionUserId: inpexCAdmin.id,
+      },
+      true,
+    );
   });
 
   it('grants C Admin approval and assurance completion permissions', () => {

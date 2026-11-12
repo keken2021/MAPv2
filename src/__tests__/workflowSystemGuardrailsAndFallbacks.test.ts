@@ -12,9 +12,19 @@ import { validateStakeholderAssignmentForSet } from '../utils/userRoleHelpers';
 import { getAssuranceSetStatus } from '../utils/assuranceSetStatus';
 import { MasterDocument } from '../types/document';
 
+const initialState = useMapStore.getState();
+
 describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () => {
   beforeEach(() => {
-    useMapStore.getState().setActivePersona('Administrator');
+    useMapStore.setState(
+      {
+        ...initialState,
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      },
+      true,
+    );
   });
 
   /**
@@ -45,9 +55,9 @@ describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
-      assignedApprover: 'P. Nardelli (Chevron)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [
         {
           id: reqId,
@@ -62,13 +72,19 @@ describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () 
         },
       ],
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
 
     // Approver executes hard terminal rejection
-    store.setActivePersona('Approver');
-    store.setApproverDecision(
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
+    useMapStore.getState().setApproverDecision(
       setId,
       'Rejected',
       'Structural defects identified during class audit cannot be mitigated within project timeframe.'
@@ -96,10 +112,15 @@ describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () 
     expect(rejectAudit).toBeDefined();
     expect(rejectAudit?.justificationNotes).toContain('Structural defects identified');
 
-    // Terminal set closure via cancellation
-    const cancelRes = store.cancelAssuranceSet(
+    // Terminal set closure via cancellation by assigned C Admin manager
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
+    const cancelRes = useMapStore.getState().cancelAssuranceSet(
       setId,
-      'P. Nardelli (Chevron)',
+      'C. Henderson (Chevron Australia Pty Ltd)',
       'Campaign permanently terminated following structural rejection.'
     );
     expect(cancelRes.success).toBe(true);
@@ -135,18 +156,22 @@ describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
-      assignedApprover: 'P. Nardelli (Chevron)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [],
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
 
+    const submitterUser = store.users.find((u) => u.id === 'USR-102')!;
     // Submitter actions on this set
     const submitterActions = getAssuranceSetRoleActions(
       testSet,
       'Submitter',
-      'Northwind Marine Pty Ltd'
+      'Northwind Marine Pty Ltd',
+      submitterUser
     );
 
     // Submitter cannot verify and cannot approve
@@ -195,6 +220,7 @@ describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () 
       title: 'Safety Equipment Certificate',
       entityType: 'Vessel Certificate',
       vesselId: 'VESSEL-001',
+      ownerOrganization: 'Northwind Marine Pty Ltd',
       certificateNo: 'SEC-2026-101',
       issuingAuthority: 'DNV',
       currentVersion: 'v1.0',
@@ -219,7 +245,12 @@ describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () 
         },
       ],
     };
-    store.addDocument(testDoc);
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
+    useMapStore.getState().addDocument(testDoc);
 
     const testSet: AssuranceSet = {
       id: setId,
@@ -239,9 +270,9 @@ describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
-      assignedApprover: 'P. Nardelli (Chevron)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [
         {
           id: reqId,
@@ -258,7 +289,7 @@ describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () 
             fileName: 'sec_v1.0.pdf',
             uploadedAt: '2026-01-01T00:00:00Z',
             verifiedAt: '2026-01-05T00:00:00Z',
-            verifiedBy: 'A. Fontaine (DNV)',
+            verifiedBy: 'A. Fontaine (Bureau Veritas Inspectorate)',
             verificationStatus: 'Verified',
             expiryDate: '2028-01-01',
           },
@@ -266,20 +297,35 @@ describe('Real-World Operational Workflows - System Guardrails & Fallbacks', () 
         },
       ],
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
-    store.addAssuranceSet(testSet);
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
+    useMapStore.getState().addAssuranceSet(testSet);
 
     // Approver approves and locks the set
-    store.setActivePersona('Approver');
-    store.setApproverDecision(setId, 'Approved', 'Approved and locked for charter execution.');
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
+    useMapStore.getState().setApproverDecision(setId, 'Approved', 'Approved and locked for charter execution.');
 
     let approvedSet = useMapStore.getState().assuranceSets.find((s) => s.id === setId)!;
     expect(approvedSet.stage).toBe('Approved');
     expect(approvedSet.lockedAt).toBeDefined();
 
     // Later, document in the master library is updated to v2.0 with a new file
-    store.setActivePersona('Submitter');
-    store.addDocumentVersion(
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
+    useMapStore.getState().addDocumentVersion(
       docId,
       'v2.0',
       'sec_amended_v2.0.pdf',

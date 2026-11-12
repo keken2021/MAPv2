@@ -20,6 +20,7 @@ import { canPerform } from '../../utils/permissionHelpers';
 
 import { filterUsersForPersona } from '../../utils/rbacHelpers';
 import { formatUserRoles, getRoleDisplayLabel, userHasRole } from '../../utils/userRoleHelpers';
+import { useSessionUser } from '../../utils/useSessionUser';
 import { usePagination } from '../../utils/usePagination';
 import { useDeferredFilters } from '../../utils/useDeferredFilters';
 import { TablePagination } from '../common/TablePagination';
@@ -47,11 +48,13 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
     users,
     updateUserStatus,
     activePersona,
+    activeDemoOrganization,
     customRoles,
     rolePermissionDefaults,
     userPermissionOverrides,
     customScopes,
   } = useMapStore();
+  const sessionUser = useSessionUser();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [typeFilter, setTypeFilter] = useState<string>('ALL');
@@ -85,33 +88,39 @@ export const UserTable: React.FC<UserTableProps> = ({ onAddUser }) => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
 
-  const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
   const canCreateUser =
-    activePersona === 'Administrator' ||
-    activePersona === 'C Admin' ||
-    canPerform(
-      rolePermissionDefaults,
-      userPermissionOverrides,
-      matchingUser,
-      activePersona,
-      'users',
-      'create',
-      customScopes,
-    );
+    Boolean(sessionUser) &&
+    (activePersona === 'Administrator' ||
+      activePersona === 'C Admin' ||
+      canPerform(
+        rolePermissionDefaults,
+        userPermissionOverrides,
+        sessionUser,
+        activePersona,
+        'users',
+        'create',
+        customScopes,
+      ));
   const canUpdateUser =
-    activePersona === 'Administrator' ||
-    activePersona === 'C Admin' ||
-    canPerform(
-      rolePermissionDefaults,
-      userPermissionOverrides,
-      matchingUser,
-      activePersona,
-      'users',
-      'update',
-      customScopes,
-    );
+    Boolean(sessionUser) &&
+    (activePersona === 'Administrator' ||
+      activePersona === 'C Admin' ||
+      canPerform(
+        rolePermissionDefaults,
+        userPermissionOverrides,
+        sessionUser,
+        activePersona,
+        'users',
+        'update',
+        customScopes,
+      ));
 
-  const visibleUsers = filterUsersForPersona(users, activePersona);
+  const visibleUsers = filterUsersForPersona(
+    users,
+    activePersona,
+    activeDemoOrganization,
+    sessionUser ?? null,
+  );
 
   const filteredUsers = visibleUsers.filter((u) => {
     const term = searchTerm.toLowerCase();

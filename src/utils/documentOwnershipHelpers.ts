@@ -4,11 +4,14 @@
   role in system: used by DocumentDetailView, DocumentUploadModal, VersionHistoryDrawer, AssuranceDetailView, and useMapStore guards.
 */
 
-import type { AssuranceSet, OrganizationParty } from '../types/assurance';
+import type { AssuranceObject, AssuranceSet, OrganizationParty } from '../types/assurance';
+import type { CrewMember } from '../types/crew';
 import type { MasterDocument } from '../types/document';
+import type { EquipmentAsset } from '../types/equipment';
 import type { VesselInformation } from '../types/vessel';
 import type { UserProfile } from '../types/user';
 import { orgFieldMatches } from './rbacHelpers';
+import { isOwnUpload } from './uploadOwnership';
 
 export const EVIDENCE_NOT_OWNED_EDIT =
   'You can only edit or replace evidence owned by your organization.';
@@ -16,31 +19,73 @@ export const EVIDENCE_NOT_OWNED_EDIT =
 export const EVIDENCE_REUSE_VENDOR_ONLY =
   'Reuse from the Document Library is available when your organization is the Vendor on this set.';
 
+export interface DocumentOwnershipAssetContext {
+  equipment?: Pick<EquipmentAsset, 'id' | 'owningOrganization' | 'parentVesselId'>[];
+  crew?: Pick<CrewMember, 'id' | 'organization' | 'manningAgency' | 'currentVesselId'>[];
+  assuranceObjects?: Pick<AssuranceObject, 'id' | 'type' | 'ownerOrganization'>[];
+}
+
+export type OwnershipCheckDocument = Pick<
+  MasterDocument,
+  'ownerOrganization' | 'vesselId' | 'versions' | 'issuingAuthority'
+> & {
+  targetObjectType?: MasterDocument['targetObjectType'];
+  targetObjectId?: string;
+};
+
 /**
-  what: the organization that owns a library document; inputs are the document, vessels and optional users.
-  how: prefers ownerOrganization, then the vessel's registered owner / managers, then the first uploader's organization.
+  what: the organization that owns a library document; inputs are the document, vessels, users, and optional non-vessel asset registries.
+  how: prefers ownerOrganization, then referenced target object (equipment/person/activity/vessel), then vesselId registered owner / managers, then first uploader's organization.
   with what file: src/utils/documentOwnershipHelpers.ts.
 */
 export function getDocumentOwnerOrganization(
-  document: Pick<MasterDocument, 'ownerOrganization' | 'vesselId' | 'versions' | 'issuingAuthority'>,
+  document: OwnershipCheckDocument,
   vessels: Pick<VesselInformation, 'id' | 'registeredOwner' | 'technicalManager' | 'ismCompany'>[] = [],
   users: Pick<UserProfile, 'name' | 'id' | 'organization'>[] = [],
+  assetContext: DocumentOwnershipAssetContext = {},
 ): string | undefined {
   const recorded = document.ownerOrganization?.trim();
   if (recorded) return recorded;
 
-  if (document.vesselId) {
-    const vessel = vessels.find((v) => v.id === document.vesselId);
+  if (document.targetObjectType && document.targetObjectId) {
+    if (document.targetObjectType === 'equipment' && assetContext.equipment) {
+      const eq = assetContext.equipment.find((e) => e.id === document.targetObjectId);
+      if (eq?.owningOrganization?.trim()) return eq.owningOrganization.trim();
+      if (eq?.parentVesselId) {
+        const parentVessel = vessels.find((v) => v.id === eq.parentVesselId);
+        if (parentVessel?.registeredOwner?.trim()) return parentVessel.registeredOwner.trim();
+        if (parentVessel?.technicalManager?.trim()) return parentVessel.technicalManager.trim();
+        if (parentVessel?.ismCompany?.trim()) return parentVessel.ismCompany.trim();
+      }
+    } else if (document.targetObjectType === 'person' && assetContext.crew) {
+      const member = assetContext.crew.find((c) => c.id === document.targetObjectId);
+      if (member?.organization?.trim()) return member.organization.trim();
+      if (member?.manningAgency?.trim()) return member.manningAgency.trim();
+      if (member?.currentVesselId) {
+        const parentVessel = vessels.find((v) => v.id === member.currentVesselId);
+        if (parentVessel?.registeredOwner?.trim()) return parentVessel.registeredOwner.trim();
+        if (parentVessel?.technicalManager?.trim()) return parentVessel.technicalManager.trim();
+        if (parentVessel?.ismCompany?.trim()) return parentVessel.ismCompany.trim();
+      }
+    } else if (assetContext.assuranceObjects) {
+      const obj = assetContext.assuranceObjects.find((o) => o.id === document.targetObjectId);
+      if (obj?.ownerOrganization?.trim()) return obj.ownerOrganization.trim();
+    }
+  }
+
+  const effectiveVesselId =
+    document.vesselId ||
+    (document.targetObjectType === 'vessel' ? document.targetObjectId : undefined);
+  if (effectiveVesselId) {
+    const vessel = vessels.find((v) => v.id === effectiveVesselId);
     if (vessel?.registeredOwner?.trim()) return vessel.registeredOwner.trim();
     if (vessel?.technicalManager?.trim()) return vessel.technicalManager.trim();
     if (vessel?.ismCompany?.trim()) return vessel.ismCompany.trim();
   }
 
-  const uploader = document.versions?.[0]?.uploadedBy?.trim();
-  if (uploader) {
-    const user = users.find(
-      (u) => u.id === uploader || orgFieldMatches(u.name, uploader) || u.name === uploader,
-    );
+  const firstVersion = document.versions?.[0];
+  if (firstVersion) {
+    const user = users.find((u) => isOwnUpload(firstVersion, u));
     if (user?.organization?.trim()) return user.organization.trim();
   }
 
@@ -48,21 +93,27 @@ export function getDocumentOwnerOrganization(
 }
 
 /**
-  what: true when the viewer may edit or replace this evidence; Administrators always may.
-  how: compares the viewer's organization to the document owner; missing owner blocks non-admins.
+  what: true when the viewer may edit or replace this evidence; requires matching the document owner organization.
+  how: compares the viewer's organization to the document owner; missing owner or cross-org viewer returns false.
   with what file: src/utils/documentOwnershipHelpers.ts.
 */
 export function canEditOwnedEvidence(
-  document: Pick<MasterDocument, 'ownerOrganization' | 'vesselId' | 'versions' | 'issuingAuthority'>,
+  document: OwnershipCheckDocument,
   viewerOrganization: string | undefined,
   options: {
     persona?: string;
     vessels?: Pick<VesselInformation, 'id' | 'registeredOwner' | 'technicalManager' | 'ismCompany'>[];
     users?: Pick<UserProfile, 'name' | 'id' | 'organization'>[];
+    equipment?: Pick<EquipmentAsset, 'id' | 'owningOrganization' | 'parentVesselId'>[];
+    crew?: Pick<CrewMember, 'id' | 'organization' | 'manningAgency' | 'currentVesselId'>[];
+    assuranceObjects?: Pick<AssuranceObject, 'id' | 'type' | 'ownerOrganization'>[];
   } = {},
 ): boolean {
-  if (options.persona === 'Administrator') return true;
-  const owner = getDocumentOwnerOrganization(document, options.vessels, options.users);
+  const owner = getDocumentOwnerOrganization(document, options.vessels, options.users, {
+    equipment: options.equipment,
+    crew: options.crew,
+    assuranceObjects: options.assuranceObjects,
+  });
   if (!owner || !viewerOrganization?.trim()) return false;
   return orgFieldMatches(viewerOrganization, owner);
 }

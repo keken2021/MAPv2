@@ -40,7 +40,17 @@ import { ActivityDetailView } from './views/ActivityDetailView';
 import './App.css';
 
 import { AccessDeniedState } from './components/common/AccessDeniedState';
-import { isViewAccessibleToPersona } from './utils/rbacHelpers';
+import {
+  filterEquipmentForPersona,
+  filterVesselsForPersona,
+  isAdminReadOnlyWorkView,
+  isAssuranceSetAssignedToPersona,
+  isProjectOwnerWithoutSubSetGroup,
+  isViewAccessibleToPersona,
+  orgFieldMatches,
+} from './utils/rbacHelpers';
+import { isCrewOwnedByOrganization, isProjectAccessibleToUser } from './utils/projectHelpers';
+import { getAssuranceSetCrewIds, getAssuranceSetObjects } from './utils/assuranceTemplates';
 import { canOpenAssuranceRequestWizard } from './utils/notificationHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from './utils/userRoleHelpers';
 import { ENABLE_ROLES_AND_PERMISSIONS } from './config/featureFlags';
@@ -66,6 +76,12 @@ export const App: React.FC = () => {
     userPermissionOverrides,
     users,
     notifications,
+    assuranceSets,
+    projects,
+    vessels,
+    equipment,
+    crew,
+    assuranceObjects,
     pendingAssuranceRequestNotificationId,
     setPendingAssuranceRequestNotificationId,
     raiseDocumentRenewalNotifications,
@@ -117,10 +133,7 @@ export const App: React.FC = () => {
       activeDemoOrganization,
       activeSessionUserId,
     });
-    const matchingUser =
-      getSessionUserForPersona(activePersona, users, demoContext) ??
-      users.find((u) => u.roles.includes(activePersona)) ??
-      null;
+    const matchingUser = getSessionUserForPersona(activePersona, users, demoContext) ?? null;
 
     /* roles-permissions is persona-gated (Administrator settings); skip matrix revoke on blank role_rights */
     /* organization-profile is Settings: any signed-in persona may open; the view itself gates edit to Administrator */
@@ -141,14 +154,157 @@ export const App: React.FC = () => {
         );
 
     /* the user an assurance set request is assigned to may open the wizard for that request only */
+    const requestNotification = notifications.find((n) => n.id === pendingAssuranceRequestNotificationId);
     const allowedByRequest =
       currentHashView === 'create-assurance-set' &&
-      canOpenAssuranceRequestWizard(
-        notifications.find((n) => n.id === pendingAssuranceRequestNotificationId),
-        getSessionUserForPersona(activePersona, users, demoContext),
-      );
+      canOpenAssuranceRequestWizard(requestNotification, matchingUser);
 
-    return allowedByRole || allowedByRequest;
+    if (!allowedByRole && !allowedByRequest) return false;
+    if (!matchingUser) return false;
+
+    const effectiveOrg = activeDemoOrganization || matchingUser.organization || '';
+
+    if (currentHashView === 'assurance-sets' && currentEntityId) {
+      const targetSet = assuranceSets.find((s) => s.id === currentEntityId);
+      if (targetSet) {
+        if (!isAssuranceSetAssignedToPersona(targetSet, activePersona, effectiveOrg, matchingUser, users)) {
+          return false;
+        }
+        const linkedProject = targetSet.projectId
+          ? projects.find((p) => p.id === targetSet.projectId)
+          : undefined;
+        if (linkedProject && isProjectOwnerWithoutSubSetGroup(targetSet, linkedProject, effectiveOrg, matchingUser)) {
+          return false;
+        }
+      }
+    }
+
+    if (currentHashView === 'project' && currentEntityId) {
+      if (currentEntityId === 'new') {
+        return activePersona === 'Administrator' || activePersona === 'C Admin';
+      }
+      const targetProject = projects.find((p) => p.id === currentEntityId);
+      if (
+        targetProject &&
+        !isProjectAccessibleToUser(
+          targetProject,
+          activePersona,
+          users,
+          assuranceSets,
+          effectiveOrg,
+          matchingUser,
+          notifications,
+        )
+      ) {
+        return false;
+      }
+    }
+
+    if (currentHashView === 'approver' && currentEntityId) {
+      const targetSet = assuranceSets.find((s) => s.id === currentEntityId);
+      if (
+        targetSet &&
+        !isAssuranceSetAssignedToPersona(targetSet, activePersona, effectiveOrg, matchingUser, users)
+      ) {
+        return false;
+      }
+    }
+
+    if ((currentHashView === 'inspector' || currentHashView === 'inspection') && currentEntityId) {
+      const decoded = decodeURIComponent(currentEntityId);
+      const matchingSets = assuranceSets.filter(
+        (s) => s.id === decoded || s.vesselId === decoded || s.vesselName === decoded,
+      );
+      const isReadOnlyAdmin = isAdminReadOnlyWorkView(currentHashView, activePersona);
+      if (matchingSets.length > 0) {
+        const hasAccessibleInspectionSet = matchingSets.some(
+          (s) =>
+            (isReadOnlyAdmin || (activePersona === 'Inspector' && Boolean(s.mandatoryInspectionRequired))) &&
+            isAssuranceSetAssignedToPersona(s, activePersona, effectiveOrg, matchingUser, users),
+        );
+        if (!hasAccessibleInspectionSet) return false;
+      } else if (!isReadOnlyAdmin && activePersona !== 'Inspector') {
+        return false;
+      }
+    }
+
+    if (currentHashView === 'create-assurance-set' && currentEntityId && !allowedByRequest) {
+      const templateSet = assuranceSets.find((s) => s.id === currentEntityId);
+      if (
+        templateSet &&
+        !isAssuranceSetAssignedToPersona(templateSet, activePersona, effectiveOrg, matchingUser, users)
+      ) {
+        return false;
+      }
+    }
+
+    if (currentHashView === 'documents' && currentEntityId) {
+      const docSets = assuranceSets.filter((s) =>
+        s.requirements.some((r) => r.documentId === currentEntityId || r.linkedDocumentId === currentEntityId),
+      );
+      if (docSets.length > 0) {
+        const hasAssignedSetForDoc = docSets.some((s) =>
+          isAssuranceSetAssignedToPersona(s, activePersona, effectiveOrg, matchingUser, users),
+        );
+        if (!hasAssignedSetForDoc) return false;
+      }
+    }
+
+    if (currentHashView === 'activities' && currentEntityId) {
+      const activity = assuranceObjects.find((obj) => obj.id === currentEntityId && obj.type === 'activity');
+      if (activity) {
+        const ownsActivity =
+          (activePersona === 'Administrator' || activePersona === 'C Admin') &&
+          Boolean(effectiveOrg && activity.ownerOrganization && orgFieldMatches(effectiveOrg, activity.ownerOrganization));
+        const hasAssignedSetForActivity = assuranceSets.some(
+          (s) =>
+            getAssuranceSetObjects(s).some((obj) => obj.id === activity.id) &&
+            isAssuranceSetAssignedToPersona(s, activePersona, effectiveOrg, matchingUser, users),
+        );
+        if (!ownsActivity && !hasAssignedSetForActivity) return false;
+      }
+    }
+
+    if (currentHashView === 'vessels' && currentEntityId) {
+      const vesselExists = vessels.some((v) => v.id === currentEntityId);
+      if (
+        vesselExists &&
+        !filterVesselsForPersona(vessels, assuranceSets, activePersona, effectiveOrg, matchingUser).some(
+          (v) => v.id === currentEntityId,
+        )
+      ) {
+        return false;
+      }
+    }
+
+    if (currentHashView === 'equipment' && currentEntityId) {
+      const eqExists = equipment.some((e) => e.id === currentEntityId);
+      if (
+        eqExists &&
+        !filterEquipmentForPersona(equipment, vessels, assuranceSets, activePersona, effectiveOrg, matchingUser).some(
+          (e) => e.id === currentEntityId,
+        )
+      ) {
+        return false;
+      }
+    }
+
+    if (currentHashView === 'crew' && currentEntityId) {
+      const crewRecord = crew.find((c) => c.id === currentEntityId);
+      if (crewRecord) {
+        const ownsCrew =
+          (activePersona === 'Administrator' || activePersona === 'Submitter') &&
+          Boolean(effectiveOrg && isCrewOwnedByOrganization(crewRecord, effectiveOrg));
+        const hasAssignedSetForCrew = assuranceSets.some(
+          (s) =>
+            getAssuranceSetCrewIds(s).includes(crewRecord.id) &&
+            isAssuranceSetAssignedToPersona(s, activePersona, effectiveOrg, matchingUser, users),
+        );
+        if (!ownsCrew && !hasAssignedSetForCrew) return false;
+      }
+    }
+
+    return true;
   }, [
     activePersona,
     activeDemoOrganization,
@@ -160,6 +316,12 @@ export const App: React.FC = () => {
     userPermissionOverrides,
     users,
     notifications,
+    assuranceSets,
+    projects,
+    vessels,
+    equipment,
+    crew,
+    assuranceObjects,
     pendingAssuranceRequestNotificationId,
   ]);
 

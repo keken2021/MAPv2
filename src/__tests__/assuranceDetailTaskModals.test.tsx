@@ -19,7 +19,11 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
       imoNumber: '9456789',
       initiatorOrg: 'Client Org',
       initiatorRole: 'Client Admin',
+      createdByUserId: 'USR-CLIENT-01',
+      createdByName: 'Client Admin',
+      createdByPersona: 'C Admin',
       serviceProviderOrg: 'Vendor Org',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
       charterWindowStart: '2026-11-10',
       charterWindowEnd: '2026-12-10',
       complianceDeadline: '2026-11-09',
@@ -74,11 +78,26 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
       ],
     };
 
+    const currentState = useMapStore.getState();
     useMapStore.setState({
       activePersona: 'C Admin',
       activeDemoOrganization: 'Client Org',
       isAuthenticated: true,
       activeSessionUserId: 'USR-CLIENT-01',
+      users: [
+        ...currentState.users.filter((u) => u.id !== 'USR-CLIENT-01'),
+        {
+          id: 'USR-CLIENT-01',
+          name: 'Client Admin',
+          email: 'client.admin@clientorg.example',
+          roles: ['C Admin'],
+          organization: 'Client Org',
+          status: 'Active',
+          userType: 'Organization',
+          departmentOrScope: 'Assurance',
+          lastActive: 'Just now',
+        },
+      ],
       assuranceSets: [baseSet, setWithoutSections],
     });
   });
@@ -193,7 +212,12 @@ describe('AssuranceDetailView Task Dialogs Section and Predecessor', () => {
   });
 
   it('Target Date Grants modal opens on Modal shell (Task 5421)', () => {
-    useMapStore.setState({ ...useMapStore.getState(), activePersona: 'Verifier' });
+    useMapStore.setState({
+      ...useMapStore.getState(),
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     render(<AssuranceDetailView setId={setIdWithSections} />);
     const btn = screen.queryByRole('button', { name: /target date grants/i });
     if (!btn) return; // button only shown for sets with grants; skip if absent

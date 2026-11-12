@@ -15,7 +15,7 @@ describe('Assurance set parties - Rename to Parties, stages on top (Task 5352)',
     useMapStore.setState({
       assuranceSets: [],
       isAuthenticated: true,
-      activePersona: 'Administrator',
+      activePersona: 'C Admin', activeSessionUserId: 'USR-221',
       activeDemoOrganization: CLIENT,
     });
   });

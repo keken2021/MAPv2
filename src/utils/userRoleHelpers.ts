@@ -11,6 +11,8 @@ import { RoleName } from '../types/permissions';
 import { UserProfile } from '../types/user';
 import { MOCK_PERSONA_SESSION_USER_IDS } from '../store/mockData';
 import { pickSessionUserForOrgPersona } from './demoSessionHelpers';
+import { sameOrganization } from './organizationMatch';
+import { isOwnUpload } from './uploadOwnership';
 export { pickSessionUserForOrgPersona };
 
 export const OPERATIONAL_ROLE_OPTIONS: { role: UserRolePersona; label: string }[] = [
@@ -81,8 +83,8 @@ export function userHasRole(
 }
 
 /**
-  what: resolves the user the active persona is signed in as; inputs are the persona and the user registry.
-  how: looks up the persona in MOCK_PERSONA_SESSION_USER_IDS, then falls back to the first active user holding the role.
+  what: resolves the user the active persona is signed in as; inputs are the persona, user registry and optional demo context.
+  how: validates explicit sessionUserId against active status, persona and requested organization (allowing Northwind demo Verifier S. Girard); falls back to org-persona picker when organization is scoped, or MOCK_PERSONA_SESSION_USER_IDS when unscoped. Fails closed when an explicit sessionUserId or scoped organization has no matching user.
   with what file: src/utils/userRoleHelpers.ts used by NotificationPanel.tsx, NotificationsView.tsx, RequestAssuranceSetModal.tsx, CreateAssuranceSetView.tsx and App.tsx.
 */
 export interface DemoSessionContext {
@@ -105,23 +107,20 @@ export function getSessionUserForPersona(
   users: UserProfile[],
   demoContext?: DemoSessionContext,
 ): UserProfile | undefined {
+  const requestedOrg = demoContext?.organization?.trim();
   if (demoContext?.sessionUserId) {
-    const byId = users.find(
-      (user) =>
-        user.id === demoContext.sessionUserId &&
-        user.status === 'Active' &&
-        user.roles.includes(persona),
-    );
-    if (byId) return byId;
+    return users.find((user) => {
+      if (user.id !== demoContext.sessionUserId || user.status !== 'Active') {
+        return false;
+      }
+      if (!user.roles.includes(persona)) return false;
+      if (!requestedOrg) return true;
+      return Boolean(user.organization) && stakeholderOrgMatches(requestedOrg, user.organization);
+    });
   }
 
-  if (demoContext?.organization?.trim()) {
-    const orgUser = pickSessionUserForOrgPersona(
-      users,
-      demoContext.organization.trim(),
-      persona,
-    );
-    if (orgUser) return orgUser;
+  if (requestedOrg) {
+    return pickSessionUserForOrgPersona(users, requestedOrg, persona);
   }
 
   const mappedId = MOCK_PERSONA_SESSION_USER_IDS[persona];
@@ -177,6 +176,87 @@ export function getServiceProviderSubmitterCandidates(
       !userHasRole(user, 'C Admin'),
   );
   return [...submitters, ...clientAdmins, ...administrators];
+}
+
+/**
+ * The person who submits for a Provider by default: its first active Submitter, else its first
+ * active Administrator, so a Provider is never left without a submitter (ADR 0038).
+ */
+export function defaultProviderSubmitter(
+  users: UserProfile[],
+  organization: string,
+): UserProfile | undefined {
+  const members = users.filter(
+    (user) =>
+      user.status === 'Active' &&
+      Boolean(user.organization) &&
+      sameOrganization(user.organization || '', organization),
+  );
+  return (
+    members.find((user) => userHasRole(user, 'Submitter')) ??
+    members.find((user) => userHasRole(user, 'Administrator'))
+  );
+}
+
+/**
+ * The person who verifies for an organization by default: its first active Verifier, else C Admin,
+ * Administrator, or active member, so an organization chosen as verifier is not left pending.
+ */
+export function defaultOrganizationVerifier(
+  users: UserProfile[],
+  organization: string,
+  options?: { excludeUserId?: string; excludeUserName?: string },
+): UserProfile | undefined {
+  if (!organization?.trim()) return undefined;
+  const isExcluded = (u: UserProfile) =>
+    Boolean(
+      (options?.excludeUserId && u.id === options.excludeUserId) ||
+      (options?.excludeUserName && u.name.trim().toLowerCase() === options.excludeUserName.trim().toLowerCase()),
+    );
+  const members = users.filter(
+    (user) =>
+      user.status === 'Active' &&
+      Boolean(user.organization) &&
+      (sameOrganization(user.organization || '', organization) ||
+        stakeholderOrgMatches(user.organization || '', organization)),
+  );
+  const eligible = members.filter((u) => !isExcluded(u));
+  const pool = eligible.length > 0 ? eligible : members;
+  return (
+    pool.find((user) => userHasRole(user, 'Verifier')) ??
+    pool.find((user) => userHasRole(user, 'C Admin')) ??
+    pool.find((user) => userHasRole(user, 'Administrator'))
+  );
+}
+
+/**
+ * The person who inspects for an organization by default: its first active Inspector, else
+ * Administrator, or active member, excluding any user already assigned as verifier (Rule R6).
+ */
+export function defaultOrganizationInspector(
+  users: UserProfile[],
+  organization: string,
+  options?: { excludeUserId?: string; excludeUserName?: string },
+): UserProfile | undefined {
+  if (!organization?.trim()) return undefined;
+  const isExcluded = (u: UserProfile) =>
+    Boolean(
+      (options?.excludeUserId && u.id === options.excludeUserId) ||
+      (options?.excludeUserName && u.name.trim().toLowerCase() === options.excludeUserName.trim().toLowerCase()),
+    );
+  const members = users.filter(
+    (user) =>
+      user.status === 'Active' &&
+      Boolean(user.organization) &&
+      (sameOrganization(user.organization || '', organization) ||
+        stakeholderOrgMatches(user.organization || '', organization)),
+  );
+  const eligible = members.filter((u) => !isExcluded(u));
+  const pool = eligible.length > 0 ? eligible : members;
+  return (
+    pool.find((user) => userHasRole(user, 'Inspector')) ??
+    pool.find((user) => userHasRole(user, 'Administrator'))
+  );
 }
 
 /**
@@ -246,7 +326,7 @@ export function findObjectSubmitter(
   for (const upload of uploads) {
     const uploader = users.find(
       (user) =>
-        user.name === upload.uploadedBy &&
+        isOwnUpload(upload, user) &&
         user.status === 'Active' &&
         userHasRole(user, 'Submitter') &&
         stakeholderOrgMatches(user.organization || '', object.ownerOrganization),
@@ -526,17 +606,21 @@ export function parseAssigneeOrganization(assigneeName: string): string | undefi
   return match?.[1]?.trim();
 }
 
-export function findUserByAssigneeLabel(
-  users: UserProfile[],
+/**
+ * The user record a "Name (Organization)" label names (ADR 0037): same name and same organization.
+ * A label with no organization finds only a person with one membership.
+ */
+export function findUserByAssigneeLabel<T extends { name: string; organization?: string; personId?: string }>(
+  users: T[],
   assigneeName: string,
-): UserProfile | undefined {
+): T | undefined {
   const org = parseAssigneeOrganization(assigneeName);
   const namePart = assigneeName.replace(/\s*\([^)]+\)\s*$/, '').trim().toLowerCase();
+  if (!namePart) return undefined;
   return users.find(
     (u) =>
-      u.name.toLowerCase() === namePart ||
-      assigneeName.includes(u.name) ||
-      (org && u.organization && stakeholderOrgMatches(u.organization, org) && assigneeName.includes(u.name.split(' ')[0])),
+      u.name.trim().toLowerCase() === namePart &&
+      (org ? sameOrganization(u.organization, org) : !u.personId),
   );
 }
 
@@ -773,9 +857,21 @@ export function hasBlockingAssuranceAssignmentConflict(assignments: {
   return false;
 }
 
+function assigneeNameMatches(
+  assigned: string | undefined,
+  user?: { name?: string } | null,
+): boolean {
+  if (!assigned || !user?.name) return false;
+  if (assigned.trim().toLowerCase() === PENDING_ASSIGNMENT.toLowerCase()) return false;
+  const userName = user.name.trim().toLowerCase();
+  if (!userName) return false;
+  const namePart = assigned.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase();
+  return Boolean(namePart) && namePart !== PENDING_ASSIGNMENT.toLowerCase() && namePart === userName;
+}
+
 /**
-  what: checks if the current user persona or identity matches the document submitter or vessel owner.
-  how: compares user id, name, organization, or persona against assigned submitter, uploader, or vessel owner.
+  what: checks if the current user identity matches the document submitter or uploader.
+  how: compares personal user id and name (ignoring org suffix) against requirement submitter, set submitter(s), and document uploader; fails closed when no user is supplied.
   with what file: src/utils/userRoleHelpers.ts consumed by DocumentReviewDrawer.tsx and VerifierWorkspaceView.tsx.
 */
 export function isUserDocumentSubmitter(
@@ -783,41 +879,44 @@ export function isUserDocumentSubmitter(
   activePersona: UserRolePersona,
   document?: { uploadedBy?: string; vesselOwner?: string; vesselId?: string } | null,
   requirement?: { assignedSubmitter?: string; submitterId?: string } | null,
-  assuranceSet?: { assignedSubmitter?: string; initiatorOrg?: string; initiatorRole?: string } | null,
+  assuranceSet?: {
+    assignedSubmitter?: string;
+    initiatorOrg?: string;
+    initiatorRole?: string;
+    submitters?: SetSubmitter[];
+  } | null,
 ): boolean {
-  if (activePersona === 'Submitter') {
-    return true;
-  }
+  void activePersona;
+  if (!user || (!user.id && !user.name?.trim())) return false;
 
-  if (!user && !document && !requirement && !assuranceSet) return false;
-
-  const userName = user?.name?.toLowerCase() || '';
-  const userOrg = user?.organization?.toLowerCase() || '';
-  const userId = user?.id?.toLowerCase() || '';
+  const userName = user.name?.trim().toLowerCase() || '';
+  const userId = user.id?.trim().toLowerCase() || '';
 
   // 1. Direct requirement-level submitter assignment
-  if (requirement?.submitterId && user?.id && requirement.submitterId === user.id) {
+  if (requirement?.submitterId && user.id && requirement.submitterId === user.id) {
     return true;
   }
-  if (requirement?.assignedSubmitter) {
-    const reqSubLower = requirement.assignedSubmitter.toLowerCase();
-    if (userName && reqSubLower.includes(userName)) return true;
-    if (userOrg && reqSubLower.includes(userOrg)) return true;
+  if (assigneeNameMatches(requirement?.assignedSubmitter, user)) {
+    return true;
   }
 
-  // 2. Set-level assigned submitter
-  if (assuranceSet?.assignedSubmitter) {
-    const setSubLower = assuranceSet.assignedSubmitter.toLowerCase();
-    if (userName && setSubLower.includes(userName)) return true;
-    if (userOrg && setSubLower.includes(userOrg)) return true;
+  // 2. Set-level assigned submitter(s)
+  if (assuranceSet) {
+    if (assigneeNameMatches(assuranceSet.assignedSubmitter, user)) {
+      return true;
+    }
+    if (assuranceSet.submitters?.some((s) => assigneeNameMatches(s.assignee, user))) {
+      return true;
+    }
   }
 
   // 3. Document uploader identity
   if (document?.uploadedBy) {
-    const uploaderLower = document.uploadedBy.toLowerCase();
-    if (userName && uploaderLower.includes(userName)) return true;
-    if (userId && uploaderLower.includes(userId)) return true;
-    if (userOrg && uploaderLower.includes(userOrg)) return true;
+    const uploaderLower = document.uploadedBy.trim().toLowerCase();
+    if (userId && uploaderLower === userId) return true;
+    if (userName && (uploaderLower === userName || assigneeNameMatches(document.uploadedBy, user))) {
+      return true;
+    }
   }
 
   return false;

@@ -53,7 +53,11 @@ describe('Shell header and sidebar declutter suite', () => {
     const testSet: AssuranceSet = {
       ...MOCK_ASSURANCE_SETS[0],
       serviceProviderOrg: 'Northwind Marine Pty Ltd',
-      initiatorOrg: 'Northwind Marine Pty Ltd',
+      initiatorOrg: 'Chevron Australia Pty Ltd',
+      clientOrg: 'Chevron Australia Pty Ltd',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
+      createdByPersona: 'C Admin',
       requirements: [
         {
           id: 'REQ-VQ-1',
@@ -81,7 +85,8 @@ describe('Shell header and sidebar declutter suite', () => {
     const currentDefaults = useMapStore.getState().rolePermissionDefaults;
     useMapStore.setState({
       activePersona: 'C Admin',
-      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
       rolePermissionDefaults: {
         ...currentDefaults,
         'C Admin': {
@@ -171,7 +176,17 @@ describe('Shell header and sidebar declutter suite', () => {
     const badge = container.querySelector('.badge.rounded-pill');
     /* the verifier opens this queue from the dashboard, so the sidebar link stays hidden */
     expect(badge).toBeNull();
-    expect(filterDocumentsForVerifierQueue(documents, [fontaineSet, otherSet], 'Verifier', 'Bureau Veritas Inspectorate').length).toBeGreaterThan(queueLength);
+    /* fail-closed when session user is omitted; peer verifier queue remains isolated */
+    expect(filterDocumentsForVerifierQueue(documents, [fontaineSet, otherSet], 'Verifier', 'Bureau Veritas Inspectorate')).toHaveLength(0);
+    expect(
+      filterDocumentsForVerifierQueue(
+        documents,
+        [fontaineSet, otherSet],
+        'Verifier',
+        'Bureau Veritas Inspectorate',
+        { id: 'USR-MCHEN', name: 'M. Chen', organization: 'Bureau Veritas Inspectorate', roles: ['Verifier'] },
+      ),
+    ).toHaveLength(1);
   });
 
   it('shows title only on list screens without breadcrumb element repeating page title', () => {

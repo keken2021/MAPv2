@@ -12,10 +12,10 @@ import type { AssuranceSet } from '../types/assurance';
 const initialState = useMapStore.getState();
 const getSet = (id: string) => useMapStore.getState().assuranceSets.find((s) => s.id === id)!;
 
-/* two open sets whose first requirement uses the same library document */
+/* two open sets whose first requirement uses the same library document and share the same verifier & approver */
 function shareOneDocument(): { setA: AssuranceSet; setB: AssuranceSet; docId: string } {
   const open = useMapStore.getState().assuranceSets.filter(
-    (s) => !isClosedAssuranceSet(s) && s.requirements.length > 0 && s.assignedVerifier,
+    (s) => !isClosedAssuranceSet(s) && s.requirements.length > 0 && s.assignedVerifier?.includes('A. Fontaine'),
   );
   const [first, second] = open;
   const docId = useMapStore.getState().documents[0].id;
@@ -35,8 +35,15 @@ function shareOneDocument(): { setA: AssuranceSet; setB: AssuranceSet; docId: st
 
 describe('set-scoped verification', () => {
   beforeEach(() => {
-    useMapStore.setState(initialState, true);
-    useMapStore.getState().setActivePersona('Administrator');
+    useMapStore.setState(
+      {
+        ...initialState,
+        activePersona: 'Administrator',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
+      },
+      true,
+    );
   });
 
   it.each(['Verified', 'Correction Requested', 'Rejected'] as const)(
@@ -45,6 +52,11 @@ describe('set-scoped verification', () => {
       const { setA, setB, docId } = shareOneDocument();
       const reqA = setA.requirements[0];
 
+      useMapStore.setState({
+        activePersona: 'Verifier',
+        activeDemoOrganization: 'Bureau Veritas Inspectorate',
+        activeSessionUserId: 'USR-202',
+      });
       useMapStore.getState().verifyDocument(docId, status, 'Decision on set A.', undefined, reqA.id, setA.id);
 
       expect(getSet(setA.id).requirements[0].verifierStatus).toBe(status);
@@ -53,9 +65,16 @@ describe('set-scoped verification', () => {
   );
 
   it('a set rejection leaves the documents of the same vessel alone', () => {
-    const set = useMapStore.getState().assuranceSets.find((s) => s.vesselId && !isClosedAssuranceSet(s))!;
+    const set = useMapStore.getState().assuranceSets.find(
+      (s) => s.vesselId && !isClosedAssuranceSet(s) && s.assignedApprover?.includes('P. Nardelli'),
+    )!;
     const docsBefore = useMapStore.getState().documents;
 
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
     useMapStore.getState().setApproverDecision(set.id, 'Rejected', 'Rejected for test.');
 
     expect(useMapStore.getState().documents).toEqual(docsBefore);
@@ -64,9 +83,24 @@ describe('set-scoped verification', () => {
 
   it('a new version resets only the requirement it was submitted for and tells the other set', () => {
     const { setA, setB, docId } = shareOneDocument();
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     useMapStore.getState().verifyDocument(docId, 'Verified', 'Verified on B.', undefined, setB.requirements[0].id, setB.id);
     const notificationsBefore = useMapStore.getState().notifications.length;
 
+    const ownerDoc = useMapStore.getState().documents.find((d) => d.vesselId === setA.vesselId)!;
+    const submitter = useMapStore.getState().users.find((u) => setA.assignedSubmitter?.includes(u.name))!;
+    useMapStore.setState({
+      documents: useMapStore.getState().documents.map((d) =>
+        d.id === docId ? { ...d, vesselId: ownerDoc?.vesselId || setA.vesselId, ownerOrganization: 'Northwind Marine Pty Ltd' } : d,
+      ),
+      activePersona: 'Submitter',
+      activeDemoOrganization: submitter.organization || 'Northwind Marine Pty Ltd',
+      activeSessionUserId: submitter.id,
+    });
     useMapStore.getState().addDocumentVersion(docId, 'v9.0', 'renewed.pdf', 1024, 'Renewed.', undefined, {
       assuranceSetId: setA.id,
       requirementId: setA.requirements[0].id,

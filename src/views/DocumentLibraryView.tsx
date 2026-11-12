@@ -15,13 +15,14 @@ import { MasterDocument } from '../types/document';
 import { AssuranceSet } from '../types/assurance';
 import { UserRolePersona } from '../types/audit';
 import { UserProfile } from '../types/user';
-import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { isAssuranceSetAssignedToPersona, orgFieldMatches } from '../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { isExpiringWithinWarning } from '../utils/expiryPolicy';
+import { canCreateLibraryDocuments } from '../utils/permissionHelpers';
 
 /**
-  what: documents a Submitter or Verifier may see in the library.
-  how: keeps documents linked to assurance sets that name the session user; every other role keeps the full library.
+  what: documents the signed-in session user may see in the library.
+  how: fails closed without a session user; restricts workflow roles to documents on assigned sets, allows Submitter to view assigned-set documents plus unlinked vault documents for their organization, and allows Administrator to view assigned-set documents plus unlinked vault documents in their organization while excluding colleagues' unassigned sets.
 */
 export function documentsForSessionLibrary(
   documents: MasterDocument[],
@@ -30,20 +31,44 @@ export function documentsForSessionLibrary(
   organization: string | undefined,
   user?: Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null,
 ): MasterDocument[] {
-  if (persona !== 'Submitter' && persona !== 'Verifier') return documents;
-  if (!user?.name) return [];
-  const org = organization?.trim() || undefined;
+  if (!user || (!user.name?.trim() && !user.id?.trim())) return [];
+  const org = organization?.trim() || user.organization?.trim() || undefined;
   const namedSets = assuranceSets.filter((set) =>
     isAssuranceSetAssignedToPersona(set, persona, org, user),
   );
-  const ids = new Set<string>();
+  const docIdsOnAssignedSets = new Set<string>();
   namedSets.forEach((set) => {
     set.requirements?.forEach((req) => {
-      if (req.documentId) ids.add(req.documentId);
-      if (req.linkedDocumentId) ids.add(req.linkedDocumentId);
+      if (req.documentId) docIdsOnAssignedSets.add(req.documentId);
+      if (req.linkedDocumentId) docIdsOnAssignedSets.add(req.linkedDocumentId);
     });
   });
-  return documents.filter((doc) => ids.has(doc.id));
+
+  if (persona !== 'Administrator' && persona !== 'Submitter') {
+    return documents.filter((doc) => docIdsOnAssignedSets.has(doc.id));
+  }
+
+  const docIdsOnAnySet = new Set<string>();
+  assuranceSets.forEach((set) => {
+    set.requirements?.forEach((req) => {
+      if (req.documentId) docIdsOnAnySet.add(req.documentId);
+      if (req.linkedDocumentId) docIdsOnAnySet.add(req.linkedDocumentId);
+    });
+  });
+
+  if (persona === 'Submitter') {
+    return documents.filter((doc) => {
+      if (docIdsOnAssignedSets.has(doc.id)) return true;
+      if (docIdsOnAnySet.has(doc.id)) return false;
+      return Boolean(org && doc.ownerOrganization && orgFieldMatches(doc.ownerOrganization, org));
+    });
+  }
+
+  return documents.filter((doc) => {
+    if (docIdsOnAssignedSets.has(doc.id)) return true;
+    if (docIdsOnAnySet.has(doc.id)) return false;
+    return !doc.ownerOrganization || !org || orgFieldMatches(doc.ownerOrganization, org);
+  });
 }
 
 /**
@@ -75,6 +100,9 @@ export const DocumentLibraryView: React.FC<DocumentLibraryViewProps> = ({ initia
     activePersona,
     activeDemoOrganization,
     activeSessionUserId,
+    rolePermissionDefaults,
+    userPermissionOverrides,
+    customScopes,
     users,
   } = useMapStore();
   const [selectedVersionDoc, setSelectedVersionDoc] = useState<MasterDocument | null>(null);
@@ -120,6 +148,15 @@ export const DocumentLibraryView: React.FC<DocumentLibraryViewProps> = ({ initia
       ),
     [activePersona, users, activeDemoOrganization, activeSessionUserId],
   );
+
+  const canUpload = canCreateLibraryDocuments(
+    rolePermissionDefaults,
+    userPermissionOverrides,
+    sessionUser,
+    activePersona,
+    customScopes,
+  );
+
   const visibleDocuments = useMemo(() => {
     const raw = documentsForSessionLibrary(
       documents,
@@ -136,6 +173,11 @@ export const DocumentLibraryView: React.FC<DocumentLibraryViewProps> = ({ initia
     });
   }, [documents, assuranceSets, activePersona, activeDemoOrganization, sessionUser]);
 
+  const activeDocForDrawer = useMemo(() => {
+    if (!selectedVersionDoc) return null;
+    return documents.find((d) => d.id === selectedVersionDoc.id) ?? selectedVersionDoc;
+  }, [documents, selectedVersionDoc]);
+
   return (
     <div className="d-flex flex-column gap-3">
       {visibleDocuments.length === 0 ? (
@@ -144,6 +186,14 @@ export const DocumentLibraryView: React.FC<DocumentLibraryViewProps> = ({ initia
             icon={FileText}
             title="No documents yet"
             description="Documents appear here when uploaded or linked to assurance sets"
+            action={
+              canUpload
+                ? {
+                    label: 'Upload Document',
+                    onClick: () => setIsUploadOpen(true),
+                  }
+                : undefined
+            }
           />
         </div>
       ) : (
@@ -163,7 +213,7 @@ export const DocumentLibraryView: React.FC<DocumentLibraryViewProps> = ({ initia
 
       {/* Version History Drawer */}
       <VersionHistoryDrawer
-        document={selectedVersionDoc}
+        document={activeDocForDrawer}
         onClose={() => setSelectedVersionDoc(null)}
       />
 
@@ -171,6 +221,7 @@ export const DocumentLibraryView: React.FC<DocumentLibraryViewProps> = ({ initia
       <DocumentUploadModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
+        allowVersionModeSwitch={true}
       />
     </div>
   );

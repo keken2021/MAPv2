@@ -10,7 +10,13 @@ import { useMapStore } from '../store/useMapStore';
 import { Vessel } from '../types/vessel';
 import { AssuranceSet } from '../types/assurance';
 
+const initialState = useMapStore.getState();
+
 describe('fleet overview readiness index and data synchronization', () => {
+  beforeEach(() => {
+    useMapStore.setState(initialState, true);
+  });
+
   const testVessel: Vessel = {
     id: 'VESSEL-SYNC-01',
     name: 'MV Sync Pioneer',
@@ -149,7 +155,13 @@ describe('fleet overview readiness index and data synchronization', () => {
     const targetSet = store.assuranceSets[0];
     expect(targetSet).toBeDefined();
 
-    store.updateAssuranceStage(targetSet.id, 'Approved');
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
+
+    useMapStore.getState().updateAssuranceStage(targetSet.id, 'Approved');
 
     const updatedStore = useMapStore.getState();
     const updatedSet = updatedStore.assuranceSets.find((s) => s.id === targetSet.id);

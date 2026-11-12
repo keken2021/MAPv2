@@ -15,6 +15,13 @@ import {
   getMissingRolesForSet,
 } from '../utils/roleDashboardConfigs';
 
+const cAdminSessionUser = {
+  id: 'USR-CA',
+  name: 'C. Client',
+  organization: 'Northwind Shipping',
+  roles: ['C Admin' as const],
+};
+
 const mockAssuranceSets: AssuranceSet[] = [
   {
     id: 'AS-001',
@@ -22,6 +29,8 @@ const mockAssuranceSets: AssuranceSet[] = [
     vesselName: 'MV Borealis',
     vesselId: 'VES-001',
     stage: 'Initiated',
+    createdByUserId: 'USR-CA',
+    createdByName: 'C. Client',
     assignedSubmitter: 'M. Chen',
     assignedVerifier: '',
     assignedInspector: '',
@@ -35,6 +44,8 @@ const mockAssuranceSets: AssuranceSet[] = [
     vesselName: 'MV Celeste',
     vesselId: 'VES-002',
     stage: 'Initiated',
+    createdByUserId: 'USR-CA',
+    createdByName: 'C. Client',
     assignedSubmitter: 'M. Chen',
     assignedVerifier: 'A. Fontaine',
     assignedInspector: 'B. Vance',
@@ -48,6 +59,8 @@ const mockAssuranceSets: AssuranceSet[] = [
     vesselName: 'MV Aurora',
     vesselId: 'VES-003',
     stage: 'Initiated',
+    createdByUserId: 'USR-CA',
+    createdByName: 'C. Client',
     assignedSubmitter: '',
     assignedVerifier: 'A. Fontaine',
     assignedInspector: 'B. Vance',
@@ -61,6 +74,8 @@ const mockAssuranceSets: AssuranceSet[] = [
     vesselName: 'MV Stellar',
     vesselId: 'VES-004',
     stage: 'Verification',
+    createdByUserId: 'USR-CA',
+    createdByName: 'C. Client',
     assignedSubmitter: 'M. Chen',
     assignedVerifier: 'A. Fontaine',
     assignedInspector: 'B. Vance',
@@ -71,9 +86,9 @@ const mockAssuranceSets: AssuranceSet[] = [
 ];
 
 const mockCapaItems: CapaItem[] = [
-  { id: 'CAPA-1', status: 'Open', title: 'Finding 1' } as unknown as CapaItem,
-  { id: 'CAPA-2', status: 'Open', title: 'Finding 2' } as unknown as CapaItem,
-  { id: 'CAPA-3', status: 'Verified & Closed', title: 'Finding 3' } as unknown as CapaItem,
+  { id: 'CAPA-1', vesselId: 'VES-001', assuranceSetId: 'AS-001', status: 'Open', title: 'Finding 1' } as unknown as CapaItem,
+  { id: 'CAPA-2', vesselId: 'VES-002', assuranceSetId: 'AS-002', status: 'Open', title: 'Finding 2' } as unknown as CapaItem,
+  { id: 'CAPA-3', vesselId: 'VES-003', assuranceSetId: 'AS-003', status: 'Verified & Closed', title: 'Finding 3' } as unknown as CapaItem,
 ];
 
 const mockAuditEvents: AuditTrailEvent[] = [
@@ -116,6 +131,8 @@ describe('Administrator as client dashboard config', () => {
       assuranceSets: mockAssuranceSets,
       capaItems: mockCapaItems,
       auditEvents: mockAuditEvents,
+      sessionUser: cAdminSessionUser,
+      activeOrganization: 'Northwind Shipping',
       setCurrentHashView,
       now: new Date('2026-11-05T00:00:00Z'),
     });
@@ -172,6 +189,8 @@ describe('Administrator as client dashboard config', () => {
       assuranceSets: modifiedSets,
       capaItems: [],
       auditEvents: [],
+      sessionUser: cAdminSessionUser,
+      activeOrganization: 'Northwind Shipping',
       setCurrentHashView: vi.fn(),
       now: new Date('2026-11-05T00:00:00Z'),
     });
@@ -188,6 +207,8 @@ describe('Administrator as client dashboard config', () => {
       assuranceSets: mockAssuranceSets,
       capaItems: mockCapaItems,
       auditEvents: mockAuditEvents,
+      sessionUser: cAdminSessionUser,
+      activeOrganization: 'Northwind Shipping',
       setCurrentHashView,
       now: new Date('2026-11-05T00:00:00Z'),
     });
@@ -224,6 +245,8 @@ describe('Administrator as client dashboard config', () => {
       assuranceSets: [mockAssuranceSets[3]], // Fully staffed set
       capaItems: [],
       auditEvents: [],
+      sessionUser: cAdminSessionUser,
+      activeOrganization: 'Northwind Shipping',
       setCurrentHashView: vi.fn(),
       now: new Date('2026-11-05T00:00:00Z'),
     });
@@ -240,6 +263,8 @@ describe('Administrator as client dashboard config', () => {
         vesselName: 'LNGC Northwind Aurora',
         vesselId: 'VESSEL-013',
         stage: 'Verification',
+        createdByUserId: 'USR-CA',
+        createdByName: 'C. Client',
         assignedSubmitter: 'M. Chen',
         assignedVerifier: 'L. Ferreira',
         assignedInspector: 'H. Blake',
@@ -276,6 +301,8 @@ describe('Administrator as client dashboard config', () => {
         vesselName: 'OSV Meridian Endeavour',
         vesselId: 'VESSEL-014',
         stage: 'Approved',
+        createdByUserId: 'USR-CA',
+        createdByName: 'C. Client',
         assignedSubmitter: 'R. Sato',
         assignedVerifier: 'P. Nguyen',
         assignedInspector: 'H. Blake',
@@ -299,10 +326,18 @@ describe('Administrator as client dashboard config', () => {
       } as unknown as AssuranceSet,
     ];
 
+    const pilotCapaItems: CapaItem[] = [
+      { id: 'CAPA-P1', vesselId: 'VESSEL-013', assuranceSetId: 'AS-2026-101', status: 'Open', title: 'Finding 1' } as unknown as CapaItem,
+      { id: 'CAPA-P2', vesselId: 'VESSEL-013', assuranceSetId: 'AS-2026-101', status: 'Open', title: 'Finding 2' } as unknown as CapaItem,
+      { id: 'CAPA-P3', vesselId: 'VESSEL-014', assuranceSetId: 'AS-2026-102', status: 'Verified & Closed', title: 'Finding 3' } as unknown as CapaItem,
+    ];
+
     const config = getAdministratorClientDashboardConfig({
       assuranceSets: seededPilotSets,
-      capaItems: mockCapaItems,
+      capaItems: pilotCapaItems,
       auditEvents: mockAuditEvents,
+      sessionUser: cAdminSessionUser,
+      activeOrganization: 'Northwind Shipping',
       setCurrentHashView: vi.fn(),
       now: new Date('2026-11-05T00:00:00Z'),
     });
@@ -337,6 +372,8 @@ describe('Administrator as client dashboard config', () => {
       {
         ...mockAssuranceSets[0],
         id: 'AS-CLIENT-A',
+        createdByUserId: 'USR-201',
+        createdByName: 'S. Basin',
         clientOrg: 'Southern Basin Energy Pty Ltd',
         charterer: 'Southern Basin Energy Pty Ltd',
         serviceProviderOrg: 'Northwind Marine Pty Ltd',
@@ -344,6 +381,8 @@ describe('Administrator as client dashboard config', () => {
       {
         ...mockAssuranceSets[2],
         id: 'AS-CLIENT-B',
+        createdByUserId: 'USR-228',
+        createdByName: 'A. Okonkwo',
         clientOrg: 'Oil Company',
         charterer: 'Oil Company',
         serviceProviderOrg: 'Meridian Shipyards',
@@ -359,6 +398,12 @@ describe('Administrator as client dashboard config', () => {
       assuranceSets: sets,
       capaItems: capas,
       auditEvents: mockAuditEvents,
+      sessionUser: {
+        id: 'USR-201',
+        name: 'S. Basin',
+        organization: 'Southern Basin Energy Pty Ltd',
+        roles: ['C Admin'],
+      },
       activeOrganization: 'Southern Basin Energy Pty Ltd',
       setCurrentHashView: vi.fn(),
       now: new Date('2026-11-05T00:00:00Z'),
@@ -396,6 +441,8 @@ describe('Administrator (Vessel Admin) dashboard config', () => {
         vesselId: 'VES-NW-1',
         vesselName: 'MV Northwind One',
         serviceProviderOrg: 'Northwind Marine Pty Ltd',
+        createdByUserId: 'USR-101',
+        createdByName: 'K. Osei',
         stage: 'Verification',
         assignedSubmitter: '',
         charterWindowStart: '2026-11-12T00:00:00Z',
@@ -416,6 +463,8 @@ describe('Administrator (Vessel Admin) dashboard config', () => {
         vesselId: 'VES-OTHER-1',
         vesselName: 'MV Meridian Other',
         serviceProviderOrg: 'Meridian Shipyards',
+        createdByUserId: 'USR-OTHER',
+        createdByName: 'M. Other',
         stage: 'Verification',
         assignedSubmitter: '',
         requirements: [],
@@ -464,6 +513,12 @@ describe('Administrator (Vessel Admin) dashboard config', () => {
       documents,
       capaItems: capas,
       auditEvents: mockAuditEvents,
+      sessionUser: {
+        id: 'USR-101',
+        name: 'K. Osei',
+        organization: 'Northwind Marine Pty Ltd',
+        roles: ['Administrator'],
+      },
       activeOrganization: 'Northwind Marine Pty Ltd',
       setCurrentHashView,
       now: new Date('2026-11-05T00:00:00Z'),

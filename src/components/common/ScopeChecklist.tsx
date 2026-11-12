@@ -1,7 +1,7 @@
 /*
   file summary: reusable multi-select scope checklist shown as a dropdown of checkboxes.
   responsibilities: renders the ticked scopes as the field value, toggles scopes, keeps locked scopes ticked, closes on outside click.
-  role in system: used by RequestAssuranceSetModal and CreateAssuranceSetView.
+  role in system: used by CreateAssuranceSetView.
 */
 
 import React, { useEffect, useRef, useState } from 'react';

@@ -15,6 +15,8 @@ export interface CapaEvidenceItem {
   previewUrl?: string;
   uploadedAt: string;
   uploadedBy: string;
+  /** user record (membership) that uploaded it; older records have only the name (ADR 0037) */
+  uploadedByUserId?: string;
 }
 
 export interface CapaItem {
@@ -39,5 +41,8 @@ export interface CapaItem {
   flaggedForReinspection?: boolean;
   cadminFlagReason?: string;
   flaggedByCAdminDate?: string;
+  submitterResponse?: string;
+  respondedBy?: string;
+  respondedAt?: string;
 }
 

@@ -5,6 +5,8 @@ import { useMapStore } from '../store/useMapStore';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
 import { clickNext, objectRowIds } from './assuranceWizardTestHelpers';
 
+const initialState = useMapStore.getState();
+
 function setupStep1(container: HTMLElement) {
   const clientSelect = container.querySelector('select[aria-label^="Party role:"]') as HTMLSelectElement | null;
   if (clientSelect) {
@@ -43,11 +45,27 @@ function setupStep1(container: HTMLElement) {
 
 describe('CreateAssuranceSetView Objects Step', () => {
   beforeEach(() => {
+    useMapStore.setState(initialState, true);
     useMapStore.setState({
       assuranceSets: [],
       isAuthenticated: true,
       activePersona: 'Administrator',
       activeDemoOrganization: 'Marine Assurance Platform',
+      activeSessionUserId: 'USR-MAP-ADMIN',
+      users: [
+        ...initialState.users,
+        {
+          id: 'USR-MAP-ADMIN',
+          name: 'M. Platform',
+          email: 'admin@marineassurance.io',
+          roles: ['Administrator'],
+          userType: 'Organization',
+          organization: 'Marine Assurance Platform',
+          departmentOrScope: 'Operations',
+          status: 'Active',
+          lastActive: '2026-10-29 08:00 UTC',
+        },
+      ],
     });
   });
 

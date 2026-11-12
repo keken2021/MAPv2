@@ -8,15 +8,17 @@ import { AuditTrailEvent } from '../types/audit';
 
 describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
   const originalHash = window.location.hash;
+  const initialState = useMapStore.getState();
 
   beforeEach(() => {
     window.location.hash = '';
     useMapStore.setState({
+      ...initialState,
       activePersona: 'C Admin',
-      activeDemoOrganization: 'Oil Co Global',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
       isAuthenticated: true,
-      activeSessionUserId: 'USR-101',
-    });
+      activeSessionUserId: 'USR-221',
+    }, true);
   });
 
   afterEach(() => {
@@ -148,6 +150,21 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(reqTab.getAttribute('aria-selected')).toBe('true');
   });
 
+  it('displays certificate expiry warning in the Tasks tab instead of the Requirements tab', () => {
+    const state = useMapStore.getState();
+    const testSet = state.assuranceSets.find((s) => s.id === 'AS-2026-001') || state.assuranceSets[0];
+
+    render(<AssuranceDetailView setId={testSet.id} />);
+
+    // In Requirements tab, the warning banner is not present
+    fireEvent.click(screen.getByRole('tab', { name: /^requirements$/i }));
+    expect(screen.queryByText(/certificate expires before the contract ends/i)).toBeNull();
+
+    // In Tasks tab, the warning banner is present
+    fireEvent.click(screen.getByRole('tab', { name: /^tasks$/i }));
+    expect(screen.getByText(/1 certificate expires before the contract ends on 01 NOV 2027\./i)).toBeInTheDocument();
+  });
+
   it('Audit Trail tab lists this set\'s audit events with time, person and role, action, and deltas', () => {
     const state = useMapStore.getState();
     const testSetId = 'AS-TEST-AUDIT-01';
@@ -156,6 +173,10 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...state.assuranceSets[0],
       id: testSetId,
       title: 'Audit Set Alpha',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       targetDateHistory: [
         {
           id: 'TDH-001',
@@ -192,6 +213,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       assuranceSets: [testSet, ...state.assuranceSets.filter((s) => s.id !== testSetId)],
       auditEvents: [directAuditEvent, ...state.auditEvents],
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
 
     render(<AssuranceDetailView setId={testSetId} />);
@@ -226,6 +249,10 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...state.assuranceSets[0],
       id: testSetId,
       title: 'Dedup Set',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       targetDateHistory: [
         {
           id: 'TDH-DEDUP-01',
@@ -263,6 +290,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       assuranceSets: [testSet, ...state.assuranceSets.filter((s) => s.id !== testSetId)],
       auditEvents: [duplicatedEvent, ...state.auditEvents],
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
 
     render(<AssuranceDetailView setId={testSetId} />);
@@ -290,6 +319,10 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...state.assuranceSets[0],
       id: emptySetId,
       title: 'Empty Audit Set',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       targetDateHistory: [],
     };
 
@@ -297,6 +330,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       assuranceSets: [emptySet, ...state.assuranceSets.filter((s) => s.id !== emptySetId)],
       auditEvents: [],
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
 
     render(<AssuranceDetailView setId={emptySetId} />);
@@ -315,7 +350,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...state.assuranceSets[0],
       id: testSetId,
       title: 'Persona Test Set',
-      serviceProviderOrg: 'Northwind Marine',
+      serviceProviderOrg: 'Northwind Marine Pty Ltd',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
       clientOrg: 'Oil Co Global',
       targetDateHistory: [],
     };
@@ -350,6 +386,7 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       assuranceSets: [testSet, ...state.assuranceSets.filter((s) => s.id !== testSetId)],
       auditEvents: [adminEvent, submitterEvent],
       activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
       activeSessionUserId: 'USR-102',
     });
 
@@ -372,6 +409,7 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       title: 'Approver Audit Set',
       serviceProviderOrg: 'Northwind Marine Pty Ltd',
       clientOrg: 'Southern Basin Energy Pty Ltd',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
       assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       stage: 'Approval',
       targetDateHistory: [],
@@ -418,7 +456,7 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       auditEvents: [adminEvent, submitterEvent, verifierEvent],
       activePersona: 'Approver',
       activeDemoOrganization: 'Marine Assurance Authority',
-      activeSessionUserId: 'USR-105',
+      activeSessionUserId: 'USR-204',
     });
 
     const { unmount } = render(<AssuranceDetailView setId={testSetId} />);
@@ -445,6 +483,9 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     useMapStore.setState({
       assuranceSets: state.assuranceSets,
       auditEvents: state.auditEvents,
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
     });
   });
 
@@ -518,6 +559,10 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...useMapStore.getState().assuranceSets[0],
       id: testSetId,
       title: 'Ten Domains Assurance Set',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       targetDateHistory: [],
     };
 
@@ -634,6 +679,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       assuranceSets: [baseSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
       auditEvents: domainEvents,
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
 
     render(<AssuranceDetailView setId={testSetId} />);
@@ -658,6 +705,10 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...useMapStore.getState().assuranceSets[0],
       id: testSetId,
       title: 'Filter Test Set',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       targetDateHistory: [],
     };
 
@@ -701,6 +752,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       assuranceSets: [baseSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
       auditEvents: events,
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
 
     render(<AssuranceDetailView setId={testSetId} />);
@@ -738,6 +791,10 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...useMapStore.getState().assuranceSets[0],
       id: testSetId,
       title: 'Export Test Set',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       targetDateHistory: [],
     };
 
@@ -760,6 +817,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       assuranceSets: [baseSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
       auditEvents: events,
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
       logExport: logExportSpy,
     });
 
@@ -809,6 +868,10 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...useMapStore.getState().assuranceSets[0],
       id: testSetId,
       title: 'Pagination Test Set',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       targetDateHistory: [],
     };
 
@@ -828,6 +891,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       assuranceSets: [baseSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
       auditEvents: events,
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
 
     render(<AssuranceDetailView setId={testSetId} />);
@@ -847,13 +912,27 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
   });
 
   it('Requirements tab consolidates Add Task and Add custom section in one Add menu, and Submitter sees no Add Task', () => {
-    // 1. As Administrator (service provider who can edit tasks and upload document)
+    const state = useMapStore.getState();
+    const testSetId = 'AS-TEST-ADD-MENU';
+    const testSet: AssuranceSet = {
+      ...state.assuranceSets[0],
+      id: testSetId,
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+    };
+
+    // 1. As Administrator (creator who can manage tasks)
     useMapStore.setState({
+      assuranceSets: [testSet, ...state.assuranceSets.filter((s) => s.id !== testSetId)],
       activePersona: 'Administrator',
       activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
 
-    const { rerender } = render(<AssuranceDetailView setId="AS-2026-001" />);
+    const { rerender } = render(<AssuranceDetailView setId={testSetId} />);
     fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
 
     // Both Add menu and primary Upload Document button are present
@@ -869,10 +948,11 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     // 2. As Submitter
     useMapStore.setState({
       activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
       activeSessionUserId: 'USR-102',
     });
 
-    rerender(<AssuranceDetailView setId="AS-2026-001" />);
+    rerender(<AssuranceDetailView setId={testSetId} />);
 
     // Submitter can open Add menu
     const submitterAddBtn = screen.getByRole('button', { name: /^add$/i });
@@ -886,8 +966,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
   it('Requirements tab renders four table columns and expandable requirement rows toggled by click and Enter', () => {
     useMapStore.setState({
       activePersona: 'C Admin',
-      activeDemoOrganization: 'Oil Co Global',
-      activeSessionUserId: 'USR-101',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
     });
 
     render(<AssuranceDetailView setId="AS-2026-001" />);
@@ -920,7 +1000,7 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(within(detailRow).getByText(/ocr confidence:/i)).toBeInTheDocument();
     const confBadge = detailRow.querySelector('.badge-conf-low, [class*="badge-conf"]');
     expect(confBadge).not.toBeNull();
-    expect(confBadge?.textContent).toContain('0%');
+    expect(confBadge?.textContent).toContain('98%');
 
     // 4. Keyboard Enter toggles the row
     fireEvent.keyDown(firstReqToggle, { key: 'Enter', code: 'Enter' });
@@ -943,6 +1023,10 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...baseSet,
       id: testSetId,
       title: 'One Status Badge Test Set',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
       charterWindowStart: '2026-01-01',
       charterWindowEnd: '2026-12-31',
       requirements: [
@@ -1035,6 +1119,8 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       assuranceSets: [testSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
       documents: [lapsedDoc1, lapsedDoc2, ...useMapStore.getState().documents],
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
     });
 
     render(<AssuranceDetailView setId={testSetId} />);
@@ -1080,7 +1166,9 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...baseSet,
       id: testSetId,
       title: 'Persona Rows Test Set',
-      serviceProviderOrg: 'Northwind Marine',
+      serviceProviderOrg: 'Northwind Marine Pty Ltd',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
       requirements: [
         {
           ...defaultReq,
@@ -1110,7 +1198,11 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     });
 
     // 1. Submitter Persona: Title, Status, Actions (3 columns); Upload action, NO PDF review
-    useMapStore.setState({ activePersona: 'Submitter' });
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
     const { unmount: unmountSubmitter } = render(<AssuranceDetailView setId={testSetId} />);
     fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
 
@@ -1134,7 +1226,11 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     unmountSubmitter();
 
     // 2. Verifier Persona: Title, Version, Status, Actions (4 columns); Version and PDF review, NO Upload
-    useMapStore.setState({ activePersona: 'Verifier' });
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     const { unmount: unmountVerifier } = render(<AssuranceDetailView setId={testSetId} />);
     fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
 
@@ -1165,6 +1261,13 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
       ...baseSet,
       id: testSetId,
       title: 'Approver Inspector Admin Test Set',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
+      createdByPersona: 'Administrator',
+      mandatoryInspectionRequired: true,
+      assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       stage: 'Verification',
       approverDecision: undefined,
       charterWindowStart: '2026-01-01',
@@ -1229,7 +1332,11 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     // - Header has Target Object
     // - Section header shows done/total count (e.g. 1/2)
     // - Row has Edit and Remove actions
-    useMapStore.setState({ activePersona: 'Administrator' });
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
     const { unmount: unmountAdmin } = render(<AssuranceDetailView setId={testSetId} />);
     fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
 
@@ -1255,7 +1362,11 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     // - Section header does NOT show count badge
     // - Row has validity badge (e.g. Valid Through Contract Period)
     // - Row has NO Edit or Remove actions
-    useMapStore.setState({ activePersona: 'Approver' });
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
     const { unmount: unmountApprover } = render(<AssuranceDetailView setId={testSetId} />);
     fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
 
@@ -1278,7 +1389,11 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
 
     // 3. Inspector Persona:
     // - Row has validity badge and no Edit or Remove actions
-    useMapStore.setState({ activePersona: 'Inspector' });
+    useMapStore.setState({
+      activePersona: 'Inspector',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-203',
+    });
     const { unmount: unmountInspector } = render(<AssuranceDetailView setId={testSetId} />);
     fireEvent.click(screen.getByRole('tab', { name: /requirements/i }));
 

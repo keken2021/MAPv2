@@ -512,5 +512,114 @@ describe('Document Records, Upload, Review and Preview (Task 5311)', () => {
       // Ensure no invented placeholder value 'Seafarer' is shown in any field
       expect(screen.queryByText('Seafarer')).toBeNull();
     });
+
+    it('renders without hook ordering errors when toggled from closed to open', () => {
+      const { rerender } = render(<DocumentUploadModal isOpen={false} onClose={() => {}} />);
+      expect(screen.queryByText('Upload Preassurance Document')).toBeNull();
+
+      expect(() => {
+        rerender(<DocumentUploadModal isOpen={true} onClose={() => {}} initialUploadMode="new_version" />);
+      }).not.toThrow();
+
+      expect(screen.getByText('Upload Preassurance Document')).toBeInTheDocument();
+    });
+
+    it('enables the upload button for a Submitter uploading a new version of a returned document in a set', () => {
+      const mockDoc: MasterDocument = {
+        id: 'MAP-VES-2026-STAT-00001',
+        title: 'Certificate of Class',
+        entityType: 'Vessel Certificate',
+        targetObjectType: 'vessel',
+        targetObjectId: 'VESSEL-001',
+        vesselId: 'VESSEL-001',
+        certificateNo: 'DNV-2026-001',
+        issuingAuthority: 'DNV',
+        issueDate: '2024-01-01',
+        expiryDate: '2027-01-01',
+        complianceState: 'Valid',
+        verificationStatus: 'Correction Requested',
+        ocrConfidence: 98,
+        versions: [
+          {
+            versionLabel: 'v1.0',
+            uploadedAt: '2026-01-01',
+            uploadedBy: 'M. Chen',
+            fileName: 'Class_Cert.pdf',
+            fileSizeBytes: 2000000,
+            changeSummary: 'Initial upload',
+          },
+        ],
+      };
+
+      useMapStore.setState({
+        activePersona: 'Submitter',
+        activeSessionUserId: 'USR-102',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      });
+
+      render(
+        <DocumentUploadModal
+          isOpen={true}
+          onClose={() => {}}
+          existingDocument={mockDoc}
+        />
+      );
+
+      const submitBtn = screen.getByRole('button', { name: /upload new version/i });
+      expect(submitBtn).toBeInTheDocument();
+      expect(submitBtn).not.toBeDisabled();
+    });
+
+    it('enables the upload button when document is linked to a returned requirement in a set', () => {
+      const mockDoc: MasterDocument = {
+        id: 'DOC-RETURNED-REQ-001',
+        title: 'Cargo Ship Safety Equipment',
+        entityType: 'Vessel Certificate',
+        targetObjectType: 'vessel',
+        targetObjectId: 'VESSEL-001',
+        vesselId: 'VESSEL-001',
+        certificateNo: 'CSSE-2026-001',
+        issuingAuthority: 'DNV',
+        issueDate: '2024-01-01',
+        expiryDate: '2027-01-01',
+        complianceState: 'Valid',
+        verificationStatus: 'Pending',
+        ocrConfidence: 98,
+        versions: [
+          {
+            versionLabel: 'v1.0',
+            uploadedAt: '2026-01-01',
+            uploadedBy: 'M. Chen',
+            fileName: 'CSSE.pdf',
+            fileSizeBytes: 2000000,
+            changeSummary: 'Initial upload',
+          },
+        ],
+      };
+
+      const testSets = JSON.parse(JSON.stringify(useMapStore.getState().assuranceSets));
+      testSets[0].requirements[1].documentId = mockDoc.id;
+      testSets[0].requirements[1].verifierStatus = 'Correction Requested';
+
+      useMapStore.setState({
+        documents: [...useMapStore.getState().documents, mockDoc],
+        assuranceSets: testSets,
+        activePersona: 'Submitter',
+        activeSessionUserId: 'USR-102',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      });
+
+      render(
+        <DocumentUploadModal
+          isOpen={true}
+          onClose={() => {}}
+          existingDocument={mockDoc}
+        />
+      );
+
+      const submitBtn = screen.getByRole('button', { name: /upload new version/i });
+      expect(submitBtn).toBeInTheDocument();
+      expect(submitBtn).not.toBeDisabled();
+    });
   });
 });

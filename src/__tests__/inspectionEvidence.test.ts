@@ -35,6 +35,9 @@ describe('inspection evidence', () => {
     const set = useMapStore.getState().assuranceSets.find((s) => s.requirements.length > 0)!;
     const req = { ...set.requirements[0], category: 'Inspection Report' as const };
     useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
       assuranceSets: useMapStore
         .getState()
         .assuranceSets.map((s) => (s.id === set.id ? { ...s, requirements: [req, ...s.requirements.slice(1)] } : s)),
@@ -43,7 +46,7 @@ describe('inspection evidence', () => {
     const doc = {
       ...useMapStore.getState().documents[0],
       id: 'MAP-VES-2026-INSP-TEST-G4',
-      ownerOrganization: useMapStore.getState().activeDemoOrganization || 'Northwind Marine Pty Ltd',
+      ownerOrganization: 'Northwind Marine Pty Ltd',
     };
 
     useMapStore.getState().uploadDocumentForRequirement(set.id, req.id, doc, {

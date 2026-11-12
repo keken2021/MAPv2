@@ -8,9 +8,19 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
 
+const initialState = useMapStore.getState();
+
 describe('Real-World Operational Workflows - Approver Rejection & Remediation', () => {
   beforeEach(() => {
-    useMapStore.getState().setActivePersona('Administrator');
+    useMapStore.setState(
+      {
+        ...initialState,
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      },
+      true,
+    );
   });
 
   /**
@@ -43,9 +53,9 @@ describe('Real-World Operational Workflows - Approver Rejection & Remediation', 
       mandatoryInspectionRequired: false,
       formalApprovalRequired: true,
       inspectionCompleted: false,
-      assignedSubmitter: 'M. Chen (Northwind Marine)',
-      assignedVerifier: 'A. Fontaine (DNV)',
-      assignedApprover: 'P. Nardelli (Chevron)',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+      assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
       requirements: [
         {
           id: req1Id,
@@ -62,7 +72,7 @@ describe('Real-World Operational Workflows - Approver Rejection & Remediation', 
             fileName: 'class_cert_v1.pdf',
             uploadedAt: '2026-10-01T08:00:00Z',
             verifiedAt: '2026-10-05T10:00:00Z',
-            verifiedBy: 'A. Fontaine (DNV)',
+            verifiedBy: 'A. Fontaine (Bureau Veritas Inspectorate)',
             verificationStatus: 'Verified',
             expiryDate: '2028-11-01',
           },
@@ -83,7 +93,7 @@ describe('Real-World Operational Workflows - Approver Rejection & Remediation', 
             fileName: 'smc_v1.pdf',
             uploadedAt: '2026-10-01T08:00:00Z',
             verifiedAt: '2026-10-05T10:00:00Z',
-            verifiedBy: 'A. Fontaine (DNV)',
+            verifiedBy: 'A. Fontaine (Bureau Veritas Inspectorate)',
             verificationStatus: 'Verified',
             expiryDate: '2028-11-01',
           },
@@ -91,13 +101,19 @@ describe('Real-World Operational Workflows - Approver Rejection & Remediation', 
         },
       ],
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
     };
 
     store.addAssuranceSet(testSet);
 
     // 1. Approver requirement denial
-    store.setActivePersona('Approver');
-    store.denyRequirementByApprover(
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
+    useMapStore.getState().denyRequirementByApprover(
       setId,
       req1Id,
       'Correction Requested',
@@ -140,9 +156,13 @@ describe('Real-World Operational Workflows - Approver Rejection & Remediation', 
     expect(completionBeforeUpload.isDone).toBe(false);
     expect(completionBeforeUpload.partyStatuses.some((p) => p.status === 'Correction Requested')).toBe(true);
 
-    store.setActivePersona('Submitter');
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
     // Upload updated document version v2.0
-    store.addDocumentVersion(
+    useMapStore.getState().addDocumentVersion(
       doc1Id,
       'v2.0',
       'class_cert_endorsement_v2.pdf',
@@ -158,8 +178,12 @@ describe('Real-World Operational Workflows - Approver Rejection & Remediation', 
     expect(updatedDoc.versions.some((v) => v.versionLabel === 'v2.0')).toBe(true);
 
     // 3. Scoped Re-Verification Gate
-    store.setActivePersona('Verifier');
-    store.verifyDocument(
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
+    useMapStore.getState().verifyDocument(
       doc1Id,
       'Verified',
       'Annual survey stamp confirmed valid by DNV verifier.',
@@ -183,15 +207,23 @@ describe('Real-World Operational Workflows - Approver Rejection & Remediation', 
     expect(useMapStore.getState().isRequirementDone(setId, req1Id)).toBe(true);
 
     // 4. Re-submission & Final Sign-Off
-    store.setActivePersona('Submitter');
-    store.sendAssuranceForReview(setId);
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
+    useMapStore.getState().sendAssuranceForReview(setId);
 
     currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === setId)!;
     expect(currentSet.clientWorkflowStage).toBe('in_review');
 
     // Approver signs off
-    store.setActivePersona('Approver');
-    store.setApproverDecision(setId, 'Approved', 'All requirements verified and endorsed.');
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
+    });
+    useMapStore.getState().setApproverDecision(setId, 'Approved', 'All requirements verified and endorsed.');
 
     currentSet = useMapStore.getState().assuranceSets.find((s) => s.id === setId)!;
     expect(currentSet.stage).toBe('Approved');

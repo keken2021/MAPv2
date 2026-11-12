@@ -10,12 +10,21 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
   beforeEach(() => {
     useMapStore.setState({
       activePersona: 'Submitter',
-      activeDemoOrganization: 'Northwind Marine',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
       isAuthenticated: true,
     });
   });
 
   describe('Assurance Sets List (AssuranceTable)', () => {
+    beforeEach(() => {
+      useMapStore.setState({
+        activePersona: 'Administrator',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
+        isAuthenticated: true,
+      });
+    });
     it('places CountTabs and ListToolbar inside the main card container', () => {
       const { container } = render(
         <AssuranceTable onSelectSet={() => { }} onInitiateSet={() => { }} />
@@ -311,7 +320,11 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
 
     it('replaces "Date Permissions (0)" with domain wording and hides it when empty for non-admin', () => {
       // Submitter persona on AS-2026-001 (0 grants)
-      useMapStore.setState({ activePersona: 'Submitter' });
+      useMapStore.setState({
+        activePersona: 'Submitter',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-102',
+      });
       const { rerender } = render(<AssuranceDetailView setId="AS-2026-001" />);
 
       // "Date Permissions (0)" must not exist
@@ -321,7 +334,11 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       expect(screen.queryByRole('button', { name: /grant date access/i })).toBeNull();
 
       // C Admin persona on AS-2026-001 sees actionable "Grant date access"
-      useMapStore.setState({ activePersona: 'C Admin' });
+      useMapStore.setState({
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      });
       rerender(<AssuranceDetailView setId="AS-2026-001" />);
       expect(screen.queryByText(/date permissions/i)).toBeNull();
       expect(screen.getByRole('button', { name: /grant date access/i })).toBeDefined();
@@ -349,7 +366,11 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
         ),
       });
 
-      useMapStore.setState({ activePersona: 'Submitter' });
+      useMapStore.setState({
+        activePersona: 'Submitter',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-102',
+      });
       rerender(<AssuranceDetailView setId="AS-2026-001" />);
       expect(screen.getByRole('button', { name: /date grants \(1\)/i })).toBeDefined();
     });

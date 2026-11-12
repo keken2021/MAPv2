@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { AlertCircle, CheckCircle, RotateCcw, XCircle } from 'lucide-react';
+import { CheckCircle, RotateCcw, XCircle } from 'lucide-react';
 import { AssuranceSet } from '../../types/assurance';
 import { useMapStore } from '../../store/useMapStore';
+import { doFindingsBlockSet } from '../../utils/readinessHelpers';
 import { ConfirmDialog } from '../modals/ConfirmDialog';
+import { FindingsApprovalNotice } from './FindingsApprovalNotice';
 
 export interface ApproverDecisionBarProps {
   assuranceSet: AssuranceSet;
   openFindingsCount?: number;
+  confirmDialogZIndex?: number;
+  onModalOpenChange?: (isOpen: boolean) => void;
   onDecisionSubmitted?: (
     decision: 'Approved' | 'Returned for Correction' | 'Rejected',
     reason?: string,
@@ -16,6 +20,8 @@ export interface ApproverDecisionBarProps {
 export const ApproverDecisionBar: React.FC<ApproverDecisionBarProps> = ({
   assuranceSet,
   openFindingsCount = 0,
+  confirmDialogZIndex,
+  onModalOpenChange,
   onDecisionSubmitted,
 }) => {
   const setApproverDecision = useMapStore((s) => s.setApproverDecision);
@@ -24,7 +30,7 @@ export const ApproverDecisionBar: React.FC<ApproverDecisionBarProps> = ({
     'Returned for Correction' | 'Rejected' | null
   >(null);
 
-  const isOpenFindingsBlocking = openFindingsCount > 0;
+  const isOpenFindingsBlocking = openFindingsCount > 0 && doFindingsBlockSet(assuranceSet);
 
   const handleApprove = () => {
     if (isOpenFindingsBlocking) return;
@@ -35,10 +41,12 @@ export const ApproverDecisionBar: React.FC<ApproverDecisionBarProps> = ({
 
   const handleOpenModal = (action: 'Returned for Correction' | 'Rejected') => {
     setModalAction(action);
+    onModalOpenChange?.(true);
   };
 
   const handleCloseModal = () => {
     setModalAction(null);
+    onModalOpenChange?.(false);
   };
 
   return (
@@ -49,9 +57,6 @@ export const ApproverDecisionBar: React.FC<ApproverDecisionBarProps> = ({
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div className="d-flex align-items-center gap-2">
           <span className="fw-semibold text-slate-900 small">Approver Decision</span>
-          <span className="badge bg-primary-subtle text-primary border border-primary-subtle font-mono-code">
-            Approval Stage
-          </span>
         </div>
 
         <div className="d-flex flex-wrap align-items-center gap-2">
@@ -88,18 +93,7 @@ export const ApproverDecisionBar: React.FC<ApproverDecisionBarProps> = ({
         </div>
       </div>
 
-      {isOpenFindingsBlocking && (
-        <div
-          className="alert alert-warning py-1.5 px-3 mb-0 small text-danger fw-semibold d-flex align-items-center gap-1.5"
-          role="alert"
-        >
-          <AlertCircle size={15} className="flex-shrink-0" />
-          <span>
-            Cannot approve: {openFindingsCount} open{' '}
-            {openFindingsCount === 1 ? 'finding remains' : 'findings remain'}. Resolve findings before approval.
-          </span>
-        </div>
-      )}
+      <FindingsApprovalNotice openFindingsCount={openFindingsCount} blocking={isOpenFindingsBlocking} />
 
       <ConfirmDialog
         isOpen={Boolean(modalAction)}
@@ -111,6 +105,7 @@ export const ApproverDecisionBar: React.FC<ApproverDecisionBarProps> = ({
         }
         confirmLabel={modalAction === 'Returned for Correction' ? 'Return for Correction' : 'Reject'}
         tone={modalAction === 'Rejected' ? 'danger' : 'default'}
+        zIndex={confirmDialogZIndex}
         reasonLabel="Reason"
         reasonPlaceholder={
           modalAction === 'Returned for Correction'

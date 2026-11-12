@@ -10,6 +10,8 @@ import { MasterDocument } from '../types/document';
 import { VesselInformation } from '../types/vessel';
 
 describe('Verifier & Inspector Workspaces UI Declutter', () => {
+  const initialStore = useMapStore.getState();
+
   const mockAssuranceSets: AssuranceSet[] = [
     {
       id: 'AS-VERIF-01',
@@ -334,9 +336,12 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
   ];
 
   beforeEach(() => {
+    useMapStore.setState(initialStore, true);
     useMapStore.setState({
+      isAuthenticated: true,
       activePersona: 'Verifier',
-      activeDemoOrganization: '',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
       currentEntityId: undefined,
       assuranceSets: mockAssuranceSets,
       documents: mockDocuments,
@@ -469,7 +474,10 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
   describe('InspectorWorkspaceView', () => {
     beforeEach(() => {
       useMapStore.setState({
+        isAuthenticated: true,
         activePersona: 'Inspector',
+        activeDemoOrganization: 'Bureau Veritas Inspectorate',
+        activeSessionUserId: 'USR-203',
       });
     });
 

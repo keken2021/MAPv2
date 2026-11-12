@@ -70,6 +70,7 @@ function buildSs04(): AssuranceSet {
     initiatorOrg: NORTHWIND_ORG,
     initiatorRole: 'C Admin · Client Created',
     createdByPersona: 'C Admin',
+    createdByUserId: 'USR-235',
     createdByName: 'T. Okada',
     clientOrg: NORTHWIND_ORG,
     charterer: NORTHWIND_ORG,
@@ -108,6 +109,8 @@ function buildSs05(): AssuranceSet {
     imoNumber: '9876501',
     initiatorRole: 'C Admin · Client Created',
     createdByPersona: 'C Admin',
+    createdByUserId: 'USR-228',
+    createdByName: 'A. Okonkwo',
     assignedSubmitter: 'A. Petrov (Kestrel Control Systems)',
     assignedVerifier: 'R. Singh (Sentinel Cyber Assurance)',
     assignedApprover: 'K. Adeyemi (Oil Company)',
@@ -148,19 +151,50 @@ describe('Scenario flexibility: Oil Co five-set spine', () => {
     const ss04 = buildSs04();
     const ss05 = buildSs05();
 
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: OIL_CO_ORG,
+      activeSessionUserId: 'USR-228',
+    });
+    expect(
+      useMapStore.getState().requestAssuranceSet({
+        projectId: OIL_CO_LNG_PROJECT_ID,
+        recipientUserId: 'USR-235',
+        suggestedScope: 'Vessel',
+        senderUserId: 'USR-228',
+        senderName: 'A. Okonkwo',
+      }).success,
+    ).toBe(true);
+
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: NORTHWIND_ORG,
+      activeSessionUserId: 'USR-235',
+    });
     useMapStore.getState().addAssuranceSet(ss04);
     expect(useMapStore.getState().attachAssuranceSetToProject(ss04.id, OIL_CO_LNG_PROJECT_ID).success).toBe(true);
 
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: OIL_CO_ORG,
+      activeSessionUserId: 'USR-228',
+    });
     useMapStore.getState().addAssuranceSet(ss05);
     expect(useMapStore.getState().attachAssuranceSetToProject(ss05.id, OIL_CO_LNG_PROJECT_ID).success).toBe(true);
 
+    const northwindCAdminUser = {
+      id: 'USR-235',
+      name: 'T. Okada',
+      organization: NORTHWIND_ORG,
+      roles: ['C Admin' as const],
+    };
     const storedSs04 = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-104')!;
     expect(storedSs04.clientOrg).toBe(NORTHWIND_ORG);
     expect(storedSs04.serviceProviderOrg).toBe(OIL_CO_ORG);
     expect(storedSs04.assignedVerifier).toContain(COASTAL_ORG);
     expect(isAssuranceSetOwnedOrInitiatedByOrganization(storedSs04, NORTHWIND_ORG)).toBe(true);
     expect(isAssuranceSetOwnedOrInitiatedByOrganization(storedSs04, MERIDIAN_ORG)).toBe(false);
-    expect(isAssuranceSetAssignedToPersona(storedSs04, 'C Admin', NORTHWIND_ORG)).toBe(true);
+    expect(isAssuranceSetAssignedToPersona(storedSs04, 'C Admin', NORTHWIND_ORG, northwindCAdminUser)).toBe(true);
 
     const storedSs05 = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-105')!;
     expect(storedSs05.assuranceType).toBe('Equipment');

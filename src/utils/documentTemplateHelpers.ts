@@ -9,6 +9,9 @@ import { formatMaritimeDate } from './formatters';
 import { useMapStore } from '../store/useMapStore';
 import { MOCK_VESSELS } from '../store/mockData';
 import { MOCK_CREW } from '../store/crewMockData';
+import { MOCK_EQUIPMENT } from '../store/equipmentMockData';
+import { SEEDED_OPERATIONAL_OBJECTS } from '../store/assuranceObjectMockData';
+import { resolveDocumentTargetObject } from './documentObjectHelpers';
 
 declare module '../types/document' {
   interface DocumentVersion {
@@ -43,38 +46,68 @@ export interface CertificateLayoutData {
 }
 
 /**
- * Resolves related vessel and crew records for a document.
+ * Resolves related vessel, crew, equipment, and activity records for a document.
  */
 export function getDocumentRecordContext(doc: MasterDocument) {
   let vessels = MOCK_VESSELS;
   let crewMembers = MOCK_CREW;
+  let equipmentList = MOCK_EQUIPMENT;
+  let assuranceObjects = SEEDED_OPERATIONAL_OBJECTS;
   try {
     if (typeof useMapStore !== 'undefined' && useMapStore.getState) {
       const state = useMapStore.getState();
       if (state.vessels && state.vessels.length > 0) vessels = state.vessels;
       if (state.crew && state.crew.length > 0) crewMembers = state.crew;
+      if (state.equipment && state.equipment.length > 0) equipmentList = state.equipment;
+      if (state.assuranceObjects && state.assuranceObjects.length > 0) assuranceObjects = state.assuranceObjects;
     }
   } catch {
     // fallback to mock data when called outside zustand context
   }
 
-  const vessel = vessels.find(
-    (v) => (doc.vesselId && v.id === doc.vesselId) ||
-           (doc.vesselAttributes?.imoNumber && v.imoNumber === doc.vesselAttributes.imoNumber) ||
-           (doc.vesselAttributes?.vesselName && v.name.toLowerCase() === doc.vesselAttributes.vesselName.toLowerCase())
-  );
+  const resolvedTarget = resolveDocumentTargetObject(doc, {
+    vessels,
+    crew: crewMembers,
+    equipment: equipmentList,
+    assuranceObjects,
+  });
 
   const crewMember = crewMembers.find(
-    (c) => (doc.crewAttributes?.crewName && c.fullName.toLowerCase() === doc.crewAttributes.crewName.toLowerCase()) ||
-           c.layer1CoreDocuments?.some((d) => d.id === doc.id || d.certificateNo === doc.certificateNo) ||
-           c.layer2Endorsements?.some((d) => d.id === doc.id || d.certificateNo === doc.certificateNo)
+    (c) =>
+      (resolvedTarget?.type === 'person' && c.id === resolvedTarget.id) ||
+      (doc.crewAttributes?.crewName && c.fullName.toLowerCase() === doc.crewAttributes.crewName.toLowerCase()) ||
+      c.layer1CoreDocuments?.some((d) => d.id === doc.id || d.certificateNo === doc.certificateNo) ||
+      c.layer2Endorsements?.some((d) => d.id === doc.id || d.certificateNo === doc.certificateNo),
   );
 
-  return { vessel, crewMember };
+  const equipmentItem =
+    resolvedTarget?.type === 'equipment'
+      ? equipmentList.find((e) => e.id === resolvedTarget.id)
+      : undefined;
+
+  const activityObject =
+    resolvedTarget?.type === 'activity'
+      ? assuranceObjects.find((o) => o.id === resolvedTarget.id)
+      : undefined;
+
+  const effectiveVesselId =
+    doc.vesselId ||
+    (resolvedTarget?.type === 'vessel' ? resolvedTarget.id : undefined) ||
+    equipmentItem?.parentVesselId ||
+    crewMember?.currentVesselId;
+
+  const vessel = vessels.find(
+    (v) =>
+      (effectiveVesselId && v.id === effectiveVesselId) ||
+      (doc.vesselAttributes?.imoNumber && v.imoNumber === doc.vesselAttributes.imoNumber) ||
+      (doc.vesselAttributes?.vesselName && v.name.toLowerCase() === doc.vesselAttributes.vesselName.toLowerCase()),
+  );
+
+  return { vessel, crewMember, equipmentItem, activityObject, resolvedTarget };
 }
 
 /**
- * Maps any MasterDocument into the structured layout reading live vessel and crew records.
+ * Maps any MasterDocument into the structured layout reading live vessel, crew, equipment, and activity records.
  */
 export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLayoutData {
   const titleUpper = (doc.title || '').toUpperCase();
@@ -91,6 +124,7 @@ export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLa
     titleUpper.includes('TONNAGE');
   const isCrewCert =
     doc.entityType === 'Crew Certificate' ||
+    doc.targetObjectType === 'person' ||
     Boolean(doc.crewAttributes) ||
     titleUpper.includes('PASSPORT') ||
     titleUpper.includes('SEAMAN') ||
@@ -98,14 +132,18 @@ export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLa
     titleUpper.includes('ENG1') ||
     titleUpper.includes('MEDICAL');
   const isEquipmentCert =
+    doc.entityType === 'Equipment Certificate' ||
+    doc.targetObjectType === 'equipment' ||
     titleUpper.includes('WINCH') ||
     titleUpper.includes('CRANE') ||
     titleUpper.includes('HELI') ||
     titleUpper.includes('LIFEBOAT') ||
     titleUpper.includes('EQUIPMENT') ||
     titleUpper.includes('PULL TEST');
+  const isActivityDossier =
+    doc.entityType === 'Project Dossier' || doc.targetObjectType === 'activity';
 
-  const { vessel, crewMember } = getDocumentRecordContext(doc);
+  const { vessel, crewMember, equipmentItem, activityObject } = getDocumentRecordContext(doc);
 
   const vesselName = vessel?.name || doc.vesselAttributes?.vesselName || doc.crewAttributes?.assignedVessel || 'N/A';
   const imoNumber = vessel?.imoNumber || doc.vesselAttributes?.imoNumber || (vesselName.includes('Pacific') ? '9123453' : 'N/A');
@@ -238,7 +276,7 @@ export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLa
     };
   }
 
-  // 4. EQUIPMENT OR ACTIVITY CERTIFICATE LAYOUT
+  // 4. EQUIPMENT OR TECHNICAL ASSET CERTIFICATE LAYOUT
   if (isEquipmentCert) {
     return {
       headerNotice: 'OFFICIAL RECORD',
@@ -247,9 +285,17 @@ export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLa
       certType: 'equipment',
       fields: [
         { label: 'Certificate No.', value: certNo },
-        { label: 'Asset / Equipment Item', value: doc.title },
+        {
+          label: 'Asset / Equipment Item',
+          value: equipmentItem
+            ? `${equipmentItem.name} (${equipmentItem.equipmentIdentifier})`
+            : doc.targetObjectName || doc.title,
+        },
+        ...(equipmentItem?.manufacturer || equipmentItem?.model
+          ? [{ label: 'Manufacturer / Model', value: [equipmentItem.manufacturer, equipmentItem.model].filter(Boolean).join(' · ') }]
+          : []),
         { label: 'Assigned Vessel', value: vesselName },
-        { label: 'Vessel ID / Registration No.', value: doc.vesselId || vessel?.id || 'N/A' },
+        { label: 'Vessel ID / Registration No.', value: vessel?.id || doc.vesselId || 'N/A' },
         { label: 'Issuing Body', value: doc.issuingAuthority || 'DNV Subsea Survey' },
         { label: 'Standard / Regime', value: 'DNV-ST-E272 / CAP 437 / Statutory Proof Load' },
         { label: 'Proof Load / Safe Working Load', value: doc.complianceState === 'Expired' ? 'Inspection Required' : 'Compliant to Operating Limits' },
@@ -263,6 +309,36 @@ export function getDocumentCertificateLayout(doc: MasterDocument): CertificateLa
       statementText:
         'This certificate indicates that the technical equipment and safety specifications listed above were inspected and verified on the recorded survey date.',
       footerCertNo: `Certificate No.: ${certNo}`,
+      footerNotice: 'Marine Assurance Platform Document Registry',
+    };
+  }
+
+  // 4b. ACTIVITY / OPERATIONAL DOSSIER LAYOUT
+  if (isActivityDossier) {
+    return {
+      headerNotice: 'OFFICIAL RECORD',
+      title: 'OPERATIONAL ACTIVITY ASSURANCE RECORD',
+      subtitle: 'Activity Method, Risk & Compliance Dossier',
+      certType: 'safety',
+      fields: [
+        { label: 'Reference No.', value: certNo },
+        {
+          label: 'Activity / Operation',
+          value: activityObject
+            ? `${activityObject.name}${activityObject.identifier ? ` (${activityObject.identifier})` : ''}`
+            : doc.targetObjectName || doc.title,
+        },
+        { label: 'Owner Organization', value: activityObject?.ownerOrganization || doc.ownerOrganization || 'N/A' },
+        { label: 'Document Title', value: doc.title },
+        { label: 'Issuing Authority', value: doc.issuingAuthority || 'N/A' },
+        { label: 'Issue Date', value: issueDateFormatted },
+        { label: 'Expiry Date', value: expiryDateFormatted },
+        { label: 'Certificate Status', value: doc.complianceState ? doc.complianceState.toUpperCase() : 'VALID' },
+      ],
+      statementTitle: 'Assurance Statement',
+      statementText:
+        'This operational dossier records reviewed activity procedures, risk controls, or field execution documentation.',
+      footerCertNo: `Reference No.: ${certNo}`,
       footerNotice: 'Marine Assurance Platform Document Registry',
     };
   }

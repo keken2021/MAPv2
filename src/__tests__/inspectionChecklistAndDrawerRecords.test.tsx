@@ -10,11 +10,17 @@ vi.mock('../utils/exportHelpers', () => ({
   exportToPdf: vi.fn(),
 }));
 
+const initialState = useMapStore.getState();
+
 describe('Inspection Checklist & Drawer - Read Set and Seeded Records (Task 5310)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useMapStore.setState(initialState, true);
     useMapStore.setState({
+      isAuthenticated: true,
       activePersona: 'Inspector',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-203',
       currentHashView: 'inspector',
       currentEntityId: undefined,
     });

@@ -9,8 +9,8 @@ import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument } from '../../types/document';
 import { DocumentUploadModal } from '../modals/DocumentUploadModal';
 import { Check, AlertCircle } from 'lucide-react';
-import { isUserDocumentSubmitter } from '../../utils/userRoleHelpers';
-import { isAssuranceSetCreatedByCAdmin } from '../../utils/rbacHelpers';
+import { isUserDocumentSubmitter, getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
+import { getAssuranceSetRoleActions } from '../../utils/rbacHelpers';
 import { canRequestDocumentReupload, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
 import {
   canEditOwnedEvidence,
@@ -82,10 +82,14 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     requestDocumentReupload,
     activePersona,
     activeDemoOrganization,
+    activeSessionUserId,
     assuranceSets,
     notifications,
     documents,
     vessels,
+    crew: crewMembers,
+    equipment,
+    assuranceObjects,
     users,
   } = useMapStore();
   const [comment, setComment] = useState('');
@@ -148,45 +152,70 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
     : false;
   const decisionsClosed = isVerified;
 
+  const sessionUser = getSessionUserForPersona(
+    activePersona,
+    users,
+    getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
+  );
+  const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
+  const linkedActions = linkedSet
+    ? getAssuranceSetRoleActions(linkedSet, activePersona, activeDemoOrganization, sessionUser)
+    : undefined;
+
   const isSubmitter = isUserDocumentSubmitter(
-    null,
+    sessionUser ?? null,
     activePersona,
     document,
     linkedReq,
-    linkedSet
+    linkedSet,
   );
 
   /* FR-16: only the owning organization (or Administrator) may replace or edit this evidence */
-  const ownsEvidence = canEditOwnedEvidence(document, activeDemoOrganization, {
+  const ownsEvidence = canEditOwnedEvidence(document, effectiveOrg, {
     persona: activePersona,
     vessels,
     users,
+    equipment,
+    crew: crewMembers,
+    assuranceObjects,
   });
   const ownershipBlockReason = ownsEvidence ? undefined : EVIDENCE_NOT_OWNED_EDIT;
 
   /* a version locked on an approved set takes no new upload */
   const canSubmit =
+    Boolean(sessionUser) &&
     allowSubmit &&
     !isVersionLocked &&
-    (activePersona === 'Submitter' || activePersona === 'Administrator') &&
+    (linkedSet
+      ? Boolean(linkedActions?.canUpload)
+      : activePersona === 'Submitter' || activePersona === 'Administrator') &&
     ownsEvidence;
 
-  /* the client admin verifies the documents on a set a client admin created; it never edits or uploads them */
-  const isClientVerifier =
-    activePersona === 'C Admin' &&
-    Boolean(linkedSet) &&
-    isAssuranceSetCreatedByCAdmin(linkedSet!);
-
-  /* service providers (Administrator, Submitter) never verify; verifier verifies when allowed by set role scope */
+  /* service providers (Administrator, Submitter) never verify; verifier and assigned client-set C Admin verify on assigned sets */
   const canVerify =
+    Boolean(sessionUser) &&
     allowVerify &&
     hasReviewContext &&
+    Boolean(linkedActions?.canVerify) &&
     !isSubmitter &&
-    activePersona !== 'Administrator' &&
-    (activePersona === 'Verifier' || isClientVerifier);
+    activePersona !== 'Administrator';
+
+  const linkedSetsForDoc = assuranceSets.filter((set) =>
+    set.requirements?.some((req) => req.documentId === document.id || req.linkedDocumentId === document.id),
+  );
+  const isUnlinked = !linkedSet && linkedSetsForDoc.length === 0;
+
   /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
   const reuploadBlockReason =
-    ownershipBlockReason || getDocumentReuploadBlockReason(document, notifications);
+    ownershipBlockReason ||
+    getDocumentReuploadBlockReason(
+      document,
+      notifications,
+      new Date(),
+      linkedSet?.charterWindowEnd,
+      requirementVerifierStatus ?? linkedReq?.verifierStatus,
+      isUnlinked,
+    );
   /* A11: Request Re-upload only for Exception or Expired documents */
   const canRequestReupload = canRequestDocumentReupload(document);
 
@@ -322,7 +351,7 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
       : undefined;
 
   const handleVerify = () => {
-    if (verifyDisabledReason || !verificationMethod) return;
+    if (!canVerify || verifyDisabledReason || !verificationMethod) return;
     verifyDocument(
       document.id,
       'Verified',
@@ -340,27 +369,26 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
   };
 
   const handleCorrection = () => {
-    if (!requireComment()) return;
+    if (!canVerify || !requireComment()) return;
     verifyDocument(document.id, 'Correction Requested', comment.trim(), undefined, requirementId, reviewedSetId);
     onClose();
   };
 
   const handleReject = () => {
-    if (!requireComment()) return;
+    if (!canVerify || !requireComment()) return;
     verifyDocument(document.id, 'Rejected', comment.trim(), undefined, requirementId, reviewedSetId);
     onClose();
   };
 
   /* asks the submitter for a new version of an outdated document; the verification status does not change */
   const handleRequestReupload = () => {
-    if (!requireComment('A reason is required to request a reupload.')) return;
+    if (!canVerify || !requireComment('A reason is required to request a reupload.')) return;
     requestDocumentReupload(document.id, comment.trim());
     onClose();
   };
 
-
-  /* review actions sit in the drawer footer so they stay in view while the fields scroll; a verified document keeps the reupload request only */
-  const showReviewActions = canVerify;
+  /* review actions sit in the drawer footer so they stay in view while the fields scroll; submitters still see upload actions when authorized */
+  const showReviewActions = canVerify || canSubmit;
 
   /* justification & feedback notes field */
   const notesField = (
@@ -427,12 +455,12 @@ export const DocumentReviewDrawer: React.FC<DocumentReviewDrawerProps> = ({ docu
                     Upload New Version
                   </button>
                 )}
-                {!isVersionLocked && canRequestReupload && (
+                {canVerify && !isVersionLocked && canRequestReupload && (
                   <button type="button" className="btn btn-outline-secondary" onClick={handleRequestReupload}>
                     Request Reupload
                   </button>
                 )}
-                {!decisionsClosed && (
+                {canVerify && !decisionsClosed && (
                   <>
                     <button type="button" className="btn btn-outline-danger" onClick={handleReject}>
                       Reject

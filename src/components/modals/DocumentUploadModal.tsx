@@ -4,10 +4,11 @@
   role in system: invoked from DocumentLibraryView, DocumentReviewDrawer, AssuranceDetailView, CrewView and CrewDetailView.
 */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { MasterDocument, DocumentEntityType } from '../../types/document';
 import { STCWDocumentItem, STCWLayer } from '../../types/crew';
+import type { AssuranceObjectType } from '../../types/assurance';
 import { formatDocumentId } from '../../utils/formatters';
 import { formatFileSize } from '../../utils/imageCropHelpers';
 import type { InspectionReportEvidence, InspectionReportSource } from '../../types/assurance';
@@ -18,7 +19,9 @@ import {
   getInspectionValidUntil,
 } from '../../utils/inspectionEvidence';
 import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
-import { getComplianceStateForExpiry, getDocumentReuploadBlockReason } from '../../utils/documentRenewalHelpers';
+import { getAssuranceSetRoleActions } from '../../utils/rbacHelpers';
+import { isClosedAssuranceSet } from '../../utils/documentVersionSnapshot';
+import { getComplianceStateForExpiry, getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd } from '../../utils/documentRenewalHelpers';
 import {
   canEditOwnedEvidence,
   canOfferEvidenceReuse,
@@ -26,6 +29,19 @@ import {
   EVIDENCE_REUSE_VENDOR_ONLY,
   isReusableLibraryDocument,
 } from '../../utils/documentOwnershipHelpers';
+import {
+  DocumentObjectReferenceFields,
+} from './DocumentObjectReferenceFields';
+import {
+  DocumentTargetObject,
+  getUploadableTargetObjects,
+  findDuplicateObjectDocumentTitle,
+  getEntityTypeForObjectType,
+  getNextVersionLabel,
+  resolveDocumentTargetObject,
+  getObjectTypeLabel,
+  DuplicateObjectDocumentMatch,
+} from '../../utils/documentObjectHelpers';
 import { Upload, Check, AlertCircle, X, FileText } from 'lucide-react';
 import { DocumentCertificatePreview } from '../common/DocumentCertificatePreview';
 import { UniversalDocumentPreviewModal } from './UniversalDocumentPreviewModal';
@@ -48,7 +64,12 @@ interface DocumentUploadModalProps {
   /* the requirement's category; an inspection report asks for its source, date and validity */
   requirementCategory?: string;
   defaultVesselId?: string;
+  charterWindowEnd?: string;
   modalTitle?: string;
+  defaultObjectType?: AssuranceObjectType;
+  defaultObjectId?: string;
+  initialUploadMode?: 'new_document' | 'new_version';
+  allowVersionModeSwitch?: boolean;
 }
 
 export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
@@ -65,10 +86,18 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   requirementTitle,
   requirementCategory,
   defaultVesselId,
+  charterWindowEnd,
   modalTitle,
+  defaultObjectType,
+  defaultObjectId,
+  initialUploadMode,
+  allowVersionModeSwitch = false,
 }) => {
   const {
     vessels,
+    crew,
+    equipment,
+    assuranceObjects,
     documents,
     assuranceSets,
     notifications,
@@ -85,12 +114,31 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const isCrew = kind === 'crew';
   /* the version is recorded against the signed-in user, not a placeholder name */
   const sessionUser = getSessionUserForPersona(activePersona, users, getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }));
+  const effectiveOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
   const uploadContextSet = assuranceSetId
     ? assuranceSets.find((s) => s.id === assuranceSetId)
     : undefined;
-  const allowLibraryReuse = canOfferEvidenceReuse(uploadContextSet, activeDemoOrganization);
+  const uploadContextReq = requirementId
+    ? uploadContextSet?.requirements?.find((r) => r.id === requirementId)
+    : undefined;
+  const allowLibraryReuse = canOfferEvidenceReuse(uploadContextSet, effectiveOrg);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* upload mode: new document vs upload new version of an existing library document */
+  const [uploadMode, setUploadMode] = useState<'new_document' | 'new_version'>(
+    initialUploadMode || (existingDocument ? 'new_version' : 'new_document'),
+  );
+  const [uploadOption, setUploadOption] = useState<'new_file' | 'unassigned_doc'>('new_file');
+  const [selectedUnassignedDocId, setSelectedUnassignedDocId] = useState<string>('');
+
+  /* referenced assurance object state */
+  const [selectedObjectType, setSelectedObjectType] = useState<AssuranceObjectType | ''>('');
+  const [selectedObjectId, setSelectedObjectId] = useState('');
+  const [selectedObjectName, setSelectedObjectName] = useState('');
+  const [targetVersionDoc, setTargetVersionDoc] = useState<MasterDocument | null>(
+    !isCrew && existingDocument ? (existingDocument as MasterDocument) : null,
+  );
 
   /* crew kind STCW fields */
   const [layer, setLayer] = useState<STCWLayer>(initialLayer || 'Layer 1 - Universal Core');
@@ -117,15 +165,151 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [fileName, setFileName] = useState('');
   const masterDocExisting = !isCrew ? (existingDocument as MasterDocument | null | undefined) : null;
   const crewDocExisting = isCrew ? (existingDocument as STCWDocumentItem | null | undefined) : null;
+
+  const effectiveVersionDoc = !isCrew
+    ? (uploadMode === 'new_version' && targetVersionDoc ? targetVersionDoc : masterDocExisting)
+    : null;
+
   const ownsExistingEvidence =
-    !masterDocExisting ||
-    canEditOwnedEvidence(masterDocExisting, activeDemoOrganization, {
+    !effectiveVersionDoc ||
+    canEditOwnedEvidence(effectiveVersionDoc, effectiveOrg, {
       persona: activePersona,
       vessels,
       users,
+      equipment,
+      crew,
+      assuranceObjects,
     });
   const [fileSizeBytes, setFileSizeBytes] = useState<number>(masterDocExisting?.versions?.[0]?.fileSizeBytes || crewDocExisting?.fileSizeBytes || 2100000);
   const [changeSummary, setChangeSummary] = useState('');
+
+  const uploadableObjects = useMemo(() => {
+    return getUploadableTargetObjects(activePersona, effectiveOrg, {
+      vessels,
+      crew,
+      equipment,
+      assuranceObjects,
+      assuranceSets,
+      sessionUser,
+      users,
+    });
+  }, [activePersona, effectiveOrg, vessels, crew, equipment, assuranceObjects, assuranceSets, sessionUser, users]);
+
+  const effectiveTargetObject = useMemo<DocumentTargetObject | null>(() => {
+    if (isCrew && crewId) {
+      return {
+        type: 'person',
+        id: crewId,
+        name: crewName || 'Crew Member',
+      };
+    }
+    if (selectedObjectType && selectedObjectId) {
+      const matched = uploadableObjects.find(
+        (o) => o.type === selectedObjectType && o.id === selectedObjectId,
+      );
+      return {
+        type: selectedObjectType,
+        id: selectedObjectId,
+        name: selectedObjectName || matched?.name || selectedObjectId,
+      };
+    }
+    return null;
+  }, [isCrew, crewId, crewName, selectedObjectType, selectedObjectId, selectedObjectName, uploadableObjects]);
+
+  const candidateDocumentsForVersion = useMemo(() => {
+    if (isCrew) return [];
+    return documents.filter((d) => {
+      if (effectiveTargetObject) {
+        const res = resolveDocumentTargetObject(d, {
+          vessels,
+          crew,
+          equipment,
+          assuranceObjects,
+          assuranceSets,
+        });
+        if (!res || res.type !== effectiveTargetObject.type || res.id !== effectiveTargetObject.id) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [isCrew, documents, effectiveTargetObject, vessels, crew, equipment, assuranceObjects, assuranceSets]);
+
+  const duplicateTitleMatch = useMemo<DuplicateObjectDocumentMatch | null>(() => {
+    if (!effectiveTargetObject || uploadMode === 'new_version' || uploadOption === 'unassigned_doc') return null;
+    if (!title.trim()) return null;
+    const excludeDocId =
+      (existingDocument as MasterDocument | undefined)?.id ||
+      selectedUnassignedDocId ||
+      uploadContextReq?.documentId ||
+      uploadContextReq?.linkedDocumentId;
+    return findDuplicateObjectDocumentTitle(
+      documents,
+      effectiveTargetObject,
+      title,
+      {
+        excludeDocId,
+        vessels,
+        crew,
+        equipment,
+        assuranceObjects,
+        assuranceSets,
+      },
+    );
+  }, [effectiveTargetObject, uploadMode, uploadOption, title, documents, existingDocument, selectedUnassignedDocId, uploadContextReq, vessels, crew, equipment, assuranceObjects, assuranceSets]);
+
+  const duplicateVersionBlockReason = useMemo(() => {
+    if (!duplicateTitleMatch?.document) return undefined;
+    const doc = duplicateTitleMatch.document;
+    const ownsDoc = canEditOwnedEvidence(doc, effectiveOrg, {
+      persona: activePersona,
+      vessels,
+      users,
+      equipment,
+      crew,
+      assuranceObjects,
+    });
+    if (!ownsDoc) return EVIDENCE_NOT_OWNED_EDIT;
+    const linkedSetsForDoc = assuranceSets.filter((s) =>
+      s.requirements?.some((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id),
+    );
+    const linkedReqsForDoc = linkedSetsForDoc.flatMap((s) =>
+      (s.requirements ?? []).filter((r) => r.documentId === doc.id || r.linkedDocumentId === doc.id),
+    );
+    const hasDocReuploadRequested = linkedReqsForDoc.some((r) => r.reuploadRequested);
+    if (hasDocReuploadRequested) return undefined;
+    const linkedReqStatus = linkedReqsForDoc.find(
+      (r) => r.verifierStatus === 'Correction Requested' || r.verifierStatus === 'Rejected',
+    )?.verifierStatus;
+    const contractEnd =
+      charterWindowEnd ??
+      uploadContextSet?.charterWindowEnd ??
+      linkedSetsForDoc.map((s) => s.charterWindowEnd).find((end) => end && documentExpiresBeforeContractEnd(doc, end));
+
+    return getDocumentReuploadBlockReason(
+      doc,
+      notifications,
+      new Date(),
+      contractEnd,
+      linkedReqStatus,
+      linkedSetsForDoc.length === 0,
+    );
+  }, [duplicateTitleMatch, effectiveOrg, activePersona, vessels, users, equipment, crew, assuranceObjects, assuranceSets, notifications, charterWindowEnd, uploadContextSet]);
+
+  const handleSwitchToVersionDuplicate = (match: DuplicateObjectDocumentMatch) => {
+    if (match.document) {
+      setUploadMode('new_version');
+      setTargetVersionDoc(match.document);
+      setTitle(match.document.title);
+      setCertificateNo(match.document.certificateNo);
+      setIssuingAuthority(match.document.issuingAuthority);
+      setExpiryDate(match.document.expiryDate);
+      setIsAiExtracted(true);
+      setFileName(match.document.versions?.[0]?.fileName || `${match.document.title.replace(/\s+/g, '_')}_Rev.pdf`);
+      setChangeSummary('New version uploaded.');
+      triggerAutofillAnimation(['doc-title', 'doc-cert-no', 'doc-issuing-authority', 'doc-expiry-date']);
+    }
+  };
 
   /* tracks which right-column form field ids are playing the ocr autofill shimmer */
   const [animatingFields, setAnimatingFields] = useState<Set<string>>(new Set());
@@ -157,8 +341,6 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const [uploadOption, setUploadOption] = useState<'new_file' | 'unassigned_doc'>('new_file');
-  const [selectedUnassignedDocId, setSelectedUnassignedDocId] = useState<string>('');
   /* kept with the other hooks: this state used to sit after the closed-modal return and crashed the page when the modal opened */
   const [leftPaneMode, setLeftPaneMode] = useState<'pdf' | 'attributes'>('pdf');
 
@@ -223,6 +405,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setExtractionFailed(false);
       setIsHandEntered(Boolean((existingDocument as MasterDocument | null | undefined)?.isHandEntered));
       if (existingDocument) {
+        setUploadMode('new_version');
         setTitle(existingDocument.title);
         setCertificateNo(existingDocument.certificateNo);
         setIssuingAuthority(existingDocument.issuingAuthority);
@@ -242,23 +425,90 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           setFileName(crewDoc.fileName || `${crewDoc.title.toLowerCase().replace(/\s+/g, '_')}_v2.pdf`);
           setChangeSummary('Replacement STCW certificate scan uploaded by submitter.');
           setAiOcrConfidence(98.5);
+          setSelectedObjectType('person');
+          setSelectedObjectId(crewId || '');
+          setSelectedObjectName(crewName || '');
         } else {
           const doc = existingDocument as MasterDocument;
+          setTargetVersionDoc(doc);
           setEntityType(doc.entityType);
           setVesselId(doc.vesselId);
           setFileName(doc.versions?.[0]?.fileName || `${doc.title.replace(/\s+/g, '_')}_Rev.pdf`);
           setChangeSummary('New version uploaded by submitter.');
           setAiOcrConfidence(doc.ocrConfidence || 98.5);
+
+          const resolvedObj = resolveDocumentTargetObject(doc, {
+            vessels,
+            crew,
+            equipment,
+            assuranceObjects,
+            assuranceSets,
+          });
+          if (resolvedObj) {
+            setSelectedObjectType(resolvedObj.type);
+            setSelectedObjectId(resolvedObj.id);
+            setSelectedObjectName(resolvedObj.name);
+          } else if (doc.targetObjectType && doc.targetObjectId) {
+            setSelectedObjectType(doc.targetObjectType);
+            setSelectedObjectId(doc.targetObjectId);
+            setSelectedObjectName(doc.targetObjectName || doc.targetObjectId);
+          } else if (doc.vesselId) {
+            setSelectedObjectType('vessel');
+            setSelectedObjectId(doc.vesselId);
+            setSelectedObjectName(doc.vesselAttributes?.vesselName || doc.vesselId);
+          }
         }
       } else {
+        setUploadMode(initialUploadMode || 'new_document');
+        setTargetVersionDoc(null);
         setTitle(isCrew ? '' : (requirementTitle || ''));
-        setEntityType(isCrew ? 'Crew Certificate' : 'Vessel Certificate');
-        setVesselId(defaultVesselId || '');
         setCertificateNo('');
         setIssuingAuthority(isCrew ? 'Australian Maritime Safety Authority (AMSA)' : '');
         setExpiryDate(isCrew ? '2031-01-01' : '');
         setIsAiExtracted(false);
         setAiOcrConfidence(99.2);
+
+        // Derive initial referenced object
+        let initialObjType: AssuranceObjectType | '' = defaultObjectType || '';
+        let initialObjId = defaultObjectId || '';
+        let initialObjName = '';
+
+        if (!initialObjType && defaultVesselId) {
+          initialObjType = 'vessel';
+          initialObjId = defaultVesselId;
+        } else if (!initialObjType && uploadContextSet) {
+          if (uploadContextSet.equipmentId) {
+            initialObjType = 'equipment';
+            initialObjId = uploadContextSet.equipmentId;
+            initialObjName = uploadContextSet.equipmentName || '';
+          } else if (uploadContextSet.crewId) {
+            initialObjType = 'person';
+            initialObjId = uploadContextSet.crewId;
+            initialObjName = uploadContextSet.crewName || '';
+          } else if (uploadContextSet.vesselId) {
+            initialObjType = 'vessel';
+            initialObjId = uploadContextSet.vesselId;
+            initialObjName = uploadContextSet.vesselName || '';
+          }
+        }
+
+        setSelectedObjectType(initialObjType);
+        setSelectedObjectId(initialObjId);
+        setSelectedObjectName(initialObjName);
+
+        if (initialObjType === 'vessel') {
+          setVesselId(initialObjId);
+        } else {
+          setVesselId(defaultVesselId || '');
+        }
+
+        const derivedEntityType = isCrew
+          ? 'Crew Certificate'
+          : initialObjType
+            ? getEntityTypeForObjectType(initialObjType)
+            : 'Vessel Certificate';
+        setEntityType(derivedEntityType);
+
         if (isCrew) {
           setLayer(initialLayer || 'Layer 1 - Universal Core');
           setStcwRegulation('STCW Reg VI/1');
@@ -270,6 +520,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           setVerificationStatus('Pending');
           setFileName('');
           setChangeSummary('');
+          setSelectedObjectType('person');
+          setSelectedObjectId(crewId || '');
+          setSelectedObjectName(crewName || '');
         } else {
           setInspectionSource('');
           setInspectionReportDate('');
@@ -289,11 +542,92 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setIsPendingVerification(false);
       setRevealedFields({ certNo: false, authority: false, expiry: false, summary: false });
     }
-  }, [isOpen, existingDocument, isCrew, vessels, requirementTitle, defaultVesselId, initialLayer]);
+  }, [
+    isOpen,
+    existingDocument,
+    isCrew,
+    vessels,
+    crew,
+    equipment,
+    assuranceObjects,
+    assuranceSets,
+    requirementTitle,
+    defaultVesselId,
+    defaultObjectType,
+    defaultObjectId,
+    initialLayer,
+    initialUploadMode,
+    crewId,
+    crewName,
+    uploadContextSet,
+  ]);
+
+  const uploadContextActions = uploadContextSet
+    ? getAssuranceSetRoleActions(uploadContextSet, activePersona, activeDemoOrganization, sessionUser)
+    : undefined;
+  const isSetUploadBlocked = Boolean(
+    uploadContextSet &&
+      (!uploadContextActions?.canUpload ||
+        isClosedAssuranceSet(uploadContextSet) ||
+        uploadContextSet.stage === 'Cancelled'),
+  );
+  const canUpload =
+    Boolean(sessionUser) &&
+    (activePersona === 'Administrator' || activePersona === 'Submitter') &&
+    (!uploadContextSet || !isSetUploadBlocked) &&
+    (!masterDocExisting || ownsExistingEvidence);
+
+  const linkedSetsForVersionDoc = useMemo(() => {
+    if (!effectiveVersionDoc) return [];
+    return assuranceSets.filter((s) =>
+      s.requirements?.some((r) => r.documentId === effectiveVersionDoc.id || r.linkedDocumentId === effectiveVersionDoc.id),
+    );
+  }, [assuranceSets, effectiveVersionDoc]);
+
+  const linkedReqsForVersionDoc = useMemo(() => {
+    if (!effectiveVersionDoc) return [];
+    return linkedSetsForVersionDoc.flatMap((s) =>
+      (s.requirements ?? []).filter(
+        (r) => r.documentId === effectiveVersionDoc.id || r.linkedDocumentId === effectiveVersionDoc.id,
+      ),
+    );
+  }, [linkedSetsForVersionDoc, effectiveVersionDoc]);
+
+  const isVersionDocUnlinked = !uploadContextSet && linkedSetsForVersionDoc.length === 0;
+
+  const hasLinkedReuploadRequest = Boolean(
+    uploadContextReq?.reuploadRequested || linkedReqsForVersionDoc.some((r) => r.reuploadRequested),
+  );
+
+  const effectiveReqVerifierStatus =
+    uploadContextReq?.verifierStatus ||
+    linkedReqsForVersionDoc.find(
+      (r) => r.verifierStatus === 'Correction Requested' || r.verifierStatus === 'Rejected',
+    )?.verifierStatus;
+
+  const effectiveCharterWindowEnd =
+    charterWindowEnd ??
+    uploadContextSet?.charterWindowEnd ??
+    (effectiveVersionDoc
+      ? linkedSetsForVersionDoc
+          .map((s) => s.charterWindowEnd)
+          .find((end) => end && documentExpiresBeforeContractEnd(effectiveVersionDoc, end))
+      : undefined);
+
+  const reuploadBlockReason = effectiveVersionDoc
+    ? hasLinkedReuploadRequest
+      ? undefined
+      : getDocumentReuploadBlockReason(
+          effectiveVersionDoc,
+          notifications,
+          new Date(),
+          effectiveCharterWindowEnd,
+          effectiveReqVerifierStatus,
+          isVersionDocUnlinked,
+        )
+    : undefined;
 
   if (!isOpen) return null;
-
-  const canUpload = activePersona === 'Administrator' || activePersona === 'Submitter';
 
   /*
     what: handles file attachment selection and stages document for user verification before AI extraction.
@@ -319,6 +653,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   };
 
   const handleSelectFileForPreview = (selectedName: string, selectedSize?: number) => {
+    if (!canUpload) return;
     const validationError = validateEvidenceFile(selectedName, selectedSize);
     if (validationError) {
       setErrorMessage(validationError);
@@ -365,7 +700,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
-    if (isUploading || isExtractingAi) return;
+    if (!canUpload || isUploading || isExtractingAi) return;
 
     const droppedFiles = e.dataTransfer.files;
     if (droppedFiles && droppedFiles.length > 0) {
@@ -531,12 +866,62 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       return;
     }
 
-    /* a document on record is re-uploaded only once it is expired or a reviewer sent it back */
-    if (existingDocument && !isCrew && !ownsExistingEvidence) return;
-    if (existingDocument && getDocumentReuploadBlockReason(existingDocument as MasterDocument, notifications)) return;
+    const isVersionMode = uploadMode === 'new_version' || Boolean(existingDocument);
+    const docToVersion = isVersionMode
+      ? (!isCrew ? (targetVersionDoc || (existingDocument as MasterDocument | null | undefined)) : null)
+      : null;
+
+    if (isVersionMode && !isCrew) {
+      if (!docToVersion) return;
+      if (!ownsExistingEvidence) return;
+      if (reuploadBlockReason) return;
+
+      const finalCertNo = certificateNo.trim() || docToVersion.certificateNo || '';
+      const finalAuthority = issuingAuthority.trim() || docToVersion.issuingAuthority || '';
+      const finalExpiry = expiryDate || docToVersion.expiryDate || '';
+
+      setIsUploading(true);
+      setUploadProgress(15);
+      setStatusMessage('Reading document byte stream and preparing secure payload...');
+
+      setTimeout(() => {
+        setUploadProgress(45);
+        setStatusMessage('Uploading document bytes to secure maritime vault...');
+      }, 350);
+
+      setTimeout(() => {
+        setUploadProgress(80);
+        setStatusMessage('Verifying AI extracted attributes and validating IACS authority...');
+      }, 750);
+
+      setTimeout(() => {
+        setUploadProgress(100);
+        setStatusMessage('Upload complete! Registering document audit trail...');
+      }, 1150);
+
+      setTimeout(() => {
+        const finalFileName = fileName.trim() || `${title.replace(/\s+/g, '_')}_document.pdf`;
+        const nextVerLabel = getNextVersionLabel(docToVersion.versions, docToVersion.currentVersion);
+        addDocumentVersion(
+          docToVersion.id,
+          nextVerLabel,
+          finalFileName,
+          fileSizeBytes,
+          changeSummary.trim() || 'New version uploaded.',
+          finalExpiry,
+          assuranceSetId && requirementId ? { assuranceSetId, requirementId } : undefined,
+        );
+        setIsUploading(false);
+        if (onUploadComplete) onUploadComplete();
+        onClose();
+      }, 1500);
+      return;
+    }
+
+    if (duplicateTitleMatch) return;
 
     /* a new document needs its certificate no. and expiry entered; nothing is made up for it (gap review E7) */
-    if (!existingDocument && (!certificateNo.trim() || !expiryDate)) return;
+    if (!certificateNo.trim() || !expiryDate) return;
     if (isInspectionUpload && (!inspectionSource || !inspectionReportDate)) return;
     const inspectionReport: InspectionReportEvidence | undefined =
       isInspectionUpload && inspectionSource
@@ -547,9 +932,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           inspectorAccreditation: inspectorAccreditation.trim() || undefined,
         }
         : undefined;
-    const finalCertNo = certificateNo.trim() || (existingDocument as MasterDocument)?.certificateNo || '';
-    const finalAuthority = issuingAuthority.trim() || (existingDocument as MasterDocument)?.issuingAuthority || '';
-    const finalExpiry = expiryDate || (existingDocument as MasterDocument)?.expiryDate || '';
+    const finalCertNo = certificateNo.trim();
+    const finalAuthority = issuingAuthority.trim();
+    const finalExpiry = expiryDate;
 
     /* start simulated upload sequence */
     setIsUploading(true);
@@ -573,91 +958,81 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
     setTimeout(() => {
       const finalFileName = fileName.trim() || `${title.replace(/\s+/g, '_')}_document.pdf`;
-      const masterDoc = existingDocument as MasterDocument | null | undefined;
-
-      if (masterDoc) {
-        const nextVerLabel = `v1.${masterDoc.versions.length}`;
-        addDocumentVersion(
-          masterDoc.id,
-          nextVerLabel,
-          finalFileName,
-          fileSizeBytes,
-          changeSummary.trim() || 'New version uploaded.',
-          finalExpiry,
-          assuranceSetId && requirementId ? { assuranceSetId, requirementId } : undefined,
-        );
-      } else {
-        const targetVesselObj = vesselId ? vessels.find((v) => v.id === vesselId) : undefined;
-        const entityPrefix = entityType === 'Crew Certificate' ? 'CRW' : vesselId ? 'VES' : 'DOC';
-        const categoryCode = entityType === 'Crew Certificate' ? 'STCW' : vesselId ? 'STAT' : 'UNAS';
-        const newDoc: MasterDocument = {
-          id: formatDocumentId(entityPrefix, 2026, categoryCode),
-          title,
-          entityType,
-          vesselId: vesselId || defaultVesselId || '',
-          certificateNo: finalCertNo,
-          issuingAuthority: finalAuthority,
-          expiryDate: finalExpiry,
-          ownerOrganization:
-            activeDemoOrganization ||
-            uploadContextSet?.serviceProviderOrg ||
-            sessionUser?.organization ||
-            undefined,
-          ocrConfidence: aiOcrConfidence || 99,
-          complianceState: getComplianceStateForExpiry(finalExpiry),
-          currentVersion: 'v1.0',
-          versions: [
-            {
-              versionLabel: 'v1.0',
-              uploadedAt: new Date().toISOString(),
-              uploadedBy: sessionUser?.id || activePersona,
-              fileSizeBytes: fileSizeBytes,
-              fileName: finalFileName,
-              changeSummary: changeSummary.trim() || 'Initial Master Document submission with AI extracted metadata.',
-              scanDetails: { dpi: 300, pageCount: 1, resolutionDpi: 300 },
-              perFieldConfidence: { certNo: finalCertNo && !finalCertNo.includes('partially legible') ? 98 : 61, certificateNo: finalCertNo && !finalCertNo.includes('partially legible') ? 98 : 61, issuingAuthority: finalAuthority && !finalAuthority.includes('illegible') ? 97 : 44, expiryDate: finalExpiry ? 98 : 79 },
-            },
-          ],
-          vesselAttributes:
-            entityType === 'Vessel Certificate'
-              ? {
-                title,
-                certificateNumber: finalCertNo,
-                certType: 'Statutory Certificate',
-                issuingBody: finalAuthority,
-                issueDate: '',
-                expiryDate: finalExpiry,
-                vesselName: targetVesselObj?.name || '',
-                imoNumber: targetVesselObj?.imoNumber || '',
-                flagState: targetVesselObj?.flagState || '',
-                assetMatchFlag: false,
-                lastSurveyDate: '',
-                ocrConfidence: aiOcrConfidence || 99,
-                status: getComplianceStateForExpiry(finalExpiry),
-              }
-              : undefined,
-          validationRules: {
-            charterBufferPassed: false,
-            assetMatch100Percent: false,
-            iacsAuthorityValid: false,
-            overallValid: false,
-            rulesNotChecked: true,
+      const targetVesselId = selectedObjectType === 'vessel' ? selectedObjectId : (defaultVesselId || '');
+      const targetVesselObj = targetVesselId ? vessels.find((v) => v.id === targetVesselId) : undefined;
+      const entityPrefix = entityType === 'Crew Certificate' ? 'CRW' : targetVesselId ? 'VES' : 'DOC';
+      const categoryCode = entityType === 'Crew Certificate' ? 'STCW' : targetVesselId ? 'STAT' : 'UNAS';
+      const newDoc: MasterDocument = {
+        id: formatDocumentId(entityPrefix, 2026, categoryCode),
+        title: title.trim(),
+        entityType,
+        vesselId: targetVesselId,
+        targetObjectType: selectedObjectType || undefined,
+        targetObjectId: selectedObjectId || undefined,
+        targetObjectName: selectedObjectName || undefined,
+        certificateNo: finalCertNo,
+        issuingAuthority: finalAuthority,
+        expiryDate: finalExpiry,
+        ownerOrganization:
+          effectiveOrg ||
+          uploadContextSet?.serviceProviderOrg ||
+          sessionUser?.organization ||
+          undefined,
+        ocrConfidence: aiOcrConfidence || 99,
+        complianceState: getComplianceStateForExpiry(finalExpiry),
+        currentVersion: 'v1.0',
+        versions: [
+          {
+            versionLabel: 'v1.0',
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: sessionUser?.id || activePersona,
+            uploadedByUserId: sessionUser?.id,
+            fileSizeBytes: fileSizeBytes,
+            fileName: finalFileName,
+            changeSummary: changeSummary.trim() || 'Initial Master Document submission with AI extracted metadata.',
+            scanDetails: { dpi: 300, pageCount: 1, resolutionDpi: 300 },
+            perFieldConfidence: { certNo: finalCertNo && !finalCertNo.includes('partially legible') ? 98 : 61, certificateNo: finalCertNo && !finalCertNo.includes('partially legible') ? 98 : 61, issuingAuthority: finalAuthority && !finalAuthority.includes('illegible') ? 97 : 44, expiryDate: finalExpiry ? 98 : 79 },
           },
-          verificationStatus: 'Pending',
-          isHandEntered: isHandEntered || undefined,
-        };
-        if (selectedUnassignedDocId) {
-          const chosenDoc = documents.find((d) => d.id === selectedUnassignedDocId);
-          if (chosenDoc) {
-            if (assuranceSetId) {
-              uploadDocumentForRequirement(assuranceSetId, requirementId, chosenDoc, inspectionReport);
+        ],
+        vesselAttributes:
+          entityType === 'Vessel Certificate'
+            ? {
+              title: title.trim(),
+              certificateNumber: finalCertNo,
+              certType: 'Statutory Certificate',
+              issuingBody: finalAuthority,
+              issueDate: '',
+              expiryDate: finalExpiry,
+              vesselName: targetVesselObj?.name || (selectedObjectType === 'vessel' ? selectedObjectName : ''),
+              imoNumber: targetVesselObj?.imoNumber || '',
+              flagState: targetVesselObj?.flagState || '',
+              assetMatchFlag: false,
+              lastSurveyDate: '',
+              ocrConfidence: aiOcrConfidence || 99,
+              status: getComplianceStateForExpiry(finalExpiry),
             }
+            : undefined,
+        validationRules: {
+          charterBufferPassed: false,
+          assetMatch100Percent: false,
+          iacsAuthorityValid: false,
+          overallValid: false,
+          rulesNotChecked: true,
+        },
+        verificationStatus: 'Pending',
+        isHandEntered: isHandEntered || undefined,
+      };
+      if (selectedUnassignedDocId) {
+        const chosenDoc = documents.find((d) => d.id === selectedUnassignedDocId);
+        if (chosenDoc) {
+          if (assuranceSetId) {
+            uploadDocumentForRequirement(assuranceSetId, requirementId, chosenDoc, inspectionReport);
           }
-        } else if (assuranceSetId) {
-          uploadDocumentForRequirement(assuranceSetId, requirementId, newDoc, inspectionReport);
-        } else {
-          addDocument(newDoc);
         }
+      } else if (assuranceSetId) {
+        uploadDocumentForRequirement(assuranceSetId, requirementId, newDoc, inspectionReport);
+      } else {
+        addDocument(newDoc);
       }
 
       setIsUploading(false);
@@ -767,6 +1142,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
           <form onSubmit={handleSubmit}>
             <div className="modal-body p-4">
+              {!canUpload && (
+                <div className="alert alert-warning py-2 px-3 mb-3" role="alert" data-testid="upload-permission-blocked">
+                  You are not authorized to upload documents for this assurance set.
+                </div>
+              )}
+
               {errorMessage && (
                 <div className="alert alert-danger py-2 px-3 mb-3" role="alert" data-testid="upload-file-error">
                   {errorMessage}
@@ -776,6 +1157,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               {existingDocument && !isCrew && !ownsExistingEvidence && (
                 <div className="alert alert-warning py-2 px-3 mb-3" role="alert" data-testid="evidence-ownership-blocked">
                   {EVIDENCE_NOT_OWNED_EDIT}
+                </div>
+              )}
+
+              {masterDocExisting && ownsExistingEvidence && reuploadBlockReason && (
+                <div className="alert alert-warning py-2 px-3 mb-3" role="alert" data-testid="reupload-blocked-alert">
+                  {reuploadBlockReason}
                 </div>
               )}
 
@@ -1106,6 +1493,75 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 {/* Column 2 (Right): Document Upload Panel */}
                 <div className={hasExtractedSpecs ? "col-lg-5 col-md-6 ps-md-4 d-flex flex-column gap-3" : "col-12 d-flex flex-column gap-3"}>
 
+                  {/* Non-crew mode: Referenced Assurance Object picker, mode switcher, and duplicate detector */}
+                  {!isCrew && (
+                    <DocumentObjectReferenceFields
+                      selectedObjectType={selectedObjectType}
+                      selectedObjectId={selectedObjectId}
+                      onSelectObjectType={(nextType) => {
+                        setSelectedObjectType(nextType);
+                        if (nextType === 'vessel') {
+                          setVesselId(selectedObjectId);
+                        } else {
+                          setVesselId(defaultVesselId || '');
+                        }
+                        if (nextType) {
+                          setEntityType(getEntityTypeForObjectType(nextType));
+                        }
+                      }}
+                      onSelectObjectId={(nextId, obj) => {
+                        setSelectedObjectId(nextId);
+                        setSelectedObjectName(obj?.name || '');
+                        if (selectedObjectType === 'vessel') {
+                          setVesselId(nextId);
+                        }
+                      }}
+                      availableObjects={uploadableObjects}
+                      disabled={isUploading || isExtractingAi}
+                      lockObject={Boolean(existingDocument || defaultObjectId || (defaultVesselId && !allowVersionModeSwitch))}
+                      uploadMode={uploadMode}
+                      onUploadModeChange={(m) => {
+                        setUploadMode(m);
+                        if (m === 'new_document') {
+                          setTargetVersionDoc(null);
+                        }
+                      }}
+                      allowVersionModeSwitch={allowVersionModeSwitch && !existingDocument}
+                      existingTargetDocId={targetVersionDoc?.id}
+                      onSelectExistingTargetDoc={(doc) => {
+                        setTargetVersionDoc(doc);
+                        if (doc) {
+                          setTitle(doc.title);
+                          setCertificateNo(doc.certificateNo);
+                          setIssuingAuthority(doc.issuingAuthority);
+                          setExpiryDate(doc.expiryDate);
+                          setIsAiExtracted(true);
+                          setFileName(doc.versions?.[0]?.fileName || `${doc.title.replace(/\s+/g, '_')}_Rev.pdf`);
+                          setChangeSummary('New version uploaded.');
+                        }
+                      }}
+                      candidateDocumentsForVersion={candidateDocumentsForVersion}
+                      duplicateMatch={duplicateTitleMatch}
+                      onSwitchToVersionDuplicate={handleSwitchToVersionDuplicate}
+                      duplicateVersionBlockReason={duplicateVersionBlockReason}
+                    />
+                  )}
+
+                  {/* Crew mode: duplicate certificate check on seafarer */}
+                  {isCrew && duplicateTitleMatch && (
+                    <div className="alert alert-warning py-2.5 px-3 mb-1 mt-1 border-warning shadow-2xs" role="alert" data-testid="duplicate-object-title-error">
+                      <div className="d-flex align-items-start gap-2">
+                        <AlertCircle size={16} className="text-warning-emphasis flex-shrink-0 mt-0.5" />
+                        <div className="flex-grow-1">
+                          <div className="fw-bold small text-warning-emphasis">Duplicate Certificate on Crew Member</div>
+                          <div className="small text-secondary mb-1" style={{ fontSize: '0.78rem' }}>
+                            A certificate titled <strong>"{duplicateTitleMatch.title}"</strong> is already recorded for this crew member. Update the existing certificate revision instead.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Document Title & Entity Type (Same Row) */}
                   <div className="row g-2">
                     <div className="col-md-6">
@@ -1119,7 +1575,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                         placeholder="e.g. Certificate of Class"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        disabled={isUploading || isExtractingAi || !!existingDocument}
+                        disabled={isUploading || isExtractingAi || !!existingDocument || uploadMode === 'new_version'}
                         required
                       />
                     </div>
@@ -1132,13 +1588,66 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                         className="form-select form-select-sm bg-white text-dark border-secondary"
                         value={entityType}
                         onChange={(e) => setEntityType(e.target.value as DocumentEntityType)}
-                        disabled={isUploading || isExtractingAi || !!existingDocument}
+                        disabled={isUploading || isExtractingAi || !!existingDocument || uploadMode === 'new_version'}
                       >
                         <option value="Vessel Certificate">Vessel Certificate</option>
                         <option value="Crew Certificate">Crew Certificate</option>
+                        <option value="Equipment Certificate">Equipment Certificate</option>
+                        <option value="Project Dossier">Project Dossier</option>
                       </select>
                     </div>
                   </div>
+
+                  {/* Non-crew metadata fields in right column */}
+                  {!isCrew && (
+                    <div className="row g-2">
+                      <div className="col-md-6">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="doc-cert-no">
+                          Certificate No. <span className="text-danger">*</span>
+                        </label>
+                        <input
+                          id="doc-cert-no"
+                          type="text"
+                          className={`form-control form-control-sm bg-white text-dark border-secondary font-mono-code ${hasAttemptedSubmit && uploadMode === 'new_document' && !certificateNo.trim() ? 'is-invalid' : ''}${animatingFields.has('doc-cert-no') ? ' map-autofill-animate' : ''}`}
+                          placeholder="e.g. DNV-STAT-2026-001"
+                          value={certificateNo}
+                          onChange={(e) => setCertificateNo(e.target.value)}
+                          disabled={isUploading || isExtractingAi}
+                          required={uploadMode === 'new_document'}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="doc-issuing-authority">
+                          Issuing Authority <span className="text-danger">*</span>
+                        </label>
+                        <input
+                          id="doc-issuing-authority"
+                          type="text"
+                          className={`form-control form-control-sm bg-white text-dark border-secondary ${hasAttemptedSubmit && uploadMode === 'new_document' && !issuingAuthority.trim() ? 'is-invalid' : ''}${animatingFields.has('doc-issuing-authority') ? ' map-autofill-animate' : ''}`}
+                          placeholder="e.g. DNV / Lloyd's Register"
+                          value={issuingAuthority}
+                          onChange={(e) => setIssuingAuthority(e.target.value)}
+                          disabled={isUploading || isExtractingAi}
+                          required={uploadMode === 'new_document'}
+                        />
+                      </div>
+                      <div className="col-md-12">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="doc-expiry-date">
+                          Expiry Date <span className="text-danger">*</span>
+                        </label>
+                        <input
+                          id="doc-expiry-date"
+                          type="date"
+                          className={`form-control form-control-sm bg-white text-dark border-secondary font-mono-code ${hasAttemptedSubmit && uploadMode === 'new_document' && !expiryDate ? 'is-invalid' : ''}${animatingFields.has('doc-expiry-date') ? ' map-autofill-animate' : ''}`}
+                          value={expiryDate}
+                          onChange={(e) => setExpiryDate(e.target.value)}
+                          disabled={isUploading || isExtractingAi}
+                          required={uploadMode === 'new_document'}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {isInspectionUpload && (
                     <div className="row g-2">
                       <div className="col-md-6">
@@ -1205,7 +1714,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     </div>
                   )}
                   {/* Option A: Upload from Document Library (A16: Vendor on the set only) */}
-                  {!existingDocument && (() => {
+                  {!existingDocument && uploadMode !== 'new_version' && (() => {
                     const libDocs = isCrew
                       ? documents.filter((d) => {
                           if (d.entityType !== 'Crew Certificate') return false;
@@ -1460,8 +1969,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     </>
                   )}
 
-                  {/* reason for revision / change summary field - only rendered when uploading a revision to an existing document */}
-                  {existingDocument && (
+                  {/* reason for revision / change summary field - rendered when in version mode */}
+                  {(existingDocument || uploadMode === 'new_version') && (
                     <div>
                       <label className="form-label text-dark fw-semibold small mb-1" htmlFor="revision-summary">
                         Change Summary
@@ -1511,18 +2020,28 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 type="submit"
                 className="btn btn-sm btn-primary fw-bold px-4 d-inline-flex align-items-center gap-2"
                 disabled={
+                  !canUpload ||
                   isUploading ||
                   isExtractingAi ||
                   !title.trim() ||
-                  (!existingDocument && (!certificateNo.trim() || !expiryDate)) ||
-                  (Boolean(existingDocument) && !isCrew && !ownsExistingEvidence)
+                  (uploadMode === 'new_document' && (!certificateNo.trim() || !expiryDate)) ||
+                  (uploadMode === 'new_version' && !targetVersionDoc && !existingDocument) ||
+                  (uploadMode === 'new_version' && !isCrew && !ownsExistingEvidence) ||
+                  Boolean((uploadMode === 'new_version' || existingDocument) && reuploadBlockReason) ||
+                  Boolean(duplicateTitleMatch)
                 }
                 title={
-                  existingDocument && !isCrew && !ownsExistingEvidence
-                    ? EVIDENCE_NOT_OWNED_EDIT
-                    : !existingDocument && (!certificateNo.trim() || !expiryDate)
-                      ? 'Enter the certificate no. and expiry date.'
-                      : undefined
+                  !canUpload
+                    ? 'You are not authorized to upload documents for this assurance set.'
+                    : (uploadMode === 'new_version' || existingDocument) && !isCrew && !ownsExistingEvidence
+                      ? EVIDENCE_NOT_OWNED_EDIT
+                      : (uploadMode === 'new_version' || existingDocument) && reuploadBlockReason
+                        ? reuploadBlockReason
+                        : duplicateTitleMatch
+                          ? `Duplicate title on ${effectiveTargetObject?.name || 'same object'}. Upload a new version instead.`
+                          : uploadMode === 'new_document' && (!certificateNo.trim() || !expiryDate)
+                            ? 'Enter the certificate no. and expiry date.'
+                            : undefined
                 }
               >
                 {isUploading ? (
@@ -1530,7 +2049,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" />
                     Uploading...
                   </>
-                ) : existingDocument ? (
+                ) : uploadMode === 'new_version' || existingDocument ? (
                   isCrew ? 'Submit Replacement Revision' : 'Upload New Version'
                 ) : (
                   isCrew ? 'Upload Certificate' : 'Upload Document'

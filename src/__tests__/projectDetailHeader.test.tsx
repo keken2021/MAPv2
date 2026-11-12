@@ -4,11 +4,15 @@ import { render, screen, within, fireEvent } from '@testing-library/react';
 import { ProjectDetailView } from '../views/ProjectDetailView';
 import { useMapStore } from '../store/useMapStore';
 
+const initialState = useMapStore.getState();
+
 describe('ProjectDetailView UI Declutter', () => {
   beforeEach(() => {
+    useMapStore.setState(initialState, true);
     useMapStore.setState({
       activePersona: 'Administrator',
       activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
       isAuthenticated: true,
     });
   });
@@ -70,6 +74,9 @@ describe('ProjectDetailView UI Declutter', () => {
           visibility: 'public',
           projectId: undefined,
           initiatorOrg: 'Northwind Marine Pty Ltd',
+          createdByPersona: 'Administrator',
+          createdByUserId: 'USR-101',
+          createdByName: 'K. Osei',
           requirements: [],
         } as any,
       ],
@@ -93,6 +100,12 @@ describe('ProjectDetailView UI Declutter', () => {
   });
 
   it('makes Overview the default active tab, shows project readiness and KPIs, and switches cleanly to written-spec Details', () => {
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Oil Company',
+      activeSessionUserId: 'USR-228',
+      isAuthenticated: true,
+    });
     render(<ProjectDetailView projectId="MAP-PROJ-2026-MARINE-017" />);
 
     const tablist = screen.getByRole('tablist', { name: /project detail tabs/i });

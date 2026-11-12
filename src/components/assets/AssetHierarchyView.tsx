@@ -7,6 +7,7 @@
 import React, { useMemo, useState } from 'react';
 import { useMapStore } from '../../store/useMapStore';
 import { filterEquipmentForPersona, filterVesselsForPersona } from '../../utils/rbacHelpers';
+import { useSessionUser } from '../../utils/useSessionUser';
 import { deriveComplianceStatus, getVesselAssetStatus } from '../../types/asset';
 import { calculateVesselReadiness } from '../../utils/readinessHelpers';
 import { EquipmentAsset } from '../../types/equipment';
@@ -25,7 +26,15 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
   onSelectVessel,
   onSelectEquipment,
 }) => {
-  const { vessels, equipment, assuranceSets, documents, activePersona } = useMapStore();
+  const {
+    vessels,
+    equipment,
+    assuranceSets,
+    documents,
+    activePersona,
+    activeDemoOrganization,
+  } = useMapStore();
+  const sessionUser = useSessionUser();
   const [expandedVessels, setExpandedVessels] = useState<Set<string>>(new Set(['VESSEL-001']));
   const [assetTypeFilter, setAssetTypeFilter] = useState<AssetTypeFilter>(defaultAssetTypeFilter);
   const [ownerFilter, setOwnerFilter] = useState('All');
@@ -33,13 +42,28 @@ export const AssetHierarchyView: React.FC<AssetHierarchyViewProps> = ({
   const [complianceFilter, setComplianceFilter] = useState('All');
 
   const visibleVessels = useMemo(
-    () => filterVesselsForPersona(vessels, assuranceSets, activePersona),
-    [vessels, assuranceSets, activePersona],
+    () =>
+      filterVesselsForPersona(
+        vessels,
+        assuranceSets,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+      ),
+    [vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser],
   );
 
   const visibleEquipment = useMemo(
-    () => filterEquipmentForPersona(equipment, vessels, assuranceSets, activePersona),
-    [equipment, vessels, assuranceSets, activePersona],
+    () =>
+      filterEquipmentForPersona(
+        equipment,
+        vessels,
+        assuranceSets,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+      ),
+    [equipment, vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser],
   );
 
   const ownerOptions = useMemo(() => {

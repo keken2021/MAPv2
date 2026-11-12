@@ -86,6 +86,14 @@ export interface Project extends AssuranceProject {
   operatorOrganization: string;
   /** Client organization that owns this project (charterer) */
   ownerOrganization?: string;
+  /** user id of the user who created this project */
+  createdByUserId?: string;
+  /** display name of the user who created this project */
+  createdByName?: string;
+  /** persona role of the user who created this project */
+  createdByPersona?: string;
+  /** user ids explicitly listed as stakeholders at the project level */
+  stakeholderUserIds?: string[];
   /** Organizations that may open the project and create a set before they are the client on one */
   invitedOrganizations?: string[];
   assetLinks: ProjectAssetLink[];

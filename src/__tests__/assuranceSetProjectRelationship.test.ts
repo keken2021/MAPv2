@@ -112,9 +112,21 @@ describe('project to assurance set relationship', () => {
     const linkCount = project?.assetLinks.filter((l) => l.assetId === 'VESSEL-013').length ?? 0;
 
     useMapStore.setState((state) => ({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Oil Company',
+      activeSessionUserId: 'USR-228',
       assuranceSets: [
         ...state.assuranceSets,
-        buildOrphanSet('AS-REL-006', 'VESSEL-013', 'LNGC Northwind Aurora'),
+        {
+          ...buildOrphanSet('AS-REL-006', 'VESSEL-013', 'LNGC Northwind Aurora'),
+          initiatorOrg: 'Oil Company',
+          initiatorRole: 'C Admin · Client Created',
+          clientOrg: 'Oil Company',
+          charterer: 'Oil Company',
+          createdByUserId: 'USR-228',
+          createdByName: 'A. Okonkwo',
+          createdByPersona: 'C Admin',
+        },
       ],
     }));
 
@@ -148,14 +160,27 @@ describe('project to assurance set relationship', () => {
   });
 
   it('refuses to add a set that already belongs to another project', () => {
-    const [first, second] = MOCK_PROJECTS;
+    const [first] = MOCK_PROJECTS;
+    const secondRes = useMapStore.getState().addProject({
+      name: 'Relationship Test Second Project',
+      projectType: 'Charter / Voyage',
+      requestingOrganization: 'Northwind Marine Pty Ltd',
+      clientOperator: 'Northwind Marine Pty Ltd',
+      location: 'Dampier',
+      charterWindowStart: '2026-12-01',
+      charterWindowEnd: '2027-03-01',
+      operatorOrganization: 'Northwind Marine Pty Ltd',
+    });
+    expect(secondRes.success).toBe(true);
+    const secondId = secondRes.projectId as string;
+
     useMapStore.setState((state) => ({
       assuranceSets: [...state.assuranceSets, buildOrphanSet('AS-REL-004', 'VESSEL-REL-004', 'Relationship Test Vessel D')],
     }));
 
     expect(useMapStore.getState().attachAssuranceSetToProject('AS-REL-004', first.id).success).toBe(true);
 
-    const result = useMapStore.getState().attachAssuranceSetToProject('AS-REL-004', second.id);
+    const result = useMapStore.getState().attachAssuranceSetToProject('AS-REL-004', secondId);
     expect(result.success).toBe(false);
     expect(result.message).toContain('already belongs to project');
 

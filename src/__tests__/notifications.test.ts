@@ -305,6 +305,8 @@ describe('store: assurance set request', () => {
     useMapStore.setState({
       notifications: MOCK_NOTIFICATIONS,
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
       pendingAssuranceRequestNotificationId: undefined,
     });
   });
@@ -389,6 +391,8 @@ describe('store: assurance set request', () => {
 
     useMapStore.setState({
       activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
       pendingAssuranceRequestNotificationId: request.id,
     });
     useMapStore.getState().addAssuranceSet({
@@ -400,6 +404,8 @@ describe('store: assurance set request', () => {
       charterer: context.clientOrganization,
       clientOrg: context.clientOrganization,
       initiatorOrg: 'Northwind Marine Pty Ltd',
+      createdByPersona: 'Submitter',
+      createdByUserId: 'USR-102',
       createdByName: context.assigneeName,
     });
 
@@ -431,7 +437,7 @@ describe('store: workflow notifications', () => {
     expect(resolveNotificationRecipient('A. Fontaine (Bureau Veritas Inspectorate)', MOCK_USERS)?.id).toBe('USR-202');
   });
 
-  it('notifies the verifier, inspector and approver named on a newly created set', () => {
+  it('notifies only the personally assigned submitter, verifier, inspector, approver and client creator (no org-wide broadcast)', () => {
     const template = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-001')!;
     useMapStore.getState().addAssuranceSet({
       ...template,
@@ -447,12 +453,10 @@ describe('store: workflow notifications', () => {
       .notifications.filter((n) => n.assuranceSetId === 'AS-NTF-TEST-002' && n.type === 'stakeholder_assigned');
     expect(created.map((n) => [n.recipientUserId, n.assignedRole]).sort()).toEqual([
       ['USR-102', 'Submitter'],
-      ['USR-104', 'Submitter'],
       ['USR-202', 'Verifier'],
       ['USR-203', 'Inspector'],
       ['USR-204', 'Approver'],
       ['USR-221', 'C Admin'],
-      ['USR-235', 'Submitter'],
     ]);
     expect(created.every((n) => n.type === 'stakeholder_assigned' && n.senderUserId === 'USR-101')).toBe(true);
   });
@@ -471,14 +475,24 @@ describe('store: workflow notifications', () => {
   });
 
   it('notifies a stakeholder who is assigned to an existing set', () => {
-    /* an initiated set that is not yet under review, so stakeholders can still be reassigned */
+    /* an initiated set created by BV admin that is not yet under review, so BV admin can assign its inspector */
     const template = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-001')!;
+    useMapStore.setState({
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     useMapStore.getState().addAssuranceSet({
       ...template,
       id: 'AS-NTF-TEST-004',
       title: 'Northwind Tasman Pioneer Reassignment Vetting',
       projectId: undefined,
       projectName: undefined,
+      initiatorOrg: 'Bureau Veritas Inspectorate',
+      initiatorRole: 'Vessel Provider Admin',
+      createdByPersona: 'Administrator',
+      createdByUserId: 'USR-202',
+      createdByName: 'A. Fontaine',
       visibility: 'organization',
       stage: 'Initiated',
       approverDecision: 'Pending',
@@ -488,7 +502,6 @@ describe('store: workflow notifications', () => {
 
     const target = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-NTF-TEST-004')!;
     /* only the admin of the organization that fills the role chooses its person */
-    useMapStore.setState({ activeDemoOrganization: 'Bureau Veritas Inspectorate' });
     const result = useMapStore
       .getState()
       .updateAssuranceStakeholder(target.id, 'Inspector', 'Capt. Robert Shaw (Bureau Veritas Inspectorate)');
@@ -499,16 +512,28 @@ describe('store: workflow notifications', () => {
       assignedRole: 'Inspector',
       assuranceSetId: target.id,
       subject: `You are assigned to inspect ${target.title}`,
-      senderName: 'K. Osei',
+      senderName: 'A. Fontaine',
     });
   });
 
   it('notifies the verifier when a set is sent for review', () => {
-    useMapStore.setState({
+    useMapStore.setState((state) => ({
+      assuranceSets: state.assuranceSets.map((s) =>
+        s.id === 'AS-2026-007'
+          ? {
+              ...s,
+              initiatorOrg: 'Southern Basin Energy Pty Ltd',
+              initiatorRole: 'C Admin · Client Created',
+              createdByPersona: 'C Admin',
+              createdByUserId: 'USR-201',
+              createdByName: 'S. Basin',
+            }
+          : s,
+      ),
       activePersona: 'C Admin',
       activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
       activeSessionUserId: 'USR-201',
-    });
+    }));
     useMapStore.getState().sendAssuranceForReview('AS-2026-007');
     expect(inboxOf('USR-205')[0]).toMatchObject({
       type: 'review_requested',
@@ -518,14 +543,18 @@ describe('store: workflow notifications', () => {
   });
 
   it('notifies the set creator of the approver decision', () => {
-    useMapStore.setState({ activePersona: 'Approver' });
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+      activeSessionUserId: 'USR-208',
+    });
     useMapStore.getState().setApproverDecision('AS-2026-005', 'Returned for Correction', 'Class certificate missing.');
     expect(inboxOf('USR-201')[0]).toMatchObject({
       type: 'approval_decision',
       assuranceSetId: 'AS-2026-005',
       subject: 'Returned for correction: Southern Basin Platform Support Charter',
       message: 'Class certificate missing.',
-      senderUserId: 'USR-204',
+      senderUserId: 'USR-208',
       projectId: 'MAP-PROJ-2026-MARINE-009',
     });
   });
@@ -558,7 +587,11 @@ describe('store: workflow notifications', () => {
   it('notifies the approver when a task is sent back for correction or review', () => {
     const { assuranceSets, users } = useMapStore.getState();
     const targetSet = assuranceSets.find(
-      (s) => s.requirements.length > 0 && resolveNotificationRecipient(s.assignedApprover, users),
+      (s) =>
+        s.stage === 'Approval' &&
+        s.requirements.length > 0 &&
+        s.assignedVerifier?.includes('A. Fontaine') &&
+        resolveNotificationRecipient(s.assignedApprover, users),
     )!;
     expect(targetSet).toBeDefined();
     const approver = resolveNotificationRecipient(targetSet.assignedApprover, users)!;
@@ -582,7 +615,12 @@ describe('store: workflow notifications', () => {
       senderUserId: 'USR-202',
     });
 
-    useMapStore.setState({ notifications: [] });
+    useMapStore.setState({
+      notifications: [],
+      activePersona: 'Approver',
+      activeDemoOrganization: approver.organization || 'Marine Assurance Authority',
+      activeSessionUserId: approver.id,
+    });
     useMapStore.getState().denyRequirementByApprover(targetSet.id, req.id, 'Correction Requested', 'Needs updated class endorsement.');
     const denyNotice = inboxOf(approver.id).find(
       (n) => n.type === 'document_correction' && n.assuranceSetId === targetSet.id && n.subject.startsWith('Task sent back for review'),
@@ -598,8 +636,8 @@ describe('store: workflow notifications', () => {
   it('notifies the vessel inspector when a capa is flagged for re-inspection', () => {
     useMapStore.setState({
       activePersona: 'C Admin',
-      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
-      activeSessionUserId: 'USR-201',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
     });
     useMapStore.getState().flagCapaForReinspection('CAPA-118', 'Verify HRU replacement on board.');
     expect(inboxOf('USR-203')[0]).toMatchObject({
@@ -607,7 +645,7 @@ describe('store: workflow notifications', () => {
       capaId: 'CAPA-118',
       vesselName: 'MV Pacific Endeavour',
       message: 'Verify HRU replacement on board.',
-      senderUserId: 'USR-201',
+      senderUserId: 'USR-221',
     });
   });
 });
@@ -662,16 +700,23 @@ describe('target date notices', () => {
   it('notifies the actor when a task target date moves, and warns when the new date is inside 7 days', () => {
     useMapStore.setState({
       notifications: [],
-      activePersona: 'Administrator',
-      activeSessionUserId: 'USR-101',
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
     });
     const set = useMapStore.getState().assuranceSets.find((item) => item.id === 'AS-2026-001')!;
     const task = set.requirements[0];
+    useMapStore.getState().grantDatePermission(set.id, {
+      userId: 'USR-221',
+      userName: 'C. Henderson',
+      grantedBy: 'C. Henderson',
+      expiresAt: '2028-12-31T00:00:00Z',
+    });
     const today = new Date().toISOString().slice(0, 10);
-    const result = useMapStore.getState().updateTaskTargetDate(set.id, task.id, '2026-10-30', 'K. Osei', 'Brought forward');
+    const result = useMapStore.getState().updateTaskTargetDate(set.id, task.id, '2026-10-30', 'C. Henderson', 'Brought forward');
     expect(result.success, result.message).toBe(true);
 
-    const mine = inboxOf('USR-101');
+    const mine = inboxOf('USR-221');
     expect(mine.some((notice) => notice.targetDateKind === 'date_changed' && notice.taskId === task.id)).toBe(true);
     const expectedKind = targetDateNoticeKind('2026-10-30', today);
     if (expectedKind) {

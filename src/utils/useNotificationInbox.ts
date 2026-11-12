@@ -15,7 +15,8 @@ import {
   filterNotificationsForUser,
   getNotificationAction,
 } from './notificationHelpers';
-import { isViewAccessibleToPersona } from './rbacHelpers';
+import { isAssuranceSetAssignedToPersona, isViewAccessibleToPersona } from './rbacHelpers';
+import { isProjectAccessibleToUser } from './projectHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from './userRoleHelpers';
 
 export interface NotificationInbox {
@@ -72,30 +73,95 @@ export function useNotificationInbox(): NotificationInbox {
   const getAction = useCallback(
     (notification: AppNotification) => {
       /* same user the route guard in App.tsx evaluates matrix overrides for */
-      const matrixUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
+      const matrixUser = sessionUser ?? null;
       return getNotificationAction(notification, {
         assuranceSets,
         documents,
         capaItems,
         projects,
-        canAccessView: (view, entityId) =>
-          isViewAccessibleToPersona(
+        canAccessView: (view, entityId) => {
+          const roleAllowed = isViewAccessibleToPersona(
             view,
             entityId,
             activePersona,
             ENABLE_ROLES_AND_PERMISSIONS ? rolePermissionDefaults : undefined,
             ENABLE_ROLES_AND_PERMISSIONS ? userPermissionOverrides : undefined,
             matrixUser,
-          ),
+          );
+          if (!roleAllowed) return false;
+          if (!sessionUser) return false;
+          if (view === 'assurance-sets' && entityId) {
+            const targetSet = assuranceSets.find((s) => s.id === entityId);
+            if (targetSet) {
+              return isAssuranceSetAssignedToPersona(
+                targetSet,
+                activePersona,
+                activeDemoOrganization,
+                sessionUser,
+                users,
+              );
+            }
+          }
+          if (view === 'project' && entityId && entityId !== 'new') {
+            const targetProject = projects.find((p) => p.id === entityId);
+            if (targetProject) {
+              return isProjectAccessibleToUser(
+                targetProject,
+                activePersona,
+                users,
+                assuranceSets,
+                activeDemoOrganization,
+                sessionUser,
+                notifications,
+              );
+            }
+          }
+          if (view === 'approver' && entityId) {
+            const targetSet = assuranceSets.find((s) => s.id === entityId);
+            if (targetSet) {
+              return isAssuranceSetAssignedToPersona(
+                targetSet,
+                activePersona,
+                activeDemoOrganization,
+                sessionUser,
+                users,
+              );
+            }
+          }
+          if ((view === 'inspector' || view === 'inspection') && entityId) {
+            const matchingSets = assuranceSets.filter(
+              (s) =>
+                s.id === entityId ||
+                s.vesselId === entityId ||
+                s.vesselName === entityId ||
+                s.vesselName === decodeURIComponent(entityId),
+            );
+            if (matchingSets.length > 0) {
+              return matchingSets.some((s) =>
+                isAssuranceSetAssignedToPersona(
+                  s,
+                  activePersona,
+                  activeDemoOrganization,
+                  sessionUser,
+                  users,
+                ),
+              );
+            }
+          }
+          return true;
+        },
       });
     },
     [
+      sessionUser,
       users,
       activePersona,
+      activeDemoOrganization,
       assuranceSets,
       documents,
       capaItems,
       projects,
+      notifications,
       rolePermissionDefaults,
       userPermissionOverrides,
     ],

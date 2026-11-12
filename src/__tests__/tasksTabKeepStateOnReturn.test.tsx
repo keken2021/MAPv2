@@ -6,6 +6,8 @@ import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
 import { useMapStore } from '../store/useMapStore';
 import type { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 
+const initialState = useMapStore.getState();
+
 describe('Task 5380: Keep search, filters, sort and page on return to Tasks tab', () => {
   const testSetId = 'AS-TASK-5380';
 
@@ -18,7 +20,7 @@ describe('Task 5380: Keep search, filters, sort and page on return to Tasks tab'
     ocrConfidence: 95,
     verifierStatus: status,
     targetDate: '2026-11-20',
-    assignedSubmitter: 'M. Chen (Northwind Marine)',
+    assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
   });
 
   const testReqs: AssuranceRequirement[] = [
@@ -33,12 +35,14 @@ describe('Task 5380: Keep search, filters, sort and page on return to Tasks tab'
     vesselName: 'Pacific Supporter',
     vesselId: 'VES-5380',
     imoNumber: '9123456',
-    initiatorOrg: 'Chevron Australia',
+    initiatorOrg: 'Chevron Australia Pty Ltd',
     initiatorRole: 'Client Admin',
-    clientOrg: 'Chevron Australia',
-    requestingParty: 'Chevron Australia',
-    serviceProviderOrg: 'Northwind Marine',
-    respondingParty: 'Northwind Marine',
+    createdByUserId: 'USR-221',
+    createdByName: 'C. Henderson',
+    clientOrg: 'Chevron Australia Pty Ltd',
+    requestingParty: 'Chevron Australia Pty Ltd',
+    serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    respondingParty: 'Northwind Marine Pty Ltd',
     charterWindowStart: '2026-01-01',
     charterWindowEnd: '2026-12-31',
     complianceDeadline: '2026-11-30',
@@ -51,12 +55,18 @@ describe('Task 5380: Keep search, filters, sort and page on return to Tasks tab'
 
   beforeEach(() => {
     cleanup();
-    useMapStore.setState({
-      assuranceSets: [testSet],
-      /* requesting party → View on pending (responding party would get Upload, which opens a modal) */
-      activePersona: 'C Admin',
-      activeDemoOrganization: 'Chevron Australia',
-    });
+    useMapStore.setState(
+      {
+        ...initialState,
+        assuranceSets: [testSet],
+        /* requesting party → View on pending (responding party would get Upload, which opens a modal) */
+        isAuthenticated: true,
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      },
+      true,
+    );
   });
 
   it('preserves search input and selected filter tab when returning from requirement detail', () => {

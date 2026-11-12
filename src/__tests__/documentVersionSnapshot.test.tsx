@@ -21,8 +21,16 @@ const getReqForDoc = (setId: string, docId: string) =>
 
 describe('document version snapshot', () => {
   beforeEach(() => {
-    useMapStore.setState(initialState, true);
-    useMapStore.getState().setActivePersona('Administrator');
+    useMapStore.setState(
+      {
+        ...initialState,
+        isAuthenticated: true,
+        activePersona: 'Submitter',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-102',
+      },
+      true,
+    );
   });
 
   it('seeds approved sets with their document versions locked', () => {
@@ -59,6 +67,11 @@ describe('document version snapshot', () => {
 
   it('keeps the approved status when another set that uses the document is rejected', () => {
     const docStatusBefore = getDoc(SHARED_DOC).verificationStatus;
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Inpex Operations Australia',
+      activeSessionUserId: 'USR-217',
+    });
     useMapStore.getState().setApproverDecision('AS-2026-027', 'Rejected', 'Rejected for test.');
     /* the rejection stays on the rejected set; the shared library document is not marked */
     expect(getReqForDoc('AS-2026-027', SHARED_DOC).verifierStatus).toBe('Rejected');
@@ -74,12 +87,22 @@ describe('document version snapshot', () => {
     const req = getReqForDoc('AS-2026-027', SHARED_DOC);
     const docVersion = getDoc(SHARED_DOC).currentVersion;
 
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Inpex Operations Australia',
+      activeSessionUserId: 'USR-218',
+    });
     useMapStore.getState().updateRequirementStatus(set.id, req.id, 'Verified', 'Looks good.');
     const verified = getReqForDoc('AS-2026-027', SHARED_DOC);
     expect(verified.verifiedVersion?.versionLabel).toBe(docVersion);
     expect(verified.verifiedVersion?.verifiedBy).toBeTruthy();
     expect(verified.documentVersion).toBe(docVersion);
 
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: 'Inpex Operations Australia',
+      activeSessionUserId: 'USR-217',
+    });
     useMapStore.getState().setApproverDecision(set.id, 'Approved', 'Approved for test.');
     const approved = getSet('AS-2026-027');
     expect(approved.lockedAt).toBeTruthy();
@@ -87,6 +110,11 @@ describe('document version snapshot', () => {
       .filter((r) => r.documentId || r.linkedDocumentId)
       .forEach((r) => expect(r.verifiedVersion, r.id).toBeDefined());
 
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
     useMapStore.getState().addDocumentVersion(SHARED_DOC, 'v2.0', 'later.pdf', 1024, 'Later version.');
     expect(getReqForDoc('AS-2026-027', SHARED_DOC).verifiedVersion?.versionLabel).toBe(docVersion);
     expect(getReqForDoc('AS-2026-027', SHARED_DOC).verifierStatus).toBe('Verified');
@@ -96,6 +124,11 @@ describe('document version snapshot', () => {
     useMapStore.getState().addDocumentVersion(SHARED_DOC, 'v1.9', 'renewed.pdf', 2048, 'Renewed certificate.');
     const lockedLabel = getReqForDoc('AS-2026-004', SHARED_DOC).verifiedVersion!.versionLabel;
 
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-104',
+    });
     render(<AssuranceDetailView setId="AS-2026-004" />);
     fireEvent.click(screen.getByRole('tab', { name: /^requirements$/i }));
 

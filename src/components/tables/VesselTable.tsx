@@ -130,37 +130,50 @@ export const VesselTable: React.FC<VesselTableProps> = ({
 
   const availableAssuranceSets = useMemo(() => {
     return assuranceSets.filter((set) =>
-      isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser),
+      isAssuranceSetAssignedToPersona(
+        set,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+        users,
+      ),
     );
-  }, [assuranceSets, activePersona, activeDemoOrganization, sessionUser]);
+  }, [assuranceSets, activePersona, activeDemoOrganization, sessionUser, users]);
 
-  const matchingUser = users.find((u) => u.roles.includes(activePersona)) ?? null;
   const canRegister =
-    activePersona === 'Administrator' ||
-    canPerform(
-      rolePermissionDefaults,
-      userPermissionOverrides,
-      matchingUser,
-      activePersona,
-      'vessels',
-      'create',
-      customScopes,
-    );
+    Boolean(sessionUser) &&
+    (activePersona === 'Administrator' ||
+      canPerform(
+        rolePermissionDefaults,
+        userPermissionOverrides,
+        sessionUser,
+        activePersona,
+        'vessels',
+        'create',
+        customScopes,
+      ));
 
   const isVesselOwned = isVesselOwnedByAdmin;
 
-  const viewerOrg = matchingUser?.organization;
-  const ownedVessels = isClientAdmin
-    ? vessels.filter((vessel) => isVesselOwnedByClientOrg(vessel, viewerOrg ?? ''))
-    : activePersona === 'Submitter'
-      ? filterVesselsForPersona(vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser)
-      : vessels.filter(isVesselOwned);
-  const charteredVessels = isClientAdmin
-    ? filterCAdminActiveCharters(vessels, assuranceSets)
-    : filterVesselAdminChartered(vessels, assuranceSets, viewerOrg);
+  const viewerOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
+  const ownedVessels = !sessionUser
+    ? []
+    : isClientAdmin
+      ? vessels.filter((vessel) => isVesselOwnedByClientOrg(vessel, viewerOrg))
+      : activePersona === 'Submitter'
+        ? filterVesselsForPersona(vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser)
+        : viewerOrg
+          ? vessels.filter((v) => isVesselOwnedByClientOrg(v, viewerOrg) || (viewerOrg.toLowerCase().includes('northwind') && isVesselOwned(v)))
+          : [];
+  const charteredVessels = !sessionUser
+    ? []
+    : isClientAdmin
+      ? filterCAdminActiveCharters(vessels, assuranceSets)
+      : filterVesselAdminChartered(vessels, assuranceSets, viewerOrg);
 
-  const baseVessels =
-    activePersona === 'C Admin'
+  const baseVessels = !sessionUser
+    ? []
+    : activePersona === 'C Admin'
       ? filterMode === 'owned'
         ? ownedVessels
         : charteredVessels
@@ -173,6 +186,40 @@ export const VesselTable: React.FC<VesselTableProps> = ({
             ? ownedVessels
             : filterVesselsForPersona(vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser)
         : filterVesselsForPersona(vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser);
+
+  const accessibleSetDocIds = useMemo(() => {
+    const ids = new Set<string>();
+    availableAssuranceSets.forEach((set) => {
+      set.requirements?.forEach((req) => {
+        if (req.documentId) ids.add(req.documentId);
+        if (req.linkedDocumentId) ids.add(req.linkedDocumentId);
+      });
+    });
+    return ids;
+  }, [availableAssuranceSets]);
+
+  const anySetDocIds = useMemo(() => {
+    const ids = new Set<string>();
+    assuranceSets.forEach((set) => {
+      set.requirements?.forEach((req) => {
+        if (req.documentId) ids.add(req.documentId);
+        if (req.linkedDocumentId) ids.add(req.linkedDocumentId);
+      });
+    });
+    return ids;
+  }, [assuranceSets]);
+
+  const searchableDocuments = useMemo(
+    () =>
+      !sessionUser
+        ? []
+        : documents.filter(
+            (doc) =>
+              accessibleSetDocIds.has(doc.id) ||
+              ((isVesselAdmin || activePersona === 'Submitter') && !anySetDocIds.has(doc.id)),
+          ),
+    [sessionUser, documents, accessibleSetDocIds, anySetDocIds, isVesselAdmin, activePersona],
+  );
 
   /* empty-state copy: an empty chartered list is explained, a filtered-out list points at the filters */
   const isCharteredEmpty = filterMode === 'chartered' && baseVessels.length === 0;
@@ -189,7 +236,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({
       return false;
     }
 
-    const matchesSearch = matchesVesselSearch(v, searchTerm, assuranceSets, documents);
+    const matchesSearch = matchesVesselSearch(v, searchTerm, availableAssuranceSets, searchableDocuments);
 
     const matchesFlag = flagFilter === 'ALL' || v.flagState === flagFilter;
     const matchesClass = classFilter === 'ALL' || v.classificationSociety === classFilter;
@@ -197,7 +244,7 @@ export const VesselTable: React.FC<VesselTableProps> = ({
       statusFilter === 'ALL' || v.status === statusFilter;
     const matchesAssuranceSet =
       assuranceSetFilter === 'ALL' ||
-      assuranceSets.some(
+      availableAssuranceSets.some(
         (set) =>
           set.id === assuranceSetFilter &&
           (set.vesselId === v.id ||

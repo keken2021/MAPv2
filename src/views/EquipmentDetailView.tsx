@@ -6,11 +6,18 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AssetStatusCard } from '../components/assets/AssetStatusCard';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { DetailHeader } from '../components/common/DetailHeader';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { EmptyState } from '../components/common/EmptyState';
 import { Tabs } from '../components/common/Tabs';
-import { getProjectOrganizationForPersona, isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
+import { isEquipmentOwnedByOrganization } from '../utils/projectHelpers';
+import {
+  filterVesselsForPersona,
+  isAssuranceSetAssignedToPersona,
+  isMarketplacePersona,
+} from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
 import { getEquipmentAssetStatus, EquipmentAsset } from '../types/equipment';
 import { useMapStore } from '../store/useMapStore';
 import { calculateEquipmentReadiness } from '../utils/readinessHelpers';
@@ -33,19 +40,24 @@ import {
 } from 'lucide-react';
 import { MasterDocument } from '../types/document';
 import { UniversalDocumentPreviewModal } from '../components/modals/UniversalDocumentPreviewModal';
+import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 
 type EquipmentDetailTab = 'overview' | 'documents' | 'assurance';
 
-/** store documents that name this equipment id/identifier, or that its own sets already attach */
+/** store documents that name this equipment id/identifier (excluding docs exclusive to unassigned sets), or that its accessible sets already attach */
 function getEquipmentStoreDocuments(
   documents: MasterDocument[],
   item: EquipmentAsset,
   linkedSetDocumentIds: Set<string>,
+  anySetDocumentIds: Set<string>,
+  allowUnlinkedStoreDocs: boolean,
 ): MasterDocument[] {
   const idLower = item.id.toLowerCase();
   const tagLower = item.equipmentIdentifier.toLowerCase();
   return documents.filter((doc) => {
     if (linkedSetDocumentIds.has(doc.id)) return true;
+    if (!allowUnlinkedStoreDocs || anySetDocumentIds.has(doc.id)) return false;
+    if (doc.targetObjectType === 'equipment' && doc.targetObjectId === item.id) return true;
     const haystack = `${doc.id} ${doc.title} ${doc.certificateNo}`.toLowerCase();
     return haystack.includes(idLower) || haystack.includes(tagLower);
   });
@@ -62,23 +74,65 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
     assuranceSets,
     documents,
     activePersona,
+    activeDemoOrganization,
     setCurrentHashView,
     updateEquipment,
     updateEquipmentAvailability,
     users,
     setCreateAssuranceForAsset,
   } = useMapStore();
+  const sessionUser = useSessionUser();
+  const viewerOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
 
   const item = equipment.find((e) => e.id === equipmentId);
   const parentVessel = item?.parentVesselId
     ? vessels.find((v) => v.id === item.parentVesselId)
     : undefined;
 
-  /* only sets that name this equipment — not every set on the parent vessel */
-  const linkedSets = useMemo(
-    () => (item ? assuranceSets.filter((s) => s.equipmentId === item.id) : []),
-    [assuranceSets, item],
+  const isOwnedEquipment = Boolean(
+    sessionUser && item && viewerOrg && isEquipmentOwnedByOrganization(item, viewerOrg),
   );
+  const isVisibleParentVessel = Boolean(
+    sessionUser &&
+      item?.parentVesselId &&
+      filterVesselsForPersona(
+        vessels,
+        assuranceSets,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+      ).some((v) => v.id === item.parentVesselId),
+  );
+
+  /* only sets that name this equipment AND are assigned/created by this user */
+  const linkedSets = useMemo(
+    () =>
+      item && sessionUser
+        ? assuranceSets.filter(
+            (s) =>
+              s.equipmentId === item.id &&
+              isAssuranceSetAssignedToPersona(
+                s,
+                activePersona,
+                activeDemoOrganization,
+                sessionUser,
+                users,
+              ),
+          )
+        : [],
+    [assuranceSets, item, sessionUser, activePersona, activeDemoOrganization, users],
+  );
+
+  const anySetDocumentIds = useMemo(() => {
+    const ids = new Set<string>();
+    assuranceSets.forEach((set) => {
+      set.requirements?.forEach((req) => {
+        if (req.documentId) ids.add(req.documentId);
+        if (req.linkedDocumentId) ids.add(req.linkedDocumentId);
+      });
+    });
+    return ids;
+  }, [assuranceSets]);
 
   const linkedSetDocumentIds = useMemo(() => {
     const ids = new Set<string>();
@@ -92,23 +146,34 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
   }, [linkedSets]);
 
   const equipmentDocs = useMemo(
-    () => (item ? getEquipmentStoreDocuments(documents, item, linkedSetDocumentIds) : []),
-    [documents, item, linkedSetDocumentIds],
+    () =>
+      item && sessionUser
+        ? getEquipmentStoreDocuments(
+            documents,
+            item,
+            linkedSetDocumentIds,
+            anySetDocumentIds,
+            isOwnedEquipment || isVisibleParentVessel,
+          )
+        : [],
+    [documents, item, sessionUser, linkedSetDocumentIds, anySetDocumentIds, isOwnedEquipment, isVisibleParentVessel],
   );
 
   const isAdmin = activePersona === 'Administrator';
   const isCAdmin = activePersona === 'C Admin';
   const isSubmitter = activePersona === 'Submitter';
-  const canEditAvailability = isAdmin || isSubmitter;
-  const canManagePhotos = isAdmin || isSubmitter;
-  const canManageDocuments = isAdmin || isSubmitter;
+  const canEditAvailability = isOwnedEquipment && (isAdmin || isSubmitter);
+  const canManagePhotos = isOwnedEquipment && (isAdmin || isSubmitter);
+  const canManageDocuments = isOwnedEquipment && (isAdmin || isSubmitter);
   /* rent is offered to admins for equipment from other organizations only */
   const canRentEquipment = Boolean(
-    item &&
-    (isAdmin || isCAdmin) &&
-    !isEquipmentOwnedByOrganization(item, getProjectOrganizationForPersona(activePersona, users)),
+    sessionUser &&
+      item &&
+      (isAdmin || isCAdmin) &&
+      viewerOrg &&
+      !isEquipmentOwnedByOrganization(item, viewerOrg),
   );
-  const canOpenAssurance = isAdmin || isCAdmin;
+  const canOpenAssurance = Boolean(sessionUser && (isAdmin || isCAdmin));
 
   const showDocumentsTab = equipmentDocs.length > 0 || canManageDocuments;
   const showAssuranceTab = linkedSets.length > 0 || canOpenAssurance;
@@ -116,6 +181,8 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
   const [activeTab, setActiveTab] = useState<EquipmentDetailTab>('overview');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [previewDoc, setPreviewDoc] = useState<MasterDocument | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [versionTargetDoc, setVersionTargetDoc] = useState<MasterDocument | null>(null);
 
   /* Photo gallery & cropping modal states */
   const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
@@ -158,6 +225,17 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
         Equipment not found.
       </div>
     );
+  }
+
+  const isAccessibleEquipment = Boolean(
+    sessionUser &&
+      (isOwnedEquipment ||
+        linkedSets.length > 0 ||
+        isVisibleParentVessel ||
+        isMarketplacePersona(activePersona)),
+  );
+  if (!isAccessibleEquipment) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('equipment')} />;
   }
 
   const status = getEquipmentAssetStatus(item);
@@ -374,8 +452,20 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
       {/* Documents — store certificates only */}
       {activeTab === 'documents' && (
         <div className="card map-card-custom">
-          <div className="card-header fw-bold bg-white">
-            Certificates ({equipmentDocs.length})
+          <div className="card-header fw-bold bg-white d-flex align-items-center justify-content-between">
+            <span>Certificates ({equipmentDocs.length})</span>
+            {canManageDocuments && (
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={() => {
+                  setVersionTargetDoc(null);
+                  setIsUploadModalOpen(true);
+                }}
+              >
+                Upload Document
+              </button>
+            )}
           </div>
           <div className="table-responsive">
             <table className="table map-table-custom align-middle mb-0">
@@ -407,16 +497,31 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
                         <StatusBadge value={doc.verificationStatus} />
                       </td>
                       <td className="text-end">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center justify-content-center p-0"
-                          style={{ width: '32px', height: '32px' }}
-                          onClick={() => setPreviewDoc(doc)}
-                          title="View certificate"
-                          aria-label={`View ${doc.title}`}
-                        >
-                          <Eye size={16} />
-                        </button>
+                        <div className="d-flex align-items-center justify-content-end gap-1">
+                          {canManageDocuments && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary"
+                              onClick={() => {
+                                setVersionTargetDoc(doc);
+                                setIsUploadModalOpen(true);
+                              }}
+                              title="Upload New Version"
+                            >
+                              New Version
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center p-0"
+                            style={{ width: '32px', height: '32px' }}
+                            onClick={() => setPreviewDoc(doc)}
+                            title="View certificate"
+                            aria-label={`View ${doc.title}`}
+                          >
+                            <Eye size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -873,7 +978,48 @@ export const EquipmentDetailView: React.FC<EquipmentDetailViewProps> = ({ equipm
             ? `${previewDoc.certificateNo} · ${item.name} · PDF Preview`
             : undefined
         }
+        extraAction={
+          previewDoc && canManageDocuments ? (
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-light text-nowrap"
+              onClick={() => {
+                const target = previewDoc;
+                setPreviewDoc(null);
+                setVersionTargetDoc(target);
+                setIsUploadModalOpen(true);
+              }}
+            >
+              Upload New Version
+            </button>
+          ) : undefined
+        }
       />
+
+      {isUploadModalOpen && item && (
+        <DocumentUploadModal
+          isOpen={isUploadModalOpen}
+          onClose={() => {
+            setIsUploadModalOpen(false);
+            setVersionTargetDoc(null);
+          }}
+          existingDocument={versionTargetDoc ?? undefined}
+          defaultObjectType="equipment"
+          defaultObjectId={item.id}
+          allowVersionModeSwitch={true}
+          modalTitle={
+            versionTargetDoc
+              ? `Upload New Version: ${versionTargetDoc.title}`
+              : `Upload Document for ${item.name}`
+          }
+          onUploadComplete={() => {
+            setIsUploadModalOpen(false);
+            setVersionTargetDoc(null);
+            setToastMessage('Document uploaded.');
+            setTimeout(() => setToastMessage(null), 3500);
+          }}
+        />
+      )}
 
     </div>
   );

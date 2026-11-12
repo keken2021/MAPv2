@@ -26,7 +26,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/components/tables/` : data tables used by the list screens
 - `src/components/drawers/` : drawers (open from the right edge); `Drawer.tsx` is the shared shell every drawer uses
 - `src/components/dashboard/` : role dashboard components (`SharedDashboardFrame.tsx` shared frame)
-- `src/components/modals/` : modals (centered); `Modal.tsx` is the shared shell, `ConfirmDialog.tsx` is the shared confirmation dialog
+- `src/components/modals/` : modals (centered); `Modal.tsx` is the shared shell, `ConfirmDialog.tsx` is the shared confirmation dialog, `EditParticipatingOrganizationsModal.tsx` manages participating vendor/third-party orgs on a project, `RequestRecipientSelect.tsx` recipient picker with role tags
 - `src/components/wizards/` : multi-step wizards; `Wizard.tsx` is the shared numbered stepper shell
 - `src/utils/useOverlayBehavior.ts` : escape, focus and tab handling for a drawer or a dialog opened from one
 - `src/utils/useDeferredFilters.ts` : modal draft filter state hook (`useDeferredFilters`) isolating `FilterModal` edits and resets until Apply is clicked; tests `src/__tests__/deferredTableFilters.test.tsx`
@@ -44,10 +44,14 @@ Root: `C:\mapFiles\MAPv2`
 - `src/config/readinessScale.ts` : unified readiness scale cut-offs, tones, and CSS class helpers
 - `src/config/thresholds.ts` : centralized reminder, expiry, OCR, and at-risk thresholds (Task 5524 / A17)
 - `src/__tests__/projectOwnerSubSetVisibility.test.ts` : unit tests for master-project owner sub-set visibility and document restriction rule (Task 5529 / A37)
+- `src/__tests__/editParticipatingOrganizations.test.tsx` : unit and integration tests for participating organizations editing and auto-sync
+- `src/__tests__/requestAssuranceSetRecipients.test.ts` : tests for request recipients (all submitters or fallback administrators)
+- `src/__tests__/defaultOrganizationVerifierAndInspector.test.tsx` : tests for defaulting active verifiers and inspectors when organization is chosen (Sentinel Cyber Assurance and others)
 - `src/utils/formatters.ts` : dates, status labels, and `getProviderLabel` (Vessel Provider, Crew Provider, Equipment Provider, or Provider)
 - `src/utils/dashboardTileNavigation.ts` : KPI tile navigation and list filtering for role dashboards
 - `src/utils/recentActivityFeed.ts` : Recent activity feed formatting and role relevance filtering for role dashboards
 - `src/utils/roleDashboardConfigs.ts` : Role-specific dashboard configuration builders for shared dashboard frame
+- `src/__tests__/needsYourActionRedirects.test.tsx` : tests for dashboard "Needs your action" redirects and end-to-end task actions across all 6 personas
 
 ## Notifications
 - `src/views/NotificationsView.tsx`, `src/components/layout/NotificationPanel.tsx`, `src/components/modals/NotificationDetailModal.tsx` : inbox page, header bell panel, detail modal (with mock email channel line for re-upload and expiry notices per Task 5527 / FR-35; tests `src/__tests__/reuploadNoticeEmailChannel.test.tsx`)
@@ -63,8 +67,10 @@ Root: `C:\mapFiles\MAPv2`
 - `src/utils/assuranceTemplates.ts` : wizard steps, scopes and standard documents; `getAssuranceSetAsset` and `toSingleAssetSet` keep a set to one asset (ADR 0004)
 - `src/views/AssuranceDetailView.tsx` : detail screen
 - `src/components/drawers/DocumentReviewDrawer.tsx` : document review drawer opened from the detail screen
+- `src/components/drawers/ApproverDecisionDrawer.tsx` : approver decision drawer opened in-place from the detail screen Tasks tab
 - `src/types/assurance.ts` : assurance set types
 - `src/__tests__/assuranceSetsRoleAccess.test.ts` : role access rules for these screens
+- `src/__tests__/assuranceTableTailoredTabs.test.tsx` : tailored status tabs (To do, In progress, Completed) for workflow roles vs universal tabs for Admins and notification-assigned set visibility
 - `src/__tests__/oneAssetPerSet.test.ts` : one scope and one covered asset per set, provider terms (a crew set may list several crew members, ADR 0023)
 - `src/utils/assuranceOverlap.ts` : contract period overlap check between sets on the same asset (half-open periods, drafts skipped); used by the create wizard's Scope tab (asset picked next to the dates) and the detail Contract Period edit; tests `src/__tests__/assuranceOverlap.test.ts`
 - `src/utils/documentVersionSnapshot.ts` : `isClosedAssuranceSet`, version snapshot on verify (`verifiedVersion`), lock on approval (`lockedAt`), seed freeze, `getRequirementDocumentView` (version-pinned document for an approved set), `isRequirementOnOlderVersion`, `countOutdatedVersionRequirements` (FR-15); tests `src/__tests__/documentVersionSnapshot.test.tsx` and `src/__tests__/outdatedDocumentVersion.test.tsx`
@@ -92,6 +98,10 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/assuranceDetailPartyRowsAndExports.test.tsx` : tests for assurance set detail shared requirement party sub-rows, completion gate, and CSV/PDF export Responsible party column (Task 5308 / finding 5d-04)
 - `src/__tests__/inspectionChecklistAndDrawerRecords.test.tsx` : tests for inspection checklist and drawer dynamic set ID, location, date, checklist length, and seeded records (Task 5310 / findings 1a-12, 1a-13, 1b-06, 1b-07)
 - `src/__tests__/documentRecordsAndUpload.test.tsx` : tests for document upload real file size, version numbering from versions.length, certificate layout vessel/crew record lookups, DocumentReviewDrawer version meta, and CrewDocumentViewerModal record reads (Task 5311 / findings 1a-20, 1b-01, 1b-03, 1b-04, 1b-05, 1c-09)
+- `src/utils/documentObjectHelpers.ts` : assurance object referencing for documents (vessel, crew/person, equipment, activity), title normalization, object label formatting, duplicate title detection per object, and uploadable target objects resolution
+- `src/components/modals/DocumentObjectReferenceFields.tsx` : assurance object type and target object selectors, upload mode toggle (New Document vs Upload New Version), candidate version selector, and duplicate title alert with 1-click version pivot
+- `src/__tests__/documentObjectUploadAndVersions.test.tsx` : unit and integration tests for document object referencing, version upload, unique title per object, Option A re-upload policy, drawer expiry override, FR-15 snapshot preservation, and detail view upload triggers
+- `docs/plans/submitter-document-object-reference-and-version-upload.md` : architecture and execution plan for Submitter and Administrator document object referencing, version upload, and unique title per object enforcement
 - `src/__tests__/organizationsInGeneral.test.tsx` : tests for organizations in general, wizard Step 1 Organizations table and role checkboxes, Step 2 unlisted object owner auto-addition, and multi-provider submitters (Task 5326)
 - `src/__tests__/assuranceWizardOneVendor.test.tsx` : tests for assurance wizard one vendor and one client per set, vendor locking from first object, filtered pickers, mixed object types from same vendor, and saved set party rules (Task 5332)
 - `src/__tests__/scenario1VesselProviderStarts.test.ts` : tests Scenario 1 from architecture diagram (Administrator registers vessel, creates project and set, segregation of duties, external party verifies and approves)
@@ -177,6 +187,9 @@ Root: `C:\mapFiles\MAPv2`
 - `docs/GLOSSARY.md` : domain terms (Administrator, Client, Vessel Provider, Crew Provider, Equipment Provider, Asset, Assurance Set, Document Renewal, Readiness and others; "Service Provider" is retired). Read it before wording a Task or a doc. It lives here, not at the repo root
 - `docs/adr/` : decision records, numbered `0001-...`. 0001 is the Task list layout, 0002 is the one Administrator role, 0003 limits board writes to discussion comments, 0004 is one asset per Assurance Set and the provider terms by asset type (amended by 0023: a Crew set may cover several crew members; reversed by 0029: assurance object model across multiple types), 0005 is one Task for list controls and a Testing entry in each Task, 0006 lets the `task-branch` skill write a Task state and its Branch link (amends 0003), 0027 lets autopilot's story mode post one story summary comment on a scoped User Story and then close it, each after the hook's prompt (amends 0003, 0015), 0028 is prototype tasks direct commit on v3, 0029 replaces single-asset scope with generic assurance objects (vessel, person, equipment, organization, procedure, document, method), 0033 is the status-first project table replacing pillar tags and filters on project detail, 0034 amends 0029 to keep 5 assurance object target types (vessel, crew, equipment, procedure, method), moving organizations to parties and documents to evidence, and recording custom section types saved per tenant organization, 0035 is the autopilot sprint queue (every Task assigned to me until none is New or Active; 2 retry passes)
 - `docs/plans/` : plans and audits of work not yet done. New plans go here
+- `docs/plans/submitter-document-object-reference-and-version-upload.md` : plan for `Submitter` and `Administrator` object-referenced document uploads (`vessel`, `person`, `equipment`, `activity`), unique normalized document titles per referenced object with 1-click duplicate-to-version transition, and end-to-end version uploads preserving §11 R7 single-action rows (2026-11-12)
+- `docs/plans/2026-11-12-tasks-tab-role-actions-separation-design.md` : design specification separating all Assurance Set workflow actions (`Upload Document`, remediation `Reupload`, `Review`, in-place `View`, `ApproverDecisionBar`, `Open Inspection`, `Open Approval`) exclusively into the Tasks tab while keeping Requirements (admin CRUD + read-only specification register) and Details clean (Approach 1 + Option A for remediation re-upload, multi-party task filtering, and linked sub-set exclusion)
+- `docs/plans/submitter-document-library-upload-visibility.md` : investigation and fix plan for organization Submitter uploads not reflecting in DocumentLibraryView, empty-state upload CTA, and detail/drawer org fallback alignment (2026-11-12)
 - `docs/plans/2026-11-10-real-world-workflow-tests-design.md` : architecture design and specification for automated real-world operational workflow, client disruption, and fallback test suites outside the demo flow
 - `docs/plans/2026-11-10-real-world-workflow-tests-plan.md` : implementation plan for Tasks 5508, 5509, and 5510 establishing automated full-stack integration test coverage for real-world operational workflows, disruptions, fallbacks, and security guardrails
 - `docs/plans/2026-11-10-deferred-table-filters.md` : plan to defer table and view `FilterModal` selections to modal-local draft state until Apply is clicked across all 14 callers, with Vitest coverage

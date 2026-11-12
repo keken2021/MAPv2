@@ -10,10 +10,13 @@ import { useMapStore } from '../store/useMapStore';
 import { PipelineStepper } from '../components/common/PipelineStepper';
 import { ReadinessGauge } from '../components/common/ReadinessGauge';
 import { DetailHeader } from '../components/common/DetailHeader';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { isAssuranceSetAtRisk } from '../config/thresholds';
 import { ConfidenceBadge } from '../components/common/ConfidenceBadge';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
 import { DocumentReviewDrawer } from '../components/drawers/DocumentReviewDrawer';
+import { ApproverDecisionDrawer } from '../components/drawers/ApproverDecisionDrawer';
+import { CapaReinspectionDrawer } from '../components/drawers/CapaReinspectionDrawer';
 import { formatMaritimeDate, formatMaritimeDateTime, formatReviewChannel, getProviderLabel, getStatusDisplayLabel, toSentenceCase } from '../utils/formatters';
 import { setOrganizations, setOrganizationParties } from '../utils/projectHelpers';
 import {
@@ -39,6 +42,8 @@ import { AssuranceTaskModal } from '../components/modals/AssuranceTaskModal';
 import { ProjectTasksTable, getTaskRowActionLabel } from '../components/tables/ProjectTasksTable';
 import {
   canAssignStakeholderRole,
+  defaultOrganizationVerifier,
+  defaultOrganizationInspector,
   getOrganizationRoleCandidates,
   getServiceProviderSubmitterCandidates,
   getStakeholderRoleOrganization,
@@ -46,6 +51,7 @@ import {
   setSubmitters,
   StakeholderRole,
   getSessionUserForPersona,
+  findUserByAssigneeLabel,
 } from '../utils/userRoleHelpers';
 import {
   calculateAssuranceSetReadiness,
@@ -57,6 +63,9 @@ import {
 import TaskSectionCards from '../components/common/TaskSectionCards';
 import {
   canEditAssuranceSetStakeholders,
+  canSessionUserAccessCapa,
+  isAssuranceSetAssignedToPersona,
+  isUserStakeholderOnSet,
   getAssuranceSetRoleActions,
   getAssuranceSetCreator,
   getAssuranceSetStakeholderLockReason,
@@ -69,6 +78,7 @@ import {
 } from '../utils/rbacHelpers';
 import { useSessionUser } from '../utils/useSessionUser';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
+import { clearAssuranceDetailPreselect, peekAssuranceDetailPreselect } from '../utils/dashboardTileNavigation';
 import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
 import { Modal } from '../components/modals/Modal';
 import { ConfirmDialog } from '../components/modals/ConfirmDialog';
@@ -405,11 +415,9 @@ function getRequirementResponsiblePartyOrg(
     if (parenMatch && parenMatch[1].trim()) {
       return parenMatch[1].trim();
     }
-    const matchedUser = users.find(
-      (u) =>
-        u.name.toLowerCase() === req.assignedSubmitter?.trim().toLowerCase() ||
-        (req.submitterId && u.id === req.submitterId),
-    );
+    const matchedUser =
+      (req.submitterId ? users.find((u) => u.id === req.submitterId) : undefined) ??
+      findUserByAssigneeLabel(users, req.assignedSubmitter);
     if (matchedUser?.organization) {
       return matchedUser.organization;
     }
@@ -471,14 +479,23 @@ function isRequirementDocumentVisible(
     assignedSubmitter?: string;
     serviceProviderOrg?: string;
     stakeholders?: { verifierOrg?: string; inspectorOrg?: string; approverOrg?: string } | null;
+    assignedStakeholders?: { verifierOrg?: string; inspectorOrg?: string; approverOrg?: string } | null;
   },
   users: Array<{ id: string; name: string; organization?: string }>,
   objects: AssuranceObject[],
+  isAssignedReviewer: boolean = false,
 ): boolean {
-  if (isClient) return true;
+  if (isClient || isAssignedReviewer) return true;
   if (!viewerOrg.trim()) return false;
   // Reviewing organizations (verifier / inspector / approver) must be able to read the documents they review.
-  const reviewerOrgs = [set.stakeholders?.verifierOrg, set.stakeholders?.inspectorOrg, set.stakeholders?.approverOrg];
+  const reviewerOrgs = [
+    set.stakeholders?.verifierOrg,
+    set.stakeholders?.inspectorOrg,
+    set.stakeholders?.approverOrg,
+    set.assignedStakeholders?.verifierOrg,
+    set.assignedStakeholders?.inspectorOrg,
+    set.assignedStakeholders?.approverOrg,
+  ];
   if (reviewerOrgs.some((org) => org?.trim() && orgFieldMatches(viewerOrg, org))) return true;
   const partyOrg = getRequirementResponsiblePartyOrg(req, set, users, objects);
   if (!partyOrg.trim()) return false;
@@ -636,6 +653,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   const handleSaveCustomSection = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (!assuranceSet || !sessionUser || !canAddCustomSection) return;
     const trimmed = customSectionName.trim();
     if (!trimmed) {
       setCustomSectionError('A section name is required.');
@@ -643,18 +661,16 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     }
     const formattedName = toSentenceCase(trimmed);
     const newSectionId = `csec-${Date.now()}`;
-    const currentSections = assuranceSet?.sections || [];
+    const currentSections = assuranceSet.sections || [];
     const newSection: TaskSection = {
       id: newSectionId,
       name: formattedName,
       order: currentSections.length + 10,
     };
-    if (assuranceSet) {
-      updateAssuranceSet({
-        ...assuranceSet,
-        sections: [...currentSections, newSection],
-      });
-    }
+    updateAssuranceSet({
+      ...assuranceSet,
+      sections: [...currentSections, newSection],
+    });
     setCustomSectionName('');
     setCustomSectionError('');
     setIsAddingCustomSection(false);
@@ -686,15 +702,60 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const cleanSetId = setId ? setId.split('?')[0].split('/')[0] : '';
-  const assuranceSet = assuranceSets.find((s) => s.id === cleanSetId || s.id === setId) || assuranceSets[0];
+  const assuranceSet = assuranceSets.find((s) => s.id === cleanSetId || s.id === setId);
 
-  const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(() => initialTab || parseTabFromUrl());
+  const initialPreselect = peekAssuranceDetailPreselect(cleanSetId);
+  const [activeTab, setActiveTab] = useState<AssuranceDetailTab>(
+    () => initialTab || (initialPreselect.tab as AssuranceDetailTab | undefined) || parseTabFromUrl(),
+  );
+  const [focusedTaskReqId, setFocusedTaskReqId] = useState<string | undefined>(
+    () => initialPreselect.reqId,
+  );
+  const [focusedSection, setFocusedSection] = useState<string | undefined>(
+    () => initialPreselect.section,
+  );
+  const [selectedFindingCapaId, setSelectedFindingCapaId] = useState<string | null>(
+    () => initialPreselect.capaId ?? null,
+  );
+  const [selectedTaskReqIdForApproverDrawer, setSelectedTaskReqIdForApproverDrawer] = useState<string | null>(null);
+  const lastPreselectedHashRef = useRef<string | null>(
+    initialPreselect.tab && typeof window !== 'undefined' ? window.location.hash : null,
+  );
+  const prevSetIdRef = useRef<string>(cleanSetId);
+  const stakeholdersSectionRef = useRef<HTMLDivElement>(null);
   const [showBackToTasks, setShowBackToTasks] = useState<boolean>(false);
   /* the Tasks pane mounts on first visit and then stays mounted, so its search, filters and page survive tab changes */
   const [tasksPaneMounted, setTasksPaneMounted] = useState<boolean>(activeTab === 'tasks');
   useEffect(() => {
     if (activeTab === 'tasks') setTasksPaneMounted(true);
   }, [activeTab]);
+  useEffect(() => {
+    if (prevSetIdRef.current !== cleanSetId) {
+      prevSetIdRef.current = cleanSetId;
+      const nextPreselect = peekAssuranceDetailPreselect(cleanSetId);
+      const nextTab = initialTab || (nextPreselect.tab as AssuranceDetailTab | undefined) || parseTabFromUrl();
+      if (nextPreselect.tab) {
+        lastPreselectedHashRef.current = typeof window !== 'undefined' ? window.location.hash : null;
+      }
+      setActiveTab(nextTab);
+      if (nextTab === 'tasks') setTasksPaneMounted(true);
+      setFocusedTaskReqId(nextPreselect.reqId);
+      setFocusedSection(nextPreselect.section);
+      setSelectedFindingCapaId(nextPreselect.capaId ?? null);
+      setSelectedTaskReqIdForApproverDrawer(null);
+    }
+    clearAssuranceDetailPreselect();
+  }, [cleanSetId, initialTab]);
+  useEffect(() => {
+    if (
+      focusedSection === 'stakeholders' &&
+      activeTab === 'details' &&
+      stakeholdersSectionRef.current &&
+      typeof stakeholdersSectionRef.current.scrollIntoView === 'function'
+    ) {
+      stakeholdersSectionRef.current.scrollIntoView({ block: 'nearest' });
+    }
+  }, [focusedSection, activeTab]);
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(() => new Set());
   const [expandedReqIds, setExpandedReqIds] = useState<Set<string>>(() => new Set());
   const [isEmptySectionsExpanded, setIsEmptySectionsExpanded] = useState<boolean>(false);
@@ -734,14 +795,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const handleConfirmExclude = (reason?: string) => {
-    if (!excludingMember) return;
-    const actor = sessionUser?.name || activePersona;
+    if (!excludingMember || !assuranceSet || !sessionUser || activePersona !== 'Administrator' || !roleActions.canManage) return;
+    const actor = sessionUser.name || activePersona;
     excludeGroupMember(assuranceSet.id, excludingMember.memberId, reason ?? '', actor);
     closeExcludeModal();
   };
 
   const handleRestoreMember = (memberId: string) => {
-    const actor = sessionUser?.name || activePersona;
+    if (!assuranceSet || !sessionUser || activePersona !== 'Administrator' || !roleActions.canManage) return;
+    const actor = sessionUser.name || activePersona;
     restoreGroupMember(assuranceSet.id, memberId, actor);
   };
 
@@ -812,9 +874,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   }, [isMemberExcluded, assuranceSets, activeDemoOrganization, assuranceSet?.requirements, crew]);
 
   const handleTabChange = (tab: AssuranceDetailTab) => {
+    lastPreselectedHashRef.current = null;
     setShowBackToTasks(false);
     setActiveTab(tab);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && assuranceSet) {
       const baseHash = `#/assurance-sets/${assuranceSet.id}`;
       const tabParam = tab === 'audit' ? 'audit-trail' : tab;
       const targetHash = tab === 'details' ? baseHash : `${baseHash}?tab=${tabParam}`;
@@ -826,6 +889,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   useEffect(() => {
     const onHashChange = () => {
+      if (
+        typeof window !== 'undefined' &&
+        lastPreselectedHashRef.current &&
+        window.location.hash === lastPreselectedHashRef.current
+      ) {
+        lastPreselectedHashRef.current = null;
+        return;
+      }
+      lastPreselectedHashRef.current = null;
       setShowBackToTasks(false);
       const tabFromUrl = parseTabFromUrl();
       setActiveTab((prev) => (prev !== tabFromUrl ? tabFromUrl : prev));
@@ -1227,22 +1299,39 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   const sectionSummaries = useMemo(
     () =>
-      summarizeTaskSections({
-        ...assuranceSet,
-        sections: (assuranceSet.sections || []).map((sec) => ({
-          ...sec,
-          name: toSentenceCase(sec.name),
-        })),
-      }),
+      assuranceSet
+        ? summarizeTaskSections({
+            ...assuranceSet,
+            sections: (assuranceSet.sections || []).map((sec) => ({
+              ...sec,
+              name: toSentenceCase(sec.name),
+            })),
+          })
+        : [],
     [assuranceSet]
   );
-  const onTimeStatus = useMemo(() => getAssuranceSetOnTimeStatus(assuranceSet), [assuranceSet]);
-  const openFindings = useMemo(() => getAssuranceSetOpenFindings(assuranceSet, capaItems), [assuranceSet, capaItems]);
-  const remainingItems = useMemo(() => getAssuranceSetRemainingItems(assuranceSet), [assuranceSet]);
+  const onTimeStatus = useMemo(
+    () =>
+      assuranceSet
+        ? getAssuranceSetOnTimeStatus(assuranceSet)
+        : { isOnTime: true, statusLabel: 'On time' as const, lateItemsCount: 0, detail: '' },
+    [assuranceSet],
+  );
+  const openFindings = useMemo(
+    () => (assuranceSet ? getAssuranceSetOpenFindings(assuranceSet, capaItems) : []),
+    [assuranceSet, capaItems],
+  );
+  const remainingItems = useMemo(
+    () =>
+      assuranceSet
+        ? getAssuranceSetRemainingItems(assuranceSet)
+        : { remainingTasks: 0, remainingCertificates: 0, label: '' },
+    [assuranceSet],
+  );
   const sectionNameFor = (sectionId?: string) =>
-    assuranceSet.sections?.find((section) => section.id === sectionId)?.name;
+    assuranceSet?.sections?.find((section) => section.id === sectionId)?.name;
   const predecessorTitleFor = (taskId?: string) =>
-    assuranceSet.requirements.find((task) => task.id === taskId)?.title;
+    assuranceSet?.requirements.find((task) => task.id === taskId)?.title;
   const renderTaskPlacement = (req: AssuranceRequirement) => {
     const sectionName = sectionNameFor(req.sectionId);
     const predecessor = predecessorTitleFor(req.predecessorId);
@@ -1293,34 +1382,59 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const viewerPartyOrg = (
     activeDemoOrganization?.trim() ||
     sessionUser?.organization?.trim() ||
-    (activePersona === 'Submitter' || activePersona === 'Administrator' ? serviceProviderOrg || '' : '')
+    ''
   ).trim();
 
   const isClientViewer = useMemo(() => {
+    if (!sessionUser) return false;
     if (activeDemoOrganization?.trim()) {
       return Boolean(clientOwnerOrg && orgFieldMatches(activeDemoOrganization, clientOwnerOrg));
     }
-    if (sessionUser?.organization?.trim()) {
+    if (sessionUser.organization?.trim()) {
       if (clientOwnerOrg && orgFieldMatches(sessionUser.organization, clientOwnerOrg)) {
         return true;
       }
       return false;
     }
-    if (activePersona === 'C Admin') return true;
     return isClientUser(sessionUser, assuranceSet, activePersona);
   }, [activeDemoOrganization, sessionUser, clientOwnerOrg, activePersona, assuranceSet]);
 
   const outdatedVersionCount = useMemo(
-    () => countOutdatedVersionRequirements(assuranceSet, documents),
+    () => (assuranceSet ? countOutdatedVersionRequirements(assuranceSet, documents) : 0),
     [assuranceSet, documents],
   );
 
+  const canAccessAssuranceSet = Boolean(
+    assuranceSet &&
+      sessionUser &&
+      (isAssuranceSetAssignedToPersona(assuranceSet, activePersona, activeDemoOrganization, sessionUser, users) ||
+        isUserStakeholderOnSet(assuranceSet, activePersona, sessionUser, activeDemoOrganization)),
+  );
+
+  const roleActions = useMemo(
+    () =>
+      assuranceSet && sessionUser && canAccessAssuranceSet
+        ? getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization, sessionUser)
+        : {
+            canManage: false,
+            canUpload: false,
+            canVerify: false,
+            canInspect: false,
+            canApprove: false,
+            canChangeDates: false,
+          },
+    [assuranceSet, sessionUser, canAccessAssuranceSet, activePersona, activeDemoOrganization],
+  );
+
+  const isAssignedReviewer = roleActions.canVerify || roleActions.canInspect || roleActions.canApprove;
+
   const visibleEvents = useMemo(
-    () => filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels, currentUserId),
-    [auditEvents, activePersona, assuranceSets, vessels, currentUserId],
+    () => filterAuditTrailForPersona(auditEvents, activePersona, assuranceSets, vessels, currentUserId, sessionUser),
+    [auditEvents, activePersona, assuranceSets, vessels, currentUserId, sessionUser],
   );
 
   const setAuditEvents = useMemo(() => {
+    if (!assuranceSet) return [];
     const rawSetEvents = visibleEvents.filter((ev) => {
       const target = ev.target;
       if (target && target.setId === assuranceSet.id) {
@@ -1333,7 +1447,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     });
 
     const dateHistoryEvents: AuditTrailEvent[] = (assuranceSet.targetDateHistory || []).map((row) => {
-      const matchingUser = users.find((u) => u.name === row.changedBy || u.id === row.changedBy || row.changedBy.startsWith(u.name) || row.changedBy.startsWith(u.id));
+      /* by id, else by "Name (Organization)": a name alone could be any of one person's memberships (ADR 0037) */
+      const matchingUser =
+        users.find((u) => u.id === row.changedBy) ?? findUserByAssigneeLabel(users, row.changedBy);
       return {
         id: row.id,
         timestampUtc: row.changedAt,
@@ -1363,6 +1479,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       assuranceSets,
       vessels,
       currentUserId,
+      sessionUser,
     );
 
     const all = [...rawSetEvents, ...visibleDateHistory];
@@ -1404,6 +1521,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             assuranceSet,
             users,
             setObjects,
+            isAssignedReviewer,
           );
         }
         if (ev.organization && viewerPartyOrg && !orgFieldMatches(viewerPartyOrg, ev.organization)) {
@@ -1428,6 +1546,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                 assuranceSet,
                 users,
                 setObjects,
+                isAssignedReviewer,
               );
             }
           }
@@ -1446,6 +1565,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                 assuranceSet,
                 users,
                 setObjects,
+                isAssignedReviewer,
               );
             }
           }
@@ -1463,6 +1583,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
               assuranceSet,
               users,
               setObjects,
+              isAssignedReviewer,
             );
           }
         }
@@ -1476,7 +1597,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
       return true;
     });
-  }, [visibleEvents, assuranceSet, activePersona, assuranceSets, vessels, currentUserId, isClientViewer, viewerPartyOrg, users, setObjects, clientOwnerOrg]);
+  }, [visibleEvents, assuranceSet, activePersona, assuranceSets, vessels, currentUserId, isClientViewer, viewerPartyOrg, users, setObjects, clientOwnerOrg, isAssignedReviewer]);
 
   const [auditSearchTerm, setAuditSearchTerm] = useState('');
   const [auditCategoryFilter, setAuditCategoryFilter] = useState<AuditMovementCategory>('all');
@@ -1496,6 +1617,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   ]);
 
   const handleAuditExportCsv = () => {
+    if (!assuranceSet) return;
     const exportData = filteredAuditEvents.map((ev) => ({
       TimestampUtc: ev.timestampUtc,
       Action: ev.action,
@@ -1516,6 +1638,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const handleAuditExportPdf = () => {
+    if (!assuranceSet) return;
     const headers = ['Timestamp (UTC)', 'Action', 'Target', 'Role', 'Notes'];
     const rows = filteredAuditEvents.map((ev) => [
       ev.timestampUtc,
@@ -1546,17 +1669,70 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const showApproverDecisionBar = isNamedApprover && isApprovalStage;
 
   const viewerParty: 'requesting' | 'responding' | 'other' = useMemo(() => {
-    const respondingPartyOrg = assuranceSet?.respondingParty || assuranceSet?.serviceProviderOrg;
-    if (isSubmitter || (respondingPartyOrg && viewerPartyOrg && orgFieldMatches(viewerPartyOrg, respondingPartyOrg))) {
+    if (!assuranceSet || !sessionUser || !canAccessAssuranceSet) return 'other';
+    if (roleActions.canUpload) return 'responding';
+    const respondingPartyOrg = assuranceSet.respondingParty || assuranceSet.serviceProviderOrg;
+    if (
+      roleActions.canManage &&
+      respondingPartyOrg &&
+      viewerPartyOrg &&
+      orgFieldMatches(viewerPartyOrg, respondingPartyOrg)
+    ) {
       return 'responding';
     }
-    if (isClientViewer || isVerifier || isApproverViewer || isCAdminPersona || activePersona === 'Administrator') {
+    if (
+      roleActions.canVerify ||
+      roleActions.canInspect ||
+      roleActions.canApprove ||
+      (roleActions.canManage && isClientViewer)
+    ) {
       return 'requesting';
     }
     return 'other';
-  }, [isSubmitter, isClientViewer, isVerifier, isApproverViewer, isCAdminPersona, activePersona, assuranceSet?.respondingParty, assuranceSet?.serviceProviderOrg, viewerPartyOrg]);
+  }, [assuranceSet, sessionUser, canAccessAssuranceSet, roleActions, viewerPartyOrg, isClientViewer]);
+
+  const taskSectionsSet = useMemo(() => {
+    if (!assuranceSet) {
+      return { sections: [], requirements: [] } as unknown as NonNullable<typeof assuranceSet>;
+    }
+    const baseSet = isClientViewer
+      ? assuranceSet
+      : {
+        ...assuranceSet,
+        requirements:
+          assuranceSet.requirements?.map((req) => {
+            const canView = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects, isAssignedReviewer);
+            if (canView) return req;
+            const { documentId, linkedDocumentId, ...rest } = req;
+            return rest as AssuranceRequirement;
+          }) || [],
+      };
+    return {
+      ...baseSet,
+      sections: (baseSet.sections || []).map((sec) => ({
+        ...sec,
+        name: toSentenceCase(sec.name),
+      })),
+    };
+  }, [assuranceSet, isClientViewer, viewerPartyOrg, users, setObjects, isAssignedReviewer]);
+
+  const complianceOverdue = assuranceSet ? isComplianceDeadlineOverdue(assuranceSet) : false;
+
+  /* DetailHeader status derivation: single badge only */
+  const headerStatus = useMemo(() => {
+    if (!assuranceSet) return undefined;
+    if (assuranceSet.stage === 'Cancelled') return undefined;
+    if (assuranceSet.closureType === 'partial') return 'Partially Closed';
+    if (complianceOverdue) return 'Overdue';
+    if (isAssuranceSetAtRisk(assuranceSet)) return 'At risk';
+    return assuranceSet.stage;
+  }, [assuranceSet, complianceOverdue]);
 
   if (!assuranceSet) return <div>Assurance Set not found.</div>;
+
+  if (!canAccessAssuranceSet) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('dashboard')} />;
+  }
 
   if (assuranceSet.visibility === 'draft') {
     return (
@@ -1570,7 +1746,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             This assurance set is a draft. Finish setup to create it.
           </p>
           <div className="d-flex align-items-center justify-content-center gap-3">
-            {getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization, sessionUser).canManage && (
+            {roleActions.canManage && (
               <button
                 type="button"
                 className="btn btn-primary px-4 fw-semibold"
@@ -1586,35 +1762,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   }
 
   const isCAdmin = isCAdminPersona;
-  const roleActions = getAssuranceSetRoleActions(assuranceSet, activePersona, activeDemoOrganization, sessionUser);
-  const taskSectionsSet = useMemo(() => {
-    const baseSet = isClientViewer
-      ? assuranceSet
-      : {
-        ...assuranceSet,
-        requirements:
-          assuranceSet.requirements?.map((req) => {
-            const canView = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
-            if (canView) return req;
-            const { documentId, linkedDocumentId, ...rest } = req;
-            return rest as AssuranceRequirement;
-          }) || [],
-      };
-    return {
-      ...baseSet,
-      sections: (baseSet.sections || []).map((sec) => ({
-        ...sec,
-        name: toSentenceCase(sec.name),
-      })),
-    };
-  }, [assuranceSet, isClientViewer, viewerPartyOrg, users, setObjects]);
 
   const shortCertificates = listCertificatesShortOfContract(
     taskSectionsSet,
     documents,
     assuranceSet.charterWindowEnd,
   );
-  const complianceOverdue = isComplianceDeadlineOverdue(assuranceSet);
   const renderContractShortWarning = (doc?: MasterDocument, canViewDoc: boolean = true) => {
     if (!canViewDoc || !doc || !documentExpiresBeforeContractEnd(doc, assuranceSet.charterWindowEnd)) return null;
     return (
@@ -1676,7 +1829,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       activePersona,
       users,
       assuranceSets,
-      activePersona === 'C Admin' ? activeDemoOrganization : undefined,
+      activeDemoOrganization,
+      sessionUser,
+      notifications,
     )
     : [];
   const creator = getAssuranceSetCreator(assuranceSet, users);
@@ -1685,10 +1840,12 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const isCharterWindowLocked = assuranceSet.stage === 'Approved' || assuranceSet.stage === 'Certified' || assuranceSet.stage === 'Cancelled';
   const canEditCharterWindow = !isRestrictedProjectOwner && roleActions.canManage && roleActions.canChangeDates && !isCharterWindowLocked;
   const isSetOpen = !isClosedAssuranceSet(assuranceSet) && assuranceSet.stage !== 'Cancelled';
-  const canEditTasks = !isRestrictedProjectOwner && (isClientUser(sessionUser, assuranceSet, activePersona) || activePersona === 'Administrator' || roleActions.canManage) && isSetOpen;
+  const canEditTasks = !isRestrictedProjectOwner && roleActions.canManage && isSetOpen;
+  const canAddCustomSection = !isRestrictedProjectOwner && isSetOpen && (roleActions.canManage || roleActions.canUpload);
   const activeDateGrantsCount = (assuranceSet.datePermissionGrants || []).filter((g) => isDatePermissionActive(g)).length;
 
   const openAddTaskModal = () => {
+    if (!canEditTasks) return;
     setNewTaskDraft({
       title: '',
       category: 'Statutory Certificate',
@@ -1705,6 +1862,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const handleSaveNewTask = () => {
+    if (!canEditTasks) return;
     if (!newTaskDraft.title.trim()) {
       setNewTaskError('Task title is required.');
       return;
@@ -1740,6 +1898,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const openEditTask = (req: AssuranceRequirement) => {
+    if (!canEditTasks) return;
     setEditingTask(req);
     setEditTaskDraft({
       title: req.title,
@@ -1756,7 +1915,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const handleSaveEditTask = () => {
-    if (!editingTask) return;
+    if (!canEditTasks || !editingTask) return;
     if (!editTaskDraft.title.trim()) {
       setEditTaskError('Task title is required.');
       return;
@@ -1792,7 +1951,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const handleConfirmDeleteTask = () => {
-    if (!taskToDelete) return;
+    if (!canEditTasks || !taskToDelete) return;
     removeAssuranceTask(assuranceSet.id, taskToDelete.id);
     setTaskToDelete(null);
   };
@@ -1908,6 +2067,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const handleGrantPermission = () => {
+    if (!roleActions.canManage || activePersona !== 'C Admin') return;
     const grantee = users.find((u) => u.id === selectedGranteeId);
     if (!grantee) return;
     const days = parseInt(grantDurationDays, 10) || 14;
@@ -2012,6 +2172,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const handleRevokePermission = (grantId: string) => {
+    if (!roleActions.canManage || activePersona !== 'C Admin') return;
     revokeDatePermission(assuranceSet.id, grantId);
     setProjectToast('Date change permission revoked.');
     setTimeout(() => setProjectToast(null), 3500);
@@ -2108,7 +2269,16 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const stakeholderLabel = (role: StakeholderRole, assigned: string) => {
     if (assigned !== PENDING_ASSIGNMENT) return assigned;
     const organization = roleOrganization(role);
-    return organization ? `Pending, ${organization}` : PENDING_ASSIGNMENT;
+    if (!organization) return PENDING_ASSIGNMENT;
+    if (role === 'Verifier') {
+      const defaultUser = defaultOrganizationVerifier(users, organization);
+      if (defaultUser) return `${defaultUser.name} (${defaultUser.organization || organization})`;
+    }
+    if (role === 'Inspector') {
+      const defaultUser = defaultOrganizationInspector(users, organization);
+      if (defaultUser) return `${defaultUser.name} (${defaultUser.organization || organization})`;
+    }
+    return `Pending, ${organization}`;
   };
   const assignStakeholder = (
     role: StakeholderRole,
@@ -2283,7 +2453,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const openRequirementUpload = (req: AssuranceRequirement, existingDoc?: MasterDocument) => {
-    const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+    if (!canUploadHere) return;
+    const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects, isAssignedReviewer);
     if (!isClientViewer && !canViewDoc) return;
     setUploadTargetRequirement(req);
     setReplaceExistingDoc(existingDoc || null);
@@ -2296,7 +2467,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
   const handleExportCsv = () => {
     const exportData = assuranceSet.requirements.map((req) => {
-      const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+      const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects, isAssignedReviewer);
       const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
       const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
       const hasAttachedDoc = Boolean(effectiveLinkedDoc || (canViewDoc && (req.documentId || req.linkedDocumentId)));
@@ -2320,7 +2491,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   const handleExportPdf = () => {
     const headers = ['Requirement', 'Version', 'OCR Confidence', 'Status', 'Notes', 'Responsible Party'];
     const rows = assuranceSet.requirements.map((req) => {
-      const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+      const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects, isAssignedReviewer);
       const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
       const effectiveLinkedDoc = canViewDoc ? linkedDoc : undefined;
       const hasAttachedDoc = Boolean(effectiveLinkedDoc || (canViewDoc && (req.documentId || req.linkedDocumentId)));
@@ -2340,15 +2511,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     exportToPdf(`${assuranceSet.id} Requirements`, headers, rows);
     setIsExportOpen(false);
   };
-
-  /* DetailHeader status derivation: single badge only */
-  const headerStatus = useMemo(() => {
-    if (assuranceSet.stage === 'Cancelled') return undefined;
-    if (assuranceSet.closureType === 'partial') return 'Partially Closed';
-    if (complianceOverdue) return 'Overdue';
-    if (isAssuranceSetAtRisk(assuranceSet)) return 'At risk';
-    return assuranceSet.stage;
-  }, [assuranceSet, complianceOverdue]);
 
   const canUseAsTemplate =
     roleActions.canManage ||
@@ -2506,7 +2668,13 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                   <button
                     type="button"
                     className="btn btn-sm btn-link p-0 text-decoration-none"
-                    onClick={() => setCurrentHashView('capa', assuranceSet.vesselName || assuranceSet.vesselId)}
+                    onClick={() => {
+                      if (activePersona === 'Submitter' || activePersona === 'Approver') {
+                        handleTabChange('tasks');
+                      } else {
+                        setCurrentHashView('capa', assuranceSet.vesselName || assuranceSet.vesselId);
+                      }
+                    }}
                   >
                     <span className="badge bg-warning text-dark">
                       {openFindings.length} {openFindings.length === 1 ? 'Open Finding' : 'Open Findings'}
@@ -2753,7 +2921,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                             <span>Compliance deadline: {formatMaritimeDate(assuranceSet.complianceDeadline || assuranceSet.targetDate || '')}</span>
                           </div>
                           <div className="d-flex align-items-center gap-2 mt-2">
-                            {(activeDateGrantsCount > 0 || activePersona === 'C Admin') && (
+                            {(activeDateGrantsCount > 0 || (roleActions.canManage && activePersona === 'C Admin')) && (
                               <button
                                 type="button"
                                 className="btn btn-sm btn-outline-primary py-0 px-2 d-inline-flex align-items-center gap-1"
@@ -2835,7 +3003,15 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                   </div>
 
                   {/* Stakeholder Role Assignments */}
-                  <div className="col-md-6 d-flex flex-column gap-3">
+                  <div
+                    ref={stakeholdersSectionRef}
+                    data-testid="assurance-stakeholders-section"
+                    className={`col-md-6 d-flex flex-column gap-3${
+                      focusedSection === 'stakeholders'
+                        ? ' rounded p-3 border border-primary bg-primary-subtle bg-opacity-10'
+                        : ''
+                    }`}
+                  >
                     <div className="text-uppercase fw-bold text-secondary mb-1" style={{ fontSize: '0.725rem', letterSpacing: '0.05em' }}>
                       Stakeholders
                     </div>
@@ -3208,7 +3384,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
                               const activeMembersInGroup = group.memberIds.filter((id) => !isMemberExcluded(id));
                               const isLastMember = activeMembersInGroup.length <= 1 && activeMembersInGroup.includes(memberId);
-                              const canManageMemberExclusions = activePersona === 'Administrator';
+                              const canManageMemberExclusions =
+                                !isRestrictedProjectOwner && roleActions.canManage && activePersona === 'Administrator';
 
                               return (
                                 <tr
@@ -3478,7 +3655,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                   </div>
                 </div>
                 <div className="d-flex align-items-center gap-2 ms-auto">
-                  {(isSetOpen || canEditTasks) && (
+                  {canAddCustomSection && (
                     <div className="dropdown position-relative" ref={addMenuRef}>
                       <button
                         type="button"
@@ -3533,7 +3710,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
               </div>
 
             </div>
-            {isAddingCustomSection && (
+            {canAddCustomSection && isAddingCustomSection && (
               <div className="p-3 bg-light border-bottom" data-testid="form-add-custom-section">
                 <form onSubmit={handleSaveCustomSection}>
                   <div className="row g-2 align-items-end">
@@ -3590,14 +3767,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     </div>
                   </div>
                 </form>
-              </div>
-            )}
-            {shortCertificates.length > 0 && (
-              <div className="alert alert-warning rounded-0 border-0 border-bottom mb-0" role="status">
-                {shortCertificates.length === 1
-                  ? '1 certificate expires'
-                  : `${shortCertificates.length} certificates expire`}{' '}
-                before the contract ends on {formatMaritimeDate(assuranceSet.charterWindowEnd)}.
               </div>
             )}
             <div className="table-responsive">
@@ -3708,7 +3877,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
 
                               const isFirstOfSubtype = !prevReq || currentSubtype !== prevSubtype;
 
-                              const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+                              const canViewDoc = isRequirementDocumentVisible(req, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects, isAssignedReviewer);
                               const groupKey = getRequirementGroupKey(req);
                               const groupTasks = requirementGroupTasksMap.get(groupKey) || [req];
                               const isSharedRequirement = groupTasks.length > 1;
@@ -3988,7 +4157,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                                         </tr>
                                       )}
                                       {groupTasks.map((partyTask) => {
-                                        const canViewPartyDoc = isRequirementDocumentVisible(partyTask, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects);
+                                        const canViewPartyDoc = isRequirementDocumentVisible(partyTask, isClientViewer, viewerPartyOrg, assuranceSet, users, setObjects, isAssignedReviewer);
                                         const partyLinkedDoc = documents.find((d) => d.id === partyTask.documentId || (partyTask.linkedDocumentId && d.id === partyTask.linkedDocumentId));
                                         const effectivePartyDoc = canViewPartyDoc ? partyLinkedDoc : undefined;
                                         const partyDocView = effectivePartyDoc ? getRequirementDocumentView(assuranceSet, partyTask, effectivePartyDoc) : undefined;
@@ -4422,20 +4591,45 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             <p className="text-secondary mb-0">Documents and requirements are restricted to participating group members.</p>
           </div>
         ) : (
+          <>
+          {shortCertificates.length > 0 && (
+            <div className="alert alert-warning mb-0" role="status">
+              {shortCertificates.length === 1
+                ? '1 certificate expires'
+                : `${shortCertificates.length} certificates expire`}{' '}
+              before the contract ends on {formatMaritimeDate(assuranceSet.charterWindowEnd)}.
+            </div>
+          )}
           <ProjectTasksTable
             sets={assuranceSet ? [assuranceSet] : []}
             scope={{ type: 'set', id: assuranceSet?.id || '' }}
+            documents={documents}
+            highlightedTaskId={focusedTaskReqId}
             today={new Date()}
             showActions
             viewerParty={viewerParty}
+            canUpload={canUploadHere}
+            canVerify={roleActions.canVerify}
             onOpenRequirement={(req) => {
+              if (isApproverViewer) {
+                setSelectedTaskReqIdForApproverDrawer(req.id);
+                return;
+              }
               setFocusedRequirementId(req.id);
               setShowBackToTasks(true);
               setActiveTab('requirements');
             }}
             onTaskAction={(req, parentSet) => {
-              const action = getTaskRowActionLabel({ requirement: req, parentSet }, viewerParty);
               const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
+              const action = getTaskRowActionLabel(
+                { requirement: req, parentSet },
+                viewerParty,
+                {
+                  canUpload: canUploadHere,
+                  canVerify: roleActions.canVerify,
+                },
+                { document: linkedDoc, today: new Date() },
+              );
               if (action === 'Upload') {
                 openRequirementUpload(req, linkedDoc);
               } else if (action === 'Review') {
@@ -4449,6 +4643,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                     isVersionLocked: docView?.isLocked,
                   });
                 }
+              } else if (isApproverViewer) {
+                setSelectedTaskReqIdForApproverDrawer(req.id);
               } else {
                 setFocusedRequirementId(req.id);
                 setShowBackToTasks(true);
@@ -4456,6 +4652,90 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
               }
             }}
           />
+
+          {(() => {
+            const setOpenCapas = openFindings.filter(
+              (c) =>
+                (!c.assuranceSetId || c.assuranceSetId === assuranceSet.id) &&
+                canSessionUserAccessCapa(
+                  c,
+                  assuranceSets,
+                  activePersona,
+                  activeDemoOrganization,
+                  sessionUser,
+                  users,
+                ),
+            );
+            if (setOpenCapas.length === 0) return null;
+            return (
+              <div className="card map-card-custom" data-testid="tasks-open-findings-card">
+                <div className="card-header p-3 border-bottom d-flex align-items-center justify-content-between">
+                  <span className="fw-bold text-dark fs-6">Open Findings</span>
+                  <span className="badge bg-warning text-dark font-mono-code">
+                    {setOpenCapas.length}
+                  </span>
+                </div>
+                <div className="table-responsive">
+                  <table className="table map-table-custom align-middle mb-0">
+                    <thead>
+                      <tr>
+                        <th>Finding</th>
+                        <th>Owner</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th className="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {setOpenCapas.map((capa) => {
+                        const isResponder =
+                          activePersona === 'Submitter' || activePersona === 'Administrator';
+                        const actionText = isResponder
+                          ? 'Respond'
+                          : activePersona === 'Inspector'
+                          ? 'Re-inspect'
+                          : 'View';
+                        return (
+                          <tr
+                            key={capa.id}
+                            className={selectedFindingCapaId === capa.id ? 'table-primary' : undefined}
+                            data-capa-id={capa.id}
+                          >
+                            <td>
+                              <div className="fw-semibold text-dark">{capa.title}</div>
+                              <div className="font-mono-code text-muted small" style={{ fontSize: '0.72rem' }}>
+                                {capa.id} · {capa.checklistItemTitle}
+                              </div>
+                            </td>
+                            <td className="small text-dark">{capa.owner}</td>
+                            <td className="small font-mono-code">{formatMaritimeDate(capa.dueDate)}</td>
+                            <td>
+                              <StatusBadge value={capa.status} />
+                            </td>
+                            <td className="text-end">
+                              <button
+                                type="button"
+                                className={`btn btn-sm ${
+                                  isResponder || activePersona === 'Inspector'
+                                    ? 'btn-primary'
+                                    : 'btn-outline-primary'
+                                }`}
+                                onClick={() => setSelectedFindingCapaId(capa.id)}
+                                data-testid={`finding-action-btn-${capa.id}`}
+                              >
+                                {actionText}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+          </>
         )}
       </div>
       )}
@@ -4598,6 +4878,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                 assuranceSet,
                 users,
                 setObjects,
+                isAssignedReviewer,
               ))
             ? selectedDocForReview.doc
             : null
@@ -4611,6 +4892,57 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         assuranceSetId={assuranceSet.id}
         isVersionLocked={selectedDocForReview?.isVersionLocked}
       />
+
+      {(() => {
+        const drawerReq =
+          isApproverViewer && selectedTaskReqIdForApproverDrawer
+            ? assuranceSet.requirements.find((r) => r.id === selectedTaskReqIdForApproverDrawer) ?? null
+            : null;
+        if (!drawerReq) return null;
+        const rawDoc = documents.find(
+          (d) => d.id === drawerReq.documentId || (drawerReq.linkedDocumentId && d.id === drawerReq.linkedDocumentId),
+        );
+        const drawerDoc = rawDoc
+          ? getRequirementDocumentView(assuranceSet, drawerReq, rawDoc)?.doc || rawDoc
+          : undefined;
+        return (
+          <ApproverDecisionDrawer
+            assuranceSet={assuranceSet}
+            requirement={drawerReq}
+            linkedDoc={drawerDoc}
+            openFindingsCount={openFindings.length}
+            isNamedApprover={isNamedApprover}
+            isApprovalStage={isApprovalStage}
+            onClose={() => setSelectedTaskReqIdForApproverDrawer(null)}
+            onDecisionSubmitted={(message) => {
+              setProjectToast(message);
+            }}
+          />
+        );
+      })()}
+
+      {(() => {
+        if (!selectedFindingCapaId) return null;
+        const activeFindingCapa = capaItems.find(
+          (c) =>
+            c.id === selectedFindingCapaId &&
+            canSessionUserAccessCapa(
+              c,
+              assuranceSets,
+              activePersona,
+              activeDemoOrganization,
+              sessionUser,
+              users,
+            ),
+        );
+        if (!activeFindingCapa) return null;
+        return (
+          <CapaReinspectionDrawer
+            capa={activeFindingCapa}
+            onClose={() => setSelectedFindingCapaId(null)}
+          />
+        );
+      })()}
 
       {/* add an orphaned set to one existing project */}
       {isAddToProjectOpen && (
@@ -4723,6 +5055,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
         onClose={closeUploadModal}
         existingDocument={replaceExistingDoc}
         assuranceSetId={assuranceSet.id}
+        charterWindowEnd={assuranceSet.charterWindowEnd}
         requirementId={uploadTargetRequirement?.id}
         requirementTitle={uploadTargetRequirement?.title}
         requirementCategory={uploadTargetRequirement?.category}
@@ -4775,7 +5108,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                       <th>Granted At</th>
                       <th>Expires At</th>
                       <th>Status</th>
-                      {activePersona === 'C Admin' && <th className="text-end">Action</th>}
+                      {activePersona === 'C Admin' && roleActions.canManage && <th className="text-end">Action</th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -4798,7 +5131,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                               </span>
                             )}
                           </td>
-                          {activePersona === 'C Admin' && (
+                          {activePersona === 'C Admin' && roleActions.canManage && (
                             <td className="text-end">
                               {active && (
                                 <button
@@ -4821,7 +5154,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             )}
           </div>
 
-          {activePersona === 'C Admin' && (
+          {activePersona === 'C Admin' && roleActions.canManage && (
             <div className="card bg-light-subtle border p-3 rounded-2">
               <h6 className="fw-bold text-dark small mb-2">Grant Short-Term Date Access</h6>
               <div className="row g-2">
@@ -4834,7 +5167,7 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                   >
                     <option value="">Choose client user...</option>
                     {users
-                      .filter((u) => isClientUser(u, assuranceSet, activePersona))
+                      .filter((u) => isClientUser(u, assuranceSet))
                       .map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.name} ({u.organization})

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Eye, Trash2, Plus, FolderPlus, Send, Link2 } from "lucide-react";
+import { ChevronDown, Eye, Trash2, Plus, FolderPlus, Send, Link2, Edit2 } from "lucide-react";
 import { ListToolbar } from "../components/common/ListToolbar";
 import { CountTab, CountTabs } from "../components/common/CountTabs";
 import { ActiveFilterChips, FilterChip } from "../components/common/ActiveFilterChips";
@@ -18,6 +18,7 @@ import {
   filterProjectsForPersona,
   getProjectAssuranceSets,
   getStandaloneAssuranceSetsForAttach,
+  syncInvitedOrganizationsToParties,
 } from "../utils/projectHelpers";
 import { isAssuranceSetAssignedToPersona, orgFieldMatches } from "../utils/rbacHelpers";
 import { getDemoSessionContext, getSessionUserForPersona } from "../utils/userRoleHelpers";
@@ -26,6 +27,7 @@ import TaskSectionCards from "../components/common/TaskSectionCards";
 import { ProjectAddAssetModal } from "../components/modals/ProjectAddAssetModal";
 import { AttachAssuranceSetPreviewModal } from "../components/modals/AttachAssuranceSetPreviewModal";
 import { RequestAssuranceSetModal } from "../components/modals/RequestAssuranceSetModal";
+import { EditParticipatingOrganizationsModal } from "../components/modals/EditParticipatingOrganizationsModal";
 import { usePagination } from "../utils/usePagination";
 import { TablePagination } from "../components/common/TablePagination";
 import { ProjectAssuranceStatusTable } from "../components/tables/ProjectAssuranceStatusTable";
@@ -41,6 +43,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 }) => {
   const {
     projects,
+    updateProject,
     assuranceSets,
     activePersona,
     users,
@@ -77,6 +80,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [objectSearchTerm, setObjectSearchTerm] = useState("");
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isEditPartiesModalOpen, setIsEditPartiesModalOpen] = useState(false);
   const [attachSetId, setAttachSetId] = useState("");
   const [previewAssuranceSet, setPreviewAssuranceSet] =
     useState<AssuranceSet | null>(null);
@@ -176,6 +180,15 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     setActiveTab("overview");
   }, [projectId]);
 
+  // If any invited organization is not in contractParties, automatically add them
+  useEffect(() => {
+    if (!project) return;
+    const synced = syncInvitedOrganizationsToParties(project);
+    if (synced !== project) {
+      updateProject(synced);
+    }
+  }, [project, updateProject]);
+
   const assetsPagination = usePagination(filteredLinks, [assetFilter, objectSearchTerm]);
 
   const objectTabs: CountTab[] = useMemo(() => {
@@ -253,7 +266,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   );
   const visibleChainParties = showChain ? allChainParties : [];
   const otherParties = (project.contractParties ?? []).filter((party) => !party.chainRole);
-  const showOrganizationsCard = visibleChainParties.length > 0 || otherParties.length > 0;
+  const showOrganizationsCard = visibleChainParties.length > 0 || otherParties.length > 0 || canManage;
   const organizationCount = visibleChainParties.length + otherParties.length;
   const workLocationLabel =
     project.workLocationType && project.location
@@ -442,10 +455,23 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                 <h2 className="h6 fw-semibold mb-0 text-dark">
                   Organizations &amp; Contract Chain
                 </h2>
-                <span className="font-mono-code small text-secondary">
-                  {organizationCount}{" "}
-                  {organizationCount === 1 ? "Organization" : "Organizations"}
-                </span>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="font-mono-code small text-secondary">
+                    {organizationCount}{" "}
+                    {organizationCount === 1 ? "Organization" : "Organizations"}
+                  </span>
+                  {canManage && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5"
+                      onClick={() => setIsEditPartiesModalOpen(true)}
+                      data-testid="btn-edit-participating-orgs"
+                    >
+                      <Edit2 size={13} />
+                      <span>Edit</span>
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="card-body d-flex flex-column gap-3">
                 {visibleChainParties.length > 0 && (
@@ -486,24 +512,40 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
                   </div>
                 )}
 
-                {otherParties.length > 0 && (
+                {(otherParties.length > 0 || canManage) && (
                   <div className={visibleChainParties.length > 0 ? "border-top pt-3" : ""}>
-                    <div className="text-secondary small fw-semibold mb-2">
-                      Participating Organizations
-                    </div>
-                    <div className="row g-3">
-                      {otherParties.map((party) => (
-                        <div
-                          key={`${party.organization}-${party.group}`}
-                          className="col-12 col-sm-6 col-lg-3"
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <div className="text-secondary small fw-semibold">
+                        Participating Organizations
+                      </div>
+                      {canManage && (
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0 text-decoration-none small"
+                          onClick={() => setIsEditPartiesModalOpen(true)}
+                          data-testid="btn-edit-participating-orgs-section"
                         >
-                          <div className="fw-semibold text-dark small">{party.organization}</div>
-                          {party.group && (
-                            <div className="text-secondary small">{party.group}</div>
-                          )}
-                        </div>
-                      ))}
+                          Edit
+                        </button>
+                      )}
                     </div>
+                    {otherParties.length > 0 ? (
+                      <div className="row g-3">
+                        {otherParties.map((party) => (
+                          <div
+                            key={`${party.organization}-${party.group}`}
+                            className="col-12 col-sm-6 col-lg-3"
+                          >
+                            <div className="fw-semibold text-dark small">{party.organization}</div>
+                            {party.group && (
+                              <div className="text-secondary small">{party.group}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-muted small">No participating organizations listed.</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -735,6 +777,16 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       <RequestAssuranceSetModal
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
+        project={project}
+        onSuccess={(message) => {
+          setToast(message);
+          setTimeout(() => setToast(null), 3500);
+        }}
+      />
+
+      <EditParticipatingOrganizationsModal
+        isOpen={isEditPartiesModalOpen}
+        onClose={() => setIsEditPartiesModalOpen(false)}
         project={project}
         onSuccess={(message) => {
           setToast(message);

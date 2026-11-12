@@ -20,13 +20,20 @@ function tabLabels(): string[] {
     .map((tab) => (tab.textContent || '').replace(/\s*\(\d+\)\s*$/, '').trim());
 }
 
+const initialState = useMapStore.getState();
+
 describe('vessel detail tabs', () => {
   beforeEach(() => {
-    useMapStore.setState({
-      isAuthenticated: true,
-      activePersona: 'Administrator',
-      activeDemoOrganization: 'Northwind Marine Pty Ltd',
-    });
+    useMapStore.setState(
+      {
+        ...initialState,
+        isAuthenticated: true,
+        activePersona: 'Administrator',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
+      },
+      true,
+    );
   });
 
   it('shows section tabs with aria-selected and count spans for the owning Administrator', () => {
@@ -60,6 +67,7 @@ describe('vessel detail tabs', () => {
     useMapStore.setState({
       activePersona: 'Verifier',
       activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
     });
     render(<VesselDetailView vesselId="VESSEL-001" />);
     const labels = tabLabels();

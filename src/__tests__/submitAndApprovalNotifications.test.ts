@@ -28,13 +28,21 @@ function staffedOpenSet(): AssuranceSet {
 describe('submit and approval notifications', () => {
   beforeEach(() => {
     useMapStore.setState(initialState, true);
-    useMapStore.getState().setActivePersona('Administrator');
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
   });
 
   it('tells the verifier as soon as a document is submitted on a requirement', () => {
     const set = staffedOpenSet();
     const verifier = resolveNotificationRecipient(set.assignedVerifier, useMapStore.getState().users)!;
-    const doc = { ...useMapStore.getState().documents[0], id: 'MAP-VES-2026-STAT-SUBMIT1' };
+    const doc = {
+      ...useMapStore.getState().documents[0],
+      id: 'MAP-VES-2026-STAT-SUBMIT1',
+      ownerOrganization: 'Northwind Marine Pty Ltd',
+    };
 
     useMapStore.getState().uploadDocumentForRequirement(set.id, set.requirements[0].id, doc);
 
@@ -46,7 +54,7 @@ describe('submit and approval notifications', () => {
   it('tells the verifier when a new version is submitted for one requirement', () => {
     const set = staffedOpenSet();
     const verifier = resolveNotificationRecipient(set.assignedVerifier, useMapStore.getState().users)!;
-    const docId = useMapStore.getState().documents[0].id;
+    const docId = set.requirements[0].documentId!;
 
     useMapStore.getState().addDocumentVersion(docId, 'v7.0', 'renewed.pdf', 1024, 'Renewed.', undefined, {
       assuranceSetId: set.id,
@@ -64,6 +72,7 @@ describe('submit and approval notifications', () => {
     useMapStore.getState().uploadDocumentForRequirement(set.id, set.requirements[0].id, {
       ...useMapStore.getState().documents[0],
       id: 'MAP-VES-2026-STAT-SUBMIT2',
+      ownerOrganization: 'Northwind Marine Pty Ltd',
     });
 
     expect(useMapStore.getState().notifications.filter((n) => n.type === 'review_requested').length).toBe(
@@ -87,7 +96,11 @@ describe('submit and approval notifications', () => {
         { ...second, isMandatory: true, documentId: docs[1].id, verifierStatus: 'Pending', isFulfilled: false },
       ],
     };
+    const verifier = resolveNotificationRecipient(set.assignedVerifier, useMapStore.getState().users)!;
     useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: verifier.organization,
+      activeSessionUserId: verifier.id,
       assuranceSets: useMapStore.getState().assuranceSets.map((s) => (s.id === set.id ? set : s)),
     });
     const approver = resolveNotificationRecipient(set.assignedApprover, useMapStore.getState().users)!;

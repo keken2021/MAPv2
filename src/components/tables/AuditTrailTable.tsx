@@ -9,13 +9,9 @@ import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { formatMaritimeDate, formatMaritimeDateTime } from '../../utils/formatters';
 import { AuditEventTarget, AuditTrailEvent, auditEventMatchesSearch, formatAuditTarget } from '../../types/audit';
-import { filterAuditTrailForPersona } from '../../utils/rbacHelpers';
-import {
-  getDemoSessionContext,
-  getRoleDisplayLabel,
-  getSessionUserForPersona,
-  pickSessionUserForOrgPersona,
-} from '../../utils/userRoleHelpers';
+import { filterAuditTrailForPersona, isAssuranceSetAssignedToPersona } from '../../utils/rbacHelpers';
+import { getRoleDisplayLabel } from '../../utils/userRoleHelpers';
+import { useSessionUser } from '../../utils/useSessionUser';
 import { exportToCsv, exportToPdf } from '../../utils/exportHelpers';
 import { FilterModal } from '../common/FilterModal';
 import { ListToolbar } from '../common/ListToolbar';
@@ -96,17 +92,9 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ vesselId }) =>
     (filterState.draft.role !== 'ALL' ? 1 : 0) +
     (filterState.draft.targetKind !== 'ALL' ? 1 : 0);
 
-  const sessionUser = useMemo(
-    () =>
-      getSessionUserForPersona(
-        activePersona,
-        users,
-        getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
-      ) ?? pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona),
-    [activePersona, users, activeDemoOrganization, activeSessionUserId],
-  );
+  const sessionUser = useSessionUser();
 
-  const currentUserId = sessionUser?.id || activeSessionUserId;
+  const currentUserId = sessionUser?.id;
 
   type AuditSortField = 'timestampUtc' | 'action' | 'targetAsset' | 'userRole' | 'fieldDelta' | 'justificationNotes';
   const [sortField, setSortField] = useState<AuditSortField>('timestampUtc');
@@ -138,6 +126,7 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ vesselId }) =>
     assuranceSets,
     vessels,
     currentUserId,
+    sessionUser ?? null,
   );
 
   const scopedEvents = useMemo(() => {
@@ -145,14 +134,37 @@ export const AuditTrailTable: React.FC<AuditTrailTableProps> = ({ vesselId }) =>
     const vessel = vessels.find((v) => v.id === vesselId);
     if (!vessel) return [];
     const setIds = new Set(
-      assuranceSets.filter((s) => s.vesselId === vesselId).map((s) => s.id),
+      assuranceSets
+        .filter(
+          (s) =>
+            s.vesselId === vesselId &&
+            isAssuranceSetAssignedToPersona(
+              s,
+              activePersona,
+              activeDemoOrganization,
+              sessionUser,
+              users,
+            ),
+        )
+        .map((s) => s.id),
     );
     return visibleEvents.filter((a) => {
+      if (a.target?.setId && a.target.setId !== 'unscoped' && a.target.setId !== 'multiple') {
+        return setIds.has(a.target.setId);
+      }
       if (a.targetAsset.includes(vessel.imoNumber) || a.targetAsset.includes(vessel.name)) return true;
-      if (a.target?.setId && setIds.has(a.target.setId)) return true;
       return false;
     });
-  }, [visibleEvents, vesselId, vessels, assuranceSets]);
+  }, [
+    visibleEvents,
+    vesselId,
+    vessels,
+    assuranceSets,
+    activePersona,
+    activeDemoOrganization,
+    sessionUser,
+    users,
+  ]);
 
   const filteredEvents = scopedEvents.filter((ev) => {
     const matchesSearch = auditEventMatchesSearch(ev, searchTerm);

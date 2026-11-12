@@ -82,8 +82,13 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     title: 'Party Visibility Test Set',
     vesselId: 'VESSEL-001',
     vesselName: 'MV Pacific Endeavour',
+    initiatorOrg: 'Chevron Australia Pty Ltd',
+    createdByUserId: 'USR-221',
+    createdByName: 'C. Henderson',
+    createdByPersona: 'C Admin',
     clientOrg: 'Chevron Australia Pty Ltd',
     serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
     charterWindowStart: '2026-11-01',
     charterWindowEnd: '2027-11-01',
     complianceDeadline: '2026-11-01',
@@ -154,14 +159,13 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
         ...mockAuditEvents,
       ],
       users: [
-        ...currentStore.users,
-        { id: 'USR-NW', name: 'M. Chen', organization: 'Northwind Marine Pty Ltd', roles: ['Submitter'], email: 'm.chen@northwind.com' } as any,
-        { id: 'USR-MM', name: 'J. Smith', organization: 'Meridian Marine', roles: ['Submitter'], email: 'j.smith@meridian.com' } as any,
+        ...currentStore.users.filter((u) => u.id !== 'USR-MM'),
+        { id: 'USR-MM', name: 'J. Smith', organization: 'Meridian Marine', roles: ['Submitter'], email: 'j.smith@meridian.com', status: 'Active' } as any,
       ],
       activePersona: 'C Admin',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
       isAuthenticated: true,
-      activeSessionUserId: 'USR-101',
+      activeSessionUserId: 'USR-221',
     });
   });
 
@@ -173,6 +177,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     useMapStore.setState({
       activePersona: 'C Admin',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
     });
 
     render(<AssuranceDetailView setId="AS-TEST-PARTY" />);
@@ -203,6 +208,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     useMapStore.setState({
       activePersona: 'Submitter',
       activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
     });
 
     render(<AssuranceDetailView setId="AS-TEST-PARTY" />);
@@ -237,11 +243,11 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
   });
 
   it('filters audit trail to hide other party document events for non-client viewer', () => {
-    // 1. As Client: sees all events
+    // 1. As Approver: sees all events
     useMapStore.setState({
-      activePersona: 'Submitter',
-      activeSessionUserId: 'USR-102',
-      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activePersona: 'Approver',
+      activeSessionUserId: 'USR-204',
+      activeDemoOrganization: 'Marine Assurance Authority',
     });
 
     const { rerender } = render(<AssuranceDetailView setId="AS-TEST-PARTY" />);
@@ -271,6 +277,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     useMapStore.setState({
       activePersona: 'Submitter',
       activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
     });
 
     const { rerender } = render(<AssuranceDetailView setId="AS-TEST-PARTY" />);
@@ -285,6 +292,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     useMapStore.setState({
       activePersona: 'Submitter',
       activeDemoOrganization: 'Meridian Marine',
+      activeSessionUserId: 'USR-MM',
     });
 
     rerender(<AssuranceDetailView setId="AS-TEST-PARTY" />);
@@ -300,6 +308,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     useMapStore.setState({
       activePersona: 'C Admin',
       activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
     });
 
     rerender(<AssuranceDetailView setId="AS-TEST-PARTY" />);
@@ -312,6 +321,7 @@ describe('Assurance Detail Party Visibility (Task 5309)', () => {
     useMapStore.setState({
       activePersona: 'Submitter',
       activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
     });
 
     render(<AssuranceDetailView setId="AS-TEST-PARTY" />);

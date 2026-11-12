@@ -341,6 +341,15 @@ export interface SubtypeStakeholderMapping {
   verifierName?: string;
   verifierOrg?: string;
   assignedVerifier?: string;
+  inspectorId?: string;
+  inspectorName?: string;
+  inspectorOrg?: string;
+  assignedInspector?: string;
+  approverId?: string;
+  approverName?: string;
+  approverOrg?: string;
+  assignedApprover?: string;
+  organization?: string;
 }
 
 export interface AssuranceSet {
@@ -349,6 +358,8 @@ export interface AssuranceSet {
   subtypeStakeholders?: Partial<Record<AssuranceSubtype, SubtypeStakeholderMapping>>;
   categoryStakeholders?: Record<string, SubtypeStakeholderMapping>;
   createdByPersona?: string;
+  /** user id of the user who created the set */
+  createdByUserId?: string;
   /** display name of the user who created the set */
   createdByName?: string;
   id: string; // e.g. AS-2026-001

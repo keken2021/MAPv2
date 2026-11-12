@@ -34,7 +34,11 @@ describe('crew masking', () => {
 
   it('shows the passport masked to a verifier, with no Reveal', () => {
     const crew = useMapStore.getState().crew.find((c) => c.passportNo && c.organization)!;
-    useMapStore.setState({ activePersona: 'Verifier' });
+    useMapStore.setState({
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     render(<CrewDetailView crewId={crew.id} />);
 
     expect(screen.queryByText(crew.passportNo)).toBeNull();

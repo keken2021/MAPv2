@@ -13,6 +13,13 @@ import {
 describe('Verifier dashboard config (Task 5387)', () => {
   const fixedNow = new Date('2026-11-05T00:00:00Z');
 
+  const verifierSessionUser = {
+    id: 'USR-202',
+    name: 'A. Fontaine',
+    organization: 'Bureau Veritas Inspectorate',
+    roles: ['Verifier' as const],
+  };
+
   it('formats ordinal numbers correctly', () => {
     expect(formatOrdinal(1)).toBe('1st');
     expect(formatOrdinal(2)).toBe('2nd');
@@ -51,6 +58,8 @@ describe('Verifier dashboard config (Task 5387)', () => {
       assuranceSets: mockSets,
       documents: [],
       auditEvents: [],
+      sessionUser: verifierSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
       setCurrentHashView: vi.fn(),
       now: fixedNow,
     });
@@ -132,6 +141,8 @@ describe('Verifier dashboard config (Task 5387)', () => {
       assuranceSets: mockSets,
       documents: mockDocs,
       auditEvents: [],
+      sessionUser: verifierSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
       setCurrentHashView,
       now: fixedNow,
     });
@@ -213,6 +224,8 @@ describe('Verifier dashboard config (Task 5387)', () => {
       assuranceSets: mockSets,
       documents: mockDocs,
       auditEvents: mockAudit,
+      sessionUser: verifierSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
       setCurrentHashView,
       now: fixedNow,
     });
@@ -225,13 +238,13 @@ describe('Verifier dashboard config (Task 5387)', () => {
     const verifyBtn = screen.getByRole('button', { name: 'Verify' });
     expect(verifyBtn).toBeInTheDocument();
     fireEvent.click(verifyBtn);
-    expect(setCurrentHashView).toHaveBeenCalledWith('verifier-workspace', 'DOC-1');
+    expect(setCurrentHashView).toHaveBeenCalledWith('verifier', 'DOC-1');
 
     // See all / open queue link
     const openQueueLink = screen.getByRole('button', { name: /Open queue \(1\)/i });
     expect(openQueueLink).toBeInTheDocument();
     fireEvent.click(openQueueLink);
-    expect(setCurrentHashView).toHaveBeenCalledWith('verifier-workspace');
+    expect(setCurrentHashView).toHaveBeenCalledWith('verifier');
   });
 
   it('renders empty action message when queue is empty', () => {
@@ -239,6 +252,8 @@ describe('Verifier dashboard config (Task 5387)', () => {
       assuranceSets: [],
       documents: [],
       auditEvents: [],
+      sessionUser: verifierSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
       setCurrentHashView: vi.fn(),
       now: fixedNow,
     });

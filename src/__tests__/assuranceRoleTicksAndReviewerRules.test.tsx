@@ -41,6 +41,21 @@ describe('Assurance set parties - Role ticks start empty and reviewer segregatio
       isAuthenticated: true,
       activePersona: 'Administrator',
       activeDemoOrganization: CLIENT,
+      activeSessionUserId: 'USR-CHEV-01',
+      users: [
+        ...initialState.users,
+        {
+          id: 'USR-CHEV-01',
+          name: 'C. Administrator',
+          email: 'admin@chevron.com',
+          roles: ['Administrator', 'C Admin'],
+          userType: 'Organization',
+          organization: CLIENT,
+          departmentOrScope: 'Operations',
+          status: 'Active',
+          lastActive: '2026-11-04 08:00 UTC',
+        },
+      ],
     });
   });
 

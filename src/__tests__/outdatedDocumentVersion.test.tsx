@@ -191,9 +191,25 @@ describe('Outdated Document Version on Open Sets (FR-15)', () => {
 
   describe('AssuranceDetailView render tests', () => {
     beforeEach(() => {
+      const store = useMapStore.getState();
       useMapStore.setState({
         activePersona: 'C Admin',
         activeDemoOrganization: 'Chevron Shipping',
+        activeSessionUserId: 'USR-CS-01',
+        users: [
+          ...store.users.filter((u) => u.id !== 'USR-CS-01'),
+          {
+            id: 'USR-CS-01',
+            name: 'C. Shipping Admin',
+            email: 'c.admin@chevronshipping.example',
+            roles: ['C Admin'],
+            organization: 'Chevron Shipping',
+            status: 'Active',
+            userType: 'Organization',
+            departmentOrScope: 'Assurance',
+            lastActive: 'Just now',
+          },
+        ],
       });
     });
 
@@ -209,6 +225,10 @@ describe('Outdated Document Version on Open Sets (FR-15)', () => {
         stage: 'Verification',
         readinessScore: 75,
         targetDate: '2026-12-01',
+        initiatorOrg: 'Chevron Shipping',
+        createdByUserId: 'USR-CS-01',
+        createdByName: 'C. Shipping Admin',
+        createdByPersona: 'C Admin',
         clientOrg: 'Chevron Shipping',
         requestingParty: 'Chevron Shipping',
         respondingParty: 'Alpha Shipping',
@@ -262,6 +282,10 @@ describe('Outdated Document Version on Open Sets (FR-15)', () => {
         approverDecision: 'Approved',
         readinessScore: 100,
         targetDate: '2026-12-01',
+        initiatorOrg: 'Chevron Shipping',
+        createdByUserId: 'USR-CS-01',
+        createdByName: 'C. Shipping Admin',
+        createdByPersona: 'C Admin',
         clientOrg: 'Chevron Shipping',
         requestingParty: 'Chevron Shipping',
         respondingParty: 'Alpha Shipping',

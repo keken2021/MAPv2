@@ -7,7 +7,7 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { ListToolbar } from '../components/common/ListToolbar';
 import { formatMaritimeDate } from '../utils/formatters';
 import { getDemoSessionContext, getRoleDisplayLabel, getSessionUserForPersona } from '../utils/userRoleHelpers';
-import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { assigneeMatchesUser, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
 import { getAssuranceSetObjects } from '../utils/assuranceTemplates';
 import { ObjectVerificationBadge } from '../components/common/ObjectVerificationBadge';
@@ -29,6 +29,7 @@ import { usePagination } from '../utils/usePagination';
 import { useDeferredFilters } from '../utils/useDeferredFilters';
 import { Paginated, TablePagination } from '../components/common/TablePagination';
 import { EmptyState } from '../components/common/EmptyState';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
 
 export type ApproverTabKey = 'needs-decision' | 'overdue' | 'approved' | 'returned' | 'all';
@@ -57,41 +58,45 @@ export const ApproverDashboardView: React.FC = () => {
         activePersona,
         users,
         getDemoSessionContext({ activeDemoOrganization, activeSessionUserId }),
-      ),
+      ) ?? null,
     [activePersona, users, activeDemoOrganization, activeSessionUserId],
   );
 
-  const matchingUser = sessionUser ?? users.find((u) => u.roles.includes(activePersona)) ?? null;
+  const canDecideRequirements =
+    Boolean(sessionUser) &&
+    canPerform(
+      rolePermissionDefaults,
+      userPermissionOverrides,
+      sessionUser,
+      activePersona,
+      'approval_decisions',
+      'update',
+      customScopes,
+    );
 
-  const canDecideRequirements = canPerform(
-    rolePermissionDefaults,
-    userPermissionOverrides,
-    matchingUser,
-    activePersona,
-    'approval_decisions',
-    'update',
-    customScopes,
-  );
+  const canCertifyAssuranceSet =
+    Boolean(sessionUser) &&
+    canPerform(
+      rolePermissionDefaults,
+      userPermissionOverrides,
+      sessionUser,
+      activePersona,
+      'assurance_completion',
+      'update',
+      customScopes,
+    );
 
-  const canCertifyAssuranceSet = canPerform(
-    rolePermissionDefaults,
-    userPermissionOverrides,
-    matchingUser,
-    activePersona,
-    'assurance_completion',
-    'update',
-    customScopes,
-  );
-
-  const canAccessApprovalGate = canPerform(
-    rolePermissionDefaults,
-    userPermissionOverrides,
-    matchingUser,
-    activePersona,
-    'approval_gate',
-    'read',
-    customScopes,
-  );
+  const canAccessApprovalGate =
+    Boolean(sessionUser) &&
+    canPerform(
+      rolePermissionDefaults,
+      userPermissionOverrides,
+      sessionUser,
+      activePersona,
+      'approval_gate',
+      'read',
+      customScopes,
+    );
 
   const usesApproverAssignment =
     activePersona === 'Approver' || (activePersona === 'Verifier' && canAccessApprovalGate);
@@ -190,11 +195,11 @@ export const ApproverDashboardView: React.FC = () => {
 
   /* filter assigned sets that are verified and awaiting approval */
   const assignedSets = assuranceSets.filter((s) => {
-    const assignmentUser = activePersona === 'Approver' ? sessionUser : undefined;
+    if (!sessionUser) return false;
     const isAssigned = usesApproverAssignment
-      ? isAssuranceSetAssignedToPersona(s, 'Approver', activeDemoOrganization, assignmentUser) &&
-        (!assignmentUser?.name || Boolean(s.assignedApprover?.toLowerCase().includes(assignmentUser.name.toLowerCase())))
-      : isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, assignmentUser);
+      ? isAssuranceSetAssignedToPersona(s, 'Approver', activeDemoOrganization, sessionUser, users) &&
+        (!sessionUser.name || assigneeMatchesUser(s.assignedApprover, sessionUser))
+      : isAssuranceSetAssignedToPersona(s, activePersona, activeDemoOrganization, sessionUser, users);
     if (usesApproverAssignment) {
       const isVerificationReq = s.verificationRequired !== false;
       const isVerifiedAndReady =
@@ -209,9 +214,9 @@ export const ApproverDashboardView: React.FC = () => {
     return isAssigned;
   });
 
-  /* active selected set from currentEntityId route parameter or state fallback */
+  /* active selected set must belong to the signed-in user's assigned sets */
   const selectedSet = currentEntityId
-    ? assuranceSets.find((s) => s.id === currentEntityId)
+    ? assignedSets.find((s) => s.id === currentEntityId)
     : undefined;
 
   /* check approval blocking logic: workflow requirements override verifier check if verificationRequired is false */
@@ -318,6 +323,11 @@ export const ApproverDashboardView: React.FC = () => {
   });
 
   const setsPagination = usePagination(sortedSets, [activeTab, searchTerm, stageFilter, pipelineSortField, pipelineSortDirection]);
+
+  /* render access denied when route references an unassigned or unknown set */
+  if (currentEntityId && !selectedSet) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('approver')} />;
+  }
 
   /* render detail page if currentEntityId is present */
   if (selectedSet) {

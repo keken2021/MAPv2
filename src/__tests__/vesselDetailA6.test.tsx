@@ -9,13 +9,20 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselDetailView } from '../views/VesselDetailView';
 
+const initialState = useMapStore.getState();
+
 describe('Vessel detail A6 public fields (Task 5485)', () => {
   beforeEach(() => {
-    useMapStore.setState({
-      isAuthenticated: true,
-      activePersona: 'Administrator',
-      activeDemoOrganization: 'Northwind Marine Pty Ltd',
-    });
+    useMapStore.setState(
+      {
+        ...initialState,
+        isAuthenticated: true,
+        activePersona: 'Administrator',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
+      },
+      true,
+    );
   });
 
   it('shows the full datasheet to the owning organization', () => {
@@ -33,6 +40,7 @@ describe('Vessel detail A6 public fields (Task 5485)', () => {
     useMapStore.setState({
       activePersona: 'C Admin',
       activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+      activeSessionUserId: 'USR-201',
     });
 
     render(<VesselDetailView vesselId="VESSEL-001" />);

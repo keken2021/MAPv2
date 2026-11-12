@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { CreateAssuranceSetView } from '../views/CreateAssuranceSetView';
 import { AssuranceDetailView } from '../views/AssuranceDetailView';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import {
   OIL_CO_AURORA_ID,
@@ -20,10 +20,16 @@ import { isComplianceDeadlineOverdue, isDatePermissionActive } from '../utils/va
 import { deriveObjectVerification } from '../utils/documentVersionSnapshot';
 import { useMapStore } from '../store/useMapStore';
 
+const initialState = useMapStore.getState();
+
 describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
   const project = MOCK_PROJECTS.find((p) => p.id === OIL_CO_LNG_PROJECT_ID);
   const ss01 = PROJECT_SEED_ASSURANCE_SETS.find((s) => s.id === OIL_CO_SS01_ID);
   const ss03 = PROJECT_SEED_ASSURANCE_SETS.find((s) => s.id === OIL_CO_SS03_ID);
+
+  beforeEach(() => {
+    useMapStore.setState(initialState, true);
+  });
 
   describe('Scenario 1: Date change', () => {
     it('sets target date on set and tasks, with active short-term permission and history ledger', () => {
@@ -205,11 +211,15 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
 
   describe('Scenario 8: Organization party role on assurance set request (Task 5333)', () => {
     it('carries party roles in request payload, pre-fills in wizard with note, and saves on assurance set', () => {
-      const store = useMapStore.getState();
+      useMapStore.setState({
+        activePersona: 'C Admin',
+        activeDemoOrganization: OIL_CO_ORG,
+        activeSessionUserId: 'USR-228',
+      });
       const proj = MOCK_PROJECTS.find((p) => p.id === OIL_CO_LNG_PROJECT_ID)!;
 
       // 1. Party role in the request notification payload
-      const reqResult = store.requestAssuranceSet({
+      const reqResult = useMapStore.getState().requestAssuranceSet({
         projectId: proj.id,
         recipientUserId: 'USR-102',
         senderUserId: 'USR-228',
@@ -226,8 +236,13 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
       expect(notif?.request?.partyRoles?.requestingParty).toBe(OIL_CO_ORG);
       expect(notif?.request?.partyRoles?.respondingParty).toBe('Northwind Marine Pty Ltd');
 
-      // 2. Wizard pre-fill and note
-      useMapStore.setState({ pendingAssuranceRequestNotificationId: notif?.id });
+      // 2. Wizard pre-fill and note (opened by recipient Submitter M. Chen)
+      useMapStore.setState({
+        activePersona: 'Submitter',
+        activeDemoOrganization: NORTHWIND_ORG,
+        activeSessionUserId: 'USR-102',
+        pendingAssuranceRequestNotificationId: notif?.id,
+      });
       const { unmount } = render(React.createElement(CreateAssuranceSetView));
       expect(screen.getAllByText(/Pre-filled from request/i).length).toBeGreaterThan(0);
       unmount();
@@ -238,6 +253,9 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
         ...ss01!,
         id: testSetId,
         title: 'Aurora Party Role Test Set',
+        createdByUserId: 'USR-228',
+        createdByName: 'A. Okonkwo',
+        createdByPersona: 'C Admin' as const,
         requestingParty: OIL_CO_ORG,
         respondingParty: NORTHWIND_ORG,
         partyRoles: {
@@ -249,7 +267,12 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
           { organization: NORTHWIND_ORG, group: 'Vendor' as const, partyRole: 'Responding party' },
         ],
       };
-      useMapStore.setState({ assuranceSets: [createdSet, ...useMapStore.getState().assuranceSets] });
+      useMapStore.setState({
+        activePersona: 'C Admin',
+        activeDemoOrganization: OIL_CO_ORG,
+        activeSessionUserId: 'USR-228',
+        assuranceSets: [createdSet, ...useMapStore.getState().assuranceSets],
+      });
 
       const { unmount: unmountDetail } = render(React.createElement(AssuranceDetailView, { setId: testSetId }));
       expect(screen.getAllByText(OIL_CO_ORG).length).toBeGreaterThan(0);
@@ -267,6 +290,9 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
         ...ss01!,
         id: testSetId,
         title: 'Aurora Activity Detail Test Set',
+        createdByUserId: 'USR-228',
+        createdByName: 'A. Okonkwo',
+        createdByPersona: 'C Admin' as const,
         assuranceObjects: [
           {
             id: 'OBJ-ACT-TEST-01',
@@ -284,7 +310,6 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
             id: 'REQ-ACT-01',
             title: 'Approved Cargo Transfer Checklist',
             sectionId: 'sec-activity',
-            subtype: 'Activity' as any,
             category: 'Standard Documents',
             status: 'Compliant' as const,
             isMandatory: true,
@@ -294,7 +319,12 @@ describe('BRD V4.2 Scenarios Mock Data (Task 5206)', () => {
           },
         ],
       };
-      useMapStore.setState({ assuranceSets: [createdSet as any, ...useMapStore.getState().assuranceSets] });
+      useMapStore.setState({
+        activePersona: 'C Admin',
+        activeDemoOrganization: OIL_CO_ORG,
+        activeSessionUserId: 'USR-228',
+        assuranceSets: [createdSet, ...useMapStore.getState().assuranceSets],
+      });
 
       const { unmount: unmountDetail } = render(React.createElement(AssuranceDetailView, { setId: testSetId }));
       const reqTab = screen.getByRole('tab', { name: 'Requirements' });

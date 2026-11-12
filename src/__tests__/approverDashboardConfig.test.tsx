@@ -10,6 +10,13 @@ import { getApproverDashboardConfig } from '../utils/roleDashboardConfigs';
 describe('Approver dashboard config (Task 5389)', () => {
   const fixedNow = new Date('2026-11-05T00:00:00Z');
 
+  const approverSessionUser = {
+    id: 'USR-APP',
+    name: 'J. Richardson',
+    organization: 'Northwind Marine Pty Ltd',
+    roles: ['Approver' as const],
+  };
+
   it('builds KPI tiles with correct tones and labels', () => {
     const mockSets: AssuranceSet[] = [
       {
@@ -43,6 +50,8 @@ describe('Approver dashboard config (Task 5389)', () => {
       assuranceSets: mockSets,
       capaItems: [],
       auditEvents: [],
+      sessionUser: approverSessionUser,
+      activeOrganization: 'Northwind Marine Pty Ltd',
       setCurrentHashView: vi.fn(),
       now: fixedNow,
     });
@@ -112,6 +121,8 @@ describe('Approver dashboard config (Task 5389)', () => {
       assuranceSets: [readySet, pendingInspSet, findingsSet], // unsorted order
       capaItems: [],
       auditEvents: [],
+      sessionUser: approverSessionUser,
+      activeOrganization: 'Northwind Marine Pty Ltd',
       setCurrentHashView,
       now: fixedNow,
     });
@@ -190,6 +201,8 @@ describe('Approver dashboard config (Task 5389)', () => {
       assuranceSets: [findingsSet, readySet],
       capaItems: [],
       auditEvents: mockAudit,
+      sessionUser: approverSessionUser,
+      activeOrganization: 'Northwind Marine Pty Ltd',
       setCurrentHashView,
       now: fixedNow,
     });
@@ -220,6 +233,8 @@ describe('Approver dashboard config (Task 5389)', () => {
       assuranceSets: [],
       capaItems: [],
       auditEvents: [],
+      sessionUser: approverSessionUser,
+      activeOrganization: 'Northwind Marine Pty Ltd',
       setCurrentHashView: vi.fn(),
       now: fixedNow,
     });

@@ -10,13 +10,20 @@ import { render, screen } from '@testing-library/react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselDetailView } from '../views/VesselDetailView';
 
+const initialState = useMapStore.getState();
+
 describe('vessel detail management list and ownership', () => {
   beforeEach(() => {
-    useMapStore.setState({
-      isAuthenticated: true,
-      activePersona: 'C Admin',
-      activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
-    });
+    useMapStore.setState(
+      {
+        ...initialState,
+        isAuthenticated: true,
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+        activeSessionUserId: 'USR-201',
+      },
+      true,
+    );
   });
 
   it('shows one Management row per organization with View vessels for C Admin', () => {

@@ -36,7 +36,10 @@ function setUp() {
     assuranceSets: state.assuranceSets.map((s) =>
       s.id === set.id ? { ...s, requirements: [req, ...s.requirements.slice(1)] } : s,
     ),
+    isAuthenticated: true,
     activePersona: 'Verifier',
+    activeDemoOrganization: 'Bureau Veritas Inspectorate',
+    activeSessionUserId: 'USR-202',
   });
   render(
     <DocumentReviewDrawer

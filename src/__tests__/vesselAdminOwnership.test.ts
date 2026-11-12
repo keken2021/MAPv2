@@ -24,16 +24,22 @@ import { MOCK_VESSELS, MOCK_ASSURANCE_SETS, MOCK_DOCUMENTS } from '../store/mock
 import { VesselInformation } from '../types/vessel';
 import { useMapStore } from '../store/useMapStore';
 
+const adminUser = MOCK_USERS.find((u) => u.id === 'USR-101')!;
+const submitterUser = MOCK_USERS.find((u) => u.id === 'USR-102')!;
+const cAdminUser = MOCK_USERS.find((u) => u.id === 'USR-201')!;
+
 describe('vessel provider fleet ownership isolation and c admin visibility', () => {
-  it('restricts submitter / vessel provider to ONLY view the vessels that they own', () => {
+  it('restricts submitter / vessel provider to ONLY view vessels on their assigned sets', () => {
     const submitterVessels = filterVesselsForPersona(
       MOCK_VESSELS,
       MOCK_ASSURANCE_SETS,
-      'Submitter'
+      'Submitter',
+      'Northwind Marine Pty Ltd',
+      submitterUser,
     );
 
-    /* northwind mock vessels belong to the submitter, including LNGC Northwind Aurora */
-    expect(submitterVessels.length).toBe(9);
+    /* submitter sees only northwind vessels linked to sets assigned to M. Chen */
+    expect(submitterVessels.length).toBe(5);
     expect(submitterVessels.every((v) => v.registeredOwner?.toLowerCase().includes('northwind'))).toBe(true);
     expect(submitterVessels.find((v) => v.id === 'VESSEL-008')).toBeUndefined();
     expect(submitterVessels.find((v) => v.id === 'VESSEL-009')).toBeUndefined();
@@ -61,17 +67,21 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const submitterWithCompetitor = filterVesselsForPersona(
       [...MOCK_VESSELS, competitorVessel],
       MOCK_ASSURANCE_SETS,
-      'Submitter'
+      'Submitter',
+      'Northwind Marine Pty Ltd',
+      submitterUser,
     );
     expect(submitterWithCompetitor.find((v) => v.id === 'VESSEL-COMPETITOR-01')).toBeUndefined();
-    expect(submitterWithCompetitor.length).toBe(9);
+    expect(submitterWithCompetitor.length).toBe(5);
   });
 
   it('restricts administrator view to ONLY vessels owned by northwind marine pty ltd', () => {
     const adminVessels = filterVesselsForPersona(
       MOCK_VESSELS,
       MOCK_ASSURANCE_SETS,
-      'Administrator'
+      'Administrator',
+      'Northwind Marine Pty Ltd',
+      adminUser,
     );
 
     /* administrator belongs to northwind marine pty ltd */
@@ -92,16 +102,18 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const adminWithCompetitor = filterVesselsForPersona(
       [...MOCK_VESSELS, competitorVessel],
       MOCK_ASSURANCE_SETS,
-      'Administrator'
+      'Administrator',
+      'Northwind Marine Pty Ltd',
+      adminUser,
     );
     expect(adminWithCompetitor.find((v) => v.id === 'VESSEL-COMPETITOR-02')).toBeUndefined();
     expect(adminWithCompetitor.length).toBe(9);
   });
 
-  it('restricts administrator assurance sets to only those created by admin or created by c admin for northwind vessels', () => {
+  it('restricts administrator assurance sets to only those created by or assigned to that administrator', () => {
     /* verify each mock assurance set against administrator persona */
     const adminVisibleSets = MOCK_ASSURANCE_SETS.filter((set) =>
-      isAssuranceSetAssignedToPersona(set, 'Administrator')
+      isAssuranceSetAssignedToPersona(set, 'Administrator', 'Northwind Marine Pty Ltd', adminUser),
     );
 
     expect(adminVisibleSets.length).toBeGreaterThan(0);
@@ -126,7 +138,9 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     const cAdminVessels = filterVesselsForPersona(
       MOCK_VESSELS,
       MOCK_ASSURANCE_SETS,
-      'C Admin'
+      'C Admin',
+      'Southern Basin Energy Pty Ltd',
+      cAdminUser,
     );
 
     /* c admin has complete visibility across all vessels on the platform */
@@ -343,16 +357,43 @@ describe('vessel provider fleet ownership isolation and c admin visibility', () 
     };
 
     const combinedVessels = [...MOCK_VESSELS, newSubmitterVessel];
-    const filtered = filterVesselsForPersona(
+    const adminFiltered = filterVesselsForPersona(
       combinedVessels,
       MOCK_ASSURANCE_SETS,
-      'Submitter'
+      'Administrator',
+      'Northwind Marine Pty Ltd',
+      adminUser,
     );
 
-    const found = filtered.find((v) => v.id === 'VESSEL-999');
-    expect(found).toBeDefined();
-    expect(found?.name).toBe('MV Pacific Pioneer');
-    expect(filtered.length).toBe(10);
+    const foundAdmin = adminFiltered.find((v) => v.id === 'VESSEL-999');
+    expect(foundAdmin).toBeDefined();
+    expect(foundAdmin?.name).toBe('MV Pacific Pioneer');
+    expect(adminFiltered.length).toBe(10);
+
+    const setForNewVessel = {
+      ...MOCK_ASSURANCE_SETS[0],
+      id: 'AS-VESSEL-999',
+      vesselId: 'VESSEL-999',
+      vesselName: 'MV Pacific Pioneer',
+      assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+    };
+    const submitterFiltered = filterVesselsForPersona(
+      combinedVessels,
+      [...MOCK_ASSURANCE_SETS, setForNewVessel],
+      'Submitter',
+      'Northwind Marine Pty Ltd',
+      submitterUser,
+    );
+    expect(submitterFiltered.find((v) => v.id === 'VESSEL-999')).toBeDefined();
+    expect(
+      filterVesselsForPersona(
+        combinedVessels,
+        MOCK_ASSURANCE_SETS,
+        'Submitter',
+        'Northwind Marine Pty Ltd',
+        submitterUser,
+      ).find((v) => v.id === 'VESSEL-999'),
+    ).toBeUndefined();
   });
 
   it('validates mock data accuracy and completeness across all vessel Information', () => {

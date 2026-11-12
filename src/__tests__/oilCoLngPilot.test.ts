@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
-import { filterProjectsForPersona, getAssuranceSetRequestRecipients, withProjectVessels } from '../utils/projectHelpers';
+import { filterProjectsForPersona, withProjectVessels } from '../utils/projectHelpers';
+import { getAssuranceSetRequestRecipients } from '../utils/assuranceRequestHelpers';
 import { SUBTYPE_TEMPLATES, customRequirementFields, getThreePillarsCategory } from '../utils/assuranceTemplates';
 import { resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
 import { ThreePillarsCategory } from '../types/assurance';
@@ -46,12 +47,38 @@ describe('Oil Co LNG Field Development pilot', () => {
       filterProjectsForPersona(MOCK_PROJECTS, 'C Admin', MOCK_USERS, [], NORTHWIND_ORG).some(
         (item) => item.id === OIL_CO_LNG_PROJECT_ID,
       ),
+    ).toBe(false);
+    expect(
+      filterProjectsForPersona(
+        MOCK_PROJECTS,
+        'C Admin',
+        MOCK_USERS,
+        [],
+        NORTHWIND_ORG,
+        MOCK_USERS.find((u) => u.id === 'USR-235'),
+        [{ type: 'assurance_set_request', projectId: OIL_CO_LNG_PROJECT_ID, recipientUserId: 'USR-235' }],
+      ).some((item) => item.id === OIL_CO_LNG_PROJECT_ID),
+    ).toBe(true);
+    expect(
+      filterProjectsForPersona(MOCK_PROJECTS, 'C Admin', MOCK_USERS, [], OIL_CO_ORG).some(
+        (item) => item.id === OIL_CO_LNG_PROJECT_ID,
+      ),
+    ).toBe(true);
+    expect(
+      filterProjectsForPersona(
+        MOCK_PROJECTS,
+        'Submitter',
+        MOCK_USERS,
+        PROJECT_SEED_ASSURANCE_SETS,
+        NORTHWIND_ORG,
+        MOCK_USERS.find((u) => u.id === 'USR-102'),
+      ).some((item) => item.id === OIL_CO_LNG_PROJECT_ID),
     ).toBe(true);
     expect(
       filterProjectsForPersona(MOCK_PROJECTS, 'Submitter', MOCK_USERS, [], OIL_CO_ORG).some(
         (item) => item.id === OIL_CO_LNG_PROJECT_ID,
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('names the BRD client, provider and assurance parties', () => {
@@ -133,14 +160,12 @@ describe('Oil Co LNG Field Development pilot', () => {
   });
 
   it('lets Oil Company ask Northwind to create SS-04 as the client', () => {
-    const recipients = getAssuranceSetRequestRecipients(
-      MOCK_USERS,
-      OIL_CO_ORG,
-      project?.invitedOrganizations,
-      'USR-228',
-    );
-    expect(recipients.some((user) => user.name === 'T. Okada' && user.organization === NORTHWIND_ORG)).toBe(true);
-    expect(recipients.some((user) => user.id === 'USR-228')).toBe(false);
+    /* recipients are Submitters of the project's other contract parties, not C Admins */
+    const recipients = getAssuranceSetRequestRecipients(MOCK_USERS, project!, OIL_CO_ORG, 'USR-228');
+    expect(recipients.some((user) => user.name === 'M. Chen' && user.organization === NORTHWIND_ORG)).toBe(true);
+    expect(recipients.some((user) => user.name === 'T. Okada')).toBe(false);
+    expect(recipients.some((user) => user.organization === OIL_CO_ORG)).toBe(false);
+    expect(recipients.every((user) => user.roles.includes('Submitter'))).toBe(true);
     expect(resolveAssuranceRequestSetClient(NORTHWIND_ORG, {
       clientOrganization: OIL_CO_ORG,
       project: project!,

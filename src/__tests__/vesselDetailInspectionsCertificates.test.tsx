@@ -14,22 +14,30 @@ import {
   PHYSICAL_INSPECTIONS,
 } from '../store/inspectionMockData';
 
+const initialState = useMapStore.getState();
+
 describe('vessel detail inspections and certificates', () => {
   beforeEach(() => {
-    useMapStore.setState({
-      isAuthenticated: true,
-      activePersona: 'Administrator',
-      activeDemoOrganization: 'Northwind Marine Pty Ltd',
-    });
+    useMapStore.setState(
+      {
+        ...initialState,
+        isAuthenticated: true,
+        activePersona: 'Administrator',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
+      },
+      true,
+    );
   });
 
   it('renders seeded inspections for a vessel that has them', () => {
     render(<VesselDetailView vesselId="VESSEL-001" />);
     fireEvent.click(screen.getByRole('tab', { name: /inspections/i }));
 
-    expect(screen.getByText('INSP-2026-001')).toBeInTheDocument();
-    expect(screen.getByText('AS-2026-001')).toBeInTheDocument();
+    expect(screen.getByText('INSP-2026-008')).toBeInTheDocument();
+    expect(screen.getByText('AS-2026-008')).toBeInTheDocument();
     expect(screen.getAllByText('N. Technical (Bureau Veritas Inspectorate)').length).toBeGreaterThan(0);
+    expect(screen.queryByText('INSP-2026-001')).toBeNull();
     expect(screen.queryByText('No inspections recorded')).toBeNull();
   });
 

@@ -88,8 +88,8 @@ describe('session visibility person-only matching per workflow role', () => {
       expect(isAssuranceSetAssignedToPersona(testSet, 'Submitter', testSet.initiatorOrg, coworkerUser)).toBe(false);
     });
 
-    it('falls back to organization match when no user is provided', () => {
-      expect(isAssuranceSetAssignedToPersona(testSet, 'Submitter', 'Northwind Marine Pty Ltd')).toBe(true);
+    it('fails closed when no user is provided', () => {
+      expect(isAssuranceSetAssignedToPersona(testSet, 'Submitter', 'Northwind Marine Pty Ltd')).toBe(false);
       expect(isAssuranceSetAssignedToPersona(testSet, 'Submitter', 'Unrelated Corp')).toBe(false);
     });
   });
@@ -113,8 +113,8 @@ describe('session visibility person-only matching per workflow role', () => {
       expect(isAssuranceSetAssignedToPersona(testSet, 'Verifier', coworkerUser.organization, coworkerUser)).toBe(false);
     });
 
-    it('falls back to organization match when no user is provided', () => {
-      expect(isAssuranceSetAssignedToPersona(testSet, 'Verifier', 'Bureau Veritas Inspectorate')).toBe(true);
+    it('fails closed when no user is provided', () => {
+      expect(isAssuranceSetAssignedToPersona(testSet, 'Verifier', 'Bureau Veritas Inspectorate')).toBe(false);
       expect(isAssuranceSetAssignedToPersona(testSet, 'Verifier', 'Unrelated Corp')).toBe(false);
     });
   });
@@ -153,8 +153,8 @@ describe('session visibility person-only matching per workflow role', () => {
       expect(isAssuranceSetAssignedToPersona(noInspectionSet, 'Inspector', undefined, assignedUser)).toBe(false);
     });
 
-    it('falls back to organization match when no user is provided', () => {
-      expect(isAssuranceSetAssignedToPersona(testSet, 'Inspector', 'Bureau Veritas Inspectorate')).toBe(true);
+    it('fails closed when no user is provided', () => {
+      expect(isAssuranceSetAssignedToPersona(testSet, 'Inspector', 'Bureau Veritas Inspectorate')).toBe(false);
       expect(isAssuranceSetAssignedToPersona(testSet, 'Inspector', 'Unrelated Corp')).toBe(false);
     });
   });
@@ -203,8 +203,8 @@ describe('session visibility person-only matching per workflow role', () => {
       expect(isAssuranceSetAssignedToPersona(draftSet, 'Approver', undefined, assignedUser)).toBe(false);
     });
 
-    it('falls back to organization match when no user is provided', () => {
-      expect(isAssuranceSetAssignedToPersona(testSet, 'Approver', 'Chevron Australia Pty Ltd')).toBe(true);
+    it('fails closed when no user is provided', () => {
+      expect(isAssuranceSetAssignedToPersona(testSet, 'Approver', 'Chevron Australia Pty Ltd')).toBe(false);
       expect(isAssuranceSetAssignedToPersona(testSet, 'Approver', 'Unrelated Corp')).toBe(false);
     });
   });
@@ -262,9 +262,9 @@ describe('filterAssuranceSetsForSession', () => {
     expect(filtered[0].id).toBe('AS-TEST-1');
   });
 
-  it('falls back to organization matching when no user is given', () => {
+  it('returns no sets when no user is given', () => {
     const filtered = filterAssuranceSetsForSession([setA, setB], 'Submitter', 'Northwind Marine Pty Ltd', null);
-    expect(filtered).toHaveLength(2);
+    expect(filtered).toHaveLength(0);
   });
 });
 
@@ -330,8 +330,8 @@ describe('verifier queue helpers with session user', () => {
     expect(filtered[0].id).toBe('DOC-1');
   });
 
-  it('returns documents for all sets of the organization when no user is given', () => {
+  it('returns no documents when no user is given', () => {
     const filtered = filterDocumentsForVerifierQueue(docs, [set1, set2], 'Verifier', 'Bureau Veritas Inspectorate');
-    expect(filtered).toHaveLength(2);
+    expect(filtered).toHaveLength(0);
   });
 });

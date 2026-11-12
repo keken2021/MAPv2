@@ -4,11 +4,14 @@ import { AssuranceSet } from '../types/assurance';
 import { filterNotificationsForUser, resolveNotificationRecipient } from '../utils/notificationHelpers';
 import { generateUniqueAssuranceSetId } from '../utils/validation';
 
+const initialState = useMapStore.getState();
+
 const inboxOf = (userId: string) =>
   filterNotificationsForUser(useMapStore.getState().notifications, userId);
 
 describe('Task 5530 (A64): Approver sent-back notice and optional charter date', () => {
   beforeEach(() => {
+    useMapStore.setState(initialState, true);
     useMapStore.setState({ notifications: [] });
   });
 
@@ -48,6 +51,12 @@ describe('Task 5530 (A64): Approver sent-back notice and optional charter date',
       const approver = resolveNotificationRecipient(targetSet!.assignedApprover, users)!;
       const req = targetSet!.requirements[0];
 
+      useMapStore.setState({
+        activePersona: 'Approver',
+        activeDemoOrganization: approver.organization,
+        activeSessionUserId: approver.id,
+      });
+
       useMapStore.getState().denyRequirementByApprover(targetSet!.id, req.id, 'Correction Requested', 'Expired certificate.');
 
       const approverNotice = inboxOf(approver.id).find(
@@ -62,6 +71,11 @@ describe('Task 5530 (A64): Approver sent-back notice and optional charter date',
 
   describe('Optional planned charter date on assurance set', () => {
     it('saves assurance set cleanly without a planned charter date (optional)', () => {
+      useMapStore.setState({
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      });
       const store = useMapStore.getState();
       const uniqueId = generateUniqueAssuranceSetId(store.assuranceSets);
 
@@ -74,6 +88,9 @@ describe('Task 5530 (A64): Approver sent-back notice and optional charter date',
         initiatorOrg: 'Chevron Australia Pty Ltd',
         initiatorRole: 'C Admin · Client Created',
         charterer: 'Chevron Australia Pty Ltd',
+        createdByUserId: 'USR-221',
+        createdByName: 'C. Henderson',
+        createdByPersona: 'C Admin',
         charterWindowStart: '2026-11-01',
         charterWindowEnd: '2027-11-01',
         complianceDeadline: '2026-11-01',
@@ -92,6 +109,11 @@ describe('Task 5530 (A64): Approver sent-back notice and optional charter date',
     });
 
     it('saves and updates assurance set with planned charter date when provided', () => {
+      useMapStore.setState({
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      });
       const store = useMapStore.getState();
       const uniqueId = generateUniqueAssuranceSetId(store.assuranceSets);
 
@@ -104,6 +126,9 @@ describe('Task 5530 (A64): Approver sent-back notice and optional charter date',
         initiatorOrg: 'Chevron Australia Pty Ltd',
         initiatorRole: 'C Admin · Client Created',
         charterer: 'Chevron Australia Pty Ltd',
+        createdByUserId: 'USR-221',
+        createdByName: 'C. Henderson',
+        createdByPersona: 'C Admin',
         charterWindowStart: '2026-11-01',
         charterWindowEnd: '2027-11-01',
         plannedCharterDate: '2026-11-15',

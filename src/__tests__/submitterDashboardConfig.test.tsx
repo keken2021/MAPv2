@@ -171,20 +171,30 @@ describe('Submitter dashboard config (Task 5386)', () => {
     expect(row4.subtitle).toBe('Expires 28 Nov');
 
     // Test button actions
+    sessionStorage.clear();
     row1.onAction?.();
     expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets', 'AS-101');
+    expect(sessionStorage.getItem('map_assurance_detail_tab_preselect')).toBe('tasks');
+    expect(sessionStorage.getItem('map_assurance_focus_req_id')).toBe('REQ-1');
 
+    sessionStorage.clear();
     row2.onAction?.();
-    expect(setCurrentHashView).toHaveBeenCalledWith('capa');
+    expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets', 'AS-101');
+    expect(sessionStorage.getItem('map_assurance_detail_tab_preselect')).toBe('tasks');
+    expect(sessionStorage.getItem('map_assurance_focus_capa_id')).toBe('CAPA-101');
 
+    sessionStorage.clear();
     row3.onAction?.();
     expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets', 'AS-101');
+    expect(sessionStorage.getItem('map_assurance_detail_tab_preselect')).toBe('tasks');
+    expect(sessionStorage.getItem('map_assurance_focus_req_id')).toBe('REQ-2');
 
     row4.onAction?.();
-    expect(setCurrentHashView).toHaveBeenCalledWith('documents');
+    expect(setCurrentHashView).toHaveBeenCalledWith('documents', 'DOC-1');
   });
 
   it('renders SharedDashboardFrame with Submitter config and all button interactions', () => {
+    sessionStorage.clear();
     const setCurrentHashView = vi.fn();
     const config = getSubmitterDashboardConfig({
       assuranceSets: mockSets,
@@ -215,14 +225,16 @@ describe('Submitter dashboard config (Task 5386)', () => {
 
     fireEvent.click(reuploadBtn);
     expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets', 'AS-101');
+    expect(sessionStorage.getItem('map_assurance_detail_tab_preselect')).toBe('tasks');
 
     fireEvent.click(respondBtn);
-    expect(setCurrentHashView).toHaveBeenCalledWith('capa');
+    expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets', 'AS-101');
+    expect(sessionStorage.getItem('map_assurance_focus_capa_id')).toBe('CAPA-101');
 
     fireEvent.click(uploadBtn);
     expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets', 'AS-101');
 
     fireEvent.click(renewBtn);
-    expect(setCurrentHashView).toHaveBeenCalledWith('documents');
+    expect(setCurrentHashView).toHaveBeenCalledWith('documents', 'DOC-1');
   });
 });

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react';
 import { useMapStore } from '../store/useMapStore';
 import { VesselInformation } from '../types/vessel';
-import { filterVesselsForPersona, getAssuranceSetRoleActions, isAdminReadOnlyWorkView, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
+import { getAssuranceSetRoleActions, isAdminReadOnlyWorkView, isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../utils/userRoleHelpers';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
 import { FilterModal } from '../components/common/FilterModal';
@@ -104,32 +104,30 @@ export const InspectorWorkspaceView: React.FC = () => {
     };
 
     if (isAdminReadOnlyWorkView('inspector', activePersona)) {
+      if (!sessionUser) return [];
       return assuranceSets
         .filter(
           (set) =>
             Boolean(set.mandatoryInspectionRequired && set.assignedInspector) &&
-            isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization) &&
+            isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser, users) &&
             !getAssuranceSetRoleActions(set, activePersona, activeDemoOrganization, sessionUser).canInspect,
         )
         .map((set) => ({ set, vessel: vesselForSet(set) }));
     }
 
     if (activePersona !== 'Inspector' || !sessionUser?.name) {
-      return filterVesselsForPersona(vessels, assuranceSets, activePersona).map((vessel) => ({
-        vessel,
-        set: assuranceSets.find((set) => set.vesselId === vessel.id || set.vesselName === vessel.name) as AssuranceSet,
-      })).filter((row) => row.set);
+      return [];
     }
 
     const name = sessionUser.name.trim().toLowerCase();
     return assuranceSets
       .filter(
         (set) =>
-          isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser) &&
+          isAssuranceSetAssignedToPersona(set, activePersona, activeDemoOrganization, sessionUser, users) &&
           Boolean(set.assignedInspector?.toLowerCase().includes(name)),
       )
       .map((set) => ({ set, vessel: vesselForSet(set) }));
-  }, [vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser]);
+  }, [vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser, users]);
 
   const isCompleted = (row: InspectionRow) =>
     Boolean(row.set.inspectionCompleted || row.set.stage === 'Certified');

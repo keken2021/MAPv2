@@ -21,6 +21,7 @@ describe('vessel detail audit and capa tabs', () => {
         isAuthenticated: true,
         activePersona: 'Administrator',
         activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-101',
         vessels: MOCK_VESSELS,
         assuranceSets: MOCK_ASSURANCE_SETS,
         capaItems: MOCK_CAPA_ITEMS,

@@ -597,6 +597,11 @@ export function getAssuranceSetOpenFindings(
   });
 }
 
+/** Whether open findings may block a set; a set with no inspection only flags them. */
+export function doFindingsBlockSet(set: Pick<AssuranceSet, 'mandatoryInspectionRequired'>): boolean {
+  return Boolean(set.mandatoryInspectionRequired);
+}
+
 /**
   what: returns the count of open findings for an assurance set.
   how: counts open findings from getAssuranceSetOpenFindings.

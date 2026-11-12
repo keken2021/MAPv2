@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   getAssuranceWizardProjectOptions,
   projectToAssuranceProjectScope,
@@ -10,25 +10,54 @@ import { MOCK_USERS } from '../store/mockData';
 import { useMapStore } from '../store/useMapStore';
 import { Project } from '../types/project';
 
+const initialState = useMapStore.getState();
+
 describe('assurance wizard project scope options', () => {
+  beforeEach(() => {
+    useMapStore.setState(initialState, true);
+    useMapStore.setState({
+      isAuthenticated: true,
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
+    });
+  });
+
   it('includes live registry projects for vessel admin', () => {
+    const adminUser = MOCK_USERS.find((u) => u.id === 'USR-101')!;
+    const submitterUser = MOCK_USERS.find((u) => u.id === 'USR-102')!;
     const options = getAssuranceWizardProjectOptions(
       MOCK_PROJECTS,
       'Administrator',
       MOCK_USERS,
       [],
+      'Northwind Marine Pty Ltd',
+      adminUser,
     );
 
     expect(options.some((p) => p.id === 'MAP-PROJ-2026-MARINE-007')).toBe(true);
-    expect(options.some((p) => p.id === 'MAP-PROJ-2026-MARINE-012')).toBe(true);
+    expect(options.some((p) => p.id === 'MAP-PROJ-2026-MARINE-012')).toBe(false);
+
+    const submitterOptions = getAssuranceWizardProjectOptions(
+      MOCK_PROJECTS,
+      'Submitter',
+      MOCK_USERS,
+      useMapStore.getState().assuranceSets,
+      'Northwind Marine Pty Ltd',
+      submitterUser,
+    );
+    expect(submitterOptions.some((p) => p.id === 'MAP-PROJ-2026-MARINE-012')).toBe(true);
   });
 
   it('includes newly created projects after addProject', () => {
+    const adminUser = MOCK_USERS.find((u) => u.id === 'USR-101')!;
     const before = getAssuranceWizardProjectOptions(
       useMapStore.getState().projects,
       'Administrator',
       MOCK_USERS,
       useMapStore.getState().assuranceSets,
+      'Northwind Marine Pty Ltd',
+      adminUser,
     ).length;
 
     const result = useMapStore.getState().addProject({
@@ -52,6 +81,8 @@ describe('assurance wizard project scope options', () => {
       'Administrator',
       MOCK_USERS,
       useMapStore.getState().assuranceSets,
+      'Northwind Marine Pty Ltd',
+      adminUser,
     );
 
     expect(after.length).toBeGreaterThan(before);

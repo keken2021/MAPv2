@@ -168,7 +168,15 @@ describe('nested project assurance sets (Req 3–4)', () => {
   });
 
   it('shows Southern Basin client projects to C Admin', () => {
-    const visible = filterProjectsForPersona(MOCK_PROJECTS, 'C Admin', MOCK_USERS);
+    const sbeCAdmin = MOCK_USERS.find((u) => u.id === 'USR-201')!;
+    const visible = filterProjectsForPersona(
+      MOCK_PROJECTS,
+      'C Admin',
+      MOCK_USERS,
+      [],
+      'Southern Basin Energy Pty Ltd',
+      sbeCAdmin,
+    );
     expect(visible.some((p) => p.id === 'MAP-PROJ-2026-MARINE-009')).toBe(true);
     expect(visible.some((p) => p.id === 'MAP-PROJ-2026-MARINE-012')).toBe(true);
     expect(visible.some((p) => p.id === 'MAP-PROJ-2026-MARINE-007')).toBe(false);

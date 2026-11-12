@@ -50,10 +50,20 @@ export const CreateProjectView: React.FC = () => {
     projects,
     activePersona,
     activeDemoOrganization,
+    activeSessionUserId,
     users,
     addProject,
     setCurrentHashView,
   } = useMapStore();
+
+  const currentCreatorUser =
+    users.find((u) => u.id === activeSessionUserId) ||
+    users.find(
+      (u) =>
+        u.status === "Active" &&
+        u.roles.includes(activePersona) &&
+        u.organization === activeDemoOrganization,
+    );
 
   const defaultOrg = getProjectOrganizationForPersona(
     activePersona,
@@ -446,6 +456,9 @@ export const CreateProjectView: React.FC = () => {
       projectType,
       clientOperator: defaultOrg,
       requestingOrganization: requestingOrganization.trim(),
+      createdByUserId: currentCreatorUser?.id || activeSessionUserId,
+      createdByName: currentCreatorUser?.name,
+      createdByPersona: activePersona,
       location: location.trim(),
       description: description.trim(),
       charterWindowStart: projectWindowStart,

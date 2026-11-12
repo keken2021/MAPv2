@@ -107,6 +107,18 @@ describe('document renewal: re-upload rule', () => {
     expect(getDocumentReuploadBlockReason({ ...valid, verificationStatus: 'Rejected' }, [], TODAY)).toBeUndefined();
   });
 
+  it('opens when a requirement verifier status returned or rejected a verified document', () => {
+    expect(
+      getDocumentReuploadBlockReason(valid, [], TODAY, undefined, 'Correction Requested'),
+    ).toBeUndefined();
+    expect(
+      getDocumentReuploadBlockReason(valid, [], TODAY, undefined, 'Rejected'),
+    ).toBeUndefined();
+    expect(
+      getDocumentReuploadBlockReason(valid, [], TODAY, undefined, 'Verified'),
+    ).toBe(DOCUMENT_REUPLOAD_BLOCK_REASON);
+  });
+
   it('opens while a reupload request is open, and closes once it is actioned', () => {
     expect(getDocumentReuploadBlockReason(valid, [request], TODAY)).toBeUndefined();
     expect(getDocumentReuploadBlockReason(valid, [{ ...request, status: 'actioned' }], TODAY)).toBe(
@@ -280,6 +292,8 @@ describe('store: document renewal notifications', () => {
     useMapStore.setState({
       notifications: [],
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
       documents: MOCK_DOCUMENTS.map((d) => ({ ...d })),
       assuranceSets: MOCK_ASSURANCE_SETS.map((s) => ({
         ...s,
@@ -303,7 +317,11 @@ describe('store: document renewal notifications', () => {
   });
 
   it('reaches the submitter even when the submitter is the signed-in user', () => {
-    useMapStore.setState({ activePersona: 'Submitter' });
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
     expect(useMapStore.getState().raiseDocumentRenewalNotifications([SET_ID])).toBeGreaterThan(0);
   });
 
@@ -311,7 +329,12 @@ describe('store: document renewal notifications', () => {
     const docs = useMapStore.getState().documents.map((d) =>
       d.id === DOC_ID ? { ...d, complianceState: 'Valid' as const, expiryDate: '2029-01-01' } : d,
     );
-    useMapStore.setState({ documents: docs });
+    useMapStore.setState({
+      documents: docs,
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     expect(useMapStore.getState().requestDocumentReupload(DOC_ID, 'Please renew.')).toBe(0);
     expect(useMapStore.getState().notifications).toHaveLength(0);
   });
@@ -320,7 +343,12 @@ describe('store: document renewal notifications', () => {
     const docs = useMapStore.getState().documents.map((d) =>
       d.id === DOC_ID ? { ...d, complianceState: 'Expired' as const, expiryDate: '2026-01-01' } : d,
     );
-    useMapStore.setState({ documents: docs });
+    useMapStore.setState({
+      documents: docs,
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     const before = useMapStore.getState().documents.find((d) => d.id === DOC_ID)!.verificationStatus;
     const raised = useMapStore.getState().requestDocumentReupload(DOC_ID, 'Scan is of the 2024 certificate. Upload the 2026 renewal.');
     expect(raised).toBeGreaterThan(0);
@@ -337,7 +365,12 @@ describe('store: document renewal notifications', () => {
     const docs = useMapStore.getState().documents.map((d) =>
       d.id === DOC_ID ? { ...d, complianceState: 'Expired' as const, expiryDate: '2026-01-01' } : d,
     );
-    useMapStore.setState({ documents: docs });
+    useMapStore.setState({
+      documents: docs,
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     expect(useMapStore.getState().requestDocumentReupload(DOC_ID, '   ')).toBe(0);
     expect(useMapStore.getState().notifications).toHaveLength(0);
   });
@@ -346,7 +379,12 @@ describe('store: document renewal notifications', () => {
     const docs = useMapStore.getState().documents.map((d) =>
       d.id === DOC_ID ? { ...d, complianceState: 'Mismatch/Exception' as const } : d,
     );
-    useMapStore.setState({ documents: docs });
+    useMapStore.setState({
+      documents: docs,
+      activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-202',
+    });
     useMapStore.getState().requestDocumentReupload(DOC_ID, 'Certificate is outdated.');
     const reqAfterRequest = useMapStore.getState().assuranceSets
       .find((s) => s.id === SET_ID)?.requirements
@@ -356,6 +394,11 @@ describe('store: document renewal notifications', () => {
 
     const request = renewalsOf(SET_ID)[0];
 
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
     useMapStore.getState().openNotification(request.id);
     expect(useMapStore.getState().notifications.find((n) => n.id === request.id)?.status).toBe('read');
 
@@ -370,7 +413,7 @@ describe('store: document renewal notifications', () => {
     expect(reqAfterUpload?.reuploadRequested).toBeUndefined();
   });
 
-  it('sends an expired document to the submitter and to the administrator of the provider', () => {
+  it('sends an expired document to the assigned submitter and set creator only (no unassigned org-wide broadcast)', () => {
     const state = useMapStore.getState();
     const source = state.assuranceSets.find((s) => s.id === SET_ID)!;
     const expiredDoc: MasterDocument = {
@@ -384,8 +427,13 @@ describe('store: document renewal notifications', () => {
       ...source,
       id: 'AS-DOCR-TEST-002',
       visibility: 'organization',
+      initiatorOrg: 'Northwind Marine Pty Ltd',
+      initiatorRole: 'Vessel Provider Admin',
       serviceProviderOrg: 'Northwind Marine Pty Ltd',
       assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+      createdByPersona: 'Administrator',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
       requirements: [{ ...source.requirements[0], id: 'req-expired', documentId: expiredDoc.id, assignedSubmitter: undefined }],
     };
     useMapStore.setState({
@@ -394,11 +442,7 @@ describe('store: document renewal notifications', () => {
     });
 
     const submitter = state.users.find((u) => u.name === 'M. Chen')!;
-    const administrators = state.users.filter(
-      (u) => u.status === 'Active' && u.roles.includes('Administrator') && u.organization === 'Northwind Marine Pty Ltd',
-    );
-    const expected = new Set([submitter.id, ...administrators.map((u) => u.id)]);
-    expect(administrators.length).toBeGreaterThan(0);
+    const expected = new Set([submitter.id, 'USR-101']);
 
     expect(useMapStore.getState().raiseDocumentRenewalNotifications([expiredSet.id])).toBe(expected.size);
     const renewals = renewalsOf(expiredSet.id);
@@ -407,6 +451,11 @@ describe('store: document renewal notifications', () => {
     expect(renewals.every((n) => n.subject === 'Expired Test Certificate (MV Pacific Endeavour) is expired please re-upload')).toBe(true);
 
     /* a renewed version with a later expiry date clears the expired state */
+    useMapStore.setState({
+      activePersona: 'Submitter',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-102',
+    });
     useMapStore.getState().addDocumentVersion(expiredDoc.id, 'v2.0', 'renewed.pdf', 1024, 'Renewed certificate.', '2031-01-01');
     const renewed = useMapStore.getState().documents.find((d) => d.id === expiredDoc.id)!;
     expect(renewed.expiryDate).toBe('2031-01-01');

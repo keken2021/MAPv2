@@ -12,12 +12,15 @@ import {
   getFleetPerformanceSummary,
 } from '../utils/readinessHelpers';
 
+const initialState = useMapStore.getState();
+
 describe('Performance Data Capture (Task 5201 / BRD V4.2 change 12)', () => {
   const sampleDoc: MasterDocument = {
     id: 'DOC-PERF-01',
     title: 'Cargo Ship Safety Construction Certificate',
     entityType: 'Vessel Certificate',
     vesselId: 'VESSEL-PERF-01',
+    ownerOrganization: 'Northwind Marine Pty Ltd',
     certificateNo: 'DNV-PERF-2026',
     issuingAuthority: 'DNV',
     expiryDate: '2027-12-31',
@@ -56,12 +59,19 @@ describe('Performance Data Capture (Task 5201 / BRD V4.2 change 12)', () => {
     charterer: 'Chevron Australia Pty Ltd',
     clientOrg: 'Chevron Australia Pty Ltd',
     serviceProviderOrg: 'Northwind Marine Pty Ltd',
+    createdByUserId: 'USR-221',
+    createdByName: 'C. Henderson',
+    createdByPersona: 'C Admin',
+    assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+    assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+    assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
+    assignedApprover: 'P. Nardelli (Marine Assurance Authority)',
     charterWindowStart: '2026-11-01',
     complianceDeadline: '2026-11-01',
     charterWindowEnd: '2027-11-01',
     stage: 'Verification',
     readinessScore: 40,
-    mandatoryInspectionRequired: false,
+    mandatoryInspectionRequired: true,
     inspectionCompleted: false,
     requirements: [
       {
@@ -91,12 +101,14 @@ describe('Performance Data Capture (Task 5201 / BRD V4.2 change 12)', () => {
   };
 
   beforeEach(() => {
+    useMapStore.setState(initialState, true);
     useMapStore.setState({
       assuranceSets: [sampleSet],
       documents: [sampleDoc],
       capaItems: [
         {
           id: 'CAPA-PERF-01',
+          assuranceSetId: 'AS-PERF-001',
           vesselName: 'MV Performance Pioneer',
           vesselId: 'VESSEL-PERF-01',
           checklistItemTitle: 'Liferaft inspection',
@@ -114,6 +126,11 @@ describe('Performance Data Capture (Task 5201 / BRD V4.2 change 12)', () => {
 
   describe('Submission attempt numbers and review decision times', () => {
     it('increases attempt number on resubmission of an existing requirement', () => {
+      useMapStore.setState({
+        activePersona: 'Submitter',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-102',
+      });
       const store = useMapStore.getState();
 
       const newDoc: MasterDocument = {
@@ -145,6 +162,11 @@ describe('Performance Data Capture (Task 5201 / BRD V4.2 change 12)', () => {
     });
 
     it('increases attempt number when adding a new document version', () => {
+      useMapStore.setState({
+        activePersona: 'Submitter',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-102',
+      });
       const store = useMapStore.getState();
 
       store.addDocumentVersion(
@@ -167,6 +189,11 @@ describe('Performance Data Capture (Task 5201 / BRD V4.2 change 12)', () => {
     });
 
     it('stamps decision time when requirement status is updated by verifier', () => {
+      useMapStore.setState({
+        activePersona: 'Verifier',
+        activeDemoOrganization: 'Bureau Veritas Inspectorate',
+        activeSessionUserId: 'USR-202',
+      });
       const store = useMapStore.getState();
 
       store.updateRequirementStatus('AS-PERF-001', 'REQ-PERF-01', 'Verified', 'Looks good');
@@ -181,6 +208,11 @@ describe('Performance Data Capture (Task 5201 / BRD V4.2 change 12)', () => {
     });
 
     it('stamps decision time when requirement is returned for correction', () => {
+      useMapStore.setState({
+        activePersona: 'Verifier',
+        activeDemoOrganization: 'Bureau Veritas Inspectorate',
+        activeSessionUserId: 'USR-202',
+      });
       const store = useMapStore.getState();
 
       store.updateRequirementStatus('AS-PERF-001', 'REQ-PERF-01', 'Correction Requested', 'Need stamp');
@@ -195,6 +227,11 @@ describe('Performance Data Capture (Task 5201 / BRD V4.2 change 12)', () => {
 
   describe('Finding closedDate lifecycle', () => {
     it('sets closedDate when finding status changes to Verified & Closed', () => {
+      useMapStore.setState({
+        activePersona: 'Inspector',
+        activeDemoOrganization: 'Bureau Veritas Inspectorate',
+        activeSessionUserId: 'USR-203',
+      });
       const store = useMapStore.getState();
 
       const findingBefore = store.capaItems.find((c) => c.id === 'CAPA-PERF-01');
@@ -209,13 +246,21 @@ describe('Performance Data Capture (Task 5201 / BRD V4.2 change 12)', () => {
     });
 
     it('clears closedDate when finding is flagged for re-inspection', () => {
-      const store = useMapStore.getState();
-
-      store.updateCapaStatus('CAPA-PERF-01', 'Verified & Closed');
+      useMapStore.setState({
+        activePersona: 'Inspector',
+        activeDemoOrganization: 'Bureau Veritas Inspectorate',
+        activeSessionUserId: 'USR-203',
+      });
+      useMapStore.getState().updateCapaStatus('CAPA-PERF-01', 'Verified & Closed');
       let finding = useMapStore.getState().capaItems.find((c) => c.id === 'CAPA-PERF-01');
       expect(finding?.closedDate).toBeDefined();
 
-      store.flagCapaForReinspection('CAPA-PERF-01', 'New issue spotted');
+      useMapStore.setState({
+        activePersona: 'C Admin',
+        activeDemoOrganization: 'Chevron Australia Pty Ltd',
+        activeSessionUserId: 'USR-221',
+      });
+      useMapStore.getState().flagCapaForReinspection('CAPA-PERF-01', 'New issue spotted');
       finding = useMapStore.getState().capaItems.find((c) => c.id === 'CAPA-PERF-01');
 
       expect(finding?.status).toBe('Under Re-Inspection');

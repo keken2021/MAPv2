@@ -62,11 +62,17 @@ export function isIacsAuthority(authority: string | undefined): boolean {
   with what file: src/utils/documentChecks.ts used by useMapStore.ts.
 */
 export function runDocumentChecks(
-  doc: Pick<MasterDocument, 'vesselId' | 'issuingAuthority' | 'vesselAttributes' | 'crewAttributes' | 'validationRules'>,
+  doc: Pick<MasterDocument, 'vesselId' | 'issuingAuthority' | 'vesselAttributes' | 'crewAttributes' | 'validationRules'> & {
+    targetObjectType?: MasterDocument['targetObjectType'];
+    targetObjectId?: string;
+  },
   vessels: Pick<VesselInformation, 'id' | 'name' | 'imoNumber'>[],
 ): ValidationRuleStatus {
   const previous = doc.validationRules;
   if (doc.crewAttributes || !doc.vesselAttributes) {
+    return { ...previous, rulesNotChecked: false };
+  }
+  if (doc.targetObjectType && doc.targetObjectType !== 'vessel' && !doc.vesselId) {
     return { ...previous, rulesNotChecked: false };
   }
 

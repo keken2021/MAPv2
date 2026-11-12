@@ -49,6 +49,7 @@ const crewMember = (
     fullName: `${overrides.id} seafarer`,
     rank: 'Master',
     nationality: 'Australian',
+    organization: 'Northwind Marine Pty Ltd',
     seamansBookNo: 'SB-100',
     currentVesselName: 'MV Pacific Endeavour',
     overallComplianceScore: 90,

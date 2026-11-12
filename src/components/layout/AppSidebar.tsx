@@ -105,12 +105,8 @@ export const AppSidebar: React.FC = () => {
   );
 
   const sessionUser = useMemo(
-    () =>
-      getSessionUserForPersona(activePersona, users, demoSessionContext) ??
-      pickSessionUserForOrgPersona(users, activeDemoOrganization, activePersona) ??
-      users.find((u) => u.roles.includes(activePersona)) ??
-      null,
-    [activePersona, users, demoSessionContext, activeDemoOrganization],
+    () => getSessionUserForPersona(activePersona, users, demoSessionContext) ?? null,
+    [activePersona, users, demoSessionContext],
   );
 
   const verifierQueueCount = useMemo(
@@ -128,6 +124,7 @@ export const AppSidebar: React.FC = () => {
             assuranceSets,
             activePersona,
             activeDemoOrganization,
+            sessionUser ?? undefined,
           )
       ).length,
     [documents, assuranceSets, activePersona, activeDemoOrganization, sessionUser],

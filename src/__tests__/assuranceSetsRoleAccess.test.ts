@@ -55,9 +55,56 @@ describe('assurance sets page access for workflow roles', () => {
 
 describe('assurance set role actions', () => {
   const baseSet = MOCK_ASSURANCE_SETS[0];
+  const submitterUser = {
+    id: 'USR-102',
+    name: 'M. Chen',
+    organization: 'Northwind Marine Pty Ltd',
+    roles: ['Submitter' as const],
+  };
+  const verifierUser = {
+    id: 'USR-202',
+    name: 'A. Fontaine',
+    organization: 'Southern Basin Energy Pty Ltd',
+    roles: ['Verifier' as const],
+  };
+  const inspectorUser = {
+    id: 'USR-203',
+    name: 'N. Technical',
+    organization: 'Southern Basin Energy Pty Ltd',
+    roles: ['Inspector' as const],
+  };
+  const approverUser = {
+    id: 'USR-204',
+    name: 'P. Nardelli',
+    organization: 'Southern Basin Energy Pty Ltd',
+    roles: ['Approver' as const],
+  };
+  const adminUser = {
+    id: 'USR-101',
+    name: 'K. Osei',
+    organization: 'Northwind Marine Pty Ltd',
+    roles: ['Administrator' as const],
+  };
+  const cAdminUser = {
+    id: 'USR-201',
+    name: 'S. Basin',
+    organization: 'Southern Basin Energy Pty Ltd',
+    roles: ['C Admin' as const],
+  };
+  const roleUsers = {
+    Submitter: submitterUser,
+    Verifier: verifierUser,
+    Inspector: inspectorUser,
+    Approver: approverUser,
+  } as const;
+
   const assignedSet: AssuranceSet = {
     ...baseSet,
     initiatorOrg: 'Northwind Marine Pty Ltd',
+    initiatorRole: 'Vessel Provider Admin',
+    createdByPersona: 'Administrator',
+    createdByUserId: 'USR-101',
+    createdByName: 'K. Osei',
     assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
     assignedVerifier: 'A. Fontaine (Southern Basin Energy Pty Ltd)',
     assignedInspector: 'N. Technical (Southern Basin Energy Pty Ltd)',
@@ -68,6 +115,8 @@ describe('assurance set role actions', () => {
   const unassignedSet: AssuranceSet = {
     ...baseSet,
     initiatorOrg: 'Meridian Marine Services Pty Ltd',
+    createdByUserId: 'USR-MERIDIAN-ADMIN',
+    createdByName: 'Meridian Admin',
     assignedSubmitter: undefined,
     assignedVerifier: undefined,
     assignedInspector: undefined,
@@ -76,26 +125,28 @@ describe('assurance set role actions', () => {
 
   it('grants each workflow role only its own action on an assigned set', () => {
     ASSURANCE_SETS_READ_ONLY_ROLES.forEach((role) => {
-      expect(isAssuranceSetAssignedToPersona(assignedSet, role)).toBe(true);
+      const user = roleUsers[role as keyof typeof roleUsers];
+      expect(isAssuranceSetAssignedToPersona(assignedSet, role, user.organization, user)).toBe(true);
     });
 
-    expect(getAssuranceSetRoleActions(assignedSet, 'Submitter')).toEqual({
+    expect(getAssuranceSetRoleActions(assignedSet, 'Submitter', submitterUser.organization, submitterUser)).toEqual({
       canManage: false, canUpload: true, canVerify: false, canInspect: false, canApprove: false, canChangeDates: false,
     });
-    expect(getAssuranceSetRoleActions(assignedSet, 'Verifier')).toEqual({
+    expect(getAssuranceSetRoleActions(assignedSet, 'Verifier', verifierUser.organization, verifierUser)).toEqual({
       canManage: false, canUpload: false, canVerify: true, canInspect: false, canApprove: false, canChangeDates: false,
     });
-    expect(getAssuranceSetRoleActions(assignedSet, 'Inspector')).toEqual({
+    expect(getAssuranceSetRoleActions(assignedSet, 'Inspector', inspectorUser.organization, inspectorUser)).toEqual({
       canManage: false, canUpload: false, canVerify: false, canInspect: true, canApprove: false, canChangeDates: false,
     });
-    expect(getAssuranceSetRoleActions(assignedSet, 'Approver')).toEqual({
+    expect(getAssuranceSetRoleActions(assignedSet, 'Approver', approverUser.organization, approverUser)).toEqual({
       canManage: false, canUpload: false, canVerify: false, canInspect: false, canApprove: true, canChangeDates: false,
     });
   });
 
   it('grants no actions on a set the role is not assigned to', () => {
     ASSURANCE_SETS_READ_ONLY_ROLES.forEach((role) => {
-      expect(getAssuranceSetRoleActions(unassignedSet, role)).toEqual({
+      const user = roleUsers[role as keyof typeof roleUsers];
+      expect(getAssuranceSetRoleActions(unassignedSet, role, user.organization, user)).toEqual({
         canManage: false, canUpload: false, canVerify: false, canInspect: false, canApprove: false, canChangeDates: false,
       });
     });
@@ -103,10 +154,19 @@ describe('assurance set role actions', () => {
 
   it('never lets a workflow role manage the set, and keeps manage rights for administrator and c admin', () => {
     ASSURANCE_SETS_READ_ONLY_ROLES.forEach((role) => {
-      expect(getAssuranceSetRoleActions(assignedSet, role).canManage).toBe(false);
+      const user = roleUsers[role as keyof typeof roleUsers];
+      expect(getAssuranceSetRoleActions(assignedSet, role, user.organization, user).canManage).toBe(false);
     });
-    expect(getAssuranceSetRoleActions(assignedSet, 'Administrator').canManage).toBe(true);
-    expect(getAssuranceSetRoleActions(assignedSet, 'C Admin').canManage).toBe(true);
+    expect(getAssuranceSetRoleActions(assignedSet, 'Administrator', adminUser.organization, adminUser).canManage).toBe(true);
+    const clientManagedSet: AssuranceSet = {
+      ...assignedSet,
+      initiatorOrg: 'Southern Basin Energy Pty Ltd',
+      initiatorRole: 'C Admin · Client Created',
+      createdByPersona: 'C Admin',
+      createdByUserId: 'USR-201',
+      createdByName: 'S. Basin',
+    };
+    expect(getAssuranceSetRoleActions(clientManagedSet, 'C Admin', cAdminUser.organization, cAdminUser).canManage).toBe(true);
   });
 
   it('lets c admin verify, and never upload, on a set a c admin created', () => {
@@ -115,25 +175,30 @@ describe('assurance set role actions', () => {
       initiatorOrg: 'Southern Basin Energy Pty Ltd',
       initiatorRole: 'C Admin · Client Created',
       createdByPersona: 'C Admin',
+      createdByUserId: 'USR-201',
+      createdByName: 'S. Basin',
     };
     expect(isAssuranceSetCreatedByCAdmin(clientSet)).toBe(true);
-    expect(getAssuranceSetRoleActions(clientSet, 'C Admin')).toEqual({
+    expect(getAssuranceSetRoleActions(clientSet, 'C Admin', cAdminUser.organization, cAdminUser)).toEqual({
       canManage: true, canUpload: false, canVerify: true, canInspect: false, canApprove: false, canChangeDates: false,
     });
 
     const providerSet: AssuranceSet = {
       ...clientSet,
+      initiatorOrg: 'Northwind Marine Pty Ltd',
       initiatorRole: 'Vessel Provider Admin',
       createdByPersona: 'Administrator',
+      createdByUserId: 'USR-101',
+      createdByName: 'K. Osei',
     };
     expect(isAssuranceSetCreatedByCAdmin(providerSet)).toBe(false);
-    expect(getAssuranceSetRoleActions(providerSet, 'C Admin').canVerify).toBe(false);
-    expect(getAssuranceSetRoleActions(providerSet, 'C Admin').canUpload).toBe(false);
+    expect(getAssuranceSetRoleActions(providerSet, 'C Admin', cAdminUser.organization, cAdminUser).canVerify).toBe(false);
+    expect(getAssuranceSetRoleActions(providerSet, 'C Admin', cAdminUser.organization, cAdminUser).canUpload).toBe(false);
   });
 
   it('strictly denies verification buttons/actions to service providers (Administrator and Submitter)', () => {
     // Administrator as vessel service provider
-    const adminActions = getAssuranceSetRoleActions(assignedSet, 'Administrator', 'Northwind Marine Pty Ltd');
+    const adminActions = getAssuranceSetRoleActions(assignedSet, 'Administrator', 'Northwind Marine Pty Ltd', adminUser);
     expect(adminActions.canVerify).toBe(false);
     expect(adminActions.canUpload).toBe(true);
     expect(adminActions.canManage).toBe(true);
@@ -141,7 +206,7 @@ describe('assurance set role actions', () => {
     expect(adminActions.canInspect).toBe(false);
 
     // Submitter as service provider
-    const submitterActions = getAssuranceSetRoleActions(assignedSet, 'Submitter', 'Northwind Marine Pty Ltd');
+    const submitterActions = getAssuranceSetRoleActions(assignedSet, 'Submitter', 'Northwind Marine Pty Ltd', submitterUser);
     expect(submitterActions.canVerify).toBe(false);
     expect(submitterActions.canUpload).toBe(true);
     expect(submitterActions.canManage).toBe(false);
@@ -154,6 +219,7 @@ describe('assurance set role actions', () => {
       assignedSet,
       'Administrator',
       'Unrelated Marine Services',
+      { id: 'USR-UNREL-1', name: 'Other Admin', organization: 'Unrelated Marine Services', roles: ['Administrator'] },
     );
     expect(unrelatedAdminActions).toEqual({
       canManage: false,
@@ -168,6 +234,7 @@ describe('assurance set role actions', () => {
       assignedSet,
       'C Admin',
       'Unrelated Oil Corp',
+      { id: 'USR-UNREL-2', name: 'Other C Admin', organization: 'Unrelated Oil Corp', roles: ['C Admin'] },
     );
     expect(unrelatedClientAdminActions).toEqual({
       canManage: false,
@@ -180,26 +247,56 @@ describe('assurance set role actions', () => {
   });
 
   it('denies stakeholder reassignment to users who are not assigned stakeholders on the set', () => {
-    const editableSet: AssuranceSet = {
+    const editableProviderSet: AssuranceSet = {
       ...assignedSet,
       clientWorkflowStage: undefined,
       stage: 'Initiated',
       approverDecision: 'Pending',
     };
+    const editableClientSet: AssuranceSet = {
+      ...editableProviderSet,
+      initiatorOrg: 'Chevron Australia Pty Ltd',
+      initiatorRole: 'C Admin · Client Created',
+      createdByPersona: 'C Admin',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
+    };
+    const chevronCAdmin = {
+      id: 'USR-221',
+      name: 'C. Henderson',
+      organization: 'Chevron Australia Pty Ltd',
+      roles: ['C Admin' as const],
+    };
 
-    // Assigned admin can edit stakeholders
-    expect(canEditAssuranceSetStakeholders(editableSet, 'Administrator', 'Northwind Marine Pty Ltd')).toBe(true);
-    expect(canEditAssuranceSetStakeholders(editableSet, 'C Admin', 'Chevron Australia Pty Ltd')).toBe(true);
+    // Assigned admin / creator can edit stakeholders
+    expect(canEditAssuranceSetStakeholders(editableProviderSet, 'Administrator', 'Northwind Marine Pty Ltd', adminUser)).toBe(true);
+    expect(canEditAssuranceSetStakeholders(editableClientSet, 'C Admin', 'Chevron Australia Pty Ltd', chevronCAdmin)).toBe(true);
 
-    // Unrelated admin cannot edit stakeholders
-    expect(canEditAssuranceSetStakeholders(editableSet, 'Administrator', 'Unrelated Marine')).toBe(false);
-    expect(canEditAssuranceSetStakeholders(editableSet, 'C Admin', 'Unrelated Corp')).toBe(false);
+    // Same-org unassigned colleague and unrelated admin cannot edit stakeholders
+    expect(canEditAssuranceSetStakeholders(editableProviderSet, 'Administrator', 'Northwind Marine Pty Ltd', {
+      id: 'USR-104',
+      name: 'E. Rostova',
+      organization: 'Northwind Marine Pty Ltd',
+      roles: ['Administrator'],
+    })).toBe(false);
+    expect(canEditAssuranceSetStakeholders(editableProviderSet, 'Administrator', 'Unrelated Marine', {
+      id: 'USR-UNREL-1',
+      name: 'Other Admin',
+      organization: 'Unrelated Marine',
+      roles: ['Administrator'],
+    })).toBe(false);
+    expect(canEditAssuranceSetStakeholders(editableClientSet, 'C Admin', 'Unrelated Corp', {
+      id: 'USR-UNREL-2',
+      name: 'Other C Admin',
+      organization: 'Unrelated Corp',
+      roles: ['C Admin'],
+    })).toBe(false);
 
     // Workflow roles cannot edit stakeholders
-    expect(canEditAssuranceSetStakeholders(editableSet, 'Submitter')).toBe(false);
-    expect(canEditAssuranceSetStakeholders(editableSet, 'Verifier')).toBe(false);
-    expect(canEditAssuranceSetStakeholders(editableSet, 'Inspector')).toBe(false);
-    expect(canEditAssuranceSetStakeholders(editableSet, 'Approver')).toBe(false);
+    expect(canEditAssuranceSetStakeholders(editableProviderSet, 'Submitter', submitterUser.organization, submitterUser)).toBe(false);
+    expect(canEditAssuranceSetStakeholders(editableProviderSet, 'Verifier', verifierUser.organization, verifierUser)).toBe(false);
+    expect(canEditAssuranceSetStakeholders(editableProviderSet, 'Inspector', inspectorUser.organization, inspectorUser)).toBe(false);
+    expect(canEditAssuranceSetStakeholders(editableProviderSet, 'Approver', approverUser.organization, approverUser)).toBe(false);
   });
 
   it('evaluates fine-grained user stakeholder match when user profile is supplied', () => {

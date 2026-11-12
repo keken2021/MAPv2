@@ -3,6 +3,7 @@ import { Crop, Upload, X } from 'lucide-react';
 import { useMapStore } from '../../store/useMapStore';
 import { CrewMember, STCWLayer } from '../../types/crew';
 import { filterVesselsForPersona } from '../../utils/rbacHelpers';
+import { useSessionUser } from '../../utils/useSessionUser';
 import { ImageCropModal } from './VesselImageCropModal';
 import { CURATED_CREW_PHOTOS, getCrewStockPhoto } from '../../utils/vesselImageHelpers';
 import { Modal } from './Modal';
@@ -22,11 +23,20 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
   onViewCrewDetail,
   initialVesselId,
 }) => {
-  const { vessels, assuranceSets, addCrewMember, activePersona } = useMapStore();
-  const availableVessels =
-    activePersona === 'Administrator'
-      ? vessels
-      : filterVesselsForPersona(vessels, assuranceSets, activePersona);
+  const { vessels, assuranceSets, addCrewMember, activePersona, activeDemoOrganization } = useMapStore();
+  const sessionUser = useSessionUser();
+  const viewerOrg = activeDemoOrganization?.trim() || sessionUser?.organization?.trim() || '';
+  const availableVessels = React.useMemo(
+    () =>
+      filterVesselsForPersona(
+        vessels,
+        assuranceSets,
+        activePersona,
+        activeDemoOrganization,
+        sessionUser,
+      ),
+    [vessels, assuranceSets, activePersona, activeDemoOrganization, sessionUser],
+  );
 
   const [fullName, setFullName] = useState('');
   const [rank, setRank] = useState('Chief Officer');
@@ -52,10 +62,12 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      if (initialVesselId) {
+      if (initialVesselId && availableVessels.some((v) => v.id === initialVesselId)) {
         setCurrentVesselId(initialVesselId);
-      } else if (vessels.length > 0) {
-        setCurrentVesselId(vessels[0].id);
+      } else if (availableVessels.length > 0) {
+        setCurrentVesselId(availableVessels[0].id);
+      } else {
+        setCurrentVesselId('');
       }
     } else {
       setRegisteredCrew(null);
@@ -65,15 +77,15 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
       setPhotos([]);
       setCustomPhotoInput('');
     }
-  }, [isOpen, initialVesselId, vessels]);
+  }, [isOpen, initialVesselId, availableVessels]);
 
-  const canManage = activePersona === 'Administrator' || activePersona === 'Submitter';
+  const canManage = Boolean(sessionUser && (activePersona === 'Administrator' || activePersona === 'Submitter'));
 
   const handleSubmit = () => {
     setErrorMessage('');
     setHasAttemptedSubmit(true);
 
-    if (!canManage) {
+    if (!canManage || !viewerOrg) {
       setErrorMessage('Permission Denied: Registering new crew members is restricted exclusively to Administrator or Submitter roles.');
       return;
     }
@@ -83,7 +95,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
       return;
     }
 
-    const selectedVessel = vessels.find((v) => v.id === currentVesselId);
+    const selectedVessel = availableVessels.find((v) => v.id === currentVesselId);
     const newCrewId = `MAP-CRW-2026-PERS-${String(Math.floor(100 + Math.random() * 90000)).padStart(5, '0')}`;
 
     const finalCover = imageUrl.trim() || (photos.length > 0 ? photos[0] : undefined);
@@ -94,6 +106,7 @@ export const AddCrewModal: React.FC<AddCrewModalProps> = ({
       fullName: fullName.trim(),
       rank,
       nationality: nationality.trim() || 'Australian',
+      organization: viewerOrg,
       seamansBookNo: seamansBookNo.trim(),
       passportNo: passportNo.trim(),
       dateOfBirth,

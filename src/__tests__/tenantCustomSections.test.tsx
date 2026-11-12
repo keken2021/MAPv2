@@ -14,6 +14,7 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
       isAuthenticated: true,
       activePersona: 'Administrator',
       activeDemoOrganization: 'Chevron',
+      activeSessionUserId: 'USR-CHEV-01',
       tenantCustomSections: [],
       users: [
         ...initialState.users,
@@ -69,7 +70,8 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
         description: 'Vessel berth clearance envelope and mooring specifications',
       });
 
-      expect(sec1).toBeDefined();
+      expect(sec1).not.toBeNull();
+      if (!sec1) return;
       expect(sec1.id).toContain('sec-tenant-');
       expect(sec1.name).toBe('Berth Clearance');
       expect(sec1.organization).toBe('Chevron');
@@ -116,6 +118,9 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
         description: 'Updated criteria description',
       });
 
+      expect(second).not.toBeNull();
+      expect(first).not.toBeNull();
+      if (!first || !second) return;
       expect(second.id).toBe(first.id);
       expect(second.description).toBe('Updated criteria description');
 
@@ -271,6 +276,7 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
       // 3. Now open wizard as a DIFFERENT organization (TotalEnergies)
       useMapStore.setState({
         activeDemoOrganization: 'TotalEnergies',
+        activeSessionUserId: 'USR-TOTAL-01',
       });
 
       const { container: totalContainer } = renderWizardWithDefaultVessel();

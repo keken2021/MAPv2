@@ -562,6 +562,8 @@ describe('Deferred FilterModal across all 14 table components and list views', (
 
     useMapStore.setState({
       activePersona: 'Approver',
+      activeDemoOrganization: 'Marine Assurance Authority',
+      activeSessionUserId: 'USR-204',
       auditEvents: events,
     });
 
@@ -629,7 +631,29 @@ describe('Deferred FilterModal across all 14 table components and list views', (
 
     useMapStore.setState({
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
       vessels,
+      assuranceSets: [
+        makeSet({
+          id: 'AS-CAPA-1',
+          title: 'Pacific Horn Set',
+          vesselId: 'VESSEL-1',
+          vesselName: 'MV Pacific Horn',
+          createdByUserId: 'USR-101',
+          createdByName: 'K. Osei',
+          createdByPersona: 'Administrator',
+        }),
+        makeSet({
+          id: 'AS-CAPA-2',
+          title: 'Coral Star Set',
+          vesselId: 'VESSEL-2',
+          vesselName: 'MV Coral Star',
+          createdByUserId: 'USR-101',
+          createdByName: 'K. Osei',
+          createdByPersona: 'Administrator',
+        }),
+      ],
       capaItems: capas,
       setCurrentHashView: hashSpy,
     });
@@ -853,6 +877,13 @@ describe('Deferred FilterModal across all 14 table components and list views', (
   it('6. UserTable: defers Role/User Type/Status filters until Apply and syncs User tabs into draft', () => {
     const users: UserProfile[] = [
       makeUser({
+        id: 'USR-101',
+        name: 'K. Osei',
+        roles: ['Administrator'],
+        userType: 'Organization',
+        status: 'Active',
+      }),
+      makeUser({
         id: 'USR-1',
         name: 'Alice Admin',
         roles: ['Submitter'],
@@ -870,6 +901,8 @@ describe('Deferred FilterModal across all 14 table components and list views', (
 
     useMapStore.setState({
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
       users,
     });
 
@@ -983,6 +1016,7 @@ describe('Deferred FilterModal across all 14 table components and list views', (
   it('8. ApproverDashboardView: defers Stage filter until Apply and preserves existing Clear All behavior', () => {
     useMapStore.setState({
       activePersona: 'Approver',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
       activeSessionUserId: 'USR-204',
       users: [
         makeUser({
@@ -1103,6 +1137,7 @@ describe('Deferred FilterModal across all 14 table components and list views', (
   it('10. InspectorWorkspaceView: defers Location filter until Apply across Queue rows', () => {
     useMapStore.setState({
       activePersona: 'Inspector',
+      activeDemoOrganization: 'Bureau Veritas',
       activeSessionUserId: 'USR-301',
       users: [
         makeUser({
@@ -1297,13 +1332,26 @@ describe('Deferred FilterModal across all 14 table components and list views', (
   it('13. ProjectView: defers Status and Type filters until Apply and syncs Project tabs into draft', () => {
     useMapStore.setState({
       activePersona: 'Administrator',
+      activeDemoOrganization: 'Northwind Marine Pty Ltd',
+      activeSessionUserId: 'USR-101',
       projects: [
-        makeProject({ id: 'PRJ-1', name: 'Offshore Campaign Alpha', status: 'Draft', projectType: 'Charter / Voyage' }),
+        makeProject({
+          id: 'PRJ-1',
+          name: 'Offshore Campaign Alpha',
+          status: 'Draft',
+          projectType: 'Charter / Voyage',
+          createdByUserId: 'USR-101',
+          createdByName: 'K. Osei',
+          createdByPersona: 'Administrator',
+        }),
         makeProject({
           id: 'PRJ-2',
           name: 'ROV Lease Beta',
           status: 'Ready for Charter',
           projectType: 'Equipment Rental',
+          createdByUserId: 'USR-101',
+          createdByName: 'K. Osei',
+          createdByPersona: 'Administrator',
         }),
       ],
       assuranceSets: [],
@@ -1347,6 +1395,7 @@ describe('Deferred FilterModal across all 14 table components and list views', (
   it('14. VerifierWorkspaceView: defers Type and Verification filters until Apply and discards Cancel/Clear All', () => {
     useMapStore.setState({
       activePersona: 'Verifier',
+      activeDemoOrganization: 'Bureau Veritas',
       activeSessionUserId: 'USR-201',
       users: [
         makeUser({

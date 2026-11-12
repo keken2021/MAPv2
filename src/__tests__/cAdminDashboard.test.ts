@@ -6,7 +6,7 @@
 
 import { describe, expect, it, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
-import { MOCK_ASSURANCE_SETS } from '../store/mockData';
+import { MOCK_ASSURANCE_SETS, MOCK_USERS } from '../store/mockData';
 import {
   isAssuranceSetAssignedToPersona,
   isAssuranceSetOwnedOrInitiatedByOrganization,
@@ -16,19 +16,27 @@ import {
 import { buildBrdRolePermissionDefaults } from '../utils/permissionDefaults';
 import { getRoleScopeFlags } from '../utils/permissionHelpers';
 
+const cAdminUser = MOCK_USERS.find((u) => u.id === 'USR-221')!;
+
 describe('c admin dashboard and sidepanel rbac suite', () => {
   beforeEach(() => {
     /* reset active persona to c admin */
-    useMapStore.getState().setActivePersona('C Admin');
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
   });
 
   /**
     what: tests that c admin's assurance sets are correctly identified and filtered.
-    how: applies isAssuranceSetAssignedToPersona across mock sets and checks initiator role attribution.
+    how: applies isAssuranceSetAssignedToPersona across mock sets and checks personal attribution.
     with what file: src/__tests__/cAdminDashboard.test.ts testing src/utils/rbacHelpers.ts.
   */
-  it('filters only c admin created assurance sets for the dashboard view', () => {
-    const cAdminSets = MOCK_ASSURANCE_SETS.filter((s) => isAssuranceSetAssignedToPersona(s, 'C Admin'));
+  it('filters only c admin created or assigned assurance sets for the dashboard view', () => {
+    const cAdminSets = MOCK_ASSURANCE_SETS.filter((s) =>
+      isAssuranceSetAssignedToPersona(s, 'C Admin', 'Chevron Australia Pty Ltd', cAdminUser),
+    );
 
     expect(cAdminSets.length).toBeGreaterThan(0);
     cAdminSets.forEach((set) => {
@@ -56,17 +64,22 @@ describe('c admin dashboard and sidepanel rbac suite', () => {
   });
 
   /**
-    what: tests that a client's list holds the sets their organization created or owns, and no other client's.
-    how: compares the persona filter with the organization ownership check for one client.
+    what: tests that a client's list holds only sets the signed-in C Admin created or is assigned to, never unassigned or external sets.
+    how: compares personal visibility with org ownership for Chevron and asserts unassigned Chevron sets stay excluded under personal scope.
     with what file: src/__tests__/cAdminDashboard.test.ts testing src/utils/rbacHelpers.ts.
   */
-  it('limits the client list to the sets their organization created or owns', () => {
+  it('limits the client list to personal created or assigned sets within their organization', () => {
     const organization = 'Chevron Australia Pty Ltd';
-    const visible = MOCK_ASSURANCE_SETS.filter((s) => isAssuranceSetAssignedToPersona(s, 'C Admin', organization));
+    const visible = MOCK_ASSURANCE_SETS.filter((s) =>
+      isAssuranceSetAssignedToPersona(s, 'C Admin', organization, cAdminUser),
+    );
     const owned = MOCK_ASSURANCE_SETS.filter((s) => isAssuranceSetOwnedOrInitiatedByOrganization(s, organization));
 
     expect(visible.length).toBeGreaterThan(0);
-    expect(visible.map((s) => s.id).sort()).toEqual(owned.map((s) => s.id).sort());
+    expect(visible.some((s) => s.id === 'AS-2026-001')).toBe(true);
+    expect(visible.every((s) => owned.some((o) => o.id === s.id))).toBe(true);
+    expect(visible.some((s) => s.id === 'AS-2026-029')).toBe(false);
+    expect(visible.some((s) => s.id === 'AS-2026-005')).toBe(false);
   });
 
   /**

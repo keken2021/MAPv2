@@ -27,6 +27,21 @@ describe('Assurance wizard - One vendor and one client per set (Task 5332)', () 
       isAuthenticated: true,
       activePersona: 'Administrator',
       activeDemoOrganization: 'Marine Assurance Platform',
+      activeSessionUserId: 'USR-MAP-ADMIN',
+      users: [
+        ...initialState.users,
+        {
+          id: 'USR-MAP-ADMIN',
+          name: 'M. Platform',
+          email: 'admin@marineassurance.io',
+          roles: ['Administrator'],
+          userType: 'Organization',
+          organization: 'Marine Assurance Platform',
+          departmentOrScope: 'Operations',
+          status: 'Active',
+          lastActive: '2026-10-29 08:00 UTC',
+        },
+      ],
       equipment: [
         ...currentEquipment,
         {

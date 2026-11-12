@@ -29,8 +29,11 @@ import { DATE_PERMISSION_DEFAULT_DAYS } from '../config/thresholds';
 import {
   filterCAdminAvailableToCharter,
   getClientAdminOrganization,
+  isAssuranceSetAssignedToPersona,
   orgFieldMatches,
 } from '../utils/rbacHelpers';
+import { useSessionUser } from '../utils/useSessionUser';
+import { AccessDeniedState } from '../components/common/AccessDeniedState';
 import {
   usersWithRole,
   userHasRole,
@@ -43,9 +46,13 @@ import {
   hasBlockingAssuranceAssignmentConflict,
   getReviewChannelForUser,
   findObjectSubmitter,
+  defaultProviderSubmitter,
+  defaultOrganizationVerifier,
+  defaultOrganizationInspector,
   getStakeholderRoleOrganization,
   PENDING_ASSIGNMENT,
 } from '../utils/userRoleHelpers';
+import { findDuplicateObjectDocumentTitle } from '../utils/documentObjectHelpers';
 import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId, validateComplianceDeadline, validateTaskTargetDate, TASK_DATE_AFTER_SET_DATE } from '../utils/validation';
 import {
   SUBTYPE_STANDARD_DOCS,
@@ -87,6 +94,7 @@ import {
   addObjectOwners,
   eligibleReviewers,
   filterProjectsForPersona,
+  isProjectAccessibleToUser,
   objectOwnerOrganizations,
   organizationInUse,
   projectToAssuranceProjectScope,
@@ -97,7 +105,12 @@ import {
   taskProvider,
   withProjectVessels,
 } from '../utils/projectHelpers';
-import { resolveAssuranceRequestContext, resolveAssuranceRequestSetClient, resolveRequestedServiceProviderOrg } from '../utils/notificationHelpers';
+import {
+  canOpenAssuranceRequestWizard,
+  resolveAssuranceRequestContext,
+  resolveAssuranceRequestSetClient,
+  resolveRequestedServiceProviderOrg,
+} from '../utils/notificationHelpers';
 import { MasterDocument } from '../types/document';
 import { Plus, ChevronDown, ShieldCheck, FileCheck, ExternalLink, Globe, Building2, Ship, Users, Wrench, Activity, Sparkles, CheckCircle2, Trash2, AlertCircle, Pencil, Check, X, FolderPlus, Layers } from 'lucide-react';
 import { calculateAssuranceSetReadiness } from '../utils/readinessHelpers';
@@ -105,6 +118,7 @@ import { SearchableSelect, SearchableSelectItem } from '../components/common/Sea
 import { Wizard, WizardStep } from '../components/wizards/Wizard';
 import { PartyRoleErrors } from '../components/wizards/PartyRoleErrors';
 import { Modal } from '../components/modals/Modal';
+import { resolveRequestedAssuranceObjects } from '../utils/requestedAssuranceObjects';
 
 interface SpecializedDoc {
   id: string;
@@ -166,9 +180,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     getTenantCustomSections,
   } = useMapStore();
 
-  const clientOrgHint = (activePersona === 'C Admin' || activePersona === 'Administrator') ? activeDemoOrganization : undefined;
+  const sessionUser = useSessionUser();
+  const clientOrgHint = activeDemoOrganization || sessionUser?.organization;
 
-  /* projects the active persona can see, offered as an optional link for any scope */
+  /* projects the active user can see, offered as an optional link for any scope */
   const availableProjectOptions = useMemo(
     () =>
       filterProjectsForPersona(
@@ -177,8 +192,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         users,
         assuranceSets,
         clientOrgHint,
+        sessionUser ?? null,
+        notifications,
       ).map(projectToAssuranceProjectScope),
-    [projects, activePersona, users, assuranceSets, clientOrgHint],
+    [projects, activePersona, users, assuranceSets, clientOrgHint, sessionUser, notifications],
   );
 
   /* project the wizard was opened from, or the project named on the invitation */
@@ -208,10 +225,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     requestedScopes?.length === 1
       ? requestedScopes[0]
       : requestContext?.notification.request?.suggestedScope;
-  const suggestedAsset =
-    requestContext?.notification.request?.suggestedAssets?.length === 1
-      ? requestContext.notification.request.suggestedAssets[0]
-      : undefined;
+  const requestedAssets = requestContext?.notification.request?.suggestedAssets;
+  /* the first requested object sets the default subject and period */
+  const suggestedAsset = requestedAssets?.[0];
 
   /* scope and asset handed over by a charter action; captured once so the store value can be cleared */
   const [lockedAsset] = useState(() => {
@@ -247,11 +263,23 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   ]);
 
   const isClientAdmin = activePersona === 'C Admin';
-  /* user recorded as the creator of sets made in this session; a request names its own creator */
-  const creatorName =
-    requestContext?.assigneeName ||
-    users.find((u) => u.id === activeSessionUserId)?.name ||
-    users.find((u) => u.roles.includes(activePersona) && u.organization === activeDemoOrganization)?.name;
+  const creatorPersona = isClientAdmin
+    ? 'C Admin'
+    : activePersona === 'Administrator'
+      ? 'Administrator'
+      : 'C Admin';
+  const pendingRequestNotification = notifications.find(
+    (n) => n.id === pendingAssuranceRequestNotificationId && n.status !== 'actioned',
+  );
+  const canOpenViaRequest = Boolean(
+    pendingRequestNotification && canOpenAssuranceRequestWizard(pendingRequestNotification, sessionUser),
+  );
+  /* user recorded as the creator of sets made in this session; an authorized request names its recipient */
+  const creatorUser = sessionUser;
+  const creatorUserId = canOpenViaRequest
+    ? requestContext?.assignee?.id || requestContext?.notification.request?.assigneeUserId || creatorUser?.id
+    : creatorUser?.id;
+  const creatorName = canOpenViaRequest ? (requestContext?.assigneeName || creatorUser?.name) : creatorUser?.name;
   const clientOrg = getClientAdminOrganization(users, clientOrgHint);
 
   const availableVessels = filterCAdminAvailableToCharter(vessels, assuranceSets, clientOrg);
@@ -309,13 +337,16 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const [selectedProjectId, setSelectedProjectId] = useState<string>(lockedProjectId || '');
   /* Covered Assurance Objects (ADR 0029): the only place the set's vessels, crew, equipment and other objects are chosen; every object is equal */
   const [selectedAssuranceObjects, setSelectedAssuranceObjects] = useState<AssuranceObject[]>(() => {
+    /* a request fills in every object it names; they stay editable */
+    const requestedObjects = lockedAsset
+      ? []
+      : resolveRequestedAssuranceObjects(requestedAssets, vessels, crew, equipment);
+    if (requestedObjects.length > 0) return requestedObjects;
     const handedOff = lockedAsset
       ? { scope: lockedAsset.scope, id: lockedAsset.assetId }
-      : suggestedAsset
-        ? { scope: suggestedAsset.assetType, id: suggestedAsset.assetId }
-        : lockedVessel
-          ? { scope: 'Vessel' as AssuranceSubtype, id: lockedVessel.id }
-          : undefined;
+      : lockedVessel
+        ? { scope: 'Vessel' as AssuranceSubtype, id: lockedVessel.id }
+        : undefined;
     /* the objects tab starts empty: only an object handed over from an asset or project is preselected; the rest comes from the provider's suggestions or search */
     if (!handedOff) return [];
     const start = handedOff;
@@ -754,22 +785,22 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
   const crewGroupPickerOptions =
     newObjectType === 'person'
       ? crewGroups
-          .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
-          .map((g) => {
-            const isAdded = selectedCrewGroups.some((ref) => ref.groupId === g.id);
-            const groupOrg = g.organization;
-            const isListed = !groupOrg || organizations.some((organization) => sameOrganization(organization, groupOrg));
-            return {
-              isListed,
-              item: {
-                id: `group:${g.id}`,
-                label: `Crew Group: ${g.name} (${g.memberIds.length} seafarers · ${g.specialization})${isAdded ? ' — added' : ''}`,
-                hint: g.organization || 'Crew Group',
-                searchText: `${g.id} ${g.name} ${g.specialization} crew group`,
-                disabled: isAdded,
-              },
-            };
-          })
+        .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
+        .map((g) => {
+          const isAdded = selectedCrewGroups.some((ref) => ref.groupId === g.id);
+          const groupOrg = g.organization;
+          const isListed = !groupOrg || organizations.some((organization) => sameOrganization(organization, groupOrg));
+          return {
+            isListed,
+            item: {
+              id: `group:${g.id}`,
+              label: `Crew Group: ${g.name} (${g.memberIds.length} seafarers · ${g.specialization})${isAdded ? ' — added' : ''}`,
+              hint: g.organization || 'Crew Group',
+              searchText: `${g.id} ${g.name} ${g.specialization} crew group`,
+              disabled: isAdded,
+            },
+          };
+        })
       : [];
 
   const allPickerOptions = [...crewGroupPickerOptions, ...objectPickerOptions];
@@ -1154,6 +1185,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
         triggerAutofillAnimation(['grid-campaign-title', 'grid-target-vessel', 'grid-charter-start', 'grid-charter-end']);
       } else if (target) {
+        if (!isAssuranceSetAssignedToPersona(target, activePersona, activeDemoOrganization, sessionUser, users)) {
+          return;
+        }
         if (target.visibility === 'draft') {
           // Resume draft editing in-place
           setEditingDraftId(target.id);
@@ -1337,6 +1371,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       organization: tenantOrganization,
       description: newSectionDesc.trim() || undefined,
     });
+    if (!created) return;
     if (!activeCustomSections.some((s) => s.id === created.id)) {
       setActiveCustomSections((prev) => [...prev, created]);
     }
@@ -1620,13 +1655,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       .filter((object) => sameOrganization(object.ownerOrganization, organization))
       .map((object) => findObjectSubmitter(object, documents, users))
       .find(Boolean) ||
-      /* no earlier uploader: the organization's own submitter is appointed at once, its admins are told as well */
-      users.find(
-        (user) =>
-          user.status === 'Active' &&
-          userHasRole(user, 'Submitter') &&
-          sameOrganization(user.organization || '', organization),
-      ),
+      /* no earlier uploader: its Submitter, else its Administrator, so a Provider is never pending (ADR 0038) */
+      defaultProviderSubmitter(users, organization),
   }));
   const submitters: SetSubmitter[] = providerSubmitters.map(({ organization, person }) => ({
     organization,
@@ -1638,20 +1668,51 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     const provider = taskProvider(selectedAssuranceObjects, providers, subtype, targetObjectId);
     return submitters.find((submitter) => submitter.organization === provider)?.assignee ?? submitterLabel;
   };
+  const defaultVerifier =
+    verificationRequired && verifierOrg ? defaultOrganizationVerifier(users, verifierOrg) : undefined;
+  const defaultInspector =
+    inspectionRequired && inspectorOrg
+      ? defaultOrganizationInspector(users, inspectorOrg, {
+          excludeUserId: defaultVerifier?.id,
+          excludeUserName: defaultVerifier?.name,
+        })
+      : undefined;
+  const verifierLabel = defaultVerifier
+    ? `${defaultVerifier.name} (${defaultVerifier.organization || verifierOrg})`
+    : undefined;
+  const inspectorLabel = defaultInspector
+    ? `${defaultInspector.name} (${defaultInspector.organization || inspectorOrg})`
+    : undefined;
+
   const stakeholderOrganizations = {
     submitterId: selectedSubmitter?.id,
     submitterName: selectedSubmitter?.name,
     submitterOrg: submitters[0]?.organization || serviceProviderOrg,
+    verifierId: defaultVerifier?.id,
+    verifierName: defaultVerifier?.name,
     verifierOrg: verificationRequired ? verifierOrg : undefined,
+    inspectorId: defaultInspector?.id,
+    inspectorName: defaultInspector?.name,
     inspectorOrg: inspectionRequired ? inspectorOrg : undefined,
     approverOrg: approvalRequired ? approverOrg : undefined,
   };
-  const reqAssignedVerifier = verificationRequired ? PENDING_ASSIGNMENT : undefined;
+  const reqAssignedVerifier = verificationRequired
+    ? (verifierLabel ?? PENDING_ASSIGNMENT)
+    : undefined;
+  const reqAssignedInspector = inspectionRequired
+    ? (inspectorLabel ?? PENDING_ASSIGNMENT)
+    : undefined;
   const subtypeStakeholder = {
     assignedSubmitter: submitterLabel,
     submitterName: submitterLabel,
     verifierOrg: stakeholderOrganizations.verifierOrg,
     assignedVerifier: reqAssignedVerifier,
+    verifierId: defaultVerifier?.id,
+    verifierName: defaultVerifier?.name,
+    inspectorOrg: stakeholderOrganizations.inspectorOrg,
+    assignedInspector: reqAssignedInspector,
+    inspectorId: defaultInspector?.id,
+    inspectorName: defaultInspector?.name,
   };
 
   /* Submit and create assurance set */
@@ -1700,7 +1761,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         responsibleParties: [respondingParty],
         requirementGroupId: doc.id,
         assignedVerifier: reqAssignedVerifier,
-        verifierId: undefined,
+        verifierId: defaultVerifier?.id,
         targetDate: complianceDeadline,
       });
     });
@@ -1729,7 +1790,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             responsibleParties: [respondingParty],
             requirementGroupId: doc.id,
             assignedVerifier: reqAssignedVerifier,
-            verifierId: undefined,
+            verifierId: defaultVerifier?.id,
             targetDate: complianceDeadline,
           });
         }
@@ -1745,32 +1806,53 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           templatePosition >= 0 &&
           templatePosition < templateSpecs.length - DEMO_OPEN_TASKS;
         const demoDocId = `DOC-DEMO-${uniqueSetId}-${templatePosition + 1}`;
+        let attachedDocId = demoDocId;
+        let attachedVersion = 'v1.0';
+
         if (isPreverified) {
-          const now = new Date().toISOString();
-          demoDocuments.push({
-            id: demoDocId,
-            title: spec.title,
-            entityType: 'Vessel Certificate',
-            vesselId: vesselId || '',
-            certificateNo: `DEMO-${templatePosition + 1}`,
-            issuingAuthority: respondingParty,
-            expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
-            ocrConfidence: 96,
-            complianceState: 'Valid',
-            currentVersion: 'v1.0',
-            versions: [
-              {
-                versionLabel: 'v1.0',
-                uploadedAt: now,
-                uploadedBy: respondingParty,
-                fileSizeBytes: 420000,
-                fileName: `${spec.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`,
-                changeSummary: 'Demo document, already submitted and verified',
-              },
-            ],
-            validationRules: { charterBufferPassed: true, assetMatch100Percent: true, iacsAuthorityValid: true, overallValid: true },
-            verificationStatus: 'Verified',
-          });
+          const targetType = vesselId ? 'vessel' : undefined;
+          const targetId = vesselId || undefined;
+          const duplicate = findDuplicateObjectDocumentTitle(
+            spec.title,
+            targetType,
+            targetId,
+            [...documents, ...demoDocuments],
+            { vessels, crew, equipment, assuranceObjects },
+          );
+
+          if (duplicate) {
+            attachedDocId = duplicate.id;
+            attachedVersion = duplicate.currentVersion || 'v1.0';
+          } else {
+            const now = new Date().toISOString();
+            demoDocuments.push({
+              id: demoDocId,
+              title: spec.title,
+              entityType: 'Vessel Certificate',
+              vesselId: vesselId || '',
+              targetObjectType: vesselId ? 'vessel' : undefined,
+              targetObjectId: vesselId || undefined,
+              targetObjectName: selectedVessel?.name,
+              certificateNo: `DEMO-${templatePosition + 1}`,
+              issuingAuthority: respondingParty,
+              expiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10),
+              ocrConfidence: 96,
+              complianceState: 'Valid',
+              currentVersion: 'v1.0',
+              versions: [
+                {
+                  versionLabel: 'v1.0',
+                  uploadedAt: now,
+                  uploadedBy: respondingParty,
+                  fileSizeBytes: 420000,
+                  fileName: `${spec.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`,
+                  changeSummary: 'Demo document, already submitted and verified',
+                },
+              ],
+              validationRules: { charterBufferPassed: true, assetMatch100Percent: true, iacsAuthorityValid: true, overallValid: true },
+              verificationStatus: 'Verified',
+            });
+          }
         }
         finalRequirements.push({
           id: generateUniqueRequirementId(uniqueSetId, reqIndex++),
@@ -1794,12 +1876,12 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           verifierId: undefined,
           ...(isPreverified
             ? {
-                documentId: demoDocId,
-                documentVersion: 'v1.0',
-                isFulfilled: true,
-                ocrConfidence: 96,
-                verifierStatus: 'Verified' as const,
-              }
+              documentId: attachedDocId,
+              documentVersion: attachedVersion,
+              isFulfilled: true,
+              ocrConfidence: 96,
+              verifierStatus: 'Verified' as const,
+            }
             : {}),
         });
       });
@@ -1956,7 +2038,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       vesselName: effectiveAssetName,
       imoNumber: effectiveImo,
       initiatorOrg,
-      initiatorRole: 'C Admin · Client Created',
+      initiatorRole: creatorPersona === 'C Admin' ? 'C Admin · Client Created' : 'Vessel Provider Admin',
       charterer: effectiveCharterer,
       plannedCharterDate: plannedCharterDate || undefined,
       charterWindowStart: startDate,
@@ -1996,7 +2078,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       inspectionCompleted: false,
       assignedSubmitter: submitterLabel,
       assignedVerifier: reqAssignedVerifier,
-      assignedInspector: inspectionRequired ? PENDING_ASSIGNMENT : undefined,
+      assignedInspector: reqAssignedInspector,
       assignedApprover: approvalRequired ? PENDING_ASSIGNMENT : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
@@ -2036,7 +2118,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       sections: validSections,
       stakeholders: stakeholderOrganizations,
       assignedStakeholders: undefined,
-      createdByPersona: 'C Admin',
+      createdByPersona: creatorPersona,
+      createdByUserId: creatorUserId,
       createdByName: creatorName,
       clientWorkflowStage: 'draft',
       assuranceObjects: selectedAssuranceObjects,
@@ -2161,7 +2244,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             responsibleParties: [respondingParty],
             requirementGroupId: doc.id,
             assignedVerifier: reqAssignedVerifier,
-            verifierId: undefined,
+            verifierId: defaultVerifier?.id,
             targetDate: complianceDeadline,
           });
         }
@@ -2277,7 +2360,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       vesselName: effectiveAssetName,
       imoNumber: effectiveImo,
       initiatorOrg,
-      initiatorRole: 'C Admin · Client Created',
+      initiatorRole: creatorPersona === 'C Admin' ? 'C Admin · Client Created' : 'Vessel Provider Admin',
       charterer: effectiveCharterer,
       plannedCharterDate: plannedCharterDate || undefined,
       charterWindowStart: startDate || initialPeriod.start,
@@ -2292,7 +2375,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       inspectionCompleted: false,
       assignedSubmitter: submitterLabel,
       assignedVerifier: reqAssignedVerifier,
-      assignedInspector: inspectionRequired ? PENDING_ASSIGNMENT : undefined,
+      assignedInspector: reqAssignedInspector,
       assignedApprover: approvalRequired ? PENDING_ASSIGNMENT : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
@@ -2361,7 +2444,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       })(),
       stakeholders: stakeholderOrganizations,
       assignedStakeholders: undefined,
-      createdByPersona: 'C Admin',
+      createdByPersona: creatorPersona,
+      createdByUserId: creatorUserId,
       createdByName: creatorName,
       clientWorkflowStage: 'draft',
       internalDeployment: isInternalDeployment,
@@ -2852,6 +2936,40 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
   const currentStepData = steps[currentStep - 1] || steps[0];
 
+  const lockedProjectRecord = lockedProjectId
+    ? projects.find((p) => p.id === lockedProjectId)
+    : undefined;
+  const hasLockedProjectAccess =
+    !lockedProjectRecord ||
+    isProjectAccessibleToUser(
+      lockedProjectRecord,
+      activePersona,
+      users,
+      assuranceSets,
+      activeDemoOrganization,
+      sessionUser ?? null,
+      notifications,
+    );
+  const templateSetTarget =
+    templateSetId && !(assuranceTemplates || []).some((t) => t.id === templateSetId)
+      ? assuranceSets.find((s) => s.id === templateSetId)
+      : undefined;
+  const hasTemplateSetAccess =
+    !templateSetTarget ||
+    isAssuranceSetAssignedToPersona(
+      templateSetTarget,
+      activePersona,
+      activeDemoOrganization,
+      sessionUser,
+      users,
+    );
+  const hasWizardRole =
+    activePersona === 'Administrator' || activePersona === 'C Admin' || canOpenViaRequest;
+
+  if (!sessionUser || !hasWizardRole || !hasLockedProjectAccess || !hasTemplateSetAccess) {
+    return <AccessDeniedState onBack={() => setCurrentHashView('assurance-sets')} />;
+  }
+
   return (
     <div className="container-fluid px-4 py-4 map-assurance-wizard" style={{ maxWidth: '1280px' }}>
       {/* Top Breadcrumb & Title */}
@@ -2888,228 +3006,228 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
             <div className="toast-body small">{dateNotice}</div>
           </div>
         )}
-          {/* GENERAL TAB: identification, contract period, template privacy and stakeholders */}
-          {currentStepData.id === 'step-general' && (
-            <div className="d-flex flex-column gap-4">
-              {/* Campaign Identification Card */}
-              <div className="card border shadow-2xs rounded-3 bg-white">
-                <div className="card-header bg-light border-bottom px-4 py-3">
-                  <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    Identification
-                  </h5>
-                </div>
-                <div className="card-body p-4">
-                  <div className="row g-3">
-                    {/* Campaign Title */}
-                    <div className="col-12 col-md-8">
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-campaign-title">
-                        Title <span className="text-danger">*</span>
-                      </label>
-                      <input
-                        id="grid-campaign-title"
-                        type="text"
-                        className={`form-control bg-white text-dark border-secondary-subtle${animatingFields.has('grid-campaign-title') ? ' map-autofill-animate' : ''}${isDuplicateCampaignTitle(title, assuranceSets).isDuplicate || fieldErrors.title || (hasAttemptedSubmit && !title.trim()) ? ' is-invalid border-danger' : ''}`}
-                        placeholder="e.g. Chevron Gorgon Charter Vetting 2026"
-                        value={title}
-                        onChange={(e) => {
-                          setTitle(e.target.value);
-                          setFieldErrors((prev) => {
-                            const u = { ...prev };
-                            delete u.title;
-                            return u;
-                          });
-                        }}
-                        required
-                      />
-                      {fieldErrors.title && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {fieldErrors.title}
-                        </div>
-                      )}
-                      {!fieldErrors.title && isDuplicateCampaignTitle(title, assuranceSets, editingDraftId).isDuplicate && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {isDuplicateCampaignTitle(title, assuranceSets, editingDraftId).reason}
-                        </div>
-                      )}
-                    </div>
+        {/* GENERAL TAB: identification, contract period, template privacy and stakeholders */}
+        {currentStepData.id === 'step-general' && (
+          <div className="d-flex flex-column gap-4">
+            {/* Campaign Identification Card */}
+            <div className="card border shadow-2xs rounded-3 bg-white">
+              <div className="card-header bg-light border-bottom px-4 py-3">
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                  Identification
+                </h5>
+              </div>
+              <div className="card-body p-4">
+                <div className="row g-3">
+                  {/* Campaign Title */}
+                  <div className="col-12 col-md-8">
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="grid-campaign-title">
+                      Title <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      id="grid-campaign-title"
+                      type="text"
+                      className={`form-control bg-white text-dark border-secondary-subtle${animatingFields.has('grid-campaign-title') ? ' map-autofill-animate' : ''}${isDuplicateCampaignTitle(title, assuranceSets).isDuplicate || fieldErrors.title || (hasAttemptedSubmit && !title.trim()) ? ' is-invalid border-danger' : ''}`}
+                      placeholder="e.g. Chevron Gorgon Charter Vetting 2026"
+                      value={title}
+                      onChange={(e) => {
+                        setTitle(e.target.value);
+                        setFieldErrors((prev) => {
+                          const u = { ...prev };
+                          delete u.title;
+                          return u;
+                        });
+                      }}
+                      required
+                    />
+                    {fieldErrors.title && (
+                      <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                        {fieldErrors.title}
+                      </div>
+                    )}
+                    {!fieldErrors.title && isDuplicateCampaignTitle(title, assuranceSets, editingDraftId).isDuplicate && (
+                      <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                        {isDuplicateCampaignTitle(title, assuranceSets, editingDraftId).reason}
+                      </div>
+                    )}
+                  </div>
 
-                    {/* the project is assigned by the invitation or the project page; otherwise it can be chosen */}
-                    <div className="col-12 col-md-6">
-                      <label
-                        className="form-label text-secondary small fw-semibold"
-                        htmlFor={isProjectLocked ? 'grid-linked-project-locked' : 'grid-linked-project'}
+                  {/* the project is assigned by the invitation or the project page; otherwise it can be chosen */}
+                  <div className="col-12 col-md-6">
+                    <label
+                      className="form-label text-secondary small fw-semibold"
+                      htmlFor={isProjectLocked ? 'grid-linked-project-locked' : 'grid-linked-project'}
+                    >
+                      Project{' '}
+                      {isProjectLocked ? null : (
+                        <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                      )}
+                    </label>
+                    {isProjectLocked ? (
+                      <input
+                        id="grid-linked-project-locked"
+                        className="form-control bg-light text-dark border-secondary-subtle"
+                        value={
+                          selectedProject
+                            ? `${selectedProject.id} — ${selectedProject.name}`
+                            : selectedProjectId
+                        }
+                        readOnly
+                        aria-describedby="grid-linked-project-help"
+                      />
+                    ) : (
+                      <select
+                        id="grid-linked-project"
+                        className="form-select bg-white text-dark border-secondary-subtle"
+                        value={selectedProjectId}
+                        onChange={(e) => handleProjectChange(e.target.value)}
                       >
-                        Project{' '}
-                        {isProjectLocked ? null : (
-                          <span className="text-secondary fw-normal fs-7">(Optional)</span>
-                        )}
-                      </label>
-                      {isProjectLocked ? (
-                        <input
-                          id="grid-linked-project-locked"
-                          className="form-control bg-light text-dark border-secondary-subtle"
-                          value={
-                            selectedProject
-                              ? `${selectedProject.id} — ${selectedProject.name}`
-                              : selectedProjectId
-                          }
-                          readOnly
-                          aria-describedby="grid-linked-project-help"
-                        />
-                      ) : (
-                        <select
-                          id="grid-linked-project"
-                          className="form-select bg-white text-dark border-secondary-subtle"
-                          value={selectedProjectId}
-                          onChange={(e) => handleProjectChange(e.target.value)}
-                        >
-                          <option value="">No project</option>
-                          {projectOptions.map((proj) => (
-                            <option key={proj.id} value={proj.id}>
-                              {proj.id} &mdash; {proj.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      {isProjectLocked && (
-                        <div id="grid-linked-project-help" className="form-text small">
-                          {requestContext
-                            ? `Assigned by the invitation from ${requestContext.requestedByName}. Client: ${setClientOrg}. Created by: ${requestContext.assigneeName}.`
-                            : 'Assigned by the project you came from.'}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Charter Window Dates */}
-                    <div className="col-12 col-md-3">
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-start">
-                        Contract Period Start <span className="text-danger">*</span>
-                      </label>
-                      <input
-                        id="grid-charter-start"
-                        type="date"
-                        placeholder={initialPeriod.start}
-                        className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.startDate ? ' is-invalid border-danger' : ''}`}
-                        value={startDate}
-                        onChange={(e) => {
-                          const nextStart = e.target.value;
-                          setStartDate(nextStart);
-                          const notices: string[] = [];
-                          if (nextStart && complianceDeadline && complianceDeadline > nextStart) {
-                            notices.push(`Compliance Deadline moved to ${nextStart} because it must be on or before the Contract Period Start.`);
-                          }
-                          if (nextStart && endDate && endDate < nextStart) {
-                            setEndDate(nextStart);
-                            notices.push(`Contract Period End moved to ${nextStart} because it cannot be before the Contract Period Start.`);
-                          }
-                          if (notices.length > 0) setDateNotice(notices.join(' '));
-                          setComplianceDeadline((current) => (!current || (nextStart && current > nextStart) ? nextStart : current));
-                          setFieldErrors((prev) => {
-                            const u = { ...prev };
-                            delete u.startDate;
-                            delete u.endDate;
-                            delete u.complianceDeadline;
-                            return u;
-                          });
-                        }}
-                        required
-                      />
-                      {fieldErrors.startDate && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {fieldErrors.startDate}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="col-12 col-md-3">
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-end">
-                        Contract Period End <span className="text-danger">*</span>
-                      </label>
-                      <input
-                        id="grid-charter-end"
-                        type="date"
-                        placeholder={initialPeriod.end}
-                        className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.endDate ? ' is-invalid border-danger' : ''}`}
-                        value={endDate}
-                        onChange={(e) => {
-                          const nextEnd = e.target.value;
-                          if (nextEnd && startDate && nextEnd < startDate) {
-                            setEndDate(startDate);
-                            setDateNotice(`Contract Period End reset to ${startDate} because it cannot be before the Contract Period Start.`);
-                          } else {
-                            setEndDate(nextEnd);
-                          }
-                          setFieldErrors((prev) => {
-                            const u = { ...prev };
-                            delete u.endDate;
-                            return u;
-                          });
-                        }}
-                        required
-                      />
-                      {fieldErrors.endDate && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {fieldErrors.endDate}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="col-12 col-md-3">
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-planned-charter-date">
-                        Planned Charter Date <span className="text-secondary fw-normal fs-7">(Optional)</span>
-                      </label>
-                      <input
-                        id="grid-planned-charter-date"
-                        type="date"
-                        className="form-control bg-white text-dark border-secondary-subtle font-mono-code"
-                        value={plannedCharterDate}
-                        onChange={(e) => setPlannedCharterDate(e.target.value)}
-                        aria-describedby="grid-planned-charter-date-help"
-                      />
-                      <div id="grid-planned-charter-date-help" className="form-text small">
-                        Optional planned commencement date for asset chartering.
+                        <option value="">No project</option>
+                        {projectOptions.map((proj) => (
+                          <option key={proj.id} value={proj.id}>
+                            {proj.id} &mdash; {proj.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {isProjectLocked && (
+                      <div id="grid-linked-project-help" className="form-text small">
+                        {requestContext
+                          ? `Assigned by the invitation from ${requestContext.requestedByName}. Client: ${setClientOrg}. Created by: ${requestContext.assigneeName}.`
+                          : 'Assigned by the project you came from.'}
                       </div>
-                    </div>
+                    )}
+                  </div>
 
-                    <div className="col-12 col-md-3">
-                      <label className="form-label text-secondary small fw-semibold" htmlFor="grid-compliance-deadline">
-                        Compliance Deadline <span className="text-danger">*</span>
-                      </label>
-                      <input
-                        id="grid-compliance-deadline"
-                        type="date"
-                        className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.complianceDeadline ? ' is-invalid border-danger' : ''}`}
-                        value={complianceDeadline}
-                        max={startDate || undefined}
-                        onChange={(e) => {
-                          const nextDeadline = e.target.value;
-                          if (nextDeadline && startDate && nextDeadline > startDate) {
-                            setComplianceDeadline(startDate);
-                            setDateNotice(`Compliance Deadline reset to ${startDate} because it must be on or before the Contract Period Start.`);
-                          } else {
-                            setComplianceDeadline(nextDeadline);
-                          }
-                          setFieldErrors((prev) => {
-                            const u = { ...prev };
-                            delete u.complianceDeadline;
-                            return u;
-                          });
-                        }}
-                        required
-                        aria-describedby="grid-compliance-deadline-help"
-                      />
-                      <div id="grid-compliance-deadline-help" className="form-text small">
-                        When this assurance set must be complete. On or before the contract start.
+                  {/* Charter Window Dates */}
+                  <div className="col-12 col-md-3">
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-start">
+                      Contract Period Start <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      id="grid-charter-start"
+                      type="date"
+                      placeholder={initialPeriod.start}
+                      className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.startDate ? ' is-invalid border-danger' : ''}`}
+                      value={startDate}
+                      onChange={(e) => {
+                        const nextStart = e.target.value;
+                        setStartDate(nextStart);
+                        const notices: string[] = [];
+                        if (nextStart && complianceDeadline && complianceDeadline > nextStart) {
+                          notices.push(`Compliance Deadline moved to ${nextStart} because it must be on or before the Contract Period Start.`);
+                        }
+                        if (nextStart && endDate && endDate < nextStart) {
+                          setEndDate(nextStart);
+                          notices.push(`Contract Period End moved to ${nextStart} because it cannot be before the Contract Period Start.`);
+                        }
+                        if (notices.length > 0) setDateNotice(notices.join(' '));
+                        setComplianceDeadline((current) => (!current || (nextStart && current > nextStart) ? nextStart : current));
+                        setFieldErrors((prev) => {
+                          const u = { ...prev };
+                          delete u.startDate;
+                          delete u.endDate;
+                          delete u.complianceDeadline;
+                          return u;
+                        });
+                      }}
+                      required
+                    />
+                    {fieldErrors.startDate && (
+                      <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                        {fieldErrors.startDate}
                       </div>
-                      {fieldErrors.complianceDeadline && (
-                        <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                          {fieldErrors.complianceDeadline}
-                        </div>
-                      )}
-                    </div>
+                    )}
+                  </div>
 
-                    {/* People / Plant / Process Tags (BRD V4.2 BR-15, Gap G3) */}
-                    {/* <div className="col-12">
+                  <div className="col-12 col-md-3">
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-end">
+                      Contract Period End <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      id="grid-charter-end"
+                      type="date"
+                      placeholder={initialPeriod.end}
+                      className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.endDate ? ' is-invalid border-danger' : ''}`}
+                      value={endDate}
+                      onChange={(e) => {
+                        const nextEnd = e.target.value;
+                        if (nextEnd && startDate && nextEnd < startDate) {
+                          setEndDate(startDate);
+                          setDateNotice(`Contract Period End reset to ${startDate} because it cannot be before the Contract Period Start.`);
+                        } else {
+                          setEndDate(nextEnd);
+                        }
+                        setFieldErrors((prev) => {
+                          const u = { ...prev };
+                          delete u.endDate;
+                          return u;
+                        });
+                      }}
+                      required
+                    />
+                    {fieldErrors.endDate && (
+                      <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                        {fieldErrors.endDate}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="col-12 col-md-3">
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="grid-planned-charter-date">
+                      Planned Charter Date <span className="text-secondary fw-normal fs-7">(Optional)</span>
+                    </label>
+                    <input
+                      id="grid-planned-charter-date"
+                      type="date"
+                      className="form-control bg-white text-dark border-secondary-subtle font-mono-code"
+                      value={plannedCharterDate}
+                      onChange={(e) => setPlannedCharterDate(e.target.value)}
+                      aria-describedby="grid-planned-charter-date-help"
+                    />
+                    <div id="grid-planned-charter-date-help" className="form-text small">
+                      Optional planned commencement date for asset chartering.
+                    </div>
+                  </div>
+
+                  <div className="col-12 col-md-3">
+                    <label className="form-label text-secondary small fw-semibold" htmlFor="grid-compliance-deadline">
+                      Compliance Deadline <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      id="grid-compliance-deadline"
+                      type="date"
+                      className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.complianceDeadline ? ' is-invalid border-danger' : ''}`}
+                      value={complianceDeadline}
+                      max={startDate || undefined}
+                      onChange={(e) => {
+                        const nextDeadline = e.target.value;
+                        if (nextDeadline && startDate && nextDeadline > startDate) {
+                          setComplianceDeadline(startDate);
+                          setDateNotice(`Compliance Deadline reset to ${startDate} because it must be on or before the Contract Period Start.`);
+                        } else {
+                          setComplianceDeadline(nextDeadline);
+                        }
+                        setFieldErrors((prev) => {
+                          const u = { ...prev };
+                          delete u.complianceDeadline;
+                          return u;
+                        });
+                      }}
+                      required
+                      aria-describedby="grid-compliance-deadline-help"
+                    />
+                    <div id="grid-compliance-deadline-help" className="form-text small">
+                      When this assurance set must be complete. On or before the contract start.
+                    </div>
+                    {fieldErrors.complianceDeadline && (
+                      <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
+                        {fieldErrors.complianceDeadline}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* People / Plant / Process Tags (BRD V4.2 BR-15, Gap G3) */}
+                  {/* <div className="col-12">
                       <label className="form-label text-secondary small fw-semibold d-block mb-1">
                         Pillars <span className="text-secondary fw-normal fs-7">(Optional)</span>
                       </label>
@@ -3142,905 +3260,650 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         })}
                       </div>
                     </div> */}
-                  </div>
                 </div>
               </div>
+            </div>
 
-              {/* General Information Section (Toggled / Collapsible) */}
-              {/* 3. Parties Card */}
-              <div className="card border shadow-2xs rounded-3 bg-white" data-testid="card-involved-organizations">
-                <div className="card-header bg-light border-bottom px-4 py-3">
-                  <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                    2. Parties
-                  </h5>
-                  <div className="text-muted small">
-                    List every party in this set, configure verification and governance stages, and assign reviewer roles.
+            {/* General Information Section (Toggled / Collapsible) */}
+            {/* 3. Parties Card */}
+            <div className="card border shadow-2xs rounded-3 bg-white" data-testid="card-involved-organizations">
+              <div className="card-header bg-light border-bottom px-4 py-3">
+                <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                  2. Parties
+                </h5>
+                <div className="text-muted small">
+                  List every party in this set, configure verification and governance stages, and assign reviewer roles.
+                </div>
+              </div>
+              <div className="card-body p-4">
+                {requestContext && (
+                  <div className="alert alert-info py-2 px-3 small mb-3 d-flex align-items-center justify-content-between" data-testid="prefilled-request-note">
+                    <div>
+                      <span className="fw-semibold">Pre-filled from request:</span> Organization party roles have been pre-filled from the assurance set request ({requestContext.requestingParty} as Requesting party, {requestContext.respondingParty} as Responding party). You can adjust them as needed.
+                    </div>
+                    <span className="badge bg-light text-dark border">Pre-filled from request</span>
+                  </div>
+                )}
+                {/* Verification & Governance Stages */}
+                <div className="p-3 bg-light border rounded-3 mb-3" data-testid="card-governance-stages">
+                  <div className="mb-2">
+                    <strong className="text-dark small d-block" style={{ fontSize: '0.85rem' }}>
+                      Verification &amp; Governance Stages
+                    </strong>
+                    <div className="text-muted small" style={{ fontSize: '0.75rem', lineHeight: '1.4' }}>
+                      Configure which statutory, technical, and commercial gates must be completed prior to set sign-off.
+                    </div>
+                  </div>
+
+                  <div className="d-flex flex-column gap-2.5 pt-1">
+                    <div className="form-check form-switch mb-0">
+                      <input
+                        id="wf-verify"
+                        type="checkbox"
+                        className="form-check-input"
+                        role="switch"
+                        checked={verificationRequired}
+                        onChange={(e) => setVerificationRequired(e.target.checked)}
+                      />
+                      <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-verify">
+                        Mandatory Verification Required
+                      </label>
+                      <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                        A Verifier must verify uploaded evidence against class and statutory requirements.
+                      </div>
+                    </div>
+
+                    <div className="form-check form-switch mb-0">
+                      <input
+                        id="wf-inspect"
+                        type="checkbox"
+                        className="form-check-input"
+                        role="switch"
+                        checked={inspectionRequired}
+                        onChange={(e) => setInspectionRequired(e.target.checked)}
+                      />
+                      <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-inspect">
+                        Mandatory Physical Inspection Gate
+                      </label>
+                      <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                        Requires on-site or physical survey evidence before final readiness is granted.
+                      </div>
+                    </div>
+
+                    <div className="form-check form-switch mb-0">
+                      <input
+                        id="wf-approve"
+                        type="checkbox"
+                        className="form-check-input"
+                        role="switch"
+                        checked={approvalRequired}
+                        onChange={(e) => setApprovalRequired(e.target.checked)}
+                      />
+                      <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-approve">
+                        Formal Approver Sign-Off
+                      </label>
+                      <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
+                        Formal sign-off is required before the set is accepted.
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="card-body p-4">
-                  {requestContext && (
-                    <div className="alert alert-info py-2 px-3 small mb-3 d-flex align-items-center justify-content-between" data-testid="prefilled-request-note">
-                      <div>
-                        <span className="fw-semibold">Pre-filled from request:</span> Organization party roles have been pre-filled from the assurance set request ({requestContext.requestingParty} as Requesting party, {requestContext.respondingParty} as Responding party). You can adjust them as needed.
-                      </div>
-                      <span className="badge bg-light text-dark border">Pre-filled from request</span>
-                    </div>
-                  )}
-                  {/* Verification & Governance Stages */}
-                  <div className="p-3 bg-light border rounded-3 mb-3" data-testid="card-governance-stages">
-                    <div className="mb-2">
-                      <strong className="text-dark small d-block" style={{ fontSize: '0.85rem' }}>
-                        Verification &amp; Governance Stages
-                      </strong>
-                      <div className="text-muted small" style={{ fontSize: '0.75rem', lineHeight: '1.4' }}>
-                        Configure which statutory, technical, and commercial gates must be completed prior to set sign-off.
-                      </div>
-                    </div>
 
-                    <div className="d-flex flex-column gap-2.5 pt-1">
-                      <div className="form-check form-switch mb-0">
-                        <input
-                          id="wf-verify"
-                          type="checkbox"
-                          className="form-check-input"
-                          role="switch"
-                          checked={verificationRequired}
-                          onChange={(e) => setVerificationRequired(e.target.checked)}
-                        />
-                        <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-verify">
-                          Mandatory Verification Required
-                        </label>
-                        <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
-                          A Verifier must verify uploaded evidence against class and statutory requirements.
-                        </div>
-                      </div>
+                <div className="table-responsive mb-3">
+                  <table className="table table-sm align-middle mb-0" aria-label="Parties on this set">
+                    <thead className="table-light small text-secondary">
+                      <tr>
+                        <th scope="col">Party</th>
+                        {verificationRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Verifier</th>}
+                        {inspectionRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Inspector</th>}
+                        {approvalRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Approver</th>}
+                        <th scope="col" style={{ width: '48px' }}><span className="visually-hidden">Remove</span></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {organizations.map((organization) => {
+                        const organizationError = fieldErrors[`organization_${organization}`];
+                        const isClient = sameOrganization(organization, setClientOrg);
+                        const submitter = providerSubmitters.find((provider) => sameOrganization(provider.organization, organization));
+                        const roleBox = (role: 'verifier' | 'inspector' | 'approver', label: string, holder: string) => {
+                          const isTicked = Boolean(holder && sameOrganization(holder, organization));
+                          const isResponding = Boolean(
+                            (effectiveRespondingParty && sameOrganization(organization, effectiveRespondingParty)) ||
+                            orgPartyRoles[organization] === 'Responding party',
+                          );
+                          const objectOwners = objectOwnerOrganizations(selectedAssuranceObjects);
+                          const isObjectOwner = objectOwners.some((owner) => sameOrganization(owner, organization));
+                          const isDualRoleConflict =
+                            (role === 'verifier' && isDualRoleBlocked(approverOrg, organization)) ||
+                            (role === 'approver' && isDualRoleBlocked(verifierOrg, organization));
 
-                      <div className="form-check form-switch mb-0">
-                        <input
-                          id="wf-inspect"
-                          type="checkbox"
-                          className="form-check-input"
-                          role="switch"
-                          checked={inspectionRequired}
-                          onChange={(e) => setInspectionRequired(e.target.checked)}
-                        />
-                        <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-inspect">
-                          Mandatory Physical Inspection Gate
-                        </label>
-                        <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
-                          Requires on-site or physical survey evidence before final readiness is granted.
-                        </div>
-                      </div>
+                          let disabled = false;
+                          let title: string | undefined = undefined;
 
-                      <div className="form-check form-switch mb-0">
-                        <input
-                          id="wf-approve"
-                          type="checkbox"
-                          className="form-check-input"
-                          role="switch"
-                          checked={approvalRequired}
-                          onChange={(e) => setApprovalRequired(e.target.checked)}
-                        />
-                        <label className="form-check-label small text-dark fw-semibold" htmlFor="wf-approve">
-                          Formal Approver Sign-Off
-                        </label>
-                        <div className="text-muted small" style={{ fontSize: '0.75rem' }}>
-                          Formal sign-off is required before the set is accepted.
-                        </div>
-                      </div>
-                    </div>
+                          if (role === 'approver' && (isProviderSideOrg(organization) || isResponding)) {
+                            disabled = true;
+                            title = 'The provider cannot approve its own set. Choose the client or a third party.';
+                          } else if (role !== 'approver' && isResponding) {
+                            disabled = true;
+                            title = `The responding party cannot be ${label.toLowerCase()}.`;
+                          } else if ((role === 'verifier' || role === 'approver') && isObjectOwner) {
+                            disabled = true;
+                            title = 'An object owner cannot verify or approve its own objects.';
+                          } else if (isDualRoleConflict && !isTicked) {
+                            disabled = true;
+                            title = 'One organization cannot be both Verifier and Approver.';
+                          }
+
+                          return (
+                            <td className="text-center">
+                              <input
+                                type="checkbox"
+                                className="form-check-input m-0"
+                                aria-label={`${label}: ${organization}`}
+                                checked={isTicked}
+                                disabled={disabled}
+                                title={title}
+                                onChange={(e) => handleRoleToggle(role, organization, e.target.checked)}
+                              />
+                            </td>
+                          );
+                        };
+                        return (
+                          <tr key={organization} data-testid={`set-organization-${organization}`}>
+                            <td>
+                              <div className="d-flex align-items-center gap-2 flex-wrap">
+                                <span
+                                  className="fw-semibold small text-dark"
+                                  data-testid={`badge-step1-org-${organization.toLowerCase().replace(/[^a-z0-9]/g, '')}`}
+                                >
+                                  {organization}
+                                </span>
+                                <div className="d-inline-flex align-items-center gap-1 ms-auto">
+                                  <label className="visually-hidden" htmlFor={`party-role-${organization}`}>
+                                    Party role: {organization}
+                                  </label>
+                                  <select
+                                    id={`party-role-${organization}`}
+                                    className="form-select form-select-sm py-0 px-2"
+                                    style={{ fontSize: '0.75rem', height: '24px', width: 'auto' }}
+                                    aria-label={`Party role: ${organization}`}
+                                    value={orgPartyRoles[organization] || ''}
+                                    onChange={(e) => {
+                                      handlePartyRoleChange(organization, e.target.value);
+                                    }}
+                                  >
+                                    <option value="">No party role</option>
+                                    <option value="Requesting party">Requesting party</option>
+                                    <option value="Responding party">Responding party</option>
+                                    <option value="Third party">Third party</option>
+                                  </select>
+                                  {prefilledPartyRoles[organization] && (
+                                    <span className="badge bg-secondary-subtle text-secondary border font-mono-code" style={{ fontSize: '0.65rem' }}>
+                                      Pre-filled from request
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {submitter && (
+                                <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                  Submitter: {submitter.person ? submitter.person.name : 'pending'}
+                                </div>
+                              )}
+                              {verificationRequired && verifierOrg && sameOrganization(verifierOrg, organization) && (
+                                <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                  Verifier: {defaultVerifier ? defaultVerifier.name : 'pending'}
+                                </div>
+                              )}
+                              {inspectionRequired && inspectorOrg && sameOrganization(inspectorOrg, organization) && (
+                                <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                  Inspector: {defaultInspector ? defaultInspector.name : 'pending'}
+                                </div>
+                              )}
+                              {organizationError && (
+                                <div className="text-danger small mt-1" role="alert" style={{ fontSize: '0.75rem' }}>
+                                  {organizationError}
+                                </div>
+                              )}
+                            </td>
+                            {verificationRequired && roleBox('verifier', 'Verifier', verifierOrg)}
+                            {inspectionRequired && roleBox('inspector', 'Inspector', inspectorOrg)}
+                            {approvalRequired && roleBox('approver', 'Approver', approverOrg)}
+                            <td className="text-end">
+                              {!isClient && (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-link text-danger p-0"
+                                  title="Remove organization"
+                                  aria-label={`Remove ${organization}`}
+                                  onClick={() => handleRemoveOrganization(organization)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <PartyRoleErrors
+                  requestingParty={fieldErrors.requestingParty}
+                  respondingParty={fieldErrors.respondingParty}
+                />
+                {fieldErrors.verifier && (
+                  <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-verifier">
+                    {fieldErrors.verifier}
                   </div>
+                )}
+                {fieldErrors.inspector && (
+                  <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-inspector">
+                    {fieldErrors.inspector}
+                  </div>
+                )}
+                {fieldErrors.approver && (
+                  <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-approver">
+                    {fieldErrors.approver}
+                  </div>
+                )}
+                {fieldErrors.dualRole && (
+                  <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-dual-role">
+                    {fieldErrors.dualRole}
+                  </div>
+                )}
+                <SearchableSelect
+                  id="grid-add-organization"
+                  aria-label="Add party"
+                  placeholder="Search parties..."
+                  emptyLabel="No matching parties"
+                  items={organizationOptions}
+                  onSelect={(item) => handleAddOrganization(item.id)}
+                />
+                <div className="visually-hidden" aria-hidden="true">
+                  <select
+                    id="select-add-step1-org"
+                    data-testid="select-add-step1-org"
+                    value={newOrgToAdd}
+                    onChange={(e) => setNewOrgToAdd(e.target.value)}
+                    aria-label="Select additional party"
+                  >
+                    <option value="">Select additional party...</option>
+                    {availablePlatformOrgs
+                      .filter((org) => !step1Organizations.includes(org))
+                      .map((org) => (
+                        <option key={org} value={org}>
+                          {org}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    data-testid="btn-add-step1-org"
+                    onClick={() => {
+                      if (newOrgToAdd) {
+                        handleAddOrganization(newOrgToAdd);
+                        setAdditionalStep1Orgs((prev) => [...prev, newOrgToAdd]);
+                        setNewOrgToAdd('');
+                      }
+                    }}
+                  >
+                    Add party
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div >
+        )}
 
-                  <div className="table-responsive mb-3">
-                    <table className="table table-sm align-middle mb-0" aria-label="Parties on this set">
+        {/* OBJECTS TAB: everything the set covers; every object is equal (ADR 0029) */}
+        {currentStepData.id === 'step-objects' && (
+          <div className="d-flex flex-column gap-4">
+            {/* Covered Assurance Objects Section (ADR 0029) */}
+            <div className="card border shadow-2xs rounded-3 bg-white" id="covered-assurance-objects-card">
+              <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div>
+                  <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                    Covered Assurance Objects ({selectedAssuranceObjects.length})
+                  </h5>
+                  <div className="text-muted small mt-0.5">
+                    Add every vessel, crew member, piece of equipment, or activity this set covers.
+                  </div>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <button
+                    type="button"
+                    id="btn-load-port-entry-bundle"
+                    className="btn btn-sm btn-outline-primary fw-semibold d-inline-flex align-items-center gap-1.5"
+                    onClick={() => {
+                      const v = vessels.find((x) => x.id === vesselId) || vessels[0];
+                      const c = crew.find((x) => x.id === (selectedCrewId || crew[0]?.id)) || crew[0];
+                      const eq = equipment.find((x) => x.id === (selectedEquipmentId || equipment[0]?.id)) || equipment[0];
+                      const portProc = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-PROC-PORT-01')!;
+                      const towMeth = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-METH-TOW-01')!;
+                      const portSetObjects: AssuranceObject[] = [];
+                      if (v) portSetObjects.push(vesselToAssuranceObject(v));
+                      if (c) portSetObjects.push(crewToAssuranceObject(c));
+                      if (eq) portSetObjects.push(equipmentToAssuranceObject(eq));
+                      if (portProc) portSetObjects.push(portProc);
+                      if (towMeth) portSetObjects.push(towMeth);
+                      setSelectedAssuranceObjects([
+                        ...selectedAssuranceObjects.filter((o) => lockedObjectIds.includes(o.id) && !portSetObjects.some((p) => p.id === o.id)),
+                        ...portSetObjects,
+                      ]);
+                      setTitle((prev) => prev.includes('Port Entry') ? prev : `${clientOrg} - Port Entry & Arrival Assurance Set`);
+                    }}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Load Port-Entry Bundle
+                  </button>
+                </div>
+              </div>
+              <div className="card-body p-4">
+                {fieldErrors.objects && (
+                  <div className="alert alert-danger small py-2 mb-3" role="alert">
+                    {fieldErrors.objects}
+                  </div>
+                )}
+                {selectedCrewGroups.length > 0 && (
+                  <div className="mb-3 d-flex flex-wrap align-items-center gap-2" data-testid="selected-crew-groups-bar">
+                    <span className="small text-secondary fw-semibold">Crew Groups attached:</span>
+                    {selectedCrewGroups.map((cg) => (
+                      <span key={cg.groupId} className="badge bg-light text-dark border d-inline-flex align-items-center gap-1.5 py-1.5 px-2.5">
+                        <Users className="w-3.5 h-3.5 text-primary" />
+                        <span className="fw-semibold">{cg.groupName}</span>
+                        <span className="text-muted">({cg.memberIds.length} members snapshot)</span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${cg.groupName}`}
+                          className="btn-close ms-1"
+                          style={{ fontSize: '0.65rem' }}
+                          onClick={() => {
+                            setSelectedCrewGroups((prev) => prev.filter((g) => g.groupId !== cg.groupId));
+                          }}
+                        />
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {selectedAssuranceObjects.length === 0 ? (
+                  <div className="text-muted small">No assurance objects attached yet.</div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-sm table-hover align-middle mb-0">
                       <thead className="table-light small text-secondary">
                         <tr>
-                          <th scope="col">Party</th>
-                          {verificationRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Verifier</th>}
-                          {inspectionRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Inspector</th>}
-                          {approvalRequired && <th scope="col" className="text-center" style={{ width: '90px' }}>Approver</th>}
-                          <th scope="col" style={{ width: '48px' }}><span className="visually-hidden">Remove</span></th>
+                          <th scope="col" style={{ width: '120px' }}>Type</th>
+                          <th scope="col">Name</th>
+                          <th scope="col">Owner Organization</th>
+                          <th scope="col">Identifier / Tag</th>
+                          <th scope="col" className="text-end" style={{ width: '80px' }}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {organizations.map((organization) => {
-                          const organizationError = fieldErrors[`organization_${organization}`];
-                          const isClient = sameOrganization(organization, setClientOrg);
-                          const submitter = providerSubmitters.find((provider) => sameOrganization(provider.organization, organization));
-                          const roleBox = (role: 'verifier' | 'inspector' | 'approver', label: string, holder: string) => {
-                            const isTicked = Boolean(holder && sameOrganization(holder, organization));
-                            const isResponding = Boolean(
-                              (effectiveRespondingParty && sameOrganization(organization, effectiveRespondingParty)) ||
-                              orgPartyRoles[organization] === 'Responding party',
-                            );
-                            const objectOwners = objectOwnerOrganizations(selectedAssuranceObjects);
-                            const isObjectOwner = objectOwners.some((owner) => sameOrganization(owner, organization));
-                            const isDualRoleConflict =
-                              (role === 'verifier' && isDualRoleBlocked(approverOrg, organization)) ||
-                              (role === 'approver' && isDualRoleBlocked(verifierOrg, organization));
-
-                            let disabled = false;
-                            let title: string | undefined = undefined;
-
-                            if (role === 'approver' && (isProviderSideOrg(organization) || isResponding)) {
-                              disabled = true;
-                              title = 'The provider cannot approve its own set. Choose the client or a third party.';
-                            } else if (role !== 'approver' && isResponding) {
-                              disabled = true;
-                              title = `The responding party cannot be ${label.toLowerCase()}.`;
-                            } else if ((role === 'verifier' || role === 'approver') && isObjectOwner) {
-                              disabled = true;
-                              title = 'An object owner cannot verify or approve its own objects.';
-                            } else if (isDualRoleConflict && !isTicked) {
-                              disabled = true;
-                              title = 'One organization cannot be both Verifier and Approver.';
-                            }
-
-                            return (
-                              <td className="text-center">
-                                <input
-                                  type="checkbox"
-                                  className="form-check-input m-0"
-                                  aria-label={`${label}: ${organization}`}
-                                  checked={isTicked}
-                                  disabled={disabled}
-                                  title={title}
-                                  onChange={(e) => handleRoleToggle(role, organization, e.target.checked)}
-                                />
-                              </td>
-                            );
-                          };
+                        {selectedAssuranceObjects.map((obj) => {
+                          const objectScope = getAssuranceObjectScope(obj.type);
+                          const conflicts = objectScope
+                            ? getAssetPeriodConflicts(objectScope, obj.id, startDate, endDate, assuranceSets, editingDraftId || undefined)
+                            : [];
+                          const isLockedObject = lockedObjectIds.includes(obj.id);
+                          const objectError = fieldErrors[`object_${obj.id}`];
                           return (
-                            <tr key={organization} data-testid={`set-organization-${organization}`}>
-                              <td>
-                                <div className="d-flex align-items-center gap-2 flex-wrap">
-                                  <span
-                                    className="fw-semibold small text-dark"
-                                    data-testid={`badge-step1-org-${organization.toLowerCase().replace(/[^a-z0-9]/g, '')}`}
-                                  >
-                                    {organization}
+                            <React.Fragment key={obj.id}>
+                              <tr data-testid={`assurance-object-row-${obj.id}`} className={conflicts.length > 0 || objectError ? 'table-danger' : ''}>
+                                <td>
+                                  <span className={`badge ${obj.type === 'vessel' ? 'bg-primary text-white' :
+                                    obj.type === 'person' ? 'bg-success text-white' :
+                                      obj.type === 'equipment' ? 'bg-warning text-dark' :
+                                        obj.type === 'activity' ? 'bg-info text-dark' : 'bg-light text-dark border'
+                                    } text-capitalize font-mono-code`}>
+                                    {obj.type}
                                   </span>
-                                  <div className="d-inline-flex align-items-center gap-1 ms-auto">
-                                    <label className="visually-hidden" htmlFor={`party-role-${organization}`}>
-                                      Party role: {organization}
-                                    </label>
-                                    <select
-                                      id={`party-role-${organization}`}
-                                      className="form-select form-select-sm py-0 px-2"
-                                      style={{ fontSize: '0.75rem', height: '24px', width: 'auto' }}
-                                      aria-label={`Party role: ${organization}`}
-                                      value={orgPartyRoles[organization] || ''}
-                                      onChange={(e) => {
-                                        handlePartyRoleChange(organization, e.target.value);
+                                </td>
+                                <td className="fw-semibold text-dark">
+                                  {obj.name}
+                                  {isLockedObject && (
+                                    <div className="text-secondary small fw-normal">Set by the page you came from.</div>
+                                  )}
+                                  {objectError && conflicts.length === 0 && (
+                                    <div className="text-danger small fw-normal font-mono-code" style={{ fontSize: '0.75rem' }}>
+                                      {objectError}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="text-secondary small">{obj.ownerOrganization}</td>
+                                <td className="font-mono-code small text-secondary">{obj.identifier || '—'}</td>
+                                <td className="text-end">
+                                  {!isLockedObject && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-link text-danger p-0"
+                                      title="Remove object"
+                                      aria-label={`Remove ${obj.name}`}
+                                      onClick={() => {
+                                        setSelectedAssuranceObjects((prev) => prev.filter((o) => o.id !== obj.id));
+                                        setFieldErrors((prev) => {
+                                          const u = { ...prev };
+                                          delete u[`object_${obj.id}`];
+                                          return u;
+                                        });
                                       }}
                                     >
-                                      <option value="">No party role</option>
-                                      <option value="Requesting party">Requesting party</option>
-                                      <option value="Responding party">Responding party</option>
-                                      <option value="Third party">Third party</option>
-                                    </select>
-                                    {prefilledPartyRoles[organization] && (
-                                      <span className="badge bg-secondary-subtle text-secondary border font-mono-code" style={{ fontSize: '0.65rem' }}>
-                                        Pre-filled from request
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                {submitter && (
-                                  <div className="text-muted" style={{ fontSize: '0.75rem' }}>
-                                    Submitter: {submitter.person ? submitter.person.name : 'pending'}
-                                  </div>
-                                )}
-                                {organizationError && (
-                                  <div className="text-danger small mt-1" role="alert" style={{ fontSize: '0.75rem' }}>
-                                    {organizationError}
-                                  </div>
-                                )}
-                              </td>
-                              {verificationRequired && roleBox('verifier', 'Verifier', verifierOrg)}
-                              {inspectionRequired && roleBox('inspector', 'Inspector', inspectorOrg)}
-                              {approvalRequired && roleBox('approver', 'Approver', approverOrg)}
-                              <td className="text-end">
-                                {!isClient && (
-                                  <button
-                                    type="button"
-                                    className="btn btn-sm btn-link text-danger p-0"
-                                    title="Remove organization"
-                                    aria-label={`Remove ${organization}`}
-                                    onClick={() => handleRemoveOrganization(organization)}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                              {objectScope && conflicts.length > 0 && (
+                                <tr>
+                                  <td colSpan={5} className="border-0 pt-0">
+                                    {renderCollisionAlert(objectScope, obj.id, obj.name, conflicts)}
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
                     </table>
                   </div>
-                  <PartyRoleErrors
-                    requestingParty={fieldErrors.requestingParty}
-                    respondingParty={fieldErrors.respondingParty}
-                  />
-                  {fieldErrors.verifier && (
-                    <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-verifier">
-                      {fieldErrors.verifier}
-                    </div>
-                  )}
-                  {fieldErrors.inspector && (
-                    <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-inspector">
-                      {fieldErrors.inspector}
-                    </div>
-                  )}
-                  {fieldErrors.approver && (
-                    <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-approver">
-                      {fieldErrors.approver}
-                    </div>
-                  )}
-                  {fieldErrors.dualRole && (
-                    <div className="text-danger small mb-1 font-mono-code" style={{ fontSize: '0.725rem' }} data-testid="error-dual-role">
-                      {fieldErrors.dualRole}
-                    </div>
-                  )}
-                  <SearchableSelect
-                    id="grid-add-organization"
-                    aria-label="Add party"
-                    placeholder="Search parties..."
-                    emptyLabel="No matching parties"
-                    items={organizationOptions}
-                    onSelect={(item) => handleAddOrganization(item.id)}
-                  />
-                  <div className="visually-hidden" aria-hidden="true">
-                    <select
-                      id="select-add-step1-org"
-                      data-testid="select-add-step1-org"
-                      value={newOrgToAdd}
-                      onChange={(e) => setNewOrgToAdd(e.target.value)}
-                      aria-label="Select additional party"
-                    >
-                      <option value="">Select additional party...</option>
-                      {availablePlatformOrgs
-                        .filter((org) => !step1Organizations.includes(org))
-                        .map((org) => (
-                          <option key={org} value={org}>
-                            {org}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      type="button"
-                      data-testid="btn-add-step1-org"
-                      onClick={() => {
-                        if (newOrgToAdd) {
-                          handleAddOrganization(newOrgToAdd);
-                          setAdditionalStep1Orgs((prev) => [...prev, newOrgToAdd]);
-                          setNewOrgToAdd('');
-                        }
-                      }}
-                    >
-                      Add party
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div >
-          )}
+                )}
 
-          {/* OBJECTS TAB: everything the set covers; every object is equal (ADR 0029) */}
-          {currentStepData.id === 'step-objects' && (
-            <div className="d-flex flex-column gap-4">
-              {/* Covered Assurance Objects Section (ADR 0029) */}
-              <div className="card border shadow-2xs rounded-3 bg-white" id="covered-assurance-objects-card">
-                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                  <div>
-                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      Covered Assurance Objects ({selectedAssuranceObjects.length})
-                    </h5>
-                    <div className="text-muted small mt-0.5">
-                      Add every vessel, crew member, piece of equipment, or activity this set covers.
-                    </div>
-                  </div>
-                  <div className="d-flex align-items-center gap-2">
-                    <button
-                      type="button"
-                      id="btn-load-port-entry-bundle"
-                      className="btn btn-sm btn-outline-primary fw-semibold d-inline-flex align-items-center gap-1.5"
-                      onClick={() => {
-                        const v = vessels.find((x) => x.id === vesselId) || vessels[0];
-                        const c = crew.find((x) => x.id === (selectedCrewId || crew[0]?.id)) || crew[0];
-                        const eq = equipment.find((x) => x.id === (selectedEquipmentId || equipment[0]?.id)) || equipment[0];
-                        const portProc = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-PROC-PORT-01')!;
-                        const towMeth = SEEDED_OPERATIONAL_OBJECTS.find((o) => o.id === 'OBJ-METH-TOW-01')!;
-                        const portSetObjects: AssuranceObject[] = [];
-                        if (v) portSetObjects.push(vesselToAssuranceObject(v));
-                        if (c) portSetObjects.push(crewToAssuranceObject(c));
-                        if (eq) portSetObjects.push(equipmentToAssuranceObject(eq));
-                        if (portProc) portSetObjects.push(portProc);
-                        if (towMeth) portSetObjects.push(towMeth);
-                        setSelectedAssuranceObjects([
-                          ...selectedAssuranceObjects.filter((o) => lockedObjectIds.includes(o.id) && !portSetObjects.some((p) => p.id === o.id)),
-                          ...portSetObjects,
-                        ]);
-                        setTitle((prev) => prev.includes('Port Entry') ? prev : `${clientOrg} - Port Entry & Arrival Assurance Set`);
-                      }}
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Load Port-Entry Bundle
-                    </button>
-                  </div>
-                </div>
-                <div className="card-body p-4">
-                  {fieldErrors.objects && (
-                    <div className="alert alert-danger small py-2 mb-3" role="alert">
-                      {fieldErrors.objects}
-                    </div>
-                  )}
-                  {selectedCrewGroups.length > 0 && (
-                    <div className="mb-3 d-flex flex-wrap align-items-center gap-2" data-testid="selected-crew-groups-bar">
-                      <span className="small text-secondary fw-semibold">Crew Groups attached:</span>
-                      {selectedCrewGroups.map((cg) => (
-                        <span key={cg.groupId} className="badge bg-light text-dark border d-inline-flex align-items-center gap-1.5 py-1.5 px-2.5">
-                          <Users className="w-3.5 h-3.5 text-primary" />
-                          <span className="fw-semibold">{cg.groupName}</span>
-                          <span className="text-muted">({cg.memberIds.length} members snapshot)</span>
-                          <button
-                            type="button"
-                            aria-label={`Remove ${cg.groupName}`}
-                            className="btn-close ms-1"
-                            style={{ fontSize: '0.65rem' }}
-                            onClick={() => {
-                              setSelectedCrewGroups((prev) => prev.filter((g) => g.groupId !== cg.groupId));
-                            }}
-                          />
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {selectedAssuranceObjects.length === 0 ? (
-                    <div className="text-muted small">No assurance objects attached yet.</div>
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="table table-sm table-hover align-middle mb-0">
-                        <thead className="table-light small text-secondary">
-                          <tr>
-                            <th scope="col" style={{ width: '120px' }}>Type</th>
-                            <th scope="col">Name</th>
-                            <th scope="col">Owner Organization</th>
-                            <th scope="col">Identifier / Tag</th>
-                            <th scope="col" className="text-end" style={{ width: '80px' }}>Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedAssuranceObjects.map((obj) => {
-                            const objectScope = getAssuranceObjectScope(obj.type);
-                            const conflicts = objectScope
-                              ? getAssetPeriodConflicts(objectScope, obj.id, startDate, endDate, assuranceSets, editingDraftId || undefined)
-                              : [];
-                            const isLockedObject = lockedObjectIds.includes(obj.id);
-                            const objectError = fieldErrors[`object_${obj.id}`];
-                            return (
-                              <React.Fragment key={obj.id}>
-                                <tr data-testid={`assurance-object-row-${obj.id}`} className={conflicts.length > 0 || objectError ? 'table-danger' : ''}>
-                                  <td>
-                                    <span className={`badge ${obj.type === 'vessel' ? 'bg-primary text-white' :
-                                      obj.type === 'person' ? 'bg-success text-white' :
-                                        obj.type === 'equipment' ? 'bg-warning text-dark' :
-                                          obj.type === 'activity' ? 'bg-info text-dark' : 'bg-light text-dark border'
-                                      } text-capitalize font-mono-code`}>
-                                      {obj.type}
-                                    </span>
-                                  </td>
-                                  <td className="fw-semibold text-dark">
-                                    {obj.name}
-                                    {isLockedObject && (
-                                      <div className="text-secondary small fw-normal">Set by the page you came from.</div>
-                                    )}
-                                    {objectError && conflicts.length === 0 && (
-                                      <div className="text-danger small fw-normal font-mono-code" style={{ fontSize: '0.75rem' }}>
-                                        {objectError}
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td className="text-secondary small">{obj.ownerOrganization}</td>
-                                  <td className="font-mono-code small text-secondary">{obj.identifier || '—'}</td>
-                                  <td className="text-end">
-                                    {!isLockedObject && (
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-link text-danger p-0"
-                                        title="Remove object"
-                                        aria-label={`Remove ${obj.name}`}
-                                        onClick={() => {
-                                          setSelectedAssuranceObjects((prev) => prev.filter((o) => o.id !== obj.id));
-                                          setFieldErrors((prev) => {
-                                            const u = { ...prev };
-                                            delete u[`object_${obj.id}`];
-                                            return u;
-                                          });
-                                        }}
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                                {objectScope && conflicts.length > 0 && (
-                                  <tr>
-                                    <td colSpan={5} className="border-0 pt-0">
-                                      {renderCollisionAlert(objectScope, obj.id, obj.name, conflicts)}
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {/* Suggested objects of the selected provider */}
-                  {recommendedObjects.length > 0 && (() => {
-                    const visibleSuggestions = showAllRecommended ? recommendedObjects : recommendedObjects.slice(0, 4);
-                    const addSuggested = (list: AssuranceObject[]) => {
-                      setSelectedAssuranceObjects((prev) => [...prev, ...list.filter((obj) => !prev.some((o) => o.id === obj.id))]);
-                      setFieldErrors((prev) => {
-                        const u = { ...prev };
-                        delete u.objects;
-                        return u;
-                      });
-                    };
-                    const iconFor = (type: string) =>
-                      type === 'vessel' ? <Ship size={16} /> : type === 'person' ? <Users size={16} /> : type === 'equipment' ? <Wrench size={16} /> : <Activity size={16} />;
-                    return (
-                      <section className="mt-3 pt-3 border-top" aria-labelledby="recommended-objects-title" data-testid="recommended-objects">
-                        <div className="d-flex align-items-start justify-content-between gap-3 mb-2">
-                          <div>
-                            <h6 id="recommended-objects-title" className="fw-semibold text-dark small m-0">
-                              Suggested from {recommendedProviderOrg}
-                            </h6>
-                            <div className="text-secondary" style={{ fontSize: '0.75rem' }}>
-                              Objects this provider owns. Add the ones this set covers, or search below.
-                            </div>
+                {/* Suggested objects of the selected provider */}
+                {recommendedObjects.length > 0 && (() => {
+                  const visibleSuggestions = showAllRecommended ? recommendedObjects : recommendedObjects.slice(0, 4);
+                  const addSuggested = (list: AssuranceObject[]) => {
+                    setSelectedAssuranceObjects((prev) => [...prev, ...list.filter((obj) => !prev.some((o) => o.id === obj.id))]);
+                    setFieldErrors((prev) => {
+                      const u = { ...prev };
+                      delete u.objects;
+                      return u;
+                    });
+                  };
+                  const iconFor = (type: string) =>
+                    type === 'vessel' ? <Ship size={16} /> : type === 'person' ? <Users size={16} /> : type === 'equipment' ? <Wrench size={16} /> : <Activity size={16} />;
+                  return (
+                    <section className="mt-3 pt-3 border-top" aria-labelledby="recommended-objects-title" data-testid="recommended-objects">
+                      <div className="d-flex align-items-start justify-content-between gap-3 mb-2">
+                        <div>
+                          <h6 id="recommended-objects-title" className="fw-semibold text-dark small m-0">
+                            Suggested from {recommendedProviderOrg}
+                          </h6>
+                          <div className="text-secondary" style={{ fontSize: '0.75rem' }}>
+                            Objects this provider owns. Add the ones this set covers, or search below.
                           </div>
-                          {recommendedObjects.length > 1 && (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-link fw-semibold p-0 text-nowrap"
-                              data-testid="recommended-add-all"
-                              onClick={() => addSuggested(recommendedObjects)}
-                            >
-                              Add all {recommendedObjects.length}
-                            </button>
-                          )}
                         </div>
-                        <ul className="list-group list-group-flush border rounded-3 overflow-hidden mb-0">
-                          {visibleSuggestions.map((obj) => (
-                            <li key={obj.id} className="list-group-item d-flex align-items-center gap-3 py-2 px-3" data-testid={`recommended-object-${obj.id}`}>
-                              <span className="d-inline-flex align-items-center justify-content-center rounded-2 bg-light text-secondary flex-shrink-0" style={{ width: '2rem', height: '2rem' }} aria-hidden="true">
-                                {iconFor(obj.type)}
-                              </span>
-                              <div className="flex-grow-1" style={{ minWidth: 0 }}>
-                                <div className="fw-semibold text-dark small text-truncate">{obj.name}</div>
-                                <div className="text-secondary text-truncate" style={{ fontSize: '0.75rem' }}>
-                                  <span className="text-capitalize">{obj.type}</span>
-                                  {obj.identifier ? <> · <span className="font-mono-code">{obj.identifier}</span></> : null}
-                                </div>
-                              </div>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 flex-shrink-0"
-                                aria-label={`Add ${obj.name}`}
-                                onClick={() => addSuggested([obj])}
-                              >
-                                <Plus size={14} aria-hidden="true" />
-                                Add
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                        {recommendedObjects.length > 4 && (
+                        {recommendedObjects.length > 1 && (
                           <button
                             type="button"
-                            className="btn btn-sm btn-link p-0 mt-2 small"
-                            aria-expanded={showAllRecommended}
-                            onClick={() => setShowAllRecommended((open) => !open)}
+                            className="btn btn-sm btn-link fw-semibold p-0 text-nowrap"
+                            data-testid="recommended-add-all"
+                            onClick={() => addSuggested(recommendedObjects)}
                           >
-                            {showAllRecommended ? 'Show fewer' : `Show ${recommendedObjects.length - 4} more`}
+                            Add all {recommendedObjects.length}
                           </button>
                         )}
-                      </section>
-                    );
-                  })()}
+                      </div>
+                      <ul className="list-group list-group-flush border rounded-3 overflow-hidden mb-0">
+                        {visibleSuggestions.map((obj) => (
+                          <li key={obj.id} className="list-group-item d-flex align-items-center gap-3 py-2 px-3" data-testid={`recommended-object-${obj.id}`}>
+                            <span className="d-inline-flex align-items-center justify-content-center rounded-2 bg-light text-secondary flex-shrink-0" style={{ width: '2rem', height: '2rem' }} aria-hidden="true">
+                              {iconFor(obj.type)}
+                            </span>
+                            <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                              <div className="fw-semibold text-dark small text-truncate">{obj.name}</div>
+                              <div className="text-secondary text-truncate" style={{ fontSize: '0.75rem' }}>
+                                <span className="text-capitalize">{obj.type}</span>
+                                {obj.identifier ? <> · <span className="font-mono-code">{obj.identifier}</span></> : null}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 flex-shrink-0"
+                              aria-label={`Add ${obj.name}`}
+                              onClick={() => addSuggested([obj])}
+                            >
+                              <Plus size={14} aria-hidden="true" />
+                              Add
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      {recommendedObjects.length > 4 && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-link p-0 mt-2 small"
+                          aria-expanded={showAllRecommended}
+                          onClick={() => setShowAllRecommended((open) => !open)}
+                        >
+                          {showAllRecommended ? 'Show fewer' : `Show ${recommendedObjects.length - 4} more`}
+                        </button>
+                      )}
+                    </section>
+                  );
+                })()}
 
-                  {/* Add Object row */}
-                  <div className="row g-2 align-items-center mt-3 pt-3 border-top">
-                    <div className="col-12 col-md-3">
+                {/* Add Object row */}
+                <div className="row g-2 align-items-center mt-3 pt-3 border-top">
+                  <div className="col-12 col-md-3">
+                    <select
+                      id="grid-add-object-type"
+                      aria-label="Object type"
+                      className="form-select form-select-sm"
+                      value={newObjectType}
+                      onChange={(e) => {
+                        setNewObjectType(e.target.value as AssuranceObjectType);
+                        setNewObjectId('');
+                      }}
+                    >
+                      <option value="vessel">Vessel</option>
+                      <option value="person">Person / Crew</option>
+                      <option value="equipment">Equipment</option>
+                      <option value="activity">Activity</option>
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-9">
+                    <SearchableSelect
+                      key={`${newObjectType}-${selectedVendorOrg || 'free'}`}
+                      id="grid-add-object-item"
+                      aria-label="Object to add"
+                      placeholder={
+                        newObjectType === 'vessel'
+                          ? 'Search vessels...'
+                          : newObjectType === 'person'
+                            ? 'Search crew or crew group...'
+                            : newObjectType === 'equipment'
+                              ? 'Search equipment...'
+                              : 'Search activities...'
+                      }
+                      emptyLabel={selectedVendorOrg ? `No ${newObjectType === 'person' ? 'crew' : newObjectType === 'activity' ? 'activities' : `${newObjectType}s`} found for ${selectedVendorOrg}.` : "None from the listed organizations. Search to find others."}
+                      items={listedObjectItems}
+                      searchOnlyItems={otherObjectItems}
+                      onSelect={(item) => handleAddObject(item.id)}
+                    />
+                  </div>
+                  {newObjectType === 'person' && crewGroups.length > 0 && (
+                    <div className="col-12 d-flex align-items-center gap-2 pt-2">
+                      <span className="text-secondary small fw-medium">Or pick an entire group:</span>
                       <select
-                        id="grid-add-object-type"
-                        aria-label="Object type"
+                        id="grid-pick-crew-group"
+                        aria-label="Pick a Crew Group"
                         className="form-select form-select-sm"
-                        value={newObjectType}
+                        style={{ maxWidth: '320px' }}
+                        value=""
                         onChange={(e) => {
-                          setNewObjectType(e.target.value as AssuranceObjectType);
-                          setNewObjectId('');
+                          if (e.target.value) handlePickCrewGroup(e.target.value);
                         }}
                       >
-                        <option value="vessel">Vessel</option>
-                        <option value="person">Person / Crew</option>
-                        <option value="equipment">Equipment</option>
-                        <option value="activity">Activity</option>
+                        <option value="">Choose a crew group...</option>
+                        {crewGroups
+                          .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
+                          .map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.name} ({g.memberIds.length} seafarers &middot; {g.specialization})
+                            </option>
+                          ))}
                       </select>
                     </div>
-                    <div className="col-12 col-md-9">
-                      <SearchableSelect
-                        key={`${newObjectType}-${selectedVendorOrg || 'free'}`}
-                        id="grid-add-object-item"
-                        aria-label="Object to add"
-                        placeholder={
-                          newObjectType === 'vessel'
-                            ? 'Search vessels...'
-                            : newObjectType === 'person'
-                              ? 'Search crew or crew group...'
-                              : newObjectType === 'equipment'
-                                ? 'Search equipment...'
-                                : 'Search activities...'
-                        }
-                        emptyLabel={selectedVendorOrg ? `No ${newObjectType === 'person' ? 'crew' : newObjectType === 'activity' ? 'activities' : `${newObjectType}s`} found for ${selectedVendorOrg}.` : "None from the listed organizations. Search to find others."}
-                        items={listedObjectItems}
-                        searchOnlyItems={otherObjectItems}
-                        onSelect={(item) => handleAddObject(item.id)}
-                      />
+                  )}
+                  {addedOwners.length > 0 && (
+                    <div className="col-12">
+                      <div className="alert alert-info py-2 small mb-0" role="status">
+                        {addedOwners.join(', ')} added to Organizations.
+                      </div>
                     </div>
-                    {newObjectType === 'person' && crewGroups.length > 0 && (
-                      <div className="col-12 d-flex align-items-center gap-2 pt-2">
-                        <span className="text-secondary small fw-medium">Or pick an entire group:</span>
-                        <select
-                          id="grid-pick-crew-group"
-                          aria-label="Pick a Crew Group"
-                          className="form-select form-select-sm"
-                          style={{ maxWidth: '320px' }}
-                          value=""
-                          onChange={(e) => {
-                            if (e.target.value) handlePickCrewGroup(e.target.value);
-                          }}
-                        >
-                          <option value="">Choose a crew group...</option>
-                          {crewGroups
-                            .filter((g) => !effectiveVendorFilter || !g.organization || sameOrganization(g.organization, effectiveVendorFilter))
-                            .map((g) => (
-                              <option key={g.id} value={g.id}>
-                                {g.name} ({g.memberIds.length} seafarers &middot; {g.specialization})
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    )}
-                    {addedOwners.length > 0 && (
-                      <div className="col-12">
-                        <div className="alert alert-info py-2 small mb-0" role="status">
-                          {addedOwners.join(', ')} added to Organizations.
-                        </div>
-                      </div>
-                    )}
-                    {newObjectType === 'vessel' && (
-                      <div className="col-12 text-secondary small" style={{ fontSize: '0.78rem' }}>
-                        Your own vessels are not listed. You become the client of the vessel you select.
-                      </div>
-                    )}
-                  </div>
+                  )}
+                  {newObjectType === 'vessel' && (
+                    <div className="col-12 text-secondary small" style={{ fontSize: '0.78rem' }}>
+                      Your own vessels are not listed. You become the client of the vessel you select.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* REQUIREMENTS TAB: General documents first, then one section per object type with sub-type accordions */}
-          {currentStepData.id === 'step-requirements' && (
-            <div className="d-flex flex-column gap-4">
-              {(fieldErrors.verifier || fieldErrors.inspector || fieldErrors.approver || fieldErrors.dualRole) && (
-                <div className="alert alert-danger py-2 px-3 small mb-0" role="alert" data-testid="error-step3-roles">
-                  {fieldErrors.verifier && <div data-testid="error-verifier">{fieldErrors.verifier}</div>}
-                  {fieldErrors.inspector && <div data-testid="error-inspector">{fieldErrors.inspector}</div>}
-                  {fieldErrors.approver && <div data-testid="error-approver">{fieldErrors.approver}</div>}
-                  {fieldErrors.dualRole && <div data-testid="error-dual-role">{fieldErrors.dualRole}</div>}
+        {/* REQUIREMENTS TAB: General documents first, then one section per object type with sub-type accordions */}
+        {currentStepData.id === 'step-requirements' && (
+          <div className="d-flex flex-column gap-4">
+            {(fieldErrors.verifier || fieldErrors.inspector || fieldErrors.approver || fieldErrors.dualRole) && (
+              <div className="alert alert-danger py-2 px-3 small mb-0" role="alert" data-testid="error-step3-roles">
+                {fieldErrors.verifier && <div data-testid="error-verifier">{fieldErrors.verifier}</div>}
+                {fieldErrors.inspector && <div data-testid="error-inspector">{fieldErrors.inspector}</div>}
+                {fieldErrors.approver && <div data-testid="error-approver">{fieldErrors.approver}</div>}
+                {fieldErrors.dualRole && <div data-testid="error-dual-role">{fieldErrors.dualRole}</div>}
+              </div>
+            )}
+            {/* Pinned General documents section comes first */}
+            {renderGeneralDocumentsSection()}
+
+            {/* Sections per object type with sub-type accordions */}
+            {selectedScopes.length === 0 && selectedAssuranceObjects.filter((o) => o.type === 'activity').length === 0 ? (
+              <div className="card border shadow-2xs rounded-3 bg-white">
+                <div className="card-body p-4 text-secondary small">
+                  No standard documents for these objects. Vessels, crew members and equipment bring their required documents here; documents for activities, documents and organizations are not available yet.
                 </div>
-              )}
-              {/* Pinned General documents section comes first */}
-              {renderGeneralDocumentsSection()}
-
-              {/* Sections per object type with sub-type accordions */}
-              {selectedScopes.length === 0 && selectedAssuranceObjects.filter((o) => o.type === 'activity').length === 0 ? (
-                <div className="card border shadow-2xs rounded-3 bg-white">
-                  <div className="card-body p-4 text-secondary small">
-                    No standard documents for these objects. Vessels, crew members and equipment bring their required documents here; documents for activities, documents and organizations are not available yet.
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {selectedScopes.map((scope) => {
-                    const ScopeIcon = scope === 'Vessel' ? Ship : scope === 'Crew' ? Users : Wrench;
-                    const sectionKey = scope;
-                    const defaultTitle = scope === 'Crew' ? 'Crew directory documents' : `${scope} documents`;
-                    const currentTitle = getSectionTitle(sectionKey, defaultTitle);
-                    const isEditing = editingSectionId === sectionKey;
-                    const slug = scope.toLowerCase();
-                    return (
-                      <section
-                        key={scope}
-                        className="d-flex flex-column gap-3"
-                        aria-labelledby={`requirements-heading-${slug}`}
-                        data-testid={`section-object-${slug}`}
-                      >
-                        <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                          {isEditing ? (
-                            <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '450px' }}>
-                              <ScopeIcon className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
-                              <input
-                                type="text"
-                                className="form-control form-control-sm fw-bold fs-6"
-                                value={editingSectionDraft}
-                                onChange={(e) => setEditingSectionDraft(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleSaveSectionTitle(sectionKey, editingSectionDraft);
-                                  } else if (e.key === 'Escape') {
-                                    setEditingSectionId(null);
-                                  }
-                                }}
-                                autoFocus
-                                aria-label={`Edit ${scope} section title`}
-                                data-testid={`input-section-title-${slug}`}
-                              />
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-primary text-white d-inline-flex align-items-center gap-1 px-2.5 py-1"
-                                onClick={() => handleSaveSectionTitle(sectionKey, editingSectionDraft)}
-                                data-testid={`btn-save-section-title-${slug}`}
-                              >
-                                <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                                <span className="small">Save</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 px-2.5 py-1"
-                                onClick={() => setEditingSectionId(null)}
-                                data-testid={`btn-cancel-section-title-${slug}`}
-                              >
-                                <X className="w-3.5 h-3.5" aria-hidden="true" />
-                                <span className="small">Cancel</span>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="d-flex align-items-center gap-2">
-                              <h4
-                                id={`requirements-heading-${slug}`}
-                                className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
-                              >
-                                <ScopeIcon className="w-5 h-5 text-primary" aria-hidden="true" />
-                                <span data-testid={`section-title-${slug}`}>{currentTitle}</span>
-                                {slug === 'crew' && (
-                                  <span className="d-none" aria-hidden="false">Crew documents</span>
-                                )}
-                              </h4>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-link text-secondary text-decoration-none p-1 d-inline-flex align-items-center"
-                                onClick={() => {
-                                  setEditingSectionId(sectionKey);
-                                  setEditingSectionDraft(currentTitle);
-                                }}
-                                aria-label={`Edit ${currentTitle} section title`}
-                                data-testid={`btn-edit-section-title-${slug}`}
-                                title="Edit section title"
-                              >
-                                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        {renderSubtypeSection(scope)}
-                      </section>
-                    );
-                  })}
-                  {selectedAssuranceObjects.filter((o) => o.type === 'activity').length > 0 && (
-                    <section
-                      key="activity"
-                      className="d-flex flex-column gap-3"
-                      aria-labelledby="requirements-heading-activity"
-                      data-testid="section-object-activity"
-                    >
-                      <h4
-                        id="requirements-heading-activity"
-                        className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
-                      >
-                        <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
-                        Activities
-                      </h4>
-                      <div className="card border shadow-2xs rounded-3 bg-white p-4 text-secondary small">
-                        Standard operational procedures, checklists and method statements attach automatically on initiation.
-                      </div>
-                    </section>
-                  )}
-                </>
-              )}
-
-              {/* Tenant Custom Sections Container (5b-01, 5b-02, ADR 0034) */}
-              <div className="d-flex flex-column gap-3 mt-2" data-testid="tenant-custom-sections-container">
-                <div className="card border shadow-2xs rounded-3 bg-white">
-                  <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div>
-                      <div className="d-flex align-items-center gap-2">
-                        <FolderPlus className="w-4 h-4 text-primary" aria-hidden="true" />
-                        <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                          Tenant Custom Sections
-                        </h5>
-                        <span className="badge bg-secondary-subtle text-dark border font-mono-code" style={{ fontSize: '0.72rem' }} data-testid="badge-tenant-org">
-                          {tenantOrganization}
-                        </span>
-                      </div>
-                      <div className="text-muted small mt-0.5">
-                        Create custom section categories saved for {tenantOrganization}, or add saved sections to this set.
-                      </div>
-                    </div>
-                    {!isCreatingSection && (
-                      <div className="d-flex align-items-center gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-                          onClick={() => {
-                            setIsCreatingSection(true);
-                            setCustomSectionError('');
-                          }}
-                          data-testid="btn-add-custom-section"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          Add custom section
-                        </button>
-                        <button
-                          type="button"
-                          className="d-none"
-                          onClick={() => {
-                            setIsCreatingSection(true);
-                            setCustomSectionError('');
-                          }}
-                          data-testid="btn-create-custom-section"
-                          aria-hidden="true"
-                          tabIndex={-1}
-                        >
-                          Create Section
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {isCreatingSection && (
-                    <div className="card-body p-4 border-bottom bg-light-subtle" data-testid="form-create-custom-section">
-                      <h6 className="fw-bold text-dark mb-2 fs-7">New Custom Section for {tenantOrganization}</h6>
-                      <div className="row g-2 align-items-end">
-                        <div className="col-12 col-md-5">
-                          <label className="form-label text-secondary small fw-semibold" htmlFor="input-custom-section-name">
-                            Section Title <span className="text-danger">*</span>
-                          </label>
-                          <input
-                            id="input-custom-section-name"
-                            type="text"
-                            className="form-control form-control-sm"
-                            placeholder="e.g. Berth Clearance, Environmental Conditions"
-                            value={newSectionName}
-                            onChange={(e) => {
-                              setNewSectionName(e.target.value);
-                              if (e.target.value.trim()) setCustomSectionError('');
-                            }}
-                            data-testid="input-custom-section-name"
-                            autoFocus
-                          />
-                          {customSectionError && (
-                            <div className="text-danger small mt-1" data-testid="error-custom-section-name">
-                              {customSectionError}
-                            </div>
-                          )}
-                        </div>
-                        <div className="col-12 col-md-5">
-                          <label className="form-label text-secondary small fw-semibold" htmlFor="input-custom-section-description">
-                            Description (Optional)
-                          </label>
-                          <input
-                            id="input-custom-section-description"
-                            type="text"
-                            className="form-control form-control-sm"
-                            placeholder="e.g. Site-specific mooring requirements and clearance criteria"
-                            value={newSectionDesc}
-                            onChange={(e) => setNewSectionDesc(e.target.value)}
-                            data-testid="input-custom-section-description"
-                          />
-                        </div>
-                        <div className="col-12 col-md-2 d-flex gap-2">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-primary text-white flex-grow-1"
-                            disabled={!newSectionName.trim()}
-                            onClick={handleCreateTenantSection}
-                            data-testid="btn-save-custom-section"
-                          >
-                            Save Section
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-secondary"
-                            onClick={() => {
-                              setIsCreatingSection(false);
-                              setNewSectionName('');
-                              setNewSectionDesc('');
-                            }}
-                            data-testid="btn-cancel-custom-section"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {availableTenantSections.length > 0 && (
-                    <div className="card-body p-3 bg-white d-flex align-items-center justify-content-between flex-wrap gap-3">
-                      <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '420px' }}>
-                        <label className="form-label text-secondary small fw-semibold m-0 text-nowrap" htmlFor="select-saved-tenant-section">
-                          Saved Sections:
-                        </label>
-                        <select
-                          id="select-saved-tenant-section"
-                          className="form-select form-select-sm"
-                          value={selectedSavedSectionId}
-                          onChange={(e) => setSelectedSavedSectionId(e.target.value)}
-                          data-testid="select-saved-tenant-section"
-                        >
-                          <option value="">Select saved section to add...</option>
-                          {availableTenantSections
-                            .filter((sec) => !activeCustomSections.some((a) => a.id === sec.id))
-                            .map((sec) => (
-                              <option key={sec.id} value={sec.id}>
-                                {sec.name}
-                              </option>
-                            ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-primary text-white text-nowrap"
-                          disabled={!selectedSavedSectionId}
-                          onClick={() => handleAddSavedSection(selectedSavedSectionId)}
-                          data-testid="btn-add-saved-section"
-                        >
-                          Add to Set
-                        </button>
-                      </div>
-                      <div className="small text-secondary font-mono-code" data-testid="count-saved-sections">
-                        {availableTenantSections.length} section{availableTenantSections.length === 1 ? '' : 's'} saved for {tenantOrganization}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Render each active custom section on this set */}
-                {activeCustomSections.filter((sec) => Boolean(sec.name?.trim())).map((sec) => {
-                  const slug = sec.id.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                  const rawTitle = sectionTitles[sec.id]?.trim() || sec.name;
-                  const currentTitle = getSectionTitle(sec.id, sec.name);
-                  const isEditing = editingSectionId === sec.id;
-                  const secDocs = specializedDocs.filter((d) => d.sectionId === sec.id);
-
+              </div>
+            ) : (
+              <>
+                {selectedScopes.map((scope) => {
+                  const ScopeIcon = scope === 'Vessel' ? Ship : scope === 'Crew' ? Users : Wrench;
+                  const sectionKey = scope;
+                  const defaultTitle = scope === 'Crew' ? 'Crew directory documents' : `${scope} documents`;
+                  const currentTitle = getSectionTitle(sectionKey, defaultTitle);
+                  const isEditing = editingSectionId === sectionKey;
+                  const slug = scope.toLowerCase();
                   return (
                     <section
-                      key={sec.id}
+                      key={scope}
                       className="d-flex flex-column gap-3"
                       aria-labelledby={`requirements-heading-${slug}`}
-                      data-testid={`section-custom-${slug}`}
+                      data-testid={`section-object-${slug}`}
                     >
                       <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
                         {isEditing ? (
                           <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '450px' }}>
-                            <Layers className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                            <ScopeIcon className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
                             <input
                               type="text"
                               className="form-control form-control-sm fw-bold fs-6"
@@ -4049,19 +3912,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   e.preventDefault();
-                                  handleSaveSectionTitle(sec.id, editingSectionDraft);
+                                  handleSaveSectionTitle(sectionKey, editingSectionDraft);
                                 } else if (e.key === 'Escape') {
                                   setEditingSectionId(null);
                                 }
                               }}
                               autoFocus
-                              aria-label={`Edit ${sec.name} section title`}
+                              aria-label={`Edit ${scope} section title`}
                               data-testid={`input-section-title-${slug}`}
                             />
                             <button
                               type="button"
                               className="btn btn-sm btn-primary text-white d-inline-flex align-items-center gap-1 px-2.5 py-1"
-                              onClick={() => handleSaveSectionTitle(sec.id, editingSectionDraft)}
+                              onClick={() => handleSaveSectionTitle(sectionKey, editingSectionDraft)}
                               data-testid={`btn-save-section-title-${slug}`}
                             >
                               <Check className="w-3.5 h-3.5" aria-hidden="true" />
@@ -4083,17 +3946,17 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                               id={`requirements-heading-${slug}`}
                               className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
                             >
-                              <Layers className="w-5 h-5 text-primary" aria-hidden="true" />
+                              <ScopeIcon className="w-5 h-5 text-primary" aria-hidden="true" />
                               <span data-testid={`section-title-${slug}`}>{currentTitle}</span>
-                              {rawTitle !== currentTitle && (
-                                <span className="d-none" data-testid={`raw-section-title-${slug}`} aria-hidden="true">{rawTitle}</span>
+                              {slug === 'crew' && (
+                                <span className="d-none" aria-hidden="false">Crew documents</span>
                               )}
                             </h4>
                             <button
                               type="button"
                               className="btn btn-sm btn-link text-secondary text-decoration-none p-1 d-inline-flex align-items-center"
                               onClick={() => {
-                                setEditingSectionId(sec.id);
+                                setEditingSectionId(sectionKey);
                                 setEditingSectionDraft(currentTitle);
                               }}
                               aria-label={`Edit ${currentTitle} section title`}
@@ -4104,99 +3967,361 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                             </button>
                           </div>
                         )}
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
-                          onClick={() => handleRemoveCustomSection(sec.id)}
-                          data-testid={`btn-remove-custom-section-${slug}`}
-                          title="Remove section from set"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span className="small">Remove Section</span>
-                        </button>
                       </div>
-
-                      <div className="card border shadow-2xs rounded-3 bg-white">
-                        <div className="card-body p-4 d-flex flex-column gap-2" data-testid={`custom-section-body-${slug}`}>
-                          {secDocs.length === 0 ? (
-                            <div className="p-3 text-center text-secondary small bg-light rounded-2 border border-dashed">
-                              No documents in this section yet. Click below to add documents.
-                            </div>
-                          ) : (
-                            secDocs.map((doc) => {
-                              const isRequired = doc.isMandatory;
-                              return (
-                                <div
-                                  key={doc.id}
-                                  className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
-                                  data-testid={`requirement-row-${doc.id}`}
-                                >
-                                  <div className="d-flex align-items-center justify-content-between gap-3">
-                                    <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-                                      <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${doc.id}`}>
-                                        {doc.title}
-                                      </span>
-                                    </div>
-                                    <div className="d-flex align-items-center gap-3 flex-shrink-0">
-                                      <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
-                                        <input
-                                          className="form-check-input cursor-pointer"
-                                          type="checkbox"
-                                          id={`req-toggle-${doc.id}`}
-                                          checked={isRequired}
-                                          onChange={() => handleToggleCustomDocRequired(doc.id)}
-                                          style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
-                                        />
-                                        <label
-                                          htmlFor={`req-toggle-${doc.id}`}
-                                          className={`small fw-semibold m-0 cursor-pointer ${isRequired ? 'text-success' : 'text-secondary'
-                                            }`}
-                                          style={{ fontSize: '0.78rem', minWidth: '55px' }}
-                                        >
-                                          {isRequired ? 'Required' : 'Optional'}
-                                        </label>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
-                                        title="Remove document"
-                                        aria-label={`Remove ${doc.title}`}
-                                        onClick={() => handleRemoveCustomDoc(doc.id)}
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-
-                          <div className="pt-2 border-top d-flex align-items-center justify-content-between">
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-link text-primary text-decoration-none p-0 d-inline-flex align-items-center gap-1 font-sans"
-                              style={{ fontSize: '0.78rem' }}
-                              data-testid={`btn-add-doc-to-section-${slug}`}
-                              onClick={() => handleAddDocToCustomSection(sec.id)}
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              Add document to section
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      {renderSubtypeSection(scope)}
                     </section>
                   );
                 })}
-              </div>
-            </div>
-          )}
+                {selectedAssuranceObjects.filter((o) => o.type === 'activity').length > 0 && (
+                  <section
+                    key="activity"
+                    className="d-flex flex-column gap-3"
+                    aria-labelledby="requirements-heading-activity"
+                    data-testid="section-object-activity"
+                  >
+                    <h4
+                      id="requirements-heading-activity"
+                      className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
+                    >
+                      <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
+                      Activities
+                    </h4>
+                    <div className="card border shadow-2xs rounded-3 bg-white p-4 text-secondary small">
+                      Standard operational procedures, checklists and method statements attach automatically on initiation.
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
 
-          {/* FINAL STEP: Review & Initiate */}
-          {
-            currentStepData.id === 'step-review' && (
-              <div className="d-flex flex-column gap-4">
+            {/* Tenant Custom Sections Container (5b-01, 5b-02, ADR 0034) */}
+            <div className="d-flex flex-column gap-3 mt-2" data-testid="tenant-custom-sections-container">
+              <div className="card border shadow-2xs rounded-3 bg-white">
+                <div className="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <div>
+                    <div className="d-flex align-items-center gap-2">
+                      <FolderPlus className="w-4 h-4 text-primary" aria-hidden="true" />
+                      <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                        Custom Sections
+                      </h5>
+                    </div>
+                    <div className="text-muted small mt-0.5">
+                      Create custom section categories saved for {tenantOrganization}, or add saved sections to this set.
+                    </div>
+                  </div>
+                  {!isCreatingSection && (
+                    <div className="d-flex align-items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                        onClick={() => {
+                          setIsCreatingSection(true);
+                          setCustomSectionError('');
+                        }}
+                        data-testid="btn-add-custom-section"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Add custom section
+                      </button>
+                      <button
+                        type="button"
+                        className="d-none"
+                        onClick={() => {
+                          setIsCreatingSection(true);
+                          setCustomSectionError('');
+                        }}
+                        data-testid="btn-create-custom-section"
+                        aria-hidden="true"
+                        tabIndex={-1}
+                      >
+                        Create Section
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {isCreatingSection && (
+                  <div className="card-body p-4 border-bottom bg-light-subtle" data-testid="form-create-custom-section">
+                    <h6 className="fw-bold text-dark mb-2 fs-7">New Custom Section for {tenantOrganization}</h6>
+                    <div className="row g-2 align-items-end">
+                      <div className="col-12 col-md-5">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="input-custom-section-name">
+                          Section Title <span className="text-danger">*</span>
+                        </label>
+                        <input
+                          id="input-custom-section-name"
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="e.g. Berth Clearance, Environmental Conditions"
+                          value={newSectionName}
+                          onChange={(e) => {
+                            setNewSectionName(e.target.value);
+                            if (e.target.value.trim()) setCustomSectionError('');
+                          }}
+                          data-testid="input-custom-section-name"
+                          autoFocus
+                        />
+                        {customSectionError && (
+                          <div className="text-danger small mt-1" data-testid="error-custom-section-name">
+                            {customSectionError}
+                          </div>
+                        )}
+                      </div>
+                      <div className="col-12 col-md-5">
+                        <label className="form-label text-secondary small fw-semibold" htmlFor="input-custom-section-description">
+                          Description (Optional)
+                        </label>
+                        <input
+                          id="input-custom-section-description"
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="e.g. Site-specific mooring requirements and clearance criteria"
+                          value={newSectionDesc}
+                          onChange={(e) => setNewSectionDesc(e.target.value)}
+                          data-testid="input-custom-section-description"
+                        />
+                      </div>
+                      <div className="col-12 col-md-2 d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary text-white flex-grow-1"
+                          disabled={!newSectionName.trim()}
+                          onClick={handleCreateTenantSection}
+                          data-testid="btn-save-custom-section"
+                        >
+                          Save Section
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => {
+                            setIsCreatingSection(false);
+                            setNewSectionName('');
+                            setNewSectionDesc('');
+                          }}
+                          data-testid="btn-cancel-custom-section"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {availableTenantSections.length > 0 && (
+                  <div className="card-body p-3 bg-white d-flex align-items-center justify-content-between flex-wrap gap-3">
+                    <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '420px' }}>
+                      <label className="form-label text-secondary small fw-semibold m-0 text-nowrap" htmlFor="select-saved-tenant-section">
+                        Saved Sections:
+                      </label>
+                      <select
+                        id="select-saved-tenant-section"
+                        className="form-select form-select-sm"
+                        value={selectedSavedSectionId}
+                        onChange={(e) => setSelectedSavedSectionId(e.target.value)}
+                        data-testid="select-saved-tenant-section"
+                      >
+                        <option value="">Select saved section to add...</option>
+                        {availableTenantSections
+                          .filter((sec) => !activeCustomSections.some((a) => a.id === sec.id))
+                          .map((sec) => (
+                            <option key={sec.id} value={sec.id}>
+                              {sec.name}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary text-white text-nowrap"
+                        disabled={!selectedSavedSectionId}
+                        onClick={() => handleAddSavedSection(selectedSavedSectionId)}
+                        data-testid="btn-add-saved-section"
+                      >
+                        Add to Set
+                      </button>
+                    </div>
+                    <div className="small text-secondary font-mono-code" data-testid="count-saved-sections">
+                      {availableTenantSections.length} section{availableTenantSections.length === 1 ? '' : 's'} saved for {tenantOrganization}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Render each active custom section on this set */}
+              {activeCustomSections.filter((sec) => Boolean(sec.name?.trim())).map((sec) => {
+                const slug = sec.id.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                const rawTitle = sectionTitles[sec.id]?.trim() || sec.name;
+                const currentTitle = getSectionTitle(sec.id, sec.name);
+                const isEditing = editingSectionId === sec.id;
+                const secDocs = specializedDocs.filter((d) => d.sectionId === sec.id);
+
+                return (
+                  <section
+                    key={sec.id}
+                    className="d-flex flex-column gap-3"
+                    aria-labelledby={`requirements-heading-${slug}`}
+                    data-testid={`section-custom-${slug}`}
+                  >
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                      {isEditing ? (
+                        <div className="d-flex align-items-center gap-2 flex-grow-1" style={{ maxWidth: '450px' }}>
+                          <Layers className="w-5 h-5 text-primary flex-shrink-0" aria-hidden="true" />
+                          <input
+                            type="text"
+                            className="form-control form-control-sm fw-bold fs-6"
+                            value={editingSectionDraft}
+                            onChange={(e) => setEditingSectionDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleSaveSectionTitle(sec.id, editingSectionDraft);
+                              } else if (e.key === 'Escape') {
+                                setEditingSectionId(null);
+                              }
+                            }}
+                            autoFocus
+                            aria-label={`Edit ${sec.name} section title`}
+                            data-testid={`input-section-title-${slug}`}
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary text-white d-inline-flex align-items-center gap-1 px-2.5 py-1"
+                            onClick={() => handleSaveSectionTitle(sec.id, editingSectionDraft)}
+                            data-testid={`btn-save-section-title-${slug}`}
+                          >
+                            <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span className="small">Save</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 px-2.5 py-1"
+                            onClick={() => setEditingSectionId(null)}
+                            data-testid={`btn-cancel-section-title-${slug}`}
+                          >
+                            <X className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span className="small">Cancel</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="d-flex align-items-center gap-2">
+                          <h4
+                            id={`requirements-heading-${slug}`}
+                            className="fw-bold text-slate-900 fs-5 m-0 d-flex align-items-center gap-2"
+                          >
+                            <Layers className="w-5 h-5 text-primary" aria-hidden="true" />
+                            <span data-testid={`section-title-${slug}`}>{currentTitle}</span>
+                            {rawTitle !== currentTitle && (
+                              <span className="d-none" data-testid={`raw-section-title-${slug}`} aria-hidden="true">{rawTitle}</span>
+                            )}
+                          </h4>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link text-secondary text-decoration-none p-1 d-inline-flex align-items-center"
+                            onClick={() => {
+                              setEditingSectionId(sec.id);
+                              setEditingSectionDraft(currentTitle);
+                            }}
+                            aria-label={`Edit ${currentTitle} section title`}
+                            data-testid={`btn-edit-section-title-${slug}`}
+                            title="Edit section title"
+                          >
+                            <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1"
+                        onClick={() => handleRemoveCustomSection(sec.id)}
+                        data-testid={`btn-remove-custom-section-${slug}`}
+                        title="Remove section from set"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="small">Remove Section</span>
+                      </button>
+                    </div>
+
+                    <div className="card border shadow-2xs rounded-3 bg-white">
+                      <div className="card-body p-4 d-flex flex-column gap-2" data-testid={`custom-section-body-${slug}`}>
+                        {secDocs.length === 0 ? (
+                          <div className="p-3 text-center text-secondary small bg-light rounded-2 border border-dashed">
+                            No documents in this section yet. Click below to add documents.
+                          </div>
+                        ) : (
+                          secDocs.map((doc) => {
+                            const isRequired = doc.isMandatory;
+                            return (
+                              <div
+                                key={doc.id}
+                                className="p-2.5 px-3 border rounded-3 bg-white shadow-2xs d-flex flex-column gap-2"
+                                data-testid={`requirement-row-${doc.id}`}
+                              >
+                                <div className="d-flex align-items-center justify-content-between gap-3">
+                                  <div className="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+                                    <span className="fw-semibold text-dark small text-truncate" data-testid={`requirement-title-${doc.id}`}>
+                                      {doc.title}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex align-items-center gap-3 flex-shrink-0">
+                                    <div className="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                      <input
+                                        className="form-check-input cursor-pointer"
+                                        type="checkbox"
+                                        id={`req-toggle-${doc.id}`}
+                                        checked={isRequired}
+                                        onChange={() => handleToggleCustomDocRequired(doc.id)}
+                                        style={{ width: '2.25rem', height: '1.2rem', cursor: 'pointer' }}
+                                      />
+                                      <label
+                                        htmlFor={`req-toggle-${doc.id}`}
+                                        className={`small fw-semibold m-0 cursor-pointer ${isRequired ? 'text-success' : 'text-secondary'
+                                          }`}
+                                        style={{ fontSize: '0.78rem', minWidth: '55px' }}
+                                      >
+                                        {isRequired ? 'Required' : 'Optional'}
+                                      </label>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-outline-danger d-inline-flex align-items-center justify-content-center p-1.5 rounded-2"
+                                      title="Remove document"
+                                      aria-label={`Remove ${doc.title}`}
+                                      onClick={() => handleRemoveCustomDoc(doc.id)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+
+                        <div className="pt-2 border-top d-flex align-items-center justify-content-between">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-link text-primary text-decoration-none p-0 d-inline-flex align-items-center gap-1 font-sans"
+                            style={{ fontSize: '0.78rem' }}
+                            data-testid={`btn-add-doc-to-section-${slug}`}
+                            onClick={() => handleAddDocToCustomSection(sec.id)}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add document to section
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* FINAL STEP: Review & Initiate */}
+        {
+          currentStepData.id === 'step-review' && (
+            <div className="d-flex flex-column gap-4">
               {/* Template Privacy & Access Scope Card */}
 
               <div className="card border shadow-2xs rounded-3 bg-white">
@@ -4353,310 +4478,310 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
 
               </div>
 
-                <div className="card border shadow-2xs rounded-3 bg-white">
-                  <div className="card-header bg-light border-bottom px-4 py-3">
-                    <h5 className="fw-bold text-slate-900 m-0 fs-6">
-                      Review
-                    </h5>
-                  </div>
-                  <div className="card-body p-4">
-                    <div className="row g-4">
-                      <div className="col-12 col-md-6">
-                        <div className="p-3 bg-light rounded-3 border h-100">
-                          <strong className="text-dark small d-block mb-1">Details</strong>
-                          <div className="fw-bold text-primary fs-6">{title}</div>
-                          <div className="text-secondary small mt-2">
-                            <strong>Objects:</strong> {selectedAssuranceObjects.length}
-                          </div>
-                          {selectedScopes.map((scope) => (
-                            <div key={scope} className="text-secondary small mt-1">
-                              <strong>{scope}:</strong>{' '}
-                              {scope === 'Crew' ? (
-                                <span className="text-dark fw-semibold">
-                                  {selectedCrewMembers.length} Selected Crew Member{selectedCrewMembers.length === 1 ? '' : 's'} (itemized below)
-                                </span>
-                              ) : (
-                                <span className="text-dark fw-semibold">{getScopeAssetSummary(scope)}</span>
-                              )}
-                            </div>
-                          ))}
-                          {selectedAssuranceObjects.some((o) => !getAssuranceObjectScope(o.type)) && (
-                            <div className="text-secondary small mt-1">
-                              <strong>Other objects:</strong>{' '}
+              <div className="card border shadow-2xs rounded-3 bg-white">
+                <div className="card-header bg-light border-bottom px-4 py-3">
+                  <h5 className="fw-bold text-slate-900 m-0 fs-6">
+                    Review
+                  </h5>
+                </div>
+                <div className="card-body p-4">
+                  <div className="row g-4">
+                    <div className="col-12 col-md-6">
+                      <div className="p-3 bg-light rounded-3 border h-100">
+                        <strong className="text-dark small d-block mb-1">Details</strong>
+                        <div className="fw-bold text-primary fs-6">{title}</div>
+                        <div className="text-secondary small mt-2">
+                          <strong>Objects:</strong> {selectedAssuranceObjects.length}
+                        </div>
+                        {selectedScopes.map((scope) => (
+                          <div key={scope} className="text-secondary small mt-1">
+                            <strong>{scope}:</strong>{' '}
+                            {scope === 'Crew' ? (
                               <span className="text-dark fw-semibold">
-                                {selectedAssuranceObjects
-                                  .filter((o) => !getAssuranceObjectScope(o.type))
-                                  .map((o) => `${o.name} (${o.type})`)
-                                  .join(', ')}
+                                {selectedCrewMembers.length} Selected Crew Member{selectedCrewMembers.length === 1 ? '' : 's'} (itemized below)
                               </span>
-                            </div>
-                          )}
+                            ) : (
+                              <span className="text-dark fw-semibold">{getScopeAssetSummary(scope)}</span>
+                            )}
+                          </div>
+                        ))}
+                        {selectedAssuranceObjects.some((o) => !getAssuranceObjectScope(o.type)) && (
                           <div className="text-secondary small mt-1">
-                            <strong>Organizations:</strong>{' '}
-                            <span className="text-dark fw-semibold">{organizations.join(', ')}</span>
-                          </div>
-                          <div className="text-secondary small mt-1">
-                            <strong>Contract Period:</strong> {startDate} to {endDate}
-                          </div>
-                          <div className="text-secondary small mt-1">
-                            <strong>Compliance Deadline:</strong> {complianceDeadline}
-                          </div>
-                          {selectedProject && (
-                            <div className="text-secondary small mt-1">
-                              <strong>Project:</strong> {selectedProject.name}{' '}
-                              <span className="font-mono-code">({selectedProject.id})</span>
-                            </div>
-                          )}
-                          <div className="text-secondary small mt-1" data-testid="review-client">
-                            <strong>Requesting party:</strong> <span className="text-dark fw-semibold">{effectiveRequestingParty}</span>
-                          </div>
-                          <div className="text-secondary small mt-1" data-testid="review-vendor">
-                            <strong>Responding party:</strong> <span className="text-dark fw-semibold">{effectiveRespondingParty}</span>
-                          </div>
-                          {requestContext && (
-                            <div className="text-secondary small mt-1">
-                              <strong>Created by:</strong> {requestContext.assigneeName}
-                            </div>
-                          )}
-                          <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
-                            <strong>Template:</strong>
-                            <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>
-                              {templatePrivacy === 'public' ? 'Public' : 'Organization Only'}
+                            <strong>Other objects:</strong>{' '}
+                            <span className="text-dark fw-semibold">
+                              {selectedAssuranceObjects
+                                .filter((o) => !getAssuranceObjectScope(o.type))
+                                .map((o) => `${o.name} (${o.type})`)
+                                .join(', ')}
                             </span>
                           </div>
+                        )}
+                        <div className="text-secondary small mt-1">
+                          <strong>Organizations:</strong>{' '}
+                          <span className="text-dark fw-semibold">{organizations.join(', ')}</span>
+                        </div>
+                        <div className="text-secondary small mt-1">
+                          <strong>Contract Period:</strong> {startDate} to {endDate}
+                        </div>
+                        <div className="text-secondary small mt-1">
+                          <strong>Compliance Deadline:</strong> {complianceDeadline}
+                        </div>
+                        {selectedProject && (
+                          <div className="text-secondary small mt-1">
+                            <strong>Project:</strong> {selectedProject.name}{' '}
+                            <span className="font-mono-code">({selectedProject.id})</span>
+                          </div>
+                        )}
+                        <div className="text-secondary small mt-1" data-testid="review-client">
+                          <strong>Requesting party:</strong> <span className="text-dark fw-semibold">{effectiveRequestingParty}</span>
+                        </div>
+                        <div className="text-secondary small mt-1" data-testid="review-vendor">
+                          <strong>Responding party:</strong> <span className="text-dark fw-semibold">{effectiveRespondingParty}</span>
+                        </div>
+                        {requestContext && (
+                          <div className="text-secondary small mt-1">
+                            <strong>Created by:</strong> {requestContext.assigneeName}
+                          </div>
+                        )}
+                        <div className="text-secondary small mt-1 d-flex align-items-center gap-2">
+                          <strong>Template:</strong>
+                          <span className={`badge ${templatePrivacy === 'public' ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-dark border'} font-mono-code`} style={{ fontSize: '0.675rem' }}>
+                            {templatePrivacy === 'public' ? 'Public' : 'Organization Only'}
+                          </span>
                         </div>
                       </div>
+                    </div>
 
-                      <div className="col-12 col-md-6">
-                        <div className="p-3 bg-light rounded-3 border h-100">
-                          <strong className="text-dark small d-block mb-1">Stakeholders</strong>
-                          {submitters.map((submitter) => (
-                            <div key={submitter.organization} className="text-secondary small">
-                              <strong>Submitter:</strong>{' '}
-                              {submitter.assignee === PENDING_ASSIGNMENT ? `Pending, ${submitter.organization}` : submitter.assignee}
-                            </div>
-                          ))}
-                          <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (verifierOrg ? `Pending, ${verifierOrg}` : 'None selected') : 'N/A'}</div>
-                          <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (inspectorOrg ? `Pending, ${inspectorOrg}` : 'None selected') : 'N/A'}</div>
-                          <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (approverOrg ? `Pending, ${approverOrg}` : 'None selected') : 'N/A'}</div>
+                    <div className="col-12 col-md-6">
+                      <div className="p-3 bg-light rounded-3 border h-100">
+                        <strong className="text-dark small d-block mb-1">Stakeholders</strong>
+                        {submitters.map((submitter) => (
+                          <div key={submitter.organization} className="text-secondary small">
+                            <strong>Submitter:</strong>{' '}
+                            {submitter.assignee === PENDING_ASSIGNMENT ? `Pending, ${submitter.organization}` : submitter.assignee}
+                          </div>
+                        ))}
+                        <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (verifierLabel || (verifierOrg ? `Pending, ${verifierOrg}` : 'None selected')) : 'N/A'}</div>
+                        <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (inspectorLabel || (inspectorOrg ? `Pending, ${inspectorOrg}` : 'None selected')) : 'N/A'}</div>
+                        <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (approverOrg ? `Pending, ${approverOrg}` : 'None selected') : 'N/A'}</div>
 
-                          <div className="pt-2 mt-2 border-top">
-                            <strong className="text-dark small d-block mb-1">Checks</strong>
-                            <div className="d-flex flex-wrap gap-1.5 mb-1">
-                              {validityCheckRequired && (
-                                <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                  Statutory Validity Check
-                                </span>
-                              )}
-                              {suitabilityCheckRequired && (
-                                <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                  Operational Suitability Check
-                                </span>
-                              )}
-                            </div>
+                        <div className="pt-2 mt-2 border-top">
+                          <strong className="text-dark small d-block mb-1">Checks</strong>
+                          <div className="d-flex flex-wrap gap-1.5 mb-1">
+                            {validityCheckRequired && (
+                              <span className="badge bg-success-subtle text-success border border-success-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                Statutory Validity Check
+                              </span>
+                            )}
+                            {suitabilityCheckRequired && (
+                              <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                Operational Suitability Check
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Requirements summary: one card per ticked scope */}
-                      <div className="col-12">
-                        <div className="d-flex align-items-center justify-content-between mb-2">
-                          <strong className="text-dark small d-block">
-                            Requirements
-                          </strong>
-                        </div>
-
-                        <div className="row g-3">
-                          {activeCustomSections.map((cSec) => {
-                            const secDocCount = specializedDocs.filter((d) => d.sectionId === cSec.id && d.isEnabled).length;
-                            const title = getSectionTitle(cSec.id, cSec.name);
-                            return (
-                              <div key={cSec.id} className="col-12 col-md-6">
-                                <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
-                                  <div className="d-flex align-items-center justify-content-between mb-2">
-                                    <strong className="text-dark small">{title}</strong>
-                                    <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                      {secDocCount} Docs
-                                    </span>
-                                  </div>
-                                  <div className="text-secondary small">
-                                    Custom tenant section ({tenantOrganization})
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                          {selectedScopes.map((scope) => {
-                            const standardCount = SUBTYPE_STANDARD_DOCS[scope].filter((d) => docToggles[d.id]).length;
-                            const customCount = specializedDocs.filter((d) => d.subtype === scope && d.isEnabled).length;
-                            const isCrew = scope === 'Crew';
-                            return (
-                              <div key={scope} className={isCrew ? 'col-12' : 'col-12 col-md-6'}>
-                                <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
-                                  <div className="d-flex align-items-center justify-content-between mb-2">
-                                    <strong className="text-dark small">{getSectionTitle(scope, `${scope} documents`)}</strong>
-                                    <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
-                                      {standardCount + customCount} Docs
-                                    </span>
-                                  </div>
-                                  {isCrew ? (
-                                    <div>
-                                      <div className="d-flex align-items-center justify-content-between mb-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
-                                        <span className="fw-semibold text-dark">
-                                          {selectedCrewMembers.length} Selected Crew Member{selectedCrewMembers.length === 1 ? '' : 's'}
-                                        </span>
-                                        <span>Standard: {standardCount} &middot; Custom: {customCount}</span>
-                                      </div>
-                                      {selectedCrewGroups.length > 0 && (
-                                        <div className="mb-2 d-flex flex-wrap align-items-center gap-1.5" data-testid="review-crew-groups-snapshot">
-                                          <span className="text-secondary small fw-medium">Crew Groups:</span>
-                                          {selectedCrewGroups.map((g) => (
-                                            <span key={g.groupId} className="badge bg-light text-dark border">
-                                              {g.groupName} ({g.memberIds.length} members snapshot)
-                                            </span>
-                                          ))}
-                                        </div>
-                                      )}
-                                      <div className="table-responsive border rounded-3 overflow-hidden bg-white mt-1">
-                                        <table className="table table-hover table-sm align-middle mb-0" style={{ fontSize: '0.8rem' }}>
-                                          <thead className="table-light text-secondary border-bottom">
-                                            <tr>
-                                              <th className="py-2 px-3 fw-semibold">Crew Member</th>
-                                              <th className="py-2 px-3 fw-semibold">Rank</th>
-                                              <th className="py-2 px-3 fw-semibold font-mono-code">Seaman's Book</th>
-                                              <th className="py-2 px-3 fw-semibold">Organization</th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {selectedCrewMembers.length === 0 ? (
-                                              <tr>
-                                                <td colSpan={4} className="py-3 px-3 text-center text-secondary">
-                                                  No crew members selected
-                                                </td>
-                                              </tr>
-                                            ) : (
-                                              selectedCrewMembers.map((c) => (
-                                                <tr key={c.id}>
-                                                  <td className="py-2 px-3 fw-semibold text-dark">{c.fullName}</td>
-                                                  <td className="py-2 px-3 text-secondary">{c.rank}</td>
-                                                  <td className="py-2 px-3 font-mono-code text-secondary">{c.seamansBookNo || c.id}</td>
-                                                  <td className="py-2 px-3 text-secondary">{c.organization}</td>
-                                                </tr>
-                                              ))
-                                            )}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="p-2 bg-light rounded-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
-                                      <div className="fw-semibold text-dark">{getScopeAssetSummary(scope)}</div>
-                                      <div className="mt-1">Standard: {standardCount} · Custom: {customCount}</div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
+                    {/* Requirements summary: one card per ticked scope */}
+                    <div className="col-12">
+                      <div className="d-flex align-items-center justify-content-between mb-2">
+                        <strong className="text-dark small d-block">
+                          Requirements
+                        </strong>
                       </div>
 
-                      {/* Required & Added Documents Needed for Assurance Set */}
-                      {(() => {
-                        const activeSubtypes = orderAssuranceScopes(selectedScopes);
+                      <div className="row g-3">
+                        {activeCustomSections.map((cSec) => {
+                          const secDocCount = specializedDocs.filter((d) => d.sectionId === cSec.id && d.isEnabled).length;
+                          const title = getSectionTitle(cSec.id, cSec.name);
+                          return (
+                            <div key={cSec.id} className="col-12 col-md-6">
+                              <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                  <strong className="text-dark small">{title}</strong>
+                                  <span className="badge bg-primary text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                    {secDocCount} Docs
+                                  </span>
+                                </div>
+                                <div className="text-secondary small">
+                                  Custom tenant section ({tenantOrganization})
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {selectedScopes.map((scope) => {
+                          const standardCount = SUBTYPE_STANDARD_DOCS[scope].filter((d) => docToggles[d.id]).length;
+                          const customCount = specializedDocs.filter((d) => d.subtype === scope && d.isEnabled).length;
+                          const isCrew = scope === 'Crew';
+                          return (
+                            <div key={scope} className={isCrew ? 'col-12' : 'col-12 col-md-6'}>
+                              <div className="p-3 bg-white border rounded-3 shadow-2xs h-100">
+                                <div className="d-flex align-items-center justify-content-between mb-2">
+                                  <strong className="text-dark small">{getSectionTitle(scope, `${scope} documents`)}</strong>
+                                  <span className="badge bg-dark text-white font-mono-code" style={{ fontSize: '0.675rem' }}>
+                                    {standardCount + customCount} Docs
+                                  </span>
+                                </div>
+                                {isCrew ? (
+                                  <div>
+                                    <div className="d-flex align-items-center justify-content-between mb-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
+                                      <span className="fw-semibold text-dark">
+                                        {selectedCrewMembers.length} Selected Crew Member{selectedCrewMembers.length === 1 ? '' : 's'}
+                                      </span>
+                                      <span>Standard: {standardCount} &middot; Custom: {customCount}</span>
+                                    </div>
+                                    {selectedCrewGroups.length > 0 && (
+                                      <div className="mb-2 d-flex flex-wrap align-items-center gap-1.5" data-testid="review-crew-groups-snapshot">
+                                        <span className="text-secondary small fw-medium">Crew Groups:</span>
+                                        {selectedCrewGroups.map((g) => (
+                                          <span key={g.groupId} className="badge bg-light text-dark border">
+                                            {g.groupName} ({g.memberIds.length} members snapshot)
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                    <div className="table-responsive border rounded-3 overflow-hidden bg-white mt-1">
+                                      <table className="table table-hover table-sm align-middle mb-0" style={{ fontSize: '0.8rem' }}>
+                                        <thead className="table-light text-secondary border-bottom">
+                                          <tr>
+                                            <th className="py-2 px-3 fw-semibold">Crew Member</th>
+                                            <th className="py-2 px-3 fw-semibold">Rank</th>
+                                            <th className="py-2 px-3 fw-semibold font-mono-code">Seaman's Book</th>
+                                            <th className="py-2 px-3 fw-semibold">Organization</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {selectedCrewMembers.length === 0 ? (
+                                            <tr>
+                                              <td colSpan={4} className="py-3 px-3 text-center text-secondary">
+                                                No crew members selected
+                                              </td>
+                                            </tr>
+                                          ) : (
+                                            selectedCrewMembers.map((c) => (
+                                              <tr key={c.id}>
+                                                <td className="py-2 px-3 fw-semibold text-dark">{c.fullName}</td>
+                                                <td className="py-2 px-3 text-secondary">{c.rank}</td>
+                                                <td className="py-2 px-3 font-mono-code text-secondary">{c.seamansBookNo || c.id}</td>
+                                                <td className="py-2 px-3 text-secondary">{c.organization}</td>
+                                              </tr>
+                                            ))
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="p-2 bg-light rounded-2 text-secondary small" style={{ fontSize: '0.78rem' }}>
+                                    <div className="fw-semibold text-dark">{getScopeAssetSummary(scope)}</div>
+                                    <div className="mt-1">Standard: {standardCount} · Custom: {customCount}</div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-                        const activeGenDocs = generalDocs.filter((d) => d.isEnabled);
-                        const allNeededDocs: { subtype: AssuranceSubtype; title: string; isCustom: boolean; isMandatory: boolean; responsibleParties: string[] }[] = [];
-                        activeSubtypes.forEach((subtype) => {
-                          SUBTYPE_STANDARD_DOCS[subtype].forEach((doc) => {
-                            if (docToggles[doc.id]) {
-                              allNeededDocs.push({
-                                subtype,
-                                title: doc.title,
-                                isCustom: false,
-                                isMandatory: docRequired[doc.id] ?? doc.isMandatory,
-                                responsibleParties: [effectiveRespondingParty || appointedProviderOrg || serviceProviderOrg].filter(Boolean),
-                              });
-                            }
-                          });
-                          specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled).forEach((spec) => {
+                    {/* Required & Added Documents Needed for Assurance Set */}
+                    {(() => {
+                      const activeSubtypes = orderAssuranceScopes(selectedScopes);
+
+                      const activeGenDocs = generalDocs.filter((d) => d.isEnabled);
+                      const allNeededDocs: { subtype: AssuranceSubtype; title: string; isCustom: boolean; isMandatory: boolean; responsibleParties: string[] }[] = [];
+                      activeSubtypes.forEach((subtype) => {
+                        SUBTYPE_STANDARD_DOCS[subtype].forEach((doc) => {
+                          if (docToggles[doc.id]) {
                             allNeededDocs.push({
                               subtype,
-                              title: spec.title,
-                              isCustom: true,
-                              isMandatory: spec.isMandatory,
+                              title: doc.title,
+                              isCustom: false,
+                              isMandatory: docRequired[doc.id] ?? doc.isMandatory,
                               responsibleParties: [effectiveRespondingParty || appointedProviderOrg || serviceProviderOrg].filter(Boolean),
                             });
+                          }
+                        });
+                        specializedDocs.filter((d) => d.subtype === subtype && d.isEnabled).forEach((spec) => {
+                          allNeededDocs.push({
+                            subtype,
+                            title: spec.title,
+                            isCustom: true,
+                            isMandatory: spec.isMandatory,
+                            responsibleParties: [effectiveRespondingParty || appointedProviderOrg || serviceProviderOrg].filter(Boolean),
                           });
                         });
+                      });
 
-                        const standardCount = allNeededDocs.filter((d) => !d.isCustom).length;
-                        const addedCount = allNeededDocs.filter((d) => d.isCustom).length;
+                      const standardCount = allNeededDocs.filter((d) => !d.isCustom).length;
+                      const addedCount = allNeededDocs.filter((d) => d.isCustom).length;
 
-                        return (
-                          <div className="col-12">
-                            <div className="p-3 bg-light-subtle rounded-3 border border-secondary-subtle">
-                              <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                                <div className="d-flex align-items-center gap-2">
-                                  <FileCheck className="text-primary" style={{ width: '18px', height: '18px' }} />
-                                  <strong className="text-dark small">Required &amp; Added Documents ({allNeededDocs.length})</strong>
-                                </div>
-                                <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.75rem' }}>
-                                  {standardCount} Required · {addedCount} Added
-                                </span>
+                      return (
+                        <div className="col-12">
+                          <div className="p-3 bg-light-subtle rounded-3 border border-secondary-subtle">
+                            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                              <div className="d-flex align-items-center gap-2">
+                                <FileCheck className="text-primary" style={{ width: '18px', height: '18px' }} />
+                                <strong className="text-dark small">Required &amp; Added Documents ({allNeededDocs.length})</strong>
                               </div>
-                              <p className="text-secondary small mb-3" style={{ fontSize: '0.8125rem' }}>
-                                These documents are required for this assurance set. Existing documents will only attach themselves or show after the set has been created.
-                              </p>
-                              {allNeededDocs.length === 0 ? (
-                                <div className="text-muted small fst-italic">No documents required or added for this set.</div>
-                              ) : (
-                                <div className="d-flex flex-column gap-2.5">
-                                  {activeSubtypes.map((sub) => {
-                                    const subDocs = allNeededDocs.filter((d) => d.subtype === sub);
-                                    if (subDocs.length === 0) return null;
-                                    return (
-                                      <div key={sub} className="bg-white p-3 rounded-2 border">
-                                        <div className="fw-semibold text-dark small mb-2">
-                                          {sub} Scope Documents ({subDocs.length})
-                                        </div>
-                                        <div className="d-flex flex-column gap-1.5">
-                                          {subDocs.map((doc, idx) => (
-                                            <div
-                                              key={idx}
-                                              className="d-flex align-items-center justify-content-between p-2 rounded-1 bg-light small"
-                                            >
-                                              <div className="d-flex flex-column gap-0.5 min-w-0">
-                                                <span className="text-dark fw-medium">{doc.title}</span>
-                                                {doc.responsibleParties && doc.responsibleParties.length > 0 && (
-                                                  <span className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }} data-testid={`review-doc-parties-${idx}`}>
-                                                    Responsible: {doc.responsibleParties.join(', ')}
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <span
-                                                className={`badge ${doc.isCustom ? 'bg-primary-subtle text-primary border border-primary-subtle' : doc.isMandatory ? 'bg-secondary-subtle text-dark border' : 'bg-light text-secondary border'} font-mono-code`}
-                                                style={{ fontSize: '0.7rem' }}
-                                              >
-                                                {doc.isCustom ? 'Added' : doc.isMandatory ? 'Required' : 'Optional'}
-                                              </span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
+                              <span className="badge bg-light text-secondary border font-mono-code" style={{ fontSize: '0.75rem' }}>
+                                {standardCount} Required · {addedCount} Added
+                              </span>
                             </div>
+                            <p className="text-secondary small mb-3" style={{ fontSize: '0.8125rem' }}>
+                              These documents are required for this assurance set. Existing documents will only attach themselves or show after the set has been created.
+                            </p>
+                            {allNeededDocs.length === 0 ? (
+                              <div className="text-muted small fst-italic">No documents required or added for this set.</div>
+                            ) : (
+                              <div className="d-flex flex-column gap-2.5">
+                                {activeSubtypes.map((sub) => {
+                                  const subDocs = allNeededDocs.filter((d) => d.subtype === sub);
+                                  if (subDocs.length === 0) return null;
+                                  return (
+                                    <div key={sub} className="bg-white p-3 rounded-2 border">
+                                      <div className="fw-semibold text-dark small mb-2">
+                                        {sub} Scope Documents ({subDocs.length})
+                                      </div>
+                                      <div className="d-flex flex-column gap-1.5">
+                                        {subDocs.map((doc, idx) => (
+                                          <div
+                                            key={idx}
+                                            className="d-flex align-items-center justify-content-between p-2 rounded-1 bg-light small"
+                                          >
+                                            <div className="d-flex flex-column gap-0.5 min-w-0">
+                                              <span className="text-dark fw-medium">{doc.title}</span>
+                                              {doc.responsibleParties && doc.responsibleParties.length > 0 && (
+                                                <span className="text-muted font-mono-code" style={{ fontSize: '0.72rem' }} data-testid={`review-doc-parties-${idx}`}>
+                                                  Responsible: {doc.responsibleParties.join(', ')}
+                                                </span>
+                                              )}
+                                            </div>
+                                            <span
+                                              className={`badge ${doc.isCustom ? 'bg-primary-subtle text-primary border border-primary-subtle' : doc.isMandatory ? 'bg-secondary-subtle text-dark border' : 'bg-light text-secondary border'} font-mono-code`}
+                                              style={{ fontSize: '0.7rem' }}
+                                            >
+                                              {doc.isCustom ? 'Added' : doc.isMandatory ? 'Required' : 'Optional'}
+                                            </span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
-                        );
-                      })()}
-                    </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+          )}
       </Wizard>
 
       {/* Cancel / Exit Confirmation Modal with Save Draft Option */}

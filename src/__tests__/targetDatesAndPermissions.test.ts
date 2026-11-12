@@ -272,13 +272,35 @@ describe('Target Dates and Date Permission Validation', () => {
   });
 });
 
+const initialState = useMapStore.getState();
+
 describe('Map Store Date Permissions and Target Date History Ledger', () => {
+  const sarahUser: UserProfile = {
+    id: 'USR-CLIENT-01',
+    name: 'Sarah Jenkins',
+    email: 'sarah.jenkins@chevron.test',
+    organization: 'Chevron Australia Pty Ltd',
+    roles: ['C Admin'],
+    userType: 'Organization',
+    departmentOrScope: 'Assurance Operations',
+    status: 'Active',
+    lastActive: '2026-10-28',
+  };
+
   beforeEach(() => {
-    const existing = useMapStore.getState().assuranceSets[0];
+    useMapStore.setState(initialState, true);
+    const existing = initialState.assuranceSets[0];
     const testSet: AssuranceSet = {
       ...existing,
       id: 'AS-STORE-001',
       title: 'Store Test Campaign',
+      initiatorOrg: 'Chevron Australia Pty Ltd',
+      initiatorRole: 'C Admin · Client Created',
+      clientOrg: 'Chevron Australia Pty Ltd',
+      charterer: 'Chevron Australia Pty Ltd',
+      createdByUserId: 'USR-221',
+      createdByName: 'C. Henderson',
+      createdByPersona: 'C Admin',
       targetDate: '2026-11-01',
       complianceDeadline: '2026-11-01',
       requirements: [
@@ -293,6 +315,10 @@ describe('Map Store Date Permissions and Target Date History Ledger', () => {
       targetDateHistory: [],
     };
     useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+      users: [...initialState.users, sarahUser],
       assuranceSets: [testSet],
     });
   });
@@ -332,9 +358,21 @@ describe('Map Store Date Permissions and Target Date History Ledger', () => {
     with what file: src/__tests__/targetDatesAndPermissions.test.ts testing src/store/useMapStore.ts.
   */
   it('updates task target date and records exactly one entry in the history ledger', () => {
-    const store = useMapStore.getState();
+    useMapStore.getState().grantDatePermission('AS-STORE-001', {
+      userId: sarahUser.id,
+      userName: sarahUser.name,
+      grantedBy: 'C. Henderson',
+      expiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      reason: 'Task date adjustment permission',
+    });
 
-    store.updateTaskTargetDate(
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: sarahUser.id,
+    });
+
+    useMapStore.getState().updateTaskTargetDate(
       'AS-STORE-001',
       'REQ-STORE-01',
       '2026-10-28',

@@ -4,10 +4,11 @@
   role in system: guards completeVesselInspection in src/store/useMapStore.ts, called by InspectionChecklistView.tsx.
 */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
 
+const initialState = useMapStore.getState();
 const CLIENT = 'Southern Basin Energy Pty Ltd';
 const VESSEL_NAME = 'MV Northwind Resolute';
 
@@ -15,6 +16,11 @@ const getSet = (id: string) => useMapStore.getState().assuranceSets.find((s) => 
 
 /* creates a client charter set on the vessel with two requirements, and returns its stored id */
 function charterVessel(title: string): string {
+  useMapStore.setState({
+    activePersona: 'C Admin',
+    activeDemoOrganization: CLIENT,
+    activeSessionUserId: 'USR-201',
+  });
   const store = useMapStore.getState();
   const newSet: AssuranceSet = {
     id: `AS-TEST-${title.replace(/\s+/g, '-')}`,
@@ -43,6 +49,8 @@ function charterVessel(title: string): string {
     assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
     createdByPersona: 'C Admin',
+    createdByUserId: 'USR-201',
+    createdByName: 'S. Basin',
     requirements: [
       {
         id: `REQ-${title}-1`,
@@ -71,12 +79,29 @@ function charterVessel(title: string): string {
 }
 
 function verifyAll(setId: string) {
+  useMapStore.setState({
+    activePersona: 'Verifier',
+    activeDemoOrganization: 'Bureau Veritas Inspectorate',
+    activeSessionUserId: 'USR-205',
+  });
   getSet(setId).requirements.forEach((r) =>
     useMapStore.getState().updateRequirementStatus(setId, r.id, 'Verified', 'Verified.'),
   );
 }
 
 describe('Inspection outcome completes the inspection stage', () => {
+  beforeEach(() => {
+    useMapStore.setState(
+      {
+        ...initialState,
+        activePersona: 'C Admin',
+        activeDemoOrganization: CLIENT,
+        activeSessionUserId: 'USR-201',
+      },
+      true,
+    );
+  });
+
   it('attaches the vessel own library certificates when the set is created', () => {
     const setId = charterVessel('Inspection Completion Attach');
     const documentIds = getSet(setId).requirements.map((r) => r.documentId);
@@ -112,6 +137,11 @@ describe('Inspection outcome completes the inspection stage', () => {
     verifyAll(setId);
     expect(getSet(setId).stage).toBe('Inspection');
 
+    useMapStore.setState({
+      activePersona: 'Inspector',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-203',
+    });
     const completed = useMapStore.getState().completeVesselInspection(VESSEL_NAME, 'Pass with observations');
     expect(completed).toContain(setId);
     expect(getSet(setId).inspectionCompleted).toBe(true);
@@ -122,6 +152,11 @@ describe('Inspection outcome completes the inspection stage', () => {
         .notifications.some((n) => n.assuranceSetId === setId && n.type === 'approval_requested'),
     ).toBe(true);
 
+    useMapStore.setState({
+      activePersona: 'Approver',
+      activeDemoOrganization: CLIENT,
+      activeSessionUserId: 'USR-208',
+    });
     useMapStore.getState().setApproverDecision(setId, 'Approved', 'Approved for charter.');
     expect(getSet(setId).stage).toBe('Approved');
     expect(getSet(setId).readinessScore).toBe(100);
@@ -133,6 +168,11 @@ describe('Inspection outcome completes the inspection stage', () => {
     const setId = charterVessel('Inspection Completion Fail');
     verifyAll(setId);
 
+    useMapStore.setState({
+      activePersona: 'Inspector',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-203',
+    });
     expect(useMapStore.getState().completeVesselInspection(VESSEL_NAME, 'Fail')).toEqual([]);
     expect(getSet(setId).inspectionCompleted).toBe(false);
     expect(getSet(setId).stage).toBe('Inspection');
@@ -141,6 +181,11 @@ describe('Inspection outcome completes the inspection stage', () => {
   it('does not complete the inspection of a set whose documents are not verified yet', () => {
     const setId = charterVessel('Inspection Completion Unverified');
 
+    useMapStore.setState({
+      activePersona: 'Inspector',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-203',
+    });
     expect(useMapStore.getState().completeVesselInspection(VESSEL_NAME, 'Pass')).not.toContain(setId);
     expect(getSet(setId).inspectionCompleted).toBe(false);
     expect(getSet(setId).stage).toBe('Verification');

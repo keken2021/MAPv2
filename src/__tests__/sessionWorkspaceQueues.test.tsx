@@ -9,8 +9,16 @@ import { isAssuranceSetAssignedToPersona } from '../utils/rbacHelpers';
 describe('session workspace queues', () => {
   it('shows Bureau Veritas inspector N. Technical named sets instead of every inspector set', () => {
     const sets = [...MOCK_ASSURANCE_SETS, ...PROJECT_SEED_ASSURANCE_SETS];
-    const orgWide = sets.filter((set) =>
+    const withoutUser = sets.filter((set) =>
       isAssuranceSetAssignedToPersona(set, 'Inspector', 'Bureau Veritas Inspectorate'),
+    );
+    const coworker = sets.filter((set) =>
+      isAssuranceSetAssignedToPersona(set, 'Inspector', 'Bureau Veritas Inspectorate', {
+        id: 'USR-BV-COWORKER',
+        name: 'Unassigned Inspector',
+        organization: 'Bureau Veritas Inspectorate',
+        roles: ['Inspector'],
+      }),
     );
     const named = sets.filter(
       (set) =>
@@ -22,7 +30,8 @@ describe('session workspace queues', () => {
         }) &&
         Boolean(set.assignedInspector?.includes('N. Technical')),
     );
-    expect(orgWide.length).toBe(13);
+    expect(withoutUser.length).toBe(0);
+    expect(coworker.length).toBe(0);
     expect(named.length).toBe(7);
 
     useMapStore.setState({

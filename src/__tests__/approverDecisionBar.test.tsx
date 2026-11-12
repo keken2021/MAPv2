@@ -108,10 +108,10 @@ describe('ApproverDecisionBar', () => {
       expect(screen.getByRole('button', { name: /reject/i })).toBeInTheDocument();
     });
 
-    it('disables Approve and displays warning when open findings remain', () => {
+    it('disables Approve and displays warning when open findings remain on an inspected set', () => {
       render(
         <ApproverDecisionBar
-          assuranceSet={mockAssuranceSet}
+          assuranceSet={{ ...mockAssuranceSet, mandatoryInspectionRequired: true }}
           openFindingsCount={2}
         />,
       );
@@ -119,6 +119,30 @@ describe('ApproverDecisionBar', () => {
       const approveBtn = screen.getByRole('button', { name: /approve/i });
       expect(approveBtn).toBeDisabled();
       expect(screen.getByText(/cannot approve: 2 open findings remain/i)).toBeInTheDocument();
+    });
+
+    it('flags open findings but lets a set with no inspection be approved', () => {
+      let callbackDecision: string | undefined;
+      render(
+        <ApproverDecisionBar
+          assuranceSet={mockAssuranceSet}
+          openFindingsCount={2}
+          onDecisionSubmitted={(decision) => {
+            callbackDecision = decision;
+          }}
+        />,
+      );
+
+      expect(screen.getByText(/2 open findings flagged\. not blocking: this set has no inspection/i)).toBeInTheDocument();
+      expect(screen.queryByText(/cannot approve/i)).toBeNull();
+
+      const approveBtn = screen.getByRole('button', { name: /approve/i });
+      expect(approveBtn).not.toBeDisabled();
+      fireEvent.click(approveBtn);
+
+      expect(callbackDecision).toBe('Approved');
+      const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === mockAssuranceSet.id);
+      expect(updatedSet?.approverDecision).toBe('Approved');
     });
 
     it('enables Approve when there are zero open findings and executes decision on click', () => {
@@ -302,6 +326,47 @@ describe('ApproverDecisionBar', () => {
       render(<AssuranceDetailView setId="AS-TEST-001" />);
 
       expect(screen.queryByTestId('approver-decision-bar')).not.toBeInTheDocument();
+    });
+
+    it('keeps ApproverDecisionBar on Details tab and opens ApproverDecisionDrawer (without redirecting to Requirements) when clicking View on Tasks tab', () => {
+      useMapStore.setState({
+        activePersona: 'Approver',
+        activeSessionUserId: 'USR-217',
+        activeDemoOrganization: 'Inpex Operations Australia',
+        assuranceSets: [mockAssuranceSet],
+      });
+
+      render(<AssuranceDetailView setId="AS-TEST-001" />);
+
+      // ApproverDecisionBar stays on the Details tab
+      expect(screen.getByTestId('approver-decision-bar')).toBeInTheDocument();
+
+      // Switch to Tasks tab
+      fireEvent.click(screen.getByRole('tab', { name: /^Tasks/i }));
+      const tasksTab = screen.getByRole('tab', { name: /^Tasks/i });
+      expect(tasksTab).toHaveAttribute('aria-selected', 'true');
+
+      // Click View on task row REQ-1 -> opens ApproverDecisionDrawer in place on Tasks tab
+      const viewBtn = screen.getByTestId('task-action-btn-REQ-1');
+      expect(viewBtn).toHaveTextContent('View');
+      fireEvent.click(viewBtn);
+
+      expect(tasksTab).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByTestId('approver-decision-drawer')).toBeInTheDocument();
+      expect(screen.getByTestId('approver-drawer-decision-section')).toBeInTheDocument();
+      expect(screen.getByTestId('approver-drawer-return-req-btn')).toBeInTheDocument();
+      expect(screen.getByTestId('approver-drawer-reject-req-btn')).toBeInTheDocument();
+
+      // Execute task-level Return for correction inside drawer
+      fireEvent.click(screen.getByTestId('approver-drawer-return-req-btn'));
+      const dialog = screen.getByRole('dialog', { name: 'Return Task for Correction' });
+      const reasonInput = within(dialog).getByRole('textbox', { name: /reason/i });
+      fireEvent.change(reasonInput, { target: { value: 'Needs updated class endorsement page.' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Return for Correction' }));
+
+      const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-TEST-001');
+      const updatedReq = updatedSet?.requirements.find((r) => r.id === 'REQ-1');
+      expect(updatedReq?.verifierStatus).toBe('Correction Requested');
     });
   });
 });

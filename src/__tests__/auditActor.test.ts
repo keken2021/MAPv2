@@ -41,11 +41,13 @@ describe('audit actor', () => {
     useMapStore.setState({
       activePersona: 'Verifier',
       activeDemoOrganization: 'Bureau Veritas Inspectorate',
-      activeSessionUserId: 'USR-202',
+      activeSessionUserId: 'USR-244',
     });
 
     const store = useMapStore.getState();
-    const set = store.assuranceSets.find((s) => s.stage === 'Verification' && s.requirements.length > 0)!;
+    const set = store.assuranceSets.find(
+      (s) => s.stage === 'Verification' && s.requirements.length > 0 && s.assignedVerifier?.includes('S. Girard'),
+    )!;
     expect(set).toBeDefined();
 
     // Verify all requirements on this set to complete the Verification stage
@@ -60,7 +62,7 @@ describe('audit actor', () => {
     expect(transitionEvent?.target.setId).toBe(set.id);
     expect(transitionEvent?.fieldDelta?.fieldName).toBe('Stage');
     expect(transitionEvent?.fieldDelta?.oldValue).toBe('Verification');
-    expect(transitionEvent?.userId).toBe('USR-202');
+    expect(transitionEvent?.userId).toBe('USR-244');
     expect(transitionEvent?.userRole).toBe('Verifier');
     expect(transitionEvent?.organization).toBe('Bureau Veritas Inspectorate');
   });
@@ -72,9 +74,9 @@ describe('audit actor', () => {
       activeSessionUserId: 'USR-101',
     });
 
-    const set = useMapStore.getState().assuranceSets[0];
+    const set = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-002')!;
     const prevSubmitter = set.assignedSubmitter || 'Unassigned';
-    const nextSubmitter = 'USR-104';
+    const nextSubmitter = 'M. Chen (Northwind Marine Pty Ltd)';
 
     useMapStore.getState().updateAssuranceSet({
       ...set,
@@ -101,7 +103,7 @@ describe('audit actor', () => {
       activeSessionUserId: 'USR-101',
     });
 
-    const set = useMapStore.getState().assuranceSets.find((s) => s.requirements.length > 0)!;
+    const set = useMapStore.getState().assuranceSets.find((s) => s.id === 'AS-2026-002' && s.requirements.length > 0)!;
     const task = set.requirements[0];
 
     useMapStore.getState().exemptAssuranceTasks(set.id, [task.id], 'Drydock waiver', 'K. Osei', '2027-04-01');
@@ -121,7 +123,7 @@ describe('audit actor', () => {
       activeSessionUserId: 'USR-101',
     });
 
-    const doc = useMapStore.getState().documents[0];
+    const doc = useMapStore.getState().documents.find((d) => d.id === 'MAP-VES-2026-STAT-00005')!;
     const newVersion = 'v3.5';
 
     useMapStore.getState().addDocumentVersion(

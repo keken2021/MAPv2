@@ -11,6 +11,7 @@ import {
   calculateDocumentReadiness,
   calculateAssuranceSetReadiness,
   calculateVesselReadiness,
+  doFindingsBlockSet,
 } from '../utils/readinessHelpers';
 import { AssuranceRequirement, AssuranceSet } from '../types/assurance';
 import { MasterDocument } from '../types/document';
@@ -263,22 +264,44 @@ describe('dynamic readiness index calculation suite', () => {
     with what file: src/__tests__/readinessCalculations.test.ts testing src/store/useMapStore.ts.
   */
   it('updates store readiness score dynamically when requirements are verified', () => {
-    const store = useMapStore.getState();
-    const targetSet = store.assuranceSets[0];
-    expect(targetSet).toBeDefined();
+    const initialState = useMapStore.getState();
+    try {
+      const targetSet = initialState.assuranceSets[0];
+      expect(targetSet).toBeDefined();
 
-    /* verify all requirements to achieve approval stage */
-    targetSet.requirements.forEach((req) => {
-      store.updateRequirementStatus(targetSet.id, req.id, 'Verified', 'Verified in unit test');
-    });
+      /* verify all requirements to achieve approval stage */
+      useMapStore.setState({
+        activePersona: 'Verifier',
+        activeDemoOrganization: 'Bureau Veritas Inspectorate',
+        activeSessionUserId: 'USR-202',
+      });
+      targetSet.requirements.forEach((req) => {
+        useMapStore.getState().updateRequirementStatus(targetSet.id, req.id, 'Verified', 'Verified in unit test');
+      });
 
-    const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
-    expect(updatedSet?.readinessScore).toBe(70);
+      const updatedSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
+      expect(updatedSet?.readinessScore).toBe(70);
 
-    /* set final approver decision to approved -> 100% */
-    store.setApproverDecision(targetSet.id, 'Approved', 'Executive sign-off in unit test');
-    const certifiedSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
-    expect(certifiedSet?.readinessScore).toBe(100);
-    expect(certifiedSet?.stage).toBe('Approved');
+      /* set final approver decision to approved -> 100% */
+      useMapStore.setState({
+        activePersona: 'Approver',
+        activeDemoOrganization: 'Marine Assurance Authority',
+        activeSessionUserId: 'USR-204',
+      });
+      useMapStore.getState().setApproverDecision(targetSet.id, 'Approved', 'Executive sign-off in unit test');
+      const certifiedSet = useMapStore.getState().assuranceSets.find((s) => s.id === targetSet.id);
+      expect(certifiedSet?.readinessScore).toBe(100);
+      expect(certifiedSet?.stage).toBe('Approved');
+    } finally {
+      useMapStore.setState(initialState, true);
+    }
+  });
+});
+
+describe('doFindingsBlockSet', () => {
+  it('lets findings block only a set that requires inspection', () => {
+    expect(doFindingsBlockSet({ mandatoryInspectionRequired: true })).toBe(true);
+    expect(doFindingsBlockSet({ mandatoryInspectionRequired: false })).toBe(false);
+    expect(doFindingsBlockSet({} as Pick<AssuranceSet, 'mandatoryInspectionRequired'>)).toBe(false);
   });
 });
