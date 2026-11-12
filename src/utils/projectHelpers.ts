@@ -928,7 +928,14 @@ export function isProjectAccessibleToUser(
     return true;
   }
 
-  if (persona === 'Administrator') return true;
+  if (persona === 'Administrator') {
+    /* a Provider sees a project as its client, or through an assigned assurance set (ADR 0032); being a provider alone does not open every project */
+    if (sessionOrganization && projectOrgMatchesClient(project, sessionOrganization)) return true;
+    if (assuranceSets.length === 0) return false;
+    return getProjectAssuranceSets(project, assuranceSets).some((set) =>
+      isAssuranceSetAssignedToPersona(set, persona, sessionOrganization, user, users),
+    );
+  }
 
   if (persona === 'C Admin') {
     const clientOrg = getClientAdminOrganization(users, sessionOrganization);

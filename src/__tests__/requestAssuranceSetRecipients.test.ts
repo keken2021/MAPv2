@@ -82,6 +82,12 @@ describe('syncInvitedOrganizationsToParties', () => {
     const initialProject: Project = {
       id: 'P-TEST',
       name: 'Test Project',
+      projectType: 'Mixed / Composite',
+      requestingOrganization: 'Client Co',
+      operatorOrganization: 'Client Co',
+      clientOperator: 'Client Co',
+      location: 'Test Location',
+      description: 'Test Description',
       status: 'Assurance In Progress',
       contractParties: [{ organization: 'Client Co', group: 'Client', chainRole: 'client' }],
       invitedOrganizations: ['Client Co', 'Invited Vendor Co', 'Another Invited Co'],
@@ -103,6 +109,12 @@ describe('syncInvitedOrganizationsToParties', () => {
     const initialProject: Project = {
       id: 'P-TEST',
       name: 'Test Project',
+      projectType: 'Mixed / Composite',
+      requestingOrganization: 'Client Co',
+      operatorOrganization: 'Client Co',
+      clientOperator: 'Client Co',
+      location: 'Test Location',
+      description: 'Test Description',
       status: 'Assurance In Progress',
       contractParties: [
         { organization: 'Client Co', group: 'Client', chainRole: 'client' },

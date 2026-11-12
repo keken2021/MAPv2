@@ -192,7 +192,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         users,
         assuranceSets,
         clientOrgHint,
-        sessionUser ?? null,
+        sessionUser ?? undefined,
         notifications,
       ).map(projectToAssuranceProjectScope),
     [projects, activePersona, users, assuranceSets, clientOrgHint, sessionUser, notifications],
@@ -1812,17 +1812,19 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
         if (isPreverified) {
           const targetType = vesselId ? 'vessel' : undefined;
           const targetId = vesselId || undefined;
-          const duplicate = findDuplicateObjectDocumentTitle(
-            spec.title,
-            targetType,
-            targetId,
-            [...documents, ...demoDocuments],
-            { vessels, crew, equipment, assuranceObjects },
-          );
+          const duplicate =
+            targetType && targetId
+              ? findDuplicateObjectDocumentTitle(
+                  [...documents, ...demoDocuments],
+                  { type: targetType, id: targetId, name: selectedVessel?.name },
+                  spec.title,
+                  { vessels, crew, equipment, assuranceObjects: storeAssuranceObjects },
+                )
+              : null;
 
           if (duplicate) {
             attachedDocId = duplicate.id;
-            attachedVersion = duplicate.currentVersion || 'v1.0';
+            attachedVersion = duplicate.document?.currentVersion || 'v1.0';
           } else {
             const now = new Date().toISOString();
             demoDocuments.push({

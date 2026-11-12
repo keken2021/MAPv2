@@ -145,13 +145,15 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
 
   const targetObject = useMemo(
     () =>
-      resolveDocumentTargetObject(doc, {
-        vessels,
-        crew,
-        equipment,
-        assuranceObjects,
-        assuranceSets,
-      }),
+      doc
+        ? resolveDocumentTargetObject(doc, {
+            vessels,
+            crew,
+            equipment,
+            assuranceObjects,
+            assuranceSets,
+          })
+        : null,
     [doc, vessels, crew, equipment, assuranceObjects, assuranceSets],
   );
 
@@ -393,7 +395,7 @@ export const DocumentDetailView: React.FC<DocumentDetailViewProps> = ({ document
                 <span className="text-secondary">Issuing Authority:</span> <div><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{doc.issuingAuthority}</strong></div>
               </div>
               <div className="col-md-4">
-                <span className="text-secondary">Issue Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.issueDate || doc.uploadedAt)}</strong></div>
+                <span className="text-secondary">Issue Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.surveyCompletionDate || doc.versions?.[0]?.uploadedAt || '')}</strong></div>
               </div>
               <div className="col-md-4">
                 <span className="text-secondary">Expiry Date:</span> <div className="font-mono-code"><strong className={`text-dark${isJustLoaded ? ' map-autofill-animate' : ''}`}>{formatMaritimeDate(doc.expiryDate)}</strong></div>

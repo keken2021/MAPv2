@@ -11,9 +11,14 @@ import type { Project } from '../types/project';
 const testProject: Project = {
   id: 'PRJ-TEST-ORGS',
   name: 'Test Platform Project',
+  projectType: 'Mixed / Composite',
   status: 'Assurance In Progress',
   ownerOrganization: 'Oil Company',
   requestingOrganization: 'Oil Company',
+  operatorOrganization: 'Oil Company',
+  clientOperator: 'Oil Company',
+  location: 'North West Shelf',
+  description: 'Test platform project for participating organizations',
   charterWindowStart: '2026-01-01',
   charterWindowEnd: '2026-12-31',
   contractParties: [

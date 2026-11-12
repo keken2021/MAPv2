@@ -432,7 +432,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           const doc = existingDocument as MasterDocument;
           setTargetVersionDoc(doc);
           setEntityType(doc.entityType);
-          setVesselId(doc.vesselId);
+          setVesselId(doc.vesselId || '');
           setFileName(doc.versions?.[0]?.fileName || `${doc.title.replace(/\s+/g, '_')}_Rev.pdf`);
           setChangeSummary('New version uploaded by submitter.');
           setAiOcrConfidence(doc.ocrConfidence || 98.5);

@@ -89,6 +89,10 @@ export interface MasterDocument {
   certificateNo: string;
   issuingAuthority: string;
   expiryDate: string;
+  /** when the certificate was issued, distinct from when it was uploaded */
+  issueDate?: string;
+  /** when this record was added to the library, distinct from its issue date */
+  uploadedAt?: string;
   ocrConfidence: number; // 0 - 100%
   complianceState: ComplianceState;
   currentVersion: string; // e.g. v1.1
