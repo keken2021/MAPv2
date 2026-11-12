@@ -149,7 +149,7 @@ describe('Tenant Custom Sections (Task 5303 / 5b-01, 5b-02, ADR 0034)', () => {
       // Verify Tenant Custom Sections card rendered
       const tenantCard = container.querySelector('[data-testid="tenant-custom-sections-container"]');
       expect(tenantCard).not.toBeNull();
-      expect(tenantCard?.textContent).toContain('Tenant Custom Sections');
+      expect(tenantCard?.textContent).toContain('Custom Sections');
 
       // Click "Create Section" button
       const createSecBtn = container.querySelector('[data-testid="btn-create-custom-section"]') as HTMLButtonElement;

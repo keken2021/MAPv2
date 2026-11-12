@@ -19,6 +19,7 @@ Root: `C:\mapFiles\MAPv2`
 - Dev: `npm run dev` (Vite)
 - Test: `npm test` (`vitest run`; tests live in `src/__tests__/`)
 - Build: `npm run build` (`tsc && vite build`); output in `dist/` (generated, do not edit)
+- Build & Test: `npm run build:test` (`npm run build && npm test`)
 - There is no lint script.
 
 ## Source map

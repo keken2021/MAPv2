@@ -266,7 +266,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   );
   const visibleChainParties = showChain ? allChainParties : [];
   const otherParties = (project.contractParties ?? []).filter((party) => !party.chainRole);
-  const showOrganizationsCard = visibleChainParties.length > 0 || otherParties.length > 0 || canManage;
+  const showOrganizationsCard = visibleChainParties.length > 0 || otherParties.length > 0;
   const organizationCount = visibleChainParties.length + otherParties.length;
   const workLocationLabel =
     project.workLocationType && project.location

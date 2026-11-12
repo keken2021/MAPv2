@@ -885,13 +885,17 @@ export function isVesselCharteredByCAdmin(
   vessel: VesselInformation,
   assuranceSets: AssuranceSet[],
 ): boolean {
+  /* no C Admin identity is known here, so this keeps the broad organization check isAssuranceSetAssignedToPersona
+     used before it started requiring one (ADR 0037's strict match applies once an identity is in hand) */
+  const isLegacyCAdminSet = (set: AssuranceSet): boolean =>
+    set.initiatorRole === 'C Admin · Client Created' ||
+    set.initiatorOrg === 'Chevron Australia Pty Ltd' ||
+    set.charterer === 'Chevron Australia Pty Ltd' ||
+    set.charterer === 'Southern Basin Energy Pty Ltd' ||
+    set.initiatorOrg === 'Southern Basin Energy Pty Ltd';
   return (
     vessel.status === 'Under Charter' ||
-    assuranceSets.some(
-      (set) =>
-        set.vesselId === vessel.id &&
-        isAssuranceSetAssignedToPersona(set, 'C Admin'),
-    )
+    assuranceSets.some((set) => set.vesselId === vessel.id && isLegacyCAdminSet(set))
   );
 }
 

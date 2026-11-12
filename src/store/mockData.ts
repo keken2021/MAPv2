@@ -1139,7 +1139,7 @@ const ALL_MOCK_ASSURANCE_SETS: AssuranceSet[] = [
     inspectionCompleted: true,
     assignedSubmitter: 'C. Sterling (Meridian Marine Services Pty Ltd)',
     assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
-    assignedInspector: "N. Technical (Bureau Veritas Inspectorate)",
+    assignedInspector: "Capt. Robert Shaw (Bureau Veritas Inspectorate)",
     assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
     reviewMode: 'mixed',
     reviewChannels: ['internal', 'third_party'],

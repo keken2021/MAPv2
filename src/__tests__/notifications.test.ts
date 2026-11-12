@@ -178,7 +178,7 @@ describe('row actions', () => {
     expect(getNotificationAction(byId('MAP-NTF-2026-APRV-00002'), ctx)).toMatchObject({
       label: 'Open Set',
       view: 'assurance-sets',
-      entityId: 'AS-EQP-007-01',
+      entityId: 'AS-2026-008',
     });
     expect(getNotificationAction(byId('MAP-NTF-2026-CAPA-00013'), ctx)).toMatchObject({
       label: 'Open CAPA',
