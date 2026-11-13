@@ -24,6 +24,11 @@ import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { usePagination } from '../../utils/usePagination';
 import { TablePagination } from '../common/TablePagination';
 import { getAssuranceSetCrewNames } from '../../utils/assuranceTemplates';
+import {
+  clampPeriodToBounds,
+  getProjectDateBounds,
+  isAssuranceSetWithinProjectWindow,
+} from '../../utils/projectHelpers';
 
 export interface AttachAssuranceSetPreviewModalProps {
   isOpen: boolean;
@@ -104,6 +109,26 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
     };
   }, [assuranceSet, assetType, vessels, crew, equipment]);
 
+  const projectBounds = useMemo(() => getProjectDateBounds(project), [project]);
+
+  const isDatesOutsideWindow = Boolean(
+    project.charterWindowStart &&
+    project.charterWindowEnd &&
+    (!charterWindowStart ||
+      !charterWindowEnd ||
+      !isAssuranceSetWithinProjectWindow(
+        { charterWindowStart, charterWindowEnd },
+        project.charterWindowStart,
+        project.charterWindowEnd,
+      ))
+  );
+
+  const isDateOrderInvalid = Boolean(
+    charterWindowStart && charterWindowEnd && charterWindowStart > charterWindowEnd
+  );
+
+  const isConfirmDisabled = isSubmitting || !roleInProject.trim() || isDatesOutsideWindow || isDateOrderInvalid;
+
   // Set default role and charter dates when assurance set changes
   useEffect(() => {
     if (assuranceSet) {
@@ -112,16 +137,15 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
       else if (assetType === 'Equipment') setRoleInProject('Rented equipment');
       else setRoleInProject('Attached standalone set');
 
-      setCharterWindowStart(
-        project.charterWindowStart || assuranceSet.charterWindowStart || '2026-11-01',
-      );
-      setCharterWindowEnd(
-        project.charterWindowEnd || assuranceSet.charterWindowEnd || '2027-02-28',
-      );
+      const initialStart = project.charterWindowStart || assuranceSet.charterWindowStart || '2026-11-01';
+      const initialEnd = project.charterWindowEnd || assuranceSet.charterWindowEnd || '2027-02-28';
+      const clamped = clampPeriodToBounds(initialStart, initialEnd, projectBounds);
+      setCharterWindowStart(clamped.start);
+      setCharterWindowEnd(clamped.end);
       setNotes('');
       setActiveTab('requirements');
     }
-  }, [assuranceSet, assetType, project.charterWindowStart, project.charterWindowEnd]);
+  }, [assuranceSet, assetType, project.charterWindowStart, project.charterWindowEnd, projectBounds]);
 
   // Document matching helper for previewing attached certificates
   const requirementRows = useMemo(() => {
@@ -217,7 +241,7 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
             type="button"
             className="btn btn-sm btn-primary px-4 fw-semibold d-inline-flex align-items-center gap-2"
             onClick={handleConfirm}
-            disabled={isSubmitting || !roleInProject.trim()}
+            disabled={isConfirmDisabled}
           >
             <Plus size={16} />
             Attach Assurance Set
@@ -556,27 +580,40 @@ export const AttachAssuranceSetPreviewModal: React.FC<AttachAssuranceSetPreviewM
               </p>
               <div className="row g-3">
                 <div className="col-md-6">
-                  <label className="form-label small fw-semibold text-muted">
+                  <label className="form-label small fw-semibold text-muted" htmlFor="attach-contract-period-start">
                     Contract Period Start <span className="text-danger">*</span>
                   </label>
                   <input
+                    id="attach-contract-period-start"
                     type="date"
                     className="form-control form-control-sm font-mono-code"
                     value={charterWindowStart}
+                    min={projectBounds.min}
+                    max={projectBounds.max}
                     onChange={(e) => setCharterWindowStart(e.target.value)}
                   />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label small fw-semibold text-muted">
+                  <label className="form-label small fw-semibold text-muted" htmlFor="attach-contract-period-end">
                     Contract Period End <span className="text-danger">*</span>
                   </label>
                   <input
+                    id="attach-contract-period-end"
                     type="date"
                     className="form-control form-control-sm font-mono-code"
                     value={charterWindowEnd}
+                    min={charterWindowStart || projectBounds.min}
+                    max={projectBounds.max}
                     onChange={(e) => setCharterWindowEnd(e.target.value)}
                   />
                 </div>
+                {project.charterWindowStart && project.charterWindowEnd && (
+                  <div className="col-12 mt-1">
+                    <div className="form-text small" data-testid="attach-project-window-hint">
+                      Project window: {project.charterWindowStart} to {project.charterWindowEnd}
+                    </div>
+                  </div>
+                )}
                 <div className="col-md-6">
                   <label className="form-label small fw-semibold text-muted">
                     Role in Project <span className="text-danger">*</span>

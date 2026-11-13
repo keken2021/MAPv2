@@ -169,6 +169,7 @@ import {
   isCrewOwnedByOrganization,
   isEquipmentOwnedByOrganization,
   isProjectAccessibleToUser,
+  isAssuranceSetWithinProjectWindow,
   recalculateSetReadiness,
   requiresAssuranceSetForAssetLink,
   syncAllAffectedProjectRollups,
@@ -2030,6 +2031,21 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       )
     ) {
       return { success: false, message: "You are not authorized to attach this assurance set to this project." };
+    }
+
+    if (
+      project.charterWindowStart &&
+      project.charterWindowEnd &&
+      !isAssuranceSetWithinProjectWindow(
+        target,
+        project.charterWindowStart,
+        project.charterWindowEnd,
+      )
+    ) {
+      return {
+        success: false,
+        message: `Contract Period must be inside the project window (${project.charterWindowStart} to ${project.charterWindowEnd}).`,
+      };
     }
 
     if (project.assetLinks.some((l) => l.assuranceSetId === assuranceSetId)) {

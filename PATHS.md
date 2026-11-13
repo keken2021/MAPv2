@@ -66,6 +66,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/views/AssuranceSetsView.tsx` : list screen wrapper
 - `src/components/tables/AssuranceTable.tsx` : list screen body (pills, toolbar, filters, table, row actions)
 - `src/views/CreateAssuranceSetView.tsx` : create wizard
+- `src/components/wizards/AssuranceContractPeriodFields.tsx` : wizard component for assurance set Contract Period dates, Planned Charter Date, Compliance Deadline, project window clamping notice, and window hint (Map Design System §12)
 - `src/utils/assuranceTemplates.ts` : wizard steps, scopes and standard documents; `getAssuranceSetAsset` and `toSingleAssetSet` keep a set to one asset (ADR 0004)
 - `src/views/AssuranceDetailView.tsx` : detail screen
 - `src/components/assurance/AssuranceDetailTasksTab.tsx` : assurance set detail Tasks tab pane component extracted per Map Design System §12
@@ -86,6 +87,7 @@ Root: `C:\mapFiles\MAPv2`
 - `src/__tests__/workflowSystemGuardrailsAndFallbacks.test.ts` : automated integration tests for terminal hard rejection, segregation of duties RBAC enforcement, and post-approval snapshot immutability (Task 5510)
 - `src/__tests__/assuranceDetailTaskModals.test.tsx` : tests for add and edit task dialog section and predecessor selects on assurance set detail (Task 5287)
 - `src/__tests__/assuranceDetailPartyVisibility.test.tsx` : tests for assurance set detail document visibility per party (Task 5309)
+- `src/__tests__/assuranceContractDateGating.test.tsx` : component tests for assurance set Contract Period date gating across CreateAssuranceSetView, AssuranceDetailView inline edit, and AttachAssuranceSetPreviewModal
 - `src/utils/assuranceSetStatus.ts` : Set status rule (Go, Conditional, No-go), `ASSURANCE_SET_STATUS_RULES` thresholds, next expiry, party roles, worst-first order (ADR 0033); tests `src/__tests__/assuranceSetStatus.test.ts`
 - `src/components/tables/ProjectAssuranceStatusTable.tsx` : status-first assurance set table on project detail; tests `src/__tests__/projectAssuranceStatusTable.test.tsx`
 - `src/components/tables/ProjectTasksTable.tsx` : read-only tasks roll-up table on project detail; tests `src/__tests__/projectTasksTable.test.tsx` (Task 5329)

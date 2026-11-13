@@ -32,7 +32,13 @@ import {
 } from '../utils/validation';
 import { MasterDocument } from '../types/document';
 import { AssuranceObject, AssuranceRequirement, AssuranceSetGroupRef, AssuranceSubtype, DatePermissionGrant, TargetDateChangeRecord, TaskSection, ThreePillarsCategory } from '../types/assurance';
-import { filterProjectsForPersona, getProjectForAssuranceSet, isAssuranceSetOrphaned } from '../utils/projectHelpers';
+import {
+  filterProjectsForPersona,
+  getProjectDateBounds,
+  getProjectForAssuranceSet,
+  isAssuranceSetOrphaned,
+  isAssuranceSetWithinProjectWindow,
+} from '../utils/projectHelpers';
 
 import { VersionHistoryDrawer } from '../components/drawers/VersionHistoryDrawer';
 import { exportToCsv, exportToPdf } from '../utils/exportHelpers';
@@ -1955,6 +1961,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     return toIsoLocalDate(tomorrow);
   })();
 
+  const inlineProjectBounds =
+    assuranceSet?.projectId && linkedProject
+      ? getProjectDateBounds(linkedProject, minCharterDate)
+      : {};
+
   const startCharterWindowEdit = () => {
     if (!roleActions.canChangeDates) {
       setProjectToast(DATE_PERMISSION_REQUIRED);
@@ -2174,6 +2185,22 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     const errors: { start?: string; end?: string; deadline?: string } = validateCharterWindow(charterStartDraft, charterEndDraft);
     const deadlineError = validateComplianceDeadline(deadlineDraft, charterStartDraft);
     if (deadlineError) errors.deadline = deadlineError;
+    if (assuranceSet.projectId && linkedProject?.charterWindowStart && linkedProject?.charterWindowEnd) {
+      if (
+        !isAssuranceSetWithinProjectWindow(
+          { charterWindowStart: charterStartDraft, charterWindowEnd: charterEndDraft },
+          linkedProject.charterWindowStart,
+          linkedProject.charterWindowEnd,
+        )
+      ) {
+        const outOfWindowMsg = `Contract Period must be inside the project window (${linkedProject.charterWindowStart} to ${linkedProject.charterWindowEnd}).`;
+        if (charterStartDraft < linkedProject.charterWindowStart || charterStartDraft > linkedProject.charterWindowEnd) {
+          errors.start = outOfWindowMsg;
+        } else {
+          errors.end = outOfWindowMsg;
+        }
+      }
+    }
     if (!errors.start && !errors.end) {
       /* the asset cannot hold two contracts at once */
       const overlapError = formatOverlapError(
@@ -2794,7 +2821,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                               type="date"
                               className={`form-control form-control-sm bg-white text-dark${charterWindowErrors.start ? ' is-invalid border-danger' : ''}`}
                               value={charterStartDraft}
-                              min={minCharterDate}
+                              min={inlineProjectBounds.min ?? minCharterDate}
+                              max={inlineProjectBounds.max}
                               onChange={(e) => {
                                 setCharterStartDraft(e.target.value);
                                 setCharterWindowErrors((prev) => ({ ...prev, start: undefined }));
@@ -2813,7 +2841,8 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                               type="date"
                               className={`form-control form-control-sm bg-white text-dark${charterWindowErrors.end ? ' is-invalid border-danger' : ''}`}
                               value={charterEndDraft}
-                              min={charterStartDraft && charterStartDraft > minCharterDate ? charterStartDraft : minCharterDate}
+                              min={charterStartDraft && charterStartDraft > (inlineProjectBounds.min ?? minCharterDate) ? charterStartDraft : (inlineProjectBounds.min ?? minCharterDate)}
+                              max={inlineProjectBounds.max}
                               onChange={(e) => {
                                 setCharterEndDraft(e.target.value);
                                 setCharterWindowErrors((prev) => ({ ...prev, end: undefined }));
@@ -2823,6 +2852,11 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
                               <div className="invalid-feedback d-block small">{charterWindowErrors.end}</div>
                             )}
                           </div>
+                          {assuranceSet.projectId && linkedProject?.charterWindowStart && linkedProject?.charterWindowEnd && (
+                            <div className="form-text small" data-testid="detail-project-window-hint">
+                              Project window: {linkedProject.charterWindowStart} to {linkedProject.charterWindowEnd}
+                            </div>
+                          )}
                           <div>
                             <label className="form-label text-secondary small mb-1" htmlFor="planned-charter-date">
                               Planned Charter Date <span className="text-secondary fw-normal fs-7">(Optional)</span>

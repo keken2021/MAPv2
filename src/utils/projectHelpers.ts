@@ -547,6 +547,69 @@ export function isAssuranceSetWithinProjectWindow(
   );
 }
 
+export type ProjectDateBounds = {
+  min?: string;
+  max?: string;
+};
+
+export type ClampedPeriod = {
+  start: string;
+  end: string;
+  moved: boolean;
+};
+
+/**
+  what: date boundaries of a project window, optionally constrained by an earliest selectable date.
+  how: returns min (the later of project start and earliest) and max (project end); no project or no window returns no limits.
+*/
+export function getProjectDateBounds(
+  project?: { charterWindowStart?: string; charterWindowEnd?: string } | null,
+  earliest?: string,
+): ProjectDateBounds {
+  if (!project || !project.charterWindowStart || !project.charterWindowEnd) {
+    return {};
+  }
+  const min = earliest && earliest > project.charterWindowStart
+    ? earliest
+    : project.charterWindowStart;
+  return {
+    min,
+    max: project.charterWindowEnd,
+  };
+}
+
+/**
+  what: clamps a contract period so start and end fit within the given date bounds.
+  how: clamps start to min and max, clamps end to min and max, ensures end >= start, reports moved.
+*/
+export function clampPeriodToBounds(
+  start: string,
+  end: string,
+  bounds: ProjectDateBounds,
+): ClampedPeriod {
+  let nextStart = start;
+  let nextEnd = end;
+
+  if (bounds.min) {
+    if (nextStart && nextStart < bounds.min) nextStart = bounds.min;
+    if (nextEnd && nextEnd < bounds.min) nextEnd = bounds.min;
+  }
+  if (bounds.max) {
+    if (nextStart && nextStart > bounds.max) nextStart = bounds.max;
+    if (nextEnd && nextEnd > bounds.max) nextEnd = bounds.max;
+  }
+  if (nextStart && nextEnd && nextStart > nextEnd) {
+    nextEnd = nextStart;
+    if (bounds.max && nextEnd > bounds.max) {
+      nextEnd = bounds.max;
+      nextStart = bounds.max;
+    }
+  }
+
+  const moved = nextStart !== start || nextEnd !== end;
+  return { start: nextStart, end: nextEnd, moved };
+}
+
 export type AssuranceSetsForProjectCreationOptions = {
   vessels?: VesselInformation[];
   crew?: CrewMember[];

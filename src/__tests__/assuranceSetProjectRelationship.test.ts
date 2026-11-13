@@ -9,7 +9,9 @@ import { useMapStore } from '../store/useMapStore';
 import { MOCK_PROJECTS, PROJECT_SEED_ASSURANCE_SETS } from '../store/projectMockData';
 import { MOCK_ASSURANCE_SETS, MOCK_USERS } from '../store/mockData';
 import {
+  clampPeriodToBounds,
   getAssuranceSetsForProjectCreation,
+  getProjectDateBounds,
   getProjectForAssuranceSet,
   getStandaloneAssuranceSetsForAttach,
   isAssuranceSetOrphaned,
@@ -82,7 +84,7 @@ describe('project to assurance set relationship', () => {
       requestingOrganization: 'Northwind Marine Pty Ltd',
       clientOperator: 'Northwind Marine Pty Ltd',
       location: 'Fremantle Inner Harbour',
-      charterWindowStart: '2026-12-01',
+      charterWindowStart: '2026-11-01',
       charterWindowEnd: '2027-03-01',
       operatorOrganization: 'Northwind Marine Pty Ltd',
     });
@@ -167,7 +169,7 @@ describe('project to assurance set relationship', () => {
       requestingOrganization: 'Northwind Marine Pty Ltd',
       clientOperator: 'Northwind Marine Pty Ltd',
       location: 'Dampier',
-      charterWindowStart: '2026-12-01',
+      charterWindowStart: '2026-11-01',
       charterWindowEnd: '2027-03-01',
       operatorOrganization: 'Northwind Marine Pty Ltd',
     });
@@ -401,5 +403,116 @@ describe('assurance set client', () => {
       .assuranceSets.filter((s) => s.clientOrg && s.charterer && s.clientOrg !== s.charterer)
       .map((s) => s.id);
     expect(mismatched).toEqual([]);
+  });
+});
+
+describe('project date bounds and contract period gating', () => {
+  beforeEach(() => {
+    useMapStore.setState(initialState, true);
+  });
+
+  describe('getProjectDateBounds', () => {
+    it('returns empty bounds when project is undefined', () => {
+      expect(getProjectDateBounds(undefined)).toEqual({});
+      expect(getProjectDateBounds(null)).toEqual({});
+    });
+
+    it('returns empty bounds when project has no window', () => {
+      expect(getProjectDateBounds({ charterWindowStart: '', charterWindowEnd: '' })).toEqual({});
+      expect(getProjectDateBounds({ charterWindowStart: '2026-11-01', charterWindowEnd: '' })).toEqual({});
+      expect(getProjectDateBounds({ charterWindowStart: '', charterWindowEnd: '2027-02-28' })).toEqual({});
+    });
+
+    it('returns project bounds when project has a valid window', () => {
+      const project = { charterWindowStart: '2026-11-01', charterWindowEnd: '2027-02-28' };
+      expect(getProjectDateBounds(project)).toEqual({ min: '2026-11-01', max: '2027-02-28' });
+    });
+
+    it('uses earliest when earliest is later than project start', () => {
+      const project = { charterWindowStart: '2026-11-01', charterWindowEnd: '2027-02-28' };
+      expect(getProjectDateBounds(project, '2026-11-15')).toEqual({ min: '2026-11-15', max: '2027-02-28' });
+    });
+
+    it('keeps project start when earliest is earlier than project start', () => {
+      const project = { charterWindowStart: '2026-11-01', charterWindowEnd: '2027-02-28' };
+      expect(getProjectDateBounds(project, '2026-10-15')).toEqual({ min: '2026-11-01', max: '2027-02-28' });
+    });
+  });
+
+  describe('clampPeriodToBounds', () => {
+    const bounds = { min: '2026-11-01', max: '2027-02-28' };
+
+    it('leaves dates unchanged when they fall within bounds', () => {
+      const result = clampPeriodToBounds('2026-12-01', '2027-01-15', bounds);
+      expect(result).toEqual({ start: '2026-12-01', end: '2027-01-15', moved: false });
+    });
+
+    it('clamps start date when it falls before min', () => {
+      const result = clampPeriodToBounds('2026-10-01', '2027-01-15', bounds);
+      expect(result).toEqual({ start: '2026-11-01', end: '2027-01-15', moved: true });
+    });
+
+    it('clamps end date when it falls after max', () => {
+      const result = clampPeriodToBounds('2026-12-01', '2027-04-01', bounds);
+      expect(result).toEqual({ start: '2026-12-01', end: '2027-02-28', moved: true });
+    });
+
+    it('clamps both dates when both fall outside bounds', () => {
+      const result = clampPeriodToBounds('2026-09-01', '2027-05-01', bounds);
+      expect(result).toEqual({ start: '2026-11-01', end: '2027-02-28', moved: true });
+    });
+
+    it('keeps dates within bounds and ensures end >= start', () => {
+      const result = clampPeriodToBounds('2027-03-01', '2027-03-15', bounds);
+      expect(result).toEqual({ start: '2027-02-28', end: '2027-02-28', moved: true });
+    });
+
+    it('leaves dates unchanged when bounds are empty', () => {
+      const result = clampPeriodToBounds('2026-08-01', '2027-09-01', {});
+      expect(result).toEqual({ start: '2026-08-01', end: '2027-09-01', moved: false });
+    });
+  });
+
+  describe('attachAssuranceSetToProject date refusal', () => {
+    it('refuses to attach a set whose contract period falls outside the project window', () => {
+      const project = MOCK_PROJECTS[0]; // window: 2026-11-01 to 2027-02-28
+      const outOfWindowSet: AssuranceSet = {
+        ...buildOrphanSet('AS-REL-OUT-DATE', 'VESSEL-002', 'Out of Date Window Vessel'),
+        charterWindowStart: '2026-10-01',
+        charterWindowEnd: '2027-04-01',
+      };
+
+      useMapStore.setState((state) => ({
+        assuranceSets: [...state.assuranceSets, outOfWindowSet],
+      }));
+
+      const result = useMapStore.getState().attachAssuranceSetToProject('AS-REL-OUT-DATE', project.id);
+      expect(result.success).toBe(false);
+      expect(result.message).toBe(
+        `Contract Period must be inside the project window (${project.charterWindowStart} to ${project.charterWindowEnd}).`,
+      );
+
+      const state = useMapStore.getState();
+      expect(state.assuranceSets.find((s) => s.id === 'AS-REL-OUT-DATE')?.projectId).toBeUndefined();
+    });
+
+    it('attaches a set successfully when its contract period lies inside the project window', () => {
+      const project = MOCK_PROJECTS[0]; // window: 2026-11-01 to 2027-02-28
+      const inWindowSet: AssuranceSet = {
+        ...buildOrphanSet('AS-REL-IN-DATE', 'VESSEL-002', 'In Date Window Vessel'),
+        charterWindowStart: '2026-11-15',
+        charterWindowEnd: '2027-02-15',
+      };
+
+      useMapStore.setState((state) => ({
+        assuranceSets: [...state.assuranceSets, inWindowSet],
+      }));
+
+      const result = useMapStore.getState().attachAssuranceSetToProject('AS-REL-IN-DATE', project.id);
+      expect(result.success).toBe(true);
+
+      const state = useMapStore.getState();
+      expect(state.assuranceSets.find((s) => s.id === 'AS-REL-IN-DATE')?.projectId).toBe(project.id);
+    });
   });
 });

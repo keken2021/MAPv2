@@ -54,7 +54,15 @@ import {
   PENDING_ASSIGNMENT,
 } from '../utils/userRoleHelpers';
 import { findDuplicateObjectDocumentTitle } from '../utils/documentObjectHelpers';
-import { isDuplicateCampaignTitle, generateUniqueAssuranceSetId, generateUniqueRequirementId, validateComplianceDeadline, validateTaskTargetDate, TASK_DATE_AFTER_SET_DATE } from '../utils/validation';
+import {
+  isDuplicateCampaignTitle,
+  generateUniqueAssuranceSetId,
+  generateUniqueRequirementId,
+  validateComplianceDeadline,
+  validateTaskTargetDate,
+  TASK_DATE_AFTER_SET_DATE,
+  toIsoLocalDate,
+} from '../utils/validation';
 import {
   SUBTYPE_STANDARD_DOCS,
   SUBTYPE_TEMPLATES,
@@ -93,8 +101,10 @@ import {
 import { formatMaritimeDate, toSentenceCase } from '../utils/formatters';
 import {
   addObjectOwners,
+  clampPeriodToBounds,
   eligibleReviewers,
   filterProjectsForPersona,
+  getProjectDateBounds,
   isProjectAccessibleToUser,
   objectOwnerOrganizations,
   organizationInUse,
@@ -106,6 +116,7 @@ import {
   taskProvider,
   withProjectVessels,
 } from '../utils/projectHelpers';
+import { AssuranceContractPeriodFields } from '../components/wizards/AssuranceContractPeriodFields';
 import {
   canOpenAssuranceRequestWizard,
   resolveAssuranceRequestContext,
@@ -1316,10 +1327,104 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     if (tmpl) triggerAutofillAnimation([`subtype-docs-container-${subtype}`]);
   };
 
+  const tomorrowDateStr = useMemo(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return toIsoLocalDate(tomorrow);
+  }, []);
+
+  const selectedProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) : undefined;
+
+  const projectBounds = useMemo(() => {
+    return getProjectDateBounds(selectedProject, tomorrowDateStr);
+  }, [selectedProject, tomorrowDateStr]);
+
+  const isWindowEnded = Boolean(
+    selectedProject?.charterWindowEnd &&
+    (selectedProject.charterWindowEnd < tomorrowDateStr ||
+      (selectedProject.charterWindowStart && selectedProject.charterWindowStart > selectedProject.charterWindowEnd))
+  );
+
   /* link or unlink the optional project; ignored while the project is locked by the entry point */
   const handleProjectChange = (projId: string) => {
     if (isProjectLocked) return;
     setSelectedProjectId(projId);
+    const proj = projId ? projects.find((p) => p.id === projId) : undefined;
+    if (proj?.charterWindowStart && proj?.charterWindowEnd) {
+      const bounds = getProjectDateBounds(proj, tomorrowDateStr);
+      const clamped = clampPeriodToBounds(startDate, endDate, bounds);
+      if (clamped.moved) {
+        setStartDate(clamped.start);
+        setEndDate(clamped.end);
+        if (complianceDeadline && complianceDeadline > clamped.start) {
+          setComplianceDeadline(clamped.start);
+        }
+        setDateNotice(`Contract Period moved to ${clamped.start} – ${clamped.end} to fit inside the project window.`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedProject?.charterWindowStart || !selectedProject?.charterWindowEnd) return;
+    const bounds = getProjectDateBounds(selectedProject, tomorrowDateStr);
+    const clamped = clampPeriodToBounds(startDate, endDate, bounds);
+    if (clamped.moved) {
+      setStartDate(clamped.start);
+      setEndDate(clamped.end);
+      if (complianceDeadline && complianceDeadline > clamped.start) {
+        setComplianceDeadline(clamped.start);
+      }
+      setDateNotice(`Contract Period moved to ${clamped.start} – ${clamped.end} to fit inside the project window.`);
+    }
+  }, [selectedProjectId, selectedProject?.charterWindowStart, selectedProject?.charterWindowEnd, tomorrowDateStr]);
+
+  const handleStartDateChange = (nextStart: string) => {
+    setStartDate(nextStart);
+    const notices: string[] = [];
+    if (nextStart && complianceDeadline && complianceDeadline > nextStart) {
+      notices.push(`Compliance Deadline moved to ${nextStart} because it must be on or before the Contract Period Start.`);
+    }
+    if (nextStart && endDate && endDate < nextStart) {
+      setEndDate(nextStart);
+      notices.push(`Contract Period End moved to ${nextStart} because it cannot be before the Contract Period Start.`);
+    }
+    if (notices.length > 0) setDateNotice(notices.join(' '));
+    setComplianceDeadline((current) => (!current || (nextStart && current > nextStart) ? nextStart : current));
+    setFieldErrors((prev) => {
+      const u = { ...prev };
+      delete u.startDate;
+      delete u.endDate;
+      delete u.complianceDeadline;
+      return u;
+    });
+  };
+
+  const handleEndDateChange = (nextEnd: string) => {
+    if (nextEnd && startDate && nextEnd < startDate) {
+      setEndDate(startDate);
+      setDateNotice(`Contract Period End reset to ${startDate} because it cannot be before the Contract Period Start.`);
+    } else {
+      setEndDate(nextEnd);
+    }
+    setFieldErrors((prev) => {
+      const u = { ...prev };
+      delete u.endDate;
+      return u;
+    });
+  };
+
+  const handleComplianceDeadlineChange = (nextDeadline: string) => {
+    if (nextDeadline && startDate && nextDeadline > startDate) {
+      setComplianceDeadline(startDate);
+      setDateNotice(`Compliance Deadline reset to ${startDate} because it must be on or before the Contract Period Start.`);
+    } else {
+      setComplianceDeadline(nextDeadline);
+    }
+    setFieldErrors((prev) => {
+      const u = { ...prev };
+      delete u.complianceDeadline;
+      return u;
+    });
   };
 
   /* Add catalogue standard document back to list */
@@ -1468,6 +1573,22 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       if (deadlineError) {
         newErrors.complianceDeadline = deadlineError;
       }
+      if (selectedProject?.charterWindowStart && selectedProject?.charterWindowEnd) {
+        if (isWindowEnded) {
+          newErrors.startDate = "This project's window has ended. Change the project dates first.";
+        } else {
+          if (startDate && selectedProject.charterWindowStart && startDate < selectedProject.charterWindowStart) {
+            newErrors.startDate = `Contract Period must be inside the project window (${selectedProject.charterWindowStart} to ${selectedProject.charterWindowEnd}).`;
+          } else if (startDate && selectedProject.charterWindowEnd && startDate > selectedProject.charterWindowEnd) {
+            newErrors.startDate = `Contract Period must be inside the project window (${selectedProject.charterWindowStart} to ${selectedProject.charterWindowEnd}).`;
+          }
+          if (endDate && selectedProject.charterWindowEnd && endDate > selectedProject.charterWindowEnd) {
+            newErrors.endDate = `Contract Period must be inside the project window (${selectedProject.charterWindowStart} to ${selectedProject.charterWindowEnd}).`;
+          } else if (endDate && selectedProject.charterWindowStart && endDate < selectedProject.charterWindowStart) {
+            newErrors.endDate = `Contract Period must be inside the project window (${selectedProject.charterWindowStart} to ${selectedProject.charterWindowEnd}).`;
+          }
+        }
+      }
     }
 
     if (step.id === 'step-objects') {
@@ -1561,7 +1682,6 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
-  const selectedProject = selectedProjectId ? projects.find((p) => p.id === selectedProjectId) : undefined;
   /* keep a locked or draft-restored project selectable even when it is outside the persona's visible list */
   const projectOptions =
     selectedProject && !availableProjectOptions.some((p) => p.id === selectedProject.id)
@@ -3123,132 +3243,25 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                   </div>
 
                   {/* Charter Window Dates */}
-                  <div className="col-12 col-md-3">
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-start">
-                      Contract Period Start <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      id="grid-charter-start"
-                      type="date"
-                      placeholder={initialPeriod.start}
-                      className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.startDate ? ' is-invalid border-danger' : ''}`}
-                      value={startDate}
-                      onChange={(e) => {
-                        const nextStart = e.target.value;
-                        setStartDate(nextStart);
-                        const notices: string[] = [];
-                        if (nextStart && complianceDeadline && complianceDeadline > nextStart) {
-                          notices.push(`Compliance Deadline moved to ${nextStart} because it must be on or before the Contract Period Start.`);
-                        }
-                        if (nextStart && endDate && endDate < nextStart) {
-                          setEndDate(nextStart);
-                          notices.push(`Contract Period End moved to ${nextStart} because it cannot be before the Contract Period Start.`);
-                        }
-                        if (notices.length > 0) setDateNotice(notices.join(' '));
-                        setComplianceDeadline((current) => (!current || (nextStart && current > nextStart) ? nextStart : current));
-                        setFieldErrors((prev) => {
-                          const u = { ...prev };
-                          delete u.startDate;
-                          delete u.endDate;
-                          delete u.complianceDeadline;
-                          return u;
-                        });
-                      }}
-                      required
-                    />
-                    {fieldErrors.startDate && (
-                      <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                        {fieldErrors.startDate}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="col-12 col-md-3">
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="grid-charter-end">
-                      Contract Period End <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      id="grid-charter-end"
-                      type="date"
-                      placeholder={initialPeriod.end}
-                      className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.endDate ? ' is-invalid border-danger' : ''}`}
-                      value={endDate}
-                      onChange={(e) => {
-                        const nextEnd = e.target.value;
-                        if (nextEnd && startDate && nextEnd < startDate) {
-                          setEndDate(startDate);
-                          setDateNotice(`Contract Period End reset to ${startDate} because it cannot be before the Contract Period Start.`);
-                        } else {
-                          setEndDate(nextEnd);
-                        }
-                        setFieldErrors((prev) => {
-                          const u = { ...prev };
-                          delete u.endDate;
-                          return u;
-                        });
-                      }}
-                      required
-                    />
-                    {fieldErrors.endDate && (
-                      <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                        {fieldErrors.endDate}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="col-12 col-md-3">
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="grid-planned-charter-date">
-                      Planned Charter Date <span className="text-secondary fw-normal fs-7">(Optional)</span>
-                    </label>
-                    <input
-                      id="grid-planned-charter-date"
-                      type="date"
-                      className="form-control bg-white text-dark border-secondary-subtle font-mono-code"
-                      value={plannedCharterDate}
-                      onChange={(e) => setPlannedCharterDate(e.target.value)}
-                      aria-describedby="grid-planned-charter-date-help"
-                    />
-                    <div id="grid-planned-charter-date-help" className="form-text small">
-                      Optional planned commencement date for asset chartering.
-                    </div>
-                  </div>
-
-                  <div className="col-12 col-md-3">
-                    <label className="form-label text-secondary small fw-semibold" htmlFor="grid-compliance-deadline">
-                      Compliance Deadline <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      id="grid-compliance-deadline"
-                      type="date"
-                      className={`form-control bg-white text-dark border-secondary-subtle font-mono-code${fieldErrors.complianceDeadline ? ' is-invalid border-danger' : ''}`}
-                      value={complianceDeadline}
-                      max={startDate || undefined}
-                      onChange={(e) => {
-                        const nextDeadline = e.target.value;
-                        if (nextDeadline && startDate && nextDeadline > startDate) {
-                          setComplianceDeadline(startDate);
-                          setDateNotice(`Compliance Deadline reset to ${startDate} because it must be on or before the Contract Period Start.`);
-                        } else {
-                          setComplianceDeadline(nextDeadline);
-                        }
-                        setFieldErrors((prev) => {
-                          const u = { ...prev };
-                          delete u.complianceDeadline;
-                          return u;
-                        });
-                      }}
-                      required
-                      aria-describedby="grid-compliance-deadline-help"
-                    />
-                    <div id="grid-compliance-deadline-help" className="form-text small">
-                      When this assurance set must be complete. On or before the contract start.
-                    </div>
-                    {fieldErrors.complianceDeadline && (
-                      <div className="invalid-feedback d-block small mt-1 font-mono-code" style={{ fontSize: '0.75rem' }}>
-                        {fieldErrors.complianceDeadline}
-                      </div>
-                    )}
-                  </div>
+                  <AssuranceContractPeriodFields
+                    startDate={startDate}
+                    endDate={endDate}
+                    plannedCharterDate={plannedCharterDate}
+                    complianceDeadline={complianceDeadline}
+                    fieldErrors={fieldErrors}
+                    initialPeriod={initialPeriod}
+                    projectBounds={projectBounds}
+                    projectWindow={
+                      selectedProject?.charterWindowStart && selectedProject?.charterWindowEnd
+                        ? { start: selectedProject.charterWindowStart, end: selectedProject.charterWindowEnd }
+                        : undefined
+                    }
+                    isWindowEnded={isWindowEnded}
+                    onStartDateChange={handleStartDateChange}
+                    onEndDateChange={handleEndDateChange}
+                    onPlannedCharterDateChange={setPlannedCharterDate}
+                    onComplianceDeadlineChange={handleComplianceDeadlineChange}
+                  />
 
                   {/* People / Plant / Process Tags (BRD V4.2 BR-15, Gap G3) */}
                   {/* <div className="col-12">
