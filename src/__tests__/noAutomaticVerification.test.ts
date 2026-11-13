@@ -1,7 +1,7 @@
 /*
-  file summary: tests that attaching or uploading a document never counts as verifying it.
-  responsibilities: verifies that an auto-attached requirement is submitted (40), not verified (70), and that a crew upload sent in as Verified is stored as Pending.
-  role in system: covers documentMatchingHelpers.ts (autoAttachDocumentsToRequirements), readinessHelpers.ts and useMapStore.ts (addCrewDocument); gap review finding E3.
+  file summary: tests that attaching or uploading a document never counts as verifying it, narrowed by ADR 0041 for reused documents.
+  responsibilities: verifies that a hand-attached or uploaded requirement is submitted (40), not verified (70), whereas a reused verified document on file starts Verified (70) and fulfilled, and that a crew upload sent in as Verified is stored as Pending.
+  role in system: covers documentMatchingHelpers.ts (autoAttachDocumentsToRequirements), readinessHelpers.ts and useMapStore.ts (addCrewDocument); gap review finding E3 narrowed by ADR 0041.
 */
 
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -9,15 +9,16 @@ import { useMapStore } from '../store/useMapStore';
 import { autoAttachDocumentsToRequirements } from '../utils/documentMatchingHelpers';
 import { getRequirementReadinessPercentage, STAGE_READINESS_WEIGHTS } from '../utils/readinessHelpers';
 import type { AssuranceRequirement } from '../types/assurance';
+import type { MasterDocument } from '../types/document';
 
 const initialState = useMapStore.getState();
 
-describe('no automatic verification', () => {
+describe('no automatic verification (gap review E3, narrowed for reused documents)', () => {
   beforeEach(() => {
     useMapStore.setState(initialState, true);
   });
 
-  it('scores an attached but unreviewed requirement as submitted, not verified', () => {
+  it('scores a hand-attached or unreviewed slot as submitted, not verified', () => {
     const req: AssuranceRequirement = {
       id: 'req-e3',
       category: 'Statutory Certificate',
@@ -35,7 +36,48 @@ describe('no automatic verification', () => {
     } as never);
 
     expect(attached.isFulfilled).toBe(false);
+    expect(attached.verifierStatus).toBe('Pending');
+    expect(attached.reusedDocument).toBeUndefined();
     expect(getRequirementReadinessPercentage(attached, { stage: 'Validation' })).toBe(STAGE_READINESS_WEIGHTS.submitted);
+  });
+
+  it('marks a reused verified document on file as Verified and fulfilled', () => {
+    const vessel = useMapStore.getState().vessels[0];
+    const verifiedDoc: MasterDocument = {
+      ...useMapStore.getState().documents[0],
+      id: 'DOC-VERIFIED-REUSE-001',
+      vesselId: vessel.id,
+      targetObjectType: 'Vessel',
+      targetObjectId: vessel.id,
+      docTypeId: 'vessel-class-cert',
+      verificationStatus: 'Verified',
+      complianceState: 'Valid',
+      expiryDate: '2028-12-31',
+    };
+
+    const req: AssuranceRequirement = {
+      id: 'req-reuse',
+      docTypeId: 'vessel-class-cert',
+      category: 'Statutory Certificate',
+      title: 'Certificate of Class',
+      subtype: 'Vessel',
+      isMandatory: true,
+      isFulfilled: false,
+      ocrConfidence: 0,
+      verifierStatus: 'Pending',
+    };
+
+    const [attached] = autoAttachDocumentsToRequirements([req], {
+      vessel,
+      vessels: [vessel],
+      documents: [verifiedDoc],
+    });
+
+    expect(attached.documentId).toBe('DOC-VERIFIED-REUSE-001');
+    expect(attached.reusedDocument).toBe(true);
+    expect(attached.isFulfilled).toBe(true);
+    expect(attached.verifierStatus).toBe('Verified');
+    expect(getRequirementReadinessPercentage(attached, { stage: 'Validation' })).toBe(STAGE_READINESS_WEIGHTS.verified);
   });
 
   it('stores a crew upload sent in as Verified as Pending', () => {

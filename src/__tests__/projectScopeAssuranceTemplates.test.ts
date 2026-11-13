@@ -172,6 +172,7 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     const rawRequirements: AssuranceRequirement[] = [
       ...SUBTYPE_STANDARD_DOCS.Vessel.map((doc, idx) => ({
         id: `req-ves-${idx}`,
+        docTypeId: doc.id,
         title: doc.title,
         category: doc.category,
         subtype: 'Vessel' as const,
@@ -182,6 +183,7 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
       })),
       ...SUBTYPE_STANDARD_DOCS.Crew.map((doc, idx) => ({
         id: `req-crew-${idx}`,
+        docTypeId: doc.id,
         title: doc.title,
         category: doc.category,
         subtype: 'Crew' as const,
@@ -210,7 +212,8 @@ describe('Project Scope Assurance Templates & Multi-Asset Mock Data', () => {
     });
 
     // Validates that asset vault documents attach during roster/campaign nomination
-    expect(downstreamAttached.some((r) => r.documentId && !r.isFulfilled)).toBe(true);
+    expect(downstreamAttached.some((r) => r.documentId && r.isFulfilled && r.verifierStatus === 'Verified')).toBe(true);
+    expect(downstreamAttached.some((r) => !r.isFulfilled)).toBe(true);
   });
 });
 

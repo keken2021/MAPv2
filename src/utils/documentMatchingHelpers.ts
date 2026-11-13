@@ -590,11 +590,12 @@ export function autoAttachDocumentsToRequirements(
   if (!requirements || requirements.length === 0) return [];
 
   return requirements.map((req) => {
-    /* an attached document is submitted, not verified: only a verifier's decision fulfils the requirement (gap review E3) */
+    /* a slot that already held a document keeps the E3 rule (Pending until a Verifier decides) */
     if (req.documentId || req.linkedDocumentId) {
       return {
         ...req,
-        isFulfilled: req.verifierStatus === 'Verified',
+        isFulfilled: req.reusedDocument ? true : req.verifierStatus === 'Verified',
+        verifierStatus: req.reusedDocument ? (req.verifierStatus || 'Verified') : (req.verifierStatus || 'Pending'),
         ocrConfidence: req.ocrConfidence || 95,
       };
     }
@@ -617,9 +618,10 @@ export function autoAttachDocumentsToRequirements(
         linkedDocumentId: matched.linkedDocumentId,
         documentVersion: matched.documentVersion,
         ocrConfidence: matched.ocrConfidence,
-        /* a document on file for another set still needs this set's own verification */
-        isFulfilled: false,
-        verifierStatus: 'Pending',
+        /* reused verified document counts as done (overrides E3 for reused documents only) */
+        isFulfilled: true,
+        verifierStatus: 'Verified',
+        reusedDocument: true,
       };
     }
 

@@ -48,15 +48,16 @@ describe('Chartered Asset Document Auto-Attachment', () => {
     const classReq = attachedRequirements.find((r) => r.title === 'Certificate of Class');
     expect(classReq).toBeDefined();
     expect(classReq?.documentId).toBeDefined();
-    /* attached means submitted for this set's own review, never verified (gap review E3) */
-    expect(classReq?.isFulfilled).toBe(false);
-    expect(classReq?.verifierStatus).toBe('Pending');
+    /* reused verified document counts as done: Verified and fulfilled */
+    expect(classReq?.isFulfilled).toBe(true);
+    expect(classReq?.verifierStatus).toBe('Verified');
+    expect(classReq?.reusedDocument).toBe(true);
     expect(classReq?.ocrConfidence).toBeGreaterThan(0);
 
     const ioppReq = attachedRequirements.find((r) => r.title.includes('IOPP'));
     expect(ioppReq).toBeDefined();
     expect(ioppReq?.documentId).toBeDefined();
-    expect(ioppReq?.isFulfilled).toBe(false);
+    expect(ioppReq?.isFulfilled).toBe(true);
   });
 
   it('automatically matches and attaches STCW credentials linked to a chartered crew member', () => {
@@ -87,8 +88,9 @@ describe('Chartered Asset Document Auto-Attachment', () => {
     const medicalReq = attachedRequirements.find((r) => r.title.includes('ENG1') || r.title.includes('Medical'));
     expect(medicalReq).toBeDefined();
     expect(medicalReq?.documentId).toBeDefined();
-    expect(medicalReq?.isFulfilled).toBe(false);
-    expect(medicalReq?.verifierStatus).toBe('Pending');
+    expect(medicalReq?.isFulfilled).toBe(true);
+    expect(medicalReq?.verifierStatus).toBe('Verified');
+    expect(medicalReq?.reusedDocument).toBe(true);
     expect(medicalReq?.ocrConfidence).toBeGreaterThan(0);
   });
 
@@ -133,7 +135,7 @@ describe('Chartered Asset Document Auto-Attachment', () => {
 
     const savedSet = useMapStore.getState().assuranceSets.find((s) => s.id === uniqueId);
     expect(savedSet).toBeDefined();
-    expect(savedSet?.requirements.some((r) => r.documentId && !r.isFulfilled && r.verifierStatus === 'Pending')).toBe(true);
+    expect(savedSet?.requirements.some((r) => r.documentId && r.isFulfilled && r.verifierStatus === 'Verified')).toBe(true);
     expect(savedSet?.readinessScore).toBeGreaterThan(10);
   });
 

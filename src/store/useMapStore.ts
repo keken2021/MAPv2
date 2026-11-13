@@ -2735,6 +2735,18 @@ export const useMapStore = create<MapStoreState>((set, get) => ({
       targetAsset: `${computedSet.id} (${computedSet.title})`,
       justificationNotes: `Created assurance set for vessel ${computedSet.vesselName}`,
     });
+
+    // Log one audit event per reused slot (overriding E3 for reused documents)
+    computedSet.requirements.forEach((slot) => {
+      if (slot.reusedDocument) {
+        get().logAuditEvent({
+          action: "Auto-attached existing document",
+          targetAsset: `${computedSet.id} · ${slot.title}`,
+          target: { kind: "requirement", setId: computedSet.id, requirementId: slot.id, title: slot.title },
+          justificationNotes: `Auto-attached existing document ${slot.documentId || slot.linkedDocumentId} to slot ${slot.title} on assurance set ${computedSet.id} (${computedSet.title}).`,
+        });
+      }
+    });
   },
   updateAssuranceSet: (updatedSet) => {
     const state = get();

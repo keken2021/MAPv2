@@ -27,6 +27,7 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
 
     const rawRequirements: AssuranceRequirement[] = SUBTYPE_STANDARD_DOCS.Vessel.map((doc, idx) => ({
       id: `REQ-VES-${idx}`,
+      docTypeId: doc.id,
       category: doc.category,
       title: doc.title,
       description: doc.description,
@@ -74,8 +75,8 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
 
     expect(set.vesselId).toBe('VESSEL-001');
     expect(set.internalDeployment).toBe(true);
-    expect(set.requirements.some((r) => r.documentId && r.verifierStatus === 'Pending')).toBe(true);
-    expect(set.requirements.every((r) => !r.isFulfilled)).toBe(true);
+    expect(set.requirements.some((r) => r.documentId && r.verifierStatus === 'Verified' && r.isFulfilled)).toBe(true);
+    expect(set.requirements.some((r) => !r.isFulfilled)).toBe(true);
     expect(set.readinessScore).toBeGreaterThan(10);
   });
 
@@ -86,6 +87,7 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
 
     const rawRequirements: AssuranceRequirement[] = SUBTYPE_STANDARD_DOCS.Crew.map((doc, idx) => ({
       id: `REQ-CRW-${idx}`,
+      docTypeId: doc.id,
       category: doc.category,
       title: doc.title,
       description: doc.description,
@@ -136,7 +138,8 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
     expect(set.crewName).toBe(crewMember.fullName);
     expect(set.internalDeployment).toBe(true);
     expect(set.requirements.some((r) => r.documentId || r.linkedDocumentId)).toBe(true);
-    expect(set.requirements.every((r) => !r.isFulfilled)).toBe(true);
+    expect(set.requirements.some((r) => r.isFulfilled && r.verifierStatus === 'Verified')).toBe(true);
+    expect(set.requirements.some((r) => !r.isFulfilled)).toBe(true);
   });
 
   it('creates a focused Equipment Assurance Set with equipmentId and equipment vault matching', () => {
@@ -146,6 +149,7 @@ describe('Asset-Level Assurance Set Creation (Non-Project Scopes)', () => {
 
     const rawRequirements: AssuranceRequirement[] = SUBTYPE_STANDARD_DOCS.Equipment.map((doc, idx) => ({
       id: `REQ-EQP-${idx}`,
+      docTypeId: doc.id,
       category: doc.category,
       title: doc.title,
       description: doc.description,
