@@ -350,7 +350,7 @@ describe('ProjectTasksTable', () => {
     expect(screen.getByText('Crane Load Test Protocol')).toBeInTheDocument();
   });
 
-  it('pages at 20 rows per page with pagination controls', () => {
+  it('pages at 10 rows per page with pagination controls', () => {
     // Generate 25 open requirements
     const reqs: AssuranceRequirement[] = Array.from({ length: 25 }, (_, i) =>
       createRequirement({
@@ -369,28 +369,31 @@ describe('ProjectTasksTable', () => {
       />
     );
 
-    // Page 1 should show 20 rows
-    expect(screen.getByText('Showing 1-20 of 25')).toBeInTheDocument();
-    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    // Page 1 should show 10 rows
+    expect(screen.getByText('Showing 1-10 of 25')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
     expect(screen.getByText('Task Requirement Number 01')).toBeInTheDocument();
-    expect(screen.getByText('Task Requirement Number 20')).toBeInTheDocument();
-    expect(screen.queryByText('Task Requirement Number 21')).not.toBeInTheDocument();
+    expect(screen.getByText('Task Requirement Number 10')).toBeInTheDocument();
+    expect(screen.queryByText('Task Requirement Number 11')).not.toBeInTheDocument();
+    const pageSizeSelect = screen.getByRole('combobox', { name: /rows per page/i });
+    expect(pageSizeSelect).toHaveValue('10');
 
     // Click Next page
-    const nextBtn = screen.getByRole('button', { name: /Next page/i });
+    const nextBtn = screen.getByRole('button', { name: /next page/i });
     fireEvent.click(nextBtn);
 
-    // Page 2 should show remaining 5 rows
-    expect(screen.getByText('Showing 21-25 of 25')).toBeInTheDocument();
-    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
-    expect(screen.getByText('Task Requirement Number 21')).toBeInTheDocument();
-    expect(screen.getByText('Task Requirement Number 25')).toBeInTheDocument();
-    expect(screen.queryByText('Task Requirement Number 01')).not.toBeInTheDocument();
+    // Page 2 should show rows 11-20
+    expect(screen.getByText('Showing 11-20 of 25')).toBeInTheDocument();
+    expect(screen.getByText('Page 2 of 3')).toBeInTheDocument();
 
     // Click Previous page
-    const prevBtn = screen.getByRole('button', { name: /Previous page/i });
+    const prevBtn = screen.getByRole('button', { name: /previous page/i });
     fireEvent.click(prevBtn);
-    expect(screen.getByText('Showing 1-20 of 25')).toBeInTheDocument();
+    expect(screen.getByText('Showing 1-10 of 25')).toBeInTheDocument();
+
+    // Change rows per page to 25
+    fireEvent.change(pageSizeSelect, { target: { value: '25' } });
+    expect(screen.getByText('Showing 1-25 of 25')).toBeInTheDocument();
   });
 });
 

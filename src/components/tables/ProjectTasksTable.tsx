@@ -15,7 +15,7 @@ import { useMapStore } from '../../store/useMapStore';
 import type { AssuranceObject, AssuranceRequirement, AssuranceSet } from '../../types/assurance';
 import type { MasterDocument } from '../../types/document';
 import type { UserProfile } from '../../types/user';
-import { paginate } from '../../utils/paginationHelpers';
+import { DEFAULT_PAGE_SIZE, paginate } from '../../utils/paginationHelpers';
 import { RbacSessionUser } from '../../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
 import {
@@ -361,7 +361,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   const [internalSortDirection, setInternalSortDirection] = useState<'asc' | 'desc'>(initialSortDirection ?? 'asc');
   const sortDirection = controlledSortDirection ?? internalSortDirection;
 
-  const [internalPageSize, setInternalPageSize] = useState(initialPageSize ?? 20);
+  const [internalPageSize, setInternalPageSize] = useState(initialPageSize ?? DEFAULT_PAGE_SIZE);
   const pageSize = controlledPageSize ?? internalPageSize;
 
   const [internalPage, setInternalPage] = useState(initialPage ?? 1);
