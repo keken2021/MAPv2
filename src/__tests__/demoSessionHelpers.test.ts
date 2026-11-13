@@ -15,7 +15,7 @@ import {
 
 describe('demoSessionHelpers', () => {
   it('lists active organizations from mock users (pending users excluded)', () => {
-    expect(getOrganizationsFromUsers(MOCK_USERS)).toHaveLength(18);
+    expect(getOrganizationsFromUsers(MOCK_USERS)).toHaveLength(19);
   });
 
   it('builds one switcher option per organization, in the same order, with its initials and counts', () => {
@@ -34,7 +34,7 @@ describe('demoSessionHelpers', () => {
 
     const gulf = options.find((o) => o.organization === 'Gulf Security Services Pty Ltd');
     expect(gulf?.initials).toBe('GS');
-    expect(gulf?.roleCount).toBe(2);
+    expect(gulf?.roleCount).toBe(3);
   });
 
   it('filters switcher options by name without regard to case', () => {
@@ -58,11 +58,12 @@ describe('demoSessionHelpers', () => {
     expect(formatOrganizationSwitcherMeta({ userCount: 3, roleCount: 0 })).toBe('No roles available');
   });
 
-  it('offers only administrator and submitter for Gulf Security Services', () => {
+  it('offers administrator, c admin, and submitter for Gulf Security Services', () => {
     const org = 'Gulf Security Services Pty Ltd';
-    expect(getPersonasForOrganization(MOCK_USERS, org)).toEqual(['Administrator', 'Submitter']);
+    expect(getPersonasForOrganization(MOCK_USERS, org)).toEqual(['Administrator', 'C Admin', 'Submitter']);
     expect(getPersonaOptionsForOrganization(MOCK_USERS, org)).toEqual([
       { role: 'Administrator', label: 'Vessel Admin' },
+      { role: 'C Admin', label: 'Client Admin' },
       { role: 'Submitter', label: 'Submitter' },
     ]);
   });

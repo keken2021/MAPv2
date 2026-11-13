@@ -18,6 +18,7 @@ import {
 import { isAssuranceSetAssignedToPersona, isViewAccessibleToPersona } from './rbacHelpers';
 import { isProjectAccessibleToUser } from './projectHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from './userRoleHelpers';
+import { setAssuranceDetailPreselect } from './dashboardTileNavigation';
 
 export interface NotificationInbox {
   sessionUser?: UserProfile;
@@ -91,7 +92,8 @@ export function useNotificationInbox(): NotificationInbox {
           if (!roleAllowed) return false;
           if (!sessionUser) return false;
           if (view === 'assurance-sets' && entityId) {
-            const targetSet = assuranceSets.find((s) => s.id === entityId);
+            const cleanId = entityId.split('?')[0];
+            const targetSet = assuranceSets.find((s) => s.id === cleanId || s.id === entityId);
             if (targetSet) {
               return isAssuranceSetAssignedToPersona(
                 targetSet,
@@ -184,6 +186,12 @@ export function useNotificationInbox(): NotificationInbox {
 
       openNotification(notification.id);
       setFocusedRequirementId(notification.taskId);
+      if (action.view === 'assurance-sets' && notification.assignedRole === 'Inspector') {
+        const targetSetId = notification.assuranceSetId || action.entityId?.split('?')[0];
+        if (targetSetId) {
+          setAssuranceDetailPreselect({ setId: targetSetId, tab: 'tasks' });
+        }
+      }
       setCurrentHashView(action.view, action.entityId);
     },
     [

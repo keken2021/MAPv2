@@ -384,6 +384,30 @@ describe('Assurance Sets List and Detail UI Declutter', () => {
       expect(screen.queryByText(/· 0 heavy/i)).toBeNull();
 
     });
+
+    it('declutters header actions by removing the Open Inspection button for assigned inspector', () => {
+      const state = useMapStore.getState();
+      const testSet: AssuranceSet = {
+        ...state.assuranceSets[0],
+        id: 'AS-DECLUTTER-INSP',
+        stage: 'Inspection',
+        mandatoryInspectionRequired: true,
+        inspectionCompleted: false,
+        assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
+      };
+      useMapStore.setState({
+        assuranceSets: [testSet, ...state.assuranceSets],
+        activePersona: 'Inspector',
+        activeDemoOrganization: 'Bureau Veritas Inspectorate',
+        activeSessionUserId: 'USR-203',
+        isAuthenticated: true,
+      });
+
+      render(<AssuranceDetailView setId="AS-DECLUTTER-INSP" />);
+
+      // The header Open Inspection button must be completely gone
+      expect(screen.queryByRole('button', { name: /open inspection/i })).toBeNull();
+    });
   });
 });
 

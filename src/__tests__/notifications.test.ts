@@ -11,6 +11,7 @@ import { MOCK_NOTIFICATIONS, NOTIFICATION_TYPE_META } from '../store/notificatio
 import { MOCK_PROJECTS } from '../store/projectMockData';
 import { UserRolePersona } from '../types/audit';
 import { AppNotification } from '../types/notification';
+import type { AssuranceSet } from '../types/assurance';
 import {
   NotificationActionContext,
   canOpenAssuranceRequestWizard,
@@ -723,5 +724,81 @@ describe('target date notices', () => {
       expect(mine.some((notice) => notice.targetDateKind === expectedKind && notice.taskId === task.id && notice.targetDate === '2026-10-30')).toBe(true);
     }
     expect(useMapStore.getState().focusedRequirementId).toBeUndefined();
+  });
+
+  it('raises one Start Inspection notification for assigned inspector on entering Inspection, none duplicated, and action opens Tasks tab', () => {
+    const testSetId = 'AS-INSP-NOTIF-TEST-01';
+    const baseSet = useMapStore.getState().assuranceSets[0];
+    const inspectionTargetSet: AssuranceSet = {
+      ...baseSet,
+      id: testSetId,
+      title: 'Meridian Anchor Inspection Campaign',
+      vesselName: 'MV Meridian',
+      stage: 'Verification',
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
+      assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
+      requirements: [
+        {
+          id: 'REQ-INSP-TEST-01',
+          category: 'Statutory Certificates',
+          title: 'Class Certificate',
+          isMandatory: true,
+          isFulfilled: true,
+          verifierStatus: 'Verified',
+          ocrConfidence: 99,
+          documentId: 'MAP-DOC-001',
+        },
+      ],
+    };
+
+    useMapStore.setState({
+      notifications: [],
+      assuranceSets: [inspectionTargetSet, ...useMapStore.getState().assuranceSets.filter((s) => s.id !== testSetId)],
+      activePersona: 'C Admin',
+      activeDemoOrganization: 'Chevron Australia Pty Ltd',
+      activeSessionUserId: 'USR-221',
+    });
+
+    // 1. Transition into 'Inspection' stage
+    useMapStore.getState().updateAssuranceSet({
+      ...inspectionTargetSet,
+      stage: 'Inspection',
+    });
+
+    // Inspector USR-203 receives exactly one "Start Inspection" notification
+    const inspectorInbox = inboxOf('USR-203');
+    const startInspectionNotifs = inspectorInbox.filter(
+      (n) => n.assuranceSetId === testSetId && n.subject.includes('Start Inspection'),
+    );
+    expect(startInspectionNotifs).toHaveLength(1);
+    const notif = startInspectionNotifs[0];
+    expect(notif.assignedRole).toBe('Inspector');
+    expect(notif.type).toBe('stakeholder_assigned');
+
+    // Action opens the set's Tasks tab
+    const action = getNotificationAction(notif, {
+      assuranceSets: useMapStore.getState().assuranceSets,
+      documents: useMapStore.getState().documents,
+      capaItems: useMapStore.getState().capaItems,
+      projects: useMapStore.getState().projects,
+      canAccessView: () => true,
+    });
+    expect(action).toMatchObject({
+      label: 'Start Inspection',
+      view: 'assurance-sets',
+      entityId: `${testSetId}?tab=tasks`,
+    });
+
+    // 2. Another update at 'Inspection' stage does not duplicate the notification
+    useMapStore.getState().updateAssuranceSet({
+      ...useMapStore.getState().assuranceSets.find((s) => s.id === testSetId)!,
+      targetDate: '2026-12-01',
+    });
+
+    const duplicateCheck = inboxOf('USR-203').filter(
+      (n) => n.assuranceSetId === testSetId && n.subject.includes('Start Inspection'),
+    );
+    expect(duplicateCheck).toHaveLength(1);
   });
 });

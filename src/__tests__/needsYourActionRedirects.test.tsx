@@ -552,6 +552,37 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
     expect(screen.getByRole('heading', { name: /Ballast valve actuator leak/i })).toBeInTheDocument();
   });
 
+  it('Inspector: inspection due set in Needs your action redirects to Tasks tab with the Inspection task row', () => {
+    const inspectionDueSet = makeSet({
+      id: 'AS-INSP-DUE-E2E',
+      title: 'Triton Rig Diving System Inspection',
+      vesselName: 'MV Triton Rig',
+      stage: 'Inspection',
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
+      assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
+      targetDate: '2027-06-01T00:00:00Z',
+      complianceDeadline: '2027-06-01T00:00:00Z',
+      requirements: [],
+    });
+
+    const storePayload = {
+      assuranceSets: [inspectionDueSet],
+      documents: [],
+      capaItems: [],
+      notifications: [],
+    };
+
+    mountDashboardAs('Inspector', 'Bureau Veritas Inspectorate', 'USR-203', storePayload);
+    clickNeedsActionButtonForRow(/MV Triton Rig/i, 'Finish report');
+    expect(screen.queryByRole('heading', { name: /you don't have access/i })).toBeNull();
+    expect(useMapStore.getState().currentHashView).toBe('assurance-sets');
+    expect(useMapStore.getState().currentEntityId).toBe('AS-INSP-DUE-E2E');
+    expect(screen.getByRole('tab', { name: /^Tasks/i })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('task-action-btn-AS-INSP-DUE-E2E-INSPECTION')).toBeInTheDocument();
+    expect(screen.getByTestId('task-action-btn-AS-INSP-DUE-E2E-INSPECTION')).toHaveTextContent('Inspect');
+  });
+
   it('Approver: Decide lands on Details tab with ApproverDecisionBar, and clicking View on Tasks tab opens ApproverDecisionDrawer in-place without redirecting to Requirements', () => {
     const verifiedDoc = makeDoc({
       id: 'DOC-APPR-1',
@@ -602,10 +633,10 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
     expect(useMapStore.getState().currentHashView).toBe('assurance-sets');
     expect(useMapStore.getState().currentEntityId).toBe('AS-APPR-E2E');
 
-    // Mandatory decision: Approver Decision bar stays in the Details tab
+    // Old approval entry points removed: Approver Decision bar is no longer in Details tab
     const detailsTab = screen.getByRole('tab', { name: /^Details/i });
     expect(detailsTab).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('approver-decision-bar')).toBeInTheDocument();
+    expect(screen.queryByTestId('approver-decision-bar')).toBeNull();
 
     // Switch to Tasks tab and click View -> opens ApproverDecisionDrawer WITHOUT switching to Requirements tab
     const tasksTab = screen.getByRole('tab', { name: /^Tasks/i });
@@ -628,6 +659,13 @@ describe('Dashboard "Needs your action" end-to-end redirects across all personas
     expect(screen.getByTestId('approver-drawer-decision-section')).toBeInTheDocument();
     expect(screen.getByTestId('approver-drawer-return-req-btn')).toBeInTheDocument();
     expect(screen.getByTestId('approver-drawer-reject-req-btn')).toBeInTheDocument();
+
+    // Close drawer / click Approve on Approval task row -> routes to approver hash view with the set id
+    const approveBtn = screen.getByTestId('task-action-btn-AS-APPR-E2E-APPROVAL');
+    expect(approveBtn).toHaveTextContent('Approve');
+    fireEvent.click(approveBtn);
+    expect(useMapStore.getState().currentHashView).toBe('approver');
+    expect(useMapStore.getState().currentEntityId).toBe('AS-APPR-E2E');
   });
 
   it('Default mock store: every rendered "Needs your action" CTA across all 6 personas navigates away from dashboard without AccessDeniedState', () => {

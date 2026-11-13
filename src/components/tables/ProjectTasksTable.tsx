@@ -10,17 +10,38 @@ import { ActiveFilterChips, FilterChip } from '../common/ActiveFilterChips';
 import { CountTab, CountTabs } from '../common/CountTabs';
 import { ListToolbar } from '../common/ListToolbar';
 import { TablePagination } from '../common/TablePagination';
+import { StatusBadge } from '../common/StatusBadge';
 import { useMapStore } from '../../store/useMapStore';
 import type { AssuranceObject, AssuranceRequirement, AssuranceSet } from '../../types/assurance';
 import type { MasterDocument } from '../../types/document';
 import type { UserProfile } from '../../types/user';
 import { paginate } from '../../utils/paginationHelpers';
-import { getAssuranceSetRoleActions, RbacSessionUser } from '../../utils/rbacHelpers';
-import { isClosedAssuranceSet } from '../../utils/documentVersionSnapshot';
-import { documentExpiresBeforeContractEnd, isDocumentExpired } from '../../utils/documentRenewalHelpers';
+import { RbacSessionUser } from '../../utils/rbacHelpers';
 import { getDemoSessionContext, getSessionUserForPersona } from '../../utils/userRoleHelpers';
+import {
+  ProjectTaskRow,
+  getTaskRowActionLabel,
+  resolveViewerPartyForRow,
+} from './ProjectTaskRow';
+export {
+  ProjectTaskRow,
+  getTaskRowActionLabel,
+  resolveViewerPartyForRow,
+};
+export type {
+  ProjectTaskRowData,
+  ProjectTaskRowProps,
+} from './ProjectTaskRow';
+import {
+  getInspectionTaskStatus,
+  getApprovalTaskStatus,
+  INSPECTION_TASK_TITLE,
+  INSPECTION_TASK_STATUS,
+  APPROVAL_TASK_TITLE,
+  APPROVAL_TASK_STATUS,
+} from '../../utils/stageTasks';
 
-export type TaskStatus = 'Pending' | 'On-going' | 'Done';
+export type TaskStatus = 'Pending' | 'On-going' | 'Done' | 'To Inspect' | 'To Approve';
 
 export type TaskTableScopeType = 'user' | 'project' | 'set';
 
@@ -43,19 +64,6 @@ export const TASK_FILTER_CHIP_LABELS: Record<TaskFilterChipKey, string> = {
 
 type SortField = 'title' | 'set' | 'object' | 'assignee' | 'status';
 
-export interface ProjectTaskRow {
-  id: string;
-  requirement: AssuranceRequirement;
-  parentSet: AssuranceSet;
-  targetObject: { name: string; identifier?: string; type?: string };
-  assignee: string;
-  status: TaskStatus;
-  targetDate?: string;
-  isOverdue: boolean;
-  isBlocking: boolean;
-  isCompleted: boolean;
-  isMyOrg: boolean;
-}
 
 export interface ProjectTasksTableProps {
   title?: string;
@@ -106,79 +114,6 @@ export interface ProjectTasksTableProps {
   onPageSizeChange?: (size: number) => void;
 }
 
-export function getTaskRowActionLabel(
-  row: { requirement: AssuranceRequirement; status?: string; parentSet?: AssuranceSet },
-  viewerParty?: 'requesting' | 'responding' | 'other' | string,
-  permissions?: { canUpload?: boolean; canVerify?: boolean },
-  context?: { document?: Pick<MasterDocument, 'expiryDate' | 'complianceState'>; today?: Date },
-): 'Upload' | 'Review' | 'View' {
-  const party = (viewerParty || '').toLowerCase();
-  const req = row.requirement;
-  const statusLower = (row.status || '').toLowerCase();
-
-  const isReuploadRequested =
-    Boolean(req?.reuploadRequested) ||
-    statusLower === 'reupload_requested' ||
-    statusLower === 'reupload requested' ||
-    req?.verifierStatus === 'Correction Requested' ||
-    req?.verifierStatus === 'Rejected';
-
-  const needsRenewalUpload = Boolean(
-    context?.document &&
-      (isDocumentExpired(context.document, context.today) ||
-        (row.parentSet?.charterWindowEnd &&
-          documentExpiresBeforeContractEnd(context.document, row.parentSet.charterWindowEnd))),
-  );
-
-  const isPending =
-    statusLower === 'pending' ||
-    isReuploadRequested ||
-    (!req?.documentId && !req?.linkedDocumentId && req?.verifierStatus !== 'Verified');
-
-  const isSubmitted =
-    statusLower === 'submitted' ||
-    (!isReuploadRequested &&
-      Boolean(req?.documentId || req?.linkedDocumentId) &&
-      (req?.verifierStatus === 'Pending' || statusLower === 'on-going'));
-
-  if (party === 'responding') {
-    if (isPending || isReuploadRequested || needsRenewalUpload) {
-      return permissions?.canUpload === false ? 'View' : 'Upload';
-    }
-  }
-
-  if (party === 'requesting') {
-    if (isSubmitted) {
-      return permissions?.canVerify === false ? 'View' : 'Review';
-    }
-  }
-
-  return 'View';
-}
-
-function resolveViewerPartyForRow(
-  parentSet: AssuranceSet,
-  explicitParty?: string,
-  sessionUser?: { organization?: string; name?: string; id?: string } | null,
-  activeDemoOrganization?: string,
-): 'requesting' | 'responding' | 'other' {
-  if (explicitParty) {
-    const p = explicitParty.toLowerCase();
-    if (p === 'requesting' || p === 'responding') return p;
-  }
-  const org = (activeDemoOrganization || sessionUser?.organization || '').trim().toLowerCase();
-  if (org && parentSet) {
-    const responding = (parentSet.respondingParty || parentSet.serviceProviderOrg || '').trim().toLowerCase();
-    const requesting = (parentSet.requestingParty || parentSet.clientOrg || '').trim().toLowerCase();
-    if (responding && (org === responding || org.includes(responding) || responding.includes(org))) {
-      return 'responding';
-    }
-    if (requesting && (org === requesting || org.includes(requesting) || requesting.includes(org))) {
-      return 'requesting';
-    }
-  }
-  return 'other';
-}
 
 function resolveTargetObject(
   req: AssuranceRequirement,
@@ -479,6 +414,128 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
   const allRows: ProjectTaskRow[] = useMemo(() => {
     const list: ProjectTaskRow[] = [];
     for (const set of scopedSets) {
+      // 1. Stage Task: Inspection
+      const inspectionStatusInfo = getInspectionTaskStatus(set);
+      if (inspectionStatusInfo) {
+        let matchesUser = true;
+        if (resolvedScopeType === 'user' && resolvedScopeId) {
+          const target = resolvedScopeId.toLowerCase().trim();
+          const targetUser = allUsers.find(
+            (u) =>
+              u.id.toLowerCase() === target ||
+              u.name.toLowerCase() === target ||
+              u.email.toLowerCase() === target,
+          );
+          const needles = [target];
+          if (targetUser) {
+            needles.push(targetUser.id.toLowerCase(), targetUser.name.toLowerCase(), targetUser.email.toLowerCase());
+          }
+          const haystacks = [set.assignedInspector].filter(Boolean).map((h) => String(h).toLowerCase());
+          matchesUser = needles.some((needle) => haystacks.some((h) => h.includes(needle)));
+        }
+
+        if (matchesUser) {
+          const targetObject = resolveTargetObject(
+            { id: `${set.id}-INSPECTION`, title: INSPECTION_TASK_TITLE } as AssuranceRequirement,
+            set,
+            assuranceObjects,
+          );
+          const assignee = set.assignedInspector?.trim() || 'Unassigned';
+          const targetDate = set.targetDate || set.complianceDeadline;
+          const todayIso = today.toISOString().split('T')[0];
+          const isOverdue = Boolean(targetDate && targetDate < todayIso);
+          const isDone = inspectionStatusInfo.status === 'Done';
+          const inspectionReq: AssuranceRequirement = {
+            id: `${set.id}-INSPECTION`,
+            category: 'Inspection',
+            title: INSPECTION_TASK_TITLE,
+            description: 'Mandatory physical or remote inspection required before assurance set sign-off.',
+            isMandatory: true,
+            isFulfilled: isDone,
+            ocrConfidence: 100,
+            verifierStatus: isDone ? 'Verified' : 'Pending',
+            targetDate,
+            responsibleParty: set.assignedInspector,
+          };
+          list.push({
+            id: `${set.id}-INSPECTION`,
+            requirement: inspectionReq,
+            parentSet: set,
+            targetObject,
+            assignee,
+            status: inspectionStatusInfo.status,
+            targetDate,
+            isOverdue,
+            isBlocking: !isDone,
+            isCompleted: isDone,
+            isMyOrg: true,
+            outcomeLabel: inspectionStatusInfo.outcomeLabel,
+            note: inspectionStatusInfo.note,
+          });
+        }
+      }
+
+      // 2. Stage Task: Approval
+      const approvalStatusInfo = getApprovalTaskStatus(set);
+      if (approvalStatusInfo) {
+        let matchesUser = true;
+        if (resolvedScopeType === 'user' && resolvedScopeId) {
+          const target = resolvedScopeId.toLowerCase().trim();
+          const targetUser = allUsers.find(
+            (u) =>
+              u.id.toLowerCase() === target ||
+              u.name.toLowerCase() === target ||
+              u.email.toLowerCase() === target,
+          );
+          const needles = [target];
+          if (targetUser) {
+            needles.push(targetUser.id.toLowerCase(), targetUser.name.toLowerCase(), targetUser.email.toLowerCase());
+          }
+          const haystacks = [set.assignedApprover].filter(Boolean).map((h) => String(h).toLowerCase());
+          matchesUser = needles.some((needle) => haystacks.some((h) => h.includes(needle)));
+        }
+
+        if (matchesUser) {
+          const targetObject = resolveTargetObject(
+            { id: `${set.id}-APPROVAL`, title: APPROVAL_TASK_TITLE } as AssuranceRequirement,
+            set,
+            assuranceObjects,
+          );
+          const assignee = set.assignedApprover?.trim() || 'Unassigned';
+          const targetDate = set.targetDate || set.complianceDeadline;
+          const todayIso = today.toISOString().split('T')[0];
+          const isOverdue = Boolean(targetDate && targetDate < todayIso);
+          const isDone = approvalStatusInfo.status === 'Done';
+          const approvalReq: AssuranceRequirement = {
+            id: `${set.id}-APPROVAL`,
+            category: 'Approval',
+            title: APPROVAL_TASK_TITLE,
+            description: 'Formal assurance sign-off and charter approval.',
+            isMandatory: true,
+            isFulfilled: isDone,
+            ocrConfidence: 100,
+            verifierStatus: isDone ? 'Verified' : 'Pending',
+            targetDate,
+            responsibleParty: set.assignedApprover,
+          };
+          list.push({
+            id: `${set.id}-APPROVAL`,
+            requirement: approvalReq,
+            parentSet: set,
+            targetObject,
+            assignee,
+            status: approvalStatusInfo.status,
+            targetDate,
+            isOverdue,
+            isBlocking: !isDone,
+            isCompleted: isDone,
+            isMyOrg: true,
+            outcomeLabel: approvalStatusInfo.outcomeLabel,
+            note: approvalStatusInfo.note,
+          });
+        }
+      }
+
       const reqs = set.requirements || [];
       for (const req of reqs) {
         const targetObject = resolveTargetObject(req, set, assuranceObjects);
@@ -533,12 +590,12 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
       }
     }
     return list;
-  }, [scopedSets, assuranceObjects, today, viewerOrg, resolvedScopeType, resolvedScopeId, allUsers]);
+  }, [scopedSets, assuranceObjects, today, viewerOrg, resolvedScopeType, resolvedScopeId, allUsers, store.activePersona, resolvedOrg, resolvedSessionUser]);
 
   const countTotals = useMemo(() => {
     return {
       all: allRows.length,
-      pending: allRows.filter((r) => r.status === 'Pending').length,
+      pending: allRows.filter((r) => r.status === 'Pending' || r.status === INSPECTION_TASK_STATUS || r.status === APPROVAL_TASK_STATUS).length,
       on_going: allRows.filter((r) => r.status === 'On-going').length,
       done: allRows.filter((r) => r.status === 'Done').length,
     };
@@ -558,7 +615,7 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
     const q = searchTerm.trim().toLowerCase();
 
     return allRows.filter((row) => {
-      if (activeTabKey === 'pending' && row.status !== 'Pending') return false;
+      if (activeTabKey === 'pending' && row.status !== 'Pending' && row.status !== INSPECTION_TASK_STATUS && row.status !== APPROVAL_TASK_STATUS) return false;
       if ((activeTabKey === 'on_going' || activeTabKey === 'on-going') && row.status !== 'On-going') return false;
       if (activeTabKey === 'done' && row.status !== 'Done') return false;
 
@@ -718,12 +775,14 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
               >
                 Task / requirement {renderSortIndicator('title')}
               </th>
-              <th
-                style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
-                onClick={() => handleSort('set')}
-              >
-                Parent assurance set {renderSortIndicator('set')}
-              </th>
+              {resolvedScopeType !== 'set' && (
+                <th
+                  style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                  onClick={() => handleSort('set')}
+                >
+                  Parent assurance set {renderSortIndicator('set')}
+                </th>
+              )}
               <th
                 style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
                 onClick={() => handleSort('object')}
@@ -752,197 +811,32 @@ export const ProjectTasksTable: React.FC<ProjectTasksTableProps> = ({
           <tbody>
             {sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={hasActions ? 6 : 5} className="text-center py-4 text-muted">
+                <td colSpan={resolvedScopeType === 'set' ? (hasActions ? 5 : 4) : (hasActions ? 6 : 5)} className="text-center py-4 text-muted">
                   {activeTabKey !== 'all' || searchTerm.trim()
                     ? 'No tasks match these filters.'
                     : 'No tasks found across linked assurance sets.'}
                 </td>
               </tr>
             ) : (
-              pagination.pageItems.map((row) => {
-                const { requirement, parentSet, targetObject, assignee, status, targetDate } = row;
-                const rowParty =
-                  explicitParty ||
-                  resolveViewerPartyForRow(parentSet, explicitParty, resolvedSessionUser, resolvedOrg);
-                const roleActions = getAssuranceSetRoleActions(
-                  parentSet,
-                  store.activePersona,
-                  resolvedOrg,
-                  resolvedSessionUser,
-                );
-                const isNonUploadPersona =
-                  store.activePersona !== 'Administrator' && store.activePersona !== 'Submitter';
-                const rowPermissions =
-                  canUploadProp !== undefined || canVerifyProp !== undefined
-                    ? { canUpload: canUploadProp, canVerify: canVerifyProp }
-                    : store.isAuthenticated
-                      ? {
-                          canUpload: roleActions.canUpload && !isClosedAssuranceSet(parentSet) && parentSet.stage !== 'Cancelled',
-                          canVerify: roleActions.canVerify,
-                        }
-                      : {
-                          canUpload: !isNonUploadPersona && !isClosedAssuranceSet(parentSet) && parentSet.stage !== 'Cancelled',
-                          canVerify: undefined,
-                        };
-                const rowLinkedDocId = requirement.documentId || requirement.linkedDocumentId;
-                const rowLinkedDoc = rowLinkedDocId
-                  ? resolvedDocuments.find((d) => d.id === rowLinkedDocId)
-                  : undefined;
-                const actionLabel = getTaskRowActionLabel(row, rowParty, rowPermissions, {
-                  document: rowLinkedDoc,
-                  today,
-                });
-                const isHighlighted = highlightedTaskId === requirement.id;
-                return (
-                  <tr
-                    key={row.id}
-                    data-task-id={requirement.id}
-                    data-set-id={parentSet.id}
-                    className={isHighlighted ? 'table-primary' : undefined}
-                  >
-                    <td>
-                      {onOpenRequirement ? (
-                        <button
-                          type="button"
-                          className="btn btn-link p-0 text-start fw-semibold text-decoration-none"
-                          onClick={() => onOpenRequirement(requirement, parentSet)}
-                          title={`Open ${requirement.title}`}
-                          data-testid={`task-open-req-${requirement.id}`}
-                        >
-                          {requirement.title}
-                        </button>
-                      ) : (
-                        <div className="fw-semibold text-dark">{requirement.title}</div>
-                      )}
-                      {requirement.category && (
-                        <div className="text-secondary small mt-0.5" style={{ fontSize: '0.75rem' }}>
-                          {requirement.category}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-link p-0 text-start fw-semibold text-decoration-none"
-                        onClick={() => handleOpenSet(parentSet)}
-                        title={`Open ${parentSet.title}`}
-                      >
-                        {parentSet.title}
-                      </button>
-                      <div className="font-mono-code text-muted small" style={{ fontSize: '0.72rem' }}>
-                        {parentSet.id}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="fw-semibold text-dark">{targetObject.name}</div>
-                      {targetObject.identifier && (
-                        <div className="font-mono-code text-muted small" style={{ fontSize: '0.72rem' }}>
-                          {targetObject.identifier}
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <div className="text-dark small fw-medium">{assignee}</div>
-                    </td>
-                    <td>
-                      <div className="d-flex flex-column align-items-start gap-1">
-                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                          <span
-                            className={`badge ${
-                              status === 'Done'
-                                ? 'bg-success text-white'
-                                : status === 'On-going'
-                                  ? 'bg-info text-dark'
-                                  : 'bg-secondary text-white'
-                            }`}
-                            style={{ fontSize: '0.75rem' }}
-                            data-testid="task-status-badge"
-                          >
-                            {status}
-                          </span>
-                          {row.isOverdue && (
-                            <span
-                              className="badge bg-danger text-white"
-                              style={{ fontSize: '0.7rem' }}
-                              data-testid="task-overdue-flag"
-                            >
-                              Overdue
-                            </span>
-                          )}
-                          {row.requirement.reuploadRequested && (
-                            <span
-                              className="badge bg-warning text-dark"
-                              style={{ fontSize: '0.7rem' }}
-                              data-testid="task-reupload-requested-flag"
-                              title={row.requirement.reuploadRequested.reason}
-                            >
-                              Reupload requested
-                            </span>
-                          )}
-                        </div>
-                        {row.requirement.reuploadRequested?.reason && (
-                          <span
-                            className="text-warning-emphasis small fst-italic"
-                            style={{ fontSize: '0.72rem', maxWidth: '240px' }}
-                            title={row.requirement.reuploadRequested.reason}
-                          >
-                            {row.requirement.reuploadRequested.reason}
-                          </span>
-                        )}
-                        {targetDate ? (
-                          <span
-                            className={`small font-mono-code ${
-                              row.isOverdue ? 'text-danger fw-semibold' : 'text-muted'
-                            }`}
-                            style={{ fontSize: '0.72rem' }}
-                          >
-                            Due: {targetDate}
-                          </span>
-                        ) : (
-                          <span className="text-muted small" style={{ fontSize: '0.72rem' }}>
-                            —
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    {hasActions && (
-                      <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
-                        {(() => {
-                          const hasLinkedDoc = Boolean(row.requirement.documentId || row.requirement.linkedDocumentId || rowLinkedDoc);
-                          const isReupload =
-                            Boolean(row.requirement.reuploadRequested) ||
-                            (row.status || '').toLowerCase().includes('reupload') ||
-                            (hasLinkedDoc &&
-                              (row.requirement.verifierStatus === 'Correction Requested' ||
-                                row.requirement.verifierStatus === 'Rejected' ||
-                                Boolean(
-                                  rowLinkedDoc &&
-                                    (isDocumentExpired(rowLinkedDoc, today) ||
-                                      (parentSet.charterWindowEnd &&
-                                        documentExpiresBeforeContractEnd(rowLinkedDoc, parentSet.charterWindowEnd))),
-                                )));
-                          const displayActionLabel = actionLabel === 'Upload' && isReupload ? 'Reupload' : actionLabel;
-                          return (
-                            <button
-                              type="button"
-                              className={`btn btn-sm ${
-                                actionLabel === 'Upload' || actionLabel === 'Review'
-                                  ? 'btn-primary'
-                                  : 'btn-outline-primary'
-                              }`}
-                              onClick={() => (onTaskAction ? onTaskAction(requirement, parentSet) : onOpenRequirement?.(requirement, parentSet))}
-                              data-testid={`task-action-btn-${requirement.id}`}
-                              aria-label={`${displayActionLabel} requirement ${requirement.title}`}
-                            >
-                              {displayActionLabel}
-                            </button>
-                          );
-                        })()}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
+              pagination.pageItems.map((row) => (
+                <ProjectTaskRow
+                  key={row.id}
+                  row={row}
+                  hasActions={hasActions}
+                  showParentSet={resolvedScopeType !== 'set'}
+                  isHighlighted={highlightedTaskId === row.requirement.id}
+                  explicitParty={explicitParty}
+                  canUploadProp={canUploadProp}
+                  canVerifyProp={canVerifyProp}
+                  resolvedOrg={resolvedOrg}
+                  resolvedSessionUser={resolvedSessionUser}
+                  resolvedDocuments={resolvedDocuments}
+                  today={today}
+                  onOpenSet={handleOpenSet}
+                  onOpenRequirement={onOpenRequirement}
+                  onTaskAction={onTaskAction}
+                />
+              ))
             )}
           </tbody>
         </table>

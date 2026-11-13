@@ -49,6 +49,7 @@ import {
   defaultProviderSubmitter,
   defaultOrganizationVerifier,
   defaultOrganizationInspector,
+  defaultOrganizationApprover,
   getStakeholderRoleOrganization,
   PENDING_ASSIGNMENT,
 } from '../utils/userRoleHelpers';
@@ -1677,11 +1678,21 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
           excludeUserName: defaultVerifier?.name,
         })
       : undefined;
+  const defaultApprover =
+    approvalRequired && approverOrg
+      ? defaultOrganizationApprover(users, approverOrg, {
+          excludeUserId: defaultVerifier?.id,
+          excludeUserName: defaultVerifier?.name,
+        })
+      : undefined;
   const verifierLabel = defaultVerifier
     ? `${defaultVerifier.name} (${defaultVerifier.organization || verifierOrg})`
     : undefined;
   const inspectorLabel = defaultInspector
     ? `${defaultInspector.name} (${defaultInspector.organization || inspectorOrg})`
+    : undefined;
+  const approverLabel = defaultApprover
+    ? `${defaultApprover.name} (${defaultApprover.organization || approverOrg})`
     : undefined;
 
   const stakeholderOrganizations = {
@@ -1694,6 +1705,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     inspectorId: defaultInspector?.id,
     inspectorName: defaultInspector?.name,
     inspectorOrg: inspectionRequired ? inspectorOrg : undefined,
+    approverId: defaultApprover?.id,
+    approverName: defaultApprover?.name,
     approverOrg: approvalRequired ? approverOrg : undefined,
   };
   const reqAssignedVerifier = verificationRequired
@@ -1701,6 +1714,9 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     : undefined;
   const reqAssignedInspector = inspectionRequired
     ? (inspectorLabel ?? PENDING_ASSIGNMENT)
+    : undefined;
+  const reqAssignedApprover = approvalRequired && approverOrg
+    ? (approverLabel ?? PENDING_ASSIGNMENT)
     : undefined;
   const subtypeStakeholder = {
     assignedSubmitter: submitterLabel,
@@ -1713,6 +1729,10 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
     assignedInspector: reqAssignedInspector,
     inspectorId: defaultInspector?.id,
     inspectorName: defaultInspector?.name,
+    approverOrg: stakeholderOrganizations.approverOrg,
+    assignedApprover: reqAssignedApprover,
+    approverId: defaultApprover?.id,
+    approverName: defaultApprover?.name,
   };
 
   /* Submit and create assurance set */
@@ -2081,7 +2101,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assignedSubmitter: submitterLabel,
       assignedVerifier: reqAssignedVerifier,
       assignedInspector: reqAssignedInspector,
-      assignedApprover: approvalRequired ? PENDING_ASSIGNMENT : undefined,
+      assignedApprover: reqAssignedApprover,
+      approverDecision: approvalRequired ? 'Pending' : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
       serviceProviderOrg: effectiveVendorOrg,
@@ -2378,7 +2399,8 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
       assignedSubmitter: submitterLabel,
       assignedVerifier: reqAssignedVerifier,
       assignedInspector: reqAssignedInspector,
-      assignedApprover: approvalRequired ? PENDING_ASSIGNMENT : undefined,
+      assignedApprover: reqAssignedApprover,
+      approverDecision: approvalRequired ? 'Pending' : undefined,
       validityCheckRequired,
       suitabilityCheckRequired,
       serviceProviderOrg: effectiveVendorOrg,
@@ -4565,7 +4587,7 @@ export const CreateAssuranceSetView: React.FC<CreateAssuranceSetViewProps> = ({ 
                         ))}
                         <div className="text-secondary small"><strong>Verifier:</strong> {verificationRequired ? (verifierLabel || (verifierOrg ? `Pending, ${verifierOrg}` : 'None selected')) : 'N/A'}</div>
                         <div className="text-secondary small"><strong>Inspector:</strong> {inspectionRequired ? (inspectorLabel || (inspectorOrg ? `Pending, ${inspectorOrg}` : 'None selected')) : 'N/A'}</div>
-                        <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (approverOrg ? `Pending, ${approverOrg}` : 'None selected') : 'N/A'}</div>
+                        <div className="text-secondary small"><strong>Approver:</strong> {approvalRequired ? (approverLabel || (approverOrg ? `Pending, ${approverOrg}` : 'None selected')) : 'N/A'}</div>
 
                         <div className="pt-2 mt-2 border-top">
                           <strong className="text-dark small d-block mb-1">Checks</strong>

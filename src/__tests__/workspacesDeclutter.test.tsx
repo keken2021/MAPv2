@@ -378,12 +378,12 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
       let rows = screen.getAllByRole('row').slice(1);
       expect(rows).toHaveLength(2);
 
-      // 2. Overdue tab: DOC-OVERDUE-01 (count = 1)
+      // 2. Overdue tab: DOC-OVERDUE-01 and past-deadline items (count = 2)
       const overdueTab = within(tablist).getByRole('tab', { name: /overdue/i });
-      expect(overdueTab.textContent).toContain('(1)');
+      expect(overdueTab.textContent).toContain('(2)');
       fireEvent.click(overdueTab);
       rows = screen.getAllByRole('row').slice(1);
-      expect(rows).toHaveLength(1);
+      expect(rows).toHaveLength(2);
       expect(screen.getByText('Document of Compliance')).toBeInTheDocument();
 
       // 3. Verified tab: DOC-VERIFIED-01 (count = 1)
@@ -417,9 +417,12 @@ describe('Verifier & Inspector Workspaces UI Declutter', () => {
       const tablist = screen.getByRole('tablist', { name: /verifier queue tabs/i });
       fireEvent.click(within(tablist).getByRole('tab', { name: /overdue/i }));
 
-      const dueCell = screen.getByText(/late/i);
-      expect(dueCell).toHaveClass('text-danger');
-      expect(dueCell.textContent).toMatch(/\d+ days late/);
+      const dueCells = screen.getAllByText(/late/i);
+      expect(dueCells.length).toBeGreaterThan(0);
+      dueCells.forEach((dueCell) => {
+        expect(dueCell).toHaveClass('text-danger');
+        expect(dueCell.textContent).toMatch(/\d+ days? late/);
+      });
     });
 
     it('enforces at most 1 badge per row (only status) and 1 View action per row', () => {

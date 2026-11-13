@@ -654,7 +654,7 @@ describe('wizard', () => {
     expect(created.stakeholders?.verifierOrg).toBe(THIRD_PARTY);
     expect(created.assignedVerifier).toBe(`S. Girard (${THIRD_PARTY})`);
     expect(created.assignedInspector).toBe(`N. Technical (${THIRD_PARTY})`);
-    expect(created.assignedApprover).toBe(PENDING_ASSIGNMENT);
+    expect(created.assignedApprover).toBe(`H. Okafor (${CLIENT})`);
     expect(created.requirements.every((r) => r.assignedVerifier === `S. Girard (${THIRD_PARTY})`)).toBe(true);
   });
 });

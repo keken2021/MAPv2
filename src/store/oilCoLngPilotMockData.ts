@@ -976,6 +976,17 @@ export const OIL_CO_PILOT_USERS: UserProfile[] = [
     status: "Active",
     lastActive: "2026-10-13 06:00 UTC",
   },
+  {
+    id: "USR-251",
+    name: "T. Sutherland",
+    email: "t.sutherland@australclass.example",
+    roles: ["Approver"],
+    userType: "Third-Party",
+    organization: AUSTRAL_ORG,
+    departmentOrScope: "Class society approval and survey endorsement",
+    status: "Active",
+    lastActive: "2026-10-13 06:00 UTC",
+  },
 ];
 
 function pilotVessel(

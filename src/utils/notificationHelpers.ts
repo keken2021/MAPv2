@@ -27,6 +27,7 @@ import { getAssuranceSetCreator, orgFieldMatches } from './rbacHelpers';
 import { PENDING_ASSIGNMENT, StakeholderRole, findUserByAssigneeLabel, getStakeholderRoleOrganization, setSubmitters } from './userRoleHelpers';
 import { UserRolePersona } from '../types/audit';
 import { isTaskOpen } from './readinessHelpers';
+import { isInspectionDue } from './inspectionTask';
 
 /**
   what: subject line for an invitation to create one assurance set.
@@ -266,7 +267,8 @@ export interface NotificationAction {
 }
 
 export interface NotificationActionContext {
-  assuranceSets: Pick<AssuranceSet, 'id' | 'vesselName'>[];
+  assuranceSets: (Pick<AssuranceSet, 'id' | 'vesselName'> &
+    Partial<Pick<AssuranceSet, 'stage' | 'mandatoryInspectionRequired' | 'inspectionCompleted'>>)[];
   documents: Pick<MasterDocument, 'id'>[];
   capaItems: Pick<CapaItem, 'id' | 'vesselName'>[];
   projects: Pick<Project, 'id'>[];
@@ -327,6 +329,14 @@ export function getNotificationAction(
       const label = (role && NOTIFICATION_ASSIGNMENT_ACTION_LABELS[role]) || meta.actionLabel;
       const disabledReason = set ? undefined : missingSet;
       if (role === 'Inspector') {
+        if (set && isInspectionDue(set)) {
+          return guard({
+            label: 'Start Inspection',
+            view: 'assurance-sets',
+            entityId: `${set.id}?tab=tasks`,
+            disabledReason,
+          });
+        }
         return workspaceOrSet({
           label,
           view: 'inspector',

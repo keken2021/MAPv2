@@ -2,9 +2,11 @@ import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { AssuranceDetailView } from '../views/AssuranceDetailView';
+import { ProjectTasksTable } from '../components/tables/ProjectTasksTable';
 import { useMapStore } from '../store/useMapStore';
 import { AssuranceSet } from '../types/assurance';
 import { AuditTrailEvent } from '../types/audit';
+import { getInspectionTaskStatus, getApprovalTaskStatus } from '../utils/stageTasks';
 
 describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
   const originalHash = window.location.hash;
@@ -132,8 +134,12 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(onGoingTab).toBeInTheDocument();
     expect(doneTab).toBeInTheDocument();
 
-    // All count matches requirements length
-    expect(allTab.textContent).toContain(String(totalReqs));
+    // All count matches total tasks (requirements + stage tasks)
+    const expectedTasks =
+      totalReqs +
+      (getInspectionTaskStatus(testSet) ? 1 : 0) +
+      (getApprovalTaskStatus(testSet) ? 1 : 0);
+    expect(allTab.textContent).toContain(String(expectedTasks));
 
     // Standard task table columns
     expect(within(tasksTableTab).getByText(/Task \/ requirement/i)).toBeInTheDocument();
@@ -1403,5 +1409,256 @@ describe('Assurance Detail Tabs and Audit Trail (Task 5269)', () => {
     expect(within(inspectorRow!).queryByTitle(/remove task/i)).toBeNull();
 
     unmountInspector();
+  });
+
+  describe('Inspection as a task in Tasks tab', () => {
+    const inspectionTestSetId = 'AS-INSP-TASK-TEST-01';
+
+    beforeEach(() => {
+      const state = useMapStore.getState();
+      const testSet: AssuranceSet = {
+        id: inspectionTestSetId,
+        title: 'Rig Tender Inspection Campaign',
+        vesselName: 'MV Deep Venture',
+        stage: 'Inspection',
+        mandatoryInspectionRequired: true,
+        inspectionCompleted: false,
+        targetDate: '2026-11-20',
+        assignedInspector: 'N. Technical (Bureau Veritas Inspectorate)',
+        assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+        assignedVerifier: 'A. Fontaine (Bureau Veritas Inspectorate)',
+        requirements: [
+          {
+            id: 'REQ-INSP-01',
+            category: 'Statutory Certificates',
+            title: 'Load Line Certificate',
+            isMandatory: true,
+            isFulfilled: true,
+            verifierStatus: 'Verified',
+            ocrConfidence: 99,
+          },
+        ],
+      } as unknown as AssuranceSet;
+
+      useMapStore.setState({
+        assuranceSets: [testSet, ...state.assuranceSets.filter((s) => s.id !== inspectionTestSetId)],
+        activePersona: 'Inspector',
+        activeDemoOrganization: 'Bureau Veritas Inspectorate',
+        activeSessionUserId: 'USR-203',
+        isAuthenticated: true,
+      });
+    });
+
+    it('shows Tasks tab badge count 1, renders inspection row with Inspect button, and header Open Inspection button is gone', () => {
+      render(<AssuranceDetailView setId={inspectionTestSetId} />);
+
+      // 1. Header Open Inspection button is removed
+      expect(screen.queryByRole('button', { name: /open inspection/i })).toBeNull();
+
+      // 2. Tasks tab badge shows 1 for assigned inspector
+      const tasksTab = screen.getByRole('tab', { name: /^Tasks/i });
+      expect(tasksTab).toBeInTheDocument();
+      expect(within(tasksTab).getByText('1')).toBeInTheDocument();
+
+      // 3. Open Tasks tab
+      fireEvent.click(tasksTab);
+
+      // 4. Inspection task row is present
+      const inspectRow = screen.getByTestId(`task-open-req-${inspectionTestSetId}-INSPECTION`).closest('tr');
+      expect(inspectRow).not.toBeNull();
+      expect(within(inspectRow!).getByTestId(`task-open-req-${inspectionTestSetId}-INSPECTION`)).toHaveTextContent('Inspection');
+      expect(within(inspectRow!).getByText('To Inspect')).toBeInTheDocument();
+      const statusBadge = within(inspectRow!).getByTestId('task-status-badge');
+      expect(statusBadge).toHaveClass('badge', 'bg-secondary', 'text-white');
+
+      // 5. Inspect button
+      const inspectBtn = within(inspectRow!).getByTestId(`task-action-btn-${inspectionTestSetId}-INSPECTION`);
+      expect(inspectBtn).toHaveTextContent('Inspect');
+      expect(inspectBtn).toHaveClass('btn', 'btn-sm', 'btn-primary');
+
+      // 6. Clicking Inspect navigates to inspector checklist view
+      fireEvent.click(inspectBtn);
+      expect(useMapStore.getState().currentHashView).toBe('inspector');
+      expect(useMapStore.getState().currentEntityId).toBe(inspectionTestSetId);
+    });
+
+    it('After an inspection pass, a non-inspector sees the Inspection row as Done, Passed, with View', () => {
+      const state = useMapStore.getState();
+      useMapStore.setState({
+        assuranceSets: state.assuranceSets.map((s) =>
+          s.id === inspectionTestSetId ? { ...s, inspectionCompleted: true, stage: 'Approval' } : s,
+        ),
+        activePersona: 'Submitter',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-102',
+      });
+
+      render(<AssuranceDetailView setId={inspectionTestSetId} />);
+
+      const tasksTab = screen.getByRole('tab', { name: /^Tasks/i });
+      fireEvent.click(tasksTab);
+
+      const inspectRow = screen.getByTestId(`task-open-req-${inspectionTestSetId}-INSPECTION`).closest('tr');
+      expect(inspectRow).not.toBeNull();
+      expect(within(inspectRow!).getByText('Done')).toBeInTheDocument();
+      expect(within(inspectRow!).getByText('Passed')).toBeInTheDocument();
+      const actionBtn = within(inspectRow!).getByTestId(`task-action-btn-${inspectionTestSetId}-INSPECTION`);
+      expect(actionBtn).toHaveTextContent('View');
+      expect(actionBtn).toHaveClass('btn', 'btn-sm', 'btn-outline-primary');
+    });
+
+    it('Only the inspector gets Inspect while it is open, everyone else gets View', () => {
+      // 1. Inspector gets Inspect
+      const { unmount } = render(<AssuranceDetailView setId={inspectionTestSetId} />);
+      const tasksTab = screen.getByRole('tab', { name: /^Tasks/i });
+      fireEvent.click(tasksTab);
+
+      const inspectRow = screen.getByTestId(`task-open-req-${inspectionTestSetId}-INSPECTION`).closest('tr');
+      const inspectBtn = within(inspectRow!).getByTestId(`task-action-btn-${inspectionTestSetId}-INSPECTION`);
+      expect(inspectBtn).toHaveTextContent('Inspect');
+      expect(inspectBtn).toHaveClass('btn-primary');
+      unmount();
+
+      // 2. Non-inspector (e.g. Submitter) gets View
+      useMapStore.setState({
+        activePersona: 'Submitter',
+        activeDemoOrganization: 'Northwind Marine Pty Ltd',
+        activeSessionUserId: 'USR-102',
+      });
+      render(<AssuranceDetailView setId={inspectionTestSetId} />);
+      const subTasksTab = screen.getByRole('tab', { name: /^Tasks/i });
+      fireEvent.click(subTasksTab);
+
+      const subInspectRow = screen.getByTestId(`task-open-req-${inspectionTestSetId}-INSPECTION`).closest('tr');
+      const viewBtn = within(subInspectRow!).getByTestId(`task-action-btn-${inspectionTestSetId}-INSPECTION`);
+      expect(viewBtn).toHaveTextContent('View');
+      expect(viewBtn).toHaveClass('btn-outline-primary');
+    });
+
+    it('Return, then resubmit, then Approve leaves exactly one Approval row, ending Done, Approved', () => {
+      const state = useMapStore.getState();
+      const approvalSetId = 'AS-APPR-CYCLE-TEST';
+      const testApprovalSet: AssuranceSet = {
+        id: approvalSetId,
+        title: 'Approval Cycle Set',
+        vesselName: 'MV Deep Venture',
+        stage: 'Approval',
+        mandatoryInspectionRequired: false,
+        inspectionCompleted: false,
+        assignedApprover: 'Elena Gomez (Southern Basin Energy Pty Ltd)',
+        assignedSubmitter: 'M. Chen (Northwind Marine Pty Ltd)',
+        clientOrg: 'Southern Basin Energy Pty Ltd',
+        serviceProviderOrg: 'Northwind Marine Pty Ltd',
+        requirements: [
+          {
+            id: 'REQ-APPR-01',
+            category: 'Statutory Certificates',
+            title: 'Safety Equipment Certificate',
+            isMandatory: true,
+            isFulfilled: true,
+            verifierStatus: 'Verified',
+          },
+        ],
+      } as unknown as AssuranceSet;
+
+      useMapStore.setState({
+        assuranceSets: [testApprovalSet, ...state.assuranceSets.filter((s) => s.id !== approvalSetId)],
+        activePersona: 'Approver',
+        activeDemoOrganization: 'Southern Basin Energy Pty Ltd',
+        activeSessionUserId: 'USR-208',
+      });
+
+      const { unmount } = render(<AssuranceDetailView setId={approvalSetId} />);
+      fireEvent.click(screen.getByRole('tab', { name: /^Tasks/i }));
+
+      // Initially in Approval: exactly one Approval row with To Approve and Approve button
+      let approvalRows = screen.getAllByTestId(`task-open-req-${approvalSetId}-APPROVAL`);
+      expect(approvalRows.length).toBe(1);
+      const approveBtn = screen.getByTestId(`task-action-btn-${approvalSetId}-APPROVAL`);
+      expect(approveBtn).toHaveTextContent('Approve');
+      expect(approveBtn).toHaveClass('btn-primary');
+
+      // 1. Approver returns set for correction
+      useMapStore.getState().setApproverDecision(approvalSetId, 'Returned for Correction', 'Update certificate.');
+      // Stage moved back before Approval (e.g. Verification)
+      useMapStore.setState((s) => ({
+        assuranceSets: s.assuranceSets.map((set) =>
+          set.id === approvalSetId ? { ...set, stage: 'Verification' } : set,
+        ),
+      }));
+
+      unmount();
+      const { unmount: unmount2 } = render(<AssuranceDetailView setId={approvalSetId} />);
+      fireEvent.click(screen.getByRole('tab', { name: /^Tasks/i }));
+
+      // After return: exactly one Approval row, status On-going, note "Returned for correction", button: none
+      approvalRows = screen.getAllByTestId(`task-open-req-${approvalSetId}-APPROVAL`);
+      expect(approvalRows.length).toBe(1);
+      const returnedRow = approvalRows[0].closest('tr');
+      expect(within(returnedRow!).getByText('On-going')).toBeInTheDocument();
+      expect(within(returnedRow!).getByText('Returned for correction')).toBeInTheDocument();
+      expect(within(returnedRow!).queryByTestId(`task-action-btn-${approvalSetId}-APPROVAL`)).toBeNull();
+
+      // 2. Resubmit: documents verified, stage transitions back to Approval
+      // Reset approverDecision to 'Pending' and mark requirements verified
+      useMapStore.setState((s) => ({
+        assuranceSets: s.assuranceSets.map((set) =>
+          set.id === approvalSetId
+            ? {
+                ...set,
+                stage: 'Approval',
+                approverDecision: 'Pending',
+                requirements: (set.requirements || []).map((r) => ({
+                  ...r,
+                  isFulfilled: true,
+                  verifierStatus: 'Verified' as const,
+                })),
+              }
+            : set,
+        ),
+      }));
+
+      unmount2();
+      const { unmount: unmount3 } = render(<AssuranceDetailView setId={approvalSetId} />);
+      fireEvent.click(screen.getByRole('tab', { name: /^Tasks/i }));
+
+      // After resubmission: exactly one row, To Approve
+      approvalRows = screen.getAllByTestId(`task-open-req-${approvalSetId}-APPROVAL`);
+      expect(approvalRows.length).toBe(1);
+      expect(within(approvalRows[0].closest('tr')!).getByText('To Approve')).toBeInTheDocument();
+
+      // 3. Approve
+      useMapStore.getState().setApproverDecision(approvalSetId, 'Approved', 'Approved.');
+      unmount3();
+      render(<AssuranceDetailView setId={approvalSetId} />);
+      fireEvent.click(screen.getByRole('tab', { name: /^Tasks/i }));
+
+      // Leaves exactly one Approval row, ending Done, Approved
+      approvalRows = screen.getAllByTestId(`task-open-req-${approvalSetId}-APPROVAL`);
+      expect(approvalRows.length).toBe(1);
+      const approvedRow = approvalRows[0].closest('tr');
+      expect(within(approvedRow!).getByText('Done')).toBeInTheDocument();
+      expect(within(approvedRow!).getByText('Approved')).toBeInTheDocument();
+      expect(within(approvedRow!).getByTestId(`task-action-btn-${approvalSetId}-APPROVAL`)).toHaveTextContent('View');
+    });
+
+    it('The set Tasks tab has no "Parent assurance set" header, and a project-scope table still has one', () => {
+      // 1. Set Tasks tab (scope.type === 'set')
+      const { unmount } = render(<AssuranceDetailView setId={inspectionTestSetId} />);
+      fireEvent.click(screen.getByRole('tab', { name: /^Tasks/i }));
+      expect(screen.queryByRole('columnheader', { name: /parent assurance set/i })).toBeNull();
+      expect(screen.queryByText(/parent assurance set/i)).toBeNull();
+      unmount();
+
+      // 2. Project-scope table (scope.type === 'project')
+      render(
+        <ProjectTasksTable
+          sets={useMapStore.getState().assuranceSets}
+          scope={{ type: 'project', id: 'PROJ-TEST-01' }}
+          showActions
+        />
+      );
+      expect(screen.getByRole('columnheader', { name: /parent assurance set/i })).toBeInTheDocument();
+    });
   });
 });

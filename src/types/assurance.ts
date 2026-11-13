@@ -403,6 +403,8 @@ export interface AssuranceSet {
   mandatoryInspectionRequired: boolean;
   formalApprovalRequired?: boolean;
   inspectionCompleted: boolean;
+  /** ISO timestamp when an inspection was recorded as Failed (cleared on Pass) */
+  inspectionFailedAt?: string;
   assignedSubmitter?: string;
   assignedVerifier?: string;
   assignedInspector?: string;

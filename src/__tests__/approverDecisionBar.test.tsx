@@ -246,7 +246,7 @@ describe('ApproverDecisionBar', () => {
   });
 
   describe('AssuranceDetailView integration & role gating', () => {
-    it('shows decision bar for named approver when stage is Approval', () => {
+    it('shows Approval task row with To Approve and Approve button for named approver in Tasks tab, and no decision bar on Details', () => {
       useMapStore.setState({
         activePersona: 'Approver',
         activeSessionUserId: 'USR-217',
@@ -255,8 +255,13 @@ describe('ApproverDecisionBar', () => {
 
       render(<AssuranceDetailView setId="AS-TEST-001" />);
 
-      expect(screen.getByTestId('approver-decision-bar')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /approve/i })).toBeInTheDocument();
+      expect(screen.queryByTestId('approver-decision-bar')).not.toBeInTheDocument();
+
+      // On Tasks tab, named approver sees the Approval task row with Approve button
+      fireEvent.click(screen.getByRole('tab', { name: /^Tasks/i }));
+      const approveBtn = screen.getByTestId('task-action-btn-AS-TEST-001-APPROVAL');
+      expect(approveBtn).toHaveTextContent('Approve');
+      expect(approveBtn).toHaveClass('btn-primary');
     });
 
     it('does NOT show decision bar for other approvers from different org/name', () => {
@@ -328,7 +333,7 @@ describe('ApproverDecisionBar', () => {
       expect(screen.queryByTestId('approver-decision-bar')).not.toBeInTheDocument();
     });
 
-    it('keeps ApproverDecisionBar on Details tab and opens ApproverDecisionDrawer (without redirecting to Requirements) when clicking View on Tasks tab', () => {
+    it('ApproverDecisionBar removed from Details tab and opens ApproverDecisionDrawer (without redirecting to Requirements) when clicking View on Tasks tab', () => {
       useMapStore.setState({
         activePersona: 'Approver',
         activeSessionUserId: 'USR-217',
@@ -338,8 +343,8 @@ describe('ApproverDecisionBar', () => {
 
       render(<AssuranceDetailView setId="AS-TEST-001" />);
 
-      // ApproverDecisionBar stays on the Details tab
-      expect(screen.getByTestId('approver-decision-bar')).toBeInTheDocument();
+      // ApproverDecisionBar is removed from Details tab
+      expect(screen.queryByTestId('approver-decision-bar')).not.toBeInTheDocument();
 
       // Switch to Tasks tab
       fireEvent.click(screen.getByRole('tab', { name: /^Tasks/i }));

@@ -40,10 +40,13 @@ import { DocumentUploadModal } from '../components/modals/DocumentUploadModal';
 import { AttachAssuranceSetPreviewModal } from '../components/modals/AttachAssuranceSetPreviewModal';
 import { AssuranceTaskModal } from '../components/modals/AssuranceTaskModal';
 import { ProjectTasksTable, getTaskRowActionLabel } from '../components/tables/ProjectTasksTable';
+import { AssuranceDetailTasksTab } from '../components/assurance/AssuranceDetailTasksTab';
+import { isInspectionDueForViewer } from '../utils/inspectionTask';
 import {
   canAssignStakeholderRole,
   defaultOrganizationVerifier,
   defaultOrganizationInspector,
+  defaultOrganizationApprover,
   getOrganizationRoleCandidates,
   getServiceProviderSubmitterCandidates,
   getStakeholderRoleOrganization,
@@ -77,7 +80,6 @@ import {
   isProjectOwnerWithoutSubSetGroup,
 } from '../utils/rbacHelpers';
 import { useSessionUser } from '../utils/useSessionUser';
-import { ApproverDecisionBar } from '../components/common/ApproverDecisionBar';
 import { clearAssuranceDetailPreselect, peekAssuranceDetailPreselect } from '../utils/dashboardTileNavigation';
 import { getDocumentReuploadBlockReason, documentExpiresBeforeContractEnd, listCertificatesShortOfContract } from '../utils/documentRenewalHelpers';
 import { Modal } from '../components/modals/Modal';
@@ -1657,16 +1659,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
   };
 
   const isApproverViewer = activePersona === 'Approver';
-  const isNamedApprover =
-    isApproverViewer &&
-    Boolean(sessionUser) &&
-    assigneeMatchesUser(assuranceSet?.assignedApprover, sessionUser);
-  const isApprovalStage =
-    assuranceSet?.stage === 'Approval' &&
-    assuranceSet?.approverDecision !== 'Approved' &&
-    assuranceSet?.approverDecision !== 'Returned for Correction' &&
-    assuranceSet?.approverDecision !== 'Rejected';
-  const showApproverDecisionBar = isNamedApprover && isApprovalStage;
 
   const viewerParty: 'requesting' | 'responding' | 'other' = useMemo(() => {
     if (!assuranceSet || !sessionUser || !canAccessAssuranceSet) return 'other';
@@ -2278,6 +2270,10 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       const defaultUser = defaultOrganizationInspector(users, organization);
       if (defaultUser) return `${defaultUser.name} (${defaultUser.organization || organization})`;
     }
+    if (role === 'Approver') {
+      const defaultUser = defaultOrganizationApprover(users, organization);
+      if (defaultUser) return `${defaultUser.name} (${defaultUser.organization || organization})`;
+    }
     return `Pending, ${organization}`;
   };
   const assignStakeholder = (
@@ -2311,7 +2307,9 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
     const mine =
       persona === 'Submitter' ? toUpload
         : persona === 'Verifier' ? toVerify
-          : persona === 'Inspector' || persona === 'Approver' ? open
+          : persona === 'Inspector'
+            ? (isInspectionDueForViewer(assuranceSet, activePersona, activeDemoOrganization, sessionUser) ? 1 : 0)
+            : persona === 'Approver' ? open
             : 0;
     return { total, returned, toUpload, toVerify, verified, awaitingUpload, open, mine };
   })();
@@ -2528,24 +2526,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
           Use as Template
         </button>
       )}
-      {roleActions.canInspect && (
-        <button
-          type="button"
-          className="btn btn-sm btn-primary"
-          onClick={() => setCurrentHashView('inspector', assuranceSet.id)}
-        >
-          Open Inspection
-        </button>
-      )}
-      {roleActions.canApprove && (
-        <button
-          type="button"
-          className="btn btn-sm btn-primary"
-          onClick={() => setCurrentHashView('approver', assuranceSet.id)}
-        >
-          Open Approval
-        </button>
-      )}
     </div>
   );
 
@@ -2650,15 +2630,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
           {/* Left: Assurance Set Information & Stakeholder Role Assignments Card */}
           <div className="col-12 col-lg-8 col-md-7 w-100">
             <div className="card map-card-custom p-4 h-100">
-              {showApproverDecisionBar && (
-                <ApproverDecisionBar
-                  assuranceSet={assuranceSet}
-                  openFindingsCount={openFindings.length}
-                  onDecisionSubmitted={(decision) => {
-                    setProjectToast(`Assurance set ${assuranceSet.id} updated to ${decision}.`);
-                  }}
-                />
-              )}
               {/* On-Time, Open Findings, and Remaining Items Badges inside Info Card */}
               <div className="d-flex flex-wrap align-items-center gap-2 mb-3 pb-3 border-bottom">
                 <span className={`badge ${onTimeStatus.isOnTime ? 'bg-success-subtle text-success-emphasis border border-success-subtle' : 'bg-danger text-white'}`} title={onTimeStatus.detail}>
@@ -4580,165 +4551,37 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
       )}
 
       {/* Tab: Tasks */}
-      {tasksPaneMounted && (
-      <div
-        style={{ display: activeTab === 'tasks' ? 'flex' : 'none' }}
-        className="flex-column gap-3"
-        data-testid="assurance-detail-tasks-tab-pane"
-      >
-        {isRestrictedProjectOwner ? (
-          <div className="card map-card-custom p-4 text-center my-2" data-testid="restricted-project-owner-tasks-note">
-            <p className="text-secondary mb-0">Documents and requirements are restricted to participating group members.</p>
-          </div>
-        ) : (
-          <>
-          {shortCertificates.length > 0 && (
-            <div className="alert alert-warning mb-0" role="status">
-              {shortCertificates.length === 1
-                ? '1 certificate expires'
-                : `${shortCertificates.length} certificates expire`}{' '}
-              before the contract ends on {formatMaritimeDate(assuranceSet.charterWindowEnd)}.
-            </div>
-          )}
-          <ProjectTasksTable
-            sets={assuranceSet ? [assuranceSet] : []}
-            scope={{ type: 'set', id: assuranceSet?.id || '' }}
-            documents={documents}
-            highlightedTaskId={focusedTaskReqId}
-            today={new Date()}
-            showActions
-            viewerParty={viewerParty}
-            canUpload={canUploadHere}
-            canVerify={roleActions.canVerify}
-            onOpenRequirement={(req) => {
-              if (isApproverViewer) {
-                setSelectedTaskReqIdForApproverDrawer(req.id);
-                return;
-              }
-              setFocusedRequirementId(req.id);
-              setShowBackToTasks(true);
-              setActiveTab('requirements');
-            }}
-            onTaskAction={(req, parentSet) => {
-              const linkedDoc = documents.find((d) => d.id === req.documentId || (req.linkedDocumentId && d.id === req.linkedDocumentId));
-              const action = getTaskRowActionLabel(
-                { requirement: req, parentSet },
-                viewerParty,
-                {
-                  canUpload: canUploadHere,
-                  canVerify: roleActions.canVerify,
-                },
-                { document: linkedDoc, today: new Date() },
-              );
-              if (action === 'Upload') {
-                openRequirementUpload(req, linkedDoc);
-              } else if (action === 'Review') {
-                if (linkedDoc) {
-                  const docView = getRequirementDocumentView(parentSet, req, linkedDoc);
-                  setSelectedDocForReview({
-                    doc: docView?.doc || linkedDoc,
-                    notes: req.notes,
-                    requirementId: req.id,
-                    verifierStatus: req.verifierStatus,
-                    isVersionLocked: docView?.isLocked,
-                  });
-                }
-              } else if (isApproverViewer) {
-                setSelectedTaskReqIdForApproverDrawer(req.id);
-              } else {
-                setFocusedRequirementId(req.id);
-                setShowBackToTasks(true);
-                setActiveTab('requirements');
-              }
-            }}
-          />
-
-          {(() => {
-            const setOpenCapas = openFindings.filter(
-              (c) =>
-                (!c.assuranceSetId || c.assuranceSetId === assuranceSet.id) &&
-                canSessionUserAccessCapa(
-                  c,
-                  assuranceSets,
-                  activePersona,
-                  activeDemoOrganization,
-                  sessionUser,
-                  users,
-                ),
-            );
-            if (setOpenCapas.length === 0) return null;
-            return (
-              <div className="card map-card-custom" data-testid="tasks-open-findings-card">
-                <div className="card-header p-3 border-bottom d-flex align-items-center justify-content-between">
-                  <span className="fw-bold text-dark fs-6">Open Findings</span>
-                  <span className="badge bg-warning text-dark font-mono-code">
-                    {setOpenCapas.length}
-                  </span>
-                </div>
-                <div className="table-responsive">
-                  <table className="table map-table-custom align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th>Finding</th>
-                        <th>Owner</th>
-                        <th>Due Date</th>
-                        <th>Status</th>
-                        <th className="text-end">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {setOpenCapas.map((capa) => {
-                        const isResponder =
-                          activePersona === 'Submitter' || activePersona === 'Administrator';
-                        const actionText = isResponder
-                          ? 'Respond'
-                          : activePersona === 'Inspector'
-                          ? 'Re-inspect'
-                          : 'View';
-                        return (
-                          <tr
-                            key={capa.id}
-                            className={selectedFindingCapaId === capa.id ? 'table-primary' : undefined}
-                            data-capa-id={capa.id}
-                          >
-                            <td>
-                              <div className="fw-semibold text-dark">{capa.title}</div>
-                              <div className="font-mono-code text-muted small" style={{ fontSize: '0.72rem' }}>
-                                {capa.id} · {capa.checklistItemTitle}
-                              </div>
-                            </td>
-                            <td className="small text-dark">{capa.owner}</td>
-                            <td className="small font-mono-code">{formatMaritimeDate(capa.dueDate)}</td>
-                            <td>
-                              <StatusBadge value={capa.status} />
-                            </td>
-                            <td className="text-end">
-                              <button
-                                type="button"
-                                className={`btn btn-sm ${
-                                  isResponder || activePersona === 'Inspector'
-                                    ? 'btn-primary'
-                                    : 'btn-outline-primary'
-                                }`}
-                                onClick={() => setSelectedFindingCapaId(capa.id)}
-                                data-testid={`finding-action-btn-${capa.id}`}
-                              >
-                                {actionText}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })()}
-          </>
-        )}
-      </div>
-      )}
+      <AssuranceDetailTasksTab
+        tasksPaneMounted={tasksPaneMounted}
+        activeTab={activeTab}
+        isRestrictedProjectOwner={isRestrictedProjectOwner}
+        shortCertificates={shortCertificates}
+        formatMaritimeDate={formatMaritimeDate}
+        assuranceSet={assuranceSet}
+        documents={documents}
+        focusedTaskReqId={focusedTaskReqId}
+        viewerParty={viewerParty}
+        canUploadHere={canUploadHere}
+        roleActions={roleActions}
+        isApproverViewer={isApproverViewer}
+        setSelectedTaskReqIdForApproverDrawer={setSelectedTaskReqIdForApproverDrawer}
+        setFocusedRequirementId={setFocusedRequirementId}
+        setShowBackToTasks={setShowBackToTasks}
+        setActiveTab={setActiveTab}
+        openRequirementUpload={openRequirementUpload}
+        getRequirementDocumentView={getRequirementDocumentView}
+        setSelectedDocForReview={setSelectedDocForReview}
+        openFindings={openFindings}
+        canSessionUserAccessCapa={canSessionUserAccessCapa}
+        assuranceSets={assuranceSets}
+        activePersona={activePersona}
+        activeDemoOrganization={activeDemoOrganization}
+        sessionUser={sessionUser}
+        users={users}
+        selectedFindingCapaId={selectedFindingCapaId}
+        setSelectedFindingCapaId={setSelectedFindingCapaId}
+        setCurrentHashView={setCurrentHashView}
+      />
 
       {/* Bottom Row: Requirements Register Table taking full 100% width across two columns */}
 
@@ -4911,8 +4754,6 @@ export const AssuranceDetailView: React.FC<AssuranceDetailViewProps> = ({ setId,
             requirement={drawerReq}
             linkedDoc={drawerDoc}
             openFindingsCount={openFindings.length}
-            isNamedApprover={isNamedApprover}
-            isApprovalStage={isApprovalStage}
             onClose={() => setSelectedTaskReqIdForApproverDrawer(null)}
             onDecisionSubmitted={(message) => {
               setProjectToast(message);

@@ -153,6 +153,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
       vesselName: 'MV Celeste',
       stage: 'Inspection',
       mandatoryInspectionRequired: true,
+      inspectionCompleted: true,
       assignedInspector: 'K. Tanaka',
     } as unknown as AssuranceSet;
 
@@ -162,6 +163,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
       vesselName: 'MV Delta',
       stage: 'Inspection',
       mandatoryInspectionRequired: true,
+      inspectionCompleted: true,
       assignedInspector: 'K. Tanaka',
     } as unknown as AssuranceSet;
 
@@ -235,6 +237,7 @@ describe('Inspector dashboard config (Task 5388)', () => {
       vesselName: 'MV Celeste',
       stage: 'Inspection',
       mandatoryInspectionRequired: true,
+      inspectionCompleted: true,
       assignedInspector: 'K. Tanaka',
     } as unknown as AssuranceSet;
 
@@ -297,5 +300,54 @@ describe('Inspector dashboard config (Task 5388)', () => {
 
     render(<SharedDashboardFrame config={config} />);
     expect(screen.getByText('Nothing needs you today')).toBeInTheDocument();
+  });
+
+  it('lists sets where inspection is due in Needs your action even when not overdue, and button opens Tasks tab', () => {
+    const nonOverdueSet: AssuranceSet = {
+      id: 'AS-DUE-2027',
+      title: 'Solomon Subsea Spool Inspection',
+      vesselName: 'MV Solomon Pioneer',
+      stage: 'Inspection',
+      mandatoryInspectionRequired: true,
+      inspectionCompleted: false,
+      assignedInspector: 'K. Tanaka',
+      complianceDeadline: '2027-06-01T00:00:00Z', // Far future date, not overdue and not in next 7 days
+    } as unknown as AssuranceSet;
+
+    const setCurrentHashView = vi.fn();
+    const config = getInspectorDashboardConfig({
+      assuranceSets: [nonOverdueSet],
+      capaItems: [],
+      auditEvents: [],
+      sessionUser: inspectorSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
+      setCurrentHashView,
+      now: fixedNow,
+    });
+
+    // 1. It is listed in action items
+    expect(config.actionItems).toHaveLength(1);
+    const item = config.actionItems[0];
+    expect(item.id).toBe('report-AS-DUE-2027');
+    expect(item.title).toContain('MV Solomon Pioneer');
+
+    // 2. Clicking the action opens the set's Tasks tab
+    sessionStorage.clear();
+    item.onAction?.();
+    expect(sessionStorage.getItem('map_assurance_detail_tab_preselect')).toBe('tasks');
+    expect(sessionStorage.getItem('map_assurance_preselect_set_id')).toBe('AS-DUE-2027');
+    expect(setCurrentHashView).toHaveBeenCalledWith('assurance-sets', 'AS-DUE-2027');
+
+    // 3. Completing the inspection removes it from Needs your action
+    const completedConfig = getInspectorDashboardConfig({
+      assuranceSets: [{ ...nonOverdueSet, inspectionCompleted: true } as AssuranceSet],
+      capaItems: [],
+      auditEvents: [],
+      sessionUser: inspectorSessionUser,
+      activeOrganization: 'Bureau Veritas Inspectorate',
+      setCurrentHashView,
+      now: fixedNow,
+    });
+    expect(completedConfig.actionItems).toHaveLength(0);
   });
 });

@@ -36,6 +36,7 @@ import {
   setAssuranceDetailPreselect,
 } from './dashboardTileNavigation';
 import { getRoleRecentActivity } from './recentActivityFeed';
+import { isInspectionDue } from './inspectionTask';
 import {
   averageDaysToClearance,
   countReusedDocuments,
@@ -1463,7 +1464,7 @@ export function getInspectorDashboardConfig({
       Boolean((s as any).hasInspectionReportToFinish) ||
       Boolean((s as any).reportStatus) ||
       (s as any).checklistDone != null ||
-      (s.stage === 'Inspection' && isSetOverdue(s, now)) ||
+      (isInspectionDue(s) && (isSetOverdue(s, now) || !isSetDueThisWeek(s, now))) ||
       Boolean((s as any).isReportOverdue),
   );
 
@@ -1474,6 +1475,12 @@ export function getInspectorDashboardConfig({
     const checklistSnippet = anySet.checklistDone != null && anySet.checklistTotal != null
       ? `Checklist ${anySet.checklistDone} of ${anySet.checklistTotal} done`
       : (anySet.checklistSnippet || 'Checklist pending completion');
+    const hasReport = Boolean(
+      anySet.hasInspectionReportToFinish ||
+      anySet.reportStatus ||
+      anySet.checklistDone != null ||
+      anySet.isReportOverdue,
+    );
 
     reportItems.push({
       id: `report-${set.id}`,
@@ -1483,7 +1490,12 @@ export function getInspectorDashboardConfig({
       subtitle: checklistSnippet,
       buttonLabel: 'Finish report',
       onAction: () => {
-        setCurrentHashView('inspector', set.id);
+        if (isInspectionDue(set) && !hasReport) {
+          setAssuranceDetailPreselect({ setId: set.id, tab: 'tasks' });
+          setCurrentHashView('assurance-sets', set.id);
+        } else {
+          setCurrentHashView('inspector', set.id);
+        }
       },
     });
   }

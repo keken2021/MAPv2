@@ -71,6 +71,7 @@ describe('ProjectTasksTable', () => {
 
   it('renders task details across all 5 columns and opens set when link is clicked', () => {
     const onOpenSet = vi.fn();
+    const onOpenRequirement = vi.fn();
     const set = createSet('AS-101', 'Offshore Supply Vetting', {
       vesselName: 'MV Deep Venture',
       imoNumber: '9123456',
@@ -78,7 +79,7 @@ describe('ProjectTasksTable', () => {
         createRequirement({
           id: 'REQ-NAV',
           title: 'ECDIS Operating Safety Protocol',
-          category: 'Navigation',
+          category: 'Statutory Certificate',
           assignedSubmitter: 'Capt. Smith (Northwind Marine)',
           targetDate: '2026-11-25',
           verifierStatus: 'Pending',
@@ -90,22 +91,34 @@ describe('ProjectTasksTable', () => {
       <ProjectTasksTable
         sets={[set]}
         onOpenSet={onOpenSet}
+        onOpenRequirement={onOpenRequirement}
         today={TEST_TODAY}
       />
     );
 
     // Column 1: Task / requirement
     expect(screen.getByText('ECDIS Operating Safety Protocol')).toBeInTheDocument();
-    expect(screen.getByText('Navigation')).toBeInTheDocument();
+    expect(screen.queryByText('Statutory Certificate')).not.toBeInTheDocument();
+    const taskLink = screen.getByTestId('task-open-req-REQ-NAV');
+    expect(taskLink).toBeInTheDocument();
+    expect(taskLink).not.toHaveClass('fw-semibold');
+    expect(taskLink).toHaveClass('fw-normal');
 
     // Column 2: Parent assurance set
     const setLink = screen.getByRole('button', { name: /Offshore Supply Vetting/i });
     expect(setLink).toBeInTheDocument();
-    expect(screen.getByText('AS-101')).toBeInTheDocument();
+    expect(setLink).toHaveAttribute('title', 'Open Offshore Supply Vetting (AS-101)');
+    expect(setLink).not.toHaveClass('fw-semibold');
+    expect(setLink).toHaveClass('fw-normal');
+    expect(screen.queryByText('AS-101')).not.toBeInTheDocument();
 
     // Column 3: Target object
-    expect(screen.getByText('MV Deep Venture')).toBeInTheDocument();
-    expect(screen.getByText('IMO 9123456')).toBeInTheDocument();
+    const targetObj = screen.getByText('MV Deep Venture');
+    expect(targetObj).toBeInTheDocument();
+    expect(targetObj).toHaveAttribute('title', 'IMO 9123456');
+    expect(targetObj).not.toHaveClass('fw-semibold');
+    expect(targetObj).toHaveClass('fw-normal');
+    expect(screen.queryByText('IMO 9123456')).not.toBeInTheDocument();
 
     // Column 4: Assignee
     expect(screen.getByText('Capt. Smith (Northwind Marine)')).toBeInTheDocument();

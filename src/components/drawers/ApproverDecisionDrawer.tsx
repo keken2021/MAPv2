@@ -9,6 +9,7 @@ import { FileText, RotateCcw, XCircle } from 'lucide-react';
 import { AssuranceRequirement, AssuranceSet } from '../../types/assurance';
 import { MasterDocument } from '../../types/document';
 import { useMapStore } from '../../store/useMapStore';
+import { assigneeMatchesUser } from '../../utils/rbacHelpers';
 import { formatMaritimeDate, formatMaritimeDateTime, getStatusDisplayLabel } from '../../utils/formatters';
 import { calculateAssuranceSetReadiness } from '../../utils/readinessHelpers';
 import { documentExpiresBeforeContractEnd } from '../../utils/documentRenewalHelpers';
@@ -24,8 +25,8 @@ export interface ApproverDecisionDrawerProps {
   requirement: AssuranceRequirement | null;
   linkedDoc?: MasterDocument;
   openFindingsCount: number;
-  isNamedApprover: boolean;
-  isApprovalStage: boolean;
+  isNamedApprover?: boolean;
+  isApprovalStage?: boolean;
   onDecisionSubmitted?: (message: string) => void;
   onClose: () => void;
 }
@@ -35,12 +36,28 @@ export const ApproverDecisionDrawer: React.FC<ApproverDecisionDrawerProps> = ({
   requirement,
   linkedDoc,
   openFindingsCount,
-  isNamedApprover,
-  isApprovalStage,
+  isNamedApprover: isNamedApproverProp,
+  isApprovalStage: isApprovalStageProp,
   onDecisionSubmitted,
   onClose,
 }) => {
   const denyRequirementByApprover = useMapStore((s) => s.denyRequirementByApprover);
+  const activePersona = useMapStore((s) => s.activePersona);
+  const sessionUser = useMapStore((s) => s.users.find((u) => u.id === s.activeSessionUserId));
+
+  const isNamedApprover =
+    isNamedApproverProp ?? (
+      activePersona === 'Approver' &&
+      Boolean(sessionUser) &&
+      assigneeMatchesUser(assuranceSet?.assignedApprover, sessionUser)
+    );
+  const isApprovalStage =
+    isApprovalStageProp ?? (
+      assuranceSet?.stage === 'Approval' &&
+      assuranceSet?.approverDecision !== 'Approved' &&
+      assuranceSet?.approverDecision !== 'Returned for Correction' &&
+      assuranceSet?.approverDecision !== 'Rejected'
+    );
 
   const [pendingReqAction, setPendingReqAction] = useState<'Correction Requested' | 'Rejected' | null>(null);
   const [isBarModalOpen, setIsBarModalOpen] = useState(false);

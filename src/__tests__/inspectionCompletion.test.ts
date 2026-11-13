@@ -178,6 +178,30 @@ describe('Inspection outcome completes the inspection stage', () => {
     expect(getSet(setId).stage).toBe('Inspection');
   });
 
+  it('Fail sets inspectionFailedAt, and Pass clears it and completes the inspection', () => {
+    const setId = charterVessel('Inspection Fail Sets Timestamp');
+    verifyAll(setId);
+    expect(getSet(setId).stage).toBe('Inspection');
+
+    useMapStore.setState({
+      activePersona: 'Inspector',
+      activeDemoOrganization: 'Bureau Veritas Inspectorate',
+      activeSessionUserId: 'USR-203',
+    });
+
+    // Fail sets inspectionFailedAt
+    expect(useMapStore.getState().completeVesselInspection(VESSEL_NAME, 'Fail')).toEqual([]);
+    expect(getSet(setId).inspectionCompleted).toBe(false);
+    expect(getSet(setId).inspectionFailedAt).toBeDefined();
+    expect(typeof getSet(setId).inspectionFailedAt).toBe('string');
+
+    // Pass clears inspectionFailedAt and completes inspection
+    const completed = useMapStore.getState().completeVesselInspection(VESSEL_NAME, 'Pass');
+    expect(completed).toContain(setId);
+    expect(getSet(setId).inspectionCompleted).toBe(true);
+    expect(getSet(setId).inspectionFailedAt).toBeUndefined();
+  });
+
   it('does not complete the inspection of a set whose documents are not verified yet', () => {
     const setId = charterVessel('Inspection Completion Unverified');
 

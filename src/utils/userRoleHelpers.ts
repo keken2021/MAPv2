@@ -230,6 +230,35 @@ export function defaultOrganizationVerifier(
 }
 
 /**
+ * The person who approves for an organization by default: its first active Approver, else C Admin.
+ */
+export function defaultOrganizationApprover(
+  users: UserProfile[],
+  organization: string,
+  options?: { excludeUserId?: string; excludeUserName?: string },
+): UserProfile | undefined {
+  if (!organization?.trim()) return undefined;
+  const isExcluded = (u: UserProfile) =>
+    Boolean(
+      (options?.excludeUserId && u.id === options.excludeUserId) ||
+      (options?.excludeUserName && u.name.trim().toLowerCase() === options.excludeUserName.trim().toLowerCase()),
+    );
+  const members = users.filter(
+    (user) =>
+      user.status === 'Active' &&
+      Boolean(user.organization) &&
+      (sameOrganization(user.organization || '', organization) ||
+        stakeholderOrgMatches(user.organization || '', organization)),
+  );
+  const eligible = members.filter((u) => !isExcluded(u));
+  const pool = eligible.length > 0 ? eligible : members;
+  return (
+    pool.find((user) => userHasRole(user, 'Approver')) ??
+    pool.find((user) => userHasRole(user, 'C Admin'))
+  );
+}
+
+/**
  * The person who inspects for an organization by default: its first active Inspector, else
  * Administrator, or active member, excluding any user already assigned as verifier (Rule R6).
  */
