@@ -1,5 +1,5 @@
 /*
-  file summary: Oil Company LNG Field Development pilot seed for BRD v4.1 section 8. SS-01, SS-02 and SS-03 are seeded. SS-04 and SS-05 are left unseeded so they can be created live.
+  file summary: Oil Company LNG Field Development pilot seed for BRD v4.1 section 8. SS-01, SS-02 and SS-03 are seeded. SS-04 and SS-05 are left unseeded so they can be created live (SS-04: Northwind requests Oil Co as provider).
   responsibilities: fictional organizations, vessels, evidence tasks, documents, audit events and notifications for a live localhost demonstration.
   role in system: spread into mockData, projectMockData and notificationMockData, then loaded by useMapStore.
 */
@@ -1444,10 +1444,17 @@ export const OIL_CO_PILOT_PROJECT: Project = {
   ownerOrganization: OIL_CO_ORG,
   operatorOrganization: OIL_CO_ORG,
   charterer: OIL_CO_ORG,
-  invitedOrganizations: [NORTHWIND_ORG, OIL_CO_ORG],
+  invitedOrganizations: [
+    NORTHWIND_ORG,
+    OIL_CO_ORG,
+    MERIDIAN_ORG,
+    HARBOURLINE_ORG,
+    XY_MARINE_ORG,
+    AUSTRAL_ORG,
+  ],
   location: "Aurora LNG Field, offshore Western Australia",
   description:
-    "Master project for the Oil Company LNG field development. SS-01 charters LNGC Northwind Aurora from Northwind Marine. SS-02 buys OSV Meridian Endeavour from Meridian Shipyards. SS-03 assures Harbourline Terminals can load that carrier. SS-04 and SS-05 are not seeded: Northwind creates the bunker set after Oil Company requests it, and Oil Company creates the control-systems set. Helper organization scenario (AI-11: third-party vendor helper for submit-only delegation) is labeled pending stakeholder decision and is not built.",
+    "Master project for the Oil Company LNG field development. SS-01 charters LNGC Northwind Aurora from Northwind Marine. SS-02 buys OSV Meridian Endeavour from Meridian Shipyards. SS-03 assures Harbourline Terminals can load that carrier. SS-04 and SS-05 are not seeded: Northwind (set client who needs bunkering) requests Oil Company (provider) to create the bunker set, and Oil Company creates the control-systems set. Helper organization scenario (AI-11: third-party vendor helper for submit-only delegation) is labeled pending stakeholder decision and is not built.",
   primaryVesselId: OIL_CO_AURORA_ID,
   riskProfile: "Elevated",
   workLocationType: "Mixed",

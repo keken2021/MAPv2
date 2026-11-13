@@ -3,9 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ProjectDetailView } from '../views/ProjectDetailView';
 import { useMapStore } from '../store/useMapStore';
+import { OIL_CO_LNG_PROJECT_ID, NORTHWIND_ORG } from '../store/oilCoLngPilotMockData';
 import type { Project } from '../types/project';
 import type { UserProfile } from '../types/user';
 import type { AppNotification } from '../types/notification';
+
+const initialState = useMapStore.getState();
 
 const vendorProject: Project = {
   id: 'PRJ-VENDOR-OWNED',
@@ -117,5 +120,58 @@ describe('ProjectDetailView recipient access for Administrator', () => {
 
     // Invited organization is derived on read and shown on Organizations card
     expect(screen.getByText('Invited Provider Corp')).toBeInTheDocument();
+  });
+
+  it('shows Request Assurance Set for an included non-owner organization admin without Add Asset', () => {
+    useMapStore.setState({
+      /* clear the open request so Create-from-request is not shown */
+      notifications: [],
+      /* included via invitedOrganizations — no stakeholder bypass required */
+      projects: [vendorProject],
+      activePersona: 'Administrator',
+      activeDemoOrganization: 'Invited Provider Corp',
+      activeSessionUserId: 'USR-INVITED-ADMIN',
+      users: [
+        {
+          ...adminRecipient,
+          id: 'USR-INVITED-ADMIN',
+          name: 'Invited Provider Admin',
+          email: 'admin@invited.example',
+          organization: 'Invited Provider Corp',
+        },
+      ],
+    });
+
+    render(<ProjectDetailView projectId={vendorProject.id} />);
+
+    expect(screen.getByTestId('btn-request-assurance-set')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add Asset' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Create Assurance Set' })).toBeNull();
+  });
+});
+
+describe('Oil Co LNG project: included vendor can open and request', () => {
+  beforeEach(() => {
+    useMapStore.setState(initialState, true);
+    useMapStore.setState({
+      activePersona: 'C Admin',
+      activeDemoOrganization: NORTHWIND_ORG,
+      activeSessionUserId: 'USR-235',
+      pendingAssuranceRequestNotificationId: undefined,
+      lockedProjectId: undefined,
+      returnToProjectId: undefined,
+      currentHashView: 'projects',
+    });
+  });
+
+  it('lets Northwind C Admin open the Oil Co project and see Request Assurance Set', () => {
+    const project = useMapStore.getState().projects.find((p) => p.id === OIL_CO_LNG_PROJECT_ID);
+    expect(project).toBeDefined();
+
+    render(<ProjectDetailView projectId={OIL_CO_LNG_PROJECT_ID} />);
+
+    expect(screen.getByText('Oil Company LNG Field Development')).toBeInTheDocument();
+    expect(screen.getByTestId('btn-request-assurance-set')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add Asset' })).toBeNull();
   });
 });

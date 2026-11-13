@@ -185,7 +185,7 @@ export const ProjectTaskRow: React.FC<ProjectTaskRowProps> = ({
   const roleActions = getAssuranceSetRoleActions(
     parentSet,
     store.activePersona,
-    resolvedOrg,
+    resolvedOrg, 
     resolvedSessionUser as Pick<UserProfile, 'id' | 'name' | 'organization' | 'roles'> | null | undefined,
   );
 

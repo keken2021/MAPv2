@@ -29,7 +29,13 @@ import { AssuranceRequirementCategory, AssuranceSet } from '../../types/assuranc
 import { VesselInformation } from '../../types/vessel';
 import { CrewMember } from '../../types/crew';
 import { EquipmentAsset } from '../../types/equipment';
-import { getLinkableProjectAssets } from '../../utils/projectHelpers';
+import {
+  getLinkableProjectAssets,
+  getProjectClientOrganization,
+  getProjectIncludedOrganizations,
+  sameOrganization,
+} from '../../utils/projectHelpers';
+import { orgFieldMatches } from '../../utils/rbacHelpers';
 import { normalizeText, matchesVesselRequirement } from '../../utils/documentMatchingHelpers';
 import {
   calculateCrewComplianceScore,
@@ -246,6 +252,13 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
   const candidateAssets = useMemo<CandidateAsset[]>(() => {
     if (!project) return [];
 
+    const clientOrganization = getProjectClientOrganization(project);
+    const providerOrganizations = getProjectIncludedOrganizations(project).filter(
+      (organization) =>
+        !sameOrganization(organization, clientOrganization) &&
+        !orgFieldMatches(clientOrganization, organization),
+    );
+
     const linkable = getLinkableProjectAssets({
       vessels,
       crew,
@@ -255,6 +268,11 @@ export const ProjectAddAssetModal: React.FC<ProjectAddAssetModalProps> = ({
       excludeAssetKeys: project.assetLinks.map((l) => `${l.assetType}:${l.assetId}`),
       /* a set belongs to at most one project, so only orphaned sets are offered */
       orphanedAmongProjects: projects,
+      /* when provider parties exist, only their assets; always require sets inside the project window */
+      allowedProviderOrganizations:
+        providerOrganizations.length > 0 ? providerOrganizations : undefined,
+      projectWindowStart: project.charterWindowStart,
+      projectWindowEnd: project.charterWindowEnd,
     });
 
     return linkable.map((asset) => {

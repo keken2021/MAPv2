@@ -101,26 +101,31 @@ describe('Scenario 3: Multi-party project and Master Project Roll-Up', () => {
       visibility: 'organization',
     };
 
-    // 1. Oil Company project owner invites Northwind C Admin (T. Okada) to add SS-04, then T. Okada creates and attaches it
-    useMapStore.setState({
-      activePersona: 'C Admin',
-      activeDemoOrganization: OIL_CO_ORG,
-      activeSessionUserId: 'USR-228',
-    });
-    const reqRes = useMapStore.getState().requestAssuranceSet({
-      projectId: OIL_CO_LNG_PROJECT_ID,
-      recipientUserId: 'USR-235',
-      suggestedScope: 'Vessel',
-      senderUserId: 'USR-228',
-      senderName: 'A. Okonkwo',
-    });
-    expect(reqRes.success).toBe(true);
-
+    // 1. Northwind (set client who needs bunkering) requests Oil Co C Admin; Northwind then creates SS-04 with Oil Co as provider
     useMapStore.setState({
       activePersona: 'C Admin',
       activeDemoOrganization: NORTHWIND_ORG,
       activeSessionUserId: 'USR-235',
     });
+    const reqRes = useMapStore.getState().requestAssuranceSet({
+      projectId: OIL_CO_LNG_PROJECT_ID,
+      recipientUserId: 'USR-228',
+      suggestedScope: 'Vessel',
+      senderUserId: 'USR-235',
+      senderName: 'T. Okada',
+    });
+    expect(reqRes.success).toBe(true);
+    const requestNotif = useMapStore
+      .getState()
+      .notifications.find(
+        (n) =>
+          n.type === 'assurance_set_request' &&
+          n.projectId === OIL_CO_LNG_PROJECT_ID &&
+          n.recipientUserId === 'USR-228',
+      );
+    expect(requestNotif?.requestingParty || requestNotif?.request?.requestingParty).toBe(NORTHWIND_ORG);
+    expect(requestNotif?.respondingParty || requestNotif?.request?.respondingParty).toBe(OIL_CO_ORG);
+
     useMapStore.getState().addAssuranceSet(ss04Set);
     const attachResult = useMapStore.getState().attachAssuranceSetToProject(ss04Set.id, OIL_CO_LNG_PROJECT_ID);
     expect(attachResult.success).toBe(true);

@@ -260,6 +260,49 @@ export function contractPartyByRole(
 }
 
 /**
+  what: every organization included on a project (parties, invited, owner/client, service provider).
+  how: syncs invited orgs into parties, then collects unique organization names.
+  with what file: src/utils/projectHelpers.ts used by ProjectDetailView and ProjectAddAssetModal.
+*/
+export function getProjectIncludedOrganizations(
+  project: Pick<
+    Project,
+    | 'contractParties'
+    | 'invitedOrganizations'
+    | 'ownerOrganization'
+    | 'requestingOrganization'
+    | 'charterer'
+    | 'serviceProvider'
+  >,
+): string[] {
+  const organizations: string[] = [];
+  const synced = syncInvitedOrganizationsToParties(project);
+  for (const party of synced.contractParties ?? []) {
+    addOrganization(organizations, party.organization);
+  }
+  addOrganization(organizations, project.ownerOrganization);
+  addOrganization(organizations, project.requestingOrganization);
+  addOrganization(organizations, project.charterer);
+  addOrganization(organizations, project.serviceProvider);
+  return organizations;
+}
+
+/**
+  what: true when an organization is listed on the project.
+  how: matches against getProjectIncludedOrganizations using sameOrganization / orgFieldMatches.
+*/
+export function isOrganizationIncludedInProject(
+  project: Parameters<typeof getProjectIncludedOrganizations>[0] | null | undefined,
+  organization?: string | null,
+): boolean {
+  const viewer = organization?.trim();
+  if (!project || !viewer) return false;
+  return getProjectIncludedOrganizations(project).some(
+    (listed) => sameOrganization(listed, viewer) || orgFieldMatches(listed, viewer),
+  );
+}
+
+/**
  * Whether the active persona and viewing organization may edit the project's contract chain
  * or participating organizations. Only an Administrator of the project's owner organization may edit.
  * Fails closed when viewingOrganization or project owner organization is empty.
@@ -811,6 +854,8 @@ export function isAssetCharteredOrRented(
  * and has at least one eligible assurance set for the requesting organization.
  * When orphanedAmongProjects is given, only sets with no project among them are eligible,
  * so an asset whose sets all belong to a project is not listed.
+ * When allowedProviderOrganizations is given, only assets whose provider is in that list appear.
+ * When a project window is given, only sets fully inside that window remain eligible.
  */
 export function getLinkableProjectAssets(input: {
   vessels: VesselInformation[];
@@ -820,9 +865,26 @@ export function getLinkableProjectAssets(input: {
   requestingOrganization: string;
   excludeAssetKeys?: Iterable<string>;
   orphanedAmongProjects?: Project[];
+  allowedProviderOrganizations?: string[];
+  projectWindowStart?: string;
+  projectWindowEnd?: string;
 }): LinkableProjectAsset[] {
   const exclude = new Set(input.excludeAssetKeys ?? []);
   const list: LinkableProjectAsset[] = [];
+  const allowedProviders = (input.allowedProviderOrganizations ?? [])
+    .map((org) => org.trim())
+    .filter(Boolean);
+  const requireProvider = allowedProviders.length > 0;
+  const requireWindow = Boolean(input.projectWindowStart && input.projectWindowEnd);
+
+  const providerAllowed = (providerOrganization: string) => {
+    if (!requireProvider) return true;
+    const provider = providerOrganization.trim();
+    if (!provider) return false;
+    return allowedProviders.some(
+      (listed) => sameOrganization(listed, provider) || orgFieldMatches(listed, provider),
+    );
+  };
 
   const pushIfLinkable = (
     assetType: ProjectAssetLink['assetType'],
@@ -832,6 +894,7 @@ export function getLinkableProjectAssets(input: {
   ) => {
     const key = `${assetType}:${assetId}`;
     if (exclude.has(key)) return;
+    if (!providerAllowed(providerOrganization)) return;
     if (!isAssetCharteredOrRented(assetType, assetId, input.assuranceSets)) return;
 
     const orgEligibleSets = getEligibleAssuranceSetsForAsset(
@@ -841,9 +904,18 @@ export function getLinkableProjectAssets(input: {
       { requestingOrganization: input.requestingOrganization, providerOrganization },
     );
     const projects = input.orphanedAmongProjects;
-    const eligibleAssuranceSets = projects
+    let eligibleAssuranceSets = projects
       ? orgEligibleSets.filter((s) => isAssuranceSetOrphaned(s, projects))
       : orgEligibleSets;
+    if (requireWindow) {
+      eligibleAssuranceSets = eligibleAssuranceSets.filter((s) =>
+        isAssuranceSetWithinProjectWindow(
+          s,
+          input.projectWindowStart!,
+          input.projectWindowEnd!,
+        ),
+      );
+    }
     if (eligibleAssuranceSets.length === 0) return;
 
     list.push({
@@ -1095,8 +1167,10 @@ export function isProjectAccessibleToUser(
   }
 
   if (persona === 'Administrator') {
-    /* a Provider sees a project as its client, or through an assigned assurance set (ADR 0032); being a provider alone does not open every project */
+    /* project client/owner, or any org listed on the project (parties / invited) — e.g. Northwind
+       requesting SS-04 where Oil Co is provider — or an assigned assurance set (ADR 0032) */
     if (sessionOrganization && projectOrgMatchesClient(project, sessionOrganization)) return true;
+    if (sessionOrganization && isOrganizationIncludedInProject(project, sessionOrganization)) return true;
     if (assuranceSets.length === 0) return false;
     return getProjectAssuranceSets(project, assuranceSets).some((set) =>
       isAssuranceSetAssignedToPersona(set, persona, sessionOrganization, user, users),
@@ -1107,6 +1181,9 @@ export function isProjectAccessibleToUser(
     const clientOrg = getClientAdminOrganization(users, sessionOrganization);
     if (clientOrg && projectOrgMatchesClient(project, clientOrg)) return true;
     if (sessionOrganization && projectOrgMatchesClient(project, sessionOrganization)) return true;
+    /* included vendor / third-party C Admins see the project so they can request sets when roles reverse */
+    if (sessionOrganization && isOrganizationIncludedInProject(project, sessionOrganization)) return true;
+    if (clientOrg && isOrganizationIncludedInProject(project, clientOrg)) return true;
     if (assuranceSets.length === 0) return false;
     return getProjectAssuranceSets(project, assuranceSets).some((set) =>
       isAssuranceSetAssignedToPersona(set, persona, sessionOrganization, user, users),
@@ -1117,7 +1194,7 @@ export function isProjectAccessibleToUser(
     if (
       sessionOrganization &&
       !projectOrgMatchesClient(project, sessionOrganization) &&
-      project.invitedOrganizations?.some((org) => orgFieldMatches(sessionOrganization, org))
+      isOrganizationIncludedInProject(project, sessionOrganization)
     ) {
       return true;
     }

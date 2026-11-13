@@ -43,11 +43,12 @@ describe('Oil Co LNG Field Development pilot', () => {
       [OIL_CO_SS01_ID, OIL_CO_SS02_ID, OIL_CO_SS03_ID].sort(),
     );
     expect(sets.some((set) => set.title.startsWith('SS-04') || set.title.startsWith('SS-05'))).toBe(false);
+    /* Northwind is on the project parties, so its C Admin sees the project without a prior request */
     expect(
       filterProjectsForPersona(MOCK_PROJECTS, 'C Admin', MOCK_USERS, [], NORTHWIND_ORG).some(
         (item) => item.id === OIL_CO_LNG_PROJECT_ID,
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       filterProjectsForPersona(
         MOCK_PROJECTS,

@@ -150,7 +150,7 @@ export const RequestAssuranceSetModal: React.FC<RequestAssuranceSetModalProps> =
         }
       >
         <p className="text-muted small mb-2">
-          Ask an organization invited to <strong>{project.name}</strong> to create an assurance set for{' '}
+          Ask an organization invited to <strong>{project.name}</strong> project to create an assurance set for{' '}
           <strong>{senderOrg}</strong>.
         </p>
         {error && <div className="alert alert-danger py-2 small">{error}</div>}

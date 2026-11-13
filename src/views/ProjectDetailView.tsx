@@ -20,6 +20,7 @@ import {
   getStandaloneAssuranceSetsForAttach,
   syncInvitedOrganizationsToParties,
   canEditProjectOrganizations,
+  isOrganizationIncludedInProject,
 } from "../utils/projectHelpers";
 import { isAssuranceSetAssignedToPersona, orgFieldMatches } from "../utils/rbacHelpers";
 import { getDemoSessionContext, getSessionUserForPersona } from "../utils/userRoleHelpers";
@@ -139,7 +140,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     });
   }, [project, assetFilter, objectSearchTerm, assuranceSets]);
 
-  /* only the client admin of the project owner can add assets or create and request sets;
+  /* only the client admin of the project owner can add assets or create sets;
+     any included org's Administrator / C Admin can request a set;
      a third party assigned as verifier, inspector or approver only views the project */
   const viewingOrganization = activeDemoOrganization || sessionUser?.organization || "";
   const projectOwnerOrganization =
@@ -150,6 +152,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     orgFieldMatches(projectOwnerOrganization, viewingOrganization);
   const canManage =
     (activePersona === "Administrator" || activePersona === "C Admin") && isProjectOwnerOrganization;
+  const canRequestAssuranceSet =
+    (activePersona === "Administrator" || activePersona === "C Admin") &&
+    isOrganizationIncludedInProject(project, viewingOrganization);
   const canEditOrgs = canEditProjectOrganizations(project, activePersona, viewingOrganization);
   const isReadOnly = !canManage;
 
@@ -322,44 +327,50 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
           `${project.charterWindowStart} → ${project.charterWindowEnd}`,
         ].filter(Boolean)}
         mainAction={
-          canManage ? (
+          canManage || canRequestAssuranceSet || canCreateFromRequest ? (
             <div className="d-flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-                onClick={() => setIsAddAssetModalOpen(true)}
-              >
-                <Plus size={15} />
-                <span>Add Asset</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
-                onClick={openCreateAssuranceSet}
-              >
-                <FolderPlus size={15} />
-                <span>Create Assurance Set</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5"
-                onClick={() => setIsRequestModalOpen(true)}
-              >
-                <Send size={15} />
-                <span>Request Assurance Set</span>
-              </button>
-            </div>
-          ) : canCreateFromRequest ? (
-            <div className="d-flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5"
-                data-testid="create-set-from-request"
-                onClick={openCreateFromRequest}
-              >
-                <FolderPlus size={15} />
-                <span>Create Assurance Set</span>
-              </button>
+              {canManage && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                    onClick={() => setIsAddAssetModalOpen(true)}
+                  >
+                    <Plus size={15} />
+                    <span>Add Asset</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1.5"
+                    onClick={openCreateAssuranceSet}
+                  >
+                    <FolderPlus size={15} />
+                    <span>Create Assurance Set</span>
+                  </button>
+                </>
+              )}
+              {canRequestAssuranceSet && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5"
+                  data-testid="btn-request-assurance-set"
+                  onClick={() => setIsRequestModalOpen(true)}
+                >
+                  <Send size={15} />
+                  <span>Request Assurance Set</span>
+                </button>
+              )}
+              {canCreateFromRequest && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5"
+                  data-testid="create-set-from-request"
+                  onClick={openCreateFromRequest}
+                >
+                  <FolderPlus size={15} />
+                  <span>Create Assurance Set</span>
+                </button>
+              )}
             </div>
           ) : undefined
         }

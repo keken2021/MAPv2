@@ -10,8 +10,10 @@ import {
   filterVesselsForProjectComposition,
   getEligibleAssuranceSetsForAsset,
   getLinkableProjectAssets,
+  getProjectIncludedOrganizations,
   isAssetCharteredOrRented,
   isCrewOwnedByOrganization,
+  isOrganizationIncludedInProject,
   isVesselOwnedByOrganization,
   requiresAssuranceSetForAssetLink,
 } from '../utils/projectHelpers';
@@ -188,5 +190,100 @@ describe('project composition org scoping', () => {
 
     /* without projects the list is unchanged */
     expect(getLinkableProjectAssets(input).map((a) => a.assetId)).toEqual(['V-EXT', 'V-EXT-2']);
+  });
+
+  it('limits linkable assets to allowed provider organizations', () => {
+    const otherProviderVessel = {
+      ...externalVessel,
+      id: 'V-OTHER-PROV',
+      name: 'Other Provider Vessel',
+      registeredOwner: 'Harbourline Terminals Pty Ltd',
+      technicalManager: 'Harbourline Terminals Pty Ltd',
+      ismCompany: 'Harbourline Terminals Pty Ltd',
+    };
+    const assuranceSets = [
+      {
+        id: 'AS-AQUA',
+        vesselId: 'V-EXT',
+        visibility: 'public',
+        charterWindowStart: '2026-12-01',
+        charterWindowEnd: '2027-01-15',
+        requirements: [],
+      },
+      {
+        id: 'AS-HARBOUR',
+        vesselId: 'V-OTHER-PROV',
+        visibility: 'public',
+        charterWindowStart: '2026-12-01',
+        charterWindowEnd: '2027-01-15',
+        requirements: [],
+      },
+    ] as unknown as AssuranceSet[];
+
+    const linkable = getLinkableProjectAssets({
+      vessels: [externalVessel, otherProviderVessel],
+      crew: [],
+      equipment: [],
+      assuranceSets,
+      requestingOrganization: 'Oil Company',
+      allowedProviderOrganizations: ['AquaClean Marine Services Pty Ltd'],
+    });
+
+    expect(linkable.map((a) => a.assetId)).toEqual(['V-EXT']);
+  });
+
+  it('keeps only assets whose eligible sets fall inside the project window', () => {
+    const assuranceSets = [
+      {
+        id: 'AS-IN',
+        vesselId: 'V-EXT',
+        visibility: 'public',
+        charterWindowStart: '2026-12-01',
+        charterWindowEnd: '2027-01-15',
+        requirements: [],
+      },
+      {
+        id: 'AS-OUT',
+        vesselId: 'V-EXT-2',
+        visibility: 'public',
+        charterWindowStart: '2026-10-01',
+        charterWindowEnd: '2027-06-01',
+        requirements: [],
+      },
+    ] as unknown as AssuranceSet[];
+    const secondVessel = { ...externalVessel, id: 'V-EXT-2', name: 'External Vessel Two' };
+
+    const linkable = getLinkableProjectAssets({
+      vessels: [externalVessel, secondVessel],
+      crew: [],
+      equipment: [],
+      assuranceSets,
+      requestingOrganization: 'Oil Company',
+      projectWindowStart: '2026-11-01',
+      projectWindowEnd: '2027-02-28',
+    });
+
+    expect(linkable.map((a) => a.assetId)).toEqual(['V-EXT']);
+    expect(linkable[0].eligibleAssuranceSets.map((s) => s.id)).toEqual(['AS-IN']);
+  });
+
+  it('lists included project organizations from parties and invited orgs', () => {
+    const project = {
+      ownerOrganization: 'Oil Company',
+      requestingOrganization: 'Oil Company',
+      contractParties: [
+        { organization: 'Oil Company', group: 'Client', chainRole: 'client' },
+        { organization: 'Northwind Marine Pty Ltd', group: 'Vendor', chainRole: 'head_contractor' },
+      ],
+      invitedOrganizations: ['Oil Company', 'AquaClean Marine Services Pty Ltd'],
+    } as Project;
+
+    expect(getProjectIncludedOrganizations(project)).toEqual([
+      'Oil Company',
+      'Northwind Marine Pty Ltd',
+      'AquaClean Marine Services Pty Ltd',
+    ]);
+    expect(isOrganizationIncludedInProject(project, 'Northwind Marine Pty Ltd')).toBe(true);
+    expect(isOrganizationIncludedInProject(project, 'Unknown Org')).toBe(false);
   });
 });
