@@ -84,6 +84,19 @@ describe('Request Assurance Set modal: recipients and roster objects', () => {
   });
 
   it('clears picked objects when the recipient changes', () => {
+    const tempUser = {
+      id: 'USR-TEST-CADMIN-2',
+      name: 'Second Client Admin',
+      email: 'cadmin2@example.com',
+      roles: ['C Admin' as const],
+      userType: 'Organization' as const,
+      organization: 'Meridian Shipyards',
+      departmentOrScope: 'Administration',
+      status: 'Active' as const,
+      lastActive: '2026-11-12 00:00 UTC',
+    };
+    useMapStore.setState({ users: [...useMapStore.getState().users, tempUser] });
+
     renderModal();
     const options = Array.from(recipientSelect().options).filter((o) => o.value);
     const okada = options.find((o) => o.textContent === 'T. Okada')!;

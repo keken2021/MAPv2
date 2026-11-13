@@ -1511,6 +1511,7 @@ export const OIL_CO_PILOT_PROJECT: Project = {
     { organization: HARBOURLINE_ORG, group: "Vendor" },
     { organization: XY_MARINE_ORG, group: "Third party" },
     { organization: AUSTRAL_ORG, group: "Third party" },
+    { organization: "Apex Marine Logistics (Vendor Helper — Pending)", group: "Vendor" },
   ],
   projectValue: 240000000,
   currency: "AUD",

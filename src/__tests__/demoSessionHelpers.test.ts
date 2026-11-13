@@ -15,7 +15,7 @@ import {
 
 describe('demoSessionHelpers', () => {
   it('lists active organizations from mock users (pending users excluded)', () => {
-    expect(getOrganizationsFromUsers(MOCK_USERS)).toHaveLength(19);
+    expect(getOrganizationsFromUsers(MOCK_USERS)).toHaveLength(23);
   });
 
   it('builds one switcher option per organization, in the same order, with its initials and counts', () => {

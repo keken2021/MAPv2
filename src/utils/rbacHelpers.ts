@@ -781,7 +781,6 @@ export function canEditAssuranceSetStakeholders(
   persona: UserRolePersona,
   organization?: string,
   user?: Pick<UserProfile, "id" | "name" | "organization" | "roles"> | null,
-  allUsers: (Pick<UserProfile, "id" | "name" | "organization" | "roles"> & { status?: UserProfile["status"] })[] = MOCK_USERS,
 ): boolean {
   if (persona !== 'Administrator' && persona !== 'C Admin') {
     return false;
@@ -789,60 +788,17 @@ export function canEditAssuranceSetStakeholders(
   if (isAssuranceSetStakeholderAssignmentLocked(assuranceSet)) {
     return false;
   }
-  const effectiveOrg = organization ?? user?.organization;
-  if ('requirements' in assuranceSet || 'initiatorOrg' in assuranceSet || 'vesselId' in assuranceSet) {
+  if (user && persona === 'Administrator' && 'requirements' in assuranceSet) {
     const s = assuranceSet as AssuranceSet;
     const isCreator = Boolean(
-      user &&
-      ((s.createdByUserId && user.id && s.createdByUserId === user.id) ||
-       (s.createdByName && user.name && assigneeMatchesUser(s.createdByName, user)) ||
-       isUserAssuranceSetCreator(s, user))
+      (s.createdByUserId && user.id && s.createdByUserId === user.id) ||
+      (s.createdByName && user.name && assigneeMatchesUser(s.createdByName, user))
     );
-    if (isCreator) return true;
-
-    // Organization must hold a stakeholder role slot on this set
-    const orgHoldsSlot = effectiveOrg
-      ? (['Submitter', 'Verifier', 'Inspector', 'Approver'] as const).some((role) => {
-          const roleOrg = getStakeholderRoleOrganization(s, role);
-          return Boolean(roleOrg && stakeholderOrgMatches(roleOrg, effectiveOrg));
-        })
-      : false;
-
-    if (!orgHoldsSlot) {
-      return false;
-    }
-
-    // If user is provided on a set with requirements, they must be an assigned stakeholder
-    // or the designated active Administrator/C Admin of that organization.
-    if (user && 'requirements' in assuranceSet) {
-      const isAssignedStakeholder =
-        setSubmitters(s).some((submitter) => assigneeMatchesUser(submitter.assignee, user)) ||
-        assigneeMatchesUser(s.assignedVerifier, user) ||
-        assigneeMatchesUser(s.assignedInspector, user) ||
-        assigneeMatchesUser(s.assignedApprover, user);
-
-      if (isAssignedStakeholder) return true;
-
-      const expectedAdminRole = persona;
-      const designatedAdmin = allUsers.find(
-        (u) =>
-          (!u.status || u.status === 'Active') &&
-          Boolean(u.organization) &&
-          Boolean(effectiveOrg) &&
-          stakeholderOrgMatches(u.organization!, effectiveOrg!) &&
-          u.roles.includes(expectedAdminRole),
-      );
-
-      const isDesignatedAdmin = Boolean(
-        designatedAdmin &&
-        ((user.id && designatedAdmin.id && user.id === designatedAdmin.id) ||
-         (user.name && designatedAdmin.name && user.name.trim().toLowerCase() === designatedAdmin.name.trim().toLowerCase()))
-      );
-
-      if (!isDesignatedAdmin) {
-        return false;
-      }
-    }
+    const isSubmitter = setSubmitters(s).some((submitter) => assigneeMatchesUser(submitter.assignee, user));
+    if (!isCreator && !isSubmitter) return false;
+  }
+  if (organization && ('requirements' in assuranceSet || 'initiatorOrg' in assuranceSet || 'vesselId' in assuranceSet)) {
+    return isAssuranceSetAssignedToPersona(assuranceSet as AssuranceSet, persona, organization, user);
   }
   return true;
 }

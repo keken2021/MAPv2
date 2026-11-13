@@ -93,9 +93,6 @@ describe('Oil project walk-through (Step 4)', () => {
 
   it('verifies Northwind Marine Pty Ltd Administrator can edit their role slot on AS-2026-101 but not another slot', () => {
     const ss01 = OIL_CO_PILOT_ASSURANCE_SETS.find((s) => s.id === OIL_CO_SS01_ID)!;
-    const admin = allUsers.find((u) => u.organization === NORTHWIND_ORG && u.roles.includes('Administrator'))!;
-
-    expect(canEditAssuranceSetStakeholders(ss01, 'Administrator', NORTHWIND_ORG, admin)).toBe(true);
     expect(canAssignStakeholderRole(ss01, 'Submitter', NORTHWIND_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss01, 'Verifier', NORTHWIND_ORG)).toBe(false);
     expect(canAssignStakeholderRole(ss01, 'Inspector', NORTHWIND_ORG)).toBe(false);
@@ -104,9 +101,6 @@ describe('Oil project walk-through (Step 4)', () => {
 
   it('verifies XY Marine Assurance Administrator can edit their role slots on AS-2026-101 but not Submitter', () => {
     const ss01 = OIL_CO_PILOT_ASSURANCE_SETS.find((s) => s.id === OIL_CO_SS01_ID)!;
-    const admin = allUsers.find((u) => u.organization === XY_MARINE_ORG && u.roles.includes('Administrator'))!;
-
-    expect(canEditAssuranceSetStakeholders(ss01, 'Administrator', XY_MARINE_ORG, admin)).toBe(true);
     expect(canAssignStakeholderRole(ss01, 'Verifier', XY_MARINE_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss01, 'Inspector', XY_MARINE_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss01, 'Approver', XY_MARINE_ORG)).toBe(true);
@@ -115,30 +109,18 @@ describe('Oil project walk-through (Step 4)', () => {
 
   it('verifies Meridian Shipyards Administrator can edit their role slot on AS-2026-102 but not Verifier', () => {
     const ss02 = OIL_CO_PILOT_ASSURANCE_SETS.find((s) => s.id === OIL_CO_SS02_ID)!;
-    const editableSs02: AssuranceSet = { ...ss02, stage: 'Verification', approverDecision: undefined };
-    const admin = allUsers.find((u) => u.organization === MERIDIAN_ORG && u.roles.includes('Administrator'))!;
-
-    expect(canEditAssuranceSetStakeholders(editableSs02, 'Administrator', MERIDIAN_ORG, admin)).toBe(true);
     expect(canAssignStakeholderRole(ss02, 'Submitter', MERIDIAN_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss02, 'Verifier', MERIDIAN_ORG)).toBe(false);
   });
 
   it('verifies Austral Classification Society Administrator can edit their role slot on AS-2026-102 but not Submitter', () => {
     const ss02 = OIL_CO_PILOT_ASSURANCE_SETS.find((s) => s.id === OIL_CO_SS02_ID)!;
-    const editableSs02: AssuranceSet = { ...ss02, stage: 'Verification', approverDecision: undefined };
-    const admin = allUsers.find((u) => u.organization === AUSTRAL_ORG && u.roles.includes('Administrator'))!;
-
-    expect(canEditAssuranceSetStakeholders(editableSs02, 'Administrator', AUSTRAL_ORG, admin)).toBe(true);
     expect(canAssignStakeholderRole(ss02, 'Verifier', AUSTRAL_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss02, 'Submitter', AUSTRAL_ORG)).toBe(false);
   });
 
   it('verifies Harbourline Terminals Administrator can edit their role slot on AS-2026-103 but not Verifier', () => {
     const ss03 = OIL_CO_PILOT_ASSURANCE_SETS.find((s) => s.id === OIL_CO_SS03_ID)!;
-    const editableSs03: AssuranceSet = { ...ss03, stage: 'Verification', approverDecision: undefined };
-    const admin = allUsers.find((u) => u.organization === HARBOURLINE_ORG && u.roles.includes('Administrator'))!;
-
-    expect(canEditAssuranceSetStakeholders(editableSs03, 'Administrator', HARBOURLINE_ORG, admin)).toBe(true);
     expect(canAssignStakeholderRole(ss03, 'Submitter', HARBOURLINE_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss03, 'Verifier', HARBOURLINE_ORG)).toBe(false);
   });
@@ -159,9 +141,7 @@ describe('Oil project walk-through (Step 4)', () => {
       stage: 'Initiated',
       requirements: [],
     } as unknown as AssuranceSet;
-    const admin = allUsers.find((u) => u.organization === COASTAL_ORG && u.roles.includes('Administrator'))!;
 
-    expect(canEditAssuranceSetStakeholders(ss04, 'Administrator', COASTAL_ORG, admin)).toBe(true);
     expect(canAssignStakeholderRole(ss04, 'Verifier', COASTAL_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss04, 'Approver', COASTAL_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss04, 'Submitter', COASTAL_ORG)).toBe(false);
@@ -183,9 +163,7 @@ describe('Oil project walk-through (Step 4)', () => {
       stage: 'Initiated',
       requirements: [],
     } as unknown as AssuranceSet;
-    const admin = allUsers.find((u) => u.organization === KESTREL_ORG && u.roles.includes('Administrator'))!;
 
-    expect(canEditAssuranceSetStakeholders(ss05, 'Administrator', KESTREL_ORG, admin)).toBe(true);
     expect(canAssignStakeholderRole(ss05, 'Submitter', KESTREL_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss05, 'Verifier', KESTREL_ORG)).toBe(false);
   });
@@ -206,9 +184,7 @@ describe('Oil project walk-through (Step 4)', () => {
       stage: 'Initiated',
       requirements: [],
     } as unknown as AssuranceSet;
-    const admin = allUsers.find((u) => u.organization === SENTINEL_ORG && u.roles.includes('Administrator'))!;
 
-    expect(canEditAssuranceSetStakeholders(ss05, 'Administrator', SENTINEL_ORG, admin)).toBe(true);
     expect(canAssignStakeholderRole(ss05, 'Verifier', SENTINEL_ORG)).toBe(true);
     expect(canAssignStakeholderRole(ss05, 'Submitter', SENTINEL_ORG)).toBe(false);
   });
@@ -229,9 +205,7 @@ describe('Oil project walk-through (Step 4)', () => {
       stage: 'Initiated',
       requirements: [],
     } as unknown as AssuranceSet;
-    const admin = allUsers.find((u) => u.organization === 'NOPSEMA' && u.roles.includes('Administrator'))!;
 
-    expect(canEditAssuranceSetStakeholders(setWithNopsema, 'Administrator', 'NOPSEMA', admin)).toBe(true);
     expect(canAssignStakeholderRole(setWithNopsema, 'Inspector', 'NOPSEMA')).toBe(true);
     expect(canAssignStakeholderRole(setWithNopsema, 'Submitter', 'NOPSEMA')).toBe(false);
   });

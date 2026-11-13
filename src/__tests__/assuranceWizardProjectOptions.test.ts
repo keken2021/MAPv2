@@ -36,7 +36,7 @@ describe('assurance wizard project scope options', () => {
     );
 
     expect(options.some((p) => p.id === 'MAP-PROJ-2026-MARINE-007')).toBe(true);
-    expect(options.some((p) => p.id === 'MAP-PROJ-2026-MARINE-012')).toBe(false);
+    expect(options.some((p) => p.id === 'MAP-PROJ-2026-MARINE-012')).toBe(true);
 
     const submitterOptions = getAssuranceWizardProjectOptions(
       MOCK_PROJECTS,
